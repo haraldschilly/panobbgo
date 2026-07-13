@@ -97,11 +97,14 @@ import time
 import threading
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
 from panobbgo.benchmark import ProblemSpec, StrategySpec
+
+if TYPE_CHECKING:
+    from panobbgo.harness_randomized import ProblemFamily
 
 
 # ---------------------------------------------------------------------------
@@ -940,6 +943,17 @@ class HarnessConfig:
     #: Iteration index for the randomized sampler.  Constant across a
     #: ``before``/``after`` pair so instances line up.
     randomize_iteration: int = 0
+    #: Opt-in extra randomized families appended to
+    #: :func:`~panobbgo.harness_randomized.make_default_families` when
+    #: :attr:`randomize` is set.  Used to probe regimes the frozen 2-D
+    #: default battery cannot reach (e.g. the rotated higher-dimensional
+    #: families from
+    #: :func:`~panobbgo.harness_randomized.make_highdim_families`) *without*
+    #: perturbing the historical ``composite_score`` contract, since the
+    #: default families are untouched.  ``None`` (default) keeps the battery
+    #: byte-identical to the pre-``extra_families`` behaviour.  Ignored when
+    #: :attr:`randomize` is ``False``.
+    extra_families: Optional[List["ProblemFamily"]] = None
     #: Caller-supplied strategy list that overrides the mode's default
     #: registry.  Used by :mod:`panobbgo.self_improve` so a loop iteration
     #: can evaluate a mutated copy of the strategy registry without
@@ -1158,12 +1172,15 @@ class HarnessResult:
             return obj
 
         raw = asdict(self)
-        # ``strategies_override`` carries live class objects that are not
-        # JSON-serialisable.  It is a runtime hook used by the
-        # self-improvement loop driver, not a fact about the run that
-        # should be persisted; strip it before serialising.
+        # ``strategies_override`` and ``extra_families`` carry live class /
+        # dataclass objects (the latter's ``base_class`` is a raw ``type``)
+        # that are not JSON-serialisable.  Both are runtime hooks used by
+        # the self-improvement loop driver / opt-in extended battery, not
+        # facts about the run that should be persisted; strip them before
+        # serialising.
         if isinstance(raw.get("config"), dict):
             raw["config"].pop("strategies_override", None)
+            raw["config"].pop("extra_families", None)
         return _clean(raw)
 
     def save(self, path: str) -> None:
@@ -2023,6 +2040,11 @@ class BenchmarkHarness:
         instances that sample a fresh translated / rotated / scaled / noisy
         instance per repetition.  See :mod:`panobbgo.harness_randomized`
         and Phase 3 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+
+        When :attr:`HarnessConfig.extra_families` is set (and
+        ``randomize`` is on), those families are appended to the default
+        battery — used to probe regimes the frozen 2-D default battery
+        cannot reach without perturbing the historical composite baseline.
         """
         # Validate the mode eagerly so that callers get an early error
         # even when randomize=True (which does not itself look at mode).
@@ -2038,6 +2060,8 @@ class BenchmarkHarness:
             )
 
             families = make_default_families()
+            if self.config.extra_families:
+                families = families + list(self.config.extra_families)
             specs: List[ProblemSpec] = list(
                 make_randomized_specs(
                     families,

@@ -2,6 +2,45 @@
 
 ## Recent Improvements (continued)
 
+### Opt-in higher-dimensional battery (`extra_families` / `--extra-highdim`) — 2026-07-13
+- [x] **Measurement substrate** — added
+      `panobbgo/harness_randomized.py::make_highdim_families` (a rotated
+      `Rosenbrock_HighDim_family` at `dim_choices=(2, 5)`, stratified, with the
+      `rotate` transform the default `Rosenbrock_family` omits) and an opt-in
+      `HarnessConfig.extra_families` hook appended to the default randomized
+      battery in `get_problems()` when `randomize=True`.  Also threaded into
+      `LoopConfig.extra_families` (both `harness_config` and
+      `holdout_harness_config`) so the loop, guard, and hold-out all measure the
+      extended battery on the composite path.
+- [x] **Motivation** — the default battery is `dim_choices=(2,)` everywhere, so
+      the whole self-improvement apparatus measures only at dim 2; the
+      2026-07-08 → 2026-07-12 curvature-aware `Nearby` work (3.3× lower residual
+      on rotated 5-D Rosenbrock) is byte-identical on the 2-D battery and thus
+      loop-invisible.  This is the additive first layer of the backlog's
+      highest-leverage ticket ("the measured battery is 2-D-only").
+- [x] **No composite-contract change** — the default families are untouched
+      (`extra_families` defaults to `None`), so a plain `--randomize` run stays
+      byte-identical and every historical composite comparison is unchanged.
+      `extra_families` is stripped from `HarnessResult.to_dict()` (like
+      `strategies_override`) so results stay JSON-serialisable.
+- [x] **CLI** — `benchmark_harness.py run/list --extra-highdim` and
+      `scripts/self_improve.py run --metric composite --extra-highdim` (inert on
+      `--metric aocc`, whose battery lives in `panobbgo.harness_ioh`).  AOCC is
+      the recommended signal for this hard family (composite floors at 0.0 on a
+      rotated 5-D valley at quick budget).
+- [x] **Validation** — 9 new tests (`TestHighDimFamilies` in
+      `tests/test_harness_randomized.py`, `TestExtraFamilies` in
+      `tests/test_harness.py`); full `test_harness` / `test_harness_randomized` /
+      `test_self_improve` suites green (738 passed); ruff + pyright clean; a
+      real `--extra-highdim` run of the harness and the loop CLI verified
+      end-to-end.
+- [x] **Docs** — 2026-07-13 dated entry + follow-up layers in
+      `planning/SELF_IMPROVEMENT_LOG.md` (nightly aocc 5-D quick battery;
+      default-battery promotion via ADR); `AGENTS.md` bullet;
+      `doc/source/guide_benchmarking.rst` "Opt-in extended battery" subsection;
+      `SELF_IMPROVEMENT_LOOP.md` §10; module/field docstrings; this entry.
+      §7.3-freeze compliant (a measurement/battery hook — no new mutation arms).
+
 ### Diagonal-plus-low-rank Hessian for the `Nearby` heuristic — 2026-07-12
 - [x] **Heuristic improvement** — added a `hessian_rank` argument to
       `panobbgo/heuristics/nearby.py::fit_quadratic_step` and the matching

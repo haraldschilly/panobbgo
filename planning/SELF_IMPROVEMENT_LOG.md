@@ -17,6 +17,73 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-13 — Opt-in higher-dimensional battery: `extra_families` / `--extra-highdim` (first layer of "the measured battery is 2-D-only")
+
+* **What** — The default randomized battery
+  (:func:`panobbgo.harness_randomized.make_default_families`) ships every
+  family at `dim_choices=(2,)`, so the whole self-improvement apparatus —
+  the loop, the anti-cherry-pick guard, and codify-scan — measures
+  exclusively at **dim 2**.  This is a structural ceiling: any optimizer
+  improvement whose benefit only appears at higher dimensions is invisible
+  to it.  This change adds an **opt-in** hook to append higher-dimensional
+  families *without* touching the default battery (so the frozen
+  `composite_score` contract is unchanged):
+
+  * :func:`panobbgo.harness_randomized.make_highdim_families` — returns a
+    **rotated** `Rosenbrock_HighDim_family` at `dim_choices=(2, 5)`
+    (stratified).  Unlike the default `Rosenbrock_family` (translate +
+    scale only, so its 2-D instances stay axis-aligned), it enables the
+    `rotate` transform so the curved valley *couples coordinates* — the
+    regime where the 2026-07-08 → 2026-07-12 curvature-aware `Nearby` work
+    actually pays off.
+  * :attr:`panobbgo.harness.HarnessConfig.extra_families` — appended to the
+    default families in `get_problems()` when `randomize=True`.  Defaults
+    to `None` (byte-identical to the pre-change battery).  Stripped from
+    `HarnessResult.to_dict()` (like `strategies_override`) since the
+    family's `base_class` is a raw `type` and not JSON-serialisable.
+  * :attr:`panobbgo.self_improve.LoopConfig.extra_families` — threaded into
+    both `harness_config` and `holdout_harness_config` so the loop, guard,
+    and hold-out all measure the extended battery on the composite path.
+  * CLI: `benchmark_harness.py run/list --extra-highdim` and
+    `scripts/self_improve.py run --metric composite --extra-highdim`.
+
+* **Why** — The single highest-leverage item in the *Next iteration ideas*
+  backlog ("The measured battery is 2-D-only", surfaced 2026-07-12): real
+  problems are not 2-D, yet the loop optimises exclusively for 2-D.  The
+  2026-07-12 diagonal-plus-low-rank Hessian gives a 3.3× lower residual on
+  rotated *5-D* Rosenbrock valleys but is (correctly) byte-identical on the
+  2-D battery — so the loop can neither confirm nor reward it.  This is the
+  additive first layer the backlog ticket proposed ("add a higher-dim
+  family behind an explicit `HarnessConfig.extra_families` opt-in first, no
+  composite-contract change").
+
+* **Measured / verified** — Full run of the family through the harness
+  (`--randomize --extra-highdim --problems Rosenbrock_HighDim_family`) runs
+  and serialises cleanly; composite floors at 0.0 at quick budget on the
+  rotated 5-D valley (as expected — hence AOCC is the recommended signal
+  for this hard family, the same dead-zone argument behind the 2026-07-09
+  metric flip).  Stratification verified `[2, 5, 2, 5, 2, 5]` over 6 reps;
+  `f(x*) == f_opt == 0` invariant under translate + rotate + scale across
+  dims.  16 new tests (`TestHighDimFamilies`, `TestExtraFamilies`); full
+  `test_harness` / `test_harness_randomized` / `test_self_improve` suites
+  green (738 passed); ruff + pyright clean.
+
+* **§7.3-freeze compliance** — This is a *measurement/battery* hook, not a
+  new mutation arm, structural candidate, or heuristic — the freeze governs
+  the mutation catalog, and this adds resolution to the measurement
+  substrate the freeze depends on.  The default battery (and thus every
+  historical composite comparison) is untouched.
+
+* **Follow-up ideas** seeded under *Next iteration ideas*: (a) the nightly
+  loop runs `--metric aocc`, whose **quick** IOH battery
+  (`make_quick_battery`, `dims=(2,)`) is *also* 2-D-only — the analogous
+  opt-in there is a `dims=(2, 5)` quick battery so the nightly cron itself
+  measures the higher-dim regime; (b) once a few nights of composite
+  `--extra-highdim` evidence accumulate, decide (via an ADR, per the
+  "stable contract" note in `AGENTS.md`) whether to promote a higher-dim
+  family into the *default* battery under a documented composite-score
+  version bump.
+
 ### 2026-07-12 — Diagonal-plus-low-rank Hessian for `Nearby` (closes the 5-D coordinate-coupling half of the Rosenbrock gap)
 
 * **What** — Replaced the single ridge-regularised *full* quadratic that
@@ -8738,9 +8805,21 @@ a dated entry above when shipped.
 > a duplicate — see §12.3 step 0. (Four duplicate NL-SHADE-RSP PRs,
 > #227–#230, were the cost of skipping this check.)
 
-#### The measured battery is 2-D-only — no higher-dim improvement is loop-visible (surfaced 2026-07-12)
+#### The measured battery is 2-D-only — no higher-dim improvement is loop-visible (surfaced 2026-07-12; opt-in first layer shipped 2026-07-13)
 
-`panobbgo.harness_randomized._make_randomized_families()` ships every
+**Status: the opt-in first layer shipped 2026-07-13** (see that dated
+entry).  `make_highdim_families()` + `HarnessConfig.extra_families` /
+`LoopConfig.extra_families` / `--extra-highdim` append a rotated
+`Rosenbrock_HighDim_family` (`dim_choices=(2, 5)`) to the *composite*
+randomized battery without touching the frozen default battery.  **Still
+open:** (a) the nightly runs `--metric aocc`, whose **quick** IOH battery
+(`make_quick_battery`, `dims=(2,)`) is also 2-D-only — the analogous opt-in
+there (a `dims=(2, 5)` quick battery) is what makes the *nightly cron*
+itself measure the higher-dim regime; (b) promoting a higher-dim family
+into the *default* battery under a documented composite-score version bump
+(needs an ADR — changes the stable contract).
+
+`panobbgo.harness_randomized.make_default_families()` ships every
 family at `dim_choices=(2,)`, so quick / standard / *and the loop
 registry* all measure at **dim 2**.  This is a structural ceiling on the
 whole self-improvement apparatus: any improvement whose benefit only
@@ -8757,17 +8836,35 @@ codify-scan.  Two concrete costs already observed:
   translate + scale), so even its 2-D instances are axis-aligned — the
   one regime where coordinate coupling is easiest.
 
-**Proposed ticket (needs an ADR — changes the composite contract):**
-add a higher-dimensional family behind an explicit
-`HarnessConfig.extra_families` opt-in first (no composite-contract
-change), e.g. a 5-D Rosenbrock with `dim_choices=(2, 5)`,
-`stratify_dims=True`, and the `rotate` transform enabled, then measure
-whether the loop resolves the 2026-07-12 change on it.  If it does,
-promote the higher-dim family into the default battery under a
-documented composite-score version bump (§ "stable contract" in
-`AGENTS.md`).  This is arguably the single highest-leverage change for
-"best black-box optimizer in the world": real problems are not 2-D, and
-today the loop optimises exclusively for 2-D.
+**First layer — shipped 2026-07-13.** The higher-dimensional family now
+lives behind the explicit `HarnessConfig.extra_families` /
+`LoopConfig.extra_families` / `--extra-highdim` opt-in (no
+composite-contract change): a 5-D rotated Rosenbrock with
+`dim_choices=(2, 5)`, `stratify_dims=True`, `rotate` enabled.  See the
+2026-07-13 dated entry.  **Remaining layers (each needs its own change):**
+
+1. **Measure the composite loop on it.** Run
+   `scripts/self_improve.py run --metric composite --registry loop
+   --extra-highdim` for a few nights and confirm the loop resolves the
+   2026-07-12 change (a `Nearby.quadratic`-bearing spec should now beat a
+   `quadratic=False` sibling on the extended battery where it was a tie on
+   2-D).  Measurement/operator task, not code.
+2. **A 5-D quick IOH battery for the *nightly* aocc regime.** The nightly
+   runs `--metric aocc`, whose `make_quick_battery` is `dims=(2,)`, so the
+   `--extra-highdim` composite hook does not reach it.  Add an opt-in
+   `dims=(2, 5)` quick battery (or an `--extra-highdim`-equivalent flag on
+   the IOH path) so the scheduled cron itself measures the higher-dim
+   regime.  This is the highest-leverage *follow-up* — it is what actually
+   makes the nightly loop reward higher-dim improvements.
+3. **Promote to the default battery (needs an ADR).** If the extended
+   battery proves out, fold a higher-dim family into the *default* battery
+   under a documented composite-score version bump (§ "stable contract" in
+   `AGENTS.md`).  This is the only layer that touches the historical
+   composite comparison.
+
+Rationale unchanged: real problems are not 2-D, and until layer 2 lands the
+nightly loop still optimises exclusively for 2-D — arguably the single
+highest-leverage direction for "best black-box optimizer in the world".
 
 #### AOCC-regime follow-ups (after the 2026-07-09 metric flip)
 

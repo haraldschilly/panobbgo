@@ -582,6 +582,15 @@ Each metric writes its own ledger (aocc →
   carry signal.
 - **Dimension stability**: resolved 2026-05-02 via stratified dimension
   sampling (`ProblemFamily.stratify_dims`, cyclic rep→dim assignment).
+- **Dimension *coverage***: the default battery is 2-D-only, so any
+  improvement whose benefit appears only at higher dimensions is
+  loop-invisible.  An opt-in higher-dim battery shipped 2026-07-13
+  (`HarnessConfig.extra_families` / `LoopConfig.extra_families` /
+  `--extra-highdim`, rotated `Rosenbrock_HighDim_family` at
+  `dim_choices=(2, 5)`) for the *composite* path; the nightly aocc quick
+  IOH battery is still 2-D and the default composite battery is unchanged
+  (a promotion there needs an ADR — see the 2026-07-13 backlog entry in
+  `SELF_IMPROVEMENT_LOG.md`).
 - **Accept rate**: V1's answer (bandit + eps relaxation) treated the
   symptom; V2 treats the cause (metric resolution, §2.1).
 - **Coordination with human PRs**: the loop never touches source, so

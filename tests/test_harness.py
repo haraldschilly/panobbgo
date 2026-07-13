@@ -512,6 +512,57 @@ class TestHarnessProblemsStrategies:
 
 
 # ===========================================================================
+# 7b. Unit tests – HarnessConfig.extra_families (opt-in extended battery)
+# ===========================================================================
+
+
+class TestExtraFamilies:
+    """The opt-in ``extra_families`` hook on the randomized battery."""
+
+    def test_default_battery_unchanged_without_extra_families(self):
+        base = BenchmarkHarness(HarnessConfig(randomize=True)).get_problems()
+        names = {p.name for p in base}
+        assert "Rosenbrock_HighDim_family" not in names
+
+    def test_extra_families_appended_under_randomize(self):
+        from panobbgo.harness_randomized import make_highdim_families
+
+        base = BenchmarkHarness(HarnessConfig(randomize=True)).get_problems()
+        cfg = HarnessConfig(randomize=True, extra_families=make_highdim_families())
+        ext = BenchmarkHarness(cfg).get_problems()
+        assert len(ext) == len(base) + 1
+        assert "Rosenbrock_HighDim_family" in {p.name for p in ext}
+
+    def test_extra_families_ignored_without_randomize(self):
+        from panobbgo.harness_randomized import make_highdim_families
+
+        # Fixed battery: extra_families is a randomized-only hook and must
+        # not leak into the fixed problem list.
+        cfg = HarnessConfig(mode="quick", extra_families=make_highdim_families())
+        problems = BenchmarkHarness(cfg).get_problems()
+        assert "Rosenbrock_HighDim_family" not in {p.name for p in problems}
+
+    def test_to_dict_strips_extra_families(self):
+        # ``extra_families`` carries dataclass objects whose ``base_class``
+        # is a raw ``type`` — it must be stripped so results stay
+        # JSON-serialisable (mirrors ``strategies_override``).
+        from panobbgo.harness_randomized import make_highdim_families
+
+        cfg = HarnessConfig(
+            randomize=True,
+            extra_families=make_highdim_families(),
+            problems=["Rosenbrock_HighDim_family"],
+            reps=2,
+            budget=60,
+        )
+        result = BenchmarkHarness(cfg).run(verbose=False)
+        d = result.to_dict()
+        assert "extra_families" not in d["config"]
+        # Round-trips through JSON without error.
+        json.dumps(d)
+
+
+# ===========================================================================
 # 8. Unit tests – seed derivation
 # ===========================================================================
 

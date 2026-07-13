@@ -489,6 +489,30 @@ The harness is the measurement substrate for an autonomous
     byte-identical legacy full quadratic.  §7.3-freeze compliant (improves an
     existing heuristic; better default for an existing kwarg — no new arms).  See
     the 2026-07-12 entry in `planning/SELF_IMPROVEMENT_LOG.md`.
+*   Opt-in higher-dimensional battery (`extra_families` / `--extra-highdim`) —
+    **shipped 2026-07-13**, see
+    :func:`panobbgo.harness_randomized.make_highdim_families`,
+    :attr:`panobbgo.harness.HarnessConfig.extra_families`, and
+    :attr:`panobbgo.self_improve.LoopConfig.extra_families`.  The default
+    randomized battery ships every family at `dim_choices=(2,)`, so the whole
+    self-improvement apparatus (loop, guard, codify-scan) measures exclusively
+    at dim 2 — any improvement whose benefit only appears at higher dimensions
+    (the 2026-07-08 → 2026-07-12 curvature-aware `Nearby` work is the
+    motivating example: 3.3× lower residual on rotated *5-D* Rosenbrock, yet
+    byte-identical on the 2-D battery) is invisible to it.  `make_highdim_families`
+    returns a **rotated** `Rosenbrock_HighDim_family` at `dim_choices=(2, 5)`
+    (stratified) that enables the `rotate` transform the default
+    `Rosenbrock_family` omits, so the curved valley couples coordinates.  The
+    families are **opt-in** — the default battery is untouched, so the frozen
+    `composite_score` contract is unchanged and a plain `--randomize` run stays
+    byte-identical.  Wire it in via `benchmark_harness.py run/list
+    --extra-highdim` or `scripts/self_improve.py run --metric composite
+    --extra-highdim` (inert on `--metric aocc`, whose battery lives in
+    `panobbgo.harness_ioh`).  Because success on a rotated 5-D valley at
+    quick-mode budgets is rare, the anytime AOCC metric is the recommended
+    signal for this family.  §7.3-freeze compliant (a measurement/battery
+    hook — no new mutation arms).  See the 2026-07-13 entry in
+    `planning/SELF_IMPROVEMENT_LOG.md`.
 *   Hold-out validation set — **shipped** (§10), see
     `panobbgo.self_improve.LoopHoldoutRecord` and the
     `--holdout-base-seed`, `--holdout-iterations`,

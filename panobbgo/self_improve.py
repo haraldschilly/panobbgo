@@ -165,11 +165,14 @@ import pathlib
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
 import numpy as np
 
 from panobbgo.benchmark import StrategySpec
+
+if TYPE_CHECKING:
+    from panobbgo.harness_randomized import ProblemFamily
 from panobbgo.harness import (
     BenchmarkHarness,
     HarnessConfig,
@@ -3063,6 +3066,19 @@ class LoopConfig:
     #: Ignored on the AOCC metric path — the IOH battery has its own
     #: registry (:func:`panobbgo.harness_ioh.make_ioh_strategies`).
     registry: str = "default"
+    #: Opt-in extra randomized families appended to the default 2-D battery
+    #: on the **composite** metric path (see
+    #: :attr:`panobbgo.harness.HarnessConfig.extra_families`).  ``None``
+    #: (default) keeps the historical 2-D-only battery.  Set to
+    #: :func:`~panobbgo.harness_randomized.make_highdim_families` (CLI
+    #: ``--extra-highdim``) so the loop, guard, and hold-out all measure a
+    #: rotated higher-dimensional regime the default battery cannot reach —
+    #: e.g. to confirm/reward a change (such as the 2026-07-12
+    #: diagonal-plus-low-rank ``Nearby`` Hessian) whose benefit only
+    #: manifests above dim 2.  Inert on the AOCC metric path (that battery
+    #: is defined by :mod:`panobbgo.harness_ioh`, not by randomized
+    #: families).
+    extra_families: Optional[List["ProblemFamily"]] = None
     #: Bandit reward shaping policy.
     #:
     #: ``"binary"`` (default) — the bandit's Beta posterior updates with
@@ -3284,6 +3300,7 @@ class LoopConfig:
             randomize=self.randomize,
             randomize_iteration=iteration_id,
             strategies_override=strategies_override,
+            extra_families=self.extra_families,
         )
 
     def holdout_harness_config(
@@ -3311,6 +3328,7 @@ class LoopConfig:
             randomize=self.randomize,
             randomize_iteration=iteration_id,
             strategies_override=strategies_override,
+            extra_families=self.extra_families,
         )
 
     def resolved_holdout_seeds(self) -> Tuple[int, ...]:

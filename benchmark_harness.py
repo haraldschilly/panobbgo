@@ -112,6 +112,21 @@ def _default_output_path(mode: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_extra_families(args: argparse.Namespace) -> Optional[list]:
+    """Return the opt-in extra family list implied by ``--extra-highdim``.
+
+    Returns ``None`` (the default battery, byte-identical to the historical
+    behaviour) unless ``--extra-highdim`` is set, in which case the rotated
+    higher-dimensional families from
+    :func:`panobbgo.harness_randomized.make_highdim_families` are returned.
+    """
+    if getattr(args, "extra_highdim", False):
+        from panobbgo.harness_randomized import make_highdim_families
+
+        return make_highdim_families()
+    return None
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Execute benchmark runs and save the result."""
     from panobbgo.harness import BenchmarkHarness, HarnessConfig
@@ -128,6 +143,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         include_baselines=args.baselines,
         randomize=args.randomize,
         randomize_iteration=args.randomize_iteration,
+        extra_families=_resolve_extra_families(args),
     )
 
     harness = BenchmarkHarness(config)
@@ -290,6 +306,7 @@ def cmd_list(args: argparse.Namespace) -> int:
         include_baselines=args.baselines,
         randomize=args.randomize,
         randomize_iteration=args.randomize_iteration,
+        extra_families=_resolve_extra_families(args),
     )
     harness = BenchmarkHarness(config)
 
@@ -392,6 +409,19 @@ def build_parser() -> argparse.ArgumentParser:
             "  Within one iteration, before/after runs see identical"
             " randomized instances; different iterations draw different"
             " ones."
+        ),
+    )
+    run_p.add_argument(
+        "--extra-highdim",
+        dest="extra_highdim",
+        action="store_true",
+        help=(
+            "Append the opt-in rotated higher-dimensional families"
+            " (Rosenbrock_HighDim, dim_choices=(2, 5)) to the randomized"
+            " battery.  Only effective with --randomize.  Leaves the frozen"
+            " 2-D default battery — and thus the historical composite"
+            " baseline — untouched; use --metric aocc for a responsive"
+            " signal on this hard family."
         ),
     )
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-run output")
@@ -507,6 +537,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=0,
         metavar="N",
         help="Iteration index for the randomized sampler (default: 0)",
+    )
+    list_p.add_argument(
+        "--extra-highdim",
+        dest="extra_highdim",
+        action="store_true",
+        help=(
+            "Also list the opt-in rotated higher-dimensional families"
+            " (Rosenbrock_HighDim).  Only effective with --randomize."
+        ),
     )
     list_p.set_defaults(func=cmd_list)
 

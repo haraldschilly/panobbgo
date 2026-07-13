@@ -419,6 +419,49 @@ Schwefel's optimum sits near the box boundary and Griewank's oscillation
 couples tightly to the coordinate axes, so rotation pushes ``y`` off the
 function's sensible domain.
 
+Every default family ships ``dim_choices=(2,)`` — the whole default
+battery is measured at **dimension 2**.  This keeps the composite score a
+**stable contract** (historical comparisons depend on it), but it also
+means any optimizer improvement whose benefit only appears at higher
+dimensions is invisible to the composite metric, the anti-cherry-pick
+guard, and codify-scan.
+
+.. _opt-in-extended-battery:
+
+Opt-in extended (higher-dimensional) battery
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To probe a regime the frozen 2-D default battery cannot reach *without*
+changing the composite contract, append extra families via the
+``--extra-highdim`` flag (``run`` and ``list``) or the
+:attr:`panobbgo.harness.HarnessConfig.extra_families` field.  The default
+families are left untouched, so a plain ``--randomize`` run stays
+byte-identical; the extra families only appear when explicitly opted in.
+
+:func:`panobbgo.harness_randomized.make_highdim_families` currently
+returns one family:
+
+- ``Rosenbrock_HighDim_family`` — a **rotated** Rosenbrock at
+  ``dim_choices=(2, 5)`` with stratified dims.  Unlike the default
+  ``Rosenbrock_family`` (translate + scale only, so its 2-D instances stay
+  axis-aligned), it enables the ``rotate`` transform so the curved valley
+  couples coordinates — the regime where curvature-aware local models pay
+  off.
+
+.. code-block:: bash
+
+   uv run python benchmark_harness.py list --randomize --extra-highdim
+   # Loop path (composite metric only):
+   uv run python scripts/self_improve.py run --metric composite \
+       --registry loop --extra-highdim ...
+
+Success on a rotated, ill-conditioned 5-D valley at quick-mode budgets is
+rare, so a ``composite_score`` A/B on this family can floor near zero.
+Prefer the anytime **AOCC** metric (``--metric aocc``) for a responsive
+signal — the same dead-zone argument behind the 2026-07-09 metric flip.
+The flag is inert on the AOCC metric path, whose battery is defined by
+:mod:`panobbgo.harness_ioh`, not by randomized families.
+
 Stratified dimension sampling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

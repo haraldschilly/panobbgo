@@ -120,6 +120,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#usage">Usage</a></li>
 <li><a class="reference internal" href="#what-gets-randomised">What gets randomised</a></li>
 <li><a class="reference internal" href="#default-families">Default families</a></li>
+<li><a class="reference internal" href="#opt-in-extended-higher-dimensional-battery">Opt-in extended (higher-dimensional) battery</a></li>
 <li><a class="reference internal" href="#stratified-dimension-sampling">Stratified dimension sampling</a></li>
 <li><a class="reference internal" href="#id1">Reproducibility</a></li>
 </ul>
@@ -234,41 +235,42 @@ self-improvement loop.</p>
 <li><p><a class="reference internal" href="#usage" id="id14">Usage</a></p></li>
 <li><p><a class="reference internal" href="#what-gets-randomised" id="id15">What gets randomised</a></p></li>
 <li><p><a class="reference internal" href="#default-families" id="id16">Default families</a></p></li>
-<li><p><a class="reference internal" href="#stratified-dimension-sampling" id="id17">Stratified dimension sampling</a></p></li>
-<li><p><a class="reference internal" href="#id1" id="id18">Reproducibility</a></p></li>
+<li><p><a class="reference internal" href="#opt-in-extended-higher-dimensional-battery" id="id17">Opt-in extended (higher-dimensional) battery</a></p></li>
+<li><p><a class="reference internal" href="#stratified-dimension-sampling" id="id18">Stratified dimension sampling</a></p></li>
+<li><p><a class="reference internal" href="#id1" id="id19">Reproducibility</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#absolute-baselines" id="id19">Absolute baselines</a></p>
+<li><p><a class="reference internal" href="#absolute-baselines" id="id20">Absolute baselines</a></p>
 <ul>
-<li><p><a class="reference internal" href="#design" id="id20">Design</a></p></li>
-<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id21">CMA-ES as a baseline</a></p></li>
+<li><p><a class="reference internal" href="#design" id="id21">Design</a></p></li>
+<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id22">CMA-ES as a baseline</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#self-improvement-loop" id="id22">Self-improvement loop</a></p>
+<li><p><a class="reference internal" href="#self-improvement-loop" id="id23">Self-improvement loop</a></p>
 <ul>
-<li><p><a class="reference internal" href="#loop-registry-v2-9-1" id="id23">Loop registry (V2 §9.1)</a></p></li>
-<li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id24">Anti-cherry-pick guard (§6.3)</a></p></li>
-<li><p><a class="reference internal" href="#same-night-confirmation-gate-6-4" id="id25">Same-night confirmation gate (§6.4)</a></p></li>
-<li><p><a class="reference internal" href="#inactivity-guarded-eps-accept-relaxation" id="id26">Inactivity-guarded eps_accept relaxation</a></p></li>
-<li><p><a class="reference internal" href="#no-op-detection-12-4" id="id27">No-op detection (§12.4)</a></p></li>
-<li><p><a class="reference internal" href="#summary-trend-block-12-4" id="id28">Summary trend block (§12.4)</a></p></li>
-<li><p><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4" id="id29">Cross-night codify-scan (§9.3 / §9.5 step 4)</a></p></li>
-<li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id30">Adaptive mutation sampler (§10)</a></p></li>
-<li><p><a class="reference internal" href="#strategy-portfolio-composition-7-2" id="id31">Strategy portfolio composition (§7.2)</a></p></li>
-<li><p><a class="reference internal" href="#per-class-structural-bandit-arms" id="id32">Per-class structural bandit arms</a></p></li>
-<li><p><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms" id="id33">Hierarchical bandit over per-class structural arms</a></p></li>
-<li><p><a class="reference internal" href="#categorical-mutation-rule" id="id34">Categorical mutation rule</a></p></li>
-<li><p><a class="reference internal" href="#hold-out-validation-set" id="id35">Hold-out validation set</a></p></li>
+<li><p><a class="reference internal" href="#loop-registry-v2-9-1" id="id24">Loop registry (V2 §9.1)</a></p></li>
+<li><p><a class="reference internal" href="#anti-cherry-pick-guard-6-3" id="id25">Anti-cherry-pick guard (§6.3)</a></p></li>
+<li><p><a class="reference internal" href="#same-night-confirmation-gate-6-4" id="id26">Same-night confirmation gate (§6.4)</a></p></li>
+<li><p><a class="reference internal" href="#inactivity-guarded-eps-accept-relaxation" id="id27">Inactivity-guarded eps_accept relaxation</a></p></li>
+<li><p><a class="reference internal" href="#no-op-detection-12-4" id="id28">No-op detection (§12.4)</a></p></li>
+<li><p><a class="reference internal" href="#summary-trend-block-12-4" id="id29">Summary trend block (§12.4)</a></p></li>
+<li><p><a class="reference internal" href="#cross-night-codify-scan-9-3-9-5-step-4" id="id30">Cross-night codify-scan (§9.3 / §9.5 step 4)</a></p></li>
+<li><p><a class="reference internal" href="#adaptive-mutation-sampler-10" id="id31">Adaptive mutation sampler (§10)</a></p></li>
+<li><p><a class="reference internal" href="#strategy-portfolio-composition-7-2" id="id32">Strategy portfolio composition (§7.2)</a></p></li>
+<li><p><a class="reference internal" href="#per-class-structural-bandit-arms" id="id33">Per-class structural bandit arms</a></p></li>
+<li><p><a class="reference internal" href="#hierarchical-bandit-over-per-class-structural-arms" id="id34">Hierarchical bandit over per-class structural arms</a></p></li>
+<li><p><a class="reference internal" href="#categorical-mutation-rule" id="id35">Categorical mutation rule</a></p></li>
+<li><p><a class="reference internal" href="#hold-out-validation-set" id="id36">Hold-out validation set</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id36">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id37">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id37">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id38">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id39">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id38">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id39">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id40">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id40">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id41">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -690,9 +692,46 @@ families covering the main optimisation challenges:</p>
 Schwefel’s optimum sits near the box boundary and Griewank’s oscillation
 couples tightly to the coordinate axes, so rotation pushes <code class="docutils literal notranslate"><span class="pre">y</span></code> off the
 function’s sensible domain.</p>
+<p>Every default family ships <code class="docutils literal notranslate"><span class="pre">dim_choices=(2,)</span></code> — the whole default
+battery is measured at <strong>dimension 2</strong>.  This keeps the composite score a
+<strong>stable contract</strong> (historical comparisons depend on it), but it also
+means any optimizer improvement whose benefit only appears at higher
+dimensions is invisible to the composite metric, the anti-cherry-pick
+guard, and codify-scan.</p>
+</section>
+<section id="opt-in-extended-higher-dimensional-battery">
+<span id="opt-in-extended-battery"></span><h3><a class="toc-backref" href="#id17" role="doc-backlink">Opt-in extended (higher-dimensional) battery</a><a class="headerlink" href="#opt-in-extended-higher-dimensional-battery" title="Link to this heading">¶</a></h3>
+<p>To probe a regime the frozen 2-D default battery cannot reach <em>without</em>
+changing the composite contract, append extra families via the
+<code class="docutils literal notranslate"><span class="pre">--extra-highdim</span></code> flag (<code class="docutils literal notranslate"><span class="pre">run</span></code> and <code class="docutils literal notranslate"><span class="pre">list</span></code>) or the
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">panobbgo.harness.HarnessConfig.extra_families</span></code> field.  The default
+families are left untouched, so a plain <code class="docutils literal notranslate"><span class="pre">--randomize</span></code> run stays
+byte-identical; the extra families only appear when explicitly opted in.</p>
+<p><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness_randomized.make_highdim_families()</span></code> currently
+returns one family:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Rosenbrock_HighDim_family</span></code> — a <strong>rotated</strong> Rosenbrock at
+<code class="docutils literal notranslate"><span class="pre">dim_choices=(2,</span> <span class="pre">5)</span></code> with stratified dims.  Unlike the default
+<code class="docutils literal notranslate"><span class="pre">Rosenbrock_family</span></code> (translate + scale only, so its 2-D instances stay
+axis-aligned), it enables the <code class="docutils literal notranslate"><span class="pre">rotate</span></code> transform so the curved valley
+couples coordinates — the regime where curvature-aware local models pay
+off.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>list<span class="w"> </span>--randomize<span class="w"> </span>--extra-highdim
+</span><span data-line="2"><span class="c1"># Loop path (composite metric only):</span>
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--metric<span class="w"> </span>composite<span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--registry<span class="w"> </span>loop<span class="w"> </span>--extra-highdim<span class="w"> </span>...
+</span></pre></div>
+</div>
+<p>Success on a rotated, ill-conditioned 5-D valley at quick-mode budgets is
+rare, so a <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> A/B on this family can floor near zero.
+Prefer the anytime <strong>AOCC</strong> metric (<code class="docutils literal notranslate"><span class="pre">--metric</span> <span class="pre">aocc</span></code>) for a responsive
+signal — the same dead-zone argument behind the 2026-07-09 metric flip.
+The flag is inert on the AOCC metric path, whose battery is defined by
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_ioh</span></code>, not by randomized families.</p>
 </section>
 <section id="stratified-dimension-sampling">
-<h3><a class="toc-backref" href="#id17" role="doc-backlink">Stratified dimension sampling</a><a class="headerlink" href="#stratified-dimension-sampling" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Stratified dimension sampling</a><a class="headerlink" href="#stratified-dimension-sampling" title="Link to this heading">¶</a></h3>
 <p>When a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemFamily</span></code> declares
 <code class="docutils literal notranslate"><span class="pre">dim_choices</span> <span class="pre">=</span> <span class="pre">(2,</span> <span class="pre">5,</span> <span class="pre">10)</span></code>, naive random selection would produce a
 different mix of dimensions on each loop iteration — and since
@@ -724,7 +763,7 @@ For backwards compatibility with older ledgers, set
 <code class="docutils literal notranslate"><span class="pre">stratified_dim:</span> <span class="pre">bool</span></code> field, useful for ledger introspection.</p>
 </section>
 <section id="id1">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
 <p>All randomness flows from a single 32-bit seed derived via SHA-256 from
 <code class="docutils literal notranslate"><span class="pre">(base_seed,</span> <span class="pre">iteration_id,</span> <span class="pre">family_name,</span> <span class="pre">rep)</span></code> — the same scheme the
 harness already uses for strategy seeds.  A regression flagged by the loop
@@ -746,7 +785,7 @@ is deterministically reproducible from the printed tuple:</p>
 </section>
 </section>
 <section id="absolute-baselines">
-<h2><a class="toc-backref" href="#id19" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
 <p>The harness runs <em>Panobbgo strategies vs. Panobbgo strategies</em> by default.
 To judge Panobbgo in <strong>absolute</strong> terms, the
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> module plugs three external reference
@@ -768,7 +807,7 @@ composite score still averages over every <code class="docutils literal notransl
 so a fair comparison should either <em>include baselines on both sides</em> of
 a <code class="docutils literal notranslate"><span class="pre">compare</span></code> call or <em>exclude them from both</em>.</p>
 <section id="design">
-<h3><a class="toc-backref" href="#id20" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
 <p>Baselines are thin adapters that implement the subset of the strategy
 surface the harness actually uses (<code class="docutils literal notranslate"><span class="pre">.config.max_eval</span></code>, <code class="docutils literal notranslate"><span class="pre">.start()</span></code>,
 <code class="docutils literal notranslate"><span class="pre">.best</span></code>, <code class="docutils literal notranslate"><span class="pre">.results.results</span></code>).  They do <strong>not</strong> subclass
@@ -782,7 +821,7 @@ the wrapper’s log, and the results DataFrame carries the same MultiIndex
 columns (<code class="docutils literal notranslate"><span class="pre">(&quot;fx&quot;,</span> <span class="pre">0)</span></code>, <code class="docutils literal notranslate"><span class="pre">(&quot;who&quot;,</span> <span class="pre">0)</span></code>, …) the harness expects.</p>
 </section>
 <section id="cma-es-as-a-baseline">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
 <p>The pure CMA-ES reference is already available <strong>inside</strong> Panobbgo via
 the <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic, used by the
 <code class="docutils literal notranslate"><span class="pre">CMAES_Portfolio</span></code> and <code class="docutils literal notranslate"><span class="pre">IPOP_CMAES</span></code> strategies.  That gives a fair
@@ -794,7 +833,7 @@ upstream reference becomes valuable.</p>
 </section>
 </section>
 <section id="self-improvement-loop">
-<h2><a class="toc-backref" href="#id22" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">Self-improvement loop</a><a class="headerlink" href="#self-improvement-loop" title="Link to this heading">¶</a></h2>
 <p>The benchmark harness is the <em>measurement substrate</em> for an autonomous
 improvement loop:</p>
 <ol class="arabic simple">
@@ -837,7 +876,7 @@ repository.</p>
 </span></pre></div>
 </div>
 <section id="loop-registry-v2-9-1">
-<h3><a class="toc-backref" href="#id23" role="doc-backlink">Loop registry (V2 §9.1)</a><a class="headerlink" href="#loop-registry-v2-9-1" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Loop registry (V2 §9.1)</a><a class="headerlink" href="#loop-registry-v2-9-1" title="Link to this heading">¶</a></h3>
 <p>The default <code class="docutils literal notranslate"><span class="pre">quick</span></code> registry — <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness._make_quick_strategies()</span></code>
 — ships two compact specs (<code class="docutils literal notranslate"><span class="pre">RoundRobin_Random</span></code> and
 <code class="docutils literal notranslate"><span class="pre">Rewarding_Diverse</span></code>) that explicitly set only <code class="docutils literal notranslate"><span class="pre">Sobol</span></code> / <code class="docutils literal notranslate"><span class="pre">Nearby</span></code> /
@@ -898,7 +937,7 @@ selection byte-for-byte, so existing CLI invocations are
 byte-identical.</p>
 </section>
 <section id="anti-cherry-pick-guard-6-3">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">Anti-cherry-pick guard (§6.3)</a><a class="headerlink" href="#anti-cherry-pick-guard-6-3" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Anti-cherry-pick guard (§6.3)</a><a class="headerlink" href="#anti-cherry-pick-guard-6-3" title="Link to this heading">¶</a></h3>
 <p>Even with the parametrically randomized battery, a sequence of “lucky”
 instance draws can inflate per-iteration <code class="docutils literal notranslate"><span class="pre">after</span></code> scores enough to
 clear the bootstrap CI.  The <strong>anti-cherry-pick guard</strong> mitigates this
@@ -944,7 +983,7 @@ risk.</p>
 </div>
 </section>
 <section id="same-night-confirmation-gate-6-4">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Same-night confirmation gate (§6.4)</a><a class="headerlink" href="#same-night-confirmation-gate-6-4" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Same-night confirmation gate (§6.4)</a><a class="headerlink" href="#same-night-confirmation-gate-6-4" title="Link to this heading">¶</a></h3>
 <p>The anti-cherry-pick guard catches drift <em>after</em> a screening accept
 has already landed on the ladder.  Under the V2 §2.2 diagnosis (“15/16
 guard checks rolled the ladder back; all hold-out records ran on an
@@ -1057,7 +1096,7 @@ the symptom (2.2) closure.</p>
 </div>
 </section>
 <section id="inactivity-guarded-eps-accept-relaxation">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Inactivity-guarded eps_accept relaxation</a><a class="headerlink" href="#inactivity-guarded-eps-accept-relaxation" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Inactivity-guarded eps_accept relaxation</a><a class="headerlink" href="#inactivity-guarded-eps-accept-relaxation" title="Link to this heading">¶</a></h3>
 <p>Long unattended ledgers tend to show very low accept rates (the cron
 that motivated this knob recently recorded <em>1 accept in 86 iterations</em>).
 That is small enough that the adaptive sampler’s posterior remains
@@ -1122,7 +1161,7 @@ can grep the ledger for any record whose
 accepts separately.</p>
 </section>
 <section id="no-op-detection-12-4">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">No-op detection (§12.4)</a><a class="headerlink" href="#no-op-detection-12-4" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">No-op detection (§12.4)</a><a class="headerlink" href="#no-op-detection-12-4" title="Link to this heading">¶</a></h3>
 <p>The V2 diagnosis in <span class="xref std std-doc">SELF_IMPROVEMENT_LOOP</span>
 identified “34% of mutations measure Δ = exactly 0.0000” as the
 dominant V1 failure mode — proposals targeting kwargs whose effect is
@@ -1173,7 +1212,7 @@ default of <code class="docutils literal notranslate"><span class="pre">False</s
 construction.</p>
 </section>
 <section id="summary-trend-block-12-4">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">Summary trend block (§12.4)</a><a class="headerlink" href="#summary-trend-block-12-4" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Summary trend block (§12.4)</a><a class="headerlink" href="#summary-trend-block-12-4" title="Link to this heading">¶</a></h3>
 <p>The §12.3 daily routine reads <code class="docutils literal notranslate"><span class="pre">planning/self_improve_summary.txt</span></code>
 “at-a-glance” to answer three questions: <em>is the loop accepting
 anything tonight?  Which mutation arms are paying off?  Is the
@@ -1231,7 +1270,7 @@ every rule out.  See the 2026-06-16 entry in
 plan.</p>
 </section>
 <section id="cross-night-codify-scan-9-3-9-5-step-4">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">Cross-night codify-scan (§9.3 / §9.5 step 4)</a><a class="headerlink" href="#cross-night-codify-scan-9-3-9-5-step-4" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Cross-night codify-scan (§9.3 / §9.5 step 4)</a><a class="headerlink" href="#cross-night-codify-scan-9-3-9-5-step-4" title="Link to this heading">¶</a></h3>
 <p>The §11 V2 success criteria are gated on <strong>codify PRs</strong> — the
 persistence mechanism by which short-lived in-memory ladder accepts
 translate into durable changes to <code class="docutils literal notranslate"><span class="pre">panobbgo/</span></code> defaults that survive
@@ -1764,7 +1803,7 @@ the <code class="docutils literal notranslate"><span class="pre">auto_tune</span
 </section>
 </section>
 <section id="adaptive-mutation-sampler-10">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Adaptive mutation sampler (§10)</a><a class="headerlink" href="#adaptive-mutation-sampler-10" title="Link to this heading">¶</a></h3>
 <p>By default the loop draws mutation rules uniformly at random from the
 applicable ones in <code class="xref py py-func docutils literal notranslate"><span class="pre">default_catalog()</span></code>.  In
 practice some rules (e.g. <code class="docutils literal notranslate"><span class="pre">Nearby.radius</span></code>, <code class="docutils literal notranslate"><span class="pre">CMAES.sigma0</span></code>) tend to
@@ -1909,7 +1948,7 @@ when auditing the bandit:</p>
 backward compatibility.</p>
 </section>
 <section id="strategy-portfolio-composition-7-2">
-<h3><a class="toc-backref" href="#id31" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">Strategy portfolio composition (§7.2)</a><a class="headerlink" href="#strategy-portfolio-composition-7-2" title="Link to this heading">¶</a></h3>
 <p>The default catalog only retunes hyperparameters of heuristics that
 already exist in each strategy.  The structural catalog — opt in via
 <code class="docutils literal notranslate"><span class="pre">--structural</span></code> on <code class="docutils literal notranslate"><span class="pre">scripts/self_improve.py</span> <span class="pre">run</span></code> or by passing
@@ -2045,7 +2084,7 @@ structural catalog has the same uniform-mix behaviour as on the
 kwarg catalog.</p>
 </section>
 <section id="per-class-structural-bandit-arms">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">Per-class structural bandit arms</a><a class="headerlink" href="#per-class-structural-bandit-arms" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Per-class structural bandit arms</a><a class="headerlink" href="#per-class-structural-bandit-arms" title="Link to this heading">¶</a></h3>
 <p>Once a structural catalog has accumulated evidence, the coarse
 one-arm-per-op layout becomes the limiting factor: the bandit cannot
 distinguish <code class="docutils literal notranslate"><span class="pre">add</span> <span class="pre">Sobol</span></code> (which may be a consistent winner) from
@@ -2090,7 +2129,7 @@ that toggles <code class="docutils literal notranslate"><span class="pre">adapti
 <code class="docutils literal notranslate"><span class="pre">structural_per_class_arms</span></code> safe.</p>
 </section>
 <section id="hierarchical-bandit-over-per-class-structural-arms">
-<h3><a class="toc-backref" href="#id33" role="doc-backlink">Hierarchical bandit over per-class structural arms</a><a class="headerlink" href="#hierarchical-bandit-over-per-class-structural-arms" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Hierarchical bandit over per-class structural arms</a><a class="headerlink" href="#hierarchical-bandit-over-per-class-structural-arms" title="Link to this heading">¶</a></h3>
 <p>The per-class arms above pay for sharper signal with sparser data: a
 candidate pool of <code class="docutils literal notranslate"><span class="pre">N</span></code> classes divides the bandit’s structural
 evidence by roughly <code class="docutils literal notranslate"><span class="pre">N</span></code>, so a fresh class starts with the symmetric
@@ -2252,7 +2291,7 @@ invocations and existing ledgers stay byte-identical.</p>
 </section>
 </section>
 <section id="categorical-mutation-rule">
-<h3><a class="toc-backref" href="#id34" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Categorical mutation rule</a><a class="headerlink" href="#categorical-mutation-rule" title="Link to this heading">¶</a></h3>
 <p>The three original mutation kinds — <code class="docutils literal notranslate"><span class="pre">log_uniform_perturb</span></code>,
 <code class="docutils literal notranslate"><span class="pre">integer_add</span></code>, <code class="docutils literal notranslate"><span class="pre">float_uniform</span></code> — all sample from a continuous
 numeric space.  Some of the most impactful design choices in
@@ -2534,7 +2573,7 @@ values in <code class="docutils literal notranslate"><span class="pre">old_value
 bandit arm losslessly.</p>
 </section>
 <section id="hold-out-validation-set">
-<h3><a class="toc-backref" href="#id35" role="doc-backlink">Hold-out validation set</a><a class="headerlink" href="#hold-out-validation-set" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id36" role="doc-backlink">Hold-out validation set</a><a class="headerlink" href="#hold-out-validation-set" title="Link to this heading">¶</a></h3>
 <p>The anti-cherry-pick guard catches drift inside the <em>training</em>
 <code class="docutils literal notranslate"><span class="pre">base_seed</span></code> family — it varies only <code class="docutils literal notranslate"><span class="pre">randomize_iteration</span></code> and keeps
 the <code class="docutils literal notranslate"><span class="pre">HarnessConfig.seed</span></code> constant.  A mutation that overfits to
@@ -2786,9 +2825,9 @@ falls back to per-record point drifts otherwise.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id36" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id37" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id37" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -2798,7 +2837,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id38" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -2808,7 +2847,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id39" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -2817,7 +2856,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id40" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id41" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

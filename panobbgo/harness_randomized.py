@@ -705,6 +705,62 @@ def make_default_families() -> List[ProblemFamily]:
     ]
 
 
+def make_highdim_families() -> List[ProblemFamily]:
+    """Return the opt-in *higher-dimensional* families for the extended battery.
+
+    The default battery (:func:`make_default_families`) ships every family
+    at ``dim_choices=(2,)`` (see §10 of
+    ``planning/SELF_IMPROVEMENT_LOOP.md``), so the whole self-improvement
+    apparatus — the loop, the anti-cherry-pick guard, and codify-scan —
+    measures exclusively at **dim 2**.  Any optimizer improvement whose
+    benefit only appears at higher dimensions (coordinate coupling in a
+    rotated valley, ill-conditioning a diagonal-plus-low-rank Hessian model
+    resolves) is therefore invisible to it.  The 2026-07-12
+    diagonal-plus-low-rank ``Nearby`` Hessian, for example, gives a 3.3×
+    lower residual on rotated *5-D* Rosenbrock valleys yet is (correctly)
+    byte-identical on the 2-D battery — the loop can neither confirm nor
+    reward it.
+
+    These families are **not** part of the default battery: adding them
+    there would change the frozen ``composite_score`` contract (see the
+    "stable contract" note in ``AGENTS.md``).  They are opt-in via
+    :attr:`panobbgo.harness.HarnessConfig.extra_families` (CLI
+    ``--extra-highdim``) so a run can probe the higher-dimensional regime
+    without perturbing the historical composite baseline.
+
+    Currently one family:
+
+    - ``Rosenbrock_HighDim_family`` — a **rotated** Rosenbrock at
+      ``dim_choices=(2, 5)`` with stratified dims.  Unlike the default
+      ``Rosenbrock_family`` (``translate`` + ``scale`` only, so its 2-D
+      instances stay axis-aligned), this family enables the ``rotate``
+      transform so the curved valley couples coordinates — the regime
+      where the 2026-07-08 → 2026-07-12 curvature-aware ``Nearby`` work
+      actually pays off.  Stratified dims mean any contiguous pair of reps
+      covers exactly one 2-D and one 5-D instance, so the composite delta
+      is not diluted by dim-mix variance.
+
+    Because success on a rotated, ill-conditioned 5-D valley at quick-mode
+    budgets is rare, the anytime **AOCC** metric (``--metric aocc`` in the
+    self-improvement loop) is the recommended signal for this family — a
+    ``composite_score`` A/B here can floor near zero, exactly the dead-zone
+    the 2026-07-09 metric flip addressed.
+    """
+    return [
+        ProblemFamily(
+            name="Rosenbrock_HighDim_family",
+            base_class=type("_Rosenbrock_origin", (), {}),
+            base_factory=_rosenbrock_factory,
+            f_opt=0.0,
+            dim_choices=(2, 5),
+            stratify_dims=True,
+            supported_transforms={"translate", "rotate", "scale"},
+            tolerance=0.2,
+            log10_cond_max=1.0,
+        ),
+    ]
+
+
 def make_randomized_specs(
     families: Sequence[ProblemFamily],
     iteration_id: int,

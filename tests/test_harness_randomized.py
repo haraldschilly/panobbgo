@@ -43,6 +43,7 @@ from panobbgo.harness_randomized import (
     TransformedProblem,
     derive_instance_seed,
     make_default_families,
+    make_highdim_families,
     make_randomized_specs,
     sample_diagonal_scaling,
     sample_interior_point,
@@ -354,6 +355,59 @@ class TestProblemFamily:
         prob, _ = fam.sample_instance(rng)
         # At the reported optimum, the objective is f_opt (up to noise).
         assert prob.eval(prob.optimum) == pytest.approx(fam.f_opt, abs=1e-9)
+
+
+# ===========================================================================
+# 3b. Opt-in higher-dimensional families
+# ===========================================================================
+
+
+class TestHighDimFamilies:
+    """The opt-in rotated higher-dimensional battery (make_highdim_families)."""
+
+    def test_family_shape(self):
+        fams = make_highdim_families()
+        assert len(fams) == 1
+        fam = fams[0]
+        assert fam.name == "Rosenbrock_HighDim_family"
+        # Higher-dim: draws both 2-D and 5-D instances.
+        assert fam.dim_choices == (2, 5)
+        assert fam.stratify_dims is True
+        # Unlike the default Rosenbrock_family (translate + scale only),
+        # this family enables rotation so coordinates couple.
+        assert "rotate" in fam.supported_transforms
+
+    def test_default_battery_excludes_highdim(self):
+        # The frozen default battery must remain 2-D-only so the historical
+        # composite contract is untouched.
+        default_names = {f.name for f in make_default_families()}
+        assert "Rosenbrock_HighDim_family" not in default_names
+        for fam in make_default_families():
+            assert fam.dim_choices == (2,)
+
+    def test_stratified_dims_cover_both(self):
+        fam = make_highdim_families()[0]
+        spec = RandomizedProblemSpec(fam, iteration_id=0, base_seed=7, max_evaluations=200)
+        dims = [spec.create_problem_for_rep(rep).dim for rep in range(6)]
+        # Cyclic stratification: any contiguous pair covers {2, 5}.
+        assert dims == [2, 5, 2, 5, 2, 5]
+
+    def test_optimum_invariant_across_dims(self):
+        fam = make_highdim_families()[0]
+        spec = RandomizedProblemSpec(fam, iteration_id=1, base_seed=11, max_evaluations=200)
+        for rep in range(4):
+            prob = spec.create_problem_for_rep(rep)
+            # f(x*) == f_opt == 0 despite translate + rotate + scale.
+            assert prob.eval(prob.optimum) == pytest.approx(fam.f_opt, abs=1e-9)
+
+    def test_rotation_applied_on_5d(self):
+        fam = make_highdim_families()[0]
+        spec = RandomizedProblemSpec(fam, iteration_id=2, base_seed=3, max_evaluations=200)
+        # rep 1 is a 5-D instance under the stratified schedule.
+        prob = spec.create_problem_for_rep(1)
+        assert prob.dim == 5
+        assert prob._Q is not None
+        assert prob._Q.shape == (5, 5)
 
 
 # ===========================================================================

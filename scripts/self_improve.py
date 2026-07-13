@@ -280,6 +280,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_p.set_defaults(randomize=True)
     run_p.add_argument(
+        "--extra-highdim",
+        dest="extra_highdim",
+        action="store_true",
+        help=(
+            "Append the opt-in rotated higher-dimensional families "
+            "(Rosenbrock_HighDim, dim_choices=(2, 5)) to the randomized "
+            "battery so the loop / guard / hold-out measure a regime the "
+            "frozen 2-D default battery cannot reach.  Composite-metric "
+            "path only (inert on --metric aocc, whose battery lives in "
+            "panobbgo.harness_ioh)."
+        ),
+    )
+    run_p.set_defaults(extra_highdim=False)
+    run_p.add_argument(
         "--timeout",
         type=float,
         default=120.0,
@@ -1055,6 +1069,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
     try:
+        extra_families = None
+        if getattr(args, "extra_highdim", False):
+            from panobbgo.harness_randomized import make_highdim_families
+
+            extra_families = make_highdim_families()
         cfg = LoopConfig(
             iterations=args.iterations,
             base_seed=args.base_seed,
@@ -1092,6 +1111,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             paired=args.paired,
             metric=args.metric,
             registry=args.registry,
+            extra_families=extra_families,
             inactivity_relax_after=args.inactivity_relax_after,
             inactivity_relax_factor=args.inactivity_relax_factor,
             inactivity_min_eps_accept=args.inactivity_min_eps_accept,

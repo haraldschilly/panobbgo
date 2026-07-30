@@ -6047,16 +6047,27 @@ def _structural_already_codified(
     return False
 
 
-def default_codify_registries() -> List[Callable[[], List[StrategySpec]]]:
+def default_codify_registries(
+    metric: str = "composite",
+) -> List[Callable[[], List[StrategySpec]]]:
     """Default seed-spec factories the codify-scan suppression check uses.
 
-    Returns the two factories the V2 nightly cron exercises — the
-    ``quick`` registry (the default mode) and the ``loop`` registry
-    (the catalog-exercising registry shipped 2026-06-10).  The
-    ``loop`` registry already includes the ``quick`` specs, but
-    listing both makes the predicate behaviour the same whether the
-    nightly is currently configured to ``--registry quick`` or
-    ``--registry loop``.
+    The factories depend on which metric's ledger is being scanned,
+    because each metric measures a different seed registry:
+
+    * ``"composite"`` — the two factories the composite cron exercises:
+      the ``quick`` registry (the historical default mode) and the
+      ``loop`` registry (the catalog-exercising registry shipped
+      2026-06-10).  The ``loop`` registry already includes the
+      ``quick`` specs, but listing both makes the predicate behaviour
+      the same whether the run was configured with ``--registry
+      quick`` or ``--registry loop``.
+    * ``"aocc"`` — :func:`panobbgo.harness_ioh.make_ioh_strategies`,
+      the IOH-tuned registry every ``--metric aocc`` iteration
+      measures (the nightly default since 2026-07-09).  Checking the
+      composite registries here would compare candidates against specs
+      the aocc loop never runs, so suppression would key on the wrong
+      source of truth.
 
     Standard / full registries are intentionally excluded: their seed
     specs target the manual benchmark battery (200 / 500 evals), not
@@ -6064,6 +6075,10 @@ def default_codify_registries() -> List[Callable[[], List[StrategySpec]]]:
     codification only lives in those registries would mis-direct the
     operator away from actionable evidence on the cron's regime.
     """
+    if metric == "aocc":
+        from panobbgo.harness_ioh import make_ioh_strategies
+
+        return [make_ioh_strategies]
     from panobbgo.harness import _make_loop_strategies, _make_quick_strategies
 
     return [_make_quick_strategies, _make_loop_strategies]
@@ -6147,8 +6162,21 @@ _DEFAULT_APPLY_SOURCES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ),
 )
 
+# The aocc regime measures the IOH-tuned registry, so its codify edits
+# must land in panobbgo/harness_ioh.py — the composite factories above
+# never run under --metric aocc and editing them from aocc evidence
+# would cross-contaminate the two ~100×-different delta scales.
+_DEFAULT_APPLY_SOURCES_AOCC: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    (
+        "panobbgo/harness_ioh.py",
+        ("make_ioh_strategies",),
+    ),
+)
 
-def default_codify_apply_sources() -> List[Tuple[str, Tuple[str, ...]]]:
+
+def default_codify_apply_sources(
+    metric: str = "composite",
+) -> List[Tuple[str, Tuple[str, ...]]]:
     """Source files + factory function names the ``--apply-top`` driver scans.
 
     Returns ``[(source_path, (factory_name, ...))]``.  Each ``source_path``
@@ -6160,18 +6188,30 @@ def default_codify_apply_sources() -> List[Tuple[str, Tuple[str, ...]]]:
     value, ...})`` heuristic / analyzer entry that the codify candidate
     targets.
 
-    Broader than :func:`default_codify_registries` (which returns only
-    the ``quick`` + ``loop`` registries, the regime the nightly cron
-    measures): the apply driver covers ``standard`` / ``full`` too so a
-    single codify run updates every sibling spec sharing the same
-    heuristic mix.  This matches the 2026-06-28 manual codify pattern
-    (``Nearby.radius = 0.124`` across ``Rewarding_Diverse`` plus five
-    sibling specs across all four registry tiers in one PR).
+    The source set depends on which metric's evidence is being applied,
+    mirroring :func:`default_codify_registries`:
+
+    * ``"composite"`` — ``panobbgo/harness.py``, all four registry
+      tiers.  Broader than :func:`default_codify_registries` (which
+      returns only the ``quick`` + ``loop`` registries, the regime the
+      nightly cron measures): the apply driver covers ``standard`` /
+      ``full`` too so a single codify run updates every sibling spec
+      sharing the same heuristic mix.  This matches the 2026-06-28
+      manual codify pattern (``Nearby.radius = 0.124`` across
+      ``Rewarding_Diverse`` plus five sibling specs across all four
+      registry tiers in one PR).
+    * ``"aocc"`` — ``panobbgo/harness_ioh.py``'s
+      ``make_ioh_strategies``, the registry every ``--metric aocc``
+      iteration measures.  Without this routing, aocc evidence (which
+      names IOH specs like ``Rewarding_Restart``) can never land as a
+      source edit — the ``--apply-top`` driver would scan
+      ``harness.py``, find no matching spec, and silently no-op.
 
     Returns a fresh ``list`` so callers can mutate without affecting the
     module-level constant.
     """
-    return [(path, names) for (path, names) in _DEFAULT_APPLY_SOURCES]
+    table = _DEFAULT_APPLY_SOURCES_AOCC if metric == "aocc" else _DEFAULT_APPLY_SOURCES
+    return [(path, names) for (path, names) in table]
 
 
 def _format_value_repr(value: Any) -> str:

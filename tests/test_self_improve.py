@@ -11597,7 +11597,7 @@ class TestApplyTopCLI:
         monkeypatch.setattr(
             si,
             "default_codify_apply_sources",
-            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            lambda metric="composite": [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
         )
         return src
 
@@ -11882,7 +11882,7 @@ def _make_quick_strategies():
         monkeypatch.setattr(
             si,
             "default_codify_apply_sources",
-            lambda: [(str(src), ("_make_quick_strategies",))],
+            lambda metric="composite": [(str(src), ("_make_quick_strategies",))],
         )
         live = tmp_path / "live.jsonl"
         records = [
@@ -11945,7 +11945,7 @@ def _make_quick_strategies():
         monkeypatch.setattr(
             si,
             "default_codify_apply_sources",
-            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            lambda metric="composite": [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
         )
         original_text = src.read_text()
         live = tmp_path / "live.jsonl"
@@ -12423,7 +12423,7 @@ class TestOpenPRCLIDriver:
         monkeypatch.setattr(
             si,
             "default_codify_apply_sources",
-            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            lambda metric="composite": [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
         )
         live = tmp_path / "live.jsonl"
         live.write_text(
@@ -12488,7 +12488,7 @@ class TestApplyTopHygieneFlags:
         monkeypatch.setattr(
             si,
             "default_codify_apply_sources",
-            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            lambda metric="composite": [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
         )
         live = tmp_path / "live.jsonl"
         live.write_text(
@@ -12647,7 +12647,7 @@ class TestApplyTopHygieneFlags:
         monkeypatch.setattr(
             si,
             "default_codify_apply_sources",
-            lambda: [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
+            lambda metric="composite": [(str(src), ("_make_quick_strategies", "_make_standard_strategies"))],
         )
         live = tmp_path / "live.jsonl"
         live.write_text(
@@ -12780,3 +12780,66 @@ class TestStructuralCatalogDEAutoSizing:
         assert de_names <= set(seen), f"missing DE candidates: {de_names - set(seen)}"
         for name, np_init in seen.items():
             assert np_init == "auto", f"{name} should size NP_init automatically, got {np_init!r}"
+
+
+class TestMetricAwareCodifyRouting:
+    """The codify pipeline routes registries / apply sources by metric.
+
+    Since the 2026-07-09 nightly flip to ``--metric aocc``, the loop
+    measures :func:`panobbgo.harness_ioh.make_ioh_strategies` — not the
+    composite quick / loop registries.  Both the suppression predicate
+    (:func:`default_codify_registries`) and the ``--apply-top`` edit
+    driver (:func:`default_codify_apply_sources`) must follow the
+    metric, otherwise aocc evidence can never land as a source edit
+    (the driver scans ``harness.py``, finds no matching spec, and
+    silently no-ops — the failure mode that stalled codification
+    between 2026-07-09 and 2026-07-30).
+    """
+
+    def test_default_registries_composite_unchanged(self):
+        from panobbgo.harness import _make_loop_strategies, _make_quick_strategies
+        from panobbgo.self_improve import default_codify_registries
+
+        assert default_codify_registries() == default_codify_registries(metric="composite")
+        factories = default_codify_registries(metric="composite")
+        assert _make_quick_strategies in factories
+        assert _make_loop_strategies in factories
+
+    def test_default_registries_aocc_is_ioh(self):
+        from panobbgo.harness_ioh import make_ioh_strategies
+        from panobbgo.self_improve import default_codify_registries
+
+        assert default_codify_registries(metric="aocc") == [make_ioh_strategies]
+
+    def test_default_apply_sources_composite_unchanged(self):
+        from panobbgo.self_improve import default_codify_apply_sources
+
+        assert default_codify_apply_sources() == default_codify_apply_sources(metric="composite")
+        paths = [path for path, _names in default_codify_apply_sources(metric="composite")]
+        assert paths == ["panobbgo/harness.py"]
+
+    def test_default_apply_sources_aocc_is_harness_ioh(self):
+        from panobbgo.self_improve import default_codify_apply_sources
+
+        sources = default_codify_apply_sources(metric="aocc")
+        assert sources == [("panobbgo/harness_ioh.py", ("make_ioh_strategies",))]
+
+    def test_apply_sources_returns_fresh_list_per_metric(self):
+        from panobbgo.self_improve import default_codify_apply_sources
+
+        first = default_codify_apply_sources(metric="aocc")
+        first.append(("bogus.py", ("nope",)))
+        assert default_codify_apply_sources(metric="aocc") == [("panobbgo/harness_ioh.py", ("make_ioh_strategies",))]
+
+    def test_ioh_registry_factories_are_callable_specs(self):
+        # The suppression predicate walks factory() output — make sure the
+        # aocc factory actually yields StrategySpec objects with the
+        # buckets the structural membership check reads.
+        from panobbgo.self_improve import default_codify_registries
+
+        (factory,) = default_codify_registries(metric="aocc")
+        specs = factory()
+        assert len(specs) >= 2
+        for spec in specs:
+            assert hasattr(spec, "heuristics")
+            assert hasattr(spec, "analyzers")

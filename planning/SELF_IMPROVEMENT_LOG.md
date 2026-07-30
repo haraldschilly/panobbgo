@@ -17,6 +17,65 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-30 — Metric-aware codify routing + first aocc codify (drop `Restart` from `Rewarding_Restart`) + goal contract
+
+* **What** — Three coupled ships that un-stall the aocc-era codify last
+  mile:
+
+  1. **Metric-aware codify routing.**
+     :func:`panobbgo.self_improve.default_codify_registries` and
+     :func:`panobbgo.self_improve.default_codify_apply_sources` gain a
+     `metric: str = "composite"` parameter.  `"aocc"` routes the
+     suppression predicate to
+     :func:`panobbgo.harness_ioh.make_ioh_strategies` and the
+     `--apply-top` edit driver to `panobbgo/harness_ioh.py`
+     (`_DEFAULT_APPLY_SOURCES_AOCC`); `"composite"` (default) is
+     byte-identical to the historical behaviour.
+     `scripts/self_improve.py codify-scan` threads its existing
+     `--metric` selector into both call sites.  Six new tests in
+     `TestMetricAwareCodifyRouting`.
+  2. **First aocc codify.**  Applied via the fixed driver: dropped the
+     `(Restart, {...})` analyzer from the `Rewarding_Restart` spec in
+     `make_ioh_strategies`.  Evidence: 18 confirmed `drop_analyzer`
+     accepts across **17 distinct nights** (2026-07-09 → 2026-07-30),
+     pooled CI95% `[+0.0084, +0.0147]`, every record's `ci_low > 0`.
+     Local paired A/B on the quick IOH battery: `Rewarding_Restart`
+     mean AOCC `0.3538 → 0.3922` with the untouched
+     `RoundRobin_Random` control flat (`0.3338 → 0.3339`).
+     Interpretation: under the anytime AOCC metric the
+     diverse-restart basin jumps cost more mid-budget precision than
+     they recover — the Sensitivity analyzer stays.
+  3. **Visibility + goal contract.**  The nightly workflow now also
+     regenerates and commits `planning/self_improve_codify_scan.txt`
+     (metric-aware) so the current actionable evidence is readable
+     from the repo without running anything, and `planning/GOAL.md`
+     ships as the durable goal contract for agent-driven sessions:
+     metric of record, per-session operating loop, multi-day
+     escalation ladder, SOTA-informed research backlog (MA-BBOB /
+     LLaMEA / modular-CMA-ES context, 2026-07 snapshot).
+
+* **Why** — The 2026-07-09 flip pointed the nightly loop at the IOH
+  registry, but every codify-pipeline default still pointed at the
+  composite factories in `panobbgo/harness.py`.  Result: three weeks
+  of flat seed scores (~0.33) while the bandit re-discovered,
+  re-confirmed, and re-forgot the same improvements every night —
+  `codify-scan --apply-top` scanned the wrong file, found no matching
+  spec, and silently no-oped.  The suppression predicate was equally
+  wrong-registried, which both hid a live candidate
+  (`add_heuristic LBFGSB`, 3 nights — surfaced by the fix) and
+  mis-annotated others.
+
+* **Measured impact** — quick IOH battery mean AOCC `0.3438 → 0.3631`
+  (+0.0193); competition-candidate spec `+0.0384`.  Consistent with
+  the ledger's per-night mean Δ of `+0.0113` on the same op.
+
+* **Next** — the codify queue behind this one (in evidence order):
+  `drop_heuristic Sobol` (3 nights), `add_heuristic LBFGSB`
+  (3 nights), `drop_heuristic Center` (2 nights), `Sobol.n 32 → 38`
+  (2 nights, only meaningful if Sobol survives).  One slot per PR;
+  re-measure after each since the drops interact.  See
+  `planning/GOAL.md` §4 for the standing protocol.
+
 ### 2026-07-13 — Opt-in higher-dimensional battery: `extra_families` / `--extra-highdim` (first layer of "the measured battery is 2-D-only")
 
 * **What** — The default randomized battery

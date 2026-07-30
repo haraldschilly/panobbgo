@@ -72,6 +72,12 @@ or core optimization logic.**
 Full guide: `doc/source/guide_benchmarking.rst`. Self-improvement plan:
 `planning/SELF_IMPROVEMENT_LOOP.md`.
 
+**Goal contract for autonomous / multi-day improvement work:**
+`planning/GOAL.md` — read it first when the instruction is an open-ended
+"improve panobbgo". It defines the metric of record (AOCC on the
+MA-BBOB battery), the per-session operating loop, the multi-day
+escalation ladder, and the SOTA-informed research backlog.
+
 ### Workflow
 
 ```bash
@@ -1048,6 +1054,29 @@ The harness is the measurement substrate for an autonomous
     the CLI resolves the path.  See the 2026-07-09 entry in
     `planning/SELF_IMPROVEMENT_LOG.md`.
 
+*   **2026-07-30 — metric-aware codify routing (registries + apply
+    sources)** — closes the aocc-era codify last mile.  Between the
+    2026-07-09 metric flip and this ship, the nightly loop measured
+    :func:`panobbgo.harness_ioh.make_ioh_strategies` but
+    `default_codify_registries()` (suppression) and
+    `default_codify_apply_sources()` (the `--apply-top` edit driver)
+    still pointed exclusively at the composite factories in
+    `panobbgo/harness.py` — so aocc evidence (which names IOH specs
+    like `Rewarding_Restart`) could never land as a source edit: the
+    driver scanned the wrong file, found no matching spec, and
+    silently no-oped while the bandit re-discovered the same wins
+    every night (the `drop_analyzer Restart` candidate accumulated 18
+    confirmed accepts across 17 nights this way).  Both functions now
+    take `metric: str = "composite"`; `"aocc"` routes to
+    `make_ioh_strategies` / `panobbgo/harness_ioh.py`, and
+    `codify-scan` threads its `--metric` selector into both.  The
+    same change banked the first aocc codify (dropped the `Restart`
+    analyzer from `Rewarding_Restart`; local quick-battery A/B
+    `0.3538 → 0.3922`) and added a nightly-committed
+    `planning/self_improve_codify_scan.txt` report so the current
+    actionable evidence is readable without running anything.  The
+    goal contract for agent-driven sessions lives in
+    `planning/GOAL.md` (shipped in the same change).
 *   **2026-07-10 — per-metric ledger routing (`--metric` selector +
     metric-scoped archive pooling)** — closes the first two AOCC-regime
     follow-ups the 2026-07-09 flip left open.  (1) `run` / `summary` /

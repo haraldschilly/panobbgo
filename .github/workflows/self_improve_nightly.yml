@@ -256,17 +256,41 @@ jobs:
             echo "No ledger file present ($LEDGER) — skipping summary."
           fi
 
+      - name: Regenerate codify-scan report
+        # Committed alongside the summary so the repo always carries the
+        # current actionable codify evidence — an agent (or the operator)
+        # picking up the daily routine can read
+        # planning/self_improve_codify_scan.txt without running anything.
+        # Metric-aware (2026-07-30): the scan's suppression check and the
+        # report's candidates key on the registry the selected metric
+        # actually measures (aocc → make_ioh_strategies).
+        if: always()
+        env:
+          METRIC: ${{ github.event.inputs.metric || 'aocc' }}
+        run: |
+          if [ -f "$LEDGER" ]; then
+            uv run python scripts/self_improve.py codify-scan \
+              --metric "$METRIC" \
+              --ledger "$LEDGER" \
+              > planning/self_improve_codify_scan.txt
+          else
+            echo "No ledger file present ($LEDGER) — skipping codify-scan report."
+          fi
+
       - name: Commit ledger + summary
         if: always()
         run: |
           set -euo pipefail
-          if [ -z "$(git status --porcelain "$LEDGER" planning/self_improve_summary.txt)" ]; then
+          if [ -z "$(git status --porcelain "$LEDGER" planning/self_improve_summary.txt planning/self_improve_codify_scan.txt)" ]; then
             echo "No ledger changes to commit."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$LEDGER" planning/self_improve_summary.txt
+          if [ -f planning/self_improve_codify_scan.txt ]; then
+            git add planning/self_improve_codify_scan.txt
+          fi
           ITER="${{ github.event.inputs.iterations || '20' }}"
           MODE="${{ github.event.inputs.mode || 'quick' }}"
           METRIC="${{ github.event.inputs.metric || 'aocc' }}"
@@ -295,4 +319,5 @@ jobs:
           path: |
             ${{ env.LEDGER }}
             planning/self_improve_summary.txt
+            planning/self_improve_codify_scan.txt
           retention-days: 30

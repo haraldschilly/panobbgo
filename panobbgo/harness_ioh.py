@@ -338,7 +338,7 @@ def make_ioh_strategies() -> List[StrategySpec]:
     :func:`panobbgo.harness_baselines.make_baseline_strategies` if you
     need an absolute reference.
     """
-    from panobbgo.analyzers import Restart, Sensitivity
+    from panobbgo.analyzers import Sensitivity
     from panobbgo.heuristics import Center, Nearby, NelderMead, Random, Sobol
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
 
@@ -352,12 +352,16 @@ def make_ioh_strategies() -> List[StrategySpec]:
             strategy_class=StrategyRoundRobin,
             heuristics=[(Random, {})],
         ),
-        # Adaptive heuristic mix + Restart-on-stagnation.  This is the
-        # working candidate for the MA-BBOB competition entry: roughly
-        # the same heuristics as ``Rewarding_Diverse`` from the
-        # composite-score harness, but with the Restart analyzer wired
-        # in so the second half of the budget is spent jumping basins
-        # rather than refining the same flat tail.
+        # Adaptive heuristic mix.  This is the working candidate for the
+        # MA-BBOB competition entry: roughly the same heuristics as
+        # ``Rewarding_Diverse`` from the composite-score harness.  The
+        # Restart analyzer it originally shipped with was dropped by the
+        # 2026-07-30 codify (18 confirmed drop_analyzer accepts across 17
+        # distinct nights on the aocc ledger, pooled CI95%
+        # [+0.0084, +0.0147]) — under the anytime AOCC metric the
+        # diverse-restart jumps cost more mid-budget precision than the
+        # basin-hopping recovers.  The spec name is kept for ledger /
+        # bandit-arm continuity.
         StrategySpec(
             name="Rewarding_Restart",
             strategy_class=StrategyRewarding,
@@ -370,12 +374,6 @@ def make_ioh_strategies() -> List[StrategySpec]:
             ],
             analyzers=[
                 (Sensitivity, {"update_interval": 25}),
-                # patience tuned to give the Sobol sweep + a generous
-                # local refinement phase before declaring stagnation.
-                # 5*dim is the Restart default; we go higher to bias
-                # toward exploitation early and only restart when we are
-                # genuinely stuck.
-                (Restart, {"patience": None, "improvement_threshold": 1e-6, "restart_strategy": "diverse"}),
             ],
         ),
     ]

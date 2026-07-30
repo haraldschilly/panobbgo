@@ -12843,3 +12843,186 @@ class TestMetricAwareCodifyRouting:
         for spec in specs:
             assert hasattr(spec, "heuristics")
             assert hasattr(spec, "analyzers")
+
+
+class TestStructuralAddDriverFixes:
+    """2026-07-30 fixes to the structural ``add_*`` edit primitive.
+
+    Three defects surfaced when the first real aocc structural add
+    (``LBFGSB`` onto the IOH registry) ran through the driver: a
+    missing comma after compact single-line buckets produced a *call
+    expression* ``(Random, {})(LBFGSB, {})``; the measured arm's
+    ``structural_kwargs`` were dropped (shipping cold LBFGSB where the
+    ledger measured ``warm_start=True``); and the added class was never
+    imported by the factory.  ``apply_codify_edits`` additionally
+    gained a parse-validation net so a broken edit can never land.
+    """
+
+    def _write_factory(self, tmp_path, body):
+        src = tmp_path / "fake_registry.py"
+        src.write_text(body)
+        return src
+
+    def _candidate(self, *, strategy_names=("Spec_A",), kwargs_list=()):
+        from panobbgo.self_improve import CodifyCandidate
+
+        return CodifyCandidate(
+            class_name="LBFGSB",
+            param_name="",
+            rule_kind="structural",
+            op="add_heuristic",
+            direction="add_heuristic",
+            n_accepts=max(1, len(strategy_names)),
+            distinct_dates=("2026-07-18", "2026-07-21"),
+            deltas=(0.01,) * max(1, len(strategy_names)),
+            ci_lows=(0.005,) * max(1, len(strategy_names)),
+            ci_highs=(0.02,) * max(1, len(strategy_names)),
+            old_values=(None,) * max(1, len(strategy_names)),
+            new_values=(None,) * max(1, len(strategy_names)),
+            timestamps=("t",) * max(1, len(strategy_names)),
+            strategy_names=tuple(strategy_names),
+            confirmed_flags=(True,) * max(1, len(strategy_names)),
+            structural_kwargs_list=tuple(kwargs_list),
+        )
+
+    _SINGLE_LINE_FACTORY = (
+        "from panobbgo.benchmark import StrategySpec\n"
+        "\n"
+        "\n"
+        "def make_fake_specs():\n"
+        "    from panobbgo.heuristics import Random\n"
+        "\n"
+        "    return [\n"
+        "        StrategySpec(\n"
+        '            name="Spec_A",\n'
+        "            strategy_class=None,\n"
+        "            heuristics=[(Random, {})],\n"
+        "        ),\n"
+        "    ]\n"
+    )
+
+    def test_single_line_bucket_add_stays_syntactically_valid(self, tmp_path):
+        import ast as _ast
+
+        from panobbgo.self_improve import derive_codify_edits, apply_codify_edits
+
+        src = self._write_factory(tmp_path, self._SINGLE_LINE_FACTORY)
+        cand = self._candidate(kwargs_list=({"warm_start": True},))
+        edits = derive_codify_edits(cand, sources=[(str(src), ("make_fake_specs",))])
+        entry_edits = [e for e in edits if e.spec_name == "Spec_A"]
+        assert len(entry_edits) == 1
+        new_text = apply_codify_edits(edits, dry_run=True)[str(src)]
+        _ast.parse(new_text)  # the pre-fix driver produced a call expression here
+        assert "(Random, {})," in new_text.replace("\n", " ")
+
+    def test_add_carries_consensus_structural_kwargs(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_factory(tmp_path, self._SINGLE_LINE_FACTORY)
+        cand = self._candidate(
+            kwargs_list=({"warm_start": True}, {"warm_start": True}, None),
+        )
+        edits = derive_codify_edits(cand, sources=[(str(src), ("make_fake_specs",))])
+        entry = [e for e in edits if e.spec_name == "Spec_A"][0]
+        assert '(LBFGSB, {"warm_start": True})' in entry.new_source
+
+    def test_add_without_kwargs_renders_empty_dict(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        src = self._write_factory(tmp_path, self._SINGLE_LINE_FACTORY)
+        cand = self._candidate(kwargs_list=(None,))
+        edits = derive_codify_edits(cand, sources=[(str(src), ("make_fake_specs",))])
+        entry = [e for e in edits if e.spec_name == "Spec_A"][0]
+        assert "(LBFGSB, {})" in entry.new_source
+
+    def test_add_rewrites_factory_import_sorted(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits, apply_codify_edits
+
+        src = self._write_factory(tmp_path, self._SINGLE_LINE_FACTORY)
+        cand = self._candidate(kwargs_list=({"warm_start": True},))
+        edits = derive_codify_edits(cand, sources=[(str(src), ("make_fake_specs",))])
+        import_edits = [e for e in edits if e.spec_name == "<import>"]
+        assert len(import_edits) == 1
+        new_text = apply_codify_edits(edits, dry_run=True)[str(src)]
+        assert "from panobbgo.heuristics import LBFGSB, Random" in new_text
+
+    def test_add_skips_import_edit_when_already_bound(self, tmp_path):
+        from panobbgo.self_improve import derive_codify_edits
+
+        body = self._SINGLE_LINE_FACTORY.replace(
+            "from panobbgo.heuristics import Random",
+            "from panobbgo.heuristics import LBFGSB, Random",
+        )
+        src = self._write_factory(tmp_path, body)
+        cand = self._candidate(kwargs_list=({"warm_start": True},))
+        edits = derive_codify_edits(cand, sources=[(str(src), ("make_fake_specs",))])
+        assert [e for e in edits if e.spec_name == "<import>"] == []
+
+    def test_apply_refuses_to_write_broken_python(self, tmp_path):
+        from panobbgo.self_improve import CodifyEdit, apply_codify_edits
+
+        src = tmp_path / "victim.py"
+        original = "x = 1\n"
+        src.write_text(original)
+        bad_edit = CodifyEdit(
+            source_path=str(src),
+            factory_name="f",
+            spec_name="s",
+            class_name="C",
+            param_name="",
+            rule_kind="structural",
+            direction="add_heuristic",
+            old_value=None,
+            new_value=None,
+            lineno=1,
+            col_offset=5,
+            end_lineno=1,
+            end_col_offset=5,
+            old_source="",
+            new_source=")broken(",
+        )
+        out = apply_codify_edits([bad_edit], dry_run=False)
+        assert str(src) not in out
+        assert src.read_text() == original
+
+    def test_consensus_structural_kwargs_majority_and_tie(self):
+        cand = self._candidate(
+            kwargs_list=({"a": 1}, {"a": 2}, {"a": 2}),
+        )
+        assert cand.consensus_structural_kwargs() == {"a": 2}
+        tie = self._candidate(kwargs_list=({"a": 1}, {"a": 2}))
+        # Ties break toward the most recent record.
+        assert tie.consensus_structural_kwargs() == {"a": 2}
+        empty = self._candidate(kwargs_list=(None, None))
+        assert empty.consensus_structural_kwargs() is None
+
+    def test_aggregate_collects_structural_kwargs(self):
+        from panobbgo.self_improve import aggregate_codify_candidates
+
+        def rec(day, kwargs):
+            return {
+                "record_type": "iteration",
+                "accepted": True,
+                "delta": 0.01,
+                "ci_low": 0.005,
+                "ci_high": 0.02,
+                "timestamp": f"{day}T05:00:00+00:00",
+                "confirmed": True,
+                "proposal": {
+                    "strategy_name": "Spec_A",
+                    "class_name": "LBFGSB",
+                    "param_name": "",
+                    "rule_kind": "add_heuristic",
+                    "op": "add_heuristic",
+                    "old_value": None,
+                    "new_value": None,
+                    "structural_kwargs": kwargs,
+                },
+            }
+
+        cands = aggregate_codify_candidates(
+            [rec("2026-07-18", {"warm_start": True}), rec("2026-07-21", {"warm_start": True})]
+        )
+        assert len(cands) == 1
+        assert cands[0].consensus_structural_kwargs() == {"warm_start": True}
+        assert cands[0].to_dict()["structural_kwargs"] == {"warm_start": True}

@@ -27,9 +27,16 @@
       `AGENTS.md`.
 - [x] **Validation** — 6 new tests (`TestMetricAwareCodifyRouting`); full
       `tests/test_self_improve.py` suite green (611 passed); ruff clean.
-- [ ] **Queued codify slots (one PR each, re-measure between)** —
-      `drop_heuristic Sobol` (3 nights), `add_heuristic LBFGSB` (3 nights),
-      `drop_heuristic Center` (2 nights), `Sobol.n 32 → 38` (2 nights).
+- [x] **Queued codify slots worked through (2026-07-30 second session)** —
+      `drop_heuristic Sobol` ACCEPTED (standard battery +0.0176, spec now
+      beats random at both dims); `add_heuristic LBFGSB` REJECTED (−0.0146
+      on the post-Sobol-drop spec — interaction negative); `drop_heuristic
+      Center` REJECTED (−0.0229; Center is load-bearing without Sobol);
+      `Sobol.n 32 → 38` moot.  Structural-add driver hardened in the same
+      session: missing-comma fix, `structural_kwargs` carried into edits,
+      factory-import rewriting, parse-validation net in
+      `apply_codify_edits` (8 new tests).  See the log's second 2026-07-30
+      entry.
 - [ ] **Open weakness** — hold-out base seeds score far below training seed
       (0.04 vs 0.33 on 2026-07-30): instance-family generalization is the
       top research target (see `planning/GOAL.md` §5).

@@ -17,6 +17,85 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-07-30 (second session) — Codify queue worked through: drop `Sobol` accepted; add `LBFGSB` / drop `Center` rejected (interaction negatives); structural-add driver hardened
+
+* **What** — Sequential processing of the four queued aocc codify
+  candidates, each verified with a paired A/B on the *current* spec
+  before landing (the ledger evidence for later queue entries was
+  collected against earlier spec states, so interactions must be
+  re-checked after every landing):
+
+  1. **`drop_heuristic Sobol` — ACCEPTED.**  3 confirmed nights
+     (07-13/27/29, pooled CI95% `[+0.0075, +0.0175]`), each measured on
+     that night's ladder *after* the drop-Restart accept, so the
+     evidence baseline matches the current spec.  Standard-battery A/B:
+     `Rewarding_Restart` mean AOCC `0.3342 → 0.3518` (+0.0176; d2
+     +0.0253, d5 +0.0099); the spec now beats the random floor at both
+     dims (d5 was *behind* pure random before: 0.2981 vs 0.3124).
+     Note: the 3-fixed-instance quick battery said the opposite
+     (−0.009 over 3 seeds) — overruled by the standard battery + the
+     randomized ledger nights.  Quick-battery instance sensitivity is
+     now a documented hazard for accept/reject calls.
+  2. **`add_heuristic LBFGSB({"warm_start": True})` — REJECTED**
+     (negative result).  2 nights of evidence on `Rewarding_Restart`
+     predate the Sobol drop.  On the leaner spec: standard battery
+     `0.3518 → 0.3372` (−0.0146, consistent at both dims), control
+     flat.  Interpretation: numerical-gradient polish (dim+1 evals per
+     L-BFGS-B step) costs more anytime-AOCC than it recovers now that
+     `NelderMead` is the sole local refiner on a smaller portfolio.
+     Mirrors the 2026-07-06 cold-LBFGSB composite negative.
+  3. **`drop_heuristic Center` — REJECTED** (negative result).  2
+     nights of evidence predate the Sobol drop.  Standard battery
+     `0.3518 → 0.3289` (−0.0229); d5 falls back below random (0.2769
+     vs 0.2904).  With Sobol's 32-point sweep gone, `Center`'s single
+     deterministic box-centre evaluation is a load-bearing cheap
+     prior, not dead weight.
+  4. **`Sobol.n 32 → 38` — MOOT** (the seeder it tunes was dropped).
+
+* **Driver hardening (shipped in the same session)** — the first real
+  structural *add* through `codify-scan --apply-top` exposed three
+  defects, all fixed with 8 new tests
+  (`TestStructuralAddDriverFixes`):
+
+  * **Missing-comma bug**: inserting into a compact single-line bucket
+    (`heuristics=[(Random, {})]`) produced the call expression
+    `(Random, {})(LBFGSB, {})` — syntactically parseable, crashes at
+    import.  The insertion now supplies the comma itself.
+  * **`structural_kwargs` dropped**: the edit wrote `(LBFGSB, {})`
+    where every contributing arm measured
+    `LBFGSB({"warm_start": True})` — shipping the *cold* variant the
+    2026-07-06 negative result already ruled out.
+    `CodifyCandidate` now carries `structural_kwargs_list` +
+    `consensus_structural_kwargs()` (majority, ties → most recent) and
+    the scanner renders them project-style.
+  * **No import management**: the added class was never bound in the
+    factory (→ `NameError` at first use).  `add_*` edits now also
+    rewrite the factory's `from panobbgo.heuristics import ...` /
+    `.analyzers` statement with the class inserted in sorted position
+    (one import edit per factory; skipped when already bound).
+  * **Parse-validation net**: `apply_codify_edits` refuses to write
+    any `.py` result that does not `ast.parse`, so a future primitive
+    bug surfaces as a loud skip instead of a corrupted registry.
+
+* **Guard-rail judgement call** — the LBFGSB candidate's
+  `strategy_names` included `RoundRobin_Random` (1 night); the edit
+  was *not* applied there even while testing: that spec is the pure-
+  random reference (GOAL.md §1 criterion 1 and every local A/B's
+  control).  Mutating the measuring stick invalidates the measurements.
+  Consider a codify-scan exclusion list for reference specs.
+
+* **Net effect on the metric of record** — standard battery
+  `Rewarding_Restart`: session start `0.3342` → session end `0.3518`
+  (+0.0176 from the Sobol drop; the two rejected candidates would have
+  given back −0.015/−0.023 of it had they shipped unverified).
+
+* **Next** — the queue is empty; the nightly loop now mutates a
+  3-heuristic spec (`Random` / `Nearby` / `NelderMead`) + `Sensitivity`
+  analyzer.  Fresh evidence will key on the new baseline.  Top research
+  target remains the hold-out instance-family gap (GOAL.md §5.1);
+  d5 remains barely above the random floor (0.3080 vs 0.3039) —
+  GOAL.md §5.2 (CMA-ES arm) is the natural attack.
+
 ### 2026-07-30 — Metric-aware codify routing + first aocc codify (drop `Restart` from `Rewarding_Restart`) + goal contract
 
 * **What** — Three coupled ships that un-stall the aocc-era codify last

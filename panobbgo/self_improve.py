@@ -162,6 +162,7 @@ import bisect
 import json
 import math
 import pathlib
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -5490,6 +5491,13 @@ class CodifyCandidate:
     confirmed_flags: Tuple[Optional[bool], ...]
     already_codified: bool = False
     live_codified_values: Tuple[Any, ...] = ()
+    #: Per-record ``proposal.structural_kwargs`` (dict or ``None``) in
+    #: ledger order.  Only meaningful for structural ``add_*`` ops —
+    #: the kwargs the measured arm constructed the added class with
+    #: (e.g. ``{"warm_start": True}`` for the LBFGSB catalog
+    #: candidate).  Kwarg / categorical candidates carry an empty
+    #: tuple.  Consumed by :meth:`consensus_structural_kwargs`.
+    structural_kwargs_list: Tuple[Optional[Dict[str, Any]], ...] = ()
 
     @property
     def n_distinct_nights(self) -> int:
@@ -5544,6 +5552,33 @@ class CodifyCandidate:
         treat the result as suggestive only.
         """
         return _percentile_bootstrap_ci(self.deltas, n_boot=n_boot, confidence=confidence, seed=seed)
+
+    def consensus_structural_kwargs(self) -> Optional[Dict[str, Any]]:
+        """Kwargs a structural ``add_*`` codify edit should construct with.
+
+        The nightly loop measured the added class with the *catalog
+        candidate's* kwargs (recorded per-accept in
+        ``proposal.structural_kwargs``), so a codify edit that writes
+        ``(Class, {})`` would ship something the ledger never measured
+        — for ``LBFGSB`` the difference is stark: the catalog arm is
+        ``{"warm_start": True}`` precisely because the cold variant was
+        a measured regression (2026-07-06 negative result).
+
+        Returns the most common kwargs dict among contributing records
+        (ties broken toward the most recent), or ``None`` when no
+        record carries kwargs (legacy ledgers, drop ops, kwarg rules).
+        """
+        counted: Dict[str, Tuple[int, int, Dict[str, Any]]] = {}
+        for idx, kw in enumerate(self.structural_kwargs_list):
+            if not isinstance(kw, dict):
+                continue
+            key = json.dumps({k: kw[k] for k in sorted(kw)}, sort_keys=True, default=str)
+            count, _last_idx, _ = counted.get(key, (0, -1, kw))
+            counted[key] = (count + 1, idx, kw)
+        if not counted:
+            return None
+        _, _, best = max(counted.values(), key=lambda t: (t[0], t[1]))
+        return dict(best)
 
     def proposed_codify_value(self, *, n_sig: int = 3) -> Any:
         """Compute the new seed value a codify edit would apply for this candidate.
@@ -5641,6 +5676,7 @@ class CodifyCandidate:
             "already_codified": bool(self.already_codified),
             "live_codified_values": [_to_plain(v) for v in self.live_codified_values],
             "proposed_codify_value": _to_plain(self.proposed_codify_value()),
+            "structural_kwargs": self.consensus_structural_kwargs(),
         }
 
 
@@ -5739,6 +5775,7 @@ def aggregate_codify_candidates(
                 "timestamps": [],
                 "strategy_names": [],
                 "confirmed_flags": [],
+                "structural_kwargs_list": [],
                 "dates": set(),
             },
         )
@@ -5749,6 +5786,8 @@ def aggregate_codify_candidates(
         bucket["new_values"].append(proposal.get("new_value"))
         bucket["timestamps"].append(str(rec.get("timestamp", "")))
         bucket["strategy_names"].append(str(proposal.get("strategy_name", "")))
+        skw = proposal.get("structural_kwargs")
+        bucket["structural_kwargs_list"].append(dict(skw) if isinstance(skw, dict) else None)
         confirmed = rec.get("confirmed")
         bucket["confirmed_flags"].append(None if confirmed is None else bool(confirmed))
         date_str = _date_from_timestamp(rec.get("timestamp"))
@@ -5779,6 +5818,7 @@ def aggregate_codify_candidates(
             timestamps=tuple(data["timestamps"]),
             strategy_names=tuple(data["strategy_names"]),
             confirmed_flags=tuple(data["confirmed_flags"]),
+            structural_kwargs_list=tuple(data["structural_kwargs_list"]),
         )
         candidates.append(cand)
 
@@ -6571,6 +6611,89 @@ def _byte_to_lineno_col(byte_offset: int, line_starts: Sequence[int]) -> Tuple[i
     return lineno, col_offset
 
 
+def _format_structural_kwargs(kwargs: Optional[Dict[str, Any]]) -> str:
+    """Render an ``add_*`` entry's kwargs dict as project-style source.
+
+    Double-quoted keys + :func:`_format_value_repr` values, insertion
+    order preserved — matches the ``(ClassName, {"param": value})``
+    convention used across the seed-spec factories.  ``None`` / empty
+    renders as ``{}`` (constructor defaults).
+    """
+    if not kwargs:
+        return "{}"
+    inner = ", ".join(f'"{k}": {_format_value_repr(v)}' for k, v in kwargs.items())
+    return "{" + inner + "}"
+
+
+_STRUCTURAL_BUCKET_TO_IMPORT_MODULE: Dict[str, str] = {
+    "heuristics": "panobbgo.heuristics",
+    "analyzers": "panobbgo.analyzers",
+}
+
+
+def _derive_import_edit(
+    text: str,
+    line_starts: List[int],
+    factory: ast.FunctionDef,
+    *,
+    module: str,
+    class_name: str,
+    source_path: str,
+    op: str,
+) -> Optional[CodifyEdit]:
+    """Rewrite the factory's ``from <module> import ...`` to bind ``class_name``.
+
+    Seed-spec factories import their heuristic / analyzer classes
+    inside the function body (e.g. ``from panobbgo.heuristics import
+    Center, Random``), so a structural ``add_*`` entry edit for a class
+    the factory has never used would raise ``NameError`` at run time.
+    This helper finds the factory's matching :class:`ast.ImportFrom`
+    and produces a :class:`CodifyEdit` replacing it with the same
+    import plus ``class_name`` inserted in sorted position (aliases are
+    preserved verbatim).
+
+    Returns ``None`` when the class is already bound by the import,
+    or when the factory contains no import from ``module`` — in the
+    latter case the caller ships the entry edit alone and the operator
+    resolves the binding manually (the post-apply parse validation in
+    :func:`apply_codify_edits` only guards *syntax*, not name
+    resolution).
+    """
+    for node in ast.walk(factory):
+        if not isinstance(node, ast.ImportFrom) or node.module != module:
+            continue
+        if any(alias.name == class_name for alias in node.names):
+            return None
+        if node.end_lineno is None or node.end_col_offset is None:
+            return None
+        rendered = [
+            (alias.name, f"{alias.name} as {alias.asname}" if alias.asname else alias.name) for alias in node.names
+        ]
+        rendered.append((class_name, class_name))
+        rendered.sort(key=lambda pair: pair[0])
+        new_source = f"from {module} import " + ", ".join(src for _name, src in rendered)
+        start_byte = line_starts[node.lineno - 1] + node.col_offset
+        end_byte = line_starts[node.end_lineno - 1] + node.end_col_offset
+        return CodifyEdit(
+            source_path=source_path,
+            factory_name=factory.name,
+            spec_name="<import>",
+            class_name=class_name,
+            param_name="",
+            rule_kind="structural",
+            direction=op,
+            old_value=None,
+            new_value=None,
+            lineno=node.lineno,
+            col_offset=node.col_offset,
+            end_lineno=node.end_lineno,
+            end_col_offset=node.end_col_offset,
+            old_source=text[start_byte:end_byte],
+            new_source=new_source,
+        )
+    return None
+
+
 def _scan_source_for_structural_edits(
     source_path: str,
     *,
@@ -6578,6 +6701,7 @@ def _scan_source_for_structural_edits(
     class_name: str,
     op: str,
     target_spec_names: Optional[Set[str]] = None,
+    add_kwargs: Optional[Dict[str, Any]] = None,
 ) -> List[CodifyEdit]:
     """Find every :class:`StrategySpec` site to structurally mutate for ``class_name``.
 
@@ -6598,12 +6722,23 @@ def _scan_source_for_structural_edits(
     * ``add_heuristic`` / ``add_analyzer``: emit a single zero-width
       insertion :class:`CodifyEdit` at the position just *before* the
       closing ``]`` of the target bucket.  The inserted text is
-      ``(ClassName, {}),\\n<indent>`` where ``<indent>`` matches the
-      column offset of the bucket's first existing entry (falling back
-      to 12 spaces — the ``StrategySpec(...)`` convention used across
-      ``_make_*_strategies``).  The empty dict signals "use constructor
-      defaults"; operators tune the added heuristic via the standard
-      kwarg-mutation catalog after the add.
+      ``(ClassName, <kwargs>),\\n<indent>`` where ``<indent>`` matches
+      the column offset of the bucket's first existing entry (falling
+      back to 12 spaces — the ``StrategySpec(...)`` convention used
+      across ``_make_*_strategies``) and ``<kwargs>`` renders
+      ``add_kwargs`` via :func:`_format_structural_kwargs` (``{}`` =
+      constructor defaults when the candidate carries none).  When the
+      last existing entry has no trailing comma (compact single-line
+      buckets like ``heuristics=[(Random, {})]``), a ``,`` is inserted
+      first so the resulting list literal stays syntactically valid.
+      When ``class_name`` is not already bound by the factory's
+      ``from panobbgo.heuristics import ...`` (or ``.analyzers``)
+      statement, an additional :class:`CodifyEdit` rewrites that import
+      with the class inserted in sorted position — one import edit per
+      (factory, module) even when several specs in the factory receive
+      the class.  A factory with no matching import statement gets no
+      import edit (the entry edit still lands; the operator resolves
+      the binding manually).
 
     Safety guards keep the primitive conservative:
 
@@ -6658,6 +6793,7 @@ def _scan_source_for_structural_edits(
     except SyntaxError:
         return []
     edits: List[CodifyEdit] = []
+    import_edited: Set[Tuple[str, str]] = set()
     factory_set = set(factory_names)
     # Precompute line starts for byte-offset arithmetic — matches the
     # convention in :func:`_apply_edits_to_text` so the resulting
@@ -6825,6 +6961,7 @@ def _scan_source_for_structural_edits(
                 #
                 # Both variants preserve the source's existing
                 # indentation convention rather than guessing.
+                kwargs_source = _format_structural_kwargs(add_kwargs)
                 if bucket.elts:
                     last_entry = bucket.elts[-1]
                     if last_entry.end_lineno is None or last_entry.end_col_offset is None:
@@ -6833,16 +6970,25 @@ def _scan_source_for_structural_edits(
                     if last_end < 0 or last_end > len(text):
                         continue
                     # Consume a trailing comma if present so the new
-                    # entry lands after it (not before).
+                    # entry lands after it (not before).  When the last
+                    # entry has NO trailing comma (compact single-line
+                    # buckets like ``heuristics=[(Random, {})]``), the
+                    # insertion must supply one itself — inserting the
+                    # new tuple directly after ``(Random, {})`` would
+                    # produce the *call expression* ``(Random,
+                    # {})(NewClass, {})``, which is syntactically valid
+                    # to the eye but crashes at import time.
                     insert_byte = last_end
-                    if insert_byte < len(text) and text[insert_byte] == ",":
+                    had_trailing_comma = insert_byte < len(text) and text[insert_byte] == ","
+                    if had_trailing_comma:
                         insert_byte += 1
                     # Match the last entry's indent (its column offset
                     # is the number of leading spaces before it on its
                     # line) so the new entry aligns visually.
                     indent = " " * last_entry.col_offset
                     insert_lineno, insert_col = _byte_to_lineno_col(insert_byte, line_starts)
-                    new_entry_source = f"\n{indent}({class_name}, {{}}),"
+                    comma_prefix = "" if had_trailing_comma else ","
+                    new_entry_source = f"{comma_prefix}\n{indent}({class_name}, {kwargs_source}),"
                 else:
                     # Empty bucket (e.g. ``analyzers=[]``): insert
                     # inline between ``[`` and ``]`` since there's no
@@ -6855,7 +7001,7 @@ def _scan_source_for_structural_edits(
                         continue
                     insert_byte = open_byte
                     insert_lineno, insert_col = _byte_to_lineno_col(insert_byte, line_starts)
-                    new_entry_source = f"({class_name}, {{}})"
+                    new_entry_source = f"({class_name}, {kwargs_source})"
                 edits.append(
                     CodifyEdit(
                         source_path=source_path,
@@ -6875,6 +7021,24 @@ def _scan_source_for_structural_edits(
                         new_source=new_entry_source,
                     )
                 )
+                # Make sure the factory can actually resolve the class
+                # it now constructs — one import rewrite per (factory,
+                # module) even when several specs in the factory
+                # receive the class.
+                module = _STRUCTURAL_BUCKET_TO_IMPORT_MODULE.get(bucket_name)
+                if module is not None and (top.name, module) not in import_edited:
+                    import_edit = _derive_import_edit(
+                        text,
+                        line_starts,
+                        top,
+                        module=module,
+                        class_name=class_name,
+                        source_path=source_path,
+                        op=op,
+                    )
+                    import_edited.add((top.name, module))
+                    if import_edit is not None:
+                        edits.append(import_edit)
     return edits
 
 
@@ -6944,6 +7108,7 @@ def derive_codify_edits(
                     class_name=candidate.class_name,
                     op=candidate.op,
                     target_spec_names=target_spec_names,
+                    add_kwargs=candidate.consensus_structural_kwargs(),
                 )
             )
         return edits
@@ -7041,6 +7206,22 @@ def apply_codify_edits(
             continue
         text = path.read_text()
         new_text = _apply_edits_to_text(text, file_edits)
+        # Safety net: never land a syntactically-broken source file.  A
+        # coordinate bug in an edit primitive (e.g. the pre-2026-07-30
+        # missing-comma insertion on single-line buckets) must surface
+        # as a loud skip, not a silently corrupted registry that every
+        # later harness run crashes on.
+        if source_path.endswith(".py"):
+            try:
+                ast.parse(new_text)
+            except SyntaxError as exc:
+                print(
+                    f"apply_codify_edits: refusing to write {source_path} — "
+                    f"edited result does not parse ({exc}).  "
+                    "This is a bug in the edit primitive; nothing was written.",
+                    file=sys.stderr,
+                )
+                continue
         out[source_path] = new_text
         if not dry_run and new_text != text:
             path.write_text(new_text)

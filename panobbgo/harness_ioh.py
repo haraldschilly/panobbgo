@@ -339,7 +339,7 @@ def make_ioh_strategies() -> List[StrategySpec]:
     need an absolute reference.
     """
     from panobbgo.analyzers import Sensitivity
-    from panobbgo.heuristics import Center, Nearby, NelderMead, Random, Sobol
+    from panobbgo.heuristics import Center, Nearby, NelderMead, Random
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
 
     return [

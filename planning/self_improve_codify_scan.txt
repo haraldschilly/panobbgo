@@ -1,17 +1,7 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
   gates: min_nights>=2, all_record_ci_low>0, hide_already_codified
   records scanned: 613
-  candidates surfaced: 4 (of 6; 2 already codified, hidden)
-
-- Sobol [structural op=drop_heuristic] direction=drop_heuristic
-    n_accepts=3  n_nights=3  mean_Δ=+0.0125  pooled_CI95%=[+0.0075,+0.0175]  min_record_ci_low=+0.0075  confirmed=3/3
-    nights: 2026-07-13, 2026-07-27, 2026-07-29
-    live seed value(s): 'Rewarding_Restart'
-    strategies: Rewarding_Restart
-    evidence:
-      2026-07-13 06:15:16  Δ=+0.0125  CI=[+0.0125,+0.0125]  Rewarding_Restart/Sobol.: None -> None  [confirmed]
-      2026-07-27 06:26:03  Δ=+0.0075  CI=[+0.0075,+0.0075]  Rewarding_Restart/Sobol.: None -> None  [confirmed]
-      2026-07-29 05:48:18  Δ=+0.0175  CI=[+0.0175,+0.0175]  Rewarding_Restart/Sobol.: None -> None  [confirmed]
+  candidates surfaced: 3 (of 6; 3 already codified, hidden)
 
 - LBFGSB [structural op=add_heuristic] direction=add_heuristic
     n_accepts=3  n_nights=3  mean_Δ=+0.0078  pooled_CI95%=[+0.0042,+0.0117]  min_record_ci_low=+0.0042  confirmed=3/3
@@ -34,7 +24,6 @@ Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger pare
 - Sobol.n [integer_add] direction=up
     n_accepts=2  n_nights=2  mean_Δ=+0.0117  pooled_CI95%=[+0.0117,+0.0117]  min_record_ci_low=+0.0117  confirmed=2/2
     nights: 2026-07-13, 2026-07-27
-    live seed value(s): 32
     proposed codify value: 38
     strategies: Rewarding_Restart
     evidence:

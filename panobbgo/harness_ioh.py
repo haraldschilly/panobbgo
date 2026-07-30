@@ -366,7 +366,6 @@ def make_ioh_strategies() -> List[StrategySpec]:
             name="Rewarding_Restart",
             strategy_class=StrategyRewarding,
             heuristics=[
-                (Sobol, {"n": 32, "scramble": True}),
                 (Random, {}),
                 (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
                 (Center, {}),

@@ -1866,6 +1866,8 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     from panobbgo.self_improve import (
         aggregate_codify_candidates,
         annotate_codified_status,
+        default_codify_apply_sources,
+        default_codify_registries,
         detect_widening_candidates,
         ledger_path_for_metric,
         load_ledgers_for_codify_scan,
@@ -1904,9 +1906,11 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     )
 
     # Annotate already-codified status against the live seed-spec
-    # factories (quick + loop registries) so the report can suppress
-    # candidates whose implied source edit would be a no-op.
-    annotate_codified_status(candidates)
+    # factories of the selected metric's regime (composite → quick +
+    # loop registries; aocc → make_ioh_strategies) so the report can
+    # suppress candidates whose implied source edit would be a no-op.
+    metric = str(getattr(args, "metric", "composite") or "composite")
+    annotate_codified_status(candidates, registries=default_codify_registries(metric=metric))
 
     n_total_candidates = len(candidates)
     suppress_codified = getattr(args, "suppress_codified", True)
@@ -2033,6 +2037,7 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         rc = _apply_top_codify_candidate(
             visible_candidates,
             all_candidates=candidates,
+            sources=default_codify_apply_sources(metric=metric),
             dry_run=bool(getattr(args, "apply_dry_run", False)),
             include_bidirectional=bool(getattr(args, "apply_include_bidirectional", False)),
             open_pr=open_pr,
@@ -2052,6 +2057,7 @@ def _apply_top_codify_candidate(
     visible_candidates: Sequence[Any],
     *,
     all_candidates: Sequence[Any],
+    sources: Optional[Sequence[Tuple[str, Sequence[str]]]] = None,
     dry_run: bool,
     include_bidirectional: bool = False,
     open_pr: bool = False,
@@ -2161,7 +2167,7 @@ def _apply_top_codify_candidate(
         print(f"  selected: {slot} [{chosen.rule_kind}] direction={chosen.direction}")
         print(f"  proposed codify value: {proposed!r}")
 
-    edits, modified_files = apply_codify_candidate(chosen, dry_run=dry_run)
+    edits, modified_files = apply_codify_candidate(chosen, sources=sources, dry_run=dry_run)
     if not edits:
         if chosen.op is not None:
             print(

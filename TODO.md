@@ -2,6 +2,45 @@
 
 ## Recent Improvements (continued)
 
+### Metric-aware codify routing + first aocc codify + goal contract — 2026-07-30
+- [x] **Bug fix (the aocc codify stall)** — `default_codify_registries()` and
+      `default_codify_apply_sources()` in `panobbgo/self_improve.py` gain a
+      `metric: str = "composite"` parameter; `"aocc"` routes suppression to
+      `panobbgo.harness_ioh.make_ioh_strategies` and the `--apply-top` edit
+      driver to `panobbgo/harness_ioh.py`.  Between 2026-07-09 (nightly metric
+      flip) and this fix, aocc evidence could never land as a source edit —
+      the driver scanned `harness.py`, found no matching spec, and silently
+      no-oped while the bandit re-discovered the same wins nightly (18
+      confirmed `drop_analyzer Restart` accepts across 17 nights).
+      `codify-scan` threads `--metric` into both call sites.
+- [x] **First aocc codify banked** — dropped the `Restart` analyzer from the
+      `Rewarding_Restart` spec in `make_ioh_strategies` via the fixed driver.
+      Local paired A/B (quick IOH battery): `Rewarding_Restart` mean AOCC
+      `0.3538 → 0.3922`, `RoundRobin_Random` control flat.  Post-codify scan
+      auto-suppresses the candidate (self-stability verified).
+- [x] **Nightly visibility** — `self_improve_nightly.yml` now regenerates and
+      commits `planning/self_improve_codify_scan.txt` (metric-aware) alongside
+      the summary, so actionable evidence is readable without running anything.
+- [x] **Goal contract** — new `planning/GOAL.md`: metric of record, per-session
+      operating loop, multi-day escalation ladder, SOTA-informed research
+      backlog (MA-BBOB / LLaMEA / modular CMA-ES context).  Pointer added to
+      `AGENTS.md`.
+- [x] **Validation** — 6 new tests (`TestMetricAwareCodifyRouting`); full
+      `tests/test_self_improve.py` suite green (611 passed); ruff clean.
+- [x] **Queued codify slots worked through (2026-07-30 second session)** —
+      `drop_heuristic Sobol` ACCEPTED (standard battery +0.0176, spec now
+      beats random at both dims); `add_heuristic LBFGSB` REJECTED (−0.0146
+      on the post-Sobol-drop spec — interaction negative); `drop_heuristic
+      Center` REJECTED (−0.0229; Center is load-bearing without Sobol);
+      `Sobol.n 32 → 38` moot.  Structural-add driver hardened in the same
+      session: missing-comma fix, `structural_kwargs` carried into edits,
+      factory-import rewriting, parse-validation net in
+      `apply_codify_edits` (8 new tests).  See the log's second 2026-07-30
+      entry.
+- [ ] **Open weakness** — hold-out base seeds score far below training seed
+      (0.04 vs 0.33 on 2026-07-30): instance-family generalization is the
+      top research target (see `planning/GOAL.md` §5).
+
 ### Opt-in higher-dimensional battery (`extra_families` / `--extra-highdim`) — 2026-07-13
 - [x] **Measurement substrate** — added
       `panobbgo/harness_randomized.py::make_highdim_families` (a rotated

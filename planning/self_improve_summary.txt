@@ -1,9 +1,9 @@
 Ledger:        planning/self_improve_ledger_aocc.jsonl
-Iterations:    440  (decided=440, skipped=0, no-op=0)
-Accepts:       49  (11.1% of informative)
-Confirm-rej:   87  (64.0% of screening accepts overturned)
-Guards:        44  (rollbacks=6, total pops=7)
-Hold-outs:     42  (overfit=0, vacuous=4)
+Iterations:    460  (decided=460, skipped=0, no-op=0)
+Accepts:       52  (11.3% of informative)
+Confirm-rej:   92  (63.9% of screening accepts overturned)
+Guards:        46  (rollbacks=6, total pops=7)
+Hold-outs:     44  (overfit=0, vacuous=4)
 Best Δ seen:   +0.0333
 Accepted changes:
   iter=12  Δ=+0.0092  Rewarding_Restart/Restart.: None -> None
@@ -55,6 +55,9 @@ Accepted changes:
   iter=8  Δ=+0.0175  Rewarding_Restart/Sobol.: None -> None
   iter=15  Δ=+0.0100  Rewarding_Restart/Restart.: None -> None
   iter=0  Δ=+0.0050  Rewarding_Restart/Restart.: None -> None
+  iter=4  Δ=+0.0092  Rewarding_Restart/Sensitivity.update_interval: 25 -> 20
+  iter=7  Δ=+0.0142  RoundRobin_Random/Nearby.: None -> None
+  iter=18  Δ=+0.0075  Rewarding_Restart/Sensitivity.: None -> None
 Guard rollbacks:
   iter=19  pops=1  score=0.3283 vs stored 0.3533; new top iter=10
   iter=19  pops=1  score=0.3350 vs stored 0.3558; new top iter=4
@@ -150,6 +153,11 @@ Confirm rejects (§6.4 same-night gate):
   iter=13  screen_Δ=+0.0067  confirm_Δ=-0.0058  pooled_Δ=+0.0004  CI=[-0.0046,+0.0054]
   iter=12  screen_Δ=+0.0058  confirm_Δ=-0.0092  pooled_Δ=-0.0017  CI=[-0.0079,+0.0046]
   iter=16  screen_Δ=+0.0175  confirm_Δ=-0.0058  pooled_Δ=+0.0058  CI=[-0.0063,+0.0183]
+  iter=2  screen_Δ=+0.0133  confirm_Δ=-0.0042  pooled_Δ=+0.0046  CI=[-0.0067,+0.0158]
+  iter=6  screen_Δ=+0.0058  confirm_Δ=-0.0083  pooled_Δ=-0.0013  CI=[-0.0121,+0.0104]
+  iter=11  screen_Δ=+0.0100  confirm_Δ=-0.0083  pooled_Δ=+0.0008  CI=[-0.0071,+0.0088]
+  iter=14  screen_Δ=+0.0125  confirm_Δ=+0.0008  pooled_Δ=+0.0067  CI=[+0.0000,+0.0129]
+  iter=16  screen_Δ=+0.0075  confirm_Δ=-0.0042  pooled_Δ=+0.0017  CI=[-0.0058,+0.0096]
 Hold-out validation:
   OK  drift=+0.0378  holdout_gap=+0.0437 training_gap=+0.0058  top_iter=19  (base_seed=7, n=5)
   OK  drift=-0.0094  holdout_gap=-0.0036 training_gap=+0.0058  top_iter=19  (base_seed=1234, n=5)
@@ -193,8 +201,10 @@ Hold-out validation:
   OK  drift=-0.0013  holdout_gap=-0.0071 training_gap=-0.0058  top_iter=15  (base_seed=1234, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=7, n=5)
   VACUOUS  drift=+0.0000  holdout_gap=+0.0000 training_gap=+0.0000  top_iter=-1  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0288  overfit=0/42  vacuous=4/42  worst_seed=7
-  --> drift CI: OK_CI  mean=+0.0070  CI95%=[+0.0022, +0.0119]  n_samples=190  n_records=42  vacuous=4/42
+  OK  drift=+0.0146  holdout_gap=+0.0212 training_gap=+0.0067  top_iter=18  (base_seed=7, n=5)
+  OK  drift=+0.0010  holdout_gap=+0.0077 training_gap=+0.0067  top_iter=18  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0288  overfit=0/44  vacuous=4/44  worst_seed=7
+  --> drift CI: OK_CI  mean=+0.0070  CI95%=[+0.0024, +0.0117]  n_samples=200  n_records=44  vacuous=4/44
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
@@ -220,20 +230,21 @@ Trend (one row per loop run, oldest first):
   2026-07-28 05:42:38     42  quick        20    20     1     0   +0.0158      0.3400
   2026-07-29 05:47:07     42  quick        20    20     3     0   +0.0333      0.3433
   2026-07-30 05:36:03     42  quick        20    20     1     0   +0.0175      0.3333
+  2026-07-31 06:07:38     42  quick        20    20     3     0   +0.0142      0.3450
 
 Bandit posteriors (n_attempts >= 3, 9 eligible rules):
   Top 9 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  *                       drop_analyzer           structural            63    19    0.458     30.2%
+  *                       drop_analyzer           structural            64    20    0.466     31.2%
+  Sensitivity             update_interval         integer_add           15     2    0.436     13.3%
   Sobol                   n                       integer_add           17     3    0.415     17.6%
   Restart                 restart_strategy        categorical_choice     7     0    0.387      0.0%
-  Sensitivity             update_interval         integer_add           12     1    0.382      8.3%
-  *                       drop_heuristic          structural            87     8    0.360      9.2%
-  *                       add_heuristic           structural           211    17    0.353      8.1%
+  *                       drop_heuristic          structural            90     8    0.355      8.9%
+  *                       add_heuristic           structural           223    18    0.352      8.1%
   Sobol                   scramble                categorical_choice    13     1    0.340      7.7%
   *                       add_analyzer            structural            21     0    0.264      0.0%
-  Nearby                  radius                  log_uniform_pertur     6     0    0.215      0.0%
+  Nearby                  radius                  log_uniform_pertur     7     0    0.256      0.0%
 
 Inactivity:
   eps_accept_base=0.0050  longest_drought=18 iters
-  relaxed_accepts=5/49  mean_decay_at_accept=0.500
+  relaxed_accepts=6/52  mean_decay_at_accept=0.500

@@ -1,7 +1,7 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
   gates: min_nights>=2, all_record_ci_low>0, hide_already_codified
-  records scanned: 642
-  candidates surfaced: 5 (of 8; 3 already codified, hidden)
+  records scanned: 669
+  candidates surfaced: 6 (of 9; 3 already codified, hidden)
 
 - LBFGSB [structural op=add_heuristic] direction=add_heuristic
     n_accepts=3  n_nights=3  mean_Δ=+0.0078  pooled_CI95%=[+0.0042,+0.0117]  min_record_ci_low=+0.0042  confirmed=3/3
@@ -29,6 +29,14 @@ Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger pare
     evidence:
       2026-07-13 06:11:41  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sobol.n: 32 -> 40  [confirmed]
       2026-07-27 06:25:23  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sobol.n: 32 -> 36  [confirmed]
+
+- JSO [structural op=add_heuristic] direction=add_heuristic
+    n_accepts=2  n_nights=2  mean_Δ=+0.0112  pooled_CI95%=[+0.0092,+0.0133]  min_record_ci_low=+0.0092  confirmed=2/2
+    nights: 2026-07-19, 2026-08-01
+    strategies: Rewarding_Restart, RoundRobin_Random
+    evidence:
+      2026-07-19 05:47:48  Δ=+0.0133  CI=[+0.0133,+0.0133]  RoundRobin_Random/JSO.: None -> None  [confirmed]
+      2026-08-01 05:55:14  Δ=+0.0092  CI=[+0.0092,+0.0092]  Rewarding_Restart/JSO.: None -> None  [confirmed]
 
 - Sensitivity.update_interval [integer_add] direction=down
     n_accepts=2  n_nights=2  mean_Δ=+0.0104  pooled_CI95%=[+0.0092,+0.0117]  min_record_ci_low=+0.0092  confirmed=2/2

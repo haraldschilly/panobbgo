@@ -2,6 +2,23 @@
 
 ## Recent Improvements (continued)
 
+### Codify: `JSO({'NP_init': 'auto'})` added to `Rewarding_Restart` — 2026-08-02
+- [x] **Codify banked** — `add_heuristic JSO` slot from the aocc ledger
+      (2 confirmed nights, pooled CI95% `[+0.0092, +0.0133]`; the 2026-08-01
+      accept was measured on the current post-Sobol-drop spec).  Standard-
+      battery paired A/B: `Rewarding_Restart` mean AOCC `0.3374 → 0.3596`
+      (+0.0222; d2 +0.0156, d5 +0.0287), control flat.  d5 now clearly beats
+      the random floor (0.3196 vs 0.2878).  Edit scoped to `Rewarding_Restart`
+      only — `RoundRobin_Random` stays the untouched reference.
+- [ ] **Scan hygiene** — `codify-scan` has no rejection memory: the
+      A/B-rejected `LBFGSB [add]` / `Center [drop]` slots (2026-07-30) still
+      surface at ranks 1–2 and `--apply-top` would re-apply them.  Add a
+      rejected-slots suppression list consulted by the scan.
+- [ ] **`Sensitivity` contradiction** — the scan surfaces both
+      `update_interval 25 → 20` and `drop_analyzer Sensitivity`, each with a
+      post-drop night (2026-07-31).  Settle with a two-way A/B before
+      applying either.
+
 ### Metric-aware codify routing + first aocc codify + goal contract — 2026-07-30
 - [x] **Bug fix (the aocc codify stall)** — `default_codify_registries()` and
       `default_codify_apply_sources()` in `panobbgo/self_improve.py` gain a

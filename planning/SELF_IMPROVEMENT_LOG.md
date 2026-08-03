@@ -83,6 +83,70 @@ Conventions:
   generalization) and §5.2 (CMA-ES arm) — attack with the 12-seed
   paired protocol from the start.
 
+### 2026-08-02 — Codify: add `JSO({'NP_init': 'auto'})` to `Rewarding_Restart` (d5 finally clears the random floor)
+
+* **What** — Banked the `JSO [add_heuristic]` codify slot from the aocc
+  ledger into `panobbgo/harness_ioh.py::make_ioh_strategies`:
+  `(JSO, {"NP_init": "auto"})` appended to the `Rewarding_Restart`
+  heuristic bucket.  Applied manually (not via `--apply-top`) because
+  the scan's top two candidates — `add_heuristic LBFGSB` and
+  `drop_heuristic Center` — are the *already-rejected* 2026-07-30
+  negatives that keep resurfacing (see "scan hygiene" below), and the
+  driver has no way to skip to the n-th candidate.
+
+* **Evidence (per AGENTS.md "Agent-driven improve X PRs")** —
+  * Ledger: 2 confirmed accepts on 2 distinct nights, pooled CI95%
+    `[+0.0092, +0.0133]`, mean Δ `+0.0112`; both measured
+    `JSO({'NP_init': 'auto'})`.  Crucially the 2026-08-01 accept
+    (`Rewarding_Restart`, Δ `+0.0092`, confirmed on a fresh
+    randomize_iteration) was measured on the *current* post-Sobol-drop
+    spec, so the interaction hazard that sank LBFGSB/Center does not
+    apply to that record.  (2026-07-19 accept was on
+    `RoundRobin_Random`, pre-drop — supporting, not primary.)
+  * Local paired A/B, standard battery (dims 2+5, 5 instances,
+    500·d budget): `Rewarding_Restart` mean AOCC `0.3374 → 0.3596`
+    (+0.0222), positive at *both* dims — d2 `0.3840 → 0.3996`
+    (+0.0156), d5 `0.2909 → 0.3196` (+0.0287).  `RoundRobin_Random`
+    control flat (`0.3262 → 0.3252`).  Battery mean `0.3318 → 0.3424`.
+  * Quick battery (4 paired seeds: default, 1, 2, 3): mean Δ `+0.0013`
+    (noise-flat) — consistent with the documented quick-battery
+    instance-sensitivity hazard from the 2026-07-30 Sobol call;
+    the standard battery is the decision battery for structural edits.
+
+* **Why it works** — d5 was the spec's weakest regime (barely above
+  the random floor since the Sobol drop: 0.2909 vs 0.2898 in this
+  session's before-run).  jSO is an L-SHADE-lineage adaptive DE — the
+  strongest classical family at exactly this budget/dim regime (GOAL.md
+  §5.2 names the lineage) — and `NP_init="auto"` sizes its population
+  from the strategy budget (the 2026-07-05 composite-track result).
+  With it, d5 jumps +0.0287 and now clearly beats random (0.3196 vs
+  0.2878).
+
+* **Guard-rails observed** — edit scoped to `Rewarding_Restart` only;
+  `RoundRobin_Random` is the pure-random reference spec and stays
+  untouched (2026-07-30 judgement call, reaffirmed).  One codify slot
+  in this PR; nothing else shipped.
+
+* **Scan hygiene (open item for the next session)** — `codify-scan`
+  re-surfaced `LBFGSB [add]` (rank 1) and `Center [drop]` (rank 2)
+  even though both were A/B-rejected on 2026-07-30; their ledger
+  evidence all predates the Sobol drop and the scan has no rejection
+  memory.  Until a "rejected slots" suppression list exists (natural
+  spot: a small JSON consulted by `codify-scan` next to the ledger),
+  every session must cross-check scan candidates against the dated
+  REJECTED entries in this log before applying.  `Sobol.n → 38` is
+  moot (seeder dropped) and also still surfaces.  The two `Sensitivity`
+  candidates (tune `update_interval` 25→20 vs drop the analyzer) are
+  mutually contradictory — both have a post-drop night (2026-07-31),
+  so the right move is an A/B of the two against each other, not
+  applying whichever scans higher.
+
+* **Next** — (a) rejected-slot suppression for codify-scan; (b) settle
+  the `Sensitivity` contradiction with a two-way A/B; (c) hold-out
+  instance-family gap remains the top research target (GOAL.md §5.1);
+  (d) with a DE arm now in the portfolio, the GOAL.md §5.2 CMA-ES arm
+  is the next structural catalog candidate.
+
 ### 2026-07-30 (second session) — Codify queue worked through: drop `Sobol` accepted; add `LBFGSB` / drop `Center` rejected (interaction negatives); structural-add driver hardened
 
 * **What** — Sequential processing of the four queued aocc codify

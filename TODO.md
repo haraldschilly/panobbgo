@@ -2,6 +2,34 @@
 
 ## Recent Improvements (continued)
 
+### Codify queue cleared; standard-battery nondeterminism found — 2026-08-03
+- [x] **Both remaining `Sensitivity` codify slots rejected** (negative
+      results) — `update_interval 25 → 20` (ledger pooled CI95%
+      `[+0.0092, +0.0117]`) and `drop_analyzer Sensitivity` (pooled CI95%
+      `[+0.0067, +0.0075]`) both measured flat on a 12-seed paired quick
+      A/B against the current spec: mean Δ `−0.0012` / `−0.0007`, CI95%
+      straddling zero, controls flat.  Training-battery artifacts; see the
+      2026-08-03 log entry.  All 6 scan candidates now resolved (JSO →
+      PR #289; LBFGSB/Center → rejected 07-30; Sobol.n → moot).
+- [x] **Standard battery measured nondeterministic run-to-run** — identical
+      tree+seed re-run shifts both arms by ≈ ±0.015 (threaded evaluation).
+      Decision protocol updated in the log: ≥ 12 paired quick seeds with
+      flat-control check, or ≥ 5 standard replicates per side.
+- [ ] **Codify-scan rejection memory** — the scan re-surfaces
+      A/B-rejected and moot slots every night (no counterpart to the
+      already-codified suppression).  Add a rejected-slot suppression
+      list (slot key + rejection date + evidence pointer) consulted by
+      `codify-scan` so the nightly report and `--apply-top` skip them.
+- [ ] **Fix threaded-evaluation nondeterminism in the IOH harness** — the
+      standard battery cannot currently resolve +0.01-scale effects with a
+      single run; find the ordering/seeding race and make batteries
+      reproducible per seed (quick battery already is, modulo rare
+      ±0.01 outliers).
+- [ ] **Price instance sensitivity into the codify gate** — nightly
+      evidence keys on the seed-42 training battery; per-seed null-change
+      sd is ~0.015.  Raise `min_nights` (2 → 3+) and/or add a multi-seed
+      confirm to the scan before surfacing a slot as actionable.
+
 ### Metric-aware codify routing + first aocc codify + goal contract — 2026-07-30
 - [x] **Bug fix (the aocc codify stall)** — `default_codify_registries()` and
       `default_codify_apply_sources()` in `panobbgo/self_improve.py` gain a

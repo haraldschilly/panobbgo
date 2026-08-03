@@ -2,6 +2,34 @@
 
 ## Recent Improvements (continued)
 
+### Codify queue cleared; standard-battery nondeterminism found — 2026-08-03
+- [x] **Both remaining `Sensitivity` codify slots rejected** (negative
+      results) — `update_interval 25 → 20` (ledger pooled CI95%
+      `[+0.0092, +0.0117]`) and `drop_analyzer Sensitivity` (pooled CI95%
+      `[+0.0067, +0.0075]`) both measured flat on a 12-seed paired quick
+      A/B against the current spec: mean Δ `−0.0012` / `−0.0007`, CI95%
+      straddling zero, controls flat.  Training-battery artifacts; see the
+      2026-08-03 log entry.  All 6 scan candidates now resolved (JSO →
+      PR #289; LBFGSB/Center → rejected 07-30; Sobol.n → moot).
+- [x] **Standard battery measured nondeterministic run-to-run** — identical
+      tree+seed re-run shifts both arms by ≈ ±0.015 (threaded evaluation).
+      Decision protocol updated in the log: ≥ 12 paired quick seeds with
+      flat-control check, or ≥ 5 standard replicates per side.
+- [ ] **Codify-scan rejection memory** — the scan re-surfaces
+      A/B-rejected and moot slots every night (no counterpart to the
+      already-codified suppression).  Add a rejected-slot suppression
+      list (slot key + rejection date + evidence pointer) consulted by
+      `codify-scan` so the nightly report and `--apply-top` skip them.
+- [ ] **Fix threaded-evaluation nondeterminism in the IOH harness** — the
+      standard battery cannot currently resolve +0.01-scale effects with a
+      single run; find the ordering/seeding race and make batteries
+      reproducible per seed (quick battery already is, modulo rare
+      ±0.01 outliers).
+- [ ] **Price instance sensitivity into the codify gate** — nightly
+      evidence keys on the seed-42 training battery; per-seed null-change
+      sd is ~0.015.  Raise `min_nights` (2 → 3+) and/or add a multi-seed
+      confirm to the scan before surfacing a slot as actionable.
+
 ### Codify: `JSO({'NP_init': 'auto'})` added to `Rewarding_Restart` — 2026-08-02
 - [x] **Codify banked** — `add_heuristic JSO` slot from the aocc ledger
       (2 confirmed nights, pooled CI95% `[+0.0092, +0.0133]`; the 2026-08-01
@@ -10,14 +38,6 @@
       (+0.0222; d2 +0.0156, d5 +0.0287), control flat.  d5 now clearly beats
       the random floor (0.3196 vs 0.2878).  Edit scoped to `Rewarding_Restart`
       only — `RoundRobin_Random` stays the untouched reference.
-- [ ] **Scan hygiene** — `codify-scan` has no rejection memory: the
-      A/B-rejected `LBFGSB [add]` / `Center [drop]` slots (2026-07-30) still
-      surface at ranks 1–2 and `--apply-top` would re-apply them.  Add a
-      rejected-slots suppression list consulted by the scan.
-- [ ] **`Sensitivity` contradiction** — the scan surfaces both
-      `update_interval 25 → 20` and `drop_analyzer Sensitivity`, each with a
-      post-drop night (2026-07-31).  Settle with a two-way A/B before
-      applying either.
 
 ### Metric-aware codify routing + first aocc codify + goal contract — 2026-07-30
 - [x] **Bug fix (the aocc codify stall)** — `default_codify_registries()` and

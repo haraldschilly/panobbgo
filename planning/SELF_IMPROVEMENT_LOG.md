@@ -17,6 +17,72 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-03 — Codify queue cleared: both `Sensitivity` slots rejected (12-seed paired A/B); standard battery found nondeterministic run-to-run
+
+* **What** — Worked the two remaining actionable codify candidates from
+  the nightly scan (both with a post-Sobol-drop 2026-07-31 evidence
+  night, so no evidence-baseline mismatch) and rejected both with a
+  12-seed paired quick-battery A/B on the current spec.  No optimizer
+  behavior change ships from this session; the deliverable is the two
+  negative results plus a measurement-substrate finding.
+
+  1. **`Sensitivity.update_interval 25 → 20` — REJECTED** (negative
+     result).  Ledger: 2 confirmed nights (2026-07-26, 2026-07-31),
+     pooled CI95% `[+0.0092, +0.0117]`, mean Δ `+0.0104`.  Local paired
+     A/B over 12 quick-battery seeds (42, 7, 1234, 2025, 3, 11, 99,
+     123, 777, 2024, 31337, 555): `Rewarding_Restart` mean Δ
+     **−0.0012**, sd 0.0150, CI95% `[−0.0097, +0.0072]`; untouched
+     `RoundRobin_Random` control mean Δ −0.0013.  Per-seed deltas
+     ranged −0.0404 … +0.0146 with sign flips — the ledger effect is a
+     training-battery artifact, not a generalizable gain.
+  2. **`drop_analyzer Sensitivity` — REJECTED** (negative result).
+     Ledger: 2 confirmed nights (2026-07-14, 2026-07-31), pooled CI95%
+     `[+0.0067, +0.0075]`.  Same 12-seed design (before baselines
+     reused): mean Δ **−0.0007**, sd 0.0163, CI95%
+     `[−0.0100, +0.0085]`; control mean Δ +0.0009.  The `Sensitivity`
+     analyzer is AOCC-neutral on the current 4-heuristic spec — keep
+     it (it is the only analyzer left feeding the rewarding strategy).
+
+* **Measurement-substrate finding: the standard battery is
+  nondeterministic run-to-run.**  Re-running `ioh_benchmark.py run
+  --standard` on an *identical* tree and seed moved both arms by
+  ≈ −0.015 (`Rewarding_Restart` 0.3291 → 0.3136, control
+  0.3406 → 0.3264), and a before/after standard pair moved the
+  untouched control by +0.0185.  Threaded evaluation makes a *single*
+  standard run unable to resolve the ~+0.01 effects codify decisions
+  chase — this bounds the confidence of the single-run standard A/Bs
+  used as the 2026-07-30 decision basis (their |Δ| ≥ 0.015 calls stand,
+  but +0.01-scale calls made this way would be coin flips).  The quick
+  battery is near-deterministic (control |Δ| ≤ 0.001 in 21/24 paired
+  runs; occasional ±0.01 outliers), so **the preferred decision
+  instrument is now: N ≥ 12 paired quick seeds, report mean/sd/CI95,
+  verify the control is flat** (~2.5 min wall-clock).  For standard-
+  battery decisions, use ≥ 5 replicates per side until the
+  nondeterminism source is fixed.
+
+* **Queue state after this session** — all 6 scan-surfaced candidates
+  resolved: `JSO` banked (open PR #289), `LBFGSB` + `drop Center`
+  rejected 2026-07-30, `Sobol.n` moot (Sobol dropped), both
+  `Sensitivity` slots rejected today.  The scan still re-surfaces the
+  rejected/moot slots every night because it has no rejection memory —
+  scan hygiene (a rejected-slot suppression list keyed like the
+  already-codified suppression) is now the top tooling gap.
+
+* **Instance-family sensitivity, quantified** (GOAL.md §5.1) — the
+  per-seed treated-arm delta sd of ~0.015–0.016 on a *null* change is
+  the noise floor any real quick-battery improvement must clear; the
+  two nightly evidence nights per candidate (both keyed to the seed-42
+  training battery) sit well inside it.  Raising the codify gate's
+  `min_nights` (2 → 3+) and/or adding a multi-seed confirm step to the
+  scan would price this in automatically.
+
+* **Next** — (a) rejection-memory suppression list for codify-scan;
+  (b) find/fix the threaded-evaluation nondeterminism so the standard
+  battery becomes a usable decision instrument; (c) with the queue
+  empty, the frontier is GOAL.md §5.1 (hold-out / instance-family
+  generalization) and §5.2 (CMA-ES arm) — attack with the 12-seed
+  paired protocol from the start.
+
 ### 2026-08-02 — Codify: add `JSO({'NP_init': 'auto'})` to `Rewarding_Restart` (d5 finally clears the random floor)
 
 * **What** — Banked the `JSO [add_heuristic]` codify slot from the aocc

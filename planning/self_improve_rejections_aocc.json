@@ -1,0 +1,50 @@
+{
+  "_comment": "Codify-scan rejection memory. Each entry suppresses the matching (class_name, param_name, op[, direction]) candidate while all of its evidence nights are on or before rejected_on; fresh post-rejection ledger evidence resurrects the slot. Append via 'scripts/self_improve.py codify-reject'; pair every entry with a dated planning/SELF_IMPROVEMENT_LOG.md write-up (log_ref).",
+  "rejections": [
+    {
+      "class_name": "Center",
+      "param_name": "",
+      "op": "drop_heuristic",
+      "direction": null,
+      "rejected_on": "2026-07-30",
+      "reason": "standard-battery A/B on the post-Sobol-drop spec: 0.3518 -> 0.3289 (-0.0229); d5 falls back below random - Center's box-centre evaluation is a load-bearing cheap prior once Sobol is gone",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-07-30 (second session)"
+    },
+    {
+      "class_name": "LBFGSB",
+      "param_name": "",
+      "op": "add_heuristic",
+      "direction": null,
+      "rejected_on": "2026-07-30",
+      "reason": "standard-battery A/B on the post-Sobol-drop spec: Rewarding_Restart 0.3518 -> 0.3372 (-0.0146, consistent at both dims), control flat; all ledger evidence predates the Sobol drop",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-07-30 (second session)"
+    },
+    {
+      "class_name": "Sobol",
+      "param_name": "n",
+      "op": null,
+      "direction": null,
+      "rejected_on": "2026-07-30",
+      "reason": "moot: the Sobol seeder was dropped from Rewarding_Restart on 2026-07-30, so tuning Sobol.n has no target",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-07-30 (second session)"
+    },
+    {
+      "class_name": "Sensitivity",
+      "param_name": "",
+      "op": "drop_analyzer",
+      "direction": null,
+      "rejected_on": "2026-08-03",
+      "reason": "12-seed paired quick A/B: mean d -0.0007, sd 0.0163, CI95% [-0.0100,+0.0085]; the analyzer is AOCC-neutral on the current spec and is the only analyzer feeding the rewarding strategy - keep it",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-08-03"
+    },
+    {
+      "class_name": "Sensitivity",
+      "param_name": "update_interval",
+      "op": null,
+      "direction": "down",
+      "rejected_on": "2026-08-03",
+      "reason": "12-seed paired quick A/B: mean d -0.0012, sd 0.0150, CI95% [-0.0097,+0.0072], control flat; ledger effect is a seed-42 training-battery artifact",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-08-03"
+    }
+  ]
+}

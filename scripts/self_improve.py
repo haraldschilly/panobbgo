@@ -821,6 +821,33 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     scan_p.set_defaults(suppress_codified=True)
     scan_p.add_argument(
+        "--rejections",
+        default=None,
+        help=(
+            "Path to the codify-rejections JSON file (default: the "
+            "metric-specific path — composite → "
+            "planning/self_improve_rejections.json; aocc → "
+            "planning/self_improve_rejections_aocc.json).  A missing "
+            "file is an empty rejection memory.  Candidates whose slot "
+            "was rejected by a recorded operator decision AND whose "
+            "evidence all predates that rejection are hidden from the "
+            "report (and skipped by --apply-top); fresh post-rejection "
+            "evidence resurrects the slot with a rejection-history tag.  "
+            "Record decisions with the codify-reject subcommand."
+        ),
+    )
+    scan_p.add_argument(
+        "--include-rejected",
+        action="store_true",
+        help=(
+            "Include candidates suppressed by the rejection memory.  "
+            "Off by default so the operator's attention stays on "
+            "actionable evidence; a rejected candidate is tagged "
+            "``[rejected YYYY-MM-DD: reason]`` in the report when this "
+            "flag is set and ``rejected=true`` in the JSON output."
+        ),
+    )
+    scan_p.add_argument(
         "--widen-bounds",
         action="store_true",
         help=(
@@ -1016,6 +1043,97 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     scan_p.set_defaults(func=_cmd_codify_scan)
+
+    rej_p = sub.add_parser(
+        "codify-reject",
+        help="Record a codify-slot rejection so codify-scan stops re-surfacing it",
+        description=(
+            "Append one rejection record to the metric's codify-rejections "
+            "JSON file (the codify scan's rejection memory).  Use after an "
+            "A/B on the current spec rejects a scan candidate, or when a "
+            "candidate is moot (e.g. it tunes a class that was since "
+            "dropped).  The scan suppresses a matching candidate only while "
+            "all of its evidence nights are on or before --date; fresh "
+            "post-rejection ledger evidence resurrects the slot "
+            "automatically.  Always pair the record with a dated entry in "
+            "planning/SELF_IMPROVEMENT_LOG.md carrying the full numbers "
+            "(--log-ref should point at it)."
+        ),
+    )
+    rej_p.add_argument(
+        "--metric",
+        choices=["composite", "aocc"],
+        default="composite",
+        help=(
+            "Resolve the default rejections path for this metric when "
+            "--rejections is not given (default: composite).  Under the "
+            "AOCC nightly default pass --metric aocc."
+        ),
+    )
+    rej_p.add_argument(
+        "--rejections",
+        default=None,
+        help=(
+            "Rejections file to append to (default: the metric-specific "
+            "path, e.g. planning/self_improve_rejections_aocc.json).  "
+            "Created if missing."
+        ),
+    )
+    rej_p.add_argument(
+        "--class-name",
+        required=True,
+        help="Heuristic / analyzer class of the rejected slot (e.g. LBFGSB).",
+    )
+    rej_p.add_argument(
+        "--param",
+        default="",
+        help="Kwarg name of the rejected slot; omit for structural ops.",
+    )
+    rej_p.add_argument(
+        "--op",
+        default=None,
+        choices=["add_heuristic", "drop_heuristic", "add_analyzer", "drop_analyzer"],
+        help="Structural op of the rejected slot; omit for kwarg slots.",
+    )
+    rej_p.add_argument(
+        "--direction",
+        default=None,
+        help=(
+            "Optional direction restriction ('up' / 'down' / a "
+            "categorical repr).  Omit to reject the slot in every "
+            "direction.  Restrict when only one direction was tested — "
+            "e.g. rejecting update_interval 'down' leaves a future 'up' "
+            "signal actionable."
+        ),
+    )
+    rej_p.add_argument(
+        "--date",
+        default=None,
+        help=(
+            "Rejection decision date, YYYY-MM-DD (default: today, UTC).  "
+            "This is the A/B session date, not the evidence nights — "
+            "suppression covers evidence up to and including this date."
+        ),
+    )
+    rej_p.add_argument(
+        "--reason",
+        required=True,
+        help=(
+            "One-line why, with the decisive numbers (e.g. '12-seed "
+            "paired quick A/B mean Δ -0.0012, CI [-0.0097,+0.0072]').  "
+            "Surfaced verbatim by codify-scan --include-rejected."
+        ),
+    )
+    rej_p.add_argument(
+        "--log-ref",
+        default="",
+        help=(
+            "Pointer to the full write-up, conventionally the dated "
+            "SELF_IMPROVEMENT_LOG.md heading (e.g. "
+            "'planning/SELF_IMPROVEMENT_LOG.md 2026-08-03')."
+        ),
+    )
+    rej_p.set_defaults(func=_cmd_codify_reject)
 
     return parser
 
@@ -1729,7 +1847,15 @@ def _print_codify_candidate(
     op_label = f" op={cand.op}" if cand.op else ""
     slot = f"{cand.class_name}.{cand.param_name}" if cand.param_name else cand.class_name
     codified_tag = " [already codified]" if cand.already_codified else ""
-    print(f"- {slot} [{cand.rule_kind}{op_label}] direction={cand.direction}{codified_tag}")
+    rejected_tag = ""
+    if getattr(cand, "rejected", False):
+        rejected_tag = f" [rejected {cand.rejected_on}]"
+    elif getattr(cand, "rejected_on", ""):
+        # A rejection matches the slot but newer evidence has accrued
+        # since — actionable again, yet the operator should re-verify
+        # rather than trust pooled stats straddling the spec change.
+        rejected_tag = f" [fresh evidence since rejection {cand.rejected_on}]"
+    print(f"- {slot} [{cand.rule_kind}{op_label}] direction={cand.direction}{codified_tag}{rejected_tag}")
     ci_low, ci_high = cand.pooled_bootstrap_ci(
         n_boot=pooled_ci_n_boot,
         confidence=pooled_ci_confidence,
@@ -1749,6 +1875,11 @@ def _print_codify_candidate(
     )
     dates_str = ", ".join(cand.distinct_dates)
     print(f"    nights: {dates_str}")
+    if getattr(cand, "rejected_on", ""):
+        # Surface the rejection record driving the tag so the operator
+        # need not open the rejections file / log to see why.
+        reason = cand.rejection_reason or "(no reason recorded)"
+        print(f"    rejection: {cand.rejected_on}  {reason}")
     if cand.live_codified_values:
         # Surface the live values driving the already-codified verdict
         # so the operator can confirm the suppression rule's reasoning.
@@ -1866,11 +1997,14 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     from panobbgo.self_improve import (
         aggregate_codify_candidates,
         annotate_codified_status,
+        annotate_rejected_status,
         default_codify_apply_sources,
         default_codify_registries,
         detect_widening_candidates,
         ledger_path_for_metric,
+        load_codify_rejections,
         load_ledgers_for_codify_scan,
+        rejections_path_for_metric,
     )
 
     if args.min_nights < 1:
@@ -1912,15 +2046,34 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     metric = str(getattr(args, "metric", "composite") or "composite")
     annotate_codified_status(candidates, registries=default_codify_registries(metric=metric))
 
+    # Annotate rejection status against the metric's rejection memory
+    # (the "scan hygiene" fix from the 2026-08-02/03 log entries) so the
+    # report — and --apply-top — skip slots an operator A/B already
+    # rejected on the current spec, until fresh evidence accrues.
+    rejections_arg = getattr(args, "rejections", None)
+    rejections_path = rejections_arg if rejections_arg is not None else rejections_path_for_metric(metric)
+    try:
+        rejections = load_codify_rejections(rejections_path)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    annotate_rejected_status(candidates, rejections)
+
     n_total_candidates = len(candidates)
     suppress_codified = getattr(args, "suppress_codified", True)
     include_already_codified = getattr(args, "include_already_codified", False)
     suppress = suppress_codified and not include_already_codified
-    if suppress:
-        visible_candidates = [c for c in candidates if not c.already_codified]
-    else:
-        visible_candidates = list(candidates)
-    n_suppressed = n_total_candidates - len(visible_candidates)
+    suppress_rejected = not getattr(args, "include_rejected", False)
+    visible_candidates = []
+    n_suppressed = 0
+    n_rejected_hidden = 0
+    for c in candidates:
+        if suppress and c.already_codified:
+            n_suppressed += 1
+        elif suppress_rejected and c.rejected:
+            n_rejected_hidden += 1
+        else:
+            visible_candidates.append(c)
 
     if args.top > 0:
         visible_candidates = visible_candidates[: args.top]
@@ -1983,18 +2136,27 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         gates.append("confirmed_only")
     if suppress:
         gates.append("hide_already_codified")
+    if suppress_rejected:
+        gates.append("hide_rejected")
     print(f"Codify scan ({src_note})")
     print(f"  gates: {', '.join(gates)}")
     print(f"  records scanned: {len(records)}")
-    if suppress:
+    rejected_note = f", {n_rejected_hidden} rejected" if n_rejected_hidden else ""
+    if suppress or n_rejected_hidden:
         print(
             f"  candidates surfaced: {len(visible_candidates)} "
-            f"(of {n_total_candidates}; {n_suppressed} already codified, hidden)"
+            f"(of {n_total_candidates}; {n_suppressed} already codified{rejected_note}, hidden)"
         )
     else:
         print(f"  candidates surfaced: {len(visible_candidates)}")
     if not visible_candidates:
-        if suppress and n_suppressed:
+        if n_rejected_hidden and (n_suppressed + n_rejected_hidden):
+            print(
+                "  (every candidate is already codified or rejected — pass "
+                "--include-already-codified / --include-rejected to audit them; "
+                f"rejection memory: {rejections_path})"
+            )
+        elif suppress and n_suppressed:
             print(
                 "  (every candidate is already codified in the seed factories — "
                 "pass --include-already-codified to audit them)"
@@ -2050,6 +2212,96 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
         )
         if rc != 0:
             return rc
+    return 0
+
+
+def _cmd_codify_reject(args: argparse.Namespace) -> int:
+    """Append one rejection record to the metric's codify-rejections file.
+
+    The write side of the codify-scan rejection memory: reads the
+    existing file (missing → empty), refuses an exact-duplicate slot
+    (same class / param / op / direction — re-rejecting after fresh
+    evidence should *update* the date, so the newer record replaces the
+    older one for the same slot), appends, and rewrites the file
+    pretty-printed (indent=2, trailing newline) so the diff the operator
+    commits is one readable hunk.
+    """
+    import json as _json
+    from datetime import date as _date
+
+    from panobbgo.self_improve import (
+        CodifyRejection,
+        load_codify_rejections,
+        rejections_path_for_metric,
+    )
+
+    rejections_arg = getattr(args, "rejections", None)
+    metric = str(getattr(args, "metric", "composite") or "composite")
+    path = pathlib.Path(rejections_arg if rejections_arg is not None else rejections_path_for_metric(metric))
+
+    rejected_on = args.date or _date.today().isoformat()
+    entry = CodifyRejection(
+        class_name=args.class_name,
+        param_name=args.param or "",
+        op=args.op or None,
+        direction=args.direction or None,
+        rejected_on=rejected_on,
+        reason=args.reason,
+        log_ref=args.log_ref or "",
+    )
+    from datetime import datetime as _datetime
+
+    try:
+        _datetime.strptime(rejected_on, "%Y-%m-%d")
+    except ValueError:
+        print(f"Error: --date must be YYYY-MM-DD, got {rejected_on!r}", file=sys.stderr)
+        return 1
+    try:
+        # Validates the existing file before any write.
+        existing = load_codify_rejections(path)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    slot = (entry.class_name, entry.param_name, entry.op, entry.direction)
+    kept: List[Any] = []
+    replaced = None
+    for r in existing:
+        if (r.class_name, r.param_name, r.op, r.direction) == slot:
+            if r.rejected_on >= entry.rejected_on:
+                print(
+                    f"Error: an equal-or-newer rejection for this slot already exists (rejected_on={r.rejected_on}); nothing to do.",
+                    file=sys.stderr,
+                )
+                return 1
+            replaced = r
+            continue
+        kept.append(r)
+    kept.append(entry)
+    kept.sort(key=lambda r: (r.rejected_on, r.class_name, r.param_name, r.op or "", r.direction or ""))
+
+    payload = {
+        "_comment": (
+            "Codify-scan rejection memory. Each entry suppresses the matching "
+            "(class_name, param_name, op[, direction]) candidate while all of its "
+            "evidence nights are on or before rejected_on; fresh post-rejection "
+            "ledger evidence resurrects the slot. Append via "
+            "'scripts/self_improve.py codify-reject'; pair every entry with a "
+            "dated planning/SELF_IMPROVEMENT_LOG.md write-up (log_ref)."
+        ),
+        "rejections": [r.to_dict() for r in kept],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_json.dumps(payload, indent=2, sort_keys=False) + "\n")
+
+    slot_repr = entry.class_name + (f".{entry.param_name}" if entry.param_name else "")
+    op_repr = f" op={entry.op}" if entry.op else ""
+    dir_repr = f" direction={entry.direction}" if entry.direction else ""
+    action = "Updated" if replaced is not None else "Recorded"
+    print(f"{action} rejection: {slot_repr}{op_repr}{dir_repr}  rejected_on={rejected_on}")
+    if replaced is not None:
+        print(f"  (superseded the {replaced.rejected_on} record for the same slot)")
+    print(f"  file: {path}  ({len(kept)} record(s))")
     return 0
 
 

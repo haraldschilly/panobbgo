@@ -5472,6 +5472,22 @@ class CodifyCandidate:
             the kwarg explicitly (the constructor default applies).
             Populated by :func:`annotate_codified_status` alongside
             :attr:`already_codified`.
+        rejected: ``True`` when the candidate's slot was rejected by a
+            recorded operator decision (an A/B negative result or a
+            moot verdict in the rejections file) *and* every
+            contributing evidence night predates that rejection — i.e.
+            re-applying the edit would re-litigate a decided question
+            with no new information.  Set by
+            :func:`annotate_rejected_status` (default ``False`` so an
+            un-annotated candidate is treated as actionable).
+        rejected_on: ``YYYY-MM-DD`` date of the matching rejection
+            record.  Populated whenever a rejection matches the slot,
+            *even when* fresh post-rejection evidence keeps
+            :attr:`rejected` ``False`` — the CLI uses the combination
+            (``rejected=False``, ``rejected_on`` set) to tag a
+            resurfaced candidate with its rejection history.
+        rejection_reason: Free-text reason from the matching rejection
+            record (empty when no rejection matches).
     """
 
     class_name: str
@@ -5498,6 +5514,9 @@ class CodifyCandidate:
     #: candidate).  Kwarg / categorical candidates carry an empty
     #: tuple.  Consumed by :meth:`consensus_structural_kwargs`.
     structural_kwargs_list: Tuple[Optional[Dict[str, Any]], ...] = ()
+    rejected: bool = False
+    rejected_on: str = ""
+    rejection_reason: str = ""
 
     @property
     def n_distinct_nights(self) -> int:
@@ -5675,6 +5694,9 @@ class CodifyCandidate:
             "max_ci_high": float(self.max_ci_high),
             "already_codified": bool(self.already_codified),
             "live_codified_values": [_to_plain(v) for v in self.live_codified_values],
+            "rejected": bool(self.rejected),
+            "rejected_on": self.rejected_on,
+            "rejection_reason": self.rejection_reason,
             "proposed_codify_value": _to_plain(self.proposed_codify_value()),
             "structural_kwargs": self.consensus_structural_kwargs(),
         }
@@ -6179,6 +6201,219 @@ def annotate_codified_status(
             live_values = _live_kwarg_values(cand.class_name, cand.param_name, factories)
             cand.live_codified_values = tuple(live_values)
             cand.already_codified = _candidate_already_codified(cand, live_values)
+
+
+# Rejections file next to each metric's ledger (§ scan hygiene, the
+# 2026-08-02 / 2026-08-03 log entries): ``composite`` keeps the
+# historical bare stem, ``aocc`` gets the metric-suffixed one — the same
+# naming convention as :data:`LEDGER_STEM_BY_METRIC`.
+REJECTIONS_STEM_BY_METRIC: Dict[str, str] = {
+    "composite": "self_improve_rejections",
+    "aocc": "self_improve_rejections_aocc",
+}
+
+
+def rejections_path_for_metric(metric: str, ledger_dir: str = DEFAULT_LEDGER_DIR) -> str:
+    """Return the canonical codify-rejections path for ``metric``.
+
+    ``composite`` → ``<ledger_dir>/self_improve_rejections.json``;
+    ``aocc`` → ``<ledger_dir>/self_improve_rejections_aocc.json``.
+    Raises ``ValueError`` for an unknown metric so a mistyped
+    ``--metric`` fails loudly instead of silently consulting the wrong
+    rejection memory (mirrors :func:`ledger_path_for_metric`).
+    """
+    try:
+        stem = REJECTIONS_STEM_BY_METRIC[metric]
+    except KeyError:
+        known = ", ".join(sorted(REJECTIONS_STEM_BY_METRIC))
+        raise ValueError(f"unknown metric {metric!r} (known: {known})") from None
+    return str(pathlib.Path(ledger_dir) / f"{stem}.json")
+
+
+@dataclass(frozen=True)
+class CodifyRejection:
+    """One recorded operator rejection of a codify slot.
+
+    The codify scan's rejection memory (the "scan hygiene" gap named in
+    the 2026-08-02 and 2026-08-03 log entries): when a session A/B-tests
+    a scan candidate against the *current* spec and rejects it, the
+    ledger evidence that produced the candidate does not disappear — the
+    scan would re-surface the identical slot every night and every
+    future session would have to re-derive the rejection from the dated
+    log entries by hand.  A :class:`CodifyRejection` records the
+    decision next to the ledger so :func:`annotate_rejected_status` can
+    suppress the slot automatically.
+
+    Suppression is *evidence-scoped*, not permanent: a candidate is only
+    suppressed while every contributing evidence night is on or before
+    :attr:`rejected_on`.  A single accept measured on a night *after*
+    the rejection is new information (the spec has changed since the
+    A/B) and resurrects the slot — tagged with its rejection history so
+    the operator knows to re-verify rather than trust the stale pooled
+    stats.
+
+    Attributes:
+        class_name: Heuristic / analyzer class the rejected slot
+            targets (matches :attr:`CodifyCandidate.class_name`).
+        param_name: Kwarg slot; empty string for structural ops
+            (matches :attr:`CodifyCandidate.param_name`).
+        op: ``None`` for kwarg rules; the ``add_/drop_`` op name for
+            structural slots (matches :attr:`CodifyCandidate.op`).
+        direction: Optional direction restriction.  ``None`` (the
+            default) rejects the slot in every direction; a concrete
+            value (``"up"`` / ``"down"`` / a categorical ``repr`` /
+            an op name) rejects only candidates with that
+            :attr:`CodifyCandidate.direction`, so e.g. rejecting
+            ``Sensitivity.update_interval`` *down* leaves a future
+            *up* signal actionable.
+        rejected_on: ``YYYY-MM-DD`` date of the rejection decision
+            (the A/B session date, not the evidence nights).
+        reason: One-line human-readable why — surfaced verbatim in the
+            scan report so the operator need not open the log.
+        log_ref: Optional pointer to the full write-up (conventionally
+            the dated ``planning/SELF_IMPROVEMENT_LOG.md`` heading).
+    """
+
+    class_name: str
+    param_name: str = ""
+    op: Optional[str] = None
+    direction: Optional[str] = None
+    rejected_on: str = ""
+    reason: str = ""
+    log_ref: str = ""
+
+    def matches(self, candidate: "CodifyCandidate") -> bool:
+        """Slot-key equality (+ optional direction restriction)."""
+        if (candidate.class_name, candidate.param_name, candidate.op) != (
+            self.class_name,
+            self.param_name,
+            self.op,
+        ):
+            return False
+        if self.direction is not None and candidate.direction != self.direction:
+            return False
+        return True
+
+    def suppresses(self, candidate: "CodifyCandidate") -> bool:
+        """True when the candidate carries no evidence newer than the rejection.
+
+        ``distinct_dates`` are ``YYYY-MM-DD`` strings, so lexicographic
+        comparison is chronological.  An empty ``rejected_on`` never
+        suppresses (a date-less rejection record is malformed input and
+        :func:`load_codify_rejections` refuses it; the guard here keeps
+        the predicate total for hand-built instances).
+        """
+        if not self.matches(candidate) or not self.rejected_on:
+            return False
+        return all(d <= self.rejected_on for d in candidate.distinct_dates)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "class_name": self.class_name,
+            "param_name": self.param_name,
+            "op": self.op,
+            "direction": self.direction,
+            "rejected_on": self.rejected_on,
+            "reason": self.reason,
+            "log_ref": self.log_ref,
+        }
+
+
+def load_codify_rejections(path: Any) -> List[CodifyRejection]:
+    """Load the codify-rejections file at ``path``.
+
+    Accepts the canonical shape ``{"rejections": [ {...}, ... ]}`` (a
+    top-level object so the file can carry a ``_comment`` key) or a
+    bare top-level list.  A missing file is an empty rejection memory
+    (returns ``[]``) — the feature is opt-in per metric.  Anything else
+    malformed — unparseable JSON, an entry without ``class_name`` or
+    without a ``rejected_on`` date — raises ``ValueError`` naming the
+    offending entry: the file gates automated suppression, so a typo
+    must fail the scan loudly rather than silently widen or narrow the
+    memory.
+    """
+    p = pathlib.Path(path)
+    if not p.exists():
+        return []
+    try:
+        raw = json.loads(p.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"rejections file {p} is not valid JSON: {exc}") from exc
+    if isinstance(raw, dict):
+        entries = raw.get("rejections", [])
+    elif isinstance(raw, list):
+        entries = raw
+    else:
+        raise ValueError(
+            f"rejections file {p}: expected an object with a 'rejections' list or a bare list, got {type(raw).__name__}"
+        )
+    if not isinstance(entries, list):
+        raise ValueError(f"rejections file {p}: 'rejections' must be a list, got {type(entries).__name__}")
+    out: List[CodifyRejection] = []
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"rejections file {p}: entry #{i} is not an object")
+        class_name = entry.get("class_name")
+        rejected_on = entry.get("rejected_on")
+        if not class_name or not isinstance(class_name, str):
+            raise ValueError(f"rejections file {p}: entry #{i} is missing 'class_name'")
+        if not rejected_on or not isinstance(rejected_on, str):
+            raise ValueError(f"rejections file {p}: entry #{i} ({class_name}) is missing 'rejected_on' (YYYY-MM-DD)")
+        try:
+            datetime.strptime(rejected_on, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(
+                f"rejections file {p}: entry #{i} ({class_name}) has malformed rejected_on={rejected_on!r} (want YYYY-MM-DD)"
+            ) from None
+        out.append(
+            CodifyRejection(
+                class_name=class_name,
+                param_name=str(entry.get("param_name") or ""),
+                op=entry.get("op") or None,
+                direction=entry.get("direction") or None,
+                rejected_on=rejected_on,
+                reason=str(entry.get("reason") or ""),
+                log_ref=str(entry.get("log_ref") or ""),
+            )
+        )
+    return out
+
+
+def annotate_rejected_status(
+    candidates: Sequence[CodifyCandidate],
+    rejections: Sequence[CodifyRejection],
+) -> None:
+    """Mark each candidate's rejection status in-place.
+
+    For every candidate, finds the matching rejection records (slot key
+    + optional direction, per :meth:`CodifyRejection.matches`) and sets:
+
+    * ``rejected=True`` (+ ``rejected_on`` / ``rejection_reason`` from
+      the *most recent* matching rejection) when at least one matching
+      rejection :meth:`~CodifyRejection.suppresses` it — i.e. no
+      contributing evidence night is newer than that rejection;
+    * ``rejected=False`` but ``rejected_on`` / ``rejection_reason``
+      still populated when a rejection matches yet the candidate
+      carries fresher evidence — the CLI renders this as a
+      "fresh evidence since rejection" tag so the operator re-verifies
+      instead of trusting pooled stats that straddle the spec change;
+    * all three fields untouched (defaults) when nothing matches.
+
+    Kept separate from :func:`annotate_codified_status` for the same
+    reason that pass is separate from the aggregator: unit tests can
+    exercise the raw scanner without a rejections file, and callers
+    with a non-standard memory can supply their own list.
+
+    Mutates ``candidates`` in place; returns ``None``.
+    """
+    for cand in candidates:
+        matching = [r for r in rejections if r.matches(cand)]
+        if not matching:
+            continue
+        newest = max(matching, key=lambda r: r.rejected_on)
+        cand.rejected_on = newest.rejected_on
+        cand.rejection_reason = newest.reason
+        cand.rejected = any(r.suppresses(cand) for r in matching)
 
 
 # Default source file + factory function names the ``--apply-top`` driver
@@ -8063,8 +8298,12 @@ __all__ = [
     "load_ledger",
     "CodifyCandidate",
     "CodifyEdit",
+    "CodifyRejection",
     "aggregate_codify_candidates",
     "annotate_codified_status",
+    "annotate_rejected_status",
+    "load_codify_rejections",
+    "rejections_path_for_metric",
     "default_codify_registries",
     "default_codify_apply_sources",
     "derive_codify_edits",

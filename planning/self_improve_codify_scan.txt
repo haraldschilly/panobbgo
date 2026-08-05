@@ -1,6 +1,6 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
   gates: min_nights>=2, all_record_ci_low>0, hide_already_codified
-  records scanned: 756
+  records scanned: 781
   candidates surfaced: 5 (of 9; 4 already codified, hidden)
 
 - LBFGSB [structural op=add_heuristic] direction=add_heuristic

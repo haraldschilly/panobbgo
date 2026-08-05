@@ -22,14 +22,19 @@ import pytest
 
 from panobbgo.harness_baselines import make_baseline_strategies
 from panobbgo.harness_ioh import (
+    DEFAULT_DECISION_SEEDS,
     IOHBatterySpec,
     IOHHarnessResult,
+    IOHMultiSeedResult,
+    IOHRunRecord,
     _derive_seed,
     _downsample_trajectory,
     make_full_battery,
     make_quick_battery,
     make_standard_battery,
+    paired_seed_stats,
     run_ioh_harness,
+    run_ioh_harness_multi_seed,
 )
 from panobbgo.ioh_runner import IOHTracker, _BudgetExhausted, aocc
 from panobbgo.lib.ioh_wrapper import IOHProblem, worker_available
@@ -371,3 +376,216 @@ class TestLoopConfigMetric:
         # Invalid value
         with pytest.raises(ValueError, match="metric"):
             LoopConfig(iterations=0, metric="bogus")
+
+
+# ---------------------------------------------------------------------------
+# Multi-seed batteries & paired decision stats (pure Python — no worker)
+# ---------------------------------------------------------------------------
+
+
+def _mk_seed_result(per_strategy_aocc: dict, battery: str = "ioh-ms") -> IOHHarnessResult:
+    """Build a synthetic single-seed result with one run per strategy."""
+    runs = [
+        IOHRunRecord(
+            problem_kind="MA-BBOB",
+            dim=2,
+            instance=0,
+            strategy_name=name,
+            rep=0,
+            budget=100,
+            n_evals=100,
+            best_fx=0.5,
+            f_opt=0.0,
+            aocc=score,
+            elapsed_s=0.01,
+            seed=1,
+        )
+        for name, score in per_strategy_aocc.items()
+    ]
+    return IOHHarnessResult(battery_name=battery, problem_kind="MA-BBOB", log_lo=-8.0, log_hi=2.0, runs=runs)
+
+
+def _mk_multi(seed_to_scores: dict, battery: str = "ioh-ms") -> IOHMultiSeedResult:
+    """Build a synthetic multi-seed result from ``{seed: {strategy: aocc}}``."""
+    seeds = list(seed_to_scores)
+    return IOHMultiSeedResult(
+        battery_name=battery,
+        problem_kind="MA-BBOB",
+        log_lo=-8.0,
+        log_hi=2.0,
+        base_seeds=seeds,
+        results=[_mk_seed_result(seed_to_scores[s], battery=battery) for s in seeds],
+    )
+
+
+class TestMultiSeedResult:
+    def test_mean_and_per_strategy_matrix(self) -> None:
+        ms = _mk_multi({42: {"A": 0.30, "B": 0.20}, 7: {"A": 0.40, "B": 0.10}})
+        assert ms.mean_aocc == pytest.approx(0.25)
+        matrix = ms.per_strategy_seed_aocc()
+        assert matrix == {"A": [0.30, 0.40], "B": [0.20, 0.10]}
+        assert ms.per_strategy_aocc() == {"A": pytest.approx(0.35), "B": pytest.approx(0.15)}
+
+    def test_ragged_strategy_dropped(self) -> None:
+        # "B" only ran at seed 42 → cannot be paired, dropped from the matrix.
+        ms = _mk_multi({42: {"A": 0.30, "B": 0.20}, 7: {"A": 0.40}})
+        assert set(ms.per_strategy_seed_aocc()) == {"A"}
+
+    def test_json_roundtrip_and_discriminator(self) -> None:
+        ms = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}, 1234: {"A": 0.35}})
+        d = json.loads(ms.to_json())
+        assert d["multi_seed"] is True
+        assert d["base_seeds"] == [42, 7, 1234]
+        rt = IOHMultiSeedResult.from_dict(d)
+        assert rt.base_seeds == ms.base_seeds
+        assert rt.mean_aocc == pytest.approx(ms.mean_aocc)
+        assert rt.per_strategy_seed_aocc() == ms.per_strategy_seed_aocc()
+
+    def test_default_decision_seeds_shape(self) -> None:
+        # The canonical 12-seed roster from the 2026-08-03 protocol.
+        assert len(DEFAULT_DECISION_SEEDS) == 12
+        assert len(set(DEFAULT_DECISION_SEEDS)) == 12
+        assert 42 in DEFAULT_DECISION_SEEDS
+
+
+class TestPairedSeedStats:
+    def test_constant_shift(self) -> None:
+        before = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}, 1234: {"A": 0.35}})
+        after = _mk_multi({42: {"A": 0.31}, 7: {"A": 0.41}, 1234: {"A": 0.36}})
+        st = paired_seed_stats(before, after)["A"]
+        assert st["n"] == 3
+        assert st["mean_delta"] == pytest.approx(0.01)
+        assert st["sd"] == pytest.approx(0.0, abs=1e-12)
+        # Zero-variance deltas → CI collapses onto the mean, excludes 0.
+        assert st["ci_low"] == pytest.approx(0.01)
+        assert st["ci_high"] == pytest.approx(0.01)
+        assert st["per_seed_delta"] == pytest.approx([0.01, 0.01, 0.01])
+
+    def test_pairs_by_seed_value_not_position(self) -> None:
+        before = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}})
+        # after lists the seeds in the opposite order; pairing must
+        # still match 42↔42 and 7↔7.
+        after = _mk_multi({7: {"A": 0.42}, 42: {"A": 0.33}})
+        st = paired_seed_stats(before, after)["A"]
+        assert st["seeds"] == [42, 7]
+        assert st["per_seed_delta"] == pytest.approx([0.03, 0.02])
+
+    def test_noise_straddles_zero(self) -> None:
+        before = _mk_multi({s: {"A": 0.30} for s in (1, 2, 3, 4)})
+        after = _mk_multi({1: {"A": 0.32}, 2: {"A": 0.28}, 3: {"A": 0.31}, 4: {"A": 0.29}})
+        st = paired_seed_stats(before, after)["A"]
+        assert st["mean_delta"] == pytest.approx(0.0)
+        assert st["ci_low"] < 0 < st["ci_high"]
+
+    def test_single_common_seed_has_nan_ci(self) -> None:
+        before = _mk_multi({42: {"A": 0.30}})
+        after = _mk_multi({42: {"A": 0.35}})
+        st = paired_seed_stats(before, after)["A"]
+        assert st["n"] == 1
+        assert st["mean_delta"] == pytest.approx(0.05)
+        assert math.isnan(st["sd"]) and math.isnan(st["ci_low"]) and math.isnan(st["ci_high"])
+
+    def test_no_common_seeds_raises(self) -> None:
+        before = _mk_multi({42: {"A": 0.30}})
+        after = _mk_multi({7: {"A": 0.35}})
+        with pytest.raises(ValueError, match="no common base seeds"):
+            paired_seed_stats(before, after)
+
+    def test_partial_seed_overlap(self) -> None:
+        before = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}, 99: {"A": 0.50}})
+        after = _mk_multi({7: {"A": 0.45}, 42: {"A": 0.32}, 555: {"A": 0.60}})
+        st = paired_seed_stats(before, after)["A"]
+        assert st["seeds"] == [42, 7]
+        assert st["n"] == 2
+
+    def test_strategies_intersected(self) -> None:
+        before = _mk_multi({42: {"A": 0.3, "B": 0.2}, 7: {"A": 0.4, "B": 0.3}})
+        after = _mk_multi({42: {"A": 0.3, "C": 0.1}, 7: {"A": 0.4, "C": 0.2}})
+        assert set(paired_seed_stats(before, after)) == {"A"}
+
+
+@requires_worker
+class TestRunIOHHarnessMultiSeed:
+    def test_two_seed_run(self) -> None:
+        baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
+        battery = IOHBatterySpec(
+            name="ioh-ms-tiny", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
+        )
+        ms = run_ioh_harness_multi_seed(baselines, battery, [42, 7], progress=False)
+        assert ms.base_seeds == [42, 7]
+        assert len(ms.results) == 2
+        matrix = ms.per_strategy_seed_aocc()
+        assert "Baseline_Random" in matrix
+        assert len(matrix["Baseline_Random"]) == 2
+        # Null self-compare: identical results pair to exactly-zero deltas.
+        st = paired_seed_stats(ms, ms)["Baseline_Random"]
+        assert st["mean_delta"] == pytest.approx(0.0, abs=1e-12)
+
+    def test_empty_seeds_raises(self) -> None:
+        with pytest.raises(ValueError, match="base_seeds"):
+            run_ioh_harness_multi_seed([], make_quick_battery(), [])
+
+
+class TestIOHBenchmarkCompareCLI:
+    """Format dispatch of ``scripts/ioh_benchmark.py compare`` (no worker)."""
+
+    @staticmethod
+    def _cli():
+        import importlib.util
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parent.parent / "scripts" / "ioh_benchmark.py"
+        spec = importlib.util.spec_from_file_location("ioh_benchmark_cli", path)
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_compare_multi_seed_files(self, tmp_path, capsys) -> None:
+        cli = self._cli()
+        before = _mk_multi({42: {"A": 0.30, "B": 0.20}, 7: {"A": 0.40, "B": 0.30}})
+        after = _mk_multi({42: {"A": 0.32, "B": 0.20}, 7: {"A": 0.42, "B": 0.30}})
+        b_path, a_path = tmp_path / "b.json", tmp_path / "a.json"
+        b_path.write_text(before.to_json())
+        a_path.write_text(after.to_json())
+        rc = cli.main(["compare", str(b_path), str(a_path)])
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "Paired multi-seed compare" in out
+        assert "2 common seed(s)" in out
+        # A shifted by a constant +0.02 → improved; B untouched → flat control.
+        assert "+ improved" in out
+        assert "per-seed deltas" in out
+
+    def test_compare_mixed_formats_errors(self, tmp_path, capsys) -> None:
+        cli = self._cli()
+        multi = _mk_multi({42: {"A": 0.30}})
+        single = _mk_seed_result({"A": 0.30})
+        m_path, s_path = tmp_path / "m.json", tmp_path / "s.json"
+        m_path.write_text(multi.to_json())
+        s_path.write_text(single.to_json())
+        rc = cli.main(["compare", str(m_path), str(s_path)])
+        err = capsys.readouterr().err
+        assert rc == 2
+        assert "Cannot compare" in err
+
+    def test_compare_single_seed_files_unchanged(self, tmp_path, capsys) -> None:
+        cli = self._cli()
+        before = _mk_seed_result({"A": 0.30})
+        after = _mk_seed_result({"A": 0.35})
+        b_path, a_path = tmp_path / "b.json", tmp_path / "a.json"
+        b_path.write_text(before.to_json())
+        a_path.write_text(after.to_json())
+        rc = cli.main(["compare", str(b_path), str(a_path)])
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "mean AOCC:  before=0.3000  after=0.3500  delta=+0.0500" in out
+
+    def test_compare_multi_fail_on_regression(self, tmp_path) -> None:
+        cli = self._cli()
+        before = _mk_multi({42: {"A": 0.40}, 7: {"A": 0.40}})
+        after = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.30}})
+        b_path, a_path = tmp_path / "b.json", tmp_path / "a.json"
+        b_path.write_text(before.to_json())
+        a_path.write_text(after.to_json())
+        assert cli.main(["compare", str(b_path), str(a_path), "--fail-on-regression"]) == 2

@@ -1,51 +1,5 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
-  gates: min_nights>=2, all_record_ci_low>0, hide_already_codified
+  gates: min_nights>=2, all_record_ci_low>0, hide_already_codified, hide_rejected
   records scanned: 781
-  candidates surfaced: 5 (of 9; 4 already codified, hidden)
-
-- LBFGSB [structural op=add_heuristic] direction=add_heuristic
-    n_accepts=3  n_nights=3  mean_Δ=+0.0078  pooled_CI95%=[+0.0042,+0.0117]  min_record_ci_low=+0.0042  confirmed=3/3
-    nights: 2026-07-18, 2026-07-21, 2026-07-25
-    strategies: Rewarding_Restart, RoundRobin_Random
-    evidence:
-      2026-07-18 05:24:06  Δ=+0.0042  CI=[+0.0042,+0.0042]  Rewarding_Restart/LBFGSB.: None -> None  [confirmed]
-      2026-07-21 05:48:58  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/LBFGSB.: None -> None  [confirmed]
-      2026-07-25 05:42:19  Δ=+0.0075  CI=[+0.0075,+0.0075]  RoundRobin_Random/LBFGSB.: None -> None  [confirmed]
-
-- Center [structural op=drop_heuristic] direction=drop_heuristic
-    n_accepts=2  n_nights=2  mean_Δ=+0.0142  pooled_CI95%=[+0.0100,+0.0183]  min_record_ci_low=+0.0100  confirmed=2/2
-    nights: 2026-07-16, 2026-07-24
-    live seed value(s): 'Rewarding_Restart'
-    strategies: Rewarding_Restart
-    evidence:
-      2026-07-16 05:37:36  Δ=+0.0183  CI=[+0.0183,+0.0183]  Rewarding_Restart/Center.: None -> None  [confirmed]
-      2026-07-24 05:46:04  Δ=+0.0100  CI=[+0.0100,+0.0100]  Rewarding_Restart/Center.: None -> None  [confirmed]
-
-- Sobol.n [integer_add] direction=up
-    n_accepts=2  n_nights=2  mean_Δ=+0.0117  pooled_CI95%=[+0.0117,+0.0117]  min_record_ci_low=+0.0117  confirmed=2/2
-    nights: 2026-07-13, 2026-07-27
-    proposed codify value: 38
-    strategies: Rewarding_Restart
-    evidence:
-      2026-07-13 06:11:41  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sobol.n: 32 -> 40  [confirmed]
-      2026-07-27 06:25:23  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sobol.n: 32 -> 36  [confirmed]
-
-- Sensitivity.update_interval [integer_add] direction=down
-    n_accepts=2  n_nights=2  mean_Δ=+0.0104  pooled_CI95%=[+0.0092,+0.0117]  min_record_ci_low=+0.0092  confirmed=2/2
-    nights: 2026-07-26, 2026-07-31
-    live seed value(s): 25
-    proposed codify value: 20
-    strategies: Rewarding_Restart
-    evidence:
-      2026-07-26 05:59:19  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sensitivity.update_interval: 25 -> 20  [confirmed]
-      2026-07-31 06:08:17  Δ=+0.0092  CI=[+0.0092,+0.0092]  Rewarding_Restart/Sensitivity.update_interval: 25 -> 20  [confirmed]
-
-- Sensitivity [structural op=drop_analyzer] direction=drop_analyzer
-    n_accepts=2  n_nights=2  mean_Δ=+0.0071  pooled_CI95%=[+0.0067,+0.0075]  min_record_ci_low=+0.0067  confirmed=2/2
-    nights: 2026-07-14, 2026-07-31
-    live seed value(s): 'Rewarding_Restart'
-    strategies: Rewarding_Restart
-    evidence:
-      2026-07-14 05:26:42  Δ=+0.0067  CI=[+0.0067,+0.0067]  Rewarding_Restart/Sensitivity.: None -> None  [confirmed]
-      2026-07-31 06:12:05  Δ=+0.0075  CI=[+0.0075,+0.0075]  Rewarding_Restart/Sensitivity.: None -> None  [confirmed]
-
+  candidates surfaced: 0 (of 9; 4 already codified, 5 rejected, hidden)
+  (every candidate is already codified or rejected — pass --include-already-codified / --include-rejected to audit them; rejection memory: planning/self_improve_rejections_aocc.json)

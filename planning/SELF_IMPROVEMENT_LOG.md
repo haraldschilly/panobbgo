@@ -72,6 +72,80 @@ Conventions:
   §5.1 (hold-out / instance-family gap) and §5.2 (CMA-ES arm) using
   `--decision-seeds` from the start.
 
+### 2026-08-04 — Codify-scan rejection memory (`codify-reject` + evidence-scoped suppression)
+
+* **What** — Shipped the "scan hygiene" fix both the 2026-08-02 and
+  2026-08-03 sessions named as the top tooling gap: `codify-scan` now
+  consults a per-metric *rejection memory* so slots an operator
+  A/B-rejected (or declared moot) stop re-surfacing every night.
+  Tooling-only change — no optimizer behavior touched, so no paired
+  A/B applies (AGENTS.md evidence rules cover optimizer-behavior
+  changes); gate was the full test suite + lint.
+
+  * `panobbgo/self_improve.py`: `CodifyRejection` (slot key
+    `class/param/op` + optional `direction` restriction + `rejected_on`
+    date + reason + log_ref), `load_codify_rejections` (loud
+    `ValueError` on any malformed entry — the file gates automated
+    suppression), `annotate_rejected_status`, and
+    `rejections_path_for_metric` (`composite` →
+    `planning/self_improve_rejections.json`, `aocc` → `…_aocc.json`,
+    mirroring the ledger-stem convention).  `CodifyCandidate` grows
+    `rejected` / `rejected_on` / `rejection_reason` (also in
+    `to_dict`, so `--json` consumers can filter).
+  * **Suppression is evidence-scoped, not permanent**: a candidate is
+    hidden only while *every* contributing evidence night is on or
+    before `rejected_on`.  A single accept on a later night is new
+    information (the spec changed since the A/B) and resurrects the
+    slot, tagged `[fresh evidence since rejection YYYY-MM-DD]` +
+    a `rejection:` line so the operator re-verifies instead of
+    trusting pooled stats that straddle the spec change.
+  * `scripts/self_improve.py codify-scan`: loads the metric's file by
+    default (`--rejections` to override, `--include-rejected` to
+    audit); hidden slots are reported as `N rejected, hidden` and the
+    gates line carries `hide_rejected`.  `--apply-top` picks from the
+    visible list, so it now skips rejected slots automatically —
+    fixing the 2026-08-02 complaint that the driver could not skip
+    past the dead rank-1/rank-2 candidates.  Output is byte-identical
+    to before when no rejection matches (nightly report diffs stay
+    quiet).
+  * New `codify-reject` subcommand appends a record (validates the
+    date, refuses an equal-or-newer duplicate for the same slot,
+    supersedes an older record, pretty-prints the JSON for reviewable
+    diffs).
+  * Seeded `planning/self_improve_rejections_aocc.json` with the five
+    decided slots: `add_heuristic LBFGSB` and `drop_heuristic Center`
+    (rejected 2026-07-30), `Sobol.n` (moot 2026-07-30),
+    `Sensitivity.update_interval` down and `drop_analyzer Sensitivity`
+    (rejected 2026-08-03).  The `Sensitivity.update_interval` record
+    is direction-restricted to `down` — a future `up` signal is a
+    different hypothesis and stays actionable.
+
+* **Effect** — `codify-scan --metric aocc` now reports
+  `candidates surfaced: 0 (of 9; 4 already codified, 5 rejected,
+  hidden)`, which is the truth: the queue is empty until fresh
+  post-rejection evidence accrues.  Before this change the same scan
+  surfaced 5 "actionable" candidates, all of them re-litigations.
+  22 new tests (`TestCodifyRejectionLibrary`,
+  `TestCodifyScanCLIRejection`).
+
+* **Session context (evidence review, 2026-08-04 nightly)** — the
+  overnight run accepted 1/20 with best Δ +0.0125 (seed score 0.3450);
+  hold-out drift CI over 52 records is `+0.0080 [+0.0037, +0.0123]`,
+  0 overfit verdicts.  No scan candidate carries a post-rejection
+  evidence night, so no codify slot was actionable today (verified by
+  cross-checking each candidate's nights against the dated REJECTED
+  entries above — now automated by this change).
+
+* **Next** — unchanged from 2026-08-03: (a) ~~rejection-memory
+  suppression list~~ **done (this entry)**; (b) find/fix the
+  threaded-evaluation nondeterminism so the standard battery becomes a
+  usable single-run decision instrument; (c) frontier work: GOAL.md
+  §5.1 hold-out / instance-family generalization and §5.2 CMA-ES arm,
+  attacked with the 12-seed paired protocol from the start.  Also
+  consider pricing instance sensitivity into the scan gate
+  (`min_nights` 2 → 3+ / multi-seed confirm) so future ledger evidence
+  clears the ~0.015 per-seed null sd before surfacing.
+
 ### 2026-08-03 — Codify queue cleared: both `Sensitivity` slots rejected (12-seed paired A/B); standard battery found nondeterministic run-to-run
 
 * **What** — Worked the two remaining actionable codify candidates from

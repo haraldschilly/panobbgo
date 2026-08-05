@@ -13026,3 +13026,381 @@ class TestStructuralAddDriverFixes:
         assert len(cands) == 1
         assert cands[0].consensus_structural_kwargs() == {"warm_start": True}
         assert cands[0].to_dict()["structural_kwargs"] == {"warm_start": True}
+
+
+# ---------------------------------------------------------------------------
+# Codify-scan rejection memory — :class:`CodifyRejection`,
+# :func:`load_codify_rejections`, :func:`annotate_rejected_status` + CLI.
+# ---------------------------------------------------------------------------
+
+
+class TestCodifyRejectionLibrary:
+    """Library layer of the rejection memory (the 2026-08-02/03 scan-hygiene gap).
+
+    A rejection suppresses a matching candidate only while every
+    contributing evidence night is on or before the rejection date —
+    fresh post-rejection evidence resurrects the slot (tagged, so the
+    operator re-verifies rather than trusting pooled stats that
+    straddle the spec change).
+    """
+
+    def test_rejections_path_for_metric(self):
+        from panobbgo.self_improve import rejections_path_for_metric
+
+        assert rejections_path_for_metric("composite") == "planning/self_improve_rejections.json"
+        assert rejections_path_for_metric("aocc") == "planning/self_improve_rejections_aocc.json"
+        with pytest.raises(ValueError, match="unknown metric"):
+            rejections_path_for_metric("bogus")
+
+    def test_load_missing_file_is_empty_memory(self, tmp_path):
+        from panobbgo.self_improve import load_codify_rejections
+
+        assert load_codify_rejections(tmp_path / "nope.json") == []
+
+    def test_load_canonical_and_bare_list_shapes(self, tmp_path):
+        from panobbgo.self_improve import load_codify_rejections
+
+        entry = {
+            "class_name": "LBFGSB",
+            "param_name": "",
+            "op": "add_heuristic",
+            "direction": None,
+            "rejected_on": "2026-07-30",
+            "reason": "A/B negative",
+            "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-07-30",
+        }
+        canonical = tmp_path / "canonical.json"
+        canonical.write_text(json.dumps({"_comment": "x", "rejections": [entry]}))
+        bare = tmp_path / "bare.json"
+        bare.write_text(json.dumps([entry]))
+        for path in (canonical, bare):
+            (loaded,) = load_codify_rejections(path)
+            assert loaded.class_name == "LBFGSB"
+            assert loaded.op == "add_heuristic"
+            assert loaded.direction is None
+            assert loaded.rejected_on == "2026-07-30"
+            assert loaded.reason == "A/B negative"
+
+    def test_load_malformed_inputs_fail_loudly(self, tmp_path):
+        from panobbgo.self_improve import load_codify_rejections
+
+        not_json = tmp_path / "a.json"
+        not_json.write_text("{nope")
+        with pytest.raises(ValueError, match="not valid JSON"):
+            load_codify_rejections(not_json)
+
+        no_class = tmp_path / "b.json"
+        no_class.write_text(json.dumps({"rejections": [{"rejected_on": "2026-07-30"}]}))
+        with pytest.raises(ValueError, match="class_name"):
+            load_codify_rejections(no_class)
+
+        no_date = tmp_path / "c.json"
+        no_date.write_text(json.dumps({"rejections": [{"class_name": "X"}]}))
+        with pytest.raises(ValueError, match="rejected_on"):
+            load_codify_rejections(no_date)
+
+        bad_date = tmp_path / "d.json"
+        bad_date.write_text(json.dumps({"rejections": [{"class_name": "X", "rejected_on": "30.07.2026"}]}))
+        with pytest.raises(ValueError, match="malformed rejected_on"):
+            load_codify_rejections(bad_date)
+
+        wrong_top = tmp_path / "e.json"
+        wrong_top.write_text(json.dumps("just a string"))
+        with pytest.raises(ValueError, match="expected an object"):
+            load_codify_rejections(wrong_top)
+
+    def test_matches_slot_key_and_direction(self):
+        from panobbgo.self_improve import CodifyRejection
+
+        cand = _make_candidate(
+            class_name="Sensitivity",
+            param_name="update_interval",
+            rule_kind="integer_add",
+            direction="down",
+            new_values=(20, 20),
+        )
+        assert CodifyRejection(
+            class_name="Sensitivity", param_name="update_interval", rejected_on="2026-08-03"
+        ).matches(cand)
+        # Direction restriction: 'down' matches, 'up' does not.
+        assert CodifyRejection(
+            class_name="Sensitivity", param_name="update_interval", direction="down", rejected_on="2026-08-03"
+        ).matches(cand)
+        assert not CodifyRejection(
+            class_name="Sensitivity", param_name="update_interval", direction="up", rejected_on="2026-08-03"
+        ).matches(cand)
+        # Different param / class / op: no match.
+        assert not CodifyRejection(class_name="Sensitivity", param_name="other", rejected_on="2026-08-03").matches(cand)
+        assert not CodifyRejection(class_name="Other", param_name="update_interval", rejected_on="2026-08-03").matches(
+            cand
+        )
+        assert not CodifyRejection(
+            class_name="Sensitivity", param_name="update_interval", op="drop_analyzer", rejected_on="2026-08-03"
+        ).matches(cand)
+
+    def test_suppresses_only_without_fresh_evidence(self):
+        from panobbgo.self_improve import CodifyRejection
+
+        stale = _make_candidate(new_values=(False, False))  # nights 2026-06-01/02
+        rej = CodifyRejection(class_name="Sobol", param_name="scramble", rejected_on="2026-06-15")
+        assert rej.suppresses(stale)
+
+        fresh = _make_candidate(new_values=(False, False))
+        object.__setattr__(fresh, "distinct_dates", ("2026-06-01", "2026-06-20"))
+        assert not rej.suppresses(fresh)
+
+        # Evidence night ON the rejection date counts as covered by the A/B.
+        boundary = _make_candidate(new_values=(False, False))
+        object.__setattr__(boundary, "distinct_dates", ("2026-06-01", "2026-06-15"))
+        assert rej.suppresses(boundary)
+
+    def test_annotate_rejected_status_sets_fields(self):
+        from panobbgo.self_improve import CodifyRejection, annotate_rejected_status
+
+        rejected = _make_candidate(new_values=(False, False))
+        untouched = _make_candidate(class_name="Nearby", param_name="radius", new_values=(0.12, 0.13))
+        resurrected = _make_candidate(new_values=(False, False))
+        object.__setattr__(resurrected, "distinct_dates", ("2026-06-01", "2026-07-01"))
+
+        rejections = [
+            CodifyRejection(class_name="Sobol", param_name="scramble", rejected_on="2026-06-15", reason="A/B flat"),
+        ]
+        annotate_rejected_status([rejected, untouched, resurrected], rejections)
+
+        assert rejected.rejected is True
+        assert rejected.rejected_on == "2026-06-15"
+        assert rejected.rejection_reason == "A/B flat"
+        d = rejected.to_dict()
+        assert d["rejected"] is True and d["rejected_on"] == "2026-06-15"
+
+        assert untouched.rejected is False
+        assert untouched.rejected_on == ""
+
+        # Fresh evidence: not suppressed, but rejection history surfaced.
+        assert resurrected.rejected is False
+        assert resurrected.rejected_on == "2026-06-15"
+        assert resurrected.rejection_reason == "A/B flat"
+
+    def test_annotate_uses_most_recent_matching_rejection(self):
+        from panobbgo.self_improve import CodifyRejection, annotate_rejected_status
+
+        cand = _make_candidate(new_values=(False, False))
+        rejections = [
+            CodifyRejection(class_name="Sobol", param_name="scramble", rejected_on="2026-06-10", reason="first"),
+            CodifyRejection(class_name="Sobol", param_name="scramble", rejected_on="2026-06-20", reason="second"),
+        ]
+        annotate_rejected_status([cand], rejections)
+        assert cand.rejected is True
+        assert cand.rejected_on == "2026-06-20"
+        assert cand.rejection_reason == "second"
+
+
+class TestCodifyScanCLIRejection:
+    """End-to-end CLI tests for the rejection-memory suppression + codify-reject."""
+
+    _import_cli = staticmethod(TestCodifyScanCLISuppression._import_cli)
+
+    def _write_ledger(self, live, *, dates=("2026-06-01", "2026-06-02")):
+        """Two-night Nearby.radius 'up' candidate (not codified in the seed factories)."""
+        lines = []
+        for i, day in enumerate(dates):
+            lines.append(
+                json.dumps(
+                    _accepted_iter_record(
+                        timestamp=f"{day}T05:00:00+00:00",
+                        class_name="Nearby",
+                        param_name="radius",
+                        rule_kind="log_uniform_perturb",
+                        old_value=0.1,
+                        new_value=0.12 + i * 0.01,
+                    )
+                )
+            )
+        live.write_text("\n".join(lines) + "\n")
+
+    def _build_ns(self, live, rejections_path, *, include_rejected=False, as_json=False):
+        return type(
+            "NS",
+            (),
+            {
+                "ledger": str(live),
+                "archive_dir": None,
+                "include_archives": True,
+                "min_nights": 2,
+                "require_positive_min_ci": True,
+                "confirmed_only": False,
+                "pooled_ci_n_boot": 100,
+                "pooled_ci_confidence": 0.95,
+                "pooled_ci_seed": 1,
+                "as_json": as_json,
+                "top": 0,
+                "include_already_codified": False,
+                "suppress_codified": True,
+                "rejections": str(rejections_path),
+                "include_rejected": include_rejected,
+            },
+        )()
+
+    def _write_rejection(self, path, *, rejected_on="2026-06-15", direction=None):
+        path.write_text(
+            json.dumps(
+                {
+                    "rejections": [
+                        {
+                            "class_name": "Nearby",
+                            "param_name": "radius",
+                            "op": None,
+                            "direction": direction,
+                            "rejected_on": rejected_on,
+                            "reason": "12-seed A/B flat",
+                            "log_ref": "planning/SELF_IMPROVEMENT_LOG.md test",
+                        }
+                    ]
+                }
+            )
+        )
+
+    def test_rejected_candidate_hidden_by_default(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live)
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "hide_rejected" in out
+        assert "1 rejected, hidden" in out
+        assert "Nearby.radius" not in out
+        assert "every candidate is already codified or rejected" in out
+
+    def test_include_rejected_surfaces_with_tag_and_reason(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live)
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej, include_rejected=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Nearby.radius" in out
+        assert "[rejected 2026-06-15]" in out
+        assert "rejection: 2026-06-15  12-seed A/B flat" in out
+
+    def test_fresh_evidence_resurrects_with_history_tag(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        # Second night AFTER the 2026-06-15 rejection.
+        self._write_ledger(live, dates=("2026-06-01", "2026-06-20"))
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Nearby.radius" in out
+        assert "[fresh evidence since rejection 2026-06-15]" in out
+        assert "rejection: 2026-06-15" in out
+
+    def test_direction_restricted_rejection_leaves_other_direction_actionable(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live)  # direction 'up'
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej, direction="down")
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Nearby.radius" in out
+        assert "[rejected" not in out
+
+    def test_malformed_rejections_file_fails_scan_loudly(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live)
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        rej.write_text("{nope")
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej))
+        assert rc == 1
+        err = capsys.readouterr().err
+        assert "not valid JSON" in err
+
+    def test_json_output_carries_rejected_fields(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live)
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej, as_json=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        rows = [json.loads(line) for line in out.strip().splitlines()]
+        (row,) = [r for r in rows if r.get("_type") == "codify_candidate"]
+        assert row["rejected"] is True
+        assert row["rejected_on"] == "2026-06-15"
+        assert row["rejection_reason"] == "12-seed A/B flat"
+
+    def _reject_ns(self, rejections_path, **overrides):
+        base = {
+            "metric": "aocc",
+            "rejections": str(rejections_path),
+            "class_name": "Nearby",
+            "param": "radius",
+            "op": None,
+            "direction": None,
+            "date": "2026-06-15",
+            "reason": "12-seed A/B flat",
+            "log_ref": "",
+        }
+        base.update(overrides)
+        return type("NS", (), base)()
+
+    def test_codify_reject_creates_and_appends(self, tmp_path, capsys):
+        cli = self._import_cli()
+        rej = tmp_path / "rejections.json"
+        rc = cli._cmd_codify_reject(self._reject_ns(rej))
+        assert rc == 0
+        assert "Recorded rejection: Nearby.radius" in capsys.readouterr().out
+        rc = cli._cmd_codify_reject(
+            self._reject_ns(rej, class_name="LBFGSB", param="", op="add_heuristic", date="2026-07-30")
+        )
+        assert rc == 0
+        data = json.loads(rej.read_text())
+        assert [e["class_name"] for e in data["rejections"]] == ["Nearby", "LBFGSB"]
+        assert data["rejections"][1]["op"] == "add_heuristic"
+
+    def test_codify_reject_refuses_equal_or_newer_duplicate(self, tmp_path, capsys):
+        cli = self._import_cli()
+        rej = tmp_path / "rejections.json"
+        assert cli._cmd_codify_reject(self._reject_ns(rej)) == 0
+        capsys.readouterr()
+        rc = cli._cmd_codify_reject(self._reject_ns(rej))
+        assert rc == 1
+        assert "equal-or-newer rejection" in capsys.readouterr().err
+
+    def test_codify_reject_newer_date_supersedes(self, tmp_path, capsys):
+        cli = self._import_cli()
+        rej = tmp_path / "rejections.json"
+        assert cli._cmd_codify_reject(self._reject_ns(rej)) == 0
+        capsys.readouterr()
+        rc = cli._cmd_codify_reject(self._reject_ns(rej, date="2026-07-01", reason="re-rejected after fresh evidence"))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Updated rejection" in out
+        assert "superseded the 2026-06-15 record" in out
+        data = json.loads(rej.read_text())
+        (entry,) = data["rejections"]
+        assert entry["rejected_on"] == "2026-07-01"
+        assert entry["reason"] == "re-rejected after fresh evidence"
+
+    def test_codify_reject_rejects_malformed_date(self, tmp_path, capsys):
+        cli = self._import_cli()
+        rej = tmp_path / "rejections.json"
+        rc = cli._cmd_codify_reject(self._reject_ns(rej, date="15.06.2026"))
+        assert rc == 1
+        assert "--date must be YYYY-MM-DD" in capsys.readouterr().err

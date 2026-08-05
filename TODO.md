@@ -16,6 +16,18 @@
       runs would remove that source; per-seed sd should then collapse and
       single-run A/Bs become meaningful again.
 
+### Codify-scan rejection memory — 2026-08-04
+- [x] **Rejection memory shipped** — `codify-scan` now consults a
+      per-metric rejections file
+      (`planning/self_improve_rejections_<metric>.json`); rejected/moot
+      slots are hidden from the report and skipped by `--apply-top`
+      until fresh post-rejection evidence resurrects them (tagged for
+      re-verification).  New `codify-reject` subcommand records
+      decisions; seeded with the five resolved aocc slots
+      (LBFGSB/Center/Sobol.n 07-30, both Sensitivity slots 08-03).
+      `codify-scan --metric aocc` now truthfully reports 0 actionable
+      candidates.  See the 2026-08-04 log entry.
+
 ### Codify queue cleared; standard-battery nondeterminism found — 2026-08-03
 - [x] **Both remaining `Sensitivity` codify slots rejected** (negative
       results) — `update_interval 25 → 20` (ledger pooled CI95%
@@ -29,11 +41,12 @@
       tree+seed re-run shifts both arms by ≈ ±0.015 (threaded evaluation).
       Decision protocol updated in the log: ≥ 12 paired quick seeds with
       flat-control check, or ≥ 5 standard replicates per side.
-- [ ] **Codify-scan rejection memory** — the scan re-surfaces
+- [x] **Codify-scan rejection memory** — the scan re-surfaces
       A/B-rejected and moot slots every night (no counterpart to the
       already-codified suppression).  Add a rejected-slot suppression
       list (slot key + rejection date + evidence pointer) consulted by
       `codify-scan` so the nightly report and `--apply-top` skip them.
+      *Shipped 2026-08-04 — see the section above.*
 - [ ] **Fix threaded-evaluation nondeterminism in the IOH harness** — the
       standard battery cannot currently resolve +0.01-scale effects with a
       single run; find the ordering/seeding race and make batteries

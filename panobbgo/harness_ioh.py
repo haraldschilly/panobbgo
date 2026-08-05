@@ -493,6 +493,209 @@ class IOHHarnessResult:
 
 
 # ---------------------------------------------------------------------------
+# Multi-seed batteries — the paired decision instrument
+# ---------------------------------------------------------------------------
+#
+# The 2026-08-03 measurement-substrate finding (see
+# planning/SELF_IMPROVEMENT_LOG.md): panobbgo's threaded evaluation makes
+# a *single* battery run unable to resolve the ~+0.01 AOCC effects codify
+# decisions chase — the per-seed null-change sd on the quick battery is
+# ~0.015.  The preferred decision instrument is therefore a *paired*
+# multi-seed A/B: run the same battery across N base seeds before and
+# after a change, pair the per-seed per-strategy means, and report
+# mean/sd/CI95 of the deltas (verifying that untouched control strategies
+# stay flat).  These types mechanise that protocol.
+
+#: Canonical seed roster for paired decision A/Bs — the 12 seeds used by
+#: the 2026-08-03 rejection measurements.  ``ioh_benchmark.py run
+#: --decision-seeds`` expands to this list.
+DEFAULT_DECISION_SEEDS: Tuple[int, ...] = (42, 7, 1234, 2025, 3, 11, 99, 123, 777, 2024, 31337, 555)
+
+
+@dataclass
+class IOHMultiSeedResult:
+    """One battery evaluated across several base seeds.
+
+    ``results[i]`` is the :class:`IOHHarnessResult` for ``base_seeds[i]``.
+    Serialises to JSON with a ``"multi_seed": true`` discriminator so
+    ``ioh_benchmark.py compare`` can dispatch on the file format.
+    """
+
+    battery_name: str
+    problem_kind: str
+    log_lo: float
+    log_hi: float
+    base_seeds: List[int]
+    results: List[IOHHarnessResult]
+    timestamp: float = field(default_factory=time.time)
+
+    @property
+    def mean_aocc(self) -> float:
+        """Mean AOCC with equal weight per seed."""
+        vals = [r.mean_aocc for r in self.results]
+        return float(np.mean(vals)) if vals else 0.0
+
+    def per_strategy_seed_aocc(self) -> Dict[str, List[float]]:
+        """Return ``{strategy: [mean AOCC at base_seeds[i]]}``.
+
+        Only strategies present in every per-seed result are returned —
+        a ragged strategy (all its runs errored at some seed) cannot be
+        paired and is dropped.
+        """
+        out: Dict[str, List[float]] = {}
+        for res in self.results:
+            for name, val in res.per_strategy_aocc().items():
+                out.setdefault(name, []).append(val)
+        n = len(self.results)
+        return {k: v for k, v in out.items() if len(v) == n}
+
+    def per_strategy_aocc(self) -> Dict[str, float]:
+        """Return ``{strategy: mean AOCC across seeds}``."""
+        return {k: float(np.mean(v)) for k, v in self.per_strategy_seed_aocc().items()}
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "multi_seed": True,
+            "battery_name": self.battery_name,
+            "problem_kind": self.problem_kind,
+            "log_lo": self.log_lo,
+            "log_hi": self.log_hi,
+            "base_seeds": list(self.base_seeds),
+            "mean_aocc": self.mean_aocc,
+            "per_strategy_aocc": self.per_strategy_aocc(),
+            "timestamp": self.timestamp,
+            "results": [r.to_dict() for r in self.results],
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent, default=float)
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "IOHMultiSeedResult":
+        return cls(
+            battery_name=d["battery_name"],
+            problem_kind=d["problem_kind"],
+            log_lo=d.get("log_lo", AOCC_LOG_LO),
+            log_hi=d.get("log_hi", AOCC_LOG_HI),
+            base_seeds=[int(s) for s in d["base_seeds"]],
+            results=[IOHHarnessResult.from_dict(r) for r in d.get("results", [])],
+            timestamp=d.get("timestamp", time.time()),
+        )
+
+    def print_summary(self) -> None:
+        print(f"\nIOH multi-seed battery: {self.battery_name}  ({self.problem_kind})")
+        print(f"  seeds ({len(self.base_seeds)}): {', '.join(str(s) for s in self.base_seeds)}")
+        n_runs = sum(len(r.runs) for r in self.results)
+        print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.base_seeds)} seed(s), {n_runs} run(s)")
+        print("\n  per strategy (mean ± sd across seeds):")
+        matrix = self.per_strategy_seed_aocc()
+        for name, vals in sorted(matrix.items(), key=lambda kv: -float(np.mean(kv[1]))):
+            arr = np.asarray(vals, dtype=np.float64)
+            sd = float(arr.std(ddof=1)) if arr.size >= 2 else float("nan")
+            print(f"    {name:32s}  {float(arr.mean()):.4f} ± {sd:.4f}")
+
+
+def run_ioh_harness_multi_seed(
+    strategies: Sequence[StrategySpec],
+    battery: IOHBatterySpec,
+    base_seeds: Sequence[int],
+    *,
+    log_lo: float = AOCC_LOG_LO,
+    log_hi: float = AOCC_LOG_HI,
+    timeout_s: Optional[float] = None,
+    progress: bool = True,
+) -> IOHMultiSeedResult:
+    """Run :func:`run_ioh_harness` once per seed in ``base_seeds``."""
+    if not base_seeds:
+        raise ValueError("base_seeds must be non-empty")
+    results: List[IOHHarnessResult] = []
+    for i, seed in enumerate(base_seeds):
+        if progress:
+            print(f"== base seed {seed}  ({i + 1}/{len(base_seeds)}) ==", flush=True)
+        results.append(
+            run_ioh_harness(
+                strategies,
+                battery,
+                base_seed=int(seed),
+                log_lo=log_lo,
+                log_hi=log_hi,
+                timeout_s=timeout_s,
+                progress=progress,
+            )
+        )
+    return IOHMultiSeedResult(
+        battery_name=battery.name,
+        problem_kind=battery.problem_kind,
+        log_lo=log_lo,
+        log_hi=log_hi,
+        base_seeds=[int(s) for s in base_seeds],
+        results=results,
+    )
+
+
+def paired_seed_stats(before: IOHMultiSeedResult, after: IOHMultiSeedResult) -> Dict[str, Dict[str, Any]]:
+    """Per-strategy paired delta statistics across the common base seeds.
+
+    Pairs the per-seed per-strategy mean AOCC of ``after`` against
+    ``before`` *by seed value* (order need not match), and returns::
+
+        {strategy: {
+            "seeds":          [common seeds, in before's order],
+            "n":              number of paired seeds,
+            "before_mean":    mean AOCC across common seeds (before),
+            "after_mean":     mean AOCC across common seeds (after),
+            "mean_delta":     mean of per-seed deltas (after - before),
+            "sd":             sample sd of the deltas (NaN when n < 2),
+            "ci_low"/"ci_high": t-distribution CI95 of the mean delta
+                              (NaN when n < 2),
+            "per_seed_delta": [delta at each common seed],
+        }}
+
+    Only strategies present in both results are returned.  Raises
+    :class:`ValueError` when the two results share no base seeds.
+    """
+    after_seed_set = set(after.base_seeds)
+    common = [s for s in before.base_seeds if s in after_seed_set]
+    if not common:
+        raise ValueError(
+            f"no common base seeds between the two results (before={before.base_seeds}, after={after.base_seeds})"
+        )
+    b_idx = {s: i for i, s in enumerate(before.base_seeds)}
+    a_idx = {s: i for i, s in enumerate(after.base_seeds)}
+    b_mat = before.per_strategy_seed_aocc()
+    a_mat = after.per_strategy_seed_aocc()
+
+    stats: Dict[str, Dict[str, Any]] = {}
+    for name in sorted(set(b_mat) & set(a_mat)):
+        b_vals = np.asarray([b_mat[name][b_idx[s]] for s in common], dtype=np.float64)
+        a_vals = np.asarray([a_mat[name][a_idx[s]] for s in common], dtype=np.float64)
+        deltas = a_vals - b_vals
+        n = len(common)
+        mean_delta = float(deltas.mean())
+        if n >= 2:
+            sd = float(deltas.std(ddof=1))
+            from scipy.stats import t as t_dist
+
+            half = float(t_dist.ppf(0.975, n - 1)) * sd / float(np.sqrt(n))
+            ci_low, ci_high = mean_delta - half, mean_delta + half
+        else:
+            sd = float("nan")
+            ci_low = ci_high = float("nan")
+        stats[name] = {
+            "seeds": list(common),
+            "n": n,
+            "before_mean": float(b_vals.mean()),
+            "after_mean": float(a_vals.mean()),
+            "mean_delta": mean_delta,
+            "sd": sd,
+            "ci_low": ci_low,
+            "ci_high": ci_high,
+            "per_seed_delta": [float(d) for d in deltas],
+        }
+    return stats
+
+
+# ---------------------------------------------------------------------------
 # Seed derivation — same SHA-256 scheme as panobbgo.harness
 # ---------------------------------------------------------------------------
 

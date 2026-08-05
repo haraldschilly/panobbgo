@@ -17,6 +17,61 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-05 — Paired multi-seed decision instrument mechanised in `ioh_benchmark.py` (`--seeds` / `--decision-seeds` / `--reps` + seed-paired `compare`)
+
+* **What** — Tooling-only session (no optimizer behavior change).  The
+  2026-08-03 decision protocol — N ≥ 12 paired quick seeds, per-strategy
+  mean/sd/CI95 of the per-seed deltas, flat-control check; or ≥ 5
+  standard replicates per side — existed only as prose in this log and
+  had to be hand-rolled (bash seed loops + manual stats) by every
+  session that measured anything.  It is now the tool's native mode:
+
+  1. `panobbgo/harness_ioh.py` gains `IOHMultiSeedResult` (JSON
+     round-trip with a `"multi_seed": true` discriminator),
+     `run_ioh_harness_multi_seed()`, `paired_seed_stats()` (pairs
+     per-seed per-strategy mean AOCC *by seed value*, t-distribution
+     CI95 on the deltas), and `DEFAULT_DECISION_SEEDS` — the canonical
+     12-seed roster from the 2026-08-03 rejection measurements
+     (42, 7, 1234, 2025, 3, 11, 99, 123, 777, 2024, 31337, 555).
+  2. `scripts/ioh_benchmark.py run` gains `--seeds N1 N2 ...`,
+     `--decision-seeds` (expands to the roster), and `--reps K`
+     (battery-replicate override for standard-battery decisions);
+     `compare` detects the multi-seed format and prints the paired
+     per-strategy table (before/after mean, Δmean, sd, CI95, verdict
+     `+ improved` / `- regressed` / `~ noise`) plus per-seed deltas;
+     mixed single/multi comparisons fail loudly with rc 2.  Single-seed
+     files and workflows are byte-compatible with before.
+
+* **Why (§4 step 2 — sharpest gap)** — Today's codify queue is empty:
+  all 5 scan-surfaced candidates are recorded rejections/moot (LBFGSB,
+  Center 2026-07-30; Sobol.n moot; both Sensitivity slots 2026-08-03)
+  with no post-rejection evidence nights, and PR #291 (open) already
+  covers the rejection-memory tooling.  The sharpest measured gap on
+  the books is the measurement substrate itself: threaded evaluation
+  gives a per-seed null-change sd of ~0.015 AOCC (2026-08-03 finding),
+  so single-run A/Bs cannot resolve the ~+0.01 effects codify decisions
+  chase.  Until the nondeterminism source is fixed architecturally,
+  the multi-seed paired instrument *is* the decision instrument — it
+  deserved to be one flag, not a bespoke script per session.
+
+* **Validation** — 15 new tests (multi-seed aggregation/round-trip,
+  paired-stats semantics incl. seed-value pairing, partial overlap,
+  n=1 NaN CI, no-common-seeds error, CLI dispatch single/multi/mixed +
+  `--fail-on-regression`); `tests/test_harness_ioh.py` 41 passed.
+  Instrument null-check on the current tree (identical code both
+  sides, 12 decision seeds, quick battery): per-strategy mean Δ within
+  the noise floor with CI95 straddling zero and `~ noise` verdicts for
+  both strategies — numbers in the PR body.
+
+* **Next** — (a) the architectural fix (deterministic evaluation mode)
+  is still open — `_run_threaded_evaluation` collects whichever farmed
+  futures happen to be `done()` each loop pass, so the strategy's
+  result view depends on OS scheduling; a synchronous `evaluation_method
+  = "serial"` would remove that source for benchmark runs and is the
+  natural follow-up.  (b) With the instrument mechanised, attack GOAL.md
+  §5.1 (hold-out / instance-family gap) and §5.2 (CMA-ES arm) using
+  `--decision-seeds` from the start.
+
 ### 2026-08-04 — Codify-scan rejection memory (`codify-reject` + evidence-scoped suppression)
 
 * **What** — Shipped the "scan hygiene" fix both the 2026-08-02 and

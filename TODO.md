@@ -2,6 +2,20 @@
 
 ## Recent Improvements (continued)
 
+### Paired multi-seed decision instrument in `ioh_benchmark.py` — 2026-08-05
+- [x] **Multi-seed A/B mechanised** — `run --seeds` / `--decision-seeds`
+      (canonical 12-seed roster) / `--reps K` and a seed-paired `compare`
+      (per-strategy Δmean/sd/CI95 via t-dist, per-seed deltas, verdict
+      markers, loud mixed-format error).  The 2026-08-03 decision protocol
+      is now one flag instead of a hand-rolled bash loop.  15 new tests;
+      single-seed files/workflows unchanged.  See the 2026-08-05 log entry.
+- [ ] **Deterministic evaluation mode** (follow-up to the nondeterminism
+      finding) — `_run_threaded_evaluation` harvests whichever futures are
+      `done()` per loop pass, so the strategy's result view depends on OS
+      scheduling.  A synchronous `evaluation_method="serial"` for benchmark
+      runs would remove that source; per-seed sd should then collapse and
+      single-run A/Bs become meaningful again.
+
 ### Codify-scan rejection memory — 2026-08-04
 - [x] **Rejection memory shipped** — `codify-scan` now consults a
       per-metric rejections file

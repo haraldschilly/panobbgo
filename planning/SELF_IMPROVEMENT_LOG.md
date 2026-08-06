@@ -17,6 +17,77 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-06 — CMA-ES arm enters the structural catalog (GOAL §5.2); direct add to `Rewarding_Restart` measured flat at quick-2-D; `drop_analyzer Sensitivity` re-hidden (apply-guard no-op)
+
+* **What** —
+
+  1. **`CMAES` added to `default_structural_catalog()`'s `add_heuristic`
+     candidate pool** as `(CMAES, {"sigma0": 0.3})`.  The full CMA-ES
+     implementation (Hansen 2016 tutorial equations, IPOP/BIPOP restart,
+     `panobbgo/heuristics/cma_es.py`, shipped in PR #274) existed but was
+     unreachable by the nightly loop — the candidate pool had no
+     covariance-adapting arm, so the bandit could never measure the
+     strongest classical family at this regime against the DE arms.
+     The `CMAES.sigma0` kwarg rule already in `default_catalog()`
+     (log-uniform on [0.05, 1.0]) becomes reachable too: the catalog
+     entry sets `sigma0` explicitly so the rule fires on any spec the
+     bandit builds.  Default λ = 4 + ⌊3·ln n⌋ (7 at n=2) needs no
+     budget-sizing override at quick scale.  Two membership tests added
+     (`TestCMAESCatalogMembership`), following the JSO/LBFGSB pattern.
+     No default spec changes — loop-exploration surface only.
+
+  2. **Characterisation A/B (neutral, direct add not shipped)** — 12-seed
+     paired quick A/B (`--decision-seeds`, the 2026-08-05 instrument) of
+     `Rewarding_Restart + CMAES(sigma0=0.3)` vs the current spec:
+     Δmean `+0.0005`, sd `0.0186`, CI95 `[-0.0113, +0.0123]` → `~ noise`
+     (before 0.3457 ± 0.0166, after 0.3462; `RoundRobin_Random` control
+     flat at `+0.0013` CI `[-0.0003, +0.0030]`).  Per the
+     no-unmeasured-or-neutral-ships guardrail the direct spec addition
+     was reverted.  Expected: the quick battery is 2-D only, where
+     rotation invariance and covariance learning pay least; the arm's
+     value hypothesis lives at 5-D rotated valleys (the known weak
+     regime), which the nightly ledger, hold-out seeds, and standard
+     battery sample — that is exactly what the catalog route measures.
+
+  3. **Codify queue hygiene** — today's scan surfaced exactly one
+     candidate: `drop_analyzer Sensitivity`, resurrected from its
+     2026-08-03 rejection by the fresh 2026-08-06 single-seed accept
+     night.  Re-verification shows re-litigation is unwarranted:
+     `--apply-top --apply-dry-run` is an **apply-guard no-op**
+     (`Sensitivity` is the last analyzer in `Rewarding_Restart`;
+     dropping it would empty the bucket, which the apply engine
+     refuses), and the spec is byte-identical to what the 2026-08-03
+     12-seed A/B measured (mean d `-0.0007`, CI95 `[-0.0100, +0.0085]`;
+     only tooling PRs landed since).  Re-recorded via `codify-reject`
+     dated 2026-08-06; `codify-scan --metric aocc` reports 0 actionable
+     candidates again.
+
+* **Why (§4 step 3 — attack one gap)** — the last three sessions were
+  tooling-only (decision protocol, rejection memory, multi-seed
+  instrument); with the instrument mechanised the sharpest *actionable*
+  gap on the books is GOAL §5.2: the bandit's structural search space
+  simply lacked the one algorithm family (covariance adaptation) that
+  competition-winning hybrids at this regime are built on.  This ships
+  the missing arm through the measured path: nightly bandit pulls →
+  ledger accepts → codify-scan evidence, with hold-out seeds guarding
+  against training-seed overfit.
+
+* **Validation** — full suite green (includes the two new catalog
+  membership tests), `ruff check` / `ruff format --check` clean; the
+  A/B numbers above were captured with
+  `scripts/ioh_benchmark.py run --quick --decision-seeds` on both trees
+  and the seed-paired `compare`.
+
+* **Next** — (a) watch the nightly `add_heuristic` bandit posterior for
+  CMAES pulls (the arm starts cold; the 71-attempt `drop_analyzer` rule
+  currently dominates the structural posterior); (b) scan-tooling gap
+  noticed today: `codify-scan` surfaces candidates whose apply would be
+  guard-suppressed (no-op) as "actionable" — annotate or hide
+  guard-suppressed slots so `--apply-top` sessions don't burn a slot on
+  them; (c) unchanged from 2026-08-05: deterministic
+  `evaluation_method="serial"` benchmark mode, and §5.1 hold-out /
+  instance-family generalisation.
+
 ### 2026-08-05 — Paired multi-seed decision instrument mechanised in `ioh_benchmark.py` (`--seeds` / `--decision-seeds` / `--reps` + seed-paired `compare`)
 
 * **What** — Tooling-only session (no optimizer behavior change).  The

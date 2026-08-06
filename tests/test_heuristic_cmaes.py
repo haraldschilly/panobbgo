@@ -1008,3 +1008,46 @@ def test_bipop_cmaes_integration_rastrigin():
         best_fx = strategy.best.fx if strategy.best else float("inf")
 
     assert best_fx < 20.0, f"BIPOP-CMA-ES on Rastrigin should improve over random; got {best_fx:.4f}"
+
+
+class TestCMAESCatalogMembership:
+    """CMA-ES must be discoverable by the self-improvement loop."""
+
+    def test_in_structural_catalog(self):
+        from panobbgo.heuristics.cma_es import CMAES
+        from panobbgo.self_improve import StructuralMutationRule, default_structural_catalog
+
+        catalog = default_structural_catalog()
+        add_rules = [r for r in catalog.rules if isinstance(r, StructuralMutationRule) and r.op == "add_heuristic"]
+        assert add_rules
+        has_cmaes = any(cls is CMAES for rule in add_rules for cls, _ in (rule.candidate_classes or ()))
+        assert has_cmaes
+
+    def test_candidate_kwargs_set_sigma0_for_kwarg_rule(self):
+        # The catalog entry must carry an explicit sigma0 so the
+        # CMAES.sigma0 kwarg rule in default_catalog can fire on any
+        # spec the bandit builds (rules skip absent/None params).
+        from panobbgo.heuristics.cma_es import CMAES
+        from panobbgo.self_improve import (
+            MutationRule,
+            StructuralMutationRule,
+            default_catalog,
+            default_structural_catalog,
+        )
+
+        catalog = default_structural_catalog()
+        kwargs_for_cmaes = [
+            kw
+            for rule in catalog.rules
+            if isinstance(rule, StructuralMutationRule) and rule.op == "add_heuristic"
+            for cls, kw in (rule.candidate_classes or ())
+            if cls is CMAES
+        ]
+        assert kwargs_for_cmaes and all("sigma0" in kw for kw in kwargs_for_cmaes)
+
+        params = {
+            (r.class_name, r.param_name)
+            for r in default_catalog().rules
+            if isinstance(r, MutationRule) and r.class_name == "CMAES"
+        }
+        assert ("CMAES", "sigma0") in params

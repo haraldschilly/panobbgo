@@ -2259,6 +2259,7 @@ def default_structural_catalog() -> MutationCatalog:
     from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
     from panobbgo.heuristics.cobyqa import COBYQA
     from panobbgo.heuristics.lbfgsb import LBFGSB
+    from panobbgo.heuristics.cma_es import CMAES
 
     # Four PSO entries cover the canonical ``gbest`` (default
     # Kennedy-Eberhart 1995 swarm), the ``lbest`` ring topology (Kennedy &
@@ -2354,6 +2355,22 @@ def default_structural_catalog() -> MutationCatalog:
         # :mod:`panobbgo.heuristics.lbfgsb` and the dated entry in
         # ``planning/SELF_IMPROVEMENT_LOG.md``.
         (LBFGSB, {"warm_start": True}),  # multi-start warm-started quasi-Newton local optimizer
+        # CMA-ES (Hansen 2016, arXiv:1604.00772) is the only *covariance-
+        # adapting* arm — it learns the full mutation covariance N(m, σ²C)
+        # from successful steps and is invariant under rotations of the
+        # search space, the exact regime (rotated ill-conditioned valleys,
+        # 5-D MA-BBOB families) where the DE/PSO/pattern arms above are
+        # weakest.  Default population λ = 4 + ⌊3·ln n⌋ (7 at n=2) is
+        # already budget-appropriate for the quick battery, so no NP-style
+        # sizing override is needed.  ``sigma0`` is set explicitly to the
+        # heuristic default so the ``CMAES.sigma0`` kwarg rule in
+        # :func:`default_catalog` fires on any spec the bandit builds.
+        # Without a :class:`~panobbgo.analyzers.restart.Restart` analyzer
+        # in the spec this runs as plain CMA-ES; if the bandit also adds
+        # the Restart analyzer it becomes IPOP-CMA-ES (the heuristic's
+        # ``on_restart`` doubles λ).  ``avoid_duplicates`` keeps at most
+        # one CMAES per portfolio.
+        (CMAES, {"sigma0": 0.3}),
     )
     # Analyzer candidate pool — narrowly curated.  ``Sensitivity``
     # (cheap adaptive tracking) and ``Restart`` (warm restarts on

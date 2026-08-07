@@ -17,6 +17,59 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-07 — Codify slot `NelderMead drop_heuristic` rejected (training-seed artifact; third in a row)
+
+* **What** — Negative result, recorded so the slot stays out of the
+  queue.  Today's scan surfaced two candidates.  The top one
+  (`drop_analyzer Sensitivity`, resurrected by the 2026-08-06 accept
+  night) is an apply-guard no-op already handled by open PR #293's
+  re-rejection — skipped per §12.3 step 0 dedup.  The actionable slot
+  was **drop `NelderMead` from `Rewarding_Restart`**: 2 confirmed
+  accepts on 2 distinct nights (2026-07-11, 2026-08-07), pooled CI95%
+  `[+0.0067, +0.0083]`, mean Δ `+0.0075`, the 2026-08-07 night measured
+  on the current spec.
+
+* **Measurement (2026-08-03 decision protocol, `--decision-seeds`)** —
+  12-seed paired quick A/B of the drop against the current spec:
+
+  | strategy | before | after | Δmean | sd | CI95 | verdict |
+  |---|---|---|---|---|---|---|
+  | `Rewarding_Restart` (− NelderMead) | 0.3479 | 0.3476 | −0.0003 | 0.0188 | [−0.0122, +0.0117] | ~ noise |
+  | `RoundRobin_Random` (control) | 0.3341 | 0.3349 | +0.0008 | 0.0020 | [−0.0005, +0.0020] | ~ noise |
+
+  The per-seed deltas are the diagnosis: the nightly training seed 42
+  shows `+0.0174` (consistent with the ledger accepts) while the
+  11-seed rest splits ± with roster mean ≈ 0 — the same
+  training-seed-artifact signature that rejected both `Sensitivity`
+  slots on 2026-08-03.  The drop was applied, measured, and reverted
+  in-branch (`codify(aocc): drop NelderMead...` + revert commit);
+  the spec is unchanged.  Rejection recorded via `codify-reject
+  --metric aocc --class-name NelderMead --op drop_heuristic`
+  (dated 2026-08-07) so `codify-scan` hides the slot until
+  post-rejection evidence nights accrue.
+
+* **Pattern worth acting on** — this is the **third consecutive**
+  ledger-positive codify slot (both `Sensitivity` slots, now
+  `NelderMead`) rejected flat by the 12-seed instrument.  At the
+  current plateau the nightly single-seed evidence at `min_nights=2`
+  has ~0 hit rate against the ~0.015–0.019 per-seed sd; the open
+  TODO "price instance sensitivity into the codify gate" (raise
+  `min_nights`, or a multi-seed confirm before a slot is surfaced
+  actionable) is now the sharpest tooling gap in the codify path.
+  Note `Rewarding_Restart`'s per-seed sd (0.0188) is ~9× the control's
+  (0.0020) on identical-tree pairs — the adaptive strategy itself is
+  the dominant noise source, which is also GOAL §5.1's instance-family
+  sensitivity showing up at measurement time.
+
+* **Next** — (a) implement the multi-seed pre-gate for codify-scan
+  (cheapest version: `--min-nights 3` for structural drops paired with
+  a 6-seed screening A/B in the nightly `post-loop` step); (b) per
+  GOAL §4 step 4, the quick battery is saturating as an evidence source
+  at this plateau — promote validation to `--standard` for the next
+  algorithmic attack; (c) the GOAL §5.2 CMA-ES arm (PR #293) lands a
+  new exploration surface for the bandit — let ledger nights accrue on
+  it before the next codify session.
+
 ### 2026-08-06 — CMA-ES arm enters the structural catalog (GOAL §5.2); direct add to `Rewarding_Restart` measured flat at quick-2-D; `drop_analyzer Sensitivity` re-hidden (apply-guard no-op)
 
 * **What** —

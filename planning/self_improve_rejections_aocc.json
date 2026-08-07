@@ -45,6 +45,15 @@
       "rejected_on": "2026-08-06",
       "reason": "apply-guard no-op: Sensitivity is the last analyzer in Rewarding_Restart (drop would empty the bucket) and the spec is unchanged since the 2026-08-03 12-seed A/B (mean d -0.0007, CI95 [-0.0100,+0.0085], neutral) - that rejection still governs; 2026-08-06 single-seed night adds no spec-change information",
       "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-08-06"
+    },
+    {
+      "class_name": "NelderMead",
+      "param_name": "",
+      "op": "drop_heuristic",
+      "direction": "drop_heuristic",
+      "rejected_on": "2026-08-07",
+      "reason": "12-seed paired quick A/B on the current spec: Rewarding_Restart mean d -0.0003, sd 0.0188, CI95 [-0.0122,+0.0117], control flat; training seed 42 alone shows +0.0174 - ledger accepts are a training-seed artifact; keep NelderMead",
+      "log_ref": "SELF_IMPROVEMENT_LOG.md 2026-08-07"
     }
   ]
 }

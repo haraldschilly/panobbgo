@@ -2,6 +2,29 @@
 
 ## Recent Improvements (continued)
 
+### Codify slot `NelderMead drop_heuristic` rejected — 2026-08-07
+- [x] **`NelderMead drop_heuristic` measured flat and rejected** —
+      ledger evidence (2 nights, pooled CI95% `[+0.0067,+0.0083]`)
+      did not survive the 12-seed paired quick A/B: `Rewarding_Restart`
+      mean Δ `−0.0003`, sd 0.0188, CI95 `[−0.0122,+0.0117]`, control
+      flat; seed 42 alone `+0.0174` (training-seed artifact, same
+      signature as both 2026-08-03 Sensitivity rejections).  Spec
+      unchanged (applied + reverted in-branch); rejection recorded in
+      `planning/self_improve_rejections_aocc.json`.  See the
+      2026-08-07 log entry.
+- [ ] **Multi-seed pre-gate for codify-scan** (raises priority of the
+      existing "price instance sensitivity into the codify gate" item)
+      — three consecutive ledger-positive slots rejected flat by the
+      12-seed instrument means single-seed `min_nights=2` evidence has
+      ~0 hit rate at the current plateau.  Cheapest fix: higher
+      `min_nights` for structural ops + a small (6-seed) screening A/B
+      in the nightly post-loop step before a slot is surfaced
+      actionable.
+- [ ] **Promote codify verification to `--standard`** when the quick
+      battery saturates (GOAL §4 step 4) — `Rewarding_Restart` per-seed
+      quick sd (~0.019) is ~9× the control's; effects below ~0.012
+      cannot clear a 12-seed quick CI95.
+
 ### CMA-ES arm in the structural catalog (GOAL §5.2) — 2026-08-06
 - [x] **`CMAES` added to the `add_heuristic` candidate pool** — the
       existing full CMA-ES heuristic (IPOP/BIPOP, `heuristics/cma_es.py`)

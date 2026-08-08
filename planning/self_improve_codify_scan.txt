@@ -1,7 +1,19 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
   gates: min_nights>=2, all_record_ci_low>0, hide_already_codified, hide_rejected
-  records scanned: 837
-  candidates surfaced: 2 (of 10; 4 already codified, 4 rejected, hidden)
+  records scanned: 867
+  candidates surfaced: 3 (of 10; 4 already codified, 3 rejected, hidden)
+
+- Sensitivity.update_interval [integer_add] direction=down [fresh evidence since rejection 2026-08-03]
+    n_accepts=3  n_nights=3  mean_Δ=+0.0108  pooled_CI95%=[+0.0092,+0.0117]  min_record_ci_low=+0.0092  confirmed=3/3
+    nights: 2026-07-26, 2026-07-31, 2026-08-08
+    rejection: 2026-08-03  12-seed paired quick A/B: mean d -0.0012, sd 0.0150, CI95% [-0.0097,+0.0072], control flat; ledger effect is a seed-42 training-battery artifact
+    live seed value(s): 25
+    proposed codify value: 20
+    strategies: Rewarding_Restart
+    evidence:
+      2026-07-26 05:59:19  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sensitivity.update_interval: 25 -> 20  [confirmed]
+      2026-07-31 06:08:17  Δ=+0.0092  CI=[+0.0092,+0.0092]  Rewarding_Restart/Sensitivity.update_interval: 25 -> 20  [confirmed]
+      2026-08-08 04:08:38  Δ=+0.0117  CI=[+0.0117,+0.0117]  Rewarding_Restart/Sensitivity.update_interval: 25 -> 20  [confirmed]
 
 - Sensitivity [structural op=drop_analyzer] direction=drop_analyzer [fresh evidence since rejection 2026-08-03]
     n_accepts=3  n_nights=3  mean_Δ=+0.0067  pooled_CI95%=[+0.0058,+0.0075]  min_record_ci_low=+0.0058  confirmed=3/3

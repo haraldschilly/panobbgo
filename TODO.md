@@ -2,6 +2,26 @@
 
 ## Recent Improvements (continued)
 
+### Codify rejection memory: k ≥ 2 fresh-night resurrection bar — 2026-08-08
+- [x] **Single-fresh-night resurrection churn stopped** — rejected codify
+      slots now stay hidden until the *post-rejection* evidence alone
+      reaches `--min-fresh-nights` (default 2) distinct nights; one fresh
+      seed-42 night no longer re-opens a slot a 12-seed A/B rejected
+      (measured 0/3 hit rate across the 2026-08-03..07 resurrections).
+      `--min-fresh-nights 1` restores legacy semantics; audit view shows
+      per-slot progress toward the bar.  See the 2026-08-08 log entry.
+- [ ] **Rotate the nightly base seed by date** — with every ledger night
+      keyed to seed 42, `n_nights >= 2` measures persistence of one
+      training-battery draw, not cross-instance generality.  A dated seed
+      rotation would make cross-night pooling cross-seed for free (check
+      trend-table comparability + hold-out seed disjointness first).
+- [ ] **Codify pre-gate: auto 12-seed paired A/B** — before `--apply-top`
+      declares a slot actionable, optionally run the
+      `ioh_benchmark.py run --decision-seeds` instrument and require a
+      CI95 excluding zero (mechanises the manual protocol every session
+      currently hand-runs; complements the 2026-08-03 "price instance
+      sensitivity into the codify gate" item below).
+
 ### Codify slot `NelderMead drop_heuristic` rejected — 2026-08-07
 - [x] **`NelderMead drop_heuristic` measured flat and rejected** —
       ledger evidence (2 nights, pooled CI95% `[+0.0067,+0.0083]`)

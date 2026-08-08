@@ -13138,34 +13138,53 @@ class TestCodifyRejectionLibrary:
             class_name="Sensitivity", param_name="update_interval", op="drop_analyzer", rejected_on="2026-08-03"
         ).matches(cand)
 
-    def test_suppresses_only_without_fresh_evidence(self):
-        from panobbgo.self_improve import CodifyRejection
+    def test_suppresses_until_fresh_nights_reach_resurrection_bar(self):
+        from panobbgo.self_improve import DEFAULT_RESURRECT_MIN_FRESH_NIGHTS, CodifyRejection
+
+        assert DEFAULT_RESURRECT_MIN_FRESH_NIGHTS == 2
 
         stale = _make_candidate(new_values=(False, False))  # nights 2026-06-01/02
         rej = CodifyRejection(class_name="Sobol", param_name="scramble", rejected_on="2026-06-15")
         assert rej.suppresses(stale)
 
-        fresh = _make_candidate(new_values=(False, False))
-        object.__setattr__(fresh, "distinct_dates", ("2026-06-01", "2026-06-20"))
-        assert not rej.suppresses(fresh)
+        # ONE post-rejection night is below the default k>=2 resurrection
+        # bar — the 2026-08-03..07 pattern: single fresh seed-42 accepts
+        # re-surfacing slots that 12-seed A/Bs had rejected flat.
+        one_fresh = _make_candidate(new_values=(False, False))
+        object.__setattr__(one_fresh, "distinct_dates", ("2026-06-01", "2026-06-20"))
+        assert rej.suppresses(one_fresh)
+        # The legacy semantics remain reachable explicitly.
+        assert not rej.suppresses(one_fresh, min_fresh_nights=1)
+
+        # TWO post-rejection nights clear the bar and resurrect the slot.
+        two_fresh = _make_candidate(new_values=(False, False))
+        object.__setattr__(two_fresh, "distinct_dates", ("2026-06-01", "2026-06-20", "2026-06-21"))
+        assert not rej.suppresses(two_fresh)
+        # A stricter bar keeps even two fresh nights suppressed.
+        assert rej.suppresses(two_fresh, min_fresh_nights=3)
+        # Values below 1 clamp to 1 (cannot suppress forever).
+        assert not rej.suppresses(two_fresh, min_fresh_nights=0)
 
         # Evidence night ON the rejection date counts as covered by the A/B.
         boundary = _make_candidate(new_values=(False, False))
         object.__setattr__(boundary, "distinct_dates", ("2026-06-01", "2026-06-15"))
         assert rej.suppresses(boundary)
+        assert rej.suppresses(boundary, min_fresh_nights=1)
 
     def test_annotate_rejected_status_sets_fields(self):
         from panobbgo.self_improve import CodifyRejection, annotate_rejected_status
 
         rejected = _make_candidate(new_values=(False, False))
         untouched = _make_candidate(class_name="Nearby", param_name="radius", new_values=(0.12, 0.13))
+        partial = _make_candidate(new_values=(False, False))
+        object.__setattr__(partial, "distinct_dates", ("2026-06-01", "2026-07-01"))
         resurrected = _make_candidate(new_values=(False, False))
-        object.__setattr__(resurrected, "distinct_dates", ("2026-06-01", "2026-07-01"))
+        object.__setattr__(resurrected, "distinct_dates", ("2026-06-01", "2026-07-01", "2026-07-02"))
 
         rejections = [
             CodifyRejection(class_name="Sobol", param_name="scramble", rejected_on="2026-06-15", reason="A/B flat"),
         ]
-        annotate_rejected_status([rejected, untouched, resurrected], rejections)
+        annotate_rejected_status([rejected, untouched, partial, resurrected], rejections)
 
         assert rejected.rejected is True
         assert rejected.rejected_on == "2026-06-15"
@@ -13176,10 +13195,19 @@ class TestCodifyRejectionLibrary:
         assert untouched.rejected is False
         assert untouched.rejected_on == ""
 
-        # Fresh evidence: not suppressed, but rejection history surfaced.
+        # One fresh night: still suppressed (below the k>=2 resurrection
+        # bar), rejection history populated.
+        assert partial.rejected is True
+        assert partial.rejected_on == "2026-06-15"
+
+        # Two fresh nights: not suppressed, rejection history surfaced.
         assert resurrected.rejected is False
         assert resurrected.rejected_on == "2026-06-15"
         assert resurrected.rejection_reason == "A/B flat"
+
+        # min_fresh_nights=1 restores the legacy any-fresh-night semantics.
+        annotate_rejected_status([partial], rejections, min_fresh_nights=1)
+        assert partial.rejected is False
 
     def test_annotate_uses_most_recent_matching_rejection(self):
         from panobbgo.self_improve import CodifyRejection, annotate_rejected_status
@@ -13292,8 +13320,9 @@ class TestCodifyScanCLIRejection:
     def test_fresh_evidence_resurrects_with_history_tag(self, tmp_path, capsys):
         cli = self._import_cli()
         live = tmp_path / "live.jsonl"
-        # Second night AFTER the 2026-06-15 rejection.
-        self._write_ledger(live, dates=("2026-06-01", "2026-06-20"))
+        # Two distinct nights AFTER the 2026-06-15 rejection — enough to
+        # clear the default k>=2 resurrection bar.
+        self._write_ledger(live, dates=("2026-06-01", "2026-06-20", "2026-06-21"))
         (tmp_path / "done").mkdir()
         rej = tmp_path / "rejections.json"
         self._write_rejection(rej)
@@ -13303,6 +13332,63 @@ class TestCodifyScanCLIRejection:
         assert "Nearby.radius" in out
         assert "[fresh evidence since rejection 2026-06-15]" in out
         assert "rejection: 2026-06-15" in out
+
+    def test_single_fresh_night_stays_hidden_by_default(self, tmp_path, capsys):
+        """One post-rejection night is below the resurrection bar (the 2026-08-03..07 churn)."""
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live, dates=("2026-06-01", "2026-06-20"))
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "hide_rejected(resurrect_fresh_nights>=2)" in out
+        assert "1 rejected, hidden" in out
+        assert "Nearby.radius" not in out
+
+    def test_single_fresh_night_audit_tag_shows_progress(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live, dates=("2026-06-01", "2026-06-20"))
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        rc = cli._cmd_codify_scan(self._build_ns(live, rej, include_rejected=True))
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Nearby.radius" in out
+        assert "[rejected 2026-06-15; fresh nights since: 1, below resurrection bar]" in out
+
+    def test_min_fresh_nights_one_restores_legacy_resurrection(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live, dates=("2026-06-01", "2026-06-20"))
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        ns = self._build_ns(live, rej)
+        ns.min_fresh_nights = 1
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "Nearby.radius" in out
+        assert "[fresh evidence since rejection 2026-06-15]" in out
+        assert "hide_rejected(resurrect_fresh_nights>=1)" in out
+
+    def test_min_fresh_nights_below_one_fails_loudly(self, tmp_path, capsys):
+        cli = self._import_cli()
+        live = tmp_path / "live.jsonl"
+        self._write_ledger(live)
+        (tmp_path / "done").mkdir()
+        rej = tmp_path / "rejections.json"
+        self._write_rejection(rej)
+        ns = self._build_ns(live, rej)
+        ns.min_fresh_nights = 0
+        rc = cli._cmd_codify_scan(ns)
+        assert rc == 1
+        assert "--min-fresh-nights must be >= 1" in capsys.readouterr().err
 
     def test_direction_restricted_rejection_leaves_other_direction_actionable(self, tmp_path, capsys):
         cli = self._import_cli()

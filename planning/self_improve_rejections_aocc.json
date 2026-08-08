@@ -1,5 +1,5 @@
 {
-  "_comment": "Codify-scan rejection memory. Each entry suppresses the matching (class_name, param_name, op[, direction]) candidate while all of its evidence nights are on or before rejected_on; fresh post-rejection ledger evidence resurrects the slot. Append via 'scripts/self_improve.py codify-reject'; pair every entry with a dated planning/SELF_IMPROVEMENT_LOG.md write-up (log_ref).",
+  "_comment": "Codify-scan rejection memory. Each entry suppresses the matching (class_name, param_name, op[, direction]) candidate until the ledger evidence nights strictly after rejected_on alone reach the scan's --min-fresh-nights bar (default 2 distinct nights, same k>=2 gate as a fresh candidate); pre-rejection nights never count, they were adjudicated by the rejecting A/B. Append via 'scripts/self_improve.py codify-reject'; pair every entry with a dated planning/SELF_IMPROVEMENT_LOG.md write-up (log_ref).",
   "rejections": [
     {
       "class_name": "Center",

@@ -23,10 +23,12 @@ Examples::
     uv run python scripts/ioh_benchmark.py compare before.json after.json
 
     # Paired multi-seed decision A/B (the 2026-08-03 protocol: N >= 12
-    # paired quick seeds, mean/sd/CI95 per strategy, flat-control check)
-    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --output before.json
+    # paired quick seeds, mean/sd/CI95 per strategy, flat-control check).
+    # --sync-eval halves the scheduling-noise floor (2026-08-09 finding);
+    # use it on both sides.
+    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --sync-eval --output before.json
     # ... make changes ...
-    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --output after.json
+    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --sync-eval --output after.json
     uv run python scripts/ioh_benchmark.py compare before.json after.json
 
     # Standard battery with 5 replicates per (dim, instance) pair
@@ -112,12 +114,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
     print(f"Strategies: {[s.name for s in strategies]}")
     print(f"Per-run budget: {[battery.budget_for(d) for d in battery.dims]} (dim={battery.dims})")
+    if args.sync_eval:
+        print("Eval mode: sync (deterministic result batches; ~2x lower run-to-run noise)")
     result: Any
     if seeds is not None:
         print(f"Seeds ({len(seeds)}): {seeds}")
-        result = run_ioh_harness_multi_seed(strategies, battery, seeds, progress=not args.quiet)
+        result = run_ioh_harness_multi_seed(
+            strategies, battery, seeds, progress=not args.quiet, sync_eval=args.sync_eval
+        )
     else:
-        result = run_ioh_harness(strategies, battery, base_seed=args.seed, progress=not args.quiet)
+        result = run_ioh_harness(
+            strategies, battery, base_seed=args.seed, progress=not args.quiet, sync_eval=args.sync_eval
+        )
     result.print_summary()
     if args.output:
         Path(args.output).write_text(result.to_json())
@@ -186,6 +194,15 @@ def _compare_multi(before: IOHMultiSeedResult, after: IOHMultiSeedResult, fail_o
 def cmd_compare(args: argparse.Namespace) -> int:
     d_before: Dict[str, Any] = json.loads(Path(args.before).read_text())
     d_after: Dict[str, Any] = json.loads(Path(args.after).read_text())
+    b_sync = bool(d_before.get("sync_eval"))
+    a_sync = bool(d_after.get("sync_eval"))
+    if b_sync != a_sync:
+        print(
+            f"warning: evaluation-mode mismatch ({args.before} sync_eval={b_sync}, "
+            f"{args.after} sync_eval={a_sync}) — the two sides were measured under "
+            "different scheduling regimes; deltas are not decision-grade.",
+            file=sys.stderr,
+        )
     b_multi = bool(d_before.get("multi_seed"))
     a_multi = bool(d_after.get("multi_seed"))
     if b_multi != a_multi:
@@ -244,6 +261,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         type=int,
         default=None,
         help="Override battery repetitions per (dim, instance, strategy) — e.g. 5 for standard-battery decisions.",
+    )
+    run_p.add_argument(
+        "--sync-eval",
+        action="store_true",
+        help="Synchronous-harvest evaluation: deterministic result batches, ~2x lower "
+        "run-to-run noise for adaptive strategies. Use on BOTH sides of an A/B "
+        "(compare warns on a mode mismatch).",
     )
     run_p.add_argument("--output", help="Save full result as JSON.")
     run_p.add_argument("--quiet", action="store_true", help="Suppress per-run progress lines.")

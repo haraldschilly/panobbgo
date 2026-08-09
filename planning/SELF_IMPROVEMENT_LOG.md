@@ -17,6 +17,98 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-09 — Scheduling noise quantified (repeat-sd 0.021 at fixed seed) and halved: `--sync-eval` synchronous-harvest mode
+
+* **What** — Measurement-substrate session (no optimizer behavior
+  change; the new mode is opt-in and default-off).  Today's three
+  codify-scan candidates were all already covered (NelderMead → open
+  PR #294; both `Sensitivity` slots → 2026-08-03 rejections + open
+  PRs #293/#295), so per GOAL §4 step 2 this attacked the sharpest
+  measured gap: the substrate noise named by the last three sessions.
+
+* **Finding 1: the "per-seed" decision noise is scheduling
+  nondeterminism, not instance sensitivity.**  10 repeated quick-battery
+  runs on an *identical* tree at the *same* seed (42):
+
+  | strategy | repeat mean | repeat sd | range |
+  |---|---|---|---|
+  | `Rewarding_Restart` | 0.3536 | **0.0206** | 0.0602 |
+  | `RoundRobin_Random` | 0.3333 | 0.0012 | 0.0037 |
+
+  At a fixed seed the entire ~0.019 "per-seed sd" of the 2026-08-03/05
+  instrument reproduces — so it was never instance-family noise; the
+  adaptive strategy is simply nondeterministic run-to-run.  Per-instance
+  breakdown: instances 0 and 2 carry the variance (sd 0.033 each),
+  instance 1 is comparatively stable (0.009).  Every +0.01-scale ledger
+  accept at seed 42 lives inside this band — which is *why* 67% of
+  screening accepts get overturned by the same-night confirm gate and
+  all three recent codify candidates re-measured flat on 12 seeds.
+
+* **Finding 2: source ranking (scratch experiments, seed 42, 10
+  repeats each).**  Mechanisms, in `panobbgo/core.py`: (a)
+  `_run_threaded_evaluation` harvests whichever futures are `done()`
+  per loop pass; (b) `jobs_per_client` is derived from wall-clock
+  `avg_time_per_task`, so batch-size targets jitter; (c)
+  `_collect_points_safely` polls heuristic queues on wall-clock sleeps
+  while EventBus handler threads (one per `on_*` method) mutate bandit
+  state concurrently; (d) heuristics draw from the *shared global*
+  `np.random` inside those threads, so interleaving reorders the
+  stream even at a fixed seed.
+
+  | variant | `Rewarding_Restart` repeat sd (seed 42) |
+  |---|---|
+  | baseline (threaded) | 0.0206 |
+  | + synchronous future harvest | **0.0094** |
+  | + harvest + eventbus queue-drain wait | 0.0113 (no further gain) |
+
+  The queue-drain result is a real negative: queue-empty ≠ handler
+  finished, so polling the queues buys nothing — a true stepping mode
+  needs handler-completion tracking.  The residual is consistent with
+  (c)+(d).
+
+* **Shipped: `--sync-eval`** — `scripts/ioh_benchmark.py run
+  --sync-eval` → `run_ioh_harness(..., sync_eval=True)` →
+  `config.sync_evaluation` (YAML `evaluation.sync`, default False) →
+  `_run_threaded_evaluation` blocks on all submitted futures before
+  harvesting.  Cross-seed validation of the shipped path (8–10 fixed-
+  seed repeats per cell, `Rewarding_Restart`):
+
+  | seed | threaded sd | sync sd | ratio |
+  |---|---|---|---|
+  | 42 | 0.0206 | 0.0090 | 2.3× |
+  | 1234 | 0.0190 | 0.0152 | 1.25× |
+  | 777 | 0.0138 | 0.0100 | 1.4× |
+  | **pooled** | **0.0183** | **0.0115** | **1.6× sd (2.5× variance, F≈2.5, p<0.05)** |
+
+  So the honest claim is a **~1.6× pooled repeat-sd cut,
+  heterogeneous by seed** — not the 2.3× the seed-42-only experiment
+  suggested.  A single null 12-seed paired A/B per mode could *not*
+  resolve the improvement (threaded sd 0.0158 vs sync 0.0193; n=12 sd
+  estimates carry ±30% error) — the instrument-level CI shrink is
+  expected asymptotically but is **not yet demonstrated at N=12**;
+  accumulate nulls before leaning on it.  Result JSONs carry a
+  `sync_eval` tag (legacy files read back as False) and `compare`
+  warns loudly on a mode mismatch so nobody A/Bs across regimes.
+  Sync harvest shifts mean AOCC slightly (+0.005 at 42, +0.015 at
+  1234, −0.007 at 777 — different trajectories, expected); per the
+  ledger-continuity rule the nightly loop stays on threaded mode
+  until a deliberate switch (TODO).
+
+* **Validation** — 7 new tests (round-trip incl. legacy files, CLI
+  mismatch warning + silence on match, e2e sync run to ≥90% budget,
+  default-off tag); full suite green; ruff clean.  Default-off path:
+  the only new code on it is a `getattr(..., False)` check.
+
+* **Next** — (a) per-heuristic `np.random.Generator` streams seeded
+  from (run seed, heuristic name) to kill source (d) — mechanical,
+  ~14 modules, measure with the same fixed-seed repeat protocol
+  (which is the right instrument for substrate work; paired-delta
+  nulls at N=12 cannot resolve <2× changes); (b) use `--sync-eval`
+  on both sides of codify/frontier A/Bs and accumulate null-A/B
+  evidence for the instrument-level gain; (c) only after (b) shows a
+  demonstrated CI shrink, promote it into the nightly loop and codify
+  verification (deliberate regime switch, logged).
+
 ### 2026-08-08 — Rejected codify slots now need k ≥ 2 *post-rejection* nights to resurrect (`--min-fresh-nights`)
 
 * **What** — Tooling-only session (no optimizer behavior change;

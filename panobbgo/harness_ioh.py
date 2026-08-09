@@ -421,6 +421,10 @@ class IOHHarnessResult:
     log_hi: float
     runs: List[IOHRunRecord]
     timestamp: float = field(default_factory=time.time)
+    #: Whether the synchronous-harvest evaluation mode was active.
+    #: Results measured under different modes are not comparable —
+    #: ``ioh_benchmark.py compare`` warns on a mismatch.
+    sync_eval: bool = False
 
     @property
     def mean_aocc(self) -> float:
@@ -453,6 +457,7 @@ class IOHHarnessResult:
             "mean_aocc": self.mean_aocc,
             "per_strategy_aocc": self.per_strategy_aocc(),
             "timestamp": self.timestamp,
+            "sync_eval": self.sync_eval,
             "runs": [asdict(r) for r in self.runs],
         }
 
@@ -469,10 +474,13 @@ class IOHHarnessResult:
             log_hi=d.get("log_hi", AOCC_LOG_HI),
             runs=runs,
             timestamp=d.get("timestamp", time.time()),
+            sync_eval=bool(d.get("sync_eval", False)),
         )
 
     def print_summary(self) -> None:
         print(f"\nIOH battery: {self.battery_name}  ({self.problem_kind})")
+        if self.sync_eval:
+            print("  eval mode:    sync (deterministic result batches)")
         print(f"  log targets:  [10^{self.log_lo:.0f}, 10^{self.log_hi:.0f}]")
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.runs)} run(s)")
         print("\n  per strategy:")
@@ -528,6 +536,9 @@ class IOHMultiSeedResult:
     base_seeds: List[int]
     results: List[IOHHarnessResult]
     timestamp: float = field(default_factory=time.time)
+    #: Whether the synchronous-harvest evaluation mode was active (see
+    #: :class:`IOHHarnessResult.sync_eval`).
+    sync_eval: bool = False
 
     @property
     def mean_aocc(self) -> float:
@@ -564,6 +575,7 @@ class IOHMultiSeedResult:
             "mean_aocc": self.mean_aocc,
             "per_strategy_aocc": self.per_strategy_aocc(),
             "timestamp": self.timestamp,
+            "sync_eval": self.sync_eval,
             "results": [r.to_dict() for r in self.results],
         }
 
@@ -580,10 +592,13 @@ class IOHMultiSeedResult:
             base_seeds=[int(s) for s in d["base_seeds"]],
             results=[IOHHarnessResult.from_dict(r) for r in d.get("results", [])],
             timestamp=d.get("timestamp", time.time()),
+            sync_eval=bool(d.get("sync_eval", False)),
         )
 
     def print_summary(self) -> None:
         print(f"\nIOH multi-seed battery: {self.battery_name}  ({self.problem_kind})")
+        if self.sync_eval:
+            print("  eval mode:    sync (deterministic result batches)")
         print(f"  seeds ({len(self.base_seeds)}): {', '.join(str(s) for s in self.base_seeds)}")
         n_runs = sum(len(r.runs) for r in self.results)
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.base_seeds)} seed(s), {n_runs} run(s)")
@@ -604,6 +619,7 @@ def run_ioh_harness_multi_seed(
     log_hi: float = AOCC_LOG_HI,
     timeout_s: Optional[float] = None,
     progress: bool = True,
+    sync_eval: bool = False,
 ) -> IOHMultiSeedResult:
     """Run :func:`run_ioh_harness` once per seed in ``base_seeds``."""
     if not base_seeds:
@@ -621,6 +637,7 @@ def run_ioh_harness_multi_seed(
                 log_hi=log_hi,
                 timeout_s=timeout_s,
                 progress=progress,
+                sync_eval=sync_eval,
             )
         )
     return IOHMultiSeedResult(
@@ -630,6 +647,7 @@ def run_ioh_harness_multi_seed(
         log_hi=log_hi,
         base_seeds=[int(s) for s in base_seeds],
         results=results,
+        sync_eval=sync_eval,
     )
 
 
@@ -749,6 +767,7 @@ def _run_one(
     log_lo: float,
     log_hi: float,
     timeout_s: Optional[float] = None,
+    sync_eval: bool = False,
 ) -> IOHRunRecord:
     """Run one strategy on one (problem, instance) and return its record."""
     from panobbgo.lib.ioh_wrapper import IOHProblem
@@ -781,6 +800,10 @@ def _run_one(
         try:
             strategy = strategy_spec.create_strategy(wrapped)
             strategy.config.max_eval = budget
+            # Deterministic result batches for the threaded evaluator —
+            # cuts adaptive-strategy measurement noise roughly in half
+            # (2026-08-09 repeat-sd experiment); opt-in via --sync-eval.
+            strategy.config.sync_evaluation = bool(sync_eval)
             # IOH/AOCC is an anytime metric: stopping early on convergence
             # leaves the remaining budget penalised at the final best-fx.
             # Force the strategy to keep producing points until the
@@ -841,12 +864,18 @@ def run_ioh_harness(
     log_hi: float = AOCC_LOG_HI,
     timeout_s: Optional[float] = None,
     progress: bool = True,
+    sync_eval: bool = False,
 ) -> IOHHarnessResult:
     """Run every strategy against every (dim, instance, rep) in ``battery``.
 
     Runs serially; the underlying strategies use internal threading.  For
     large batteries, drive multiple ``run_ioh_harness`` calls from outside
     if you need outer parallelism.
+
+    ``sync_eval=True`` enables the synchronous-harvest evaluation mode
+    (``config.sync_evaluation``) on every strategy: deterministic result
+    batches, roughly halving run-to-run measurement noise for adaptive
+    strategies.  Only compare results measured under the same mode.
     """
     if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
@@ -880,6 +909,7 @@ def run_ioh_harness(
                         log_lo=log_lo,
                         log_hi=log_hi,
                         timeout_s=timeout_s,
+                        sync_eval=sync_eval,
                     )
                     if progress:
                         tag = "ERR " if rec.error else ""
@@ -896,5 +926,6 @@ def run_ioh_harness(
         problem_kind=battery.problem_kind,
         log_lo=log_lo,
         log_hi=log_hi,
+        sync_eval=sync_eval,
         runs=runs,
     )

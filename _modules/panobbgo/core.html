@@ -197,7 +197,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="63"><span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
 </span><span data-line="64"><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 </span><span data-line="65"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
-</span><span data-line="66"><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+</span><span data-line="66"><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span><span class="p">,</span> <span class="n">wait</span> <span class="k">as</span> <span class="n">futures_wait</span>
 </span><span data-line="67"><span class="kn">from</span><span class="w"> </span><span class="nn">.logging.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressContext</span>
 </span><span data-line="68"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span>
 </span><span data-line="69">
@@ -1959,257 +1959,265 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="1700">        <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="1701">        <span class="n">new_results</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="1702">
-</span><span data-line="1703">        <span class="c1"># Check which futures are done</span>
-</span><span data-line="1704">        <span class="n">completed_ids</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="1705">        <span class="k">for</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-</span><span data-line="1706">            <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
-</span><span data-line="1707">                <span class="n">completed_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
-</span><span data-line="1708">                <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
-</span><span data-line="1709">                <span class="bp">self</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</span><span data-line="1703">        <span class="c1"># Synchronous harvest (config.sync_evaluation): block until every</span>
+</span><span data-line="1704">        <span class="c1"># submitted future is done so each loop pass sees a deterministic</span>
+</span><span data-line="1705">        <span class="c1"># result batch instead of whichever futures the OS scheduler</span>
+</span><span data-line="1706">        <span class="c1"># happened to finish.  Opt-in; benchmark drivers use it to cut</span>
+</span><span data-line="1707">        <span class="c1"># measurement noise for adaptive strategies.</span>
+</span><span data-line="1708">        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;sync_evaluation&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="p">:</span>
+</span><span data-line="1709">            <span class="n">futures_wait</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
 </span><span data-line="1710">
-</span><span data-line="1711">                <span class="c1"># Record wall time</span>
-</span><span data-line="1712">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_task_start_times&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task_start_times</span><span class="p">:</span>
-</span><span data-line="1713">                    <span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task_start_times</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span>
-</span><span data-line="1714">                    <span class="bp">self</span><span class="o">.</span><span class="n">_task_start_times</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
-</span><span data-line="1715">
-</span><span data-line="1716">                <span class="k">try</span><span class="p">:</span>
-</span><span data-line="1717">                    <span class="n">result</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-</span><span data-line="1718">                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span data-line="1719">                        <span class="n">new_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="1720">                    <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1721">                        <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="1722">                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="1723">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Threaded evaluation failed: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
-</span><span data-line="1724">
-</span><span data-line="1725">        <span class="c1"># Clean up completed futures</span>
-</span><span data-line="1726">        <span class="k">for</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="n">completed_ids</span><span class="p">:</span>
-</span><span data-line="1727">            <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="1728">            <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="1729">
-</span><span data-line="1730">        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">+=</span> <span class="n">new_results</span>
-</span><span data-line="1731">
-</span><span data-line="1732">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_progress_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-</span><span data-line="1733"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1734"><span class="sd">        Update the progress status line with current optimization information.</span>
-</span><span data-line="1735">
-</span><span data-line="1736"><span class="sd">        Args:</span>
-</span><span data-line="1737"><span class="sd">            force (bool): If True, force an update regardless of throttling.</span>
-</span><span data-line="1738"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1739">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;panobbgo_logger&quot;</span><span class="p">):</span>
-</span><span data-line="1740">            <span class="k">return</span>
-</span><span data-line="1741">
-</span><span data-line="1742">        <span class="n">progress_reporter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span>
-</span><span data-line="1743">        <span class="k">if</span> <span class="ow">not</span> <span class="n">progress_reporter</span><span class="o">.</span><span class="n">status_enabled</span><span class="p">:</span>
-</span><span data-line="1744">            <span class="k">return</span>
-</span><span data-line="1745">
-</span><span data-line="1746">        <span class="c1"># Throttle updates to avoid excessive UI processing</span>
-</span><span data-line="1747">        <span class="n">now</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span data-line="1748">        <span class="c1"># 0.1 seconds (10 Hz) is a good balance for responsive UI without high CPU overhead</span>
-</span><span data-line="1749">        <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_status_update</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
-</span><span data-line="1750">            <span class="k">return</span>
-</span><span data-line="1751">
-</span><span data-line="1752">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_status_update</span> <span class="o">=</span> <span class="n">now</span>
+</span><span data-line="1711">        <span class="c1"># Check which futures are done</span>
+</span><span data-line="1712">        <span class="n">completed_ids</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="1713">        <span class="k">for</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+</span><span data-line="1714">            <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+</span><span data-line="1715">                <span class="n">completed_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</span><span data-line="1716">                <span class="bp">self</span><span class="o">.</span><span class="n">new_finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</span><span data-line="1717">                <span class="bp">self</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</span><span data-line="1718">
+</span><span data-line="1719">                <span class="c1"># Record wall time</span>
+</span><span data-line="1720">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_task_start_times&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task_start_times</span><span class="p">:</span>
+</span><span data-line="1721">                    <span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_task_start_times</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span>
+</span><span data-line="1722">                    <span class="bp">self</span><span class="o">.</span><span class="n">_task_start_times</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task_id</span><span class="p">)</span>
+</span><span data-line="1723">
+</span><span data-line="1724">                <span class="k">try</span><span class="p">:</span>
+</span><span data-line="1725">                    <span class="n">result</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+</span><span data-line="1726">                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span data-line="1727">                        <span class="n">new_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="1728">                    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1729">                        <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="1730">                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="1731">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Threaded evaluation failed: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+</span><span data-line="1732">
+</span><span data-line="1733">        <span class="c1"># Clean up completed futures</span>
+</span><span data-line="1734">        <span class="k">for</span> <span class="n">task_id</span> <span class="ow">in</span> <span class="n">completed_ids</span><span class="p">:</span>
+</span><span data-line="1735">            <span class="bp">self</span><span class="o">.</span><span class="n">_futures</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="1736">            <span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="1737">
+</span><span data-line="1738">        <span class="bp">self</span><span class="o">.</span><span class="n">results</span> <span class="o">+=</span> <span class="n">new_results</span>
+</span><span data-line="1739">
+</span><span data-line="1740">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_progress_status</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+</span><span data-line="1741"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1742"><span class="sd">        Update the progress status line with current optimization information.</span>
+</span><span data-line="1743">
+</span><span data-line="1744"><span class="sd">        Args:</span>
+</span><span data-line="1745"><span class="sd">            force (bool): If True, force an update regardless of throttling.</span>
+</span><span data-line="1746"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1747">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;panobbgo_logger&quot;</span><span class="p">):</span>
+</span><span data-line="1748">            <span class="k">return</span>
+</span><span data-line="1749">
+</span><span data-line="1750">        <span class="n">progress_reporter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span>
+</span><span data-line="1751">        <span class="k">if</span> <span class="ow">not</span> <span class="n">progress_reporter</span><span class="o">.</span><span class="n">status_enabled</span><span class="p">:</span>
+</span><span data-line="1752">            <span class="k">return</span>
 </span><span data-line="1753">
-</span><span data-line="1754">        <span class="c1"># Gather status information</span>
-</span><span data-line="1755">        <span class="n">current_evals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="1756">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="1757">            <span class="n">max_evals</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span>
-</span><span data-line="1758">        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-</span><span data-line="1759">            <span class="n">max_evals</span> <span class="o">=</span> <span class="mi">1000</span>
-</span><span data-line="1760">        <span class="n">budget_pct</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">max_evals</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span data-line="1754">        <span class="c1"># Throttle updates to avoid excessive UI processing</span>
+</span><span data-line="1755">        <span class="n">now</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="1756">        <span class="c1"># 0.1 seconds (10 Hz) is a good balance for responsive UI without high CPU overhead</span>
+</span><span data-line="1757">        <span class="k">if</span> <span class="ow">not</span> <span class="n">force</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_status_update</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
+</span><span data-line="1758">            <span class="k">return</span>
+</span><span data-line="1759">
+</span><span data-line="1760">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_status_update</span> <span class="o">=</span> <span class="n">now</span>
 </span><span data-line="1761">
-</span><span data-line="1762">        <span class="c1"># Calculate ETA</span>
-</span><span data-line="1763">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_start&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1764">            <span class="n">elapsed_time</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span>
-</span><span data-line="1765">            <span class="k">if</span> <span class="n">current_evals</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="1766">                <span class="n">avg_time_per_eval</span> <span class="o">=</span> <span class="n">elapsed_time</span> <span class="o">/</span> <span class="n">current_evals</span>
-</span><span data-line="1767">                <span class="n">remaining_evals</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_evals</span> <span class="o">-</span> <span class="n">current_evals</span><span class="p">)</span>
-</span><span data-line="1768">                <span class="n">eta_seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">avg_time_per_eval</span> <span class="o">*</span> <span class="n">remaining_evals</span><span class="p">)</span>
-</span><span data-line="1769">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1770">                <span class="n">eta_seconds</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1771">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1772">            <span class="n">eta_seconds</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1773">
-</span><span data-line="1774">        <span class="c1"># Get convergence estimate (simplified: distance to best known)</span>
-</span><span data-line="1775">        <span class="n">convergence</span> <span class="o">=</span> <span class="mf">0.0</span>
-</span><span data-line="1776">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;best&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1777">            <span class="c1"># Simple convergence measure: could be improved</span>
-</span><span data-line="1778">            <span class="n">convergence</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="p">(</span><span class="n">current_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span>
-</span><span data-line="1779">
-</span><span data-line="1780">        <span class="c1"># Get best function value</span>
-</span><span data-line="1781">        <span class="n">best_value</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="1782">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;best&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1783">            <span class="n">best_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span>
-</span><span data-line="1784">
-</span><span data-line="1785">        <span class="c1"># Get strategy-specific information (for bandit strategies)</span>
-</span><span data-line="1786">        <span class="n">extra_fields</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="1787">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_get_status_info&quot;</span><span class="p">):</span>
-</span><span data-line="1788">            <span class="n">extra_fields</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_get_status_info&quot;</span><span class="p">)()</span>
-</span><span data-line="1789">
-</span><span data-line="1790">        <span class="c1"># Update status</span>
-</span><span data-line="1791">        <span class="n">progress_reporter</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span>
-</span><span data-line="1792">            <span class="n">budget_pct</span><span class="o">=</span><span class="n">budget_pct</span><span class="p">,</span>
-</span><span data-line="1793">            <span class="n">eta_seconds</span><span class="o">=</span><span class="n">eta_seconds</span><span class="p">,</span>
-</span><span data-line="1794">            <span class="n">convergence</span><span class="o">=</span><span class="n">convergence</span><span class="p">,</span>
-</span><span data-line="1795">            <span class="n">best_value</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">best_value</span><span class="p">)</span> <span class="k">if</span> <span class="n">best_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
-</span><span data-line="1796">            <span class="n">current_evals</span><span class="o">=</span><span class="n">current_evals</span><span class="p">,</span>
-</span><span data-line="1797">            <span class="n">max_evals</span><span class="o">=</span><span class="n">max_evals</span><span class="p">,</span>
-</span><span data-line="1798">            <span class="n">extra_fields</span><span class="o">=</span><span class="n">extra_fields</span><span class="p">,</span>
-</span><span data-line="1799">        <span class="p">)</span>
-</span><span data-line="1800">
-</span><span data-line="1801">    <span class="k">def</span><span class="w"> </span><span class="nf">_collect_points_safely</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="1802"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1803"><span class="sd">        Safely collect points from heuristics with timeout protection.</span>
-</span><span data-line="1804"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1805">
-</span><span data-line="1806">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="1807">        <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1808">        <span class="n">max_attempts</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Approx 2 seconds</span>
-</span><span data-line="1809">
-</span><span data-line="1810">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="1811">            <span class="c1"># Check termination</span>
-</span><span data-line="1812">            <span class="k">if</span> <span class="n">until</span><span class="p">:</span>
-</span><span data-line="1813">                <span class="k">if</span> <span class="n">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
-</span><span data-line="1814">                    <span class="k">break</span>
-</span><span data-line="1815">            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
-</span><span data-line="1816">                <span class="k">break</span>
+</span><span data-line="1762">        <span class="c1"># Gather status information</span>
+</span><span data-line="1763">        <span class="n">current_evals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="1764">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="1765">            <span class="n">max_evals</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span>
+</span><span data-line="1766">        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+</span><span data-line="1767">            <span class="n">max_evals</span> <span class="o">=</span> <span class="mi">1000</span>
+</span><span data-line="1768">        <span class="n">budget_pct</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="k">if</span> <span class="n">max_evals</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span data-line="1769">
+</span><span data-line="1770">        <span class="c1"># Calculate ETA</span>
+</span><span data-line="1771">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_start&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1772">            <span class="n">elapsed_time</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span>
+</span><span data-line="1773">            <span class="k">if</span> <span class="n">current_evals</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="1774">                <span class="n">avg_time_per_eval</span> <span class="o">=</span> <span class="n">elapsed_time</span> <span class="o">/</span> <span class="n">current_evals</span>
+</span><span data-line="1775">                <span class="n">remaining_evals</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_evals</span> <span class="o">-</span> <span class="n">current_evals</span><span class="p">)</span>
+</span><span data-line="1776">                <span class="n">eta_seconds</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">avg_time_per_eval</span> <span class="o">*</span> <span class="n">remaining_evals</span><span class="p">)</span>
+</span><span data-line="1777">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1778">                <span class="n">eta_seconds</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1779">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1780">            <span class="n">eta_seconds</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1781">
+</span><span data-line="1782">        <span class="c1"># Get convergence estimate (simplified: distance to best known)</span>
+</span><span data-line="1783">        <span class="n">convergence</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="1784">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;best&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1785">            <span class="c1"># Simple convergence measure: could be improved</span>
+</span><span data-line="1786">            <span class="n">convergence</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="p">(</span><span class="n">current_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span><span class="p">)</span>
+</span><span data-line="1787">
+</span><span data-line="1788">        <span class="c1"># Get best function value</span>
+</span><span data-line="1789">        <span class="n">best_value</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="1790">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;best&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1791">            <span class="n">best_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best</span><span class="o">.</span><span class="n">fx</span>
+</span><span data-line="1792">
+</span><span data-line="1793">        <span class="c1"># Get strategy-specific information (for bandit strategies)</span>
+</span><span data-line="1794">        <span class="n">extra_fields</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="1795">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_get_status_info&quot;</span><span class="p">):</span>
+</span><span data-line="1796">            <span class="n">extra_fields</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_get_status_info&quot;</span><span class="p">)()</span>
+</span><span data-line="1797">
+</span><span data-line="1798">        <span class="c1"># Update status</span>
+</span><span data-line="1799">        <span class="n">progress_reporter</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span>
+</span><span data-line="1800">            <span class="n">budget_pct</span><span class="o">=</span><span class="n">budget_pct</span><span class="p">,</span>
+</span><span data-line="1801">            <span class="n">eta_seconds</span><span class="o">=</span><span class="n">eta_seconds</span><span class="p">,</span>
+</span><span data-line="1802">            <span class="n">convergence</span><span class="o">=</span><span class="n">convergence</span><span class="p">,</span>
+</span><span data-line="1803">            <span class="n">best_value</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">best_value</span><span class="p">)</span> <span class="k">if</span> <span class="n">best_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+</span><span data-line="1804">            <span class="n">current_evals</span><span class="o">=</span><span class="n">current_evals</span><span class="p">,</span>
+</span><span data-line="1805">            <span class="n">max_evals</span><span class="o">=</span><span class="n">max_evals</span><span class="p">,</span>
+</span><span data-line="1806">            <span class="n">extra_fields</span><span class="o">=</span><span class="n">extra_fields</span><span class="p">,</span>
+</span><span data-line="1807">        <span class="p">)</span>
+</span><span data-line="1808">
+</span><span data-line="1809">    <span class="k">def</span><span class="w"> </span><span class="nf">_collect_points_safely</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="1810"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1811"><span class="sd">        Safely collect points from heuristics with timeout protection.</span>
+</span><span data-line="1812"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1813">
+</span><span data-line="1814">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="1815">        <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1816">        <span class="n">max_attempts</span> <span class="o">=</span> <span class="mi">20</span>  <span class="c1"># Approx 2 seconds</span>
 </span><span data-line="1817">
-</span><span data-line="1818">            <span class="c1"># Try to get points</span>
-</span><span data-line="1819">            <span class="n">initial_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
-</span><span data-line="1820">            <span class="n">new_points</span> <span class="o">=</span> <span class="n">selector</span><span class="p">()</span>
-</span><span data-line="1821">
-</span><span data-line="1822">            <span class="k">if</span> <span class="n">new_points</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1823">                <span class="c1"># Selector signalled to stop (e.g. no active heuristics)</span>
+</span><span data-line="1818">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span data-line="1819">            <span class="c1"># Check termination</span>
+</span><span data-line="1820">            <span class="k">if</span> <span class="n">until</span><span class="p">:</span>
+</span><span data-line="1821">                <span class="k">if</span> <span class="n">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+</span><span data-line="1822">                    <span class="k">break</span>
+</span><span data-line="1823">            <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="1824">                <span class="k">break</span>
 </span><span data-line="1825">
-</span><span data-line="1826">            <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
-</span><span data-line="1827">                <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
-</span><span data-line="1828">
-</span><span data-line="1829">            <span class="c1"># Check progress</span>
-</span><span data-line="1830">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="n">initial_count</span><span class="p">:</span>
-</span><span data-line="1831">                <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="1832">                <span class="k">if</span> <span class="n">attempts</span> <span class="o">&gt;=</span> <span class="n">max_attempts</span><span class="p">:</span>
-</span><span data-line="1833">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: Timed out waiting for points.&quot;</span><span class="p">)</span>
-</span><span data-line="1834">                    <span class="k">break</span>
-</span><span data-line="1835">                <span class="n">time_module</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
-</span><span data-line="1836">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1837">                <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1838">
-</span><span data-line="1839">        <span class="k">return</span> <span class="n">points</span>
-</span><span data-line="1840">
+</span><span data-line="1826">            <span class="c1"># Try to get points</span>
+</span><span data-line="1827">            <span class="n">initial_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+</span><span data-line="1828">            <span class="n">new_points</span> <span class="o">=</span> <span class="n">selector</span><span class="p">()</span>
+</span><span data-line="1829">
+</span><span data-line="1830">            <span class="k">if</span> <span class="n">new_points</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1831">                <span class="c1"># Selector signalled to stop (e.g. no active heuristics)</span>
+</span><span data-line="1832">                <span class="k">break</span>
+</span><span data-line="1833">
+</span><span data-line="1834">            <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
+</span><span data-line="1835">                <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
+</span><span data-line="1836">
+</span><span data-line="1837">            <span class="c1"># Check progress</span>
+</span><span data-line="1838">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="n">initial_count</span><span class="p">:</span>
+</span><span data-line="1839">                <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="1840">                <span class="k">if</span> <span class="n">attempts</span> <span class="o">&gt;=</span> <span class="n">max_attempts</span><span class="p">:</span>
+</span><span data-line="1841">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: Timed out waiting for points.&quot;</span><span class="p">)</span>
+</span><span data-line="1842">                    <span class="k">break</span>
+</span><span data-line="1843">                <span class="n">time_module</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+</span><span data-line="1844">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1845">                <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1846">
+</span><span data-line="1847">        <span class="k">return</span> <span class="n">points</span>
+</span><span data-line="1848">
 <div class="viewcode-block" id="StrategyBase.execute">
 <a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.execute">[docs]</a>
-</span><span data-line="1841">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1842"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1843"><span class="sd">        Overwrite this method when you extend this base strategy.</span>
-</span><span data-line="1844"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1845">        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;You need to extend the class StrategyBase and overwrite this execute method.&quot;</span><span class="p">)</span></div>
+</span><span data-line="1849">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1850"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1851"><span class="sd">        Overwrite this method when you extend this base strategy.</span>
+</span><span data-line="1852"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1853">        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;You need to extend the class StrategyBase and overwrite this execute method.&quot;</span><span class="p">)</span></div>
 
-</span><span data-line="1846">
-</span><span data-line="1847">    <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1848"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1849"><span class="sd">        cleanup + shutdown</span>
-</span><span data-line="1850"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1851">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cleaning up strategy...&quot;</span><span class="p">)</span>
-</span><span data-line="1852">        <span class="c1"># Signal termination to all event bus subscribers</span>
-</span><span data-line="1853">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">terminate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="1854">        <span class="bp">self</span><span class="o">.</span><span class="n">_end</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span data-line="1855">
-</span><span data-line="1856">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;dask&quot;</span><span class="p">:</span>
-</span><span data-line="1857">            <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">dask_evaluation</span>
-</span><span data-line="1858">
-</span><span data-line="1859">            <span class="c1"># Cancel outstanding futures, close client + cluster</span>
-</span><span data-line="1860">            <span class="n">dask_evaluation</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-</span><span data-line="1861">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;processes&quot;</span><span class="p">:</span>
-</span><span data-line="1862">            <span class="c1"># Clean up problem file for process evaluation</span>
-</span><span data-line="1863">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_problem_file&quot;</span><span class="p">):</span>
-</span><span data-line="1864">                <span class="k">try</span><span class="p">:</span>
-</span><span data-line="1865">                    <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_problem_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="1866">                <span class="k">except</span><span class="p">:</span>
-</span><span data-line="1867">                    <span class="k">pass</span>
-</span><span data-line="1868">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;threaded&quot;</span><span class="p">:</span>
-</span><span data-line="1869">            <span class="c1"># Shutdown thread pool</span>
-</span><span data-line="1870">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_thread_pool&quot;</span><span class="p">):</span>
-</span><span data-line="1871">                <span class="bp">self</span><span class="o">.</span><span class="n">_thread_pool</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span data-line="1872">
-</span><span data-line="1873">        <span class="c1"># Finalize progress reporting</span>
-</span><span data-line="1874">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;panobbgo_logger&quot;</span><span class="p">):</span>
-</span><span data-line="1875">            <span class="bp">self</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
-</span><span data-line="1876">
-</span><span data-line="1877">        <span class="n">duration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_start&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
-</span><span data-line="1878">        <span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;loops&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
-</span><span data-line="1879">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Strategy &#39;</span><span class="si">%s</span><span class="s2">&#39; finished after </span><span class="si">%.3f</span><span class="s2"> [s] and </span><span class="si">%d</span><span class="s2"> loops.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">loops</span><span class="p">))</span>
+</span><span data-line="1854">
+</span><span data-line="1855">    <span class="k">def</span><span class="w"> </span><span class="nf">_cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1856"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1857"><span class="sd">        cleanup + shutdown</span>
+</span><span data-line="1858"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1859">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cleaning up strategy...&quot;</span><span class="p">)</span>
+</span><span data-line="1860">        <span class="c1"># Signal termination to all event bus subscribers</span>
+</span><span data-line="1861">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;finished&quot;</span><span class="p">,</span> <span class="n">terminate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="1862">        <span class="bp">self</span><span class="o">.</span><span class="n">_end</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="1863">
+</span><span data-line="1864">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;dask&quot;</span><span class="p">:</span>
+</span><span data-line="1865">            <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">dask_evaluation</span>
+</span><span data-line="1866">
+</span><span data-line="1867">            <span class="c1"># Cancel outstanding futures, close client + cluster</span>
+</span><span data-line="1868">            <span class="n">dask_evaluation</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span data-line="1869">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;processes&quot;</span><span class="p">:</span>
+</span><span data-line="1870">            <span class="c1"># Clean up problem file for process evaluation</span>
+</span><span data-line="1871">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_problem_file&quot;</span><span class="p">):</span>
+</span><span data-line="1872">                <span class="k">try</span><span class="p">:</span>
+</span><span data-line="1873">                    <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_problem_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="1874">                <span class="k">except</span><span class="p">:</span>
+</span><span data-line="1875">                    <span class="k">pass</span>
+</span><span data-line="1876">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">evaluation_method</span> <span class="o">==</span> <span class="s2">&quot;threaded&quot;</span><span class="p">:</span>
+</span><span data-line="1877">            <span class="c1"># Shutdown thread pool</span>
+</span><span data-line="1878">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_thread_pool&quot;</span><span class="p">):</span>
+</span><span data-line="1879">                <span class="bp">self</span><span class="o">.</span><span class="n">_thread_pool</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span><span data-line="1880">
-</span><span data-line="1881">        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
-</span><span data-line="1882">        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
-</span><span data-line="1883">        <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">analyzers</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">]</span>
-</span><span data-line="1884">        <span class="c1"># Stop ALL eventbus dispatcher threads, not just &#39;finished&#39; subscribers —</span>
-</span><span data-line="1885">        <span class="c1"># otherwise ~20 daemon threads leak per strategy instance.</span>
-</span><span data-line="1886">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
-</span><span data-line="1887">        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="1881">        <span class="c1"># Finalize progress reporting</span>
+</span><span data-line="1882">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;panobbgo_logger&quot;</span><span class="p">):</span>
+</span><span data-line="1883">            <span class="bp">self</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+</span><span data-line="1884">
+</span><span data-line="1885">        <span class="n">duration</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_end</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_start&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mf">0.0</span>
+</span><span data-line="1886">        <span class="n">loops</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loops</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;loops&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span data-line="1887">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Strategy &#39;</span><span class="si">%s</span><span class="s2">&#39; finished after </span><span class="si">%.3f</span><span class="s2"> [s] and </span><span class="si">%d</span><span class="s2"> loops.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">duration</span><span class="p">,</span> <span class="n">loops</span><span class="p">))</span>
 </span><span data-line="1888">
-</span><span data-line="1889">        <span class="c1"># Close Dask client and cluster</span>
-</span><span data-line="1890">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_client&quot;</span><span class="p">):</span>
-</span><span data-line="1891">            <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="1892">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_cluster&quot;</span><span class="p">):</span>
-</span><span data-line="1893">            <span class="bp">self</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="1894">
+</span><span data-line="1889">        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+</span><span data-line="1890">        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+</span><span data-line="1891">        <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">analyzers</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">]</span>
+</span><span data-line="1892">        <span class="c1"># Stop ALL eventbus dispatcher threads, not just &#39;finished&#39; subscribers —</span>
+</span><span data-line="1893">        <span class="c1"># otherwise ~20 daemon threads leak per strategy instance.</span>
+</span><span data-line="1894">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+</span><span data-line="1895">        <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="1896">
+</span><span data-line="1897">        <span class="c1"># Close Dask client and cluster</span>
+</span><span data-line="1898">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_client&quot;</span><span class="p">):</span>
+</span><span data-line="1899">            <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="1900">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_cluster&quot;</span><span class="p">):</span>
+</span><span data-line="1901">            <span class="bp">self</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="1902">
 <div class="viewcode-block" id="StrategyBase.on_converged">
 <a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.on_converged">[docs]</a>
-</span><span data-line="1895">    <span class="k">def</span><span class="w"> </span><span class="nf">on_converged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
-</span><span data-line="1896"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1897"><span class="sd">        Called when the Convergence analyzer detects convergence.</span>
-</span><span data-line="1898"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1899">        <span class="n">stop_on_conv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;stop_on_convergence&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span data-line="1900">        <span class="k">if</span> <span class="n">stop_on_conv</span><span class="p">:</span>
-</span><span data-line="1901">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Convergence detected: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">. Stopping strategy.&quot;</span><span class="p">)</span>
-</span><span data-line="1902">            <span class="bp">self</span><span class="o">.</span><span class="n">_stop_requested</span> <span class="o">=</span> <span class="kc">True</span></div>
+</span><span data-line="1903">    <span class="k">def</span><span class="w"> </span><span class="nf">on_converged</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reason</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+</span><span data-line="1904"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1905"><span class="sd">        Called when the Convergence analyzer detects convergence.</span>
+</span><span data-line="1906"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1907">        <span class="n">stop_on_conv</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;stop_on_convergence&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="1908">        <span class="k">if</span> <span class="n">stop_on_conv</span><span class="p">:</span>
+</span><span data-line="1909">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Convergence detected: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">. Stopping strategy.&quot;</span><span class="p">)</span>
+</span><span data-line="1910">            <span class="bp">self</span><span class="o">.</span><span class="n">_stop_requested</span> <span class="o">=</span> <span class="kc">True</span></div>
 
-</span><span data-line="1903">
+</span><span data-line="1911">
 <div class="viewcode-block" id="StrategyBase.info">
 <a class="viewcode-back" href="../../core.html#panobbgo.core.StrategyBase.info">[docs]</a>
-</span><span data-line="1904">    <span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1905"><span class="w">        </span><span class="sd">&quot;&quot;&quot; &quot;&quot;&quot;</span>
-</span><span data-line="1906">        <span class="n">avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">avg_time_per_task</span>
-</span><span data-line="1907">        <span class="n">pend</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">)</span>
-</span><span data-line="1908">        <span class="n">fini</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">finished</span><span class="p">)</span>
-</span><span data-line="1909">        <span class="n">peval</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="1910">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="1911">            <span class="s2">&quot;</span><span class="si">{0:4d}</span><span class="s2"> (</span><span class="si">{1:4d}</span><span class="s2">) pnts | Tasks: </span><span class="si">{2:3d}</span><span class="s2"> pend, </span><span class="si">{3:3d}</span><span class="s2"> finished | &quot;</span>
-</span><span data-line="1912">            <span class="s2">&quot;</span><span class="si">{4:6.3f}</span><span class="s2"> [s] cpu, </span><span class="si">{5:6.3f}</span><span class="s2"> [s] wall, </span><span class="si">{6:6.3f}</span><span class="s2"> [s/task]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-</span><span data-line="1913">                <span class="n">peval</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">),</span> <span class="n">pend</span><span class="p">,</span> <span class="n">fini</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_cpu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_wall</span><span class="p">,</span> <span class="n">avg</span>
-</span><span data-line="1914">            <span class="p">)</span>
-</span><span data-line="1915">        <span class="p">)</span>
-</span><span data-line="1916">        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
+</span><span data-line="1912">    <span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1913"><span class="w">        </span><span class="sd">&quot;&quot;&quot; &quot;&quot;&quot;</span>
+</span><span data-line="1914">        <span class="n">avg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">avg_time_per_task</span>
+</span><span data-line="1915">        <span class="n">pend</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">)</span>
+</span><span data-line="1916">        <span class="n">fini</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">finished</span><span class="p">)</span>
+</span><span data-line="1917">        <span class="n">peval</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="1918">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="1919">            <span class="s2">&quot;</span><span class="si">{0:4d}</span><span class="s2"> (</span><span class="si">{1:4d}</span><span class="s2">) pnts | Tasks: </span><span class="si">{2:3d}</span><span class="s2"> pend, </span><span class="si">{3:3d}</span><span class="s2"> finished | &quot;</span>
+</span><span data-line="1920">            <span class="s2">&quot;</span><span class="si">{4:6.3f}</span><span class="s2"> [s] cpu, </span><span class="si">{5:6.3f}</span><span class="s2"> [s] wall, </span><span class="si">{6:6.3f}</span><span class="s2"> [s/task]&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+</span><span data-line="1921">                <span class="n">peval</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">),</span> <span class="n">pend</span><span class="p">,</span> <span class="n">fini</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_cpu</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_wall</span><span class="p">,</span> <span class="n">avg</span>
+</span><span data-line="1922">            <span class="p">)</span>
+</span><span data-line="1923">        <span class="p">)</span>
+</span><span data-line="1924">        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></div>
 
-</span><span data-line="1917">
-</span><span data-line="1918">    <span class="nd">@property</span>
-</span><span data-line="1919">    <span class="k">def</span><span class="w"> </span><span class="nf">avg_time_per_task</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1920"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1921"><span class="sd">        :return float: average time per task</span>
-</span><span data-line="1922"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1923">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="1924">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
-</span><span data-line="1925">        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;avg time per task for 0 tasks! -&gt; returning NaN&quot;</span><span class="p">)</span>
-</span><span data-line="1926">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
-</span><span data-line="1927">
-</span><span data-line="1928">    <span class="nd">@property</span>
-</span><span data-line="1929">    <span class="k">def</span><span class="w"> </span><span class="nf">time_wall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1930"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1931"><span class="sd">        wall time in seconds</span>
-</span><span data-line="1932"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1933">        <span class="k">return</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_start</span>
-</span><span data-line="1934">
-</span><span data-line="1935">    <span class="nd">@property</span>
-</span><span data-line="1936">    <span class="k">def</span><span class="w"> </span><span class="nf">time_cpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1937"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="1938"><span class="sd">        effective cpu time in seconds</span>
-</span><span data-line="1939"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1940">        <span class="k">return</span> <span class="n">time_module</span><span class="o">.</span><span class="n">process_time</span><span class="p">()</span>
-</span><span data-line="1941">
-</span><span data-line="1942">    <span class="nd">@property</span>
-</span><span data-line="1943">    <span class="k">def</span><span class="w"> </span><span class="nf">time_start_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1944">        <span class="k">return</span> <span class="n">time_module</span><span class="o">.</span><span class="n">ctime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_start</span><span class="p">)</span></div>
+</span><span data-line="1925">
+</span><span data-line="1926">    <span class="nd">@property</span>
+</span><span data-line="1927">    <span class="k">def</span><span class="w"> </span><span class="nf">avg_time_per_task</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1928"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1929"><span class="sd">        :return float: average time per task</span>
+</span><span data-line="1930"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1931">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="1932">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tasks_walltimes</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+</span><span data-line="1933">        <span class="bp">self</span><span class="o">.</span><span class="n">slogger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;avg time per task for 0 tasks! -&gt; returning NaN&quot;</span><span class="p">)</span>
+</span><span data-line="1934">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+</span><span data-line="1935">
+</span><span data-line="1936">    <span class="nd">@property</span>
+</span><span data-line="1937">    <span class="k">def</span><span class="w"> </span><span class="nf">time_wall</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1938"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1939"><span class="sd">        wall time in seconds</span>
+</span><span data-line="1940"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1941">        <span class="k">return</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_start</span>
+</span><span data-line="1942">
+</span><span data-line="1943">    <span class="nd">@property</span>
+</span><span data-line="1944">    <span class="k">def</span><span class="w"> </span><span class="nf">time_cpu</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1945"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="1946"><span class="sd">        effective cpu time in seconds</span>
+</span><span data-line="1947"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1948">        <span class="k">return</span> <span class="n">time_module</span><span class="o">.</span><span class="n">process_time</span><span class="p">()</span>
+</span><span data-line="1949">
+</span><span data-line="1950">    <span class="nd">@property</span>
+</span><span data-line="1951">    <span class="k">def</span><span class="w"> </span><span class="nf">time_start_str</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1952">        <span class="k">return</span> <span class="n">time_module</span><span class="o">.</span><span class="n">ctime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time_start</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

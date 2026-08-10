@@ -2,6 +2,38 @@
 
 ## Recent Improvements (continued)
 
+### Sync-eval mode: scheduling noise quantified and halved — 2026-08-09
+- [x] **Fixed-seed repeatability measured** (10 identical quick runs,
+      seed 42): `Rewarding_Restart` battery-mean AOCC sd **0.0206**
+      (range 0.060), `RoundRobin_Random` sd 0.0012 — the "per-seed"
+      decision noise is almost entirely *scheduling* nondeterminism in
+      the adaptive strategy, not instance sensitivity.  See the
+      2026-08-09 log entry for the full source table.
+- [x] **`--sync-eval` shipped** (`ioh_benchmark.py run` →
+      `config.sync_evaluation` → synchronous future harvest in
+      `_run_threaded_evaluation`): pooled repeat sd over seeds
+      42/1234/777 drops 0.0183 → 0.0115 (**1.6× sd, 2.5× variance**;
+      seed-heterogeneous: 2.3×/1.25×/1.4×).  Opt-in, default-off,
+      `compare` warns on mode mismatch, results carry a `sync_eval`
+      tag.  Use on both sides of future A/Bs; the N=12 instrument-level
+      CI shrink is expected but not yet demonstrated (one null A/B per
+      mode couldn't resolve it — keep accumulating nulls).
+- [ ] **Event-drain wait measured ineffective** (negative result) —
+      waiting for eventbus queues to empty after publishing results did
+      not reduce sd further (0.0113 vs 0.0094); queue-empty ≠ handlers
+      idle.  A real synchronous stepping mode needs handler-completion
+      tracking, not queue polling.
+- [ ] **Residual ~0.009 sd: shared global RNG across handler threads** —
+      heuristics draw from `np.random` inside per-handler EventBus
+      threads, so thread interleaving reorders the stream even at a
+      fixed seed.  Next lever: per-heuristic `np.random.Generator`
+      seeded from (run seed, heuristic name); mechanical but touches
+      ~14 heuristic modules.  Measure with the same 10-repeat protocol.
+- [ ] **Adopt `--sync-eval` in the nightly loop / codify verification**
+      once a few sessions have used it interactively without surprises
+      (it shifts absolute AOCC within noise; ledger continuity says
+      switch deliberately, not silently).
+
 ### Codify rejection memory: k ≥ 2 fresh-night resurrection bar — 2026-08-08
 - [x] **Single-fresh-night resurrection churn stopped** — rejected codify
       slots now stay hidden until the *post-rejection* evidence alone
@@ -72,12 +104,13 @@
       markers, loud mixed-format error).  The 2026-08-03 decision protocol
       is now one flag instead of a hand-rolled bash loop.  15 new tests;
       single-seed files/workflows unchanged.  See the 2026-08-05 log entry.
-- [ ] **Deterministic evaluation mode** (follow-up to the nondeterminism
+- [x] **Deterministic evaluation mode** (follow-up to the nondeterminism
       finding) — `_run_threaded_evaluation` harvests whichever futures are
       `done()` per loop pass, so the strategy's result view depends on OS
-      scheduling.  A synchronous `evaluation_method="serial"` for benchmark
-      runs would remove that source; per-seed sd should then collapse and
-      single-run A/Bs become meaningful again.
+      scheduling.  *Partially shipped 2026-08-09 as `--sync-eval`
+      (synchronous harvest, 2.3× repeat-sd cut); full determinism blocked
+      on the shared-RNG / handler-thread items in the 2026-08-09 section
+      above.*
 
 ### Codify-scan rejection memory — 2026-08-04
 - [x] **Rejection memory shipped** — `codify-scan` now consults a

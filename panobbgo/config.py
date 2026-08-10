@@ -277,6 +277,16 @@ class Config:
         # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)
         self.evaluation_method = get_config("evaluation.method", None, None, "threaded", str)
 
+        # Synchronous harvest for threaded evaluation (YAML only).  When
+        # True, each main-loop pass blocks until *every* submitted
+        # evaluation future has completed before collecting results, so
+        # the strategy sees deterministic result batches instead of
+        # whichever futures the OS scheduler happened to finish.  Cuts
+        # the run-to-run noise of adaptive strategies roughly in half on
+        # the IOH benchmark (see planning/SELF_IMPROVEMENT_LOG.md,
+        # 2026-08-09); off by default — benchmark drivers opt in.
+        self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
+
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
         self.dask_cluster_type = get_config("dask.cluster_type", None, None, "local", str)
         self.dask_n_workers = get_config("dask.local.n_workers", None, None, 2, int)

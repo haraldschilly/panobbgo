@@ -589,3 +589,87 @@ class TestIOHBenchmarkCompareCLI:
         b_path.write_text(before.to_json())
         a_path.write_text(after.to_json())
         assert cli.main(["compare", str(b_path), str(a_path), "--fail-on-regression"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# Synchronous-harvest evaluation mode (--sync-eval / config.sync_evaluation)
+# ---------------------------------------------------------------------------
+
+
+class TestSyncEvalPlumbing:
+    """Serialization + CLI plumbing of the sync_eval flag (no worker)."""
+
+    def test_single_seed_result_roundtrip(self) -> None:
+        res = _mk_seed_result({"A": 0.30})
+        assert res.sync_eval is False  # default off
+        res.sync_eval = True
+        rt = IOHHarnessResult.from_dict(json.loads(res.to_json()))
+        assert rt.sync_eval is True
+
+    def test_legacy_dict_defaults_to_off(self) -> None:
+        # Result files written before the flag existed have no key.
+        d = json.loads(_mk_seed_result({"A": 0.30}).to_json())
+        del d["sync_eval"]
+        assert IOHHarnessResult.from_dict(d).sync_eval is False
+        md = json.loads(_mk_multi({42: {"A": 0.30}}).to_json())
+        del md["sync_eval"]
+        assert IOHMultiSeedResult.from_dict(md).sync_eval is False
+
+    def test_multi_seed_result_roundtrip(self) -> None:
+        ms = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}})
+        ms.sync_eval = True
+        rt = IOHMultiSeedResult.from_dict(json.loads(ms.to_json()))
+        assert rt.sync_eval is True
+
+    def test_compare_warns_on_mode_mismatch(self, tmp_path, capsys) -> None:
+        cli = TestIOHBenchmarkCompareCLI._cli()
+        before = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}})
+        after = _mk_multi({42: {"A": 0.31}, 7: {"A": 0.41}})
+        after.sync_eval = True
+        b_path, a_path = tmp_path / "b.json", tmp_path / "a.json"
+        b_path.write_text(before.to_json())
+        a_path.write_text(after.to_json())
+        rc = cli.main(["compare", str(b_path), str(a_path)])
+        captured = capsys.readouterr()
+        assert rc == 0  # warning, not an error — the compare still runs
+        assert "evaluation-mode mismatch" in captured.err
+
+    def test_compare_silent_when_modes_match(self, tmp_path, capsys) -> None:
+        cli = TestIOHBenchmarkCompareCLI._cli()
+        before = _mk_multi({42: {"A": 0.30}})
+        after = _mk_multi({42: {"A": 0.31}})
+        before.sync_eval = True
+        after.sync_eval = True
+        b_path, a_path = tmp_path / "b.json", tmp_path / "a.json"
+        b_path.write_text(before.to_json())
+        a_path.write_text(after.to_json())
+        cli.main(["compare", str(b_path), str(a_path)])
+        assert "evaluation-mode mismatch" not in capsys.readouterr().err
+
+
+@requires_worker
+class TestSyncEvalHarness:
+    """End-to-end sync-eval battery runs (worker required)."""
+
+    def test_sync_eval_run_completes_and_tags_result(self) -> None:
+        from panobbgo.harness_ioh import make_ioh_strategies
+
+        specs = [s for s in make_ioh_strategies() if s.name == "Rewarding_Restart"]
+        assert specs, "expected the Rewarding_Restart spec"
+        battery = IOHBatterySpec(
+            name="ioh-sync-tiny", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
+        )
+        result = run_ioh_harness(specs, battery, base_seed=42, progress=False, sync_eval=True)
+        assert result.sync_eval is True
+        rec = result.runs[0]
+        assert rec.error is None, rec.error
+        # The strategy must still run to (near) budget under sync harvest.
+        assert rec.n_evals >= 0.9 * rec.budget, (rec.n_evals, rec.budget)
+
+    def test_default_run_is_untagged(self) -> None:
+        baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
+        battery = IOHBatterySpec(
+            name="ioh-sync-off", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
+        )
+        result = run_ioh_harness(baselines, battery, base_seed=42, progress=False)
+        assert result.sync_eval is False

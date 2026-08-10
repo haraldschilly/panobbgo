@@ -63,7 +63,7 @@ import multiprocessing
 import collections
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
 from .logging.progress import ProgressContext
 from typing import TYPE_CHECKING, Any, cast, Optional, List, Dict, Union, Tuple, Type
 
@@ -1699,6 +1699,14 @@ with open('{result_file.name}', 'wb') as f:
         # Wait for completion with short timeout for responsiveness
         self.new_finished = []
         new_results = []
+
+        # Synchronous harvest (config.sync_evaluation): block until every
+        # submitted future is done so each loop pass sees a deterministic
+        # result batch instead of whichever futures the OS scheduler
+        # happened to finish.  Opt-in; benchmark drivers use it to cut
+        # measurement noise for adaptive strategies.
+        if getattr(self.config, "sync_evaluation", False) and self._futures:
+            futures_wait(list(self._futures.values()))
 
         # Check which futures are done
         completed_ids = []

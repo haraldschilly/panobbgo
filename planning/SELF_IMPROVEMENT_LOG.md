@@ -17,6 +17,69 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-10 — `drop_heuristic JSO` codify slot REJECTED (training-seed artifact, #4); NLSHADE_LBC→control slot policy-moot
+
+* **What** — Daily session banked the top actionable codify slot after
+  dedup — **`drop_heuristic JSO` on `Rewarding_Restart`** (2 confirmed
+  nights 2026-08-04 / 2026-08-10, pooled CI95% `[+0.0058, +0.0075]`) —
+  applied it, measured it with the 12-seed paired quick instrument,
+  found it **flat**, and reverted in-branch (PR #297; apply + revert
+  commits cancel, so the net source diff carries no optimizer-behavior
+  change).  Rejection recorded via `codify-reject --metric aocc` dated
+  2026-08-10.  A second, policy-moot rejection was recorded for
+  `add_heuristic NLSHADE_LBC` → `RoundRobin_Random` (see below).
+
+* **Measurement** (12-seed decision roster, quick battery,
+  `run --decision-seeds` + seed-paired `compare`):
+
+  | strategy | before | after | Δmean | sd | CI95 | verdict |
+  |---|---|---|---|---|---|---|
+  | `Rewarding_Restart` (− JSO) | 0.3476 | 0.3503 | +0.0026 | 0.0249 | [−0.0132, +0.0185] | ~ noise |
+  | `RoundRobin_Random` (control) | 0.3345 | 0.3344 | −0.0001 | 0.0042 | [−0.0027, +0.0026] | ~ noise |
+
+  Training seed 42 alone: **+0.0200** (matching the ledger accepts)
+  while per-seed deltas flip sign across the roster
+  (−0.0471 @ 11 … +0.0369 @ 555) — the same training-battery-artifact
+  signature as the three previous rejections (Sensitivity ×2
+  2026-08-03, NelderMead 2026-08-07).  **Fourth consecutive**
+  single-seed `min_nights=2` slot rejected flat by the multi-seed
+  instrument; the codify pipeline's screening evidence has a measured
+  0/4 hit rate at the current plateau.  Additional prior against the
+  drop: JSO was *added* 2026-08-02 (PR #289) on standard-battery
+  evidence (+0.0222 overall, **d5 +0.0287**, d5 finally beating the
+  random floor); the quick 2-D battery structurally under-weights the
+  regime where the arm earns its keep, so a quick-only positive would
+  not have shipped this reversal anyway.
+
+* **NLSHADE_LBC slot** — today's scan also surfaced `add_heuristic
+  NLSHADE_LBC` with `strategy_names = [RoundRobin_Random]` only
+  (3 confirmed accepts, 2 nights).  Not applied and recorded
+  policy-moot: `RoundRobin_Random` is the pure-random reference spec
+  and every local A/B's flat control — mutating the measuring stick
+  invalidates the measurements (2026-07-30 judgement call, reaffirmed
+  2026-08-02, 2026-08-07, and here).  The underlying signal (the
+  NLSHADE_LBC arm is strong under AOCC) is real and worth pursuing on
+  the *candidate* spec: queued in TODO as a §4.3 measured change
+  (12-seed quick + standard d5 A/B, no ledger slot needed).
+
+* **Dedup** — `Sensitivity.update_interval` (1 fresh post-rejection
+  night; the resurrection pattern PR #295 gates) skipped;
+  `drop_analyzer Sensitivity` (apply-guard no-op; PRs #293/#295)
+  skipped; `drop_heuristic NelderMead` (PR #294 rejection) skipped.
+  Post-session `codify-scan --metric aocc`: 3 surfaced, all covered by
+  open PRs — the actionable queue is empty.
+
+* **Next** — (a) merge the open instrument PRs (#293–#296); with
+  #295's k≥2 fresh-night gate and #296's `--sync-eval`, tonight's
+  single-seed accepts stop resurrecting dead slots.  (b) Measure
+  `add_heuristic NLSHADE_LBC` on `Rewarding_Restart` directly
+  (quick 12-seed + standard-battery d5) — first structural candidate
+  with a positive prior that does not touch the control.  (c) The 0/4
+  screening hit rate says the nightly loop's per-night value is now
+  bounded by its single-seed design: prioritise the TODO item
+  "multi-seed confirm in the nightly loop" (base-seed rotation or a
+  2-seed confirm gate) over more codify attempts.
+
 ### 2026-08-09 — Scheduling noise quantified (repeat-sd 0.021 at fixed seed) and halved: `--sync-eval` synchronous-harvest mode
 
 * **What** — Measurement-substrate session (no optimizer behavior

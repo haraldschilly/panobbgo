@@ -2,6 +2,26 @@
 
 ## Recent Improvements (continued)
 
+### CMA-ES arm in the structural catalog (GOAL §5.2) — 2026-08-06
+- [x] **`CMAES` added to the `add_heuristic` candidate pool** — the
+      existing full CMA-ES heuristic (IPOP/BIPOP, `heuristics/cma_es.py`)
+      was unreachable by the nightly loop; the bandit can now measure the
+      only covariance-adapting family against the DE arms.  Explicit
+      `sigma0=0.3` makes the existing `CMAES.sigma0` kwarg rule fire.
+      Direct add to `Rewarding_Restart` measured **flat** on a 12-seed
+      paired quick A/B (Δ +0.0005, CI95 [-0.0113,+0.0123]) → not shipped
+      into the spec; the catalog route lets the ledger/hold-outs decide
+      at the regimes (5-D rotated valleys) where the arm should matter.
+      See the 2026-08-06 log entry.
+- [x] **`drop_analyzer Sensitivity` re-hidden** — resurfaced from a fresh
+      2026-08-06 single-seed night but is an apply-guard no-op (last
+      analyzer in the bucket) on a spec unchanged since the 2026-08-03
+      12-seed rejection; `codify-reject` re-recorded dated 2026-08-06.
+- [ ] **Annotate guard-suppressed codify candidates** — `codify-scan`
+      surfaces slots whose `--apply-top` would be a safety-guard no-op
+      (e.g. dropping the last analyzer) as "actionable"; detect and tag
+      (or hide) them so sessions don't burn the codify slot on a no-op.
+
 ### Paired multi-seed decision instrument in `ioh_benchmark.py` — 2026-08-05
 - [x] **Multi-seed A/B mechanised** — `run --seeds` / `--decision-seeds`
       (canonical 12-seed roster) / `--reps K` and a seed-paired `compare`

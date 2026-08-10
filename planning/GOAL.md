@@ -131,10 +131,13 @@ Ordered by expected value; each item should enter through the loop above.
    gap (0.33 vs 0.04). Suspects: Sobol-heavy initial design overfit to the
    training instances' scale; missing restart diversity after the Restart
    analyzer drop. Measure per-instance AOCC spread first.
-2. **CMA-ES arm** — the strongest classical family at this regime is modular
-   CMA-ES; panobbgo has no covariance-adapting heuristic. A minimal
-   `CMAES` heuristic (pycma or hand-rolled (μ/μ_w, λ)-ES) as a structural
-   catalog candidate would let the bandit measure it against the DE family.
+2. **CMA-ES arm** — *shipped 2026-08-06*: the existing `CMAES` heuristic
+   (hand-rolled (μ/μ_w, λ)-ES with IPOP/BIPOP restart) is now a structural
+   catalog candidate, so the bandit measures it against the DE family
+   nightly.  Direct addition to `Rewarding_Restart` was flat on a 12-seed
+   paired quick-2-D A/B (CI95 [-0.0113, +0.0123]) — the open question is
+   whether the arm earns pulls at 5-D / standard regimes where covariance
+   adaptation should pay; watch the `add_heuristic` posterior and ledger.
 3. **Rank-based acceptance stats** — mean-AOCC deltas are outlier-sensitive;
    competition practice is Wilcoxon / Friedman over (function, instance)
    pairs. Add as an alternative `statistical_accept` mode.

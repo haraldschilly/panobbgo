@@ -1,7 +1,7 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
   gates: min_nights>=2, all_record_ci_low>0, hide_already_codified, hide_rejected
-  records scanned: 896
-  candidates surfaced: 3 (of 10; 4 already codified, 3 rejected, hidden)
+  records scanned: 923
+  candidates surfaced: 5 (of 12; 4 already codified, 3 rejected, hidden)
 
 - Sensitivity.update_interval [integer_add] direction=down [fresh evidence since rejection 2026-08-03]
     n_accepts=3  n_nights=3  mean_Δ=+0.0108  pooled_CI95%=[+0.0092,+0.0117]  min_record_ci_low=+0.0092  confirmed=3/3
@@ -26,6 +26,15 @@ Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger pare
       2026-07-31 06:12:05  Δ=+0.0075  CI=[+0.0075,+0.0075]  Rewarding_Restart/Sensitivity.: None -> None  [confirmed]
       2026-08-06 05:45:36  Δ=+0.0058  CI=[+0.0058,+0.0058]  Rewarding_Restart/Sensitivity.: None -> None  [confirmed]
 
+- NLSHADE_LBC [structural op=add_heuristic] direction=add_heuristic
+    n_accepts=3  n_nights=2  mean_Δ=+0.0122  pooled_CI95%=[+0.0075,+0.0192]  min_record_ci_low=+0.0075  confirmed=3/3
+    nights: 2026-07-09, 2026-08-10
+    strategies: RoundRobin_Random
+    evidence:
+      2026-07-09 06:51:36  Δ=+0.0192  CI=[+0.0192,+0.0192]  RoundRobin_Random/NLSHADE_LBC.: None -> None  [confirmed]
+      2026-08-10 04:26:48  Δ=+0.0075  CI=[+0.0075,+0.0075]  RoundRobin_Random/NLSHADE_LBC.: None -> None  [confirmed]
+      2026-08-10 04:28:41  Δ=+0.0100  CI=[+0.0100,+0.0100]  RoundRobin_Random/NLSHADE_LBC.: None -> None  [confirmed]
+
 - NelderMead [structural op=drop_heuristic] direction=drop_heuristic
     n_accepts=2  n_nights=2  mean_Δ=+0.0075  pooled_CI95%=[+0.0067,+0.0083]  min_record_ci_low=+0.0067  confirmed=2/2
     nights: 2026-07-11, 2026-08-07
@@ -34,4 +43,13 @@ Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger pare
     evidence:
       2026-07-11 05:43:49  Δ=+0.0083  CI=[+0.0083,+0.0083]  Rewarding_Restart/NelderMead.: None -> None  [confirmed]
       2026-08-07 04:51:13  Δ=+0.0067  CI=[+0.0067,+0.0067]  Rewarding_Restart/NelderMead.: None -> None  [confirmed]
+
+- JSO [structural op=drop_heuristic] direction=drop_heuristic
+    n_accepts=2  n_nights=2  mean_Δ=+0.0067  pooled_CI95%=[+0.0058,+0.0075]  min_record_ci_low=+0.0058  confirmed=2/2
+    nights: 2026-08-04, 2026-08-10
+    live seed value(s): 'Rewarding_Restart'
+    strategies: Rewarding_Restart
+    evidence:
+      2026-08-04 05:45:35  Δ=+0.0075  CI=[+0.0075,+0.0075]  Rewarding_Restart/JSO.: None -> None  [confirmed]
+      2026-08-10 04:27:58  Δ=+0.0058  CI=[+0.0058,+0.0058]  Rewarding_Restart/JSO.: None -> None  [confirmed]
 

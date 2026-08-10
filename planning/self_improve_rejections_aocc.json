@@ -54,6 +54,24 @@
       "rejected_on": "2026-08-07",
       "reason": "12-seed paired quick A/B on the current spec: Rewarding_Restart mean d -0.0003, sd 0.0188, CI95 [-0.0122,+0.0117], control flat; training seed 42 alone shows +0.0174 - ledger accepts are a training-seed artifact; keep NelderMead",
       "log_ref": "SELF_IMPROVEMENT_LOG.md 2026-08-07"
+    },
+    {
+      "class_name": "JSO",
+      "param_name": "",
+      "op": "drop_heuristic",
+      "direction": null,
+      "rejected_on": "2026-08-10",
+      "reason": "12-seed paired quick A/B on the current spec: Rewarding_Restart mean d +0.0026, sd 0.0249, CI95 [-0.0132,+0.0185], control flat; training seed 42 alone +0.0200 while per-seed deltas flip sign (-0.0471..+0.0369) - training-battery artifact, fourth consecutive. Drop would also reverse the 2026-08-02 standard-battery-validated JSO add (d5 +0.0287).",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-08-10 entry"
+    },
+    {
+      "class_name": "NLSHADE_LBC",
+      "param_name": "",
+      "op": "add_heuristic",
+      "direction": null,
+      "rejected_on": "2026-08-10",
+      "reason": "Policy-moot: the slot's only target spec is RoundRobin_Random, the pure-random reference and every local A/B's flat control (2026-07-30 judgement call, reaffirmed 2026-08-02 and 2026-08-07) - mutating the measuring stick invalidates the measurements. The arm's strength signal is real; test add NLSHADE_LBC on Rewarding_Restart as a measured Sec-4.3 change instead.",
+      "log_ref": "planning/SELF_IMPROVEMENT_LOG.md 2026-08-10 entry"
     }
   ]
 }

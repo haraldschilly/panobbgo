@@ -2,6 +2,28 @@
 
 ## Recent Improvements (continued)
 
+### JSO drop_heuristic slot rejected; NLSHADE_LBC slot policy-moot — 2026-08-10
+- [x] **`drop_heuristic JSO` on `Rewarding_Restart` rejected** (negative
+      result) — ledger slot (2 nights, pooled CI95% `[+0.0058,+0.0075]`)
+      measured flat on the 12-seed paired quick A/B: mean Δ `+0.0026`,
+      sd 0.0249, CI95% `[−0.0132,+0.0185]`, control flat; seed 42 alone
+      `+0.0200`.  Fourth consecutive training-seed artifact (0/4 screening
+      hit rate).  Would have reversed the standard-battery-validated
+      2026-08-02 JSO add (d5 +0.0287).  See the 2026-08-10 log entry.
+- [x] **`add_heuristic NLSHADE_LBC` → `RoundRobin_Random` recorded
+      policy-moot** — the slot only targets the pure-random reference /
+      A/B control spec, which stays untouched by standing judgement call.
+- [ ] **Measure `add_heuristic NLSHADE_LBC` on `Rewarding_Restart`**
+      (§4.3 candidate with a positive prior: 3 confirmed control-spec
+      accepts across 2 nights say the arm is strong under AOCC) —
+      12-seed quick A/B plus standard-battery d5 check; no ledger slot
+      needed, direct paired-A/B evidence suffices.
+- [ ] **Multi-seed confirm in the nightly loop** — the 0/4 codify
+      screening hit rate bounds the loop's value at the current plateau;
+      rotate the nightly base seed and/or add a second-seed confirm gate
+      before a screening accept lands in the ledger (extends the
+      2026-08-03 "price instance sensitivity into the codify gate" item).
+
 ### Sync-eval mode: scheduling noise quantified and halved — 2026-08-09
 - [x] **Fixed-seed repeatability measured** (10 identical quick runs,
       seed 42): `Rewarding_Restart` battery-mean AOCC sd **0.0206**

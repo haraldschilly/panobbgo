@@ -5491,10 +5491,12 @@ class CodifyCandidate:
             :attr:`already_codified`.
         rejected: ``True`` when the candidate's slot was rejected by a
             recorded operator decision (an A/B negative result or a
-            moot verdict in the rejections file) *and* every
-            contributing evidence night predates that rejection — i.e.
+            moot verdict in the rejections file) *and* the evidence
+            nights post-dating that rejection number fewer than the
+            resurrection bar
+            (:data:`DEFAULT_RESURRECT_MIN_FRESH_NIGHTS`) — i.e.
             re-applying the edit would re-litigate a decided question
-            with no new information.  Set by
+            without materially new information.  Set by
             :func:`annotate_rejected_status` (default ``False`` so an
             un-annotated candidate is treated as actionable).
         rejected_on: ``YYYY-MM-DD`` date of the matching rejection
@@ -6247,6 +6249,15 @@ def rejections_path_for_metric(metric: str, ledger_dir: str = DEFAULT_LEDGER_DIR
     return str(pathlib.Path(ledger_dir) / f"{stem}.json")
 
 
+#: Distinct post-rejection evidence nights required before a rejected
+#: codify slot resurrects (see :meth:`CodifyRejection.suppresses`).
+#: Matches the §9.3 ``min_nights`` actionability default: evidence that
+#: post-dates an operator rejection must clear the same k≥2 bar as a
+#: brand-new candidate, because the pre-rejection nights were already
+#: adjudicated by the rejecting A/B.
+DEFAULT_RESURRECT_MIN_FRESH_NIGHTS = 2
+
+
 @dataclass(frozen=True)
 class CodifyRejection:
     """One recorded operator rejection of a codify slot.
@@ -6261,13 +6272,23 @@ class CodifyRejection:
     decision next to the ledger so :func:`annotate_rejected_status` can
     suppress the slot automatically.
 
-    Suppression is *evidence-scoped*, not permanent: a candidate is only
-    suppressed while every contributing evidence night is on or before
-    :attr:`rejected_on`.  A single accept measured on a night *after*
-    the rejection is new information (the spec has changed since the
-    A/B) and resurrects the slot — tagged with its rejection history so
-    the operator knows to re-verify rather than trust the stale pooled
-    stats.
+    Suppression is *evidence-scoped*, not permanent: post-rejection
+    evidence nights can resurrect the slot.  Resurrection is gated,
+    though — the post-rejection nights *alone* must reach
+    ``min_fresh_nights`` distinct dates (default
+    :data:`DEFAULT_RESURRECT_MIN_FRESH_NIGHTS`), the same k≥2 bar the
+    §9.3 aggregation applies to a brand-new candidate.  The pre-gate
+    "any single fresh night resurrects" semantics had a measured 0/3
+    hit rate: three consecutive resurrected slots
+    (``Sensitivity.update_interval`` and ``drop_analyzer Sensitivity``
+    on 2026-08-03, ``drop_heuristic NelderMead`` on 2026-08-07) were
+    each re-rejected flat by 12-seed paired A/Bs after a single fresh
+    seed-42 accept night re-surfaced them — exactly the
+    training-battery artifact class the original rejections named.
+    Evidence that predates the rejection was already adjudicated by the
+    operator's A/B and never counts toward resurrection.  A resurrected
+    slot is tagged with its rejection history so the operator re-verifies
+    rather than trusting pooled stats that straddle the decision.
 
     Attributes:
         class_name: Heuristic / analyzer class the rejected slot
@@ -6311,18 +6332,31 @@ class CodifyRejection:
             return False
         return True
 
-    def suppresses(self, candidate: "CodifyCandidate") -> bool:
-        """True when the candidate carries no evidence newer than the rejection.
+    def suppresses(
+        self,
+        candidate: "CodifyCandidate",
+        *,
+        min_fresh_nights: int = DEFAULT_RESURRECT_MIN_FRESH_NIGHTS,
+    ) -> bool:
+        """True while the post-rejection evidence stays under the resurrection bar.
 
-        ``distinct_dates`` are ``YYYY-MM-DD`` strings, so lexicographic
-        comparison is chronological.  An empty ``rejected_on`` never
-        suppresses (a date-less rejection record is malformed input and
-        :func:`load_codify_rejections` refuses it; the guard here keeps
-        the predicate total for hand-built instances).
+        Counts the candidate's evidence nights strictly *after*
+        :attr:`rejected_on` (``distinct_dates`` are ``YYYY-MM-DD``
+        strings, so lexicographic comparison is chronological) and
+        suppresses while that count is below ``min_fresh_nights``.
+        Nights on or before the rejection date were covered by the
+        operator's A/B and never count.  ``min_fresh_nights=1``
+        restores the pre-2026-08-08 "any single fresh night
+        resurrects" semantics; values below 1 are clamped to 1 so the
+        predicate cannot suppress forever.  An empty ``rejected_on``
+        never suppresses (a date-less rejection record is malformed
+        input and :func:`load_codify_rejections` refuses it; the guard
+        here keeps the predicate total for hand-built instances).
         """
         if not self.matches(candidate) or not self.rejected_on:
             return False
-        return all(d <= self.rejected_on for d in candidate.distinct_dates)
+        n_fresh = sum(1 for d in candidate.distinct_dates if d > self.rejected_on)
+        return n_fresh < max(1, int(min_fresh_nights))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -6399,6 +6433,8 @@ def load_codify_rejections(path: Any) -> List[CodifyRejection]:
 def annotate_rejected_status(
     candidates: Sequence[CodifyCandidate],
     rejections: Sequence[CodifyRejection],
+    *,
+    min_fresh_nights: int = DEFAULT_RESURRECT_MIN_FRESH_NIGHTS,
 ) -> None:
     """Mark each candidate's rejection status in-place.
 
@@ -6407,11 +6443,12 @@ def annotate_rejected_status(
 
     * ``rejected=True`` (+ ``rejected_on`` / ``rejection_reason`` from
       the *most recent* matching rejection) when at least one matching
-      rejection :meth:`~CodifyRejection.suppresses` it — i.e. no
-      contributing evidence night is newer than that rejection;
+      rejection :meth:`~CodifyRejection.suppresses` it — i.e. fewer
+      than ``min_fresh_nights`` distinct evidence nights post-date that
+      rejection (see :data:`DEFAULT_RESURRECT_MIN_FRESH_NIGHTS`);
     * ``rejected=False`` but ``rejected_on`` / ``rejection_reason``
       still populated when a rejection matches yet the candidate
-      carries fresher evidence — the CLI renders this as a
+      carries enough fresher evidence — the CLI renders this as a
       "fresh evidence since rejection" tag so the operator re-verifies
       instead of trusting pooled stats that straddle the spec change;
     * all three fields untouched (defaults) when nothing matches.
@@ -6430,7 +6467,7 @@ def annotate_rejected_status(
         newest = max(matching, key=lambda r: r.rejected_on)
         cand.rejected_on = newest.rejected_on
         cand.rejection_reason = newest.reason
-        cand.rejected = any(r.suppresses(cand) for r in matching)
+        cand.rejected = any(r.suppresses(cand, min_fresh_nights=min_fresh_nights) for r in matching)
 
 
 # Default source file + factory function names the ``--apply-top`` driver
@@ -8316,6 +8353,7 @@ __all__ = [
     "CodifyCandidate",
     "CodifyEdit",
     "CodifyRejection",
+    "DEFAULT_RESURRECT_MIN_FRESH_NIGHTS",
     "aggregate_codify_candidates",
     "annotate_codified_status",
     "annotate_rejected_status",

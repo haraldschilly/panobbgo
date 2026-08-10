@@ -829,11 +829,29 @@ def _build_parser() -> argparse.ArgumentParser:
             "planning/self_improve_rejections.json; aocc → "
             "planning/self_improve_rejections_aocc.json).  A missing "
             "file is an empty rejection memory.  Candidates whose slot "
-            "was rejected by a recorded operator decision AND whose "
-            "evidence all predates that rejection are hidden from the "
-            "report (and skipped by --apply-top); fresh post-rejection "
-            "evidence resurrects the slot with a rejection-history tag.  "
-            "Record decisions with the codify-reject subcommand."
+            "was rejected by a recorded operator decision are hidden "
+            "from the report (and skipped by --apply-top) until the "
+            "post-rejection evidence alone reaches --min-fresh-nights "
+            "distinct nights, at which point the slot resurrects with "
+            "a rejection-history tag.  Record decisions with the "
+            "codify-reject subcommand."
+        ),
+    )
+    scan_p.add_argument(
+        "--min-fresh-nights",
+        dest="min_fresh_nights",
+        type=int,
+        default=None,
+        help=(
+            "Distinct post-rejection evidence nights required before a "
+            "rejected slot resurrects (default: 2, matching the "
+            "--min-nights actionability bar — evidence newer than an "
+            "operator rejection must clear the same k>=2 gate as a "
+            "brand-new candidate; pre-rejection nights were already "
+            "adjudicated by the rejecting A/B).  1 restores the "
+            "pre-2026-08-08 'any single fresh night resurrects' "
+            "behaviour, which had a measured 0/3 hit rate against "
+            "12-seed paired A/Bs."
         ),
     )
     scan_p.add_argument(
@@ -1052,10 +1070,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "JSON file (the codify scan's rejection memory).  Use after an "
             "A/B on the current spec rejects a scan candidate, or when a "
             "candidate is moot (e.g. it tunes a class that was since "
-            "dropped).  The scan suppresses a matching candidate only while "
-            "all of its evidence nights are on or before --date; fresh "
-            "post-rejection ledger evidence resurrects the slot "
-            "automatically.  Always pair the record with a dated entry in "
+            "dropped).  The scan suppresses a matching candidate until its "
+            "post---date ledger evidence alone reaches the scan's "
+            "--min-fresh-nights bar (default 2 distinct nights), at which "
+            "point the slot resurrects automatically.  Always pair the "
+            "record with a dated entry in "
             "planning/SELF_IMPROVEMENT_LOG.md carrying the full numbers "
             "(--log-ref should point at it)."
         ),
@@ -1849,11 +1868,19 @@ def _print_codify_candidate(
     codified_tag = " [already codified]" if cand.already_codified else ""
     rejected_tag = ""
     if getattr(cand, "rejected", False):
-        rejected_tag = f" [rejected {cand.rejected_on}]"
+        n_fresh = sum(1 for d in cand.distinct_dates if d > cand.rejected_on)
+        if n_fresh:
+            # Post-rejection evidence is accruing but still below the
+            # resurrection bar — surface the count so an operator
+            # auditing with --include-rejected sees the progress.
+            rejected_tag = f" [rejected {cand.rejected_on}; fresh nights since: {n_fresh}, below resurrection bar]"
+        else:
+            rejected_tag = f" [rejected {cand.rejected_on}]"
     elif getattr(cand, "rejected_on", ""):
-        # A rejection matches the slot but newer evidence has accrued
-        # since — actionable again, yet the operator should re-verify
-        # rather than trust pooled stats straddling the spec change.
+        # A rejection matches the slot but enough newer evidence has
+        # accrued since — actionable again, yet the operator should
+        # re-verify rather than trust pooled stats straddling the
+        # spec change.
         rejected_tag = f" [fresh evidence since rejection {cand.rejected_on}]"
     print(f"- {slot} [{cand.rule_kind}{op_label}] direction={cand.direction}{codified_tag}{rejected_tag}")
     ci_low, ci_high = cand.pooled_bootstrap_ci(
@@ -1995,6 +2022,7 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     import json as _json
 
     from panobbgo.self_improve import (
+        DEFAULT_RESURRECT_MIN_FRESH_NIGHTS,
         aggregate_codify_candidates,
         annotate_codified_status,
         annotate_rejected_status,
@@ -2009,6 +2037,11 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
 
     if args.min_nights < 1:
         print(f"Error: --min-nights must be >= 1, got {args.min_nights}", file=sys.stderr)
+        return 1
+    min_fresh_arg = getattr(args, "min_fresh_nights", None)
+    min_fresh_nights = DEFAULT_RESURRECT_MIN_FRESH_NIGHTS if min_fresh_arg is None else int(min_fresh_arg)
+    if min_fresh_nights < 1:
+        print(f"Error: --min-fresh-nights must be >= 1, got {min_fresh_nights}", file=sys.stderr)
         return 1
 
     ledger = args.ledger if args.ledger is not None else ledger_path_for_metric(args.metric)
@@ -2057,7 +2090,7 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    annotate_rejected_status(candidates, rejections)
+    annotate_rejected_status(candidates, rejections, min_fresh_nights=min_fresh_nights)
 
     n_total_candidates = len(candidates)
     suppress_codified = getattr(args, "suppress_codified", True)
@@ -2137,7 +2170,7 @@ def _cmd_codify_scan(args: argparse.Namespace) -> int:
     if suppress:
         gates.append("hide_already_codified")
     if suppress_rejected:
-        gates.append("hide_rejected")
+        gates.append(f"hide_rejected(resurrect_fresh_nights>={min_fresh_nights})")
     print(f"Codify scan ({src_note})")
     print(f"  gates: {', '.join(gates)}")
     print(f"  records scanned: {len(records)}")

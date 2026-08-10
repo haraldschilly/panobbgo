@@ -17,6 +17,67 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-08 — Rejected codify slots now need k ≥ 2 *post-rejection* nights to resurrect (`--min-fresh-nights`)
+
+* **What** — Tooling-only session (no optimizer behavior change;
+  `make_ioh_strategies` untouched).  The rejection memory's
+  resurrection rule was "any single evidence night newer than
+  `rejected_on` re-surfaces the slot".  It is now gated:
+  `CodifyRejection.suppresses()` counts the distinct evidence nights
+  strictly *after* the rejection date and keeps suppressing until they
+  reach `min_fresh_nights` (new module default
+  `DEFAULT_RESURRECT_MIN_FRESH_NIGHTS = 2`, mirroring the §9.3
+  `min_nights` actionability bar).  Pre-rejection nights never count —
+  they were adjudicated by the rejecting A/B.  CLI:
+  `codify-scan --min-fresh-nights N` (default 2; `1` restores the old
+  semantics), the gates line renders
+  `hide_rejected(resurrect_fresh_nights>=N)`, and the
+  `--include-rejected` audit view tags partially-resurrected slots
+  with `[rejected <date>; fresh nights since: k, below resurrection
+  bar]` so accruing evidence stays visible.  The nightly workflow
+  calls `codify-scan` with defaults, so the committed
+  `self_improve_codify_scan.txt` picks the gate up automatically.
+
+* **Why (§4 step 2 — sharpest measured gap)** — The single-fresh-night
+  resurrection path has a measured **0/3 hit rate** at the current
+  plateau: `Sensitivity.update_interval` and `drop_analyzer
+  Sensitivity` (both rejected 2026-08-03 by 12-seed paired A/Bs, mean
+  d −0.0012 / −0.0007) were each resurrected by one fresh seed-42
+  night (2026-08-08 / 2026-08-06), and `drop_heuristic NelderMead`
+  went through the same cycle on 2026-08-07 (PR #294: 12-seed A/B
+  Δmean −0.0003, seed 42 alone +0.0174).  With per-seed null-change
+  sd ≈ 0.015–0.019 and every nightly accept keyed to training seed
+  42, a single fresh night is *by construction* the artifact class
+  the rejections named — yet it re-opened the slot, and the last
+  three daily sessions were consumed re-litigating it (PRs #293,
+  #294, plus today's queue).  Requiring the post-rejection evidence
+  alone to clear the same k ≥ 2 bar as a brand-new candidate makes
+  the queue truthful again while still letting a genuinely changed
+  spec resurrect a slot after two independent nights.
+
+* **Effect today** — `codify-scan --metric aocc`: 3 surfaced → 1.
+  Both Sensitivity slots are hidden (1/2 fresh nights each); the only
+  survivor is `NelderMead drop_heuristic`, which open PR #294 already
+  covers and whose rejection record (dated 2026-08-07, evidence
+  nights 2026-07-11 / 2026-08-07 → 0 fresh) self-suppresses on merge.
+
+* **Validation** — Updated the two library tests to the new default
+  (explicit `min_fresh_nights=1` keeps legacy semantics covered) and
+  added four CLI tests (single-fresh-night hidden + gates label,
+  audit progress tag, `--min-fresh-nights 1` legacy override, `< 1`
+  loud failure).  Full gate green.  No paired A/B needed: the change
+  touches scan hygiene only, not optimizer behavior.
+
+* **Next** — The *pre*-rejection actionability gate is still
+  single-seed (the open 2026-08-03 "price instance sensitivity into
+  the codify gate" TODO): every ledger night is seed 42, so `n_nights`
+  measures persistence of the same training-battery draw, not
+  cross-instance generality.  Two candidate fixes for a future
+  session: rotate the nightly base seed by date (cross-night pooling
+  becomes cross-seed pooling for free), or auto-run the 12-seed
+  paired A/B as a codify pre-gate before a slot is declared
+  actionable.
+
 ### 2026-08-07 — Codify slot `NelderMead drop_heuristic` rejected (training-seed artifact; third in a row)
 
 * **What** — Negative result, recorded so the slot stays out of the

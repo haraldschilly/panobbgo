@@ -17,6 +17,78 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-11 — `add_heuristic NLSHADE_LBC` → `Rewarding_Restart` REJECTED unconditionally; first CI-significant per-dim split (d5 gain, d2 loss)
+
+* **What** — Daily session executed the §4.3 measured change queued
+  2026-08-10: add the structural-catalog arm
+  `(NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0})` to
+  `Rewarding_Restart` directly (the aocc ledger's `add_heuristic
+  NLSHADE_LBC` accepts — 3 confirmed across 2 nights — only target the
+  policy-frozen `RoundRobin_Random` control, so no codify slot can
+  reach the candidate spec; direct paired A/B is the vehicle).
+  Today's codify-scan surfaced **0 actionable candidates** (12 total:
+  4 already codified, 8 rejection-suppressed), so this was the
+  session's one slot.  Verdict: **rejected as an unconditional add**
+  and reverted in-branch (PR #298; apply + revert commits cancel, net
+  source diff carries no optimizer-behavior change — same pattern as
+  PR #297).
+
+* **Measurement** (12-seed canonical decision roster, `--sync-eval`
+  on both sides — first decision made on the 2026-08-09 low-noise
+  instrument — seed-paired `compare`):
+
+  Quick battery (2-D, 100·d budget):
+
+  | strategy | before | after | Δmean | sd | CI95 | verdict |
+  |---|---|---|---|---|---|---|
+  | `Rewarding_Restart` (+ LBC) | 0.3413 | 0.3505 | +0.0092 | 0.0249 | [−0.0066, +0.0251] | ~ noise, 9/12 seeds + |
+  | `RoundRobin_Random` (control) | 0.3341 | 0.3351 | +0.0010 | 0.0039 | [−0.0015, +0.0035] | flat |
+
+  Standard battery (d2+d5, 500·d budget, 5 instances):
+
+  | strategy | before | after | Δmean | sd | CI95 | verdict |
+  |---|---|---|---|---|---|---|
+  | `Rewarding_Restart` (+ LBC) | 0.3734 | 0.3654 | −0.0080 | 0.0160 | [−0.0182, +0.0022] | lean-negative, 8/12 seeds − |
+  | `RoundRobin_Random` (control) | 0.3232 | 0.3228 | −0.0004 | 0.0073 | [−0.0050, +0.0043] | flat |
+
+  **Per-dimension split** (paired per-seed deltas, t-dist CI95, n=12):
+
+  | strategy | dim | before | after | Δmean | CI95 | verdict |
+  |---|---|---|---|---|---|---|
+  | `Rewarding_Restart` | d2 | 0.4451 | 0.4210 | **−0.0241** | **[−0.0401, −0.0080]** | significant loss |
+  | `Rewarding_Restart` | d5 | 0.3017 | 0.3097 | **+0.0080** | **[+0.0007, +0.0154]** | significant gain |
+  | `RoundRobin_Random` | d2 | 0.3625 | 0.3611 | −0.0014 | [−0.0029, +0.0001] | flat |
+  | `RoundRobin_Random` | d5 | 0.2838 | 0.2845 | +0.0007 | [−0.0086, +0.0100] | flat |
+
+* **Diagnosis** — the first per-dim split where *both* CIs exclude
+  zero.  The population-based LBC arm pays at 5-D (exactly the GOAL
+  §5.2 hypothesis for why the CMA-ES arm was flat at quick-2-D), and
+  costs at 2-D×1000-eval where the sixth arm dilutes the bandit's
+  budget away from the NelderMead/JSO refinement that dominates
+  late-budget 2-D AOCC.  Note the budget interaction: at 2-D×200
+  evals (quick) the arm *leaned positive* (+0.0092) — early-phase
+  diversity helps, long-budget dilution hurts, which is an anytime
+  (AOCC) effect, not a dimension effect alone.  The ledger's
+  control-spec accepts generalized in sign only to the regime the
+  nightly loop measures (quick 2-D); they said nothing about d5,
+  where the real gain turned out to live.
+
+* **Consequences queued** — (a) the gain is real but conditional:
+  the natural shippable form is *dimension/budget-gated arm
+  activation* (a structural mix that includes population arms only
+  when `dim ≥ 3`-ish or budget/dim clears a threshold) — same
+  mechanism GOAL §5.5 anytime-scheduling wants, and the CMA-ES §5.2
+  open question should be re-measured at d5 with this instrument
+  before designing it; (b) the nightly loop's quick-2-D regime
+  cannot see d5 effects at all — this is now the second measured
+  instance (after the JSO d5 add) where the decisive evidence lived
+  outside the nightly battery, reinforcing GOAL §4.4 "move up the
+  measurement ladder".
+
+* **Validation** — full pytest suite green, `ruff check` clean on
+  touched files, `ruff format --check` clean.  No source change
+  ships; `planning/` + `TODO.md` only.
+
 ### 2026-08-10 — `drop_heuristic JSO` codify slot REJECTED (training-seed artifact, #4); NLSHADE_LBC→control slot policy-moot
 
 * **What** — Daily session banked the top actionable codify slot after

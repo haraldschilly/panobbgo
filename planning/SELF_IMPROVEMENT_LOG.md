@@ -85,9 +85,25 @@ Conventions:
   outside the nightly battery, reinforcing GOAL §4.4 "move up the
   measurement ladder".
 
+* **Rejection memory** — the slot's record was *superseded*, not
+  appended: `codify-reject --metric aocc --class-name NLSHADE_LBC
+  --op add_heuristic --date 2026-08-11` replaced the 2026-08-10
+  "policy-moot" entry with this A/B's numbers.  The old record
+  suppressed the slot on a policy technicality dated one day before
+  the measurement, so under the `--min-fresh-nights` resurrection
+  gate the slot would have come back citing the technicality rather
+  than the evidence that actually settled it; the rejection date now
+  matches the decision date, as the gate's contract assumes.  Drive-by:
+  the `_comment` literal in `_cmd_codify_reject`'s payload still
+  carried the pre-2026-08-08 "all evidence nights on or before
+  rejected_on" wording, so every write silently reverted the file's
+  header to the stale semantics — synced to the `--min-fresh-nights`
+  text.
+
 * **Validation** — full pytest suite green, `ruff check` clean on
-  touched files, `ruff format --check` clean.  No source change
-  ships; `planning/` + `TODO.md` only.
+  touched files, `ruff format --check` clean.  No optimizer-behavior
+  change ships; `planning/` + `TODO.md` + the `codify-reject` header
+  literal only.
 
 ### 2026-08-10 — `drop_heuristic JSO` codify slot REJECTED (training-seed artifact, #4); NLSHADE_LBC→control slot policy-moot
 

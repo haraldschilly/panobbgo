@@ -2,6 +2,27 @@
 
 ## Recent Improvements (continued)
 
+### NLSHADE_LBC unconditional add rejected; per-dim split measured — 2026-08-11
+- [x] **`add_heuristic NLSHADE_LBC` on `Rewarding_Restart` measured and
+      rejected** (negative result, PR #298) — 12-seed paired A/B with
+      `--sync-eval` both sides: quick +0.0092 (noise), standard −0.0080
+      (lean-negative), but the per-dim split is CI-significant *both
+      ways*: **d5 +0.0080 [+0.0007,+0.0154]**, **d2 −0.0241
+      [−0.0401,−0.0080]**.  Reverted in-branch; see the 2026-08-11 log
+      entry.
+- [ ] **Dimension/budget-gated arm activation** — the d5 gain is real;
+      the shippable form is a structural mix that activates population
+      arms (NLSHADE_LBC, CMA-ES) only when dim/budget clears a
+      threshold, or an anytime schedule that phases them out at long
+      2-D budgets.  Re-measure the CMA-ES arm (GOAL §5.2) at d5 with
+      the 12-seed standard instrument first — if it splits the same
+      way, one gating mechanism ships two arms.
+- [ ] **Nightly regime blind spot confirmed again** — second measured
+      case (after the JSO d5 add) where decisive evidence lived at d5,
+      invisible to the quick-2-D nightly battery.  Strengthens the
+      case for a d5 (or `--extra-highdim`) slice in the nightly loop
+      alongside the multi-seed confirm item below.
+
 ### JSO drop_heuristic slot rejected; NLSHADE_LBC slot policy-moot — 2026-08-10
 - [x] **`drop_heuristic JSO` on `Rewarding_Restart` rejected** (negative
       result) — ledger slot (2 nights, pooled CI95% `[+0.0058,+0.0075]`)
@@ -13,11 +34,12 @@
 - [x] **`add_heuristic NLSHADE_LBC` → `RoundRobin_Random` recorded
       policy-moot** — the slot only targets the pure-random reference /
       A/B control spec, which stays untouched by standing judgement call.
-- [ ] **Measure `add_heuristic NLSHADE_LBC` on `Rewarding_Restart`**
+- [x] **Measure `add_heuristic NLSHADE_LBC` on `Rewarding_Restart`**
       (§4.3 candidate with a positive prior: 3 confirmed control-spec
       accepts across 2 nights say the arm is strong under AOCC) —
-      12-seed quick A/B plus standard-battery d5 check; no ledger slot
-      needed, direct paired-A/B evidence suffices.
+      done 2026-08-11: rejected as an unconditional add (d2 loss
+      outweighs the significant d5 gain); see the 2026-08-11 entries
+      above.
 - [ ] **Multi-seed confirm in the nightly loop** — the 0/4 codify
       screening hit rate bounds the loop's value at the current plateau;
       rotate the nightly base seed and/or add a second-seed confirm gate

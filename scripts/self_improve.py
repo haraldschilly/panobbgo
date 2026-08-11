@@ -207,6 +207,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Base seed for the harness (default: 42)",
     )
     run_p.add_argument(
+        "--accept-stat",
+        dest="accept_stat",
+        choices=["mean", "rank"],
+        default="mean",
+        help=(
+            "Statistic that gates the accept decision.  'mean' "
+            "(default, historical) uses the bootstrap CI on the mean "
+            "per-pair delta.  'rank' uses a one-sided Wilcoxon "
+            "signed-rank test on the per-pair deltas shifted by "
+            "eps_accept (GOAL.md 5.3) — mean AOCC deltas are "
+            "outlier-sensitive, so one pair that happens to solve or "
+            "fail can carry the composite past the bar; the rank test "
+            "asks whether the change wins consistently across pairs.  "
+            "Ledger 'delta' stays the mean under both modes so the "
+            "series stays comparable; the rank location estimate is "
+            "reported as 'rank_delta'."
+        ),
+    )
+    run_p.add_argument(
         "--sync-eval",
         dest="sync_eval",
         action="store_true",
@@ -1305,6 +1324,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             confirm_iteration_offset=args.confirm_iteration_offset,
             sync_eval=args.sync_eval,
             aocc_extra_dims=aocc_extra_dims,
+            accept_stat=args.accept_stat,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

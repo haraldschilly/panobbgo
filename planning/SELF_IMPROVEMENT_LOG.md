@@ -17,6 +17,62 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-11 (fourth session) — rank-based acceptance available (GOAL §5.3); **not** enabled nightly
+
+* **What** — `statistical_accept(..., accept_stat="rank")` and
+  `--accept-stat rank`.  A one-sided Wilcoxon signed-rank test on the
+  per-pair deltas shifted by `eps_accept` replaces *both* mean
+  conditions (`delta > eps_accept` **and** `ci_low > 0`): asking whether
+  `median(d) > eps_accept` beyond chance is the rank analogue of "the
+  mean cleared the bar and its CI excludes zero".  Graduates research
+  backlog item GOAL §5.3.
+
+* **Why** — the composite is a *mean* over `(problem, strategy)` pairs,
+  so a single pair that happens to solve can carry it past the bar
+  alone.  On a battery of 6–12 pairs that is not a remote possibility,
+  it is the modal way a noise accept happens.  Demonstrated in the test
+  suite: seven pairs drifting −0.005 plus one pair going 0 → 1.0 gives
+  a composite of +0.12 with a degenerate (zero-variance) CI — the mean
+  rule accepts on the strength of one pair; the rank rule sees 7 losses
+  against 1 win, `p = 0.97`, and refuses.
+
+* **It is not merely stricter** — the converse case also holds: eleven
+  pairs at +0.020 against one at −0.300 gives a mean of −0.0067 (mean
+  rule rejects) but `p = 0.017` (rank accepts).  A broad win dragged
+  negative by one catastrophe is exactly what a mean should not be
+  trusted with.  The per-pair `eps_regress` guard is orthogonal and
+  still applies under both rules.
+
+* **Hard floor on sample size** — the smallest attainable one-sided
+  Wilcoxon p on `n` pairs is `2**-n`, so at `confidence=0.95` a rank
+  accept is *impossible* below `n = 5` however large the effect.  A
+  property of the test, not a bug, but it constrains where the mode may
+  be switched on.  The AOCC quick battery gives `3 instances x n_specs`
+  — 6 with two specs, 12 with the d5 slice on — comfortably clear.
+  Parametrised tests pin both sides of the boundary.
+
+* **Deliberately NOT enabled in the nightly.**  Tonight's run already
+  changes the accept regime in three ways at once (seed rotation, eps
+  0.005 → 0.0125, the d5 slice, which moves the score *level*).  Adding
+  a fourth simultaneous change to the accept *rule* would make the next
+  few weeks of ledger uninterpretable — nobody could attribute a change
+  in accept rate to any one of them.  This is precisely the discipline
+  whose absence produced five consecutive unfalsifiable codify slots.
+  Queued in TODO.md as an explicit A/B once the new instrument has a
+  baseline.
+
+* **Ledger continuity** — `delta` stays the **mean** under both rules,
+  so the ledger series is comparable across a rule switch.  The rank
+  location estimate (Hodges-Lehmann, the median of Walsh averages — the
+  estimator that pairs with Wilcoxon as the mean pairs with the
+  bootstrap) is recorded separately as `rank_delta`, alongside
+  `rank_p` and `accept_stat`.
+
+* **Validation** — full suite green (one pre-existing flake in
+  `test_storage_integration.py::test_resume_capability`, passes in
+  isolation and is untouched by this change); `ruff format --check`
+  clean; pyright 0 errors, 0 warnings.  32 new tests.
+
 ### 2026-08-11 (third session) — the nightly loop can finally see d5
 
 * **What** — an opt-in `--aocc-extra-dims` widens the AOCC battery for

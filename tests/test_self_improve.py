@@ -13917,3 +13917,95 @@ class TestWithExtraDims:
         b = self._quick()
         w = with_extra_dims(b, (5,))
         assert w.pair_count(1) == 2 * b.pair_count(1)
+
+
+class TestLoopConfigAcceptStat:
+    """``LoopConfig.accept_stat`` plumbing (2026-08-11)."""
+
+    def test_defaults_to_mean(self):
+        assert LoopConfig().accept_stat == "mean"
+
+    def test_rejects_unknown_statistic(self):
+        with pytest.raises(ValueError, match="accept_stat"):
+            LoopConfig(accept_stat="median")
+
+    def test_forwarded_to_both_decision_calls(self, tmp_path):
+        """Screening *and* the §6.4 confirmation must use the same rule.
+
+        A confirm gate running the mean rule behind a rank-gated
+        screening accept would silently re-admit exactly the
+        outlier-driven proposals the rank rule exists to reject.
+        """
+        import panobbgo.self_improve as si_mod
+
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            accept_stat="rank",
+            confirm_accepts=True,
+            eps_accept=0.001,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        names = [s.name for s in _make_specs()]
+        # Enough (problem, strategy) pairs for the Wilcoxon test to be
+        # able to reach alpha at all: the smallest attainable one-sided
+        # p is 2**-n, so n >= 5 is required before a rank accept is even
+        # possible.  See TestRankModeNeedsEnoughPairs.
+        probs = tuple(f"P{i}" for i in range(8))
+        si._measure = lambda specs, iteration, label, verbose: _fake_harness_result(  # type: ignore[method-assign]
+            0.60 if "candidate" in label else 0.40, names, problem_names=probs
+        )
+
+        seen: List[str] = []
+        real = si_mod.statistical_accept
+
+        def spy(*a, **kw):
+            seen.append(kw.get("accept_stat", "mean"))
+            return real(*a, **kw)
+
+        monkey = pytest.MonkeyPatch()
+        try:
+            monkey.setattr(si_mod, "statistical_accept", spy)
+            si.run()
+        finally:
+            monkey.undo()
+
+        assert len(seen) >= 2, "expected a screening and a confirmation decision"
+        assert set(seen) == {"rank"}
+
+    def test_rank_provenance_lands_in_the_ledger(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            accept_stat="rank",
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        si.run()
+        rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines() if line.strip()]
+        iters = [r for r in rows if r.get("record_type") == "iteration"]
+        assert iters
+        assert all(r["accept_stat"] == "rank" for r in iters)
+        assert all(r["rank_p"] is not None for r in iters)
+
+    def test_mean_runs_leave_rank_fields_null(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        si.run()
+        rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines() if line.strip()]
+        iters = [r for r in rows if r.get("record_type") == "iteration"]
+        assert iters
+        assert all(r["accept_stat"] == "mean" and r["rank_p"] is None and r["rank_delta"] is None for r in iters)

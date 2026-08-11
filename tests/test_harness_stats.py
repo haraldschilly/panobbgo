@@ -676,3 +676,236 @@ class TestCompareCLIPaired:
                     "--unpaired",
                 ]
             )
+
+
+# ===========================================================================
+# statistical_accept — rank (Wilcoxon) acceptance mode
+# ===========================================================================
+
+
+class TestHodgesLehmann:
+    """The location estimator that pairs with the Wilcoxon test."""
+
+    def test_empty(self):
+        from panobbgo.harness import _hodges_lehmann
+
+        assert _hodges_lehmann(np.array([])) == 0.0
+
+    def test_single_value(self):
+        from panobbgo.harness import _hodges_lehmann
+
+        assert _hodges_lehmann(np.array([0.7])) == pytest.approx(0.7)
+
+    def test_symmetric_sample_equals_the_mean(self):
+        from panobbgo.harness import _hodges_lehmann
+
+        assert _hodges_lehmann(np.array([-1.0, 0.0, 1.0])) == pytest.approx(0.0)
+
+    def test_known_walsh_average(self):
+        """Walsh averages of [1, 2, 4] (i <= j) are 1,1.5,2.5,2,3,4 → median 2.25."""
+        from panobbgo.harness import _hodges_lehmann
+
+        assert _hodges_lehmann(np.array([1.0, 2.0, 4.0])) == pytest.approx(2.25)
+
+    def test_resists_a_single_outlier(self):
+        from panobbgo.harness import _hodges_lehmann
+
+        base = [0.01] * 9
+        assert _hodges_lehmann(np.array(base)) == pytest.approx(0.01)
+        # One wild pair drags the mean by ~0.1 but barely moves HL.
+        with_outlier = np.array(base + [1.0])
+        assert float(np.mean(with_outlier)) > 0.10
+        assert _hodges_lehmann(with_outlier) < 0.10
+
+
+class TestWilcoxonGreaterGuards:
+    """``_wilcoxon_greater`` must never raise on the loop's accept path."""
+
+    def test_all_zero_returns_no_evidence(self):
+        from panobbgo.harness import _wilcoxon_greater
+
+        assert _wilcoxon_greater(np.zeros(8), 0.0) == 1.0
+
+    def test_empty_returns_no_evidence(self):
+        from panobbgo.harness import _wilcoxon_greater
+
+        assert _wilcoxon_greater(np.array([]), 0.0) == 1.0
+
+    def test_non_finite_returns_no_evidence(self):
+        from panobbgo.harness import _wilcoxon_greater
+
+        assert _wilcoxon_greater(np.array([np.nan, np.nan]), 0.0) == 1.0
+
+    def test_uniform_positive_shift_is_significant(self):
+        from panobbgo.harness import _wilcoxon_greater
+
+        assert _wilcoxon_greater(np.full(8, 0.02), 0.005) < 0.05
+
+    def test_zeros_are_split_not_dropped(self):
+        """``zero_method='zsplit'`` keeps inert pairs in the sample.
+
+        With ``'wilcox'`` the zeros would be discarded and two positive
+        pairs alone would read as near-significant — the exact failure
+        mode of a mutation that moves only a couple of pairs.
+        """
+        from panobbgo.harness import _wilcoxon_greater
+
+        d = np.array([0.02, 0.02] + [0.0] * 8)
+        assert _wilcoxon_greater(d, 0.0) > 0.05
+
+
+class TestStatisticalAcceptRankMode:
+    """``accept_stat="rank"`` — GOAL.md §5.3.
+
+    Mean-AOCC deltas are outlier-sensitive: one pair that happens to
+    solve can carry the composite past ``eps_accept`` on its own.  The
+    rank rule asks whether the change wins *typically* across pairs.
+    """
+
+    B = 1000  # fine-grained budget: solve-fraction resolution is 1/budget
+
+    def _pairs(self, first_hits_before, first_hits_after):
+        before = _harness_result([_psr(f"P{i}", "S", [h] * 3, budget=self.B) for i, h in enumerate(first_hits_before)])
+        after = _harness_result([_psr(f"P{i}", "S", [h] * 3, budget=self.B) for i, h in enumerate(first_hits_after)])
+        return before, after
+
+    def test_default_is_mean_and_reports_no_rank_fields(self):
+        before, after = self._pairs([500] * 4, [480] * 4)
+        d = statistical_accept(before, after, n_boot=200, seed=0)
+        assert d.accept_stat == "mean"
+        assert d.rank_p is None
+        assert d.rank_delta is None
+
+    def test_rejects_an_unknown_statistic(self):
+        before, after = self._pairs([500], [480])
+        with pytest.raises(ValueError, match="accept_stat"):
+            statistical_accept(before, after, n_boot=100, seed=0, accept_stat="median")
+
+    def test_outlier_driven_mean_accept_is_rejected_by_rank(self):
+        """The headline property.
+
+        Seven pairs each drift −0.005 and one pair goes 0 → 1.0.  The
+        mean composite is +0.12 with a degenerate (zero-variance) CI, so
+        the mean rule accepts on the strength of a single pair.  The
+        rank rule sees 7 losses against 1 win and refuses.
+        """
+        before, after = self._pairs([500] * 7 + [None], [505] * 7 + [1])
+
+        mean_d = statistical_accept(before, after, eps_accept=0.005, n_boot=500, seed=0)
+        assert mean_d.accept is True
+        assert mean_d.delta > 0.10
+        assert mean_d.ci_low > 0.0
+
+        rank_d = statistical_accept(before, after, eps_accept=0.005, n_boot=500, seed=0, accept_stat="rank")
+        assert rank_d.accept is False
+        assert rank_d.rank_p is not None and rank_d.rank_p > 0.5
+        # The mean is still reported unchanged — ledger continuity.
+        assert rank_d.delta == pytest.approx(mean_d.delta)
+        # ...but the rank location estimate is negative, as it should be.
+        assert rank_d.rank_delta is not None and rank_d.rank_delta < 0.0
+        assert any("Wilcoxon" in r for r in rank_d.reasons)
+
+    def test_consistent_small_win_is_accepted_by_both(self):
+        """Rank is not merely stricter — a real, consistent lift passes."""
+        before, after = self._pairs([500] * 8, [480] * 8)
+
+        for stat in ("mean", "rank"):
+            d = statistical_accept(before, after, eps_accept=0.005, n_boot=500, seed=0, accept_stat=stat)
+            assert d.accept is True, stat
+        rank_d = statistical_accept(before, after, eps_accept=0.005, n_boot=500, seed=0, accept_stat="rank")
+        assert rank_d.rank_p is not None and rank_d.rank_p < 0.05
+        assert rank_d.rank_delta == pytest.approx(0.020, abs=1e-6)
+
+    def test_rank_can_accept_where_the_mean_cannot(self):
+        """A broad win dragged negative by one catastrophic pair.
+
+        Eleven pairs gain +0.020 and one loses −0.300.  The mean is
+        −0.0067 so the mean rule rejects; the rank rule sees 11 wins
+        against 1 loss and accepts.  ``eps_regress`` is widened here on
+        purpose — the per-pair regression guard is orthogonal to the
+        statistic and would otherwise mask what is under test.
+        """
+        before, after = self._pairs([500] * 12, [480] * 11 + [800])
+
+        mean_d = statistical_accept(before, after, eps_accept=0.005, eps_regress=0.5, n_boot=500, seed=0)
+        assert mean_d.accept is False
+        assert mean_d.delta < 0.0
+
+        rank_d = statistical_accept(
+            before, after, eps_accept=0.005, eps_regress=0.5, n_boot=500, seed=0, accept_stat="rank"
+        )
+        assert rank_d.accept is True
+        assert rank_d.rank_p is not None and rank_d.rank_p < 0.05
+
+    def test_regression_guard_still_applies_under_rank(self):
+        """The rank test replaces the delta/CI conditions, not the guard."""
+        before, after = self._pairs([500] * 12, [480] * 11 + [800])
+        d = statistical_accept(
+            before, after, eps_accept=0.005, eps_regress=0.05, n_boot=500, seed=0, accept_stat="rank"
+        )
+        assert d.accept is False
+        assert any("regressed" in r for r in d.reasons)
+
+    def test_no_op_change_is_not_significant(self):
+        before, after = self._pairs([500] * 8, [500] * 8)
+        d = statistical_accept(before, after, eps_accept=0.005, n_boot=200, seed=0, accept_stat="rank")
+        assert d.accept is False
+        assert d.rank_p == 1.0
+
+    def test_bootstrap_ci_is_still_reported_under_rank(self):
+        """The CI does not gate under rank, but it stays in the record."""
+        before, after = self._pairs([500] * 8, [480] * 8)
+        d = statistical_accept(before, after, eps_accept=0.005, n_boot=500, seed=0, accept_stat="rank")
+        assert d.ci_low == pytest.approx(d.delta, abs=1e-6)
+        assert d.n_boot == 500
+
+    def test_serialises_the_rank_fields(self):
+        before, after = self._pairs([500] * 8, [480] * 8)
+        d = statistical_accept(before, after, eps_accept=0.005, n_boot=200, seed=0, accept_stat="rank")
+        blob = d.to_dict()
+        assert blob["accept_stat"] == "rank"
+        assert blob["rank_p"] == pytest.approx(d.rank_p)
+        assert blob["rank_delta"] == pytest.approx(d.rank_delta)
+
+
+class TestRankModeNeedsEnoughPairs:
+    """The rank rule has a hard floor on how few pairs it can work with.
+
+    The smallest attainable one-sided Wilcoxon p-value on ``n``
+    observations is ``2**-n`` (every observation positive), so with
+    ``confidence=0.95`` a rank accept is *impossible* below ``n = 5``
+    however large the effect.  That is a property of the test, not a
+    bug, but it constrains where the mode may be switched on: the AOCC
+    quick battery yields 3 instances x n_specs pairs (6 with two specs,
+    12 once the d5 slice is on), which clears the floor.  A future
+    caller running a narrower battery must not silently get a rule that
+    can never fire.
+    """
+
+    B = 1000
+
+    def _pairs(self, n, before_hit=500, after_hit=1):
+        before = _harness_result([_psr(f"P{i}", "S", [before_hit] * 3, budget=self.B) for i in range(n)])
+        after = _harness_result([_psr(f"P{i}", "S", [after_hit] * 3, budget=self.B) for i in range(n)])
+        return before, after
+
+    @pytest.mark.parametrize("n", [1, 2, 3, 4])
+    def test_below_five_pairs_cannot_accept_even_on_a_huge_effect(self, n):
+        before, after = self._pairs(n)
+        d = statistical_accept(before, after, eps_accept=0.005, n_boot=200, seed=0, accept_stat="rank")
+        assert d.delta > 0.4, "the underlying effect really is enormous"
+        assert d.accept is False
+        assert d.rank_p is not None and d.rank_p >= 0.05
+
+    @pytest.mark.parametrize("n", [5, 6, 12])
+    def test_five_or_more_pairs_can_accept(self, n):
+        before, after = self._pairs(n)
+        d = statistical_accept(before, after, eps_accept=0.005, n_boot=200, seed=0, accept_stat="rank")
+        assert d.accept is True
+        assert d.rank_p is not None and d.rank_p < 0.05
+
+    def test_the_mean_rule_has_no_such_floor(self):
+        """Contrast: the bootstrap rule accepts a huge effect on 1 pair."""
+        before, after = self._pairs(1)
+        d = statistical_accept(before, after, eps_accept=0.005, n_boot=200, seed=0)
+        assert d.accept is True

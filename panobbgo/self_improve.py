@@ -3238,6 +3238,27 @@ class LoopConfig:
     #: Ledger ``delta`` stays the mean under both modes so the series
     #: remains comparable across the switch.
     accept_stat: str = "mean"
+    #: How the accept decision groups pairs into regime *cells* —
+    #: ``"none"`` (default, historical) or ``"dim"``.  Forwarded to
+    #: :func:`panobbgo.harness.statistical_accept` at both the screening
+    #: and the §6.4 confirmation call.
+    #:
+    #: A scalar composite averages regimes that can move in opposite
+    #: directions.  Measured 2026-08-11 (PR #298): the NL-SHADE-LBC arm
+    #: moved d2 by −0.0241 and d5 by +0.0080, both CIs excluding zero,
+    #: and the composite read −0.0080 — describing neither.  Cells make
+    #: the split visible, and let a credible whole-regime regression
+    #: block an otherwise-good average.
+    #:
+    #: Inert unless the battery spans more than one dimension; the AOCC
+    #: quick preset only does once ``aocc_extra_dims`` is set.
+    cell_by: str = "none"
+    #: Tolerance for a whole-cell regression under :attr:`cell_by`.  A
+    #: cell blocks acceptance only when its delta is below
+    #: ``-eps_cell_regress`` *and* its whole CI is below zero, so noise
+    #: cannot veto.  Default ``0.01`` would have blocked the #298 change
+    #: on its d2 cell.
+    eps_cell_regress: float = 0.01
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -3250,6 +3271,10 @@ class LoopConfig:
             raise ValueError(f"registry must be 'default' or 'loop', got {self.registry!r}")
         if self.accept_stat not in {"mean", "rank"}:
             raise ValueError(f"accept_stat must be 'mean' or 'rank', got {self.accept_stat!r}")
+        if self.cell_by not in {"none", "dim"}:
+            raise ValueError(f"cell_by must be 'none' or 'dim', got {self.cell_by!r}")
+        if self.eps_cell_regress < 0:
+            raise ValueError(f"eps_cell_regress must be >= 0, got {self.eps_cell_regress}")
         if self.bandit_reward_shaping not in {"binary", "graded"}:
             raise ValueError(f"bandit_reward_shaping must be 'binary' or 'graded', got {self.bandit_reward_shaping!r}")
         if self.confirm_iteration_offset <= 0:
@@ -3541,6 +3566,18 @@ class LoopIterationRecord:
     #: :attr:`delta` carries — ``delta`` stays the mean under both rules
     #: so the ledger series is continuous across a rule switch.
     rank_delta: Optional[float] = None
+    #: Per-cell ``{"cell", "delta", "ci_low", "ci_high", "n_pairs"}``
+    #: breakdown when :attr:`LoopConfig.cell_by` is on; empty otherwise.
+    #:
+    #: This is the record that makes cell-conditional effects
+    #: *learnable*: codify-scan currently pools a scalar delta per
+    #: night, so a change that is +0.02 at d5 and −0.001 at d2 is
+    #: indistinguishable in the ledger from one that is +0.01
+    #: everywhere.  With the breakdown persisted a future scan can
+    #: propose a dimension-gated arm rather than an unconditional one.
+    per_cell: List[Dict[str, Any]] = field(default_factory=list)
+    #: Label of the cell that blocked acceptance, or ``None``.
+    blocking_cell: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -3572,6 +3609,8 @@ class LoopIterationRecord:
             "accept_stat": self.accept_stat,
             "rank_p": self.rank_p,
             "rank_delta": self.rank_delta,
+            "per_cell": [dict(c) for c in self.per_cell],
+            "blocking_cell": self.blocking_cell,
         }
         return d
 
@@ -4477,6 +4516,8 @@ class SelfImprover:
                 seed=self.config.stat_seed + iteration,
                 paired=self.config.paired,
                 accept_stat=self.config.accept_stat,
+                cell_by=self.config.cell_by,
+                eps_cell_regress=self.config.eps_cell_regress,
             )
 
             reasons = list(decision.reasons)
@@ -4577,6 +4618,17 @@ class SelfImprover:
                 accept_stat=self.config.accept_stat,
                 rank_p=decision.rank_p,
                 rank_delta=decision.rank_delta,
+                per_cell=[
+                    {
+                        "cell": c.cell,
+                        "delta": c.delta,
+                        "ci_low": c.ci_low,
+                        "ci_high": c.ci_high,
+                        "n_pairs": c.n_pairs,
+                    }
+                    for c in decision.per_cell
+                ],
+                blocking_cell=decision.blocking_cell,
             )
             records.append(rec)
             ledger.write(rec)
@@ -5239,6 +5291,8 @@ class SelfImprover:
             seed=self.config.stat_seed + iteration + int(self.config.confirm_iteration_offset),
             paired=self.config.paired,
             accept_stat=self.config.accept_stat,
+            cell_by=self.config.cell_by,
+            eps_cell_regress=self.config.eps_cell_regress,
         )
         confirmed = bool(pooled_decision.accept)
 

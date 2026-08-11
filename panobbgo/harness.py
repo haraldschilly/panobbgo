@@ -1585,6 +1585,48 @@ def _solve_fractions(psr: ProblemStrategyResult) -> np.ndarray:
 
 
 @dataclass
+class CellCI:
+    """Bootstrap CI for one *cell* — a group of pairs sharing a regime.
+
+    A scalar composite is a mean over every ``(problem, strategy)``
+    pair, which silently averages regimes that can move in opposite
+    directions.  Measured instance, 2026-08-11 (PR #298): adding the
+    NL-SHADE-LBC arm moved ``d2`` by −0.0241 [−0.0401, −0.0080] and
+    ``d5`` by +0.0080 [+0.0007, +0.0154] — *both* CIs excluding zero,
+    opposite signs.  The composite read −0.0080, "lean-negative", which
+    describes neither regime and hides that a real gain exists.
+
+    Cells make that structure first-class: the same bootstrap resample
+    indices are averaged within each cell instead of across all pairs,
+    so cell CIs are directly comparable to the composite CI and to each
+    other.
+
+    Args:
+        cell: Cell label (e.g. ``"d2"``).
+        delta: Mean per-pair delta within this cell.
+        ci_low: Lower bound of the bootstrap CI on the cell delta.
+        ci_high: Upper bound of the bootstrap CI on the cell delta.
+        n_pairs: Number of ``(problem, strategy)`` pairs in the cell.
+    """
+
+    cell: str
+    delta: float
+    ci_low: float
+    ci_high: float
+    n_pairs: int
+
+    @property
+    def credibly_negative(self) -> bool:
+        """``True`` when the whole CI sits below zero.
+
+        Used to distinguish a cell that *really* regressed from one that
+        merely looks bad through noise — a single noisy cell must not be
+        able to veto an otherwise good change.
+        """
+        return self.ci_high < 0.0
+
+
+@dataclass
 class PairCI:
     """Bootstrap confidence interval for a single ``(problem, strategy)`` pair.
 
@@ -1678,6 +1720,16 @@ class StatisticalDecision:
     #: estimate that *pairs* with the Wilcoxon test, the way the mean
     #: pairs with the bootstrap CI.  ``None`` under ``accept_stat="mean"``.
     rank_delta: Optional[float] = None
+    #: How pairs were grouped into cells — ``"none"`` (one implicit
+    #: cell, the historical behaviour) or ``"dim"``.
+    cell_by: str = "none"
+    #: Per-cell deltas and CIs, empty under ``cell_by="none"``.  Always
+    #: *reported* when cells are on, whether or not they gate; a
+    #: cell-conditional effect is worth recording even when the change
+    #: is accepted.
+    per_cell: List[CellCI] = field(default_factory=list)
+    #: The cell that blocked acceptance, if any.
+    blocking_cell: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a JSON-compatible dictionary."""
@@ -1698,6 +1750,18 @@ class StatisticalDecision:
             "accept_stat": self.accept_stat,
             "rank_p": self.rank_p,
             "rank_delta": self.rank_delta,
+            "cell_by": self.cell_by,
+            "blocking_cell": self.blocking_cell,
+            "per_cell": [
+                {
+                    "cell": c.cell,
+                    "delta": c.delta,
+                    "ci_low": c.ci_low,
+                    "ci_high": c.ci_high,
+                    "n_pairs": c.n_pairs,
+                }
+                for c in self.per_cell
+            ],
             "per_pair": [
                 {
                     "problem": p.problem,
@@ -1810,6 +1874,8 @@ def statistical_accept(
     seed: int = 42,
     paired: Optional[bool] = None,
     accept_stat: str = "mean",
+    cell_by: str = "none",
+    eps_cell_regress: float = 0.01,
 ) -> StatisticalDecision:
     """Principled accept/reject decision for a candidate :class:`HarnessResult`.
 
@@ -1902,6 +1968,38 @@ def statistical_accept(
             would never fire.  The AOCC quick battery yields
             ``3 instances x n_specs`` (6 with two specs, 12 with the d5
             slice on), comfortably clear.
+        cell_by: How to group pairs into *cells* — regimes whose effects
+            may differ in sign.
+
+            - ``"none"`` (default) — one implicit cell; historical
+              behaviour, byte-identical.
+            - ``"dim"`` — one cell per ``problem_dim``.
+
+            When cells are on, per-cell deltas and CIs are always
+            *reported* (:attr:`StatisticalDecision.per_cell`), and a
+            cell that credibly regresses blocks acceptance — see
+            ``eps_cell_regress``.
+
+            The motivation is a measured one.  On 2026-08-11 (PR #298)
+            adding the NL-SHADE-LBC arm moved ``d2`` by −0.0241
+            [−0.0401, −0.0080] and ``d5`` by +0.0080 [+0.0007, +0.0154]:
+            both CIs excluding zero, opposite signs.  The scalar
+            composite read −0.0080 — "lean-negative" — which describes
+            neither regime and hides that a real gain exists at d5.  A
+            scalar objective over a heterogeneous battery has a flat
+            optimum by construction; cells are the minimum machinery
+            needed to see past that.
+        eps_cell_regress: Tolerance for a whole-cell regression, used
+            only when ``cell_by != "none"``.  A cell blocks acceptance
+            iff **both** its delta is below ``-eps_cell_regress`` **and**
+            its entire CI sits below zero.  Requiring both means a
+            merely noisy cell cannot veto an otherwise good change,
+            while a real regime sacrifice does.  Default ``0.01``, which
+            would have blocked the #298 change on its d2 cell.
+
+            Orthogonal to ``accept_stat``: one asks whether the typical
+            effect is real, the other whether any regime is being
+            sacrificed to achieve it.
 
     Returns:
         A populated :class:`StatisticalDecision` describing the verdict and
@@ -2060,6 +2158,34 @@ def statistical_accept(
             worst_pair_regression = p.delta
             worst_pair = (p.problem, p.strategy)
 
+    # Per-cell aggregation.  Uses the *same* bootstrap resample indices
+    # as the composite (pair_delta_samples are already aligned by
+    # column), so a cell CI is directly comparable to the composite CI
+    # and to other cells — averaging a subset of the same rows is
+    # exactly what the composite does over all of them.
+    if cell_by not in {"none", "dim"}:
+        raise ValueError(f"cell_by must be 'none' or 'dim', got {cell_by!r}")
+
+    per_cell: List[CellCI] = []
+    if cell_by == "dim" and per_pair:
+        cell_rows: Dict[str, List[int]] = {}
+        for i, key in enumerate(shared):
+            dim = int(before_map[key].problem_dim)
+            cell_rows.setdefault(f"d{dim}", []).append(i)
+        alpha = (1.0 - confidence) / 2.0
+        for label in sorted(cell_rows, key=lambda s: (len(s), s)):
+            rows = cell_rows[label]
+            samples = np.mean(np.vstack([pair_delta_samples[i] for i in rows]), axis=0)
+            per_cell.append(
+                CellCI(
+                    cell=label,
+                    delta=float(np.mean([per_pair[i].delta for i in rows])),
+                    ci_low=float(np.quantile(samples, alpha)),
+                    ci_high=float(np.quantile(samples, 1.0 - alpha)),
+                    n_pairs=len(rows),
+                )
+            )
+
     # Decision rule.
     if accept_stat not in {"mean", "rank"}:
         raise ValueError(f"accept_stat must be 'mean' or 'rank', got {accept_stat!r}")
@@ -2106,6 +2232,28 @@ def statistical_accept(
                 f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically distinguishable from noise"
             )
 
+    # Cell gate: a change may not credibly regress a whole regime, no
+    # matter how well it does on average.  BOTH conditions are required
+    # — the cell delta must be worse than the tolerance *and* its entire
+    # CI must sit below zero — so a merely noisy cell cannot veto an
+    # otherwise good change.  Applied on top of whichever accept_stat
+    # is in force; the two are orthogonal (one asks "is the typical
+    # effect real", the other "is any regime being sacrificed").
+    blocking_cell: Optional[str] = None
+    cond_cell = True
+    if per_cell:
+        for c in per_cell:
+            if c.delta < -eps_cell_regress and c.credibly_negative:
+                cond_cell = False
+                blocking_cell = c.cell
+                reasons.append(
+                    f"cell {c.cell} regressed by {c.delta:+.4f}"
+                    f" (< -eps_cell_regress {eps_cell_regress:.4f})"
+                    f" with CI [{c.ci_low:+.4f}, {c.ci_high:+.4f}] entirely below zero"
+                    f" — a credible whole-regime regression, not noise"
+                )
+                break
+
     if not cond_shared:
         reasons.append(
             "no (problem, strategy) pairs are shared between before and after — cannot form a statistical decision"
@@ -2119,7 +2267,7 @@ def statistical_accept(
         else:  # pragma: no cover — defensive; cannot trigger with the rule above
             reasons.append(f"worst regression {worst_pair_regression:+.4f} exceeds eps_regress {eps_regress:.4f}")
 
-    accept = cond_shared and cond_delta and cond_ci and cond_regress
+    accept = cond_shared and cond_delta and cond_ci and cond_regress and cond_cell
     if accept and not reasons:
         if accept_stat == "rank":
             reasons.append(
@@ -2135,6 +2283,11 @@ def statistical_accept(
                 f" worst pair regression {worst_pair_regression:+.4f}"
                 f" > -{eps_regress:.4f}"
             )
+    if accept and per_cell:
+        # Record the per-cell breakdown even on an accept: a change that
+        # wins on average while one regime merely *tolerably* regresses
+        # is exactly the signal that motivates dimension-gated arms.
+        reasons.append("cells: " + ", ".join(f"{c.cell} {c.delta:+.4f}" for c in per_cell))
 
     return StatisticalDecision(
         accept=accept,
@@ -2154,6 +2307,9 @@ def statistical_accept(
         accept_stat=accept_stat,
         rank_p=rank_p,
         rank_delta=rank_delta,
+        cell_by=cell_by,
+        per_cell=per_cell,
+        blocking_cell=blocking_cell,
     )
 
 

@@ -307,6 +307,14 @@ jobs:
               # Nights before and after are not on one scale — the
               # per-iteration 'aocc_extra_dims' field records which.
               --aocc-extra-dims 5
+              # 2026-08-11 — the d5 slice above is what makes cells
+              # meaningful: with dims=(2,) there is only one cell.  The
+              # per-cell breakdown is *recorded* either way, which is
+              # what lets a future codify-scan propose a dimension-gated
+              # arm instead of an unconditional one.  The gate only
+              # fires on a cell that is both worse than -0.01 and has
+              # its whole CI below zero, so it cannot veto on noise.
+              --cell-by dim
             )
           fi
           "${CMD[@]}"

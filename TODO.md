@@ -2,6 +2,30 @@
 
 ## Recent Improvements (continued)
 
+### Loop measurement fidelity: hold-out metric bug, seed rotation, sync-eval — 2026-08-11 (second session)
+- [x] **Hold-out leg measured `composite_score` on AOCC runs** — the
+      8.5× "instance-family generalization gap" (`GOAL.md` §2 / §5.1's
+      top research priority) was a unit mismatch.  Real gap after the
+      fix: **0.3383 training vs 0.3342 hold-out**.
+- [x] **Confirm gate now crosses a base seed under `--metric aocc`** —
+      the `metric != "aocc"` exclusion meant 0/72 accepts had ever
+      tested a second instance family.
+- [x] **Nightly rotates `--base-seed`** over 7 values — all 952 prior
+      ledger records were `base_seed=42`, so codify's "k≥2 distinct
+      nights" was counting one instance draw k times (hit rate 0/5).
+- [x] **`--sync-eval` reachable from the loop** and on by default in
+      the nightly (noise sd 0.0101 → 0.0063; measured cost ~0).
+- [x] **eps_accept recalibrated** 0.005 → 0.0125 on the aocc branch
+      (0.5σ → 2σ); relax floor 0.001 → 0.006.
+- [ ] **Re-earn the codify backlog** — cross-night evidence banked
+      before 2026-08-11 is single-draw.  Let the rotated-seed ledger
+      accumulate ≥2 nights on *distinct* base seeds before trusting any
+      slot, and consider making codify-scan group by `base_seed` rather
+      than by night.
+- [ ] **Group cross-night pooling by `sync_eval`** — the field is now
+      recorded but codify-scan does not yet split on it; the first
+      nights after this ship straddle the boundary.
+
 ### NLSHADE_LBC unconditional add rejected; per-dim split measured — 2026-08-11
 - [x] **`add_heuristic NLSHADE_LBC` on `Rewarding_Restart` measured and
       rejected** (negative result, PR #298) — 12-seed paired A/B with

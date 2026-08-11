@@ -17,6 +17,110 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-11 (second session) — measurement fidelity: hold-out metric-mismatch bug fixed, confirm gate crosses a base seed, nightly seed rotation, `--sync-eval`, eps recalibration
+
+* **What** — a review of the full 34-night AOCC ledger (952 records,
+  2026-07-09 .. 2026-08-11) found the loop's accept instrument could
+  not, in principle, do what the codify pipeline assumed of it.  Four
+  fixes ship together because they are one defect seen from four
+  sides.  No optimizer-behavior change; this is all measurement
+  plumbing.
+
+* **The 34-night picture that motivated it**
+
+  | quantity | value |
+  |---|---|
+  | first-of-night baseline, 34 nights | mean 0.3398, sd 0.0061 |
+  | trend | +0.00015/night, t = +1.39 (n.s.) |
+  | first 5 nights → last 5 nights | 0.3433 → 0.3420 |
+  | proposals | 680 |
+  | screening-accept rate | 210/680 = **0.309** |
+  | `P(delta > eps_accept=0.005)` under the measured noise | **0.301** |
+  | confirm survival | 72/210 = 0.343 (independent redraw predicts 0.30) |
+  | codify slots reaching a 12-seed A/B | 5 |
+  | codify slots that survived | **0** |
+
+  The screening bar sat at **0.5 sd** of the single-measurement noise
+  (sd 0.0101), so ~30% of *zero-effect* proposals cleared it and the
+  confirm gate re-rolled at the same bar.  The observed 10.6% accept
+  rate is what pure noise predicts (0.30 × 0.34); there is no room
+  left in it for signal.
+
+* **Bug 1 — hold-out measured the wrong metric entirely.**
+  :meth:`SelfImprover._measure` branches on ``metric == "aocc"``;
+  :meth:`_measure_holdout` did not, so it fell through to
+  ``holdout_harness_config`` → the **composite** harness.  Every
+  hold-out record in the AOCC ledger carried a ``composite_score``
+  while its training record carried mean AOCC.  Measured:
+  ``seed_holdout_score`` mean **0.0339** vs ``seed_training_score``
+  mean **0.3402** — and the composite ledger's own baseline mean is
+  **0.0452**, the same scale.  That 8.5× "instance-family
+  generalization gap" is a **unit mismatch**, and it has been
+  `planning/GOAL.md` §5.1's *number-one research priority* since
+  2026-07.  After the fix, a real quick-battery run measures
+  **0.3383 training vs 0.3342 hold-out** — a 0.004 gap, not 0.29.
+  ``overfit=False`` on all 66 records is likewise explained: the gate
+  was differencing two incommensurable quantities.
+  ``_measure_aocc`` grew a ``base_seed_override`` parameter (the AOCC
+  counterpart of ``holdout_harness_config``'s seed swap) and
+  ``_measure_holdout`` now routes through it.
+
+* **Bug 2 — no accept decision ever crossed an instance-family
+  boundary.**  The §6.4 confirm gate's hold-out leg was guarded by
+  ``and self.config.metric != "aocc"`` — added precisely because of
+  Bug 1.  Consequence: ``confirm_holdout_seed`` is ``None`` in all 138
+  confirm records, 0/72 accepts cite a hold-out seed, and the confirm
+  re-measurement only drew a fresh ``randomize_iteration`` *within*
+  base seed 42.  With Bug 1 fixed the exclusion is removed.
+
+* **Bug 3 — the nightly never set `--base-seed`.**  All **952**
+  records are ``base_seed=42``.  Codify-scan's "k≥2 distinct nights"
+  gate — and the ``--min-fresh-nights`` resurrection gate shipped
+  2026-08-08 — were therefore counting *k re-measurements of one
+  instance draw* as k independent confirmations.  This is the direct
+  mechanical cause of the 0/5 codify hit rate: five slots with tight
+  pooled CIs, every one a seed-42 artifact.  The nightly now rotates
+  deterministically over ``(42, 101, 202, 303, 404, 505, 606)`` keyed
+  on UTC day-of-year (prime-length, so it cannot alias with a weekly
+  cadence; 7 and 1234 stay out of the pool because they are the
+  hold-out seeds and the confirm leg must stay independent of the
+  screening draw).
+
+* **Gap 4 — `--sync-eval` was unreachable from the loop.**  Shipped
+  2026-08-09 on `scripts/ioh_benchmark.py`, where it cut measurement
+  noise 1.6×, but never plumbed into `scripts/self_improve.py run` —
+  so the process generating *all* the evidence was the one not using
+  it.  Now a `LoopConfig.sync_eval` field, a `--sync-eval` flag, and
+  on by default in the nightly's aocc branch.  Measured cost on the
+  quick battery: **2.6 s vs 2.7 s** — free.  The mode is recorded per
+  iteration in the ledger, because sync and async have different
+  noise floors and cross-night pooling must not mix them.
+
+* **Recalibration** — with sync-eval the noise floor is ~0.0063, so
+  the nightly's aocc branch moves ``--eps-accept`` 0.005 → **0.0125**
+  (2σ) and ``--inactivity-min-eps-accept`` 0.001 → **0.006** (the
+  relax rule previously walked the bar straight back under the
+  noise).  Under the null the joint screen+confirm false-positive rate
+  goes from ~9% to ~0.05%; power for a true +0.02 effect stays ~77%.
+  Effects below ~0.01 were never shippable anyway — five A/Bs in a row
+  proved that — so the loop should stop spending nights on them.
+  **Composite keeps its historical 0.005 / 0.001**: its battery mean is
+  ~0.045, where the same absolute epsilon would be a 28% relative bar.
+
+* **Validation** — 1958 passed, 1 skipped; `ruff format --check`
+  clean (199 files); pyright 0 errors.  10 new regression tests.  A
+  live 1-iteration `--metric aocc --sync-eval --base-seed 101` run
+  produced the 0.3383 / 0.3342 pair quoted above and a ledger record
+  carrying ``sync_eval=true``, ``base_seed=101``,
+  ``effective_eps_accept=0.0125``.
+
+* **Consequence for the existing ledger** — the 34 nights of seed-42
+  evidence are not *wrong*, they are narrow: they estimate the seed-42
+  effect precisely and the population effect not at all
+  (`corr(training_delta, holdout_delta) = +0.175`, n=66).  Cross-night
+  codify evidence accumulated before tonight should be treated as one
+  night's worth, not 34.
+
 ### 2026-08-11 — `add_heuristic NLSHADE_LBC` → `Rewarding_Restart` REJECTED unconditionally; first CI-significant per-dim split (d5 gain, d2 loss)
 
 * **What** — Daily session executed the §4.3 measured change queued

@@ -207,6 +207,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Base seed for the harness (default: 42)",
     )
     run_p.add_argument(
+        "--sync-eval",
+        dest="sync_eval",
+        action="store_true",
+        help=(
+            "Measure with the synchronous-harvest evaluation mode "
+            "(config.sync_evaluation).  Cuts the AOCC quick-battery "
+            "single-measurement noise sd from ~0.0101 to ~0.0063 (1.6x) "
+            "by removing scheduling nondeterminism, at some wall-clock "
+            "cost.  Inert under --metric composite.  Recorded per "
+            "iteration in the ledger as 'sync_eval' — never pool "
+            "cross-night evidence across the boundary, the two modes "
+            "have different noise floors."
+        ),
+    )
+    run_p.add_argument(
         "--mutation-seed",
         dest="mutation_seed",
         type=int,
@@ -1255,6 +1270,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             bandit_reward_shaping=args.bandit_reward_shaping,
             confirm_accepts=args.confirm_accepts,
             confirm_iteration_offset=args.confirm_iteration_offset,
+            sync_eval=args.sync_eval,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

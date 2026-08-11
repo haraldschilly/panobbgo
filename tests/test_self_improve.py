@@ -13490,3 +13490,298 @@ class TestCodifyScanCLIRejection:
         rc = cli._cmd_codify_reject(self._reject_ns(rej, date="15.06.2026"))
         assert rc == 1
         assert "--date must be YYYY-MM-DD" in capsys.readouterr().err
+
+
+# ===========================================================================
+# 2026-08-11 measurement-fidelity fixes
+# ===========================================================================
+
+
+class TestAoccHoldoutMetricRouting:
+    """Hold-out measurements must use the run's *own* metric.
+
+    Regression tests for the unit-mismatch bug found 2026-08-11.
+    :meth:`SelfImprover._measure` branched on ``metric == "aocc"`` but
+    :meth:`SelfImprover._measure_holdout` did not, so an AOCC run's
+    hold-out leg silently measured ``composite_score`` instead.  The
+    training records then carried mean AOCC (~0.34) and the hold-out
+    records carried composite score (~0.04), and the 8.5x scale
+    difference was read for weeks as an instance-family generalization
+    gap (``planning/GOAL.md`` §2 / §5.1).  With the routing fixed a
+    real quick-battery run measures 0.3383 training vs 0.3342 hold-out.
+    """
+
+    def _cfg(self, tmp_path, **kw):
+        base = dict(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+        )
+        base.update(kw)
+        return LoopConfig(**base)
+
+    def test_aocc_holdout_routes_through_the_aocc_path(self, tmp_path):
+        cfg = self._cfg(tmp_path, metric="aocc")
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+
+        calls: List[Dict[str, Any]] = []
+
+        def fake_aocc(specs, iteration, label, verbose, base_seed_override=None):
+            calls.append({"iteration": iteration, "label": label, "override": base_seed_override})
+            return _fake_harness_result(0.34, [s.name for s in _make_specs()])
+
+        si._measure_aocc = fake_aocc  # type: ignore[method-assign]
+
+        def explode(_cfg):
+            raise AssertionError("composite harness must not be used for an aocc hold-out")
+
+        si._harness_factory = explode  # type: ignore[method-assign]
+
+        result = si._measure_holdout(_make_specs(), 7, 99, "ho", verbose=False)
+
+        assert calls == [{"iteration": 7, "label": "ho", "override": 99}]
+        assert result.composite_score == pytest.approx(0.34)
+
+    def test_composite_holdout_still_uses_the_composite_harness(self, tmp_path):
+        """The default metric must keep its historical code path."""
+        cfg = self._cfg(tmp_path, metric="composite")
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        log: List[Dict[str, Any]] = []
+        si._harness_factory = _make_factory(lambda c: 0.4, call_log=log)  # type: ignore[method-assign]
+
+        def explode(*a, **k):
+            raise AssertionError("aocc path must not be used for a composite hold-out")
+
+        si._measure_aocc = explode  # type: ignore[method-assign]
+
+        result = si._measure_holdout(_make_specs(), 7, 99, "ho", verbose=False)
+
+        assert result.composite_score == pytest.approx(0.4)
+        assert log and log[-1]["seed"] == 99
+
+    def test_base_seed_override_swaps_the_instance_stream(self, tmp_path):
+        """``base_seed_override`` must reach ``run_ioh_harness``.
+
+        Both the derived per-iteration seed and the ``base_seed``
+        stamped on the adapted result have to follow the override —
+        otherwise a hold-out measurement would draw hold-out instances
+        but be labelled with the training seed.
+        """
+        import panobbgo.harness_ioh as hioh
+
+        cfg = self._cfg(tmp_path, metric="aocc", mode="quick", randomize=True)
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        seen: Dict[str, Any] = {}
+
+        def fake_run(specs, battery, *, base_seed, progress, sync_eval=False, **kw):
+            seen["base_seed"] = base_seed
+            seen["sync_eval"] = sync_eval
+            return hioh.IOHHarnessResult(
+                battery_name=battery.name,
+                problem_kind=battery.problem_kind,
+                log_lo=hioh.AOCC_LOG_LO,
+                log_hi=hioh.AOCC_LOG_HI,
+                sync_eval=sync_eval,
+                runs=[],
+            )
+
+        monkey = pytest.MonkeyPatch()
+        try:
+            monkey.setattr(hioh, "run_ioh_harness", fake_run)
+            si._measure_aocc(_make_specs(), 3, "ho", verbose=False, base_seed_override=1234)
+        finally:
+            monkey.undo()
+
+        # randomize=True mixes the iteration into the *override*, not
+        # into config.base_seed.
+        assert seen["base_seed"] == 1234 + 3
+
+
+class TestConfirmGateCrossesBaseSeedUnderAocc:
+    """The §6.4 confirm gate's hold-out leg must run under ``metric="aocc"``.
+
+    The leg used to carry an ``and self.config.metric != "aocc"``
+    exclusion, added because :meth:`_measure_holdout` could not produce
+    AOCC results.  The consequence was that on the AOCC nightly — the
+    default since 2026-07-09 — *no* accept decision ever crossed a
+    base-seed boundary: all 952 records of the 2026-07..08 ledger sat on
+    ``base_seed=42``, and ``confirm_holdout_seed`` was ``None`` in all
+    138 confirm records.
+    """
+
+    def _run_one_confirmed_iteration(self, tmp_path, metric):
+        """Drive one screening-accept through the confirm gate.
+
+        Returns the list of ``base_seed`` values the hold-out leg asked
+        for.  Both metrics are stubbed at :meth:`_measure` /
+        :meth:`_measure_holdout` so the test never touches a real
+        battery; only the *routing* is under test.
+        """
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            metric=metric,
+            confirm_accepts=True,
+            holdout_base_seeds=(7, 1234),
+            eps_accept=0.001,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        names = [s.name for s in _make_specs()]
+        seeds_asked: List[int] = []
+
+        def fake_measure(specs, iteration, label, verbose):
+            # Candidate always scores above baseline so screening accepts.
+            score = 0.60 if "candidate" in label else 0.40
+            return _fake_harness_result(score, names)
+
+        def fake_measure_holdout(specs, iteration_id, base_seed, label, verbose):
+            seeds_asked.append(int(base_seed))
+            score = 0.60 if "candidate" in label else 0.40
+            return _fake_harness_result(score, names)
+
+        si._measure = fake_measure  # type: ignore[method-assign]
+        si._measure_holdout = fake_measure_holdout  # type: ignore[method-assign]
+        si.run()
+        return seeds_asked
+
+    def test_aocc_confirm_uses_the_first_holdout_base_seed(self, tmp_path):
+        seeds = self._run_one_confirmed_iteration(tmp_path, "aocc")
+        assert 7 in seeds, (
+            "the confirm gate must cross a base-seed boundary under metric='aocc'; "
+            "without it every accept is decided on a single instance draw"
+        )
+
+    def test_composite_confirm_keeps_using_it_too(self, tmp_path):
+        """The fix must not regress the metric that always had the leg."""
+        seeds = self._run_one_confirmed_iteration(tmp_path, "composite")
+        assert 7 in seeds
+
+    def test_confirm_record_carries_the_holdout_seed(self, tmp_path):
+        """A confirm-reject record must name the seed it crossed to.
+
+        ``confirm_holdout_seed`` was ``None`` in all 138 confirm records
+        of the 2026-07..08 aocc ledger — the field existed but the leg
+        that fills it was excluded.
+        """
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=True,
+            base_seed=42,
+            metric="aocc",
+            confirm_accepts=True,
+            holdout_base_seeds=(7,),
+            eps_accept=0.001,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        names = [s.name for s in _make_specs()]
+
+        def _score(label, screen_positive):
+            """+0.20 gap on the screening legs, −0.20 on the confirm legs."""
+            candidate = "candidate" in label
+            if screen_positive:
+                return 0.60 if candidate else 0.40
+            return 0.40 if candidate else 0.60
+
+        def fake_measure(specs, iteration, label, verbose):
+            # A screening noise spike that does not reproduce: the
+            # pooled sample nets out to zero and the gate must reject.
+            return _fake_harness_result(_score(label, "confirm" not in label), names)
+
+        def fake_measure_holdout(specs, iteration_id, base_seed, label, verbose):
+            return _fake_harness_result(_score(label, False), names)
+
+        si._measure = fake_measure  # type: ignore[method-assign]
+        si._measure_holdout = fake_measure_holdout  # type: ignore[method-assign]
+        si.run()
+
+        rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines() if line.strip()]
+        confirms = [r for r in rows if r.get("record_type") == "confirm_reject"]
+        assert confirms, "expected a confirm_reject record"
+        assert confirms[0]["confirm_holdout_seed"] == 7
+
+
+class TestLoopConfigSyncEval:
+    """``LoopConfig.sync_eval`` plumbing (2026-08-11)."""
+
+    def test_defaults_off(self):
+        assert LoopConfig().sync_eval is False
+
+    def test_reaches_run_ioh_harness(self, tmp_path):
+        import panobbgo.harness_ioh as hioh
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            metric="aocc",
+            sync_eval=True,
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        seen: Dict[str, Any] = {}
+
+        def fake_run(specs, battery, *, base_seed, progress, sync_eval=False, **kw):
+            seen["sync_eval"] = sync_eval
+            return hioh.IOHHarnessResult(
+                battery_name=battery.name,
+                problem_kind=battery.problem_kind,
+                log_lo=hioh.AOCC_LOG_LO,
+                log_hi=hioh.AOCC_LOG_HI,
+                sync_eval=sync_eval,
+                runs=[],
+            )
+
+        monkey = pytest.MonkeyPatch()
+        try:
+            monkey.setattr(hioh, "run_ioh_harness", fake_run)
+            si._measure_aocc(_make_specs(), 0, "x", verbose=False)
+        finally:
+            monkey.undo()
+
+        assert seen["sync_eval"] is True
+
+    def test_recorded_on_iteration_records(self, tmp_path):
+        """The ledger must carry the evaluation mode.
+
+        Sync and async measurements have different noise floors
+        (sd ~0.0063 vs ~0.0101), so cross-night codify pooling has to be
+        able to group by mode rather than mixing two sampling
+        distributions into one CI.
+        """
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            sync_eval=True,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        records = si.run()
+
+        assert records and all(r.sync_eval is True for r in records)
+        rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines() if line.strip()]
+        iters = [r for r in rows if r.get("record_type") == "iteration"]
+        assert iters and all(r["sync_eval"] is True for r in iters)
+
+    def test_absent_on_legacy_records_defaults_false(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        records = si.run()
+        assert records and all(r.sync_eval is False for r in records)

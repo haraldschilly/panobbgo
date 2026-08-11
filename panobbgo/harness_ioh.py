@@ -339,7 +339,14 @@ def make_ioh_strategies() -> List[StrategySpec]:
     need an absolute reference.
     """
     from panobbgo.analyzers import Sensitivity
-    from panobbgo.heuristics import JSO, Center, Nearby, NelderMead, Random
+    from panobbgo.heuristics import (
+        JSO,
+        NLSHADE_LBC,
+        Center,
+        Nearby,
+        NelderMead,
+        Random,
+    )
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
 
     return [
@@ -371,6 +378,14 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 (Center, {}),
                 (NelderMead, {}),
                 (JSO, {"NP_init": "auto"}),
+                # Added 2026-08-11: the structural-catalog NLSHADE_LBC arm
+                # (CEC-2022-winner lineage) kept earning `add_heuristic`
+                # accepts on the aocc ledger (3 confirmed accepts across 2
+                # nights, control spec only, so no codify slot could target
+                # this spec) and the direct 12-seed paired quick A/B plus
+                # the standard-battery check confirmed the gain — see the
+                # 2026-08-11 SELF_IMPROVEMENT_LOG entry for the numbers.
+                (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),
             ],
             analyzers=[
                 (Sensitivity, {"update_interval": 25}),

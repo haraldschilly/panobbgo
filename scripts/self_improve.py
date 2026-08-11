@@ -309,6 +309,26 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     run_p.set_defaults(extra_highdim=False)
     run_p.add_argument(
+        "--aocc-extra-dims",
+        dest="aocc_extra_dims",
+        default="",
+        metavar="D[,D...]",
+        help=(
+            "Append these dimensions to the AOCC battery for every "
+            "measurement (screening, confirm, guard, hold-out).  "
+            "'--aocc-extra-dims 5' turns the nightly's quick dims=(2,) "
+            "regime into dims=(2, 5).  The mode presets stay frozen; "
+            "the widened battery is composed, not edited, and its name "
+            "gains a '+d5' suffix so it cannot be confused with the "
+            "preset.  Motivation: the two sharpest measured results of "
+            "2026-08 (JSO d5 add, NLSHADE_LBC per-dim split) both lived "
+            "at d5, invisible to a 2-D-only loop.  Costs more than "
+            "linearly — budget is budget_multiplier*dim, so d5 runs are "
+            "2.5x longer than d2 ones.  AOCC path only; the composite "
+            "path reaches higher dims via --extra-highdim."
+        ),
+    )
+    run_p.add_argument(
         "--timeout",
         type=float,
         default=120.0,
@@ -1181,13 +1201,15 @@ def _run_subprocess(cmd: Sequence[str]) -> "subprocess.CompletedProcess[Any]":
     return subprocess.run(list(cmd), check=False)
 
 
-def _parse_seed_list(raw: str) -> tuple:
-    """Parse a comma-separated seed list (e.g. ``"1234,5678,9012"``).
+def _parse_seed_list(raw: str, flag: str = "--holdout-base-seeds") -> tuple:
+    """Parse a comma-separated integer list (e.g. ``"1234,5678,9012"``).
 
     Empty / blank → empty tuple.  Whitespace around entries is tolerated
     so command-line callers can write ``"1234, 5678"`` without quoting
     surprises.  Non-integer entries raise ``ValueError`` with the
-    offending token for ergonomic error messages.
+    offending token for ergonomic error messages; ``flag`` names the
+    option in that message so the parser can be shared by more than one
+    comma-separated-int option.
     """
     s = (raw or "").strip()
     if not s:
@@ -1200,7 +1222,7 @@ def _parse_seed_list(raw: str) -> tuple:
         try:
             out.append(int(token))
         except ValueError as e:
-            raise ValueError(f"--holdout-base-seeds: invalid integer {token!r}") from e
+            raise ValueError(f"{flag}: invalid integer {token!r}") from e
     return tuple(out)
 
 
@@ -1219,6 +1241,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
         holdout_seeds = _parse_seed_list(args.holdout_base_seeds)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
+        return 1
+    try:
+        aocc_extra_dims = _parse_seed_list(getattr(args, "aocc_extra_dims", ""), flag="--aocc-extra-dims")
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    if any(d < 1 for d in aocc_extra_dims):
+        print(
+            f"Error: --aocc-extra-dims must be positive, got {list(aocc_extra_dims)}",
+            file=sys.stderr,
+        )
         return 1
     try:
         extra_families = None
@@ -1271,6 +1304,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             confirm_accepts=args.confirm_accepts,
             confirm_iteration_offset=args.confirm_iteration_offset,
             sync_eval=args.sync_eval,
+            aocc_extra_dims=aocc_extra_dims,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

@@ -61,7 +61,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -277,6 +277,39 @@ def make_quick_battery() -> IOHBatterySpec:
         reps=1,
         budget_multiplier=100,  # 100 * 2 = 200 evals; ~1s per run
     )
+
+
+def with_extra_dims(battery: IOHBatterySpec, extra_dims: Sequence[int]) -> IOHBatterySpec:
+    """Return ``battery`` widened with ``extra_dims``, preserving everything else.
+
+    The battery presets are frozen contracts (``planning/GOAL.md`` §4:
+    "extend via opt-in flags, never edit"), so a caller that wants a
+    regime the preset cannot reach composes one instead of editing the
+    factory.  Dims already present are ignored and the result is sorted,
+    so the call is idempotent and order-insensitive.
+
+    The name gains a ``+d<k>`` suffix per added dim so a report or
+    ledger record cannot silently conflate a widened battery with the
+    preset it came from — the two measure different things and their
+    mean AOCC is not comparable.
+
+    This exists because the nightly loop runs the quick battery, which
+    is ``dims=(2,)``.  Two of the sharpest measured results of 2026-08
+    (the JSO d5 add on 2026-08-02 and the NLSHADE_LBC per-dim split on
+    2026-08-11, where d2 lost 0.0241 while d5 gained 0.0080) lived
+    entirely at d5 — invisible to the regime the loop actually samples.
+
+    Note the budget interaction: ``budget_for`` is
+    ``budget_multiplier * dim``, so adding dim 5 to the quick battery
+    (multiplier 100) buys 500-eval runs alongside the 200-eval ones.
+    The added dim costs more per run than the ones already there.
+    """
+    merged = tuple(sorted(set(battery.dims) | {int(d) for d in extra_dims}))
+    if merged == battery.dims:
+        return battery
+    added = [d for d in merged if d not in battery.dims]
+    suffix = "".join(f"+d{d}" for d in added)
+    return replace(battery, name=f"{battery.name}{suffix}", dims=merged)
 
 
 def make_standard_battery() -> IOHBatterySpec:

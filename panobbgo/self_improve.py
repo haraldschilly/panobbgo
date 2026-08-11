@@ -3198,6 +3198,30 @@ class LoopConfig:
     #: against a non-sync-eval one** — the noise floors differ, so a
     #: mixed-mode A/B reads the mode change as a spec effect.
     sync_eval: bool = False
+    #: Extra dimensions appended to the AOCC battery for *every*
+    #: measurement the loop makes — screening, confirm, guard, hold-out.
+    #:
+    #: The mode presets are frozen contracts, so this composes a widened
+    #: battery via :func:`~panobbgo.harness_ioh.with_extra_dims` instead
+    #: of editing them.  ``(5,)`` on the quick preset turns the nightly's
+    #: ``dims=(2,)`` regime into ``dims=(2, 5)``.
+    #:
+    #: Motivation: the loop samples quick-2-D, but the two sharpest
+    #: measured results of 2026-08 both lived at d5 — the JSO d5 add
+    #: (2026-08-02) and the NLSHADE_LBC per-dim split (2026-08-11, d2
+    #: −0.0241 against d5 +0.0080, both CIs excluding zero).  A regime
+    #: the loop cannot see is a regime it cannot optimise, and worse, a
+    #: change that helps there reads as noise or as a loss in the
+    #: aggregate.
+    #:
+    #: Cost scales super-linearly: ``budget_for`` is
+    #: ``budget_multiplier * dim``, so adding dim 5 to the quick battery
+    #: doubles the run count *and* the added runs are 2.5x longer.
+    #:
+    #: Empty (default) leaves every existing invocation byte-identical.
+    #: Inert under ``metric="composite"``, which reaches higher dims
+    #: through ``--extra-highdim`` / :attr:`extra_families` instead.
+    aocc_extra_dims: Tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -3475,6 +3499,17 @@ class LoopIterationRecord:
     #: pooled CI narrower than either mode justifies.  Consumers that
     #: aggregate across nights should group by this field.
     sync_eval: bool = False
+    #: Dimensions appended to the mode's AOCC battery for this iteration
+    #: (:attr:`LoopConfig.aocc_extra_dims`).  Empty on legacy records and
+    #: on composite runs.
+    #:
+    #: Recorded for the same reason as :attr:`sync_eval`: widening the
+    #: battery moves the *level* of the score, not just its noise —
+    #: measured on the quick preset, d2 alone reads 0.3685 while
+    #: (d2, d5) reads ~0.31 — so a night before the widening and a night
+    #: after are not on one scale.  Cross-night consumers must group by
+    #: this field as well.
+    aocc_extra_dims: Tuple[int, ...] = ()
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -3502,6 +3537,7 @@ class LoopIterationRecord:
             "bandit_reward": self.bandit_reward,
             "confirmed": self.confirmed,
             "sync_eval": self.sync_eval,
+            "aocc_extra_dims": list(self.aocc_extra_dims),
         }
         return d
 
@@ -4502,6 +4538,7 @@ class SelfImprover:
                 bandit_reward=bandit_reward,
                 confirmed=confirmed_flag,
                 sync_eval=bool(self.config.sync_eval),
+                aocc_extra_dims=tuple(self.config.aocc_extra_dims),
             )
             records.append(rec)
             ledger.write(rec)
@@ -4665,6 +4702,7 @@ class SelfImprover:
             make_quick_battery,
             make_standard_battery,
             run_ioh_harness,
+            with_extra_dims,
         )
 
         battery_factories = {
@@ -4673,6 +4711,12 @@ class SelfImprover:
             "full": make_full_battery,
         }
         battery = battery_factories[self.config.mode]()
+        if self.config.aocc_extra_dims:
+            # Widen *every* measurement identically — screening,
+            # confirm, guard and hold-out all route through here, so
+            # the loop can never compare a 2-D baseline against a
+            # (2, 5)-D candidate.
+            battery = with_extra_dims(battery, self.config.aocc_extra_dims)
         if verbose:
             print(f"[self_improve] iter={iteration} measuring {label} (AOCC, battery={battery.name})")
         # Mix the iteration into the base seed so each iteration draws
@@ -4718,6 +4762,7 @@ class SelfImprover:
             effective_eps_accept=effective_eps_accept,
             iters_since_accept=iters_since_accept,
             sync_eval=bool(self.config.sync_eval),
+            aocc_extra_dims=tuple(self.config.aocc_extra_dims),
         )
 
     def _stop_requested(self) -> bool:

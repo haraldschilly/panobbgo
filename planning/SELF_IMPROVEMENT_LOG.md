@@ -17,6 +17,54 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-11 (third session) — the nightly loop can finally see d5
+
+* **What** — an opt-in `--aocc-extra-dims` widens the AOCC battery for
+  *every* measurement the loop makes (screening, confirm, guard,
+  hold-out), and the nightly turns it on with `5`.  The quick preset's
+  `dims=(2,)` becomes `(2, 5)`.  Mode presets stay frozen per GOAL §4 —
+  the widened battery is *composed* by
+  :func:`~panobbgo.harness_ioh.with_extra_dims`, which appends, sorts,
+  and suffixes the name (`ioh-quick+d5`) so a report can never conflate
+  it with the preset.
+
+* **Why** — the loop has been optimising a regime that hides its own
+  best results.  Two measured cases, both outside the nightly battery:
+
+  | date | change | where the effect lived |
+  |---|---|---|
+  | 2026-08-02 | JSO `add_heuristic` | d5 |
+  | 2026-08-11 | NLSHADE_LBC `add_heuristic` | d2 −0.0241 [−0.0401,−0.0080] **vs** d5 +0.0080 [+0.0007,+0.0154] |
+
+  The second is the sharper lesson: the two dims moved in *opposite*
+  directions with both CIs excluding zero.  A 2-D-only loop reads that
+  change as a loss and rejects it; a (2, 5) loop at least sees the
+  conflict.  GOAL §4's own cadence guardrail — "if the quick-battery
+  score stalls for >1 week with evidence banked, the bottleneck is the
+  *measurement regime*" — has been triggered for five weeks.
+
+* **Cost** — measured on the quick battery, 2 specs, sync-eval on:
+  **8.9 s → 11.9 s (1.34×)**, 6 runs → 12.  Much less than the 2.5×
+  the budget rule (`budget_multiplier * dim`) suggests, because run
+  time here is not budget-bound.  The nightly goes ~5.4 → ~7.2 min
+  against a 90-minute timeout.
+
+* **Scale discontinuity, deliberate and recorded** — widening moves the
+  *level*, not just the noise: on this battery d2 alone reads 0.3685
+  while (d2, d5) reads ~0.309, because d5 is simply harder.  Nights
+  before and after the switch are therefore **not on one scale**.  The
+  per-iteration `aocc_extra_dims` field records which battery produced
+  each record, exactly as `sync_eval` records which evaluation mode did;
+  any cross-night consumer has to group by both.  Recording this is the
+  same discipline whose absence produced the hold-out metric-mismatch
+  bug fixed earlier today.
+
+* **Validation** — 1967 passed, 1 skipped; `ruff format --check` clean;
+  pyright 0 errors.  9 new tests, including that every measurement leg
+  widens identically (a 2-D baseline against a (2,5)-D candidate would
+  be a silent catastrophe) and that re-widening does not stack name
+  suffixes.
+
 ### 2026-08-11 (second session) — measurement fidelity: hold-out metric-mismatch bug fixed, confirm gate crosses a base seed, nightly seed rotation, `--sync-eval`, eps recalibration
 
 * **What** — a review of the full 34-night AOCC ledger (952 records,

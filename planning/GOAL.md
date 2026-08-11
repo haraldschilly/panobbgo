@@ -34,22 +34,37 @@ Concretely, in priority order:
 `--metric aocc` self-improvement runs. `composite_score` is the frozen
 legacy contract — keep it green, don't optimize for it.
 
-## 2. State snapshot (2026-07-30 — update when it materially changes)
+## 2. State snapshot (2026-08-11 — update when it materially changes)
 
 * Nightly cron (`self_improve_nightly.yml`, 03:00 UTC) runs 20 mutation
-  iterations on `--metric aocc`, quick IOH battery, with confirmation gate,
-  guard, multi-seed hold-out; appends to
+  iterations on `--metric aocc`, quick IOH battery **widened with a d5 slice**,
+  with confirmation gate, guard, multi-seed hold-out; appends to
   `planning/self_improve_ledger_aocc.jsonl` and commits summary + codify-scan
   reports.
-* Seed score plateau: quick-battery mean AOCC ≈ 0.33–0.36 for weeks — the
-  loop found improvements nightly but the codify last-mile was broken for the
-  aocc regime until 2026-07-30 (metric-aware routing fix + first aocc codify:
-  dropped the `Restart` analyzer from `Rewarding_Restart`, 17 nights of
-  evidence, local A/B `0.3538 → 0.3922`).
-* Known competitive gap: hold-out base seeds (7, 1234) score far below the
-  training seed (0.04 vs 0.33 on 2026-07-30) — instance-family sensitivity
-  is the biggest open weakness. Higher-dim (5-D) rotated valleys are the
-  second (see `--extra-highdim` and the 2026-07-06..13 log entries).
+* **The loop produced one measurable improvement in its first 34 nights.**
+  A full audit of the 2026-07-09..08-11 ledger (952 records, 680 proposals)
+  found the accept instrument could not do what the codify pipeline assumed
+  of it — see `planning/LOOP_DIAGNOSIS_2026-08-11.md` for the full analysis
+  and the five PRs (#299–#302) that repaired it. Headline: the screening bar
+  sat at 0.5σ of the measurement noise, every accept decision in the entire
+  history was made on `base_seed=42`, and the codify hit rate was **0/5**.
+* Instrument as of 2026-08-11: rotated base seed (7 values), `--sync-eval`
+  (noise sd 0.0101 → 0.0063), `eps_accept` 0.0125 (2σ), cross-base-seed
+  confirmation, dims (2, 5), per-dim cell gating. A rank-based (Wilcoxon)
+  accept rule exists but is **not** enabled — queued for an explicit A/B so
+  tonight's four simultaneous changes stay attributable.
+* **Corrected 2026-08-11:** the "hold-out seeds score 0.04 vs 0.33 on the
+  training seed" figure that stood here since 2026-07-30 was **a unit
+  mismatch, not an optimizer weakness**. `_measure_holdout` never routed
+  through the AOCC path, so AOCC runs wrote `composite_score` (battery mean
+  ~0.045) into hold-out records sitting next to mean-AOCC training records
+  (~0.34). Fixed in #299; the real gap measures **0.3383 training vs 0.3342
+  hold-out**. There is no instance-family catastrophe.
+* Open weaknesses, re-ranked after that correction: (a) effects are
+  **regime-heterogeneous** — the same change can be significantly negative at
+  d2 and significantly positive at d5 (measured, #298) — so a scalar
+  objective has a flat optimum by construction; (b) higher-dim (5-D) rotated
+  valleys (see `--extra-highdim` and the 2026-07-06..13 log entries).
 
 ## 3. Operating loop (one agent session ≈ one iteration)
 
@@ -94,9 +109,11 @@ A multi-day run is the loop above plus an escalation ladder. Each day:
 1. **Bank** (steps 1–5 above) — codify accumulated ledger evidence. This is
    always first: unbanked evidence is re-discovered and wasted every night.
 2. **Diagnose** — find the sharpest measured gap. Sources, in order:
-   hold-out drift records (instance-family generalization), per-problem AOCC
-   breakdown from a `--standard` run, `--extra-highdim` families, the
-   baseline comparison (`--baselines`).
+   the **per-cell (`per_cell`) breakdown** on ledger records — a change
+   whose cells disagree in sign is a gated-arm opportunity, not a failure;
+   per-problem AOCC breakdown from a `--standard` run; `--extra-highdim`
+   families; hold-out drift records; the baseline comparison
+   (`--baselines`).
 3. **Attack one gap** with a *measured* algorithmic change (new heuristic
    kwarg, warm-start, schedule, or structural mix). The 2026-07-05..12 log
    entries (NP_init="auto", warm-started L-BFGS-B, quadratic Nearby) are the
@@ -127,10 +144,24 @@ Cadence guardrails:
 
 Ordered by expected value; each item should enter through the loop above.
 
-1. **Instance-family generalization** — close the training-seed vs hold-out
-   gap (0.33 vs 0.04). Suspects: Sobol-heavy initial design overfit to the
-   training instances' scale; missing restart diversity after the Restart
-   analyzer drop. Measure per-instance AOCC spread first.
+1. **Regime-conditional strategy selection** — *promoted 2026-08-11, replacing
+   the retracted "instance-family generalization" item.*  The 0.33-vs-0.04
+   hold-out gap that headed this list from 2026-07-30 was a **metric-unit
+   bug**, not a finding (§2; fixed in #299, real gap 0.3383 vs 0.3342).  The
+   genuine, measured structural problem is that effects differ in *sign*
+   across regimes: the NL-SHADE-LBC arm moved d2 by −0.0241 [−0.0401, −0.0080]
+   and d5 by +0.0080 [+0.0007, +0.0154] (#298), and the same arm leaned
+   positive at 2-D×200 evals while losing at 2-D×1000.  A single global spec
+   scored by a scalar mean cannot express the improvement that exists — the
+   objective has a flat optimum by construction, which is the deeper reason
+   the loop's first 34 nights yielded one +0.005 change.  Deliverables in
+   order: (a) per-dim cells in the accept rule — **shipped, #302**;
+   (b) budget-phase cells (needs AOCC recomputed on trajectory slices, which
+   `trace_evals`/`trace_fx` already support); (c) teach codify-scan to read
+   the per-cell breakdown so it can propose a *gated* arm rather than an
+   unconditional one; (d) dimension/budget-gated arm activation in the
+   structural mix — one mechanism would ship both NLSHADE_LBC and the CMA-ES
+   arm at d5.
 2. **CMA-ES arm** — *shipped 2026-08-06*: the existing `CMAES` heuristic
    (hand-rolled (μ/μ_w, λ)-ES with IPOP/BIPOP restart) is now a structural
    catalog candidate, so the bandit measures it against the DE family
@@ -138,9 +169,14 @@ Ordered by expected value; each item should enter through the loop above.
    paired quick-2-D A/B (CI95 [-0.0113, +0.0123]) — the open question is
    whether the arm earns pulls at 5-D / standard regimes where covariance
    adaptation should pay; watch the `add_heuristic` posterior and ledger.
-3. **Rank-based acceptance stats** — mean-AOCC deltas are outlier-sensitive;
-   competition practice is Wilcoxon / Friedman over (function, instance)
-   pairs. Add as an alternative `statistical_accept` mode.
+3. **Rank-based acceptance stats** — *shipped 2026-08-11 (#301)* as
+   `statistical_accept(accept_stat="rank")` / `--accept-stat rank`: one-sided
+   Wilcoxon signed-rank on the per-pair deltas shifted by `eps_accept`, with
+   Hodges-Lehmann as the paired location estimate.  Demonstrated to reject an
+   outlier-driven composite the mean rule accepts, and to accept a broad win
+   the mean rule rejects.  **Not** enabled nightly yet — an A/B is queued so
+   it does not confound the three other instrument changes of 2026-08-11.
+   Friedman across (function, instance) remains unexplored.
 4. **Plain-BBOB cross-validation battery** — 24 BBOB functions, dims
    {2, 3, 5, 10}, as an opt-in hold-out suite (the `ioh` package already
    provides them through the same worker protocol).

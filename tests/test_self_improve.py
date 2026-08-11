@@ -8300,18 +8300,28 @@ class TestCodifyScanCLI:
         assert "candidates surfaced: 0" in out
 
     def test_end_to_end_against_real_ledger_runs_clean(self, tmp_path, capsys):
-        """Cheap sanity check that the CLI handles the actual project ledger.
+        """Cheap sanity check that the CLI handles a real project ledger.
 
-        Confirms the live ``planning/self_improve_ledger.jsonl`` plus the
-        existing ``planning/done/`` archive parse end-to-end without
-        raising — and that *some* candidates surface (the project has
-        accumulated 30+ accepts across 25+ nights at the time of ship).
+        Confirms a real composite ledger plus the ``planning/done/``
+        archives parse end-to-end without raising — and that *some*
+        candidates surface (the project has accumulated 30+ accepts
+        across 25+ nights at the time of ship).
+
+        Falls back to the rotated archive: the live composite ledger was
+        moved to ``planning/done/`` on 2026-08-11 (it had been dead since
+        the nightly flipped to ``--metric aocc`` on 2026-07-09), and a
+        silent skip here would have quietly dropped the only test that
+        exercises the scanner against non-synthetic data.
         """
         cli = self._import_cli()
         project_root = pathlib.Path(__file__).parents[1]
-        live = project_root / "planning" / "self_improve_ledger.jsonl"
-        if not live.exists():
-            pytest.skip("project ledger not present")
+        candidates = [
+            project_root / "planning" / "self_improve_ledger.jsonl",
+            project_root / "planning" / "done" / "self_improve_ledger_composite_2026-07-08.jsonl",
+        ]
+        live = next((p for p in candidates if p.exists()), None)
+        if live is None:
+            pytest.skip("no real composite ledger present (live or archived)")
 
         ns = type(
             "NS",

@@ -293,6 +293,20 @@ jobs:
               --sync-eval
               --eps-accept 0.0125
               --inactivity-min-eps-accept 0.006
+              # 2026-08-11 — widen the quick preset's dims=(2,) to
+              # (2, 5).  The loop's two sharpest measured results of
+              # 2026-08 both lived at d5 and were invisible here: the
+              # JSO d5 add (08-02) and the NLSHADE_LBC per-dim split
+              # (08-11, d2 -0.0241 vs d5 +0.0080, both CIs excluding
+              # zero).  Measured cost on this battery: 8.9s -> 11.9s
+              # (1.34x), so the nightly goes ~5.4 -> ~7.2 min against a
+              # 90-minute timeout.
+              #
+              # NOTE this moves the ledger's score LEVEL, not just its
+              # noise: d2 alone reads ~0.369, (d2, d5) reads ~0.309.
+              # Nights before and after are not on one scale — the
+              # per-iteration 'aocc_extra_dims' field records which.
+              --aocc-extra-dims 5
             )
           fi
           "${CMD[@]}"

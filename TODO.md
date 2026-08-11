@@ -2,6 +2,20 @@
 
 ## Recent Improvements (continued)
 
+### Nightly loop can see d5 — 2026-08-11 (third session)
+- [x] **`--aocc-extra-dims 5` in the nightly** — the quick preset's
+      `dims=(2,)` becomes `(2, 5)` for every measurement leg.  Closes
+      the blind spot behind the JSO d5 add (08-02) and the NLSHADE_LBC
+      per-dim split (08-11).  Cost 8.9s → 11.9s (1.34×).
+- [x] **`with_extra_dims` composes, never edits** the frozen presets;
+      name gains a `+d5` suffix.
+- [ ] **The ledger score level shifts** with this ship (d2 ~0.369 →
+      (d2,d5) ~0.309).  `aocc_extra_dims` is recorded per iteration;
+      codify-scan and `summary` should group by it before pooling.
+- [ ] **Re-measure the CMA-ES arm (GOAL §5.2) at d5** with the 12-seed
+      standard instrument — if it splits like NLSHADE_LBC did, one
+      dimension-gating mechanism ships both arms.
+
 ### Loop measurement fidelity: hold-out metric bug, seed rotation, sync-eval — 2026-08-11 (second session)
 - [x] **Hold-out leg measured `composite_score` on AOCC runs** — the
       8.5× "instance-family generalization gap" (`GOAL.md` §2 / §5.1's

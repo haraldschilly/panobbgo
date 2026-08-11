@@ -13785,3 +13785,135 @@ class TestLoopConfigSyncEval:
         si._harness_factory = _make_factory(lambda c: 0.4)
         records = si.run()
         assert records and all(r.sync_eval is False for r in records)
+
+
+class TestAoccExtraDims:
+    """Opt-in d5 slice for the AOCC loop battery (2026-08-11).
+
+    The nightly runs the quick preset, ``dims=(2,)``.  Both of the
+    sharpest measured results of 2026-08 lived at d5 and were therefore
+    invisible to it: the JSO d5 add (2026-08-02) and the NLSHADE_LBC
+    per-dim split (2026-08-11, d2 −0.0241 against d5 +0.0080, both CIs
+    excluding zero).
+    """
+
+    def test_defaults_empty(self):
+        assert LoopConfig().aocc_extra_dims == ()
+
+    def test_widens_the_battery_for_every_measurement(self, tmp_path):
+        """Screening, confirm, guard and hold-out must all widen alike.
+
+        They all route through ``_measure_aocc``, so a single assertion
+        on the battery it builds covers every leg — the failure mode
+        this guards against is a 2-D baseline being compared against a
+        (2, 5)-D candidate.
+        """
+        import panobbgo.harness_ioh as hioh
+
+        cfg = LoopConfig(
+            iterations=0,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            metric="aocc",
+            mode="quick",
+            aocc_extra_dims=(5,),
+        )
+        si = SelfImprover(cfg, seed_strategies=_make_specs())
+        seen: List[Any] = []
+
+        def fake_run(specs, battery, *, base_seed, progress, sync_eval=False, **kw):
+            seen.append(battery)
+            return hioh.IOHHarnessResult(
+                battery_name=battery.name,
+                problem_kind=battery.problem_kind,
+                log_lo=hioh.AOCC_LOG_LO,
+                log_hi=hioh.AOCC_LOG_HI,
+                sync_eval=sync_eval,
+                runs=[],
+            )
+
+        monkey = pytest.MonkeyPatch()
+        try:
+            monkey.setattr(hioh, "run_ioh_harness", fake_run)
+            si._measure_aocc(_make_specs(), 0, "screen", verbose=False)
+            si._measure_holdout(_make_specs(), 0, 7, "ho", verbose=False)
+        finally:
+            monkey.undo()
+
+        assert len(seen) == 2
+        assert all(b.dims == (2, 5) for b in seen)
+        assert all(b.name == "ioh-quick+d5" for b in seen)
+
+    def test_recorded_on_iteration_records(self, tmp_path):
+        cfg = LoopConfig(
+            iterations=1,
+            n_boot=100,
+            ledger_path=str(tmp_path / "ledger.jsonl"),
+            stop_sentinel_path="",
+            randomize=False,
+            aocc_extra_dims=(5,),
+        )
+        si = SelfImprover(cfg, catalog=_accept_radius_catalog(), seed_strategies=_make_specs())
+        si._harness_factory = _make_factory(lambda c: 0.4)
+        si.run()
+        rows = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines() if line.strip()]
+        iters = [r for r in rows if r.get("record_type") == "iteration"]
+        assert iters and all(r["aocc_extra_dims"] == [5] for r in iters)
+
+
+class TestWithExtraDims:
+    """:func:`panobbgo.harness_ioh.with_extra_dims` — battery composition."""
+
+    def _quick(self):
+        from panobbgo.harness_ioh import make_quick_battery
+
+        return make_quick_battery()
+
+    def test_appends_and_sorts(self):
+        from panobbgo.harness_ioh import with_extra_dims
+
+        b = with_extra_dims(self._quick(), (5,))
+        assert b.dims == (2, 5)
+        assert b.name == "ioh-quick+d5"
+
+    def test_is_idempotent_and_order_insensitive(self):
+        from panobbgo.harness_ioh import with_extra_dims
+
+        once = with_extra_dims(self._quick(), (5, 3))
+        twice = with_extra_dims(once, (3, 5))
+        assert once.dims == (2, 3, 5)
+        assert twice is once or twice.dims == once.dims
+        assert twice.name == once.name, "re-widening must not stack name suffixes"
+
+    def test_existing_dim_is_a_no_op(self):
+        from panobbgo.harness_ioh import with_extra_dims
+
+        b = self._quick()
+        assert with_extra_dims(b, (2,)) is b
+
+    def test_preserves_everything_else(self):
+        from panobbgo.harness_ioh import with_extra_dims
+
+        b = self._quick()
+        w = with_extra_dims(b, (5,))
+        assert (w.problem_kind, w.instances, w.reps, w.budget_multiplier) == (
+            b.problem_kind,
+            b.instances,
+            b.reps,
+            b.budget_multiplier,
+        )
+
+    def test_budget_still_scales_with_dim(self):
+        """The added dim is more expensive per run, not equally expensive."""
+        from panobbgo.harness_ioh import with_extra_dims
+
+        w = with_extra_dims(self._quick(), (5,))
+        assert w.budget_for(2) == 200
+        assert w.budget_for(5) == 500
+
+    def test_pair_count_doubles(self):
+        from panobbgo.harness_ioh import with_extra_dims
+
+        b = self._quick()
+        w = with_extra_dims(b, (5,))
+        assert w.pair_count(1) == 2 * b.pair_count(1)

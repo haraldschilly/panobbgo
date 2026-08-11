@@ -3180,6 +3180,24 @@ class LoopConfig:
     #: never collide at realistic iteration counts.  Inert when
     #: :attr:`confirm_accepts` is ``False``.
     confirm_iteration_offset: int = 500_000
+    #: Run every AOCC measurement with the synchronous-harvest
+    #: evaluation mode (``config.sync_evaluation``, shipped 2026-08-09).
+    #: Blocking until every in-flight future is harvested removes the
+    #: scheduling nondeterminism that dominates the loop's noise floor:
+    #: the measured single-measurement AOCC sd on the quick battery
+    #: drops from ~0.0101 to ~0.0063 (1.6x).  Costs a little wall-clock
+    #: per run because the strategy can no longer overlap generation
+    #: with evaluation.
+    #:
+    #: Inert under ``metric="composite"`` — the composite harness has
+    #: its own evaluation path and is not plumbed for this flag.
+    #:
+    #: Defaults to ``False`` so existing invocations stay byte-identical;
+    #: ``scripts/self_improve.py run --sync-eval`` and the nightly
+    #: workflow turn it on.  **Never compare a sync-eval measurement
+    #: against a non-sync-eval one** — the noise floors differ, so a
+    #: mixed-mode A/B reads the mode change as a spec effect.
+    sync_eval: bool = False
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -3446,6 +3464,17 @@ class LoopIterationRecord:
     #:   that records the screen + confirm scores so the failure is
     #:   auditable.
     confirmed: Optional[bool] = None
+    #: Whether this iteration was measured with the synchronous-harvest
+    #: evaluation mode (:attr:`LoopConfig.sync_eval`).  ``False`` on
+    #: legacy records, which were all measured asynchronously.
+    #:
+    #: Recorded because sync and async measurements have *different
+    #: noise floors* (sd ~0.0063 vs ~0.0101 on the AOCC quick battery),
+    #: so pooling nights across the boundary — as cross-night codify
+    #: evidence does — mixes two sampling distributions and produces a
+    #: pooled CI narrower than either mode justifies.  Consumers that
+    #: aggregate across nights should group by this field.
+    sync_eval: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -3472,6 +3501,7 @@ class LoopIterationRecord:
             "no_op": self.no_op,
             "bandit_reward": self.bandit_reward,
             "confirmed": self.confirmed,
+            "sync_eval": self.sync_eval,
         }
         return d
 
@@ -4471,6 +4501,7 @@ class SelfImprover:
                 no_op=no_op,
                 bandit_reward=bandit_reward,
                 confirmed=confirmed_flag,
+                sync_eval=bool(self.config.sync_eval),
             )
             records.append(rec)
             ledger.write(rec)
@@ -4608,6 +4639,7 @@ class SelfImprover:
         iteration: int,
         label: str,
         verbose: bool,
+        base_seed_override: Optional[int] = None,
     ) -> HarnessResult:
         """AOCC-metric variant of :meth:`_measure`.
 
@@ -4617,6 +4649,15 @@ class SelfImprover:
         ``composite_score`` is mean AOCC and whose per-pair ``score``
         values are per-instance AOCC.  The bootstrap CI on the
         composite delta then operates directly on AOCC values.
+
+        ``base_seed_override`` swaps the instance stream wholesale, the
+        AOCC counterpart of :meth:`LoopConfig.holdout_harness_config`'s
+        ``seed`` swap.  :meth:`_measure_holdout` passes the hold-out
+        base seed through it so a hold-out measurement under
+        ``metric="aocc"`` stays on the AOCC scale instead of silently
+        falling back to ``composite_score`` (fixed 2026-08-11 — see the
+        dated log entry; the mismatch is what produced the phantom
+        "0.33 training vs 0.04 hold-out" generalization gap).
         """
         from panobbgo.harness_ioh import (
             aocc_to_harness_result,
@@ -4637,9 +4678,16 @@ class SelfImprover:
         # Mix the iteration into the base seed so each iteration draws
         # fresh-but-reproducible instance RNG seeds, matching the
         # randomized composite-score path.
-        base_seed = self.config.base_seed + iteration if self.config.randomize else self.config.base_seed
-        ioh_result = run_ioh_harness(specs, battery, base_seed=base_seed, progress=False)
-        return aocc_to_harness_result(ioh_result, mode=self.config.mode, base_seed=self.config.base_seed)
+        root_seed = self.config.base_seed if base_seed_override is None else int(base_seed_override)
+        base_seed = root_seed + iteration if self.config.randomize else root_seed
+        ioh_result = run_ioh_harness(
+            specs,
+            battery,
+            base_seed=base_seed,
+            progress=False,
+            sync_eval=bool(self.config.sync_eval),
+        )
+        return aocc_to_harness_result(ioh_result, mode=self.config.mode, base_seed=root_seed)
 
     def _skip_record(
         self,
@@ -4669,6 +4717,7 @@ class SelfImprover:
             reason_skipped=reason,
             effective_eps_accept=effective_eps_accept,
             iters_since_accept=iters_since_accept,
+            sync_eval=bool(self.config.sync_eval),
         )
 
     def _stop_requested(self) -> bool:
@@ -4833,10 +4882,27 @@ class SelfImprover:
         label: str,
         verbose: bool,
     ) -> HarnessResult:
-        """Single hold-out measurement on an independent ``base_seed``."""
-        hc = self.config.holdout_harness_config(specs, iteration_id, base_seed=base_seed)
+        """Single hold-out measurement on an independent ``base_seed``.
+
+        Routes through the same metric as :meth:`_measure`.  Under
+        ``metric="aocc"`` this used to fall through to the composite
+        harness unconditionally, so an AOCC run's hold-out records
+        carried ``composite_score`` values while its training records
+        carried mean AOCC — two different scales compared as if they
+        were one, which is where the phantom "0.33 training vs 0.04
+        hold-out" gap came from (fixed 2026-08-11).
+        """
         if verbose:
             print(f"[self_improve] hold-out measuring {label} at iter_id={iteration_id} base_seed={base_seed}")
+        if self.config.metric == "aocc":
+            return self._measure_aocc(
+                specs,
+                iteration_id,
+                label,
+                verbose=False,
+                base_seed_override=int(base_seed),
+            )
+        hc = self.config.holdout_harness_config(specs, iteration_id, base_seed=base_seed)
         return self._harness_factory(hc).run(verbose=False)
 
     def _run_holdout(
@@ -5052,11 +5118,20 @@ class SelfImprover:
         # the first seed is used so the per-iteration confirmation cost
         # stays bounded regardless of how many hold-out seeds the
         # end-of-loop drift check walks.
+        # The ``metric != "aocc"`` exclusion that used to sit on this
+        # branch existed only because :meth:`_measure_holdout` could not
+        # produce AOCC-scale results; with that fixed the AOCC nightly
+        # gets the cross-base-seed leg too.  This is the only place in
+        # the accept path that crosses an instance-family boundary, so
+        # without it every accept in an AOCC run was decided on a single
+        # base seed (all 952 records of the 2026-07..08 ledger were
+        # base_seed=42) and "k>=2 distinct nights" of codify evidence
+        # meant one instance draw re-measured k times.
         ho_seed: Optional[int] = None
         ho_baseline_score: Optional[float] = None
         ho_candidate_score: Optional[float] = None
         resolved_holdout_seeds = self.config.resolved_holdout_seeds()
-        if resolved_holdout_seeds and bool(self.config.randomize) and self.config.metric != "aocc":
+        if resolved_holdout_seeds and bool(self.config.randomize):
             ho_seed = int(resolved_holdout_seeds[0])
             ho_baseline = self._measure_holdout(current, confirm_iter_id, ho_seed, "confirm-ho-baseline", verbose)
             ho_candidate = self._measure_holdout(candidate, confirm_iter_id, ho_seed, "confirm-ho-candidate", verbose)

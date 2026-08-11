@@ -218,12 +218,54 @@ jobs:
         #                                   composite via workflow_dispatch
         #                                   for an A/B against the frozen
         #                                   composite ladder.
+        #   --base-seed $BASE_SEED          2026-08-11 — rotated per night
+        #                                   (see below).  Before this the
+        #                                   flag was never passed, so all
+        #                                   952 records of the 2026-07..08
+        #                                   aocc ledger sat on base_seed 42
+        #                                   and codify-scan's "k>=2 distinct
+        #                                   nights" gate was counting k
+        #                                   re-measurements of ONE instance
+        #                                   draw as k independent
+        #                                   confirmations.  Codify hit rate
+        #                                   under that regime: 0/5.
+        #   --sync-eval                     2026-08-11 — synchronous-harvest
+        #                                   evaluation, shipped 2026-08-09 as
+        #                                   an ioh_benchmark flag but never
+        #                                   reachable from the loop.  Cuts
+        #                                   single-measurement AOCC noise sd
+        #                                   0.0101 -> 0.0063.
+        #   --eps-accept 0.0125             2026-08-11 — 2 sigma of the
+        #   --inactivity-min-eps-accept     post-sync-eval noise floor.  The
+        #     0.006                         old 0.005 default sat at 0.5
+        #                                   sigma of the pre-sync-eval floor,
+        #                                   so ~30% of zero-effect proposals
+        #                                   cleared screening and the
+        #                                   observed 10.6% accept rate was
+        #                                   indistinguishable from noise
+        #                                   (0.30 screen x 0.34 confirm).
+        #                                   The relax floor moves with it —
+        #                                   at the old 0.001 the inactivity
+        #                                   rule walked the bar straight back
+        #                                   under the noise.
         run: |
           set -euo pipefail
+          # Rotate the instance-family draw per night.  Deterministic
+          # (derived from the UTC date, not $RANDOM) so a night is
+          # reproducible from its ledger record, and prime-length so the
+          # rotation does not alias with a weekly cadence.  Seed 42 stays
+          # in the pool as the historical continuity point; 7 and 1234
+          # are excluded because they are the hold-out seeds and the
+          # confirm gate must stay independent of the screening draw.
+          SEEDS=(42 101 202 303 404 505 606)
+          DAY=$(date -u +%j)
+          BASE_SEED=${SEEDS[$((10#$DAY % ${#SEEDS[@]}))]}
+          echo "[nightly] base_seed=$BASE_SEED (day-of-year $DAY)"
           CMD=(
             uv run python scripts/self_improve.py run
             --iterations "$ITERATIONS"
             --mode "$MODE"
+            --base-seed "$BASE_SEED"
             --registry loop
             --adaptive
             --adaptive-prime-from-ledger
@@ -241,7 +283,17 @@ jobs:
             CMD+=(--confirm-accepts)
           fi
           if [ "$METRIC" = "aocc" ]; then
-            CMD+=(--metric aocc)
+            # The recalibrated thresholds are AOCC-scale (battery mean
+            # ~0.34).  The composite battery's mean score is ~0.045, so
+            # the same absolute epsilon there would be a ~28% relative
+            # bar instead of ~3.7% — leave the composite path on its
+            # historical 0.005 / 0.001 defaults.
+            CMD+=(
+              --metric aocc
+              --sync-eval
+              --eps-accept 0.0125
+              --inactivity-min-eps-accept 0.006
+            )
           fi
           "${CMD[@]}"
 

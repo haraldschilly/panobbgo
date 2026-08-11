@@ -226,6 +226,37 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.add_argument(
+        "--cell-by",
+        dest="cell_by",
+        choices=["none", "dim"],
+        default="none",
+        help=(
+            "Group (problem, strategy) pairs into regime cells for the "
+            "accept decision.  'dim' makes one cell per problem "
+            "dimension.  A scalar composite averages regimes that can "
+            "move in opposite directions — measured 2026-08-11 (PR "
+            "#298): the NL-SHADE-LBC arm moved d2 by -0.0241 and d5 by "
+            "+0.0080, both CIs excluding zero, and the composite read "
+            "-0.0080, describing neither.  With cells on, the per-cell "
+            "breakdown is recorded in the ledger and a credibly "
+            "regressing cell blocks acceptance (see "
+            "--eps-cell-regress).  Inert unless the battery spans more "
+            "than one dim (see --aocc-extra-dims)."
+        ),
+    )
+    run_p.add_argument(
+        "--eps-cell-regress",
+        dest="eps_cell_regress",
+        type=float,
+        default=0.01,
+        help=(
+            "Whole-cell regression tolerance under --cell-by.  A cell "
+            "blocks acceptance only when its delta is below "
+            "-eps_cell_regress AND its entire CI is below zero, so a "
+            "noisy cell cannot veto a good change (default: 0.01)."
+        ),
+    )
+    run_p.add_argument(
         "--sync-eval",
         dest="sync_eval",
         action="store_true",
@@ -1325,6 +1356,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             sync_eval=args.sync_eval,
             aocc_extra_dims=aocc_extra_dims,
             accept_stat=args.accept_stat,
+            cell_by=args.cell_by,
+            eps_cell_regress=args.eps_cell_regress,
         )
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)

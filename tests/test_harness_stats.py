@@ -909,3 +909,149 @@ class TestRankModeNeedsEnoughPairs:
         before, after = self._pairs(1)
         d = statistical_accept(before, after, eps_accept=0.005, n_boot=200, seed=0)
         assert d.accept is True
+
+
+# ===========================================================================
+# statistical_accept — per-cell (regime) decisions
+# ===========================================================================
+
+
+def _psr_dim(prob, strat, first_hits, dim, budget=1000):
+    """A ProblemStrategyResult carrying an explicit problem_dim."""
+    psr = _psr(prob, strat, first_hits, budget=budget)
+    psr.problem_dim = dim
+    for r in psr.runs:
+        r.problem_dim = dim
+    return psr
+
+
+class TestStatisticalAcceptCells:
+    """``cell_by="dim"`` — regime-aware acceptance.
+
+    Reconstructs the measured 2026-08-11 case (PR #298): adding the
+    NL-SHADE-LBC arm moved d2 by −0.0241 [−0.0401, −0.0080] and d5 by
+    +0.0080 [+0.0007, +0.0154] — both CIs excluding zero, opposite
+    signs — while the scalar composite read −0.0080, describing neither.
+    """
+
+    B = 1000
+
+    def _split(self, d2_before, d2_after, d5_before, d5_after, n=4):
+        before = _harness_result(
+            [_psr_dim(f"d2_P{i}", "S", [d2_before] * 3, 2, self.B) for i in range(n)]
+            + [_psr_dim(f"d5_P{i}", "S", [d5_before] * 3, 5, self.B) for i in range(n)]
+        )
+        after = _harness_result(
+            [_psr_dim(f"d2_P{i}", "S", [d2_after] * 3, 2, self.B) for i in range(n)]
+            + [_psr_dim(f"d5_P{i}", "S", [d5_after] * 3, 5, self.B) for i in range(n)]
+        )
+        return before, after
+
+    def test_default_reports_no_cells(self):
+        before, after = self._split(500, 480, 500, 480)
+        d = statistical_accept(before, after, n_boot=200, seed=0)
+        assert d.cell_by == "none"
+        assert d.per_cell == []
+        assert d.blocking_cell is None
+
+    def test_rejects_an_unknown_cell_key(self):
+        before, after = self._split(500, 480, 500, 480)
+        with pytest.raises(ValueError, match="cell_by"):
+            statistical_accept(before, after, n_boot=100, seed=0, cell_by="instance")
+
+    def test_cells_partition_the_pairs(self):
+        before, after = self._split(500, 480, 500, 480, n=3)
+        d = statistical_accept(before, after, n_boot=200, seed=0, cell_by="dim")
+        assert [c.cell for c in d.per_cell] == ["d2", "d5"]
+        assert [c.n_pairs for c in d.per_cell] == [3, 3]
+        assert sum(c.n_pairs for c in d.per_cell) == len(d.per_pair)
+
+    def test_cell_deltas_average_to_the_composite(self):
+        """Equal-sized cells: the mean of cell deltas is the composite."""
+        before, after = self._split(500, 480, 500, 495)
+        d = statistical_accept(before, after, n_boot=200, seed=0, cell_by="dim")
+        assert float(np.mean([c.delta for c in d.per_cell])) == pytest.approx(d.delta, abs=1e-9)
+
+    def test_opposite_signed_cells_are_surfaced(self):
+        """The #298 shape: d2 loses, d5 gains, composite hides both."""
+        # d2: 500 -> 525  => -0.025 ; d5: 500 -> 492 => +0.008
+        before, after = self._split(500, 525, 500, 492)
+        d = statistical_accept(before, after, n_boot=500, seed=0, cell_by="dim", eps_cell_regress=0.01)
+        cells = {c.cell: c for c in d.per_cell}
+        assert cells["d2"].delta == pytest.approx(-0.025, abs=1e-6)
+        assert cells["d5"].delta == pytest.approx(+0.008, abs=1e-6)
+        # The composite alone would have read "lean-negative" and said
+        # nothing about either regime.
+        assert d.delta == pytest.approx(-0.0085, abs=1e-6)
+
+    def test_a_credible_cell_regression_blocks_acceptance(self):
+        """d5 gains a lot, d2 credibly loses → blocked, not averaged."""
+        # d2: 500 -> 530 => -0.030 ; d5: 500 -> 400 => +0.100
+        before, after = self._split(500, 530, 500, 400)
+        d = statistical_accept(before, after, n_boot=500, seed=0, cell_by="dim", eps_cell_regress=0.01)
+        assert d.delta > 0.03, "on average this looks like a clear win"
+        assert d.accept is False
+        assert d.blocking_cell == "d2"
+        assert any("credible whole-regime regression" in r for r in d.reasons)
+
+        # Without cells the very same measurement is accepted.
+        d_flat = statistical_accept(before, after, n_boot=500, seed=0)
+        assert d_flat.accept is True
+
+    def test_a_tolerable_cell_regression_does_not_block(self):
+        """Below eps_cell_regress the change still ships, with a note."""
+        # d2: 500 -> 505 => -0.005 (inside the 0.01 tolerance)
+        before, after = self._split(500, 505, 500, 400)
+        d = statistical_accept(before, after, n_boot=500, seed=0, cell_by="dim", eps_cell_regress=0.01)
+        assert d.accept is True
+        assert d.blocking_cell is None
+        assert any(r.startswith("cells: ") for r in d.reasons)
+
+    def test_a_noisy_cell_cannot_veto(self):
+        """A cell must be credibly negative, not merely negative.
+
+        Here d2's reps straddle zero, so its CI includes zero even
+        though the point delta is worse than the tolerance.  Requiring
+        ``ci_high < 0`` keeps a noisy regime from vetoing a real win.
+        """
+        n = 4
+        before = _harness_result(
+            [_psr_dim(f"d2_P{i}", "S", [500, 500, 500], 2, self.B) for i in range(n)]
+            + [_psr_dim(f"d5_P{i}", "S", [500] * 3, 5, self.B) for i in range(n)]
+        )
+        after = _harness_result(
+            # Mean fraction drops ~0.02 but the spread is huge.
+            [_psr_dim(f"d2_P{i}", "S", [100, 900, 960], 2, self.B) for i in range(n)]
+            + [_psr_dim(f"d5_P{i}", "S", [400] * 3, 5, self.B) for i in range(n)]
+        )
+        d = statistical_accept(before, after, n_boot=2000, seed=0, cell_by="dim", eps_cell_regress=0.01)
+        cells = {c.cell: c for c in d.per_cell}
+        assert cells["d2"].delta < -0.01, "point estimate is worse than the tolerance"
+        assert not cells["d2"].credibly_negative, "but its CI straddles zero"
+        assert d.blocking_cell is None
+
+    def test_cell_gate_composes_with_rank_mode(self):
+        """The two rules are orthogonal and both apply."""
+        before, after = self._split(500, 530, 500, 400, n=6)
+        d = statistical_accept(
+            before, after, n_boot=500, seed=0, accept_stat="rank", cell_by="dim", eps_cell_regress=0.01
+        )
+        assert d.accept_stat == "rank"
+        assert d.rank_p is not None
+        assert d.accept is False
+        assert d.blocking_cell == "d2"
+
+    def test_serialises_the_cell_breakdown(self):
+        before, after = self._split(500, 480, 500, 495)
+        blob = statistical_accept(before, after, n_boot=200, seed=0, cell_by="dim").to_dict()
+        assert blob["cell_by"] == "dim"
+        assert [c["cell"] for c in blob["per_cell"]] == ["d2", "d5"]
+        assert all({"delta", "ci_low", "ci_high", "n_pairs"} <= set(c) for c in blob["per_cell"])
+
+    def test_single_dim_battery_yields_one_cell(self):
+        """Inert-by-construction when the battery does not span dims."""
+        before = _harness_result([_psr_dim(f"P{i}", "S", [500] * 3, 2, self.B) for i in range(4)])
+        after = _harness_result([_psr_dim(f"P{i}", "S", [480] * 3, 2, self.B) for i in range(4)])
+        d = statistical_accept(before, after, n_boot=200, seed=0, cell_by="dim")
+        assert [c.cell for c in d.per_cell] == ["d2"]
+        assert d.accept is True

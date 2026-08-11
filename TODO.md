@@ -2,6 +2,30 @@
 
 ## Recent Improvements (continued)
 
+### Per-cell (per-dim) acceptance — 2026-08-11 (fifth session)
+- [x] **`--cell-by dim`, on in the nightly** — the objective is no
+      longer a scalar.  Per-cell delta + CI reported every iteration; a
+      cell blocks only when it is both worse than `-eps_cell_regress`
+      (0.01) and has its whole CI below zero.
+- [x] **`per_cell` / `blocking_cell` persisted in the ledger** — the
+      record a future codify-scan needs to propose a *dimension-gated*
+      arm instead of an unconditional one.
+- [ ] **Teach codify-scan to read `per_cell`** — it still pools one
+      scalar delta per night, so cell-conditional evidence is recorded
+      but not yet actionable.  This is the step that turns the #298 d5
+      gain into something shippable.
+- [ ] **Budget-phase cells** — `IOHRunRecord` already carries
+      `trace_evals` / `trace_fx`, but AOCC would have to be recomputed
+      on trajectory slices rather than read off the final value (a
+      change to the metric path, not the decision path).  #298's
+      evidence says this matters: the same arm leaned *positive* at
+      2-D×200 evals and negative at 2-D×1000 — a budget effect, not a
+      dimension one.
+- [ ] **Dimension-gated arm activation** — the original §4.3 follow-up.
+      Now that cells exist, a structural mix that activates population
+      arms (NLSHADE_LBC, CMA-ES) only above a dim/budget threshold can
+      finally be *measured* rather than argued about.
+
 ### Rank-based acceptance available — 2026-08-11 (fourth session)
 - [x] **`--accept-stat rank`** — one-sided Wilcoxon signed-rank on the
       per-pair deltas shifted by `eps_accept`, replacing both the

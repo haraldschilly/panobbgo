@@ -17,6 +17,67 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-11 (fifth session) — the objective stops being a scalar: per-cell (per-dim) acceptance
+
+* **What** — `statistical_accept(..., cell_by="dim")` groups the
+  `(problem, strategy)` pairs into *cells* by `problem_dim`, reports a
+  delta and bootstrap CI per cell, and blocks acceptance when a cell
+  **credibly** regresses.  `--cell-by dim` / `--eps-cell-regress`, and
+  on in the nightly now that the d5 slice gives it more than one cell.
+
+* **Why this is the deepest of today's changes** — the previous four
+  fixed *how well* the loop measures.  This one changes *what it
+  optimises*.  A scalar composite is a mean over pairs, so regimes that
+  move in opposite directions cancel:
+
+  | | d2 | d5 | scalar composite |
+  |---|---|---|---|
+  | NL-SHADE-LBC arm (2026-08-11, #298) | **−0.0241** [−0.0401, −0.0080] | **+0.0080** [+0.0007, +0.0154] | −0.0080 |
+
+  Both CIs exclude zero, in opposite directions, and the composite says
+  "lean-negative" — which describes neither regime and hides that a
+  real gain exists.  If effects are routinely that heterogeneous, then
+  the population-mean objective has a **flat optimum by construction**,
+  and no amount of extra measurement precision helps: the loop is
+  climbing a surface that is genuinely level.  That, not noise alone,
+  is the deeper reason 34 nights produced one +0.005 improvement.
+
+* **The gate** — a cell blocks iff its delta is below
+  `-eps_cell_regress` (default 0.01) **and** its entire CI sits below
+  zero.  Both conditions are required so a merely noisy cell cannot
+  veto an otherwise good change; a test pins exactly that (a d2 cell
+  whose point estimate is −0.02 but whose CI straddles zero does not
+  block).  Under the default the #298 change would have been rejected
+  *on its d2 cell*, with the d5 gain recorded, instead of being
+  averaged into an ambiguous −0.008.
+
+* **Recording matters as much as gating** — the per-cell breakdown goes
+  into the ledger (`per_cell`, `blocking_cell`) on every iteration,
+  accept or reject.  Codify-scan currently pools one scalar delta per
+  night, so a change that is +0.02 at d5 and −0.001 at d2 is
+  indistinguishable in the ledger from one that is +0.01 everywhere.
+  With the breakdown persisted, a future scan can propose a
+  **dimension-gated arm** rather than an unconditional one — which is
+  the shippable form the #298 write-up asked for and could not express.
+
+* **Orthogonal to the rank rule** — one asks whether the typical effect
+  is real, the other whether any regime is being sacrificed to achieve
+  it.  Both compose; a test covers the combination.
+
+* **Not yet cells: budget phase.**  `IOHRunRecord` already carries a
+  down-sampled trajectory (`trace_evals` / `trace_fx`), so phase cells
+  are feasible, but AOCC would have to be recomputed on trajectory
+  slices rather than read off the final value — a change to the metric
+  path, not the decision path.  Queued.  Note the #298 evidence says
+  this matters: the same arm *leaned positive* at 2-D×200 evals and
+  negative at 2-D×1000, which is a budget effect, not a dimension one.
+
+* **Validation** — 1996 passed, 15 skipped; `ruff format --check`
+  clean; pyright 0 errors, 0 warnings.  11 new tests, including that
+  cell deltas average back to the composite, that the flat rule accepts
+  the very measurement the cell rule blocks, and that a single-dim
+  battery degenerates to one cell.
+
 ### 2026-08-11 (fourth session) — rank-based acceptance available (GOAL §5.3); **not** enabled nightly
 
 * **What** — `statistical_accept(..., accept_stat="rank")` and

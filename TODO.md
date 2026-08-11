@@ -2,6 +2,25 @@
 
 ## Recent Improvements (continued)
 
+### Rank-based acceptance available — 2026-08-11 (fourth session)
+- [x] **`--accept-stat rank`** — one-sided Wilcoxon signed-rank on the
+      per-pair deltas shifted by `eps_accept`, replacing both the
+      `delta > eps_accept` and `ci_low > 0` conditions.  Graduates
+      GOAL §5.3.
+- [x] **Hodges-Lehmann** reported as `rank_delta`; `delta` stays the
+      mean under both rules so the ledger series is continuous.
+- [ ] **A/B the rank rule against the mean rule, then decide** — NOT
+      enabled nightly on purpose: tonight already changes the accept
+      regime three ways (seed rotation, eps 0.005→0.0125, d5 slice).
+      A fourth simultaneous change would make the ledger
+      uninterpretable.  Run it via `workflow_dispatch` on a few nights
+      once the new instrument has a baseline, compare accept rates and
+      codify survival, and only then consider flipping the default.
+- [ ] **Guard the n<5 floor** — a rank accept is impossible below 5
+      shared pairs (min p is `2**-n`).  Currently only documented and
+      tested; a loud warning when a configured battery cannot clear it
+      would be better than a rule that silently never fires.
+
 ### Nightly loop can see d5 — 2026-08-11 (third session)
 - [x] **`--aocc-extra-dims 5` in the nightly** — the quick preset's
       `dims=(2,)` becomes `(2, 5)` for every measurement leg.  Closes

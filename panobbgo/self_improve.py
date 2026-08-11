@@ -3222,6 +3222,22 @@ class LoopConfig:
     #: Inert under ``metric="composite"``, which reaches higher dims
     #: through ``--extra-highdim`` / :attr:`extra_families` instead.
     aocc_extra_dims: Tuple[int, ...] = ()
+    #: Which statistic gates the accept decision — forwarded to
+    #: :func:`panobbgo.harness.statistical_accept` at both the screening
+    #: and the §6.4 confirmation call.
+    #:
+    #: ``"mean"`` (default, historical) uses the bootstrap CI on the mean
+    #: per-pair delta.  ``"rank"`` uses a one-sided Wilcoxon signed-rank
+    #: test on the per-pair deltas shifted by ``eps_accept``
+    #: (``GOAL.md`` §5.3).
+    #:
+    #: The motivation is specific: a mean over pairs lets one lucky pair
+    #: carry the composite past the bar, and AOCC deltas on a small
+    #: battery are exactly the kind of heavy-tailed sample where that
+    #: happens.  The rank test asks whether the change wins *typically*.
+    #: Ledger ``delta`` stays the mean under both modes so the series
+    #: remains comparable across the switch.
+    accept_stat: str = "mean"
 
     def __post_init__(self) -> None:
         if self.iterations < 0:
@@ -3232,6 +3248,8 @@ class LoopConfig:
             raise ValueError(f"metric must be 'composite' or 'aocc', got {self.metric!r}")
         if self.registry not in {"default", "loop"}:
             raise ValueError(f"registry must be 'default' or 'loop', got {self.registry!r}")
+        if self.accept_stat not in {"mean", "rank"}:
+            raise ValueError(f"accept_stat must be 'mean' or 'rank', got {self.accept_stat!r}")
         if self.bandit_reward_shaping not in {"binary", "graded"}:
             raise ValueError(f"bandit_reward_shaping must be 'binary' or 'graded', got {self.bandit_reward_shaping!r}")
         if self.confirm_iteration_offset <= 0:
@@ -3510,6 +3528,19 @@ class LoopIterationRecord:
     #: after are not on one scale.  Cross-night consumers must group by
     #: this field as well.
     aocc_extra_dims: Tuple[int, ...] = ()
+    #: Which statistic gated this iteration's verdict — ``"mean"`` or
+    #: ``"rank"`` (:attr:`LoopConfig.accept_stat`).  ``"mean"`` on legacy
+    #: records, which predate the rank rule.
+    accept_stat: str = "mean"
+    #: One-sided Wilcoxon p-value behind a ``"rank"`` verdict; ``None``
+    #: under the mean rule.  Persisted so a rank-gated accept can be
+    #: audited without re-running the measurement.
+    rank_p: Optional[float] = None
+    #: Hodges-Lehmann per-pair delta behind a ``"rank"`` verdict;
+    #: ``None`` under the mean rule.  Note this is *not* what
+    #: :attr:`delta` carries — ``delta`` stays the mean under both rules
+    #: so the ledger series is continuous across a rule switch.
+    rank_delta: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -3538,6 +3569,9 @@ class LoopIterationRecord:
             "confirmed": self.confirmed,
             "sync_eval": self.sync_eval,
             "aocc_extra_dims": list(self.aocc_extra_dims),
+            "accept_stat": self.accept_stat,
+            "rank_p": self.rank_p,
+            "rank_delta": self.rank_delta,
         }
         return d
 
@@ -4442,6 +4476,7 @@ class SelfImprover:
                 confidence=self.config.confidence,
                 seed=self.config.stat_seed + iteration,
                 paired=self.config.paired,
+                accept_stat=self.config.accept_stat,
             )
 
             reasons = list(decision.reasons)
@@ -4539,6 +4574,9 @@ class SelfImprover:
                 confirmed=confirmed_flag,
                 sync_eval=bool(self.config.sync_eval),
                 aocc_extra_dims=tuple(self.config.aocc_extra_dims),
+                accept_stat=self.config.accept_stat,
+                rank_p=decision.rank_p,
+                rank_delta=decision.rank_delta,
             )
             records.append(rec)
             ledger.write(rec)
@@ -4763,6 +4801,7 @@ class SelfImprover:
             iters_since_accept=iters_since_accept,
             sync_eval=bool(self.config.sync_eval),
             aocc_extra_dims=tuple(self.config.aocc_extra_dims),
+            accept_stat=self.config.accept_stat,
         )
 
     def _stop_requested(self) -> bool:
@@ -5199,6 +5238,7 @@ class SelfImprover:
             # statistically independent at every layer).
             seed=self.config.stat_seed + iteration + int(self.config.confirm_iteration_offset),
             paired=self.config.paired,
+            accept_stat=self.config.accept_stat,
         )
         confirmed = bool(pooled_decision.accept)
 

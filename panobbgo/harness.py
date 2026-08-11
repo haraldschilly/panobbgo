@@ -1664,6 +1664,20 @@ class StatisticalDecision:
     per_pair: List[PairCI]
     seed: int
     paired: bool = False
+    #: Which statistic drove the verdict — ``"mean"`` (bootstrap CI on
+    #: the mean per-pair delta, the historical rule) or ``"rank"``
+    #: (one-sided Wilcoxon signed-rank on the per-pair deltas).
+    accept_stat: str = "mean"
+    #: One-sided Wilcoxon p-value for ``H1: median(delta) > eps_accept``.
+    #: ``None`` under ``accept_stat="mean"``, and ``1.0`` when the test
+    #: is undefined (no non-zero deltas, or too few pairs to reach the
+    #: significance level at all).
+    rank_p: Optional[float] = None
+    #: Hodges-Lehmann estimator of the per-pair delta — the median of
+    #: all Walsh averages ``(d_i + d_j)/2, i <= j``.  This is the point
+    #: estimate that *pairs* with the Wilcoxon test, the way the mean
+    #: pairs with the bootstrap CI.  ``None`` under ``accept_stat="mean"``.
+    rank_delta: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a JSON-compatible dictionary."""
@@ -1681,6 +1695,9 @@ class StatisticalDecision:
             "reasons": list(self.reasons),
             "seed": self.seed,
             "paired": self.paired,
+            "accept_stat": self.accept_stat,
+            "rank_p": self.rank_p,
+            "rank_delta": self.rank_delta,
             "per_pair": [
                 {
                     "problem": p.problem,
@@ -1725,6 +1742,64 @@ class StatisticalDecision:
             print(bar)
 
 
+def _hodges_lehmann(d: "np.ndarray") -> float:
+    """Median of all Walsh averages ``(d_i + d_j) / 2`` for ``i <= j``.
+
+    The location estimator that belongs with the Wilcoxon signed-rank
+    test, exactly as the sample mean belongs with the t-test / bootstrap
+    CI.  Robust (breakdown ~29%) but, unlike the plain median, it uses
+    every pair of observations, so it wastes far less information on the
+    small samples this harness produces.
+    """
+    n = int(d.size)
+    if n == 0:
+        return 0.0
+    if n == 1:
+        return float(d[0])
+    iu = np.triu_indices(n)  # i <= j, so the d_i themselves are included
+    walsh = (d[iu[0]] + d[iu[1]]) / 2.0
+    return float(np.median(walsh))
+
+
+def _wilcoxon_greater(d: "np.ndarray", shift: float) -> float:
+    """One-sided ``P(median(d) <= shift)`` by the Wilcoxon signed-rank test.
+
+    Returns a p-value for ``H1: median(d) > shift``.  Returns ``1.0``
+    (i.e. "no evidence") whenever the test is undefined rather than
+    raising, because this sits on the loop's accept path and an
+    exception there would abort a night's run:
+
+    * fewer than one observation,
+    * every ``d_i - shift`` exactly zero (a no-op mutation — the loop
+      detects these separately and must not read them as significant),
+    * any SciPy-side failure on a degenerate input.
+
+    ``zero_method="zsplit"`` keeps exact zeros in the sample and splits
+    their ranks between the two sides.  The more common ``"wilcox"``
+    discards them, which *inflates* significance precisely when a
+    mutation is mostly inert — the failure mode this loop is most prone
+    to, since many kwarg perturbations move only a couple of pairs.
+    """
+    from scipy.stats import wilcoxon
+
+    x = np.asarray(d, dtype=np.float64) - float(shift)
+    if x.size < 1 or not np.any(np.isfinite(x)):
+        return 1.0
+    if np.allclose(x, 0.0):
+        return 1.0
+    try:
+        # Annotated ``Any``: SciPy's result object is not statically
+        # typed, so pyright can resolve neither ``.pvalue`` on it nor
+        # the element type of the tuple it also behaves as.
+        res: Any = wilcoxon(x, alternative="greater", zero_method="zsplit")
+    except ValueError:
+        # SciPy raises on degenerate samples (e.g. all-zero after
+        # zero handling).  Treat as "no evidence".
+        return 1.0
+    p = float(res.pvalue)
+    return 1.0 if not np.isfinite(p) else p
+
+
 def statistical_accept(
     before: HarnessResult,
     after: HarnessResult,
@@ -1734,6 +1809,7 @@ def statistical_accept(
     confidence: float = 0.95,
     seed: int = 42,
     paired: Optional[bool] = None,
+    accept_stat: str = "mean",
 ) -> StatisticalDecision:
     """Principled accept/reject decision for a candidate :class:`HarnessResult`.
 
@@ -1793,6 +1869,39 @@ def statistical_accept(
               resamples on each side).  Useful when reps are *not*
               instance-aligned (e.g. comparing two ledgers built with
               different ``base_seed`` values).
+        accept_stat: Which statistic gates the verdict.
+
+            - ``"mean"`` (default, historical) — the rule described
+              above: ``delta > eps_accept`` and ``ci_low > 0``.
+            - ``"rank"`` — a one-sided Wilcoxon signed-rank test on the
+              per-pair deltas shifted by ``eps_accept``, accepted when
+              ``p < 1 - confidence``.  This single test replaces *both*
+              mean conditions: asking whether ``median(d) > eps_accept``
+              beyond chance is the rank analogue of "the mean cleared
+              the bar and its CI excludes zero".  ``GOAL.md`` §5.3 —
+              mean-AOCC deltas are outlier-sensitive, so one pair that
+              happens to solve or fail can carry the composite past the
+              bar on its own; competition practice (Wilcoxon / Friedman
+              over (function, instance) pairs) asks instead whether the
+              change wins *consistently*.
+
+            The bootstrap CI is computed and reported under both modes —
+            it is the ledger's continuity record — it simply does not
+            gate under ``"rank"``.  :attr:`StatisticalDecision.delta`
+            likewise stays the mean under both, so ledger series remain
+            comparable; the rank location estimate is reported
+            separately as :attr:`StatisticalDecision.rank_delta`.
+
+            **Minimum sample size.** The smallest attainable one-sided
+            Wilcoxon p-value on ``n`` pairs is ``2**-n``, so at
+            ``confidence=0.95`` a rank accept is impossible below
+            ``n = 5`` no matter how large the effect.  This is a
+            property of the test, not a bug, but it means ``"rank"``
+            must not be switched on for a battery that yields fewer
+            than five shared ``(problem, strategy)`` pairs — the rule
+            would never fire.  The AOCC quick battery yields
+            ``3 instances x n_specs`` (6 with two specs, 12 with the d5
+            slice on), comfortably clear.
 
     Returns:
         A populated :class:`StatisticalDecision` describing the verdict and
@@ -1952,20 +2061,55 @@ def statistical_accept(
             worst_pair = (p.problem, p.strategy)
 
     # Decision rule.
+    if accept_stat not in {"mean", "rank"}:
+        raise ValueError(f"accept_stat must be 'mean' or 'rank', got {accept_stat!r}")
+
     reasons: List[str] = []
     cond_shared = bool(per_pair)
-    cond_delta = delta > eps_accept
-    cond_ci = ci_low > 0.0
     cond_regress = worst_pair_regression > -eps_regress
+
+    rank_p: Optional[float] = None
+    rank_delta: Optional[float] = None
+    if accept_stat == "rank":
+        # Rank rule (GOAL §5.3): mean-AOCC deltas are outlier-sensitive
+        # — one pair that happens to solve or fail can swing the
+        # composite past eps_accept on its own.  Competition practice
+        # (Wilcoxon / Friedman over (function, instance) pairs) asks
+        # instead whether the change wins *consistently* across pairs.
+        #
+        # The single Wilcoxon test replaces BOTH the mean rule's
+        # ``delta > eps_accept`` and its ``ci_low > 0``: testing the
+        # shifted sample ``d - eps_accept`` against zero is exactly the
+        # question "is the typical per-pair gain bigger than eps_accept,
+        # beyond chance".  The bootstrap CI is still computed and
+        # reported — it is the ledger's continuity record — it just does
+        # not gate.
+        d_pairs = np.array([p.delta for p in per_pair], dtype=np.float64)
+        rank_delta = _hodges_lehmann(d_pairs)
+        rank_p = _wilcoxon_greater(d_pairs, eps_accept)
+        alpha_one_sided = 1.0 - float(confidence)
+        cond_delta = rank_p < alpha_one_sided
+        cond_ci = True  # folded into the rank test
+        if not cond_delta:
+            reasons.append(
+                f"Wilcoxon one-sided p={rank_p:.4f} ≥ alpha {alpha_one_sided:.4f}"
+                f" for median per-pair delta > eps_accept {eps_accept:.4f}"
+                f" (Hodges-Lehmann {rank_delta:+.4f}, n_pairs={d_pairs.size})"
+            )
+    else:
+        cond_delta = delta > eps_accept
+        cond_ci = ci_low > 0.0
+        if not cond_delta:
+            reasons.append(f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}")
+        if not cond_ci:
+            reasons.append(
+                f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically distinguishable from noise"
+            )
 
     if not cond_shared:
         reasons.append(
             "no (problem, strategy) pairs are shared between before and after — cannot form a statistical decision"
         )
-    if not cond_delta:
-        reasons.append(f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}")
-    if not cond_ci:
-        reasons.append(f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically distinguishable from noise")
     if not cond_regress:
         if worst_pair is not None:
             prob, strat = worst_pair
@@ -1977,12 +2121,20 @@ def statistical_accept(
 
     accept = cond_shared and cond_delta and cond_ci and cond_regress
     if accept and not reasons:
-        reasons.append(
-            f"composite delta {delta:+.4f} > eps_accept {eps_accept:.4f},"
-            f" CI lower bound {ci_low:+.4f} > 0,"
-            f" worst pair regression {worst_pair_regression:+.4f}"
-            f" > -{eps_regress:.4f}"
-        )
+        if accept_stat == "rank":
+            reasons.append(
+                f"Wilcoxon one-sided p={rank_p:.4f} < alpha {1.0 - float(confidence):.4f}"
+                f" for median per-pair delta > eps_accept {eps_accept:.4f}"
+                f" (Hodges-Lehmann {rank_delta:+.4f}, mean {delta:+.4f}, n_pairs={len(per_pair)}),"
+                f" worst pair regression {worst_pair_regression:+.4f} > -{eps_regress:.4f}"
+            )
+        else:
+            reasons.append(
+                f"composite delta {delta:+.4f} > eps_accept {eps_accept:.4f},"
+                f" CI lower bound {ci_low:+.4f} > 0,"
+                f" worst pair regression {worst_pair_regression:+.4f}"
+                f" > -{eps_regress:.4f}"
+            )
 
     return StatisticalDecision(
         accept=accept,
@@ -1999,6 +2151,9 @@ def statistical_accept(
         per_pair=per_pair,
         seed=seed,
         paired=used_paired_anywhere,
+        accept_stat=accept_stat,
+        rank_p=rank_p,
+        rank_delta=rank_delta,
     )
 
 

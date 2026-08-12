@@ -1,5 +1,5 @@
 Codify scan (live=planning/self_improve_ledger_aocc.jsonl  archives=<ledger parent>/done)
   gates: min_nights>=2, all_record_ci_low>0, hide_already_codified, hide_rejected(resurrect_fresh_nights>=2)
-  records scanned: 952
-  candidates surfaced: 0 (of 12; 4 already codified, 8 rejected, hidden)
+  records scanned: 976
+  candidates surfaced: 0 (of 13; 5 already codified, 8 rejected, hidden)
   (every candidate is already codified or rejected — pass --include-already-codified / --include-rejected to audit them; rejection memory: planning/self_improve_rejections_aocc.json)

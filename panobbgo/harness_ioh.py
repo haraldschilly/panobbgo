@@ -372,7 +372,7 @@ def make_ioh_strategies() -> List[StrategySpec]:
     need an absolute reference.
     """
     from panobbgo.analyzers import Sensitivity
-    from panobbgo.heuristics import JSO, Center, Nearby, NelderMead, Random
+    from panobbgo.heuristics import JSO, NLSHADE_LBC, Center, Nearby, NelderMead, Random
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
 
     return [
@@ -404,6 +404,14 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 (Center, {}),
                 (NelderMead, {}),
                 (JSO, {"NP_init": "auto"}),
+                # Dimension-gated arm (PR #298 / 2026-08-11 12-seed standard
+                # A/B): unconditional NLSHADE_LBC moved d2 by -0.0241
+                # [-0.0401, -0.0080] and d5 by +0.0080 [+0.0007, +0.0154] —
+                # both CIs exclude zero, in opposite directions.  The gate
+                # ships the measured d5 gain without paying the measured d2
+                # loss; kwargs match the structural-catalog candidate the
+                # A/B measured.
+                (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0, "gate_min_dim": 5}),
             ],
             analyzers=[
                 (Sensitivity, {"update_interval": 25}),

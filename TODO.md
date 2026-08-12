@@ -2,6 +2,25 @@
 
 ## Recent Improvements (continued)
 
+### Dimension-gated arm activation — 2026-08-12
+- [x] **`gate_min_dim` / `gate_max_dim` reserved keys** in
+      `StrategySpec` heuristic kwargs — the arm is only instantiated
+      when the problem dimension clears the gate; keys are stripped
+      before the heuristic constructor.  First deliverable of GOAL
+      §5.1(d).
+- [x] **NLSHADE_LBC gated to d≥5 in `Rewarding_Restart`** — ships the
+      #298-measured d5 gain (+0.0080 [+0.0007,+0.0154]) without the d2
+      loss (−0.0241).  Today's independent 12-seed standard A/B: d5
+      +0.0062 [−0.0001,+0.0125], d2 flat, control flat; pooled with
+      #298's d5 row: **+0.0070 [+0.0027,+0.0112]**.
+- [ ] **Re-measure the CMA-ES arm at d5** (GOAL §5.2) with the 12-seed
+      standard instrument — if it splits like NLSHADE_LBC, the same
+      gate ships it.
+- [ ] **Watch the nightly on the gated spec** — the d5 slice of the
+      widened quick battery now exercises the LBC arm nightly;
+      `drop_heuristic NLSHADE_LBC` accepts at d2-only regimes would be
+      evidence the gate threshold is wrong, not that the arm is bad.
+
 ### Goal contract corrected; diagnosis written down; planning rotated — 2026-08-11 (sixth session)
 - [x] **`GOAL.md` §2 / §5.1 corrected** — the "instance-family
       generalization" research item was built on a metric-unit bug and is
@@ -38,10 +57,10 @@
       evidence says this matters: the same arm leaned *positive* at
       2-D×200 evals and negative at 2-D×1000 — a budget effect, not a
       dimension one.
-- [ ] **Dimension-gated arm activation** — the original §4.3 follow-up.
-      Now that cells exist, a structural mix that activates population
-      arms (NLSHADE_LBC, CMA-ES) only above a dim/budget threshold can
-      finally be *measured* rather than argued about.
+- [x] **Dimension-gated arm activation** — the original §4.3 follow-up.
+      Shipped 2026-08-12 (see the entry above): `gate_min_dim` /
+      `gate_max_dim` in `StrategySpec`, NLSHADE_LBC gated to d≥5,
+      measured.  CMA-ES at d5 remains the open follow-up.
 
 ### Rank-based acceptance available — 2026-08-11 (fourth session)
 - [x] **`--accept-stat rank`** — one-sided Wilcoxon signed-rank on the

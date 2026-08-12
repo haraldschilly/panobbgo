@@ -159,9 +159,11 @@ Ordered by expected value; each item should enter through the loop above.
    (b) budget-phase cells (needs AOCC recomputed on trajectory slices, which
    `trace_evals`/`trace_fx` already support); (c) teach codify-scan to read
    the per-cell breakdown so it can propose a *gated* arm rather than an
-   unconditional one; (d) dimension/budget-gated arm activation in the
-   structural mix — one mechanism would ship both NLSHADE_LBC and the CMA-ES
-   arm at d5.
+   unconditional one; (d) dimension-gated arm activation — **shipped
+   2026-08-12** (`gate_min_dim`/`gate_max_dim` in `StrategySpec`;
+   NLSHADE_LBC gated to d≥5 in `Rewarding_Restart`, pooled d5 evidence
+   +0.0070 [+0.0027, +0.0112]); budget-gating and the CMA-ES arm at d5
+   remain open.
 2. **CMA-ES arm** — *shipped 2026-08-06*: the existing `CMAES` heuristic
    (hand-rolled (μ/μ_w, λ)-ES with IPOP/BIPOP restart) is now a structural
    catalog candidate, so the bandit measures it against the DE family

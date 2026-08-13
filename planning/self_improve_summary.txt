@@ -1,30 +1,34 @@
 Ledger:        planning/self_improve_ledger_aocc.jsonl
-Iterations:    20  (decided=20, skipped=0, no-op=0)
-Accepts:       2  (10.0% of informative)
-Guards:        2  (rollbacks=0, total pops=0)
-Hold-outs:     2  (overfit=0, vacuous=0)
+Iterations:    40  (decided=40, skipped=0, no-op=0)
+Accepts:       3  (7.5% of informative)
+Guards:        4  (rollbacks=0, total pops=0)
+Hold-outs:     4  (overfit=0, vacuous=0)
 Best Δ seen:   +0.0366
 Accepted changes:
   iter=0  Δ=+0.0258  RoundRobin_Random/Nearby.: None -> None
   iter=15  Δ=+0.0366  RoundRobin_Random/Center.: None -> None
+  iter=8  Δ=+0.0168  RoundRobin_Random/Nearby.: None -> None
 Hold-out validation:
   OK  drift=-0.0099  holdout_gap=+0.0120 training_gap=+0.0219  top_iter=15  (base_seed=7, n=5)
   OK  drift=-0.0126  holdout_gap=+0.0094 training_gap=+0.0219  top_iter=15  (base_seed=1234, n=5)
-  --> aggregate: OK  worst_drift=-0.0126  overfit=0/2  vacuous=0/2  worst_seed=1234
-  --> drift CI: OK_CI  mean=-0.0112  CI95%=[-0.0177, -0.0051]  n_samples=10  n_records=2  vacuous=0/2
+  OK  drift=+0.0054  holdout_gap=+0.0046 training_gap=-0.0008  top_iter=8  (base_seed=7, n=5)
+  OK  drift=+0.0122  holdout_gap=+0.0113 training_gap=-0.0008  top_iter=8  (base_seed=1234, n=5)
+  --> aggregate: OK  worst_drift=-0.0126  overfit=0/4  vacuous=0/4  worst_seed=1234
+  --> drift CI: OK_CI  mean=-0.0012  CI95%=[-0.0080, +0.0057]  n_samples=20  n_records=4  vacuous=0/4
 
 Trend (one row per loop run, oldest first):
   date                  seed  mode      iters   dec   acc   nop    best_Δ  seed_score
   2026-08-12 04:44:57     42  quick        20    20     2     0   +0.0366      0.2888
+  2026-08-13 04:47:38    101  quick        20    20     1     0   +0.0168      0.3065
 
 Bandit posteriors (n_attempts >= 3, 4 eligible rules):
   Top 4 (highest mean reward):
   class                   param                   kind                 att   acc   mean_r  acc_rate
-  Sensitivity             update_interval         integer_add            4     0    0.425      0.0%
-  *                       drop_heuristic          structural             3     0    0.396      0.0%
-  *                       add_heuristic           structural             7     2    0.368     28.6%
-  *                       add_analyzer            structural             4     0    0.272      0.0%
+  Sensitivity             update_interval         integer_add            5     0    0.440      0.0%
+  *                       drop_heuristic          structural             9     0    0.420      0.0%
+  *                       add_heuristic           structural            18     3    0.401     16.7%
+  *                       add_analyzer            structural             5     0    0.318      0.0%
 
 Inactivity:
   eps_accept_base=0.0125  longest_drought=14 iters
-  relaxed_accepts=1/2  mean_decay_at_accept=0.500
+  relaxed_accepts=1/3  mean_decay_at_accept=0.500

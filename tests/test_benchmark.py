@@ -297,5 +297,59 @@ class TestBenchmarkIntegration:
         suite.print_summary()
 
 
+class TestStrategySpecDimGate:
+    """Dimension-gated heuristic activation (``gate_min_dim`` / ``gate_max_dim``)."""
+
+    class _RecordingStrategy:
+        """Stands in for a StrategyBase: records add() calls, builds nothing."""
+
+        def __init__(self, problem, parse_args=False):
+            self.problem = problem
+            self.config = type("Cfg", (), {})()
+            self.added = []
+
+        def add(self, heur_class, **kwargs):
+            self.added.append((heur_class, kwargs))
+
+        def add_analyzer(self, analyzer):
+            pass
+
+    class _ArmA:
+        pass
+
+    class _ArmB:
+        pass
+
+    def _spec(self, heuristics):
+        return StrategySpec(
+            name="gated",
+            strategy_class=self._RecordingStrategy,
+            heuristics=heuristics,
+        )
+
+    def test_min_dim_gates_arm_below_threshold(self):
+        spec = self._spec([(self._ArmA, {}), (self._ArmB, {"k": 3, "gate_min_dim": 5})])
+        strategy = spec.create_strategy(Rosenbrock(dims=2))
+        assert [c for c, _ in strategy.added] == [self._ArmA]
+
+    def test_min_dim_admits_arm_at_threshold_and_strips_gate_key(self):
+        spec = self._spec([(self._ArmA, {}), (self._ArmB, {"k": 3, "gate_min_dim": 5})])
+        strategy = spec.create_strategy(Rosenbrock(dims=5))
+        assert [c for c, _ in strategy.added] == [self._ArmA, self._ArmB]
+        # The reserved key must never reach the heuristic constructor.
+        assert strategy.added[1][1] == {"k": 3}
+
+    def test_max_dim_gates_arm_above_threshold(self):
+        spec = self._spec([(self._ArmA, {"gate_max_dim": 3})])
+        assert spec.create_strategy(Rosenbrock(dims=5)).added == []
+        assert [c for c, _ in spec.create_strategy(Rosenbrock(dims=3)).added] == [self._ArmA]
+
+    def test_gate_does_not_mutate_spec_kwargs(self):
+        kwargs = {"k": 3, "gate_min_dim": 5}
+        spec = self._spec([(self._ArmB, kwargs)])
+        spec.create_strategy(Rosenbrock(dims=5))
+        assert kwargs == {"k": 3, "gate_min_dim": 5}
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

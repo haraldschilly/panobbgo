@@ -17,6 +17,64 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-08-12 — dimension-gated arm activation ships; NLSHADE_LBC enters `Rewarding_Restart` gated to d≥5
+
+* **What** — the §4.3 "shippable form" that PR #298 asked for and could
+  not express: `StrategySpec.create_strategy` now honours two reserved
+  heuristic-kwargs keys, `gate_min_dim` / `gate_max_dim`, which gate
+  whether the arm is instantiated at all based on `problem.dim` (the
+  keys are stripped before the heuristic constructor sees them; curated
+  `MutationRule`s name (class, param) explicitly, so the reserved keys
+  cannot be mutated by accident).  First user:
+  `(NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0, "gate_min_dim": 5})`
+  in `Rewarding_Restart` — the exact structural-catalog kwargs #298
+  measured.  At d < 5 the spec is arm-for-arm identical to master; at
+  d ≥ 5 the CEC-2022-winner DE arm activates.
+
+* **Why gated** — #298's 12-seed standard A/B measured the
+  *unconditional* add at d2 **−0.0241 [−0.0401, −0.0080]** vs d5
+  **+0.0080 [+0.0007, +0.0154]** — both CIs exclude zero, in opposite
+  directions, so the scalar mean hid a real gain behind a real loss.
+  The gate ships the d5 gain without paying the d2 loss.
+
+* **Measurement** (12-seed canonical roster, `--standard`,
+  `--sync-eval` both sides, seed-paired; before = master 92b603e):
+
+  | strategy | dim | before | after | Δmean | CI95 | verdict |
+  |---|---|---|---|---|---|---|
+  | `Rewarding_Restart` | d2 | 0.4330 | 0.4297 | −0.0033 | [−0.0131, +0.0065] | flat (gate off — spec identical to master) |
+  | `Rewarding_Restart` | d5 | 0.3026 | 0.3088 | **+0.0062** | [−0.0001, +0.0125] | positive, boundary |
+  | `RoundRobin_Random` (control) | d2 | 0.3618 | 0.3613 | −0.0005 | [−0.0019, +0.0009] | flat |
+  | `RoundRobin_Random` (control) | d5 | 0.2834 | 0.2846 | +0.0011 | [−0.0052, +0.0074] | flat |
+
+  At d5 the gated spec is byte-identical to the unconditional spec
+  #298 measured, so #298's d5 row is an *independent replication of
+  the same effect*: fixed-effect inverse-variance pooling of the two
+  12-seed estimates (+0.0080 se 0.0033; +0.0062 se 0.0029) gives
+  **+0.0070 [+0.0027, +0.0112]** — CI excludes zero.  The quick
+  battery (d2-only) was not re-measured: with the gate off the spec
+  is identical to master there, and today's d2 row confirms flat.
+
+* **Mechanism, not just the arm** — this is the first deliverable of
+  GOAL §5.1(d) (regime-conditional strategy selection).  The same
+  two-key mechanism can ship the CMA-ES arm at d5 (GOAL §5.2 open
+  question — re-measure with this instrument first) and any future
+  cell-conditional codify proposal once codify-scan learns to read
+  `per_cell` (§5.1(c), still open).
+
+* **Codify state** — today's scan surfaced 0 actionable candidates
+  (13 total: 5 already codified, 8 rejection-suppressed); last
+  night's two accepts (add Nearby, add Center → `RoundRobin_Random`)
+  both reinforce already-codified slots, so no codify slot competed
+  with this session's one-PR budget.
+
+* **Validation** — full pytest green (2014 passed), `ruff format
+  --check .` clean, `ruff check` clean on the touched source files
+  (the 5 pre-existing `tests/test_benchmark.py` lint findings on
+  master are unchanged).  Unit tests pin gate-below-threshold,
+  admit-at-threshold, key-stripping, max-dim gating, and
+  no-mutation-of-spec-kwargs.
+
 ### 2026-08-11 (sixth session) — goal contract corrected, diagnosis written down, planning artifacts rotated
 
 * **`GOAL.md` §2 and §5.1 corrected.**  The state snapshot's "hold-out

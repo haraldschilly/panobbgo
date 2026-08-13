@@ -107,6 +107,18 @@ class ProblemSpec:
         }
 
 
+#: Reserved keys in a :class:`StrategySpec` heuristic kwargs dict that gate
+#: whether the arm is instantiated at all, based on the problem's dimension.
+#: They are consumed by :meth:`StrategySpec.create_strategy` and never reach
+#: the heuristic constructor.  Motivation: measured effects can be
+#: regime-conditional in *sign* — the 2026-08-11 NLSHADE_LBC A/B (PR #298)
+#: found d2 −0.0241 [−0.0401, −0.0080] vs d5 +0.0080 [+0.0007, +0.0154] for
+#: the same arm — so the shippable form of such a gain is an arm that only
+#: activates in the regime where it pays.
+GATE_MIN_DIM_KEY = "gate_min_dim"
+GATE_MAX_DIM_KEY = "gate_max_dim"
+
+
 @dataclass
 class StrategySpec:
     """
@@ -116,7 +128,12 @@ class StrategySpec:
         name: Human-readable strategy name shown in reports.
         strategy_class: The :class:`~panobbgo.core.StrategyBase` subclass to use.
         heuristics: List of ``(HeuristicClass, kwargs)`` pairs added via
-            :meth:`~panobbgo.core.StrategyBase.add`.
+            :meth:`~panobbgo.core.StrategyBase.add`.  Two reserved kwargs keys —
+            ``"gate_min_dim"`` / ``"gate_max_dim"`` — are stripped before
+            construction and instead gate the arm on the problem dimension:
+            the heuristic is only added when
+            ``gate_min_dim <= problem.dim <= gate_max_dim`` (either bound may
+            be absent).
         analyzers: Optional list of ``(AnalyzerClass, kwargs)`` pairs added via
             :meth:`~panobbgo.core.StrategyBase.add_analyzer`.  The four required
             analyzers (``Best``, ``Grid``, ``Splitter``, ``Convergence``) are always
@@ -139,8 +156,15 @@ class StrategySpec:
         for key, value in self.config_overrides.items():
             setattr(strategy.config, key, value)
 
-        # Add heuristics
+        # Add heuristics (dimension-gated arms are skipped outside their regime)
         for heur_class, kwargs in self.heuristics:
+            kwargs = dict(kwargs)
+            min_dim = kwargs.pop(GATE_MIN_DIM_KEY, None)
+            max_dim = kwargs.pop(GATE_MAX_DIM_KEY, None)
+            if min_dim is not None and problem.dim < int(min_dim):
+                continue
+            if max_dim is not None and problem.dim > int(max_dim):
+                continue
             strategy.add(heur_class, **kwargs)
 
         # Add optional extra analyzers (e.g. Sensitivity, Restart)

@@ -160,8 +160,11 @@ class StrategySpec:
         # ``evaluation_method``, ``dask_n_workers``).  Only StrategyBase
         # accepts them; the external baselines in
         # :mod:`panobbgo.harness_baselines` take no config kwargs, so their
-        # overrides are written onto the config afterwards.
-        if issubclass(self.strategy_class, StrategyBase):
+        # overrides are written onto the config afterwards.  ``strategy_class``
+        # may also be a plain factory callable (used to pre-bind arguments a
+        # spec cannot express, e.g. ``StrategyPhased``'s phase list), which
+        # takes the same path as a baseline.
+        if isinstance(self.strategy_class, type) and issubclass(self.strategy_class, StrategyBase):
             strategy = self.strategy_class(problem, parse_args=False, seed=seed, **self.config_overrides)
         else:
             strategy = self.strategy_class(problem, parse_args=False, seed=seed)

@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from panobbgo.benchmark import StrategySpec
+from panobbgo import local_run
 from panobbgo.harness import _make_quick_strategies, _make_standard_strategies
 from panobbgo.harness_baselines import make_baseline_strategies
 from panobbgo.harness_ioh import (
@@ -226,7 +227,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     )
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -279,9 +280,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     cmp_p.add_argument("--fail-on-regression", action="store_true")
     cmp_p.set_defaults(func=cmd_compare)
 
+    for sp in sub.choices.values():
+        local_run.add_arguments(sp)
     args = p.parse_args(argv)
+    if apply_hygiene:
+        local_run.apply(args)
     return args.func(args)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(apply_hygiene=True))

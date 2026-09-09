@@ -44,43 +44,36 @@ import logging
 
 
 class Config:
-    # Singleton instance
-    _instance: Optional["Config"] = None
+    """Configuration of one strategy run.
+
+    Every :class:`~panobbgo.core.StrategyBase` owns its own ``Config``
+    instance, so ``strategy.config.max_eval = 500`` affects that strategy
+    only.  (Up to 2026-09 this class was a process-wide singleton, which
+    made per-strategy overrides leak into every strategy created afterwards
+    in the same process — including the other specs of a benchmark run.)
+
+    Values are read, in decreasing precedence, from the command line (only
+    with ``parse_args=True``), ``./config.yaml``, ``~/.panobbgo/config.ini``
+    and the built-in defaults.
+    """
+
     # Class variable to track if config info has been logged
     _config_logged: bool = False
 
-    def __new__(cls, parse_args: bool = False, testing_mode: bool = False) -> "Config":
-        """Singleton pattern implementation."""
-        if cls._instance is None:
-            cls._instance = super(Config, cls).__new__(cls)
-        return cls._instance
-
     def __init__(self, parse_args: bool = False, testing_mode: bool = False) -> None:
         """
-        Initialize Config singleton.
-
-        :param boolean parse_args:
+        :param boolean parse_args: parse ``sys.argv`` (scripts only)
         :param boolean testing_mode: if True, signals that it is run by the unittests
         """
-        # Allow reinitialization for testing or if parameters changed
-        current_parse_args = getattr(self, "parse_args", None)
-        current_testing_mode = getattr(self, "testing_mode", None)
+        import os
 
-        if (
-            current_parse_args != parse_args
-            or current_testing_mode != testing_mode
-            or not getattr(self, "_initialized", False)
-        ):
-            import os
-
-            self.parse_args: bool = parse_args
-            self.testing_mode: bool = testing_mode
-            self._appdata_dir: str = os.path.expanduser("~/.panobbgo")
-            self.config_fn: str = os.path.join(self._appdata_dir, "config.ini")
-            self.config_yaml: str = "config.yaml"  # YAML config in current directory
-            self._loggers: Dict[str, logging.Logger] = {}
-            self._create()
-            self._initialized: bool = True
+        self.parse_args: bool = parse_args
+        self.testing_mode: bool = testing_mode
+        self._appdata_dir: str = os.path.expanduser("~/.panobbgo")
+        self.config_fn: str = os.path.join(self._appdata_dir, "config.ini")
+        self.config_yaml: str = "config.yaml"  # YAML config in current directory
+        self._loggers: Dict[str, logging.Logger] = {}
+        self._create()
 
     def _create(self) -> None:
         import os

@@ -680,9 +680,6 @@ def test_minimal_optimization_works():
     from panobbgo.strategies import StrategyRoundRobin
     from panobbgo.lib.classic import Rosenbrock
 
-    from panobbgo.config import Config
-
-    Config._instance = None  # reset to make sure
     problem = Rosenbrock(dims=2)
     strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, evaluation_method="threaded")
     strategy.config.ui_show = False
@@ -748,9 +745,7 @@ def test_pandas_compatibility():
     import numpy as np
 
     # Create a minimal strategy for testing Results
-    from panobbgo.config import Config
 
-    Config._instance = None  # reset to make sure
     problem = Rosenbrock(dims=2)
     strategy = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, evaluation_method="threaded")
     strategy.config.max_eval = 100

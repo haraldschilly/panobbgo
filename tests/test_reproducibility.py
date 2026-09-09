@@ -22,8 +22,6 @@ def _run(seed, max_eval=60, heuristics=None, strategy_cls=None):
     strategy_cls = strategy_cls or StrategyRewarding
     problem = Rosenbrock(dim=2)
     s = strategy_cls(problem, parse_args=False, seed=seed)
-    # Config is (still) a process-wide singleton: restore what we override.
-    saved = {k: getattr(s.config, k) for k in ("max_eval", "sync_evaluation", "stop_on_convergence")}
     s.config.max_eval = max_eval
     s.config.sync_evaluation = True
     s.config.stop_on_convergence = False
@@ -33,11 +31,7 @@ def _run(seed, max_eval=60, heuristics=None, strategy_cls=None):
         lambda st: JSO(st, NP_init=8),
     ):
         s.add_heuristic(factory(s))
-    try:
-        s.start()
-    finally:
-        for k, v in saved.items():
-            setattr(s.config, k, v)
+    s.start()
     df = s.results._results_df
     assert df is not None and len(df) >= max_eval
     x = df["x"].to_numpy(dtype=float)

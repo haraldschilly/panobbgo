@@ -96,13 +96,19 @@ def create_logger(name, level=logging.INFO):
     Creates logger with ``name`` and given ``level`` logging level.
     """
     logger = logging.getLogger(name)
-    logger.addFilter(PanobbgoContext())
     logger.setLevel(logging.DEBUG)
-    log_stream_handler = logging.StreamHandler()
-    log_stream_handler.setLevel(level)
-    log_formatter = ColoredFormatter()
-    log_stream_handler.setFormatter(log_formatter)
-    logger.addHandler(log_stream_handler)
+    # Loggers are process-global while Config objects are per strategy:
+    # attach our handler / filter only once per logger name, otherwise every
+    # new strategy would add another handler and duplicate each log line.
+    if not any(isinstance(f, PanobbgoContext) for f in logger.filters):
+        logger.addFilter(PanobbgoContext())
+    handler = next((h for h in logger.handlers if getattr(h, "_panobbgo", False)), None)
+    if handler is None:
+        handler = logging.StreamHandler()
+        handler._panobbgo = True  # type: ignore[attr-defined]
+        handler.setFormatter(ColoredFormatter())
+        logger.addHandler(handler)
+    handler.setLevel(level)
     return logger
 
 

@@ -199,7 +199,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="64">            <span class="n">who</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">req_id</span><span class="si">}</span><span class="s2">&quot;</span>
 </span><span data-line="65">
 </span><span data-line="66">            <span class="n">point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">who</span><span class="p">)</span>
-</span><span data-line="67">            <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="67">            <span class="bp">self</span><span class="o">.</span><span class="n">_put</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
 </span><span data-line="68">
 </span><span data-line="69">            <span class="c1"># Track</span>
 </span><span data-line="70">            <span class="bp">self</span><span class="o">.</span><span class="n">pending_trials</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_idx</span>

@@ -214,22 +214,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="76">                    <span class="k">break</span>  <span class="c1"># since we found the idx, break!</span>
 </span><span data-line="77">        <span class="k">return</span> <span class="n">ret</span>
 </span><span data-line="78">
-</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">_fill</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="80">        <span class="n">free</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cap</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span>
-</span><span data-line="81">        <span class="k">if</span> <span class="n">free</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="82">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">free</span><span class="p">)])</span>
-</span><span data-line="83">
 <div class="viewcode-block" id="Extremal.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_start">[docs]</a>
-</span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="85">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
-</span><span data-line="86">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="80">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
+</span><span data-line="81">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">)</span></div>
 
-</span><span data-line="87">
+</span><span data-line="82">
 <div class="viewcode-block" id="Extremal.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_new_results">[docs]</a>
-</span><span data-line="88">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
+</span><span data-line="83">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="84">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

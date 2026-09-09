@@ -136,9 +136,34 @@ data-aria-dark="Switch to auto color mode">
 <h1>panobbgo.strategies.rewarding.StrategyRewarding<a class="headerlink" href="#panobbgo-strategies-rewarding-strategyrewarding" title="Link to this heading">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.strategies.rewarding.StrategyRewarding">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.rewarding.</span></span><span class="sig-name descname"><span class="pre">StrategyRewarding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/strategies/rewarding.html#StrategyRewarding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.rewarding.StrategyRewarding" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.rewarding.</span></span><span class="sig-name descname"><span class="pre">StrategyRewarding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">credit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">explore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/strategies/rewarding.html#StrategyRewarding"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.rewarding.StrategyRewarding" title="Link to this definition">¶</a></dt>
 <dd><p>This strategy rewards given <a class="reference internal" href="../heuristics.html#module-panobbgo.heuristics" title="panobbgo.heuristics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heuristics</span></code></a> by selecting
 those more often, which produce better search points.</p>
+<p>Two credit-assignment modes (<code class="docutils literal notranslate"><span class="pre">credit=</span></code> kwarg or <code class="docutils literal notranslate"><span class="pre">config.rewarding_credit</span></code>):</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;ema&quot;</span></code> (default)</dt><dd><p><code class="docutils literal notranslate"><span class="pre">performance</span></code> is an exponential moving average of the reward
+<em>per evaluation spent</em> by that heuristic (reward <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">exp(-improvement)</span></code>
+when the evaluation improves the best, else 0; smoothing
+<code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">config.discount</span></code>).  Selection is probability matching over the
+heuristics that currently have points, with an exploration floor of
+<code class="docutils literal notranslate"><span class="pre">explore</span></code> (<code class="docutils literal notranslate"><span class="pre">config.rewarding_explore</span></code>, default 0.2) spread evenly.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">&quot;legacy&quot;</span></code></dt><dd><p>Every point drawn from a heuristic multiplies its <code class="docutils literal notranslate"><span class="pre">performance</span></code> by
+<code class="docutils literal notranslate"><span class="pre">config.discount</span></code> (0.95); a new best adds <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">exp(-improvement)</span></code>
+to the emitter’s performance.  Selection is proportional to
+<code class="docutils literal notranslate"><span class="pre">performance</span> <span class="pre">+</span> <span class="pre">config.smooth</span></code>.  This credits the <em>emitter of the
+best point</em> rather than improvement per evaluation spent, so a
+heuristic that emits a generation of 90 points is discounted by
+<code class="docutils literal notranslate"><span class="pre">0.95**90</span></code> at once while a one-shot heuristic keeps its weight
+for the whole run — the strategy degenerates to a biased
+round-robin (planning/DISCOVERY_2026-09-09.md §6).</p>
+</dd>
+</dl>
+<p>Measured on the standard IOH battery (mean AOCC, 12-seed decision
+roster, paired per seed, same arm set): <code class="docutils literal notranslate"><span class="pre">&quot;ema&quot;</span></code> with <code class="docutils literal notranslate"><span class="pre">explore=0.2</span></code>
+scores <strong>+0.0135 [+0.0032, +0.0238]</strong> over <code class="docutils literal notranslate"><span class="pre">&quot;legacy&quot;</span></code> (9/12 seeds),
+the gain sitting at 2-D (<strong>+0.0248 [+0.0049, +0.0447]</strong>) and flat at
+5-D (+0.0022 [-0.0030, +0.0074]).</p>
 <p>&#64;type problem: panobbgo.lib.Problem
 &#64;param problem:
 &#64;param parse_args:
@@ -146,7 +171,7 @@ those more often, which produce better search points.</p>
 &#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.strategies.rewarding.StrategyRewarding.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/strategies/rewarding.html#StrategyRewarding.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.rewarding.StrategyRewarding.__init__" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">credit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">explore</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/strategies/rewarding.html#StrategyRewarding.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.rewarding.StrategyRewarding.__init__" title="Link to this definition">¶</a></dt>
 <dd><p>&#64;type problem: panobbgo.lib.Problem
 &#64;param problem:
 &#64;param parse_args:
@@ -158,7 +183,7 @@ those more often, which produce better search points.</p>
 <div class="table-wrapper autosummary longtable docutils container">
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.strategies.rewarding.StrategyRewarding.__init__" title="panobbgo.strategies.rewarding.StrategyRewarding.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(problem, **kwargs)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#panobbgo.strategies.rewarding.StrategyRewarding.__init__" title="panobbgo.strategies.rewarding.StrategyRewarding.__init__"><code class="xref py py-obj docutils literal notranslate"><span class="pre">__init__</span></code></a>(problem[, credit, explore])</p></td>
 <td><p>&#64;type problem: panobbgo.lib.Problem &#64;param problem: &#64;param parse_args: &#64;param testing_mode: &#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">add</span></code>(Heur, **kwargs)</p></td>

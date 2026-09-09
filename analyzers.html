@@ -135,6 +135,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter"><code class="docutils literal notranslate"><span class="pre">Splitter</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box"><code class="docutils literal notranslate">Box</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH"><code class="docutils literal notranslate">Box.MAX_DEPTH</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.add_result"><code class="docutils literal notranslate">Box.add_result()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.contains"><code class="docutils literal notranslate">Box.contains()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.fx"><code class="docutils literal notranslate">Box.fx</span></code></a></li>
@@ -201,6 +202,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter"><code class="docutils literal notranslate"><span class="pre">Splitter</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box"><code class="docutils literal notranslate">Box</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.MAX_DEPTH"><code class="docutils literal notranslate">Box.MAX_DEPTH</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.add_result"><code class="docutils literal notranslate">Box.add_result()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.contains"><code class="docutils literal notranslate">Box.contains()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.fx"><code class="docutils literal notranslate">Box.fx</span></code></a></li>
@@ -536,6 +538,15 @@ to investigate interesting subregions.</p>
 <p>In the future, this might be refactored to allow different
 splitting methods.</p>
 </div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH">
+<span class="sig-name descname"><span class="pre">MAX_DEPTH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH" title="Link to this definition">¶</a></dt>
+<dd><p>A box deeper than this is never split again.  Depth grows by one
+per split, so the bound is generous for any real search; it exists
+only so a pathological point cloud cannot deepen the tree without
+end.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.add_result">
 <span class="sig-name descname"><span class="pre">add_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.add_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.add_result" title="Link to this definition">¶</a></dt>
@@ -1003,6 +1014,15 @@ to investigate interesting subregions.</p>
 <p>In the future, this might be refactored to allow different
 splitting methods.</p>
 </div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.MAX_DEPTH">
+<span class="sig-name descname"><span class="pre">MAX_DEPTH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.MAX_DEPTH" title="Link to this definition">¶</a></dt>
+<dd><p>A box deeper than this is never split again.  Depth grows by one
+per split, so the bound is generous for any real search; it exists
+only so a pathological point cloud cannot deepen the tree without
+end.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.add_result">
 <span class="sig-name descname"><span class="pre">add_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.add_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.add_result" title="Link to this definition">¶</a></dt>

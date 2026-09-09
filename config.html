@@ -140,11 +140,19 @@ data-aria-dark="Switch to auto color mode">
 <dt class="sig sig-object py" id="panobbgo.config.Config">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.config.</span></span><span class="sig-name descname"><span class="pre">Config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parse_args</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">testing_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/config.html#Config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.config.Config" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Initialize Config singleton.</p>
+<p>Configuration of one strategy run.</p>
+<p>Every <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> owns its own <code class="docutils literal notranslate"><span class="pre">Config</span></code>
+instance, so <code class="docutils literal notranslate"><span class="pre">strategy.config.max_eval</span> <span class="pre">=</span> <span class="pre">500</span></code> affects that strategy
+only.  (Up to 2026-09 this class was a process-wide singleton, which
+made per-strategy overrides leak into every strategy created afterwards
+in the same process — including the other specs of a benchmark run.)</p>
+<p>Values are read, in decreasing precedence, from the command line (only
+with <code class="docutils literal notranslate"><span class="pre">parse_args=True</span></code>), <code class="docutils literal notranslate"><span class="pre">./config.yaml</span></code>, <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>
+and the built-in defaults.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>parse_args</strong> (<em>boolean</em>)</p></li>
+<li><p><strong>parse_args</strong> (<em>boolean</em>) – parse <code class="docutils literal notranslate"><span class="pre">sys.argv</span></code> (scripts only)</p></li>
 <li><p><strong>testing_mode</strong> (<em>boolean</em>) – if True, signals that it is run by the unittests</p></li>
 </ul>
 </dd>

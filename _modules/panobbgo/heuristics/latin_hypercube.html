@@ -199,18 +199,25 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="64">            <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">pts</span><span class="p">[:,</span> <span class="n">_</span><span class="p">])</span>
 </span><span data-line="65">        <span class="k">return</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">]</span>  <span class="c1"># needs to be a list of np.ndarrays</span>
 </span><span data-line="66">
+</span><span data-line="67">    <span class="k">def</span><span class="w"> </span><span class="nf">_fill</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="68"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit whole designs until the queue holds at least ``div`` points.</span>
+</span><span data-line="69">
+</span><span data-line="70"><span class="sd">        The unit of this heuristic is a design, not a point, so it refills in</span>
+</span><span data-line="71"><span class="sd">        design-sized blocks rather than topping up to ``cap`` point by point.</span>
+</span><span data-line="72"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="73">        <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">div</span><span class="p">:</span>
+</span><span data-line="74">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_design</span><span class="p">())</span>
+</span><span data-line="75">
 <div class="viewcode-block" id="LatinHypercube.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LatinHypercube.on_start">[docs]</a>
-</span><span data-line="67">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="68">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_design</span><span class="p">())</span></div>
+</span><span data-line="76">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="77">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
 
-</span><span data-line="69">
+</span><span data-line="78">
 <div class="viewcode-block" id="LatinHypercube.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LatinHypercube.on_new_results">[docs]</a>
-</span><span data-line="70">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="71"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a fresh design whenever the previous one has been drained.&quot;&quot;&quot;</span>
-</span><span data-line="72">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="73">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_design</span><span class="p">())</span></div>
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="80">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
 </div>
 
 </span></pre></div>

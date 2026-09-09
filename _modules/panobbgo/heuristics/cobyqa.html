@@ -219,350 +219,347 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="86"><span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
 </span><span data-line="87"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
 </span><span data-line="88">
-</span><span data-line="89"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
-</span><span data-line="90"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="91">
-</span><span data-line="92"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="89"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="90">
+</span><span data-line="91"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="92">
 </span><span data-line="93">
-</span><span data-line="94">
-</span><span data-line="95"><span class="k">def</span><span class="w"> </span><span class="nf">_make_pipe_objective</span><span class="p">(</span><span class="n">pipe</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
-</span><span data-line="96"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an objective callable that round-trips ``x`` / ``f(x)`` over a pipe.</span>
-</span><span data-line="97">
-</span><span data-line="98"><span class="sd">    Extracted from :meth:`COBYQA.worker` to keep the subprocess entry</span>
-</span><span data-line="99"><span class="sd">    point&#39;s cyclomatic complexity small.  The callable raises</span>
-</span><span data-line="100"><span class="sd">    ``SystemExit`` on a closed pipe so the worker can shut down</span>
-</span><span data-line="101"><span class="sd">    cleanly when the parent terminates it.</span>
-</span><span data-line="102"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="103">
-</span><span data-line="104">    <span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="105">        <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="106">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="107">            <span class="n">fx</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="108">        <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="109">            <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</span><span data-line="110">        <span class="k">if</span> <span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">fx</span><span class="p">):</span>
-</span><span data-line="111">            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
-</span><span data-line="112">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">fx</span><span class="p">)</span>
-</span><span data-line="113">
-</span><span data-line="114">    <span class="k">return</span> <span class="n">f</span>
+</span><span data-line="94"><span class="k">def</span><span class="w"> </span><span class="nf">_make_pipe_objective</span><span class="p">(</span><span class="n">pipe</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+</span><span data-line="95"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build an objective callable that round-trips ``x`` / ``f(x)`` over a pipe.</span>
+</span><span data-line="96">
+</span><span data-line="97"><span class="sd">    Extracted from :meth:`COBYQA.worker` to keep the subprocess entry</span>
+</span><span data-line="98"><span class="sd">    point&#39;s cyclomatic complexity small.  The callable raises</span>
+</span><span data-line="99"><span class="sd">    ``SystemExit`` on a closed pipe so the worker can shut down</span>
+</span><span data-line="100"><span class="sd">    cleanly when the parent terminates it.</span>
+</span><span data-line="101"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="102">
+</span><span data-line="103">    <span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="104">        <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="105">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="106">            <span class="n">fx</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="107">        <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="108">            <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="109">        <span class="k">if</span> <span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">fx</span><span class="p">):</span>
+</span><span data-line="110">            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="111">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">fx</span><span class="p">)</span>
+</span><span data-line="112">
+</span><span data-line="113">    <span class="k">return</span> <span class="n">f</span>
+</span><span data-line="114">
 </span><span data-line="115">
-</span><span data-line="116">
-</span><span data-line="117"><span class="k">def</span><span class="w"> </span><span class="nf">_build_cobyqa_options</span><span class="p">(</span>
-</span><span data-line="118">    <span class="n">initial_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="119">    <span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="120">    <span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span data-line="121">    <span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-</span><span data-line="122"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-</span><span data-line="123"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the ``options`` dict passed to ``scipy.optimize.minimize``.&quot;&quot;&quot;</span>
-</span><span data-line="124">    <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="125">        <span class="s2">&quot;initial_tr_radius&quot;</span><span class="p">:</span> <span class="n">initial_tr_radius</span><span class="p">,</span>
-</span><span data-line="126">        <span class="s2">&quot;final_tr_radius&quot;</span><span class="p">:</span> <span class="n">final_tr_radius</span><span class="p">,</span>
-</span><span data-line="127">        <span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="n">scale</span><span class="p">,</span>
-</span><span data-line="128">    <span class="p">}</span>
-</span><span data-line="129">    <span class="k">if</span> <span class="n">maxfev</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="130">        <span class="n">options</span><span class="p">[</span><span class="s2">&quot;maxfev&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfev</span>
-</span><span data-line="131">    <span class="k">return</span> <span class="n">options</span>
+</span><span data-line="116"><span class="k">def</span><span class="w"> </span><span class="nf">_build_cobyqa_options</span><span class="p">(</span>
+</span><span data-line="117">    <span class="n">initial_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="118">    <span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="119">    <span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="120">    <span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+</span><span data-line="121"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+</span><span data-line="122"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Assemble the ``options`` dict passed to ``scipy.optimize.minimize``.&quot;&quot;&quot;</span>
+</span><span data-line="123">    <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="124">        <span class="s2">&quot;initial_tr_radius&quot;</span><span class="p">:</span> <span class="n">initial_tr_radius</span><span class="p">,</span>
+</span><span data-line="125">        <span class="s2">&quot;final_tr_radius&quot;</span><span class="p">:</span> <span class="n">final_tr_radius</span><span class="p">,</span>
+</span><span data-line="126">        <span class="s2">&quot;scale&quot;</span><span class="p">:</span> <span class="n">scale</span><span class="p">,</span>
+</span><span data-line="127">    <span class="p">}</span>
+</span><span data-line="128">    <span class="k">if</span> <span class="n">maxfev</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="129">        <span class="n">options</span><span class="p">[</span><span class="s2">&quot;maxfev&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfev</span>
+</span><span data-line="130">    <span class="k">return</span> <span class="n">options</span>
+</span><span data-line="131">
 </span><span data-line="132">
-</span><span data-line="133">
-</span><span data-line="134"><span class="k">def</span><span class="w"> </span><span class="nf">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="135"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Send ``payload`` over the result pipe, swallowing parent-side teardowns.&quot;&quot;&quot;</span>
-</span><span data-line="136">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="137">        <span class="n">output</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
-</span><span data-line="138">    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="139">        <span class="c1"># Parent already terminated us; nothing to report.</span>
-</span><span data-line="140">        <span class="k">pass</span>
+</span><span data-line="133"><span class="k">def</span><span class="w"> </span><span class="nf">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="134"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Send ``payload`` over the result pipe, swallowing parent-side teardowns.&quot;&quot;&quot;</span>
+</span><span data-line="135">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="136">        <span class="n">output</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span><span data-line="137">    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="138">        <span class="c1"># Parent already terminated us; nothing to report.</span>
+</span><span data-line="139">        <span class="k">pass</span>
+</span><span data-line="140">
 </span><span data-line="141">
-</span><span data-line="142">
-</span><span data-line="143"><span class="c1"># Sensible defaults: ``1e-6`` is the COBYQA library default for final TR</span>
-</span><span data-line="144"><span class="c1"># radius (essentially &quot;machine-precision-ish&quot; for double precision); the</span>
-</span><span data-line="145"><span class="c1"># initial TR radius defaults to one tenth of the typical box width when the</span>
-</span><span data-line="146"><span class="c1"># user does not override it.  Scaling is on by default — every Panobbgo</span>
-</span><span data-line="147"><span class="c1"># problem has finite bounds, and scaling to ``[-1, 1]`` keeps the</span>
-</span><span data-line="148"><span class="c1"># interpolation geometry well-conditioned for boxes whose axes span very</span>
-</span><span data-line="149"><span class="c1"># different magnitudes.</span>
-</span><span data-line="150"><span class="n">_DEFAULT_FINAL_TR_RADIUS</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span>
-</span><span data-line="151"><span class="n">_DEFAULT_INITIAL_TR_RADIUS</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># auto from box width</span>
-</span><span data-line="152"><span class="n">_DEFAULT_MAXFEV</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># let strategy budget terminate us</span>
-</span><span data-line="153"><span class="n">_DEFAULT_SCALE</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="142"><span class="c1"># Sensible defaults: ``1e-6`` is the COBYQA library default for final TR</span>
+</span><span data-line="143"><span class="c1"># radius (essentially &quot;machine-precision-ish&quot; for double precision); the</span>
+</span><span data-line="144"><span class="c1"># initial TR radius defaults to one tenth of the typical box width when the</span>
+</span><span data-line="145"><span class="c1"># user does not override it.  Scaling is on by default — every Panobbgo</span>
+</span><span data-line="146"><span class="c1"># problem has finite bounds, and scaling to ``[-1, 1]`` keeps the</span>
+</span><span data-line="147"><span class="c1"># interpolation geometry well-conditioned for boxes whose axes span very</span>
+</span><span data-line="148"><span class="c1"># different magnitudes.</span>
+</span><span data-line="149"><span class="n">_DEFAULT_FINAL_TR_RADIUS</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span>
+</span><span data-line="150"><span class="n">_DEFAULT_INITIAL_TR_RADIUS</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># auto from box width</span>
+</span><span data-line="151"><span class="n">_DEFAULT_MAXFEV</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># let strategy budget terminate us</span>
+</span><span data-line="152"><span class="n">_DEFAULT_SCALE</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="153">
 </span><span data-line="154">
-</span><span data-line="155">
 <div class="viewcode-block" id="COBYQA">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.COBYQA">[docs]</a>
-</span><span data-line="156"><span class="k">class</span><span class="w"> </span><span class="nc">COBYQA</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="157"><span class="w">    </span><span class="sd">&quot;&quot;&quot;COBYQA: Powell-family derivative-free trust-region local optimizer.</span>
-</span><span data-line="158">
-</span><span data-line="159"><span class="sd">    Args:</span>
-</span><span data-line="160"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="161"><span class="sd">        initial_tr_radius: Initial trust-region radius.  Sensible values</span>
-</span><span data-line="162"><span class="sd">            are in the order of one tenth of the greatest expected change</span>
-</span><span data-line="163"><span class="sd">            to the variables.  When ``None`` (default) the heuristic uses</span>
-</span><span data-line="164"><span class="sd">            ``0.1 · max(box_width)`` so the first step explores a useful</span>
-</span><span data-line="165"><span class="sd">            slice of the feasible region.  Must be positive.</span>
-</span><span data-line="166"><span class="sd">        final_tr_radius: Final trust-region radius — accuracy required in</span>
-</span><span data-line="167"><span class="sd">            the converged variables.  COBYQA terminates once the radius</span>
-</span><span data-line="168"><span class="sd">            falls below this threshold.  Default ``1e-6``.  Must be</span>
-</span><span data-line="169"><span class="sd">            positive and strictly less than ``initial_tr_radius``.</span>
-</span><span data-line="170"><span class="sd">        maxfev: Maximum number of function evaluations the underlying</span>
-</span><span data-line="171"><span class="sd">            ``scipy.optimize.minimize`` may consume.  When ``None``</span>
-</span><span data-line="172"><span class="sd">            (default) the strategy&#39;s evaluation budget is the only cap;</span>
-</span><span data-line="173"><span class="sd">            the subprocess is terminated when the strategy stops.</span>
-</span><span data-line="174"><span class="sd">            ``maxfev`` is useful when the user wants COBYQA to give up</span>
-</span><span data-line="175"><span class="sd">            *earlier* than the global budget — e.g. when paired with</span>
-</span><span data-line="176"><span class="sd">            other heuristics inside the same strategy.</span>
-</span><span data-line="177"><span class="sd">        scale: When ``True`` (default), COBYQA rescales the variables to</span>
-</span><span data-line="178"><span class="sd">            ``[-1, 1]`` based on the box bounds, keeping the</span>
-</span><span data-line="179"><span class="sd">            interpolation geometry well-conditioned for boxes whose axes</span>
-</span><span data-line="180"><span class="sd">            span very different magnitudes.  Panobbgo problems always</span>
-</span><span data-line="181"><span class="sd">            have finite bounds, so this is safe.</span>
-</span><span data-line="182"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
-</span><span data-line="183">
-</span><span data-line="184"><span class="sd">    Notes:</span>
-</span><span data-line="185"><span class="sd">        - The heuristic spawns one dedicated subprocess per restart</span>
-</span><span data-line="186"><span class="sd">          (Powell&#39;s interpolation set has to be rebuilt from scratch</span>
-</span><span data-line="187"><span class="sd">          anyway, so a fresh process is the cleanest unit of restart).</span>
-</span><span data-line="188"><span class="sd">        - Out-of-bounds proposals from the subprocess are projected onto</span>
-</span><span data-line="189"><span class="sd">          the feasible box by :meth:`panobbgo.lib.Problem.project` before</span>
-</span><span data-line="190"><span class="sd">          being emitted; the value the subprocess sees is therefore the</span>
-</span><span data-line="191"><span class="sd">          objective at the projected (feasible) point.</span>
-</span><span data-line="192"><span class="sd">        - Like :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`, the</span>
-</span><span data-line="193"><span class="sd">          subprocess uses the ``&quot;spawn&quot;`` start method to avoid the</span>
-</span><span data-line="194"><span class="sd">          deadlocks that ``fork`` triggers in multi-threaded processes.</span>
-</span><span data-line="195"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="196">
-</span><span data-line="197">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="198">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="199">        <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="200">        <span class="n">initial_tr_radius</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_INITIAL_TR_RADIUS</span><span class="p">,</span>
-</span><span data-line="201">        <span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_FINAL_TR_RADIUS</span><span class="p">,</span>
-</span><span data-line="202">        <span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_MAXFEV</span><span class="p">,</span>
-</span><span data-line="203">        <span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">_DEFAULT_SCALE</span><span class="p">,</span>
-</span><span data-line="204">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="205">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="206">        <span class="k">if</span> <span class="n">initial_tr_radius</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="207">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">initial_tr_radius</span><span class="p">)</span> <span class="ow">or</span> <span class="n">initial_tr_radius</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="208">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="209">                    <span class="sa">f</span><span class="s2">&quot;COBYQA: initial_tr_radius must be a positive finite float, got </span><span class="si">{</span><span class="n">initial_tr_radius</span><span class="si">!r}</span><span class="s2">&quot;</span>
-</span><span data-line="210">                <span class="p">)</span>
-</span><span data-line="211">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">final_tr_radius</span><span class="p">)</span> <span class="ow">or</span> <span class="n">final_tr_radius</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="212">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: final_tr_radius must be a positive finite float, got </span><span class="si">{</span><span class="n">final_tr_radius</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="213">        <span class="k">if</span> <span class="n">initial_tr_radius</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">final_tr_radius</span> <span class="o">&gt;=</span> <span class="n">initial_tr_radius</span><span class="p">:</span>
-</span><span data-line="214">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="215">                <span class="sa">f</span><span class="s2">&quot;COBYQA: final_tr_radius (</span><span class="si">{</span><span class="n">final_tr_radius</span><span class="si">}</span><span class="s2">) must be strictly less than &quot;</span>
-</span><span data-line="216">                <span class="sa">f</span><span class="s2">&quot;initial_tr_radius (</span><span class="si">{</span><span class="n">initial_tr_radius</span><span class="si">}</span><span class="s2">)&quot;</span>
-</span><span data-line="217">            <span class="p">)</span>
-</span><span data-line="218">        <span class="k">if</span> <span class="n">maxfev</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="219">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxfev</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="220">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: maxfev must be an integer or None, got </span><span class="si">{</span><span class="n">maxfev</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="221">            <span class="k">if</span> <span class="n">maxfev</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="222">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: maxfev must be &gt; 0, got </span><span class="si">{</span><span class="n">maxfev</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="223">
-</span><span data-line="224">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;COBYQ&quot;</span><span class="p">)</span>
-</span><span data-line="226">        <span class="bp">self</span><span class="o">.</span><span class="n">initial_tr_radius</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial_tr_radius</span>
-</span><span data-line="227">        <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">final_tr_radius</span><span class="p">)</span>
-</span><span data-line="228">        <span class="bp">self</span><span class="o">.</span><span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfev</span>
-</span><span data-line="229">        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
-</span><span data-line="230">
-</span><span data-line="231">        <span class="c1"># Subprocess handles — populated by :meth:`__start__`.</span>
-</span><span data-line="232">        <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the request pipe</span>
-</span><span data-line="233">        <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the request pipe</span>
-</span><span data-line="234">        <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the result pipe</span>
-</span><span data-line="235">        <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the result pipe</span>
-</span><span data-line="236">        <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the Process itself</span>
-</span><span data-line="237">
-</span><span data-line="238">    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_initial_tr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="239"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Pick a sensible initial trust-region radius from the box width.</span>
-</span><span data-line="240">
-</span><span data-line="241"><span class="sd">        When the user sets ``initial_tr_radius`` we use it verbatim.</span>
-</span><span data-line="242"><span class="sd">        Otherwise we default to ``0.1 · max(box_width)`` so the first</span>
-</span><span data-line="243"><span class="sd">        step explores ~10% of the largest axis — large enough to leave</span>
-</span><span data-line="244"><span class="sd">        a degenerate starting point, small enough that COBYQA does not</span>
-</span><span data-line="245"><span class="sd">        immediately stall against the bounds.</span>
-</span><span data-line="246"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="247">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_tr_radius</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="248">            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_tr_radius</span><span class="p">)</span>
-</span><span data-line="249">        <span class="n">widths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">box</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">box</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="250">        <span class="n">max_width</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">widths</span><span class="p">))</span> <span class="k">if</span> <span class="n">widths</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
-</span><span data-line="251">        <span class="n">radius</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">max_width</span> <span class="k">if</span> <span class="n">max_width</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.1</span>
-</span><span data-line="252">        <span class="c1"># Always keep the radius strictly above the convergence threshold</span>
-</span><span data-line="253">        <span class="c1"># so COBYQA does not declare success on the first step.</span>
-</span><span data-line="254">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="mf">10.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">)</span>
-</span><span data-line="255">
-</span><span data-line="256">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="257">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="258">            <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">&quot;spawn&quot;</span><span class="p">)</span>
-</span><span data-line="259">            <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
-</span><span data-line="260">            <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-</span><span data-line="261">
-</span><span data-line="262">            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
-</span><span data-line="263">            <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">low</span> <span class="o">+</span> <span class="n">high</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="264">            <span class="n">initial_tr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_initial_tr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
-</span><span data-line="265">
-</span><span data-line="266">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
-</span><span data-line="267">                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span>
-</span><span data-line="268">                <span class="n">args</span><span class="o">=</span><span class="p">(</span>
-</span><span data-line="269">                    <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">,</span>
-</span><span data-line="270">                    <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">,</span>
-</span><span data-line="271">                    <span class="n">x0</span><span class="p">,</span>
-</span><span data-line="272">                    <span class="n">bounds</span><span class="p">,</span>
-</span><span data-line="273">                    <span class="n">initial_tr</span><span class="p">,</span>
-</span><span data-line="274">                    <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">,</span>
-</span><span data-line="275">                    <span class="bp">self</span><span class="o">.</span><span class="n">maxfev</span><span class="p">,</span>
-</span><span data-line="276">                    <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
-</span><span data-line="277">                <span class="p">),</span>
-</span><span data-line="278">                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-COBYQA&quot;</span><span class="p">,</span>
-</span><span data-line="279">            <span class="p">)</span>
-</span><span data-line="280">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="281">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span data-line="282">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="283">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-</span><span data-line="284">                <span class="sa">f</span><span class="s2">&quot;Failed to start COBYQA subprocess for heuristic &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
-</span><span data-line="285">                <span class="sa">f</span><span class="s2">&quot;This usually indicates a multiprocessing issue. &quot;</span>
-</span><span data-line="286">                <span class="sa">f</span><span class="s2">&quot;Make sure multiprocessing is supported on this system. &quot;</span>
-</span><span data-line="287">                <span class="sa">f</span><span class="s2">&quot;Original error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="288">            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-</span><span data-line="289">
+</span><span data-line="155"><span class="k">class</span><span class="w"> </span><span class="nc">COBYQA</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="156"><span class="w">    </span><span class="sd">&quot;&quot;&quot;COBYQA: Powell-family derivative-free trust-region local optimizer.</span>
+</span><span data-line="157">
+</span><span data-line="158"><span class="sd">    Args:</span>
+</span><span data-line="159"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="160"><span class="sd">        initial_tr_radius: Initial trust-region radius.  Sensible values</span>
+</span><span data-line="161"><span class="sd">            are in the order of one tenth of the greatest expected change</span>
+</span><span data-line="162"><span class="sd">            to the variables.  When ``None`` (default) the heuristic uses</span>
+</span><span data-line="163"><span class="sd">            ``0.1 · max(box_width)`` so the first step explores a useful</span>
+</span><span data-line="164"><span class="sd">            slice of the feasible region.  Must be positive.</span>
+</span><span data-line="165"><span class="sd">        final_tr_radius: Final trust-region radius — accuracy required in</span>
+</span><span data-line="166"><span class="sd">            the converged variables.  COBYQA terminates once the radius</span>
+</span><span data-line="167"><span class="sd">            falls below this threshold.  Default ``1e-6``.  Must be</span>
+</span><span data-line="168"><span class="sd">            positive and strictly less than ``initial_tr_radius``.</span>
+</span><span data-line="169"><span class="sd">        maxfev: Maximum number of function evaluations the underlying</span>
+</span><span data-line="170"><span class="sd">            ``scipy.optimize.minimize`` may consume.  When ``None``</span>
+</span><span data-line="171"><span class="sd">            (default) the strategy&#39;s evaluation budget is the only cap;</span>
+</span><span data-line="172"><span class="sd">            the subprocess is terminated when the strategy stops.</span>
+</span><span data-line="173"><span class="sd">            ``maxfev`` is useful when the user wants COBYQA to give up</span>
+</span><span data-line="174"><span class="sd">            *earlier* than the global budget — e.g. when paired with</span>
+</span><span data-line="175"><span class="sd">            other heuristics inside the same strategy.</span>
+</span><span data-line="176"><span class="sd">        scale: When ``True`` (default), COBYQA rescales the variables to</span>
+</span><span data-line="177"><span class="sd">            ``[-1, 1]`` based on the box bounds, keeping the</span>
+</span><span data-line="178"><span class="sd">            interpolation geometry well-conditioned for boxes whose axes</span>
+</span><span data-line="179"><span class="sd">            span very different magnitudes.  Panobbgo problems always</span>
+</span><span data-line="180"><span class="sd">            have finite bounds, so this is safe.</span>
+</span><span data-line="181"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="182">
+</span><span data-line="183"><span class="sd">    Notes:</span>
+</span><span data-line="184"><span class="sd">        - The heuristic spawns one dedicated subprocess per restart</span>
+</span><span data-line="185"><span class="sd">          (Powell&#39;s interpolation set has to be rebuilt from scratch</span>
+</span><span data-line="186"><span class="sd">          anyway, so a fresh process is the cleanest unit of restart).</span>
+</span><span data-line="187"><span class="sd">        - Out-of-bounds proposals from the subprocess are projected onto</span>
+</span><span data-line="188"><span class="sd">          the feasible box by :meth:`panobbgo.lib.Problem.project` before</span>
+</span><span data-line="189"><span class="sd">          being emitted; the value the subprocess sees is therefore the</span>
+</span><span data-line="190"><span class="sd">          objective at the projected (feasible) point.</span>
+</span><span data-line="191"><span class="sd">        - Like :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`, the</span>
+</span><span data-line="192"><span class="sd">          subprocess uses the ``&quot;spawn&quot;`` start method to avoid the</span>
+</span><span data-line="193"><span class="sd">          deadlocks that ``fork`` triggers in multi-threaded processes.</span>
+</span><span data-line="194"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="195">
+</span><span data-line="196">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="197">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="198">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="199">        <span class="n">initial_tr_radius</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_INITIAL_TR_RADIUS</span><span class="p">,</span>
+</span><span data-line="200">        <span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_FINAL_TR_RADIUS</span><span class="p">,</span>
+</span><span data-line="201">        <span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_MAXFEV</span><span class="p">,</span>
+</span><span data-line="202">        <span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">_DEFAULT_SCALE</span><span class="p">,</span>
+</span><span data-line="203">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="204">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="205">        <span class="k">if</span> <span class="n">initial_tr_radius</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="206">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">initial_tr_radius</span><span class="p">)</span> <span class="ow">or</span> <span class="n">initial_tr_radius</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="207">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="208">                    <span class="sa">f</span><span class="s2">&quot;COBYQA: initial_tr_radius must be a positive finite float, got </span><span class="si">{</span><span class="n">initial_tr_radius</span><span class="si">!r}</span><span class="s2">&quot;</span>
+</span><span data-line="209">                <span class="p">)</span>
+</span><span data-line="210">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">final_tr_radius</span><span class="p">)</span> <span class="ow">or</span> <span class="n">final_tr_radius</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="211">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: final_tr_radius must be a positive finite float, got </span><span class="si">{</span><span class="n">final_tr_radius</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="212">        <span class="k">if</span> <span class="n">initial_tr_radius</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">final_tr_radius</span> <span class="o">&gt;=</span> <span class="n">initial_tr_radius</span><span class="p">:</span>
+</span><span data-line="213">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="214">                <span class="sa">f</span><span class="s2">&quot;COBYQA: final_tr_radius (</span><span class="si">{</span><span class="n">final_tr_radius</span><span class="si">}</span><span class="s2">) must be strictly less than &quot;</span>
+</span><span data-line="215">                <span class="sa">f</span><span class="s2">&quot;initial_tr_radius (</span><span class="si">{</span><span class="n">initial_tr_radius</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="216">            <span class="p">)</span>
+</span><span data-line="217">        <span class="k">if</span> <span class="n">maxfev</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="218">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxfev</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+</span><span data-line="219">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: maxfev must be an integer or None, got </span><span class="si">{</span><span class="n">maxfev</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="220">            <span class="k">if</span> <span class="n">maxfev</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="221">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: maxfev must be &gt; 0, got </span><span class="si">{</span><span class="n">maxfev</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="222">
+</span><span data-line="223">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;COBYQ&quot;</span><span class="p">)</span>
+</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">initial_tr_radius</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial_tr_radius</span>
+</span><span data-line="226">        <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">final_tr_radius</span><span class="p">)</span>
+</span><span data-line="227">        <span class="bp">self</span><span class="o">.</span><span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfev</span>
+</span><span data-line="228">        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span>
+</span><span data-line="229">
+</span><span data-line="230">        <span class="c1"># Subprocess handles — populated by :meth:`__start__`.</span>
+</span><span data-line="231">        <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the request pipe</span>
+</span><span data-line="232">        <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the request pipe</span>
+</span><span data-line="233">        <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the result pipe</span>
+</span><span data-line="234">        <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the result pipe</span>
+</span><span data-line="235">        <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the Process itself</span>
+</span><span data-line="236">
+</span><span data-line="237">    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_initial_tr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="238"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Pick a sensible initial trust-region radius from the box width.</span>
+</span><span data-line="239">
+</span><span data-line="240"><span class="sd">        When the user sets ``initial_tr_radius`` we use it verbatim.</span>
+</span><span data-line="241"><span class="sd">        Otherwise we default to ``0.1 · max(box_width)`` so the first</span>
+</span><span data-line="242"><span class="sd">        step explores ~10% of the largest axis — large enough to leave</span>
+</span><span data-line="243"><span class="sd">        a degenerate starting point, small enough that COBYQA does not</span>
+</span><span data-line="244"><span class="sd">        immediately stall against the bounds.</span>
+</span><span data-line="245"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="246">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initial_tr_radius</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="247">            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial_tr_radius</span><span class="p">)</span>
+</span><span data-line="248">        <span class="n">widths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">box</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">box</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="249">        <span class="n">max_width</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">widths</span><span class="p">))</span> <span class="k">if</span> <span class="n">widths</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">1.0</span>
+</span><span data-line="250">        <span class="n">radius</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">max_width</span> <span class="k">if</span> <span class="n">max_width</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.1</span>
+</span><span data-line="251">        <span class="c1"># Always keep the radius strictly above the convergence threshold</span>
+</span><span data-line="252">        <span class="c1"># so COBYQA does not declare success on the first step.</span>
+</span><span data-line="253">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="mf">10.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">)</span>
+</span><span data-line="254">
+</span><span data-line="255">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="256">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="257">            <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">&quot;spawn&quot;</span><span class="p">)</span>
+</span><span data-line="258">            <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
+</span><span data-line="259">            <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="260">
+</span><span data-line="261">            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
+</span><span data-line="262">            <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">low</span> <span class="o">+</span> <span class="n">high</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="263">            <span class="n">initial_tr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_initial_tr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="264">
+</span><span data-line="265">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+</span><span data-line="266">                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span>
+</span><span data-line="267">                <span class="n">args</span><span class="o">=</span><span class="p">(</span>
+</span><span data-line="268">                    <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">,</span>
+</span><span data-line="269">                    <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">,</span>
+</span><span data-line="270">                    <span class="n">x0</span><span class="p">,</span>
+</span><span data-line="271">                    <span class="n">bounds</span><span class="p">,</span>
+</span><span data-line="272">                    <span class="n">initial_tr</span><span class="p">,</span>
+</span><span data-line="273">                    <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">,</span>
+</span><span data-line="274">                    <span class="bp">self</span><span class="o">.</span><span class="n">maxfev</span><span class="p">,</span>
+</span><span data-line="275">                    <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
+</span><span data-line="276">                <span class="p">),</span>
+</span><span data-line="277">                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-COBYQA&quot;</span><span class="p">,</span>
+</span><span data-line="278">            <span class="p">)</span>
+</span><span data-line="279">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="280">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="281">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="282">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="283">                <span class="sa">f</span><span class="s2">&quot;Failed to start COBYQA subprocess for heuristic &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+</span><span data-line="284">                <span class="sa">f</span><span class="s2">&quot;This usually indicates a multiprocessing issue. &quot;</span>
+</span><span data-line="285">                <span class="sa">f</span><span class="s2">&quot;Make sure multiprocessing is supported on this system. &quot;</span>
+</span><span data-line="286">                <span class="sa">f</span><span class="s2">&quot;Original error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="287">            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+</span><span data-line="288">
 <div class="viewcode-block" id="COBYQA.worker">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.COBYQA.worker">[docs]</a>
-</span><span data-line="290">    <span class="nd">@staticmethod</span>
-</span><span data-line="291">    <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span>
-</span><span data-line="292">        <span class="n">pipe</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-</span><span data-line="293">        <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-</span><span data-line="294">        <span class="n">x0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-</span><span data-line="295">        <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
-</span><span data-line="296">        <span class="n">initial_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="297">        <span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-</span><span data-line="298">        <span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span data-line="299">        <span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
-</span><span data-line="300">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="301"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Subprocess entry point: drive scipy&#39;s COBYQA via pipe-based f(x).&quot;&quot;&quot;</span>
-</span><span data-line="302">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
-</span><span data-line="303">
-</span><span data-line="304">        <span class="n">f</span> <span class="o">=</span> <span class="n">_make_pipe_objective</span><span class="p">(</span><span class="n">pipe</span><span class="p">)</span>
-</span><span data-line="305">        <span class="n">options</span> <span class="o">=</span> <span class="n">_build_cobyqa_options</span><span class="p">(</span><span class="n">initial_tr_radius</span><span class="p">,</span> <span class="n">final_tr_radius</span><span class="p">,</span> <span class="n">maxfev</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
-</span><span data-line="306">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="307">            <span class="n">solution</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
-</span><span data-line="308">        <span class="k">except</span> <span class="ne">SystemExit</span><span class="p">:</span>
-</span><span data-line="309">            <span class="k">return</span>
-</span><span data-line="310">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="311">            <span class="n">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)})</span>
-</span><span data-line="312">            <span class="k">return</span>
-</span><span data-line="313">        <span class="n">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">solution</span><span class="p">)</span></div>
+</span><span data-line="289">    <span class="nd">@staticmethod</span>
+</span><span data-line="290">    <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span>
+</span><span data-line="291">        <span class="n">pipe</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="292">        <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="293">        <span class="n">x0</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+</span><span data-line="294">        <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+</span><span data-line="295">        <span class="n">initial_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="296">        <span class="n">final_tr_radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span data-line="297">        <span class="n">maxfev</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="298">        <span class="n">scale</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+</span><span data-line="299">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="300"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Subprocess entry point: drive scipy&#39;s COBYQA via pipe-based f(x).&quot;&quot;&quot;</span>
+</span><span data-line="301">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
+</span><span data-line="302">
+</span><span data-line="303">        <span class="n">f</span> <span class="o">=</span> <span class="n">_make_pipe_objective</span><span class="p">(</span><span class="n">pipe</span><span class="p">)</span>
+</span><span data-line="304">        <span class="n">options</span> <span class="o">=</span> <span class="n">_build_cobyqa_options</span><span class="p">(</span><span class="n">initial_tr_radius</span><span class="p">,</span> <span class="n">final_tr_radius</span><span class="p">,</span> <span class="n">maxfev</span><span class="p">,</span> <span class="n">scale</span><span class="p">)</span>
+</span><span data-line="305">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="306">            <span class="n">solution</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;COBYQA&quot;</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+</span><span data-line="307">        <span class="k">except</span> <span class="ne">SystemExit</span><span class="p">:</span>
+</span><span data-line="308">            <span class="k">return</span>
+</span><span data-line="309">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="310">            <span class="n">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)})</span>
+</span><span data-line="311">            <span class="k">return</span>
+</span><span data-line="312">        <span class="n">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="n">solution</span><span class="p">)</span></div>
 
-</span><span data-line="314">
+</span><span data-line="313">
 <div class="viewcode-block" id="COBYQA.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.COBYQA.on_start">[docs]</a>
-</span><span data-line="315">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="316"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Start the pipe pump: x → emit → wait for fx → pipe.send.</span>
-</span><span data-line="317">
-</span><span data-line="318"><span class="sd">        The pipe pump runs on its own daemon thread (appended to</span>
-</span><span data-line="319"><span class="sd">        ``self._threads``) so the event bus, which delivers handlers serially,</span>
-</span><span data-line="320"><span class="sd">        is never blocked by it.  Emissions from a subprocess bridge are</span>
-</span><span data-line="321"><span class="sd">        inherently timing-dependent; such heuristics are excluded from the</span>
-</span><span data-line="322"><span class="sd">        reproducible synchronous mode&#39;s guarantees.</span>
-</span><span data-line="323"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="324">        <span class="n">t</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pump</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-pump&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="325">        <span class="bp">self</span><span class="o">.</span><span class="n">_threads</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
-</span><span data-line="326">        <span class="n">t</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+</span><span data-line="314">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="315"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Start the pipe pump: x → emit → wait for fx → pipe.send.</span>
+</span><span data-line="316">
+</span><span data-line="317"><span class="sd">        The pipe pump runs on its own daemon thread (appended to</span>
+</span><span data-line="318"><span class="sd">        ``self._threads``) so the event bus, which delivers handlers serially,</span>
+</span><span data-line="319"><span class="sd">        is never blocked by it.  Emissions from a subprocess bridge are</span>
+</span><span data-line="320"><span class="sd">        inherently timing-dependent; such heuristics are excluded from the</span>
+</span><span data-line="321"><span class="sd">        reproducible synchronous mode&#39;s guarantees.</span>
+</span><span data-line="322"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="323">        <span class="bp">self</span><span class="o">.</span><span class="n">spawn_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pump</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">-pump&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
 
-</span><span data-line="327">
-</span><span data-line="328">    <span class="k">def</span><span class="w"> </span><span class="nf">_pump</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="329">        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="330">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="331">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
-</span><span data-line="332">                    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="333">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
-</span><span data-line="334">                <span class="c1"># Check for input with a short timeout so we still notice</span>
-</span><span data-line="335">                <span class="c1"># the stop flag promptly.</span>
-</span><span data-line="336">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">0.1</span><span class="p">):</span>
-</span><span data-line="337">                    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="338">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="339">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="324">
+</span><span data-line="325">    <span class="k">def</span><span class="w"> </span><span class="nf">_pump</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="326">        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="327">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="328">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+</span><span data-line="329">                    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="330">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+</span><span data-line="331">                <span class="c1"># Check for input with a short timeout so we still notice</span>
+</span><span data-line="332">                <span class="c1"># the stop flag promptly.</span>
+</span><span data-line="333">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">0.1</span><span class="p">):</span>
+</span><span data-line="334">                    <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="335">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="336">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="337">                <span class="k">break</span>
+</span><span data-line="338">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="339">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in COBYQA loop: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span data-line="340">                <span class="k">break</span>
-</span><span data-line="341">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="342">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in COBYQA loop: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="343">                <span class="k">break</span>
-</span><span data-line="344">
-</span><span data-line="345">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="346">        <span class="nb">super</span><span class="p">(</span><span class="n">COBYQA</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
-</span><span data-line="347">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="348">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
-</span><span data-line="349">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="350">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="351">                <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-</span><span data-line="352">
+</span><span data-line="341">
+</span><span data-line="342">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="343">        <span class="nb">super</span><span class="p">(</span><span class="n">COBYQA</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
+</span><span data-line="344">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="345">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+</span><span data-line="346">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="347">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="348">                <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="349">
 <div class="viewcode-block" id="COBYQA.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.COBYQA.on_new_results">[docs]</a>
-</span><span data-line="353">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="354">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="355">            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
-</span><span data-line="356">                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="357">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></div>
+</span><span data-line="350">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="351">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="352">            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+</span><span data-line="353">                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="354">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></div>
 
-</span><span data-line="358">
+</span><span data-line="355">
 <div class="viewcode-block" id="COBYQA.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.COBYQA.on_restart">[docs]</a>
-</span><span data-line="359">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="360"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Tear down and restart the subprocess around ``center``.</span>
-</span><span data-line="361">
-</span><span data-line="362"><span class="sd">        COBYQA&#39;s interpolation set is built from scratch on construction;</span>
-</span><span data-line="363"><span class="sd">        the cleanest restart strategy is to terminate the subprocess and</span>
-</span><span data-line="364"><span class="sd">        start a fresh one with ``center`` (when provided) as the new</span>
-</span><span data-line="365"><span class="sd">        starting point.  When ``center`` is ``None`` we fall back to the</span>
-</span><span data-line="366"><span class="sd">        box centre, matching :meth:`__start__`.</span>
-</span><span data-line="367"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="368">        <span class="c1"># Tear down the current subprocess.</span>
-</span><span data-line="369">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="370">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="371">                <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
-</span><span data-line="372">                <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="373">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="374">                    <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-</span><span data-line="375">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="376">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: subprocess teardown on restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="377">
-</span><span data-line="378">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="356">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="357"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Tear down and restart the subprocess around ``center``.</span>
+</span><span data-line="358">
+</span><span data-line="359"><span class="sd">        COBYQA&#39;s interpolation set is built from scratch on construction;</span>
+</span><span data-line="360"><span class="sd">        the cleanest restart strategy is to terminate the subprocess and</span>
+</span><span data-line="361"><span class="sd">        start a fresh one with ``center`` (when provided) as the new</span>
+</span><span data-line="362"><span class="sd">        starting point.  When ``center`` is ``None`` we fall back to the</span>
+</span><span data-line="363"><span class="sd">        box centre, matching :meth:`__start__`.</span>
+</span><span data-line="364"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="365">        <span class="c1"># Tear down the current subprocess.</span>
+</span><span data-line="366">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="367">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="368">                <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+</span><span data-line="369">                <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="370">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="371">                    <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="372">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="373">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: subprocess teardown on restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="374">
+</span><span data-line="375">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="376">
+</span><span data-line="377">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="378">            <span class="k">return</span>
 </span><span data-line="379">
-</span><span data-line="380">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="381">            <span class="k">return</span>
-</span><span data-line="382">
-</span><span data-line="383">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="384">            <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">&quot;spawn&quot;</span><span class="p">)</span>
-</span><span data-line="385">            <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
-</span><span data-line="386">            <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-</span><span data-line="387">
-</span><span data-line="388">            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
-</span><span data-line="389">            <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="390">                <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">low</span> <span class="o">+</span> <span class="n">high</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="391">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="392">                <span class="c1"># Clip the suggested center into the box — the strategy</span>
-</span><span data-line="393">                <span class="c1"># may emit a center sitting on the boundary, and COBYQA</span>
-</span><span data-line="394">                <span class="c1"># tolerates equality but not strict violation.</span>
-</span><span data-line="395">                <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="396">                <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="397">                <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="398">                <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
-</span><span data-line="399">
-</span><span data-line="400">            <span class="n">initial_tr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_initial_tr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
-</span><span data-line="401">
-</span><span data-line="402">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
-</span><span data-line="403">                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span>
-</span><span data-line="404">                <span class="n">args</span><span class="o">=</span><span class="p">(</span>
-</span><span data-line="405">                    <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">,</span>
-</span><span data-line="406">                    <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">,</span>
-</span><span data-line="407">                    <span class="n">x0</span><span class="p">,</span>
-</span><span data-line="408">                    <span class="n">bounds</span><span class="p">,</span>
-</span><span data-line="409">                    <span class="n">initial_tr</span><span class="p">,</span>
-</span><span data-line="410">                    <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">,</span>
-</span><span data-line="411">                    <span class="bp">self</span><span class="o">.</span><span class="n">maxfev</span><span class="p">,</span>
-</span><span data-line="412">                    <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
-</span><span data-line="413">                <span class="p">),</span>
-</span><span data-line="414">                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-COBYQA&quot;</span><span class="p">,</span>
-</span><span data-line="415">            <span class="p">)</span>
-</span><span data-line="416">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="417">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span data-line="418">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="419">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: subprocess restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</span><span data-line="380">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="381">            <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">&quot;spawn&quot;</span><span class="p">)</span>
+</span><span data-line="382">            <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
+</span><span data-line="383">            <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="384">
+</span><span data-line="385">            <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
+</span><span data-line="386">            <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="387">                <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">low</span> <span class="o">+</span> <span class="n">high</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="388">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="389">                <span class="c1"># Clip the suggested center into the box — the strategy</span>
+</span><span data-line="390">                <span class="c1"># may emit a center sitting on the boundary, and COBYQA</span>
+</span><span data-line="391">                <span class="c1"># tolerates equality but not strict violation.</span>
+</span><span data-line="392">                <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="393">                <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="394">                <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="395">                <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="396">
+</span><span data-line="397">            <span class="n">initial_tr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_initial_tr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="398">
+</span><span data-line="399">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+</span><span data-line="400">                <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span>
+</span><span data-line="401">                <span class="n">args</span><span class="o">=</span><span class="p">(</span>
+</span><span data-line="402">                    <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">,</span>
+</span><span data-line="403">                    <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">,</span>
+</span><span data-line="404">                    <span class="n">x0</span><span class="p">,</span>
+</span><span data-line="405">                    <span class="n">bounds</span><span class="p">,</span>
+</span><span data-line="406">                    <span class="n">initial_tr</span><span class="p">,</span>
+</span><span data-line="407">                    <span class="bp">self</span><span class="o">.</span><span class="n">final_tr_radius</span><span class="p">,</span>
+</span><span data-line="408">                    <span class="bp">self</span><span class="o">.</span><span class="n">maxfev</span><span class="p">,</span>
+</span><span data-line="409">                    <span class="bp">self</span><span class="o">.</span><span class="n">scale</span><span class="p">,</span>
+</span><span data-line="410">                <span class="p">),</span>
+</span><span data-line="411">                <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-COBYQA&quot;</span><span class="p">,</span>
+</span><span data-line="412">            <span class="p">)</span>
+</span><span data-line="413">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="414">            <span class="bp">self</span><span class="o">.</span><span class="n">cobyqa</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="415">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="416">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;COBYQA: subprocess restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

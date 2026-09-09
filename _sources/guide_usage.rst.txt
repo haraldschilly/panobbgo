@@ -733,7 +733,113 @@ A good portfolio balances exploration and exploitation:
 Recommended Configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Start here: one strong optimizer
+................................
+
+.. important::
+
+   **Every evaluation you give one heuristic is an evaluation another one
+   does not get.**  Population methods (CMA-ES, the L-SHADE/DE family,
+   PSO) need a whole budget to run their population dynamics; splitting
+   the budget across a portfolio starves them.  This is not a small
+   effect — on the MA-BBOB battery a six-arm portfolio scored *below
+   every one of its own arms run alone* (see the table below).
+
+   Begin with a single population method and add arms only when a paired
+   A/B on your own problem shows they earn their evaluations.
+
+.. code-block:: python
+
+   from panobbgo.heuristics import CMAES
+   from panobbgo.strategies import StrategyRoundRobin
+
+   strategy = StrategyRoundRobin(problem, max_evaluations=1000, seed=42)
+   strategy.add(CMAES)          # self-adapting covariance, IPOP restarts
+   strategy.start()
+
+Measured on the MA-BBOB battery (mean AOCC, dims 2 and 5, budget 500·d,
+5 instances, seeds 42 / 7 / 1234, ``sync_evaluation=True``):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 45 18 18 18
+
+   * - Setup
+     - mean AOCC
+     - d=2
+     - d=5
+   * - ``CMAES`` alone
+     - **0.580**
+     - 0.623
+     - 0.538
+   * - ``NLSHADE_LBC`` alone
+     - 0.537
+     - 0.633
+     - 0.441
+   * - ``JSO`` alone
+     - 0.459
+     - 0.553
+     - 0.364
+   * - ``PSO`` alone
+     - 0.424
+     - 0.481
+     - 0.367
+   * - ``LSHADE`` alone
+     - 0.417
+     - 0.501
+     - 0.333
+   * - scipy ``differential_evolution`` (reference)
+     - 0.416
+     - 0.500
+     - 0.331
+   * - six-arm portfolio (Random + Center + Nearby + NelderMead + JSO + NLSHADE_LBC)
+     - 0.352
+     - 0.405
+     - 0.300
+   * - ``Random`` alone
+     - 0.319
+     - 0.365
+     - 0.272
+
+The ordering holds at every budget from 25 to 500 evaluations per
+dimension; the margin grows with budget.  Higher AOCC is better; see
+:doc:`guide_benchmarking` for the metric.
+
+The same ordering holds at higher dimension (MA-BBOB, budget 100·d,
+instances 0–2, seeds 42 / 7 / 1234):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 12 25 22 22 22
+
+   * - dim
+     - six-arm portfolio
+     - ``CMAES`` alone
+     - ``NLSHADE_LBC`` alone
+     - scipy DE
+   * - 10
+     - 0.181
+     - **0.301**
+     - 0.192
+     - 0.162
+   * - 20
+     - 0.102
+     - **0.198**
+     - 0.162
+     - 0.080
+
+.. note::
+
+   These numbers are for continuous, box-constrained problems from the
+   MA-BBOB generator at dims 2, 5, 10 and 20.  For *constrained*
+   problems, noisy objectives, or a different problem class, re-measure
+   with the harness before trusting any ranking — including this one.
+
 **Bayesian optimization (≤ 500 evals, smooth/expensive function):**
+
+The configurations below have *not* been measured against the
+single-optimizer default above.  Treat them as starting points to
+benchmark, not as recommendations.
 
 The gold standard for expensive black-box optimization.  The GP surrogate models the
 objective; Expected Improvement (EI) acquisition balances exploration and exploitation.
@@ -830,8 +936,18 @@ competition-winning solvers on the BBOB/COCO benchmark suite.  When stagnation i
 the population doubles (λ → 2λ) and the search restarts from a diverse new center, enabling
 systematic escape from local optima while the full result history is retained.
 
-Pair :class:`~panobbgo.heuristics.cma_es.CMAES` with the
-:class:`~panobbgo.analyzers.restart.Restart` analyzer:
+.. warning::
+
+   :class:`~panobbgo.heuristics.cma_es.CMAES` already implements IPOP and
+   BIPOP restarts internally (``restart_mode``), and it keeps its adapted
+   covariance across them.  Adding the external
+   :class:`~panobbgo.analyzers.restart.Restart` analyzer on top *halved*
+   its score on the MA-BBOB battery (0.663 → 0.301 mean AOCC, d2+d5,
+   seed 42): the analyzer's restart event discards what the search has
+   learned.  Prefer ``CMAES(restart_mode="ipop")`` on its own and measure
+   before adding the analyzer.
+
+For reference, the combination looks like this:
 
 .. code-block:: python
 
@@ -1189,8 +1305,10 @@ make a run a pure function of that seed:
 
 Two such runs evaluate exactly the same points in the same order.  Every
 module derives its own :class:`numpy.random.Generator` from the master seed
-(``self.rng``), the event bus delivers events serially and the main loop
-waits for all handlers before drawing new points.  Without ``seed`` the
+(``self.rng``), the event bus delivers events serially, the main loop
+waits for all handlers before drawing new points, and each batch is
+evaluated sequentially in submission order (a thread pool would return
+results in completion order).  Without ``seed`` the
 strategy draws one from numpy's global state, so ``np.random.seed(s)``
 before construction also pins the run; ``strategy.seed`` reports which seed
 was used.  Heuristics that bridge a subprocess solver (``LBFGSB``, ``COBYQA``,
@@ -1199,6 +1317,13 @@ guarantee.
 
 Budget Management
 ~~~~~~~~~~~~~~~~~
+
+A run always spends its full ``max_eval`` budget.  The
+:class:`~panobbgo.analyzers.Convergence` analyzer publishes a ``converged``
+event when the best value plateaus, but that event only ends the run if you
+opt in with ``strategy.config.stop_on_convergence = True`` (the plateau test
+fires routinely on multimodal problems, so stopping on it is not a safe
+default for global optimization).
 
 .. code-block:: python
 

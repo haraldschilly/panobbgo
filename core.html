@@ -121,7 +121,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.clear_output"><code class="docutils literal notranslate">clear_output()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.emit"><code class="docutils literal notranslate">emit()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.ensure_output_capacity"><code class="docutils literal notranslate">ensure_output_capacity()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.fill_queue"><code class="docutils literal notranslate">fill_queue()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.get_points"><code class="docutils literal notranslate">get_points()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.has_points"><code class="docutils literal notranslate">has_points</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.new_who"><code class="docutils literal notranslate">new_who()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.performance"><code class="docutils literal notranslate">performance</span></code></a></li>
 </ul>
 </li>
@@ -131,11 +134,14 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.core.Module.check_dependencies"><code class="docutils literal notranslate">check_dependencies()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Module.derive_rng"><code class="docutils literal notranslate">derive_rng()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Module.derive_seed"><code class="docutils literal notranslate">derive_seed()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.eventbus"><code class="docutils literal notranslate">eventbus</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.name"><code class="docutils literal notranslate">name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.problem"><code class="docutils literal notranslate">problem</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.results"><code class="docutils literal notranslate">results</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.rng"><code class="docutils literal notranslate">rng</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Module.spawn_thread"><code class="docutils literal notranslate">spawn_thread()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.strategy"><code class="docutils literal notranslate">strategy</span></code></a></li>
 </ul>
 </li>
@@ -462,6 +468,8 @@ Args:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">points</span></code>: Either a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a> of <code class="docutils literal notranslate"><span class="pre">float64</span></code> or preferrably a list of them.</p></li>
 </ul>
+<p>Raises <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> for anything that is not an ndarray — a wrong
+return type is a bug in the heuristic, not something to skip quietly.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -476,6 +484,16 @@ that will never arrive.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.fill_queue">
+<span class="sig-name descname"><span class="pre">fill_queue</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">draw</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.fill_queue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.fill_queue" title="Link to this definition">¶</a></dt>
+<dd><p>Top the output queue up to <a class="reference internal" href="#panobbgo.core.Heuristic.cap" title="panobbgo.core.Heuristic.cap"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cap</span></code></a> with points from <code class="docutils literal notranslate"><span class="pre">draw</span></code>.</p>
+<p>The refill contract of every <em>reactive</em> heuristic: fill on <code class="docutils literal notranslate"><span class="pre">start</span></code>
+(or whatever event defines its search region) and top up on each
+result batch, so the strategy always finds points without the
+heuristic having to poll.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.get_points">
 <span class="sig-name descname"><span class="pre">get_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Point" title="panobbgo.lib.lib.Point"><span class="pre">Point</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.get_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.get_points" title="Link to this definition">¶</a></dt>
 <dd><p>this drains the output Queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code>
@@ -483,6 +501,25 @@ elements are removed or the Queue is empty.
 For each actually emitted point,
 the performance value is discounted (i.e. “punishment” or “energy
 consumption”)</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.has_points">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">has_points</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.has_points" title="Link to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff this heuristic can hand out a point right now.</p>
+<p>Selection strategies use this to skip heuristics that would
+return an empty list, so the probability mass they would have
+received is not wasted.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.new_who">
+<span class="sig-name descname"><span class="pre">new_who</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rng</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.new_who"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.new_who" title="Link to this definition">¶</a></dt>
+<dd><p>A <code class="docutils literal notranslate"><span class="pre">who</span></code> tag carrying a unique request id: <code class="docutils literal notranslate"><span class="pre">&quot;&lt;name&gt;:&lt;hex&gt;&quot;</span></code>.</p>
+<p>Heuristics that must match a result back to the trial that produced
+it (the DE family, PSO) tag each point this way.  The id is drawn
+from the module’s own generator, so it is part of the reproducible
+stream.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -543,6 +580,21 @@ a problem.</p>
 and heuristics.</p>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Module.derive_rng">
+<span class="sig-name descname"><span class="pre">derive_rng</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Module.derive_rng"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Module.derive_rng" title="Link to this definition">¶</a></dt>
+<dd><p>Generator for a sub-component: <code class="docutils literal notranslate"><span class="pre">seed</span></code> if given, else this module’s own.</p>
+<p>Heuristics that expose a <code class="docutils literal notranslate"><span class="pre">seed</span></code> argument use this so an explicit
+seed pins that component while <code class="docutils literal notranslate"><span class="pre">None</span></code> keeps it inside the
+strategy’s reproducible stream.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Module.derive_seed">
+<span class="sig-name descname"><span class="pre">derive_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Module.derive_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Module.derive_seed" title="Link to this definition">¶</a></dt>
+<dd><p>Integer seed for a component that needs one (e.g. <code class="docutils literal notranslate"><span class="pre">scipy.stats.qmc</span></code>).</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.eventbus">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">eventbus</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><span class="pre">EventBus</span></a></span><a class="headerlink" href="#panobbgo.core.Module.eventbus" title="Link to this definition">¶</a></dt>
@@ -572,7 +624,20 @@ parameterized heuristics or analyzers!</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.Module.rng">
 <span class="sig-name descname"><span class="pre">rng</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span><a class="headerlink" href="#panobbgo.core.Module.rng" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Per-module random generator, seeded deterministically from the
+strategy’s master seed (see <a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase.spawn_rng()</span></code></a>).
+Modules must draw randomness from here, never from the global
+<code class="docutils literal notranslate"><span class="pre">np.random</span></code> state.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Module.spawn_thread">
+<span class="sig-name descname"><span class="pre">spawn_thread</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Thread" title="(in Python v3.14)"><span class="pre">Thread</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Module.spawn_thread"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Module.spawn_thread" title="Link to this definition">¶</a></dt>
+<dd><p>Run <code class="docutils literal notranslate"><span class="pre">target</span></code> on a daemon thread owned by this module.</p>
+<p>The event bus delivers handlers serially, so anything that blocks —
+a pipe pump bridging a subprocess solver, say — must not run inside
+a handler.  Threads registered here are joined by <code class="xref py py-meth docutils literal notranslate"><span class="pre">__stop__()</span></code>.</p>
+</dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.strategy">

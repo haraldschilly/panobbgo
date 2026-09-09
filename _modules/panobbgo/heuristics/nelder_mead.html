@@ -323,56 +323,54 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="174">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
 
 </span><span data-line="175">
-</span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">_refresh_base</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">_refresh_base</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="177"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Derive ``worst`` / ``centroid`` from the current best box.</span>
 </span><span data-line="178">
 </span><span data-line="179"><span class="sd">        Walks up the box hierarchy until :meth:`gram_schmidt` finds enough</span>
-</span><span data-line="180"><span class="sd">        linearly independent results.  Returns ``True`` when a base exists.</span>
-</span><span data-line="181"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="182">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="183">        <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
-</span><span data-line="184">        <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="185">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">bb</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="186">            <span class="k">if</span> <span class="n">base</span><span class="p">:</span>
-</span><span data-line="187">                <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-</span><span data-line="188">                <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="189">            <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
-</span><span data-line="190">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="191">        <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="180"><span class="sd">        linearly independent results; leaves ``_worst`` / ``_centroid`` as</span>
+</span><span data-line="181"><span class="sd">        ``None`` when there are not enough.</span>
+</span><span data-line="182"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="183">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="184">        <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
+</span><span data-line="185">        <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="186">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gram_schmidt</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">bb</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="187">            <span class="k">if</span> <span class="n">base</span><span class="p">:</span>
+</span><span data-line="188">                <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+</span><span data-line="189">                <span class="k">return</span>
+</span><span data-line="190">            <span class="n">bb</span> <span class="o">=</span> <span class="n">bb</span><span class="o">.</span><span class="n">parent</span>
+</span><span data-line="191">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="192">
 </span><span data-line="193">    <span class="k">def</span><span class="w"> </span><span class="nf">_fill</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="194"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Top the output queue up with samples from the current base.&quot;&quot;&quot;</span>
 </span><span data-line="195">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="196">            <span class="k">return</span>
-</span><span data-line="197">        <span class="n">free</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cap</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span>
-</span><span data-line="198">        <span class="k">if</span> <span class="n">free</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="199">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_worst</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">free</span><span class="p">)])</span>
-</span><span data-line="200">
+</span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_worst</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span><span class="p">))</span>
+</span><span data-line="198">
 <div class="viewcode-block" id="NelderMead.on_new_best_box">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_best_box">[docs]</a>
-</span><span data-line="201">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
-</span><span data-line="202"><span class="w">        </span><span class="sd">&quot;&quot;&quot;A new best box (from the :class:`~.analyzers.Splitter`) resets the</span>
-</span><span data-line="203"><span class="sd">        search direction: the queue is flushed and refilled from the new base.&quot;&quot;&quot;</span>
-</span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
-</span><span data-line="205">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="206">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_base</span><span class="p">():</span>
-</span><span data-line="207">            <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
+</span><span data-line="199">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
+</span><span data-line="200"><span class="w">        </span><span class="sd">&quot;&quot;&quot;A new best box (from the :class:`~.analyzers.Splitter`) resets the</span>
+</span><span data-line="201"><span class="sd">        search direction: the queue is flushed and refilled from the new base.&quot;&quot;&quot;</span>
+</span><span data-line="202">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
+</span><span data-line="203">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_base</span><span class="p">()</span>
+</span><span data-line="205">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
 
-</span><span data-line="208">
+</span><span data-line="206">
 <div class="viewcode-block" id="NelderMead.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_results">[docs]</a>
-</span><span data-line="209">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="210"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the queue topped up; the base only changes with the best box.&quot;&quot;&quot;</span>
-</span><span data-line="211">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
+</span><span data-line="207">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="208"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the queue topped up; the base only changes with the best box.&quot;&quot;&quot;</span>
+</span><span data-line="209">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
 
-</span><span data-line="212">
+</span><span data-line="210">
 <div class="viewcode-block" id="NelderMead.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_restart">[docs]</a>
-</span><span data-line="213">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="214"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Flush points and pause until a new best box is found.&quot;&quot;&quot;</span>
-</span><span data-line="215">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="216">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span></div>
+</span><span data-line="211">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="212"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Flush points and pause until a new best box is found.&quot;&quot;&quot;</span>
+</span><span data-line="213">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="214">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="215">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span></div>
 </div>
 
 </span></pre></div>

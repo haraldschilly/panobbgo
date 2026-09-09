@@ -128,7 +128,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#choosing-heuristics">Choosing Heuristics</a><ul>
 <li><a class="reference internal" href="#heuristic-portfolio">Heuristic Portfolio</a></li>
-<li><a class="reference internal" href="#recommended-configurations">Recommended Configurations</a></li>
+<li><a class="reference internal" href="#recommended-configurations">Recommended Configurations</a><ul>
+<li><a class="reference internal" href="#start-here-one-strong-optimizer">Start here: one strong optimizer</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#choosing-a-strategy">Choosing a Strategy</a><ul>
@@ -898,7 +901,137 @@ optimization initial designs (lower discrepancy than LHS)</p></td>
 </section>
 <section id="recommended-configurations">
 <h3>Recommended Configurations<a class="headerlink" href="#recommended-configurations" title="Link to this heading">¶</a></h3>
+<section id="start-here-one-strong-optimizer">
+<h4>Start here: one strong optimizer<a class="headerlink" href="#start-here-one-strong-optimizer" title="Link to this heading">¶</a></h4>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>Every evaluation you give one heuristic is an evaluation another one
+does not get.</strong>  Population methods (CMA-ES, the L-SHADE/DE family,
+PSO) need a whole budget to run their population dynamics; splitting
+the budget across a portfolio starves them.  This is not a small
+effect — on the MA-BBOB battery a six-arm portfolio scored <em>below
+every one of its own arms run alone</em> (see the table below).</p>
+<p>Begin with a single population method and add arms only when a paired
+A/B on your own problem shows they earn their evaluations.</p>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMAES</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRoundRobin</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRoundRobin</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">)</span>          <span class="c1"># self-adapting covariance, IPOP restarts</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>Measured on the MA-BBOB battery (mean AOCC, dims 2 and 5, budget 500·d,
+5 instances, seeds 42 / 7 / 1234, <code class="docutils literal notranslate"><span class="pre">sync_evaluation=True</span></code>):</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 45.5%" />
+<col style="width: 18.2%" />
+<col style="width: 18.2%" />
+<col style="width: 18.2%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Setup</p></th>
+<th class="head"><p>mean AOCC</p></th>
+<th class="head"><p>d=2</p></th>
+<th class="head"><p>d=5</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CMAES</span></code> alone</p></td>
+<td><p><strong>0.580</strong></p></td>
+<td><p>0.623</p></td>
+<td><p>0.538</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code> alone</p></td>
+<td><p>0.537</p></td>
+<td><p>0.633</p></td>
+<td><p>0.441</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">JSO</span></code> alone</p></td>
+<td><p>0.459</p></td>
+<td><p>0.553</p></td>
+<td><p>0.364</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PSO</span></code> alone</p></td>
+<td><p>0.424</p></td>
+<td><p>0.481</p></td>
+<td><p>0.367</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LSHADE</span></code> alone</p></td>
+<td><p>0.417</p></td>
+<td><p>0.501</p></td>
+<td><p>0.333</p></td>
+</tr>
+<tr class="row-odd"><td><p>scipy <code class="docutils literal notranslate"><span class="pre">differential_evolution</span></code> (reference)</p></td>
+<td><p>0.416</p></td>
+<td><p>0.500</p></td>
+<td><p>0.331</p></td>
+</tr>
+<tr class="row-even"><td><p>six-arm portfolio (Random + Center + Nearby + NelderMead + JSO + NLSHADE_LBC)</p></td>
+<td><p>0.352</p></td>
+<td><p>0.405</p></td>
+<td><p>0.300</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Random</span></code> alone</p></td>
+<td><p>0.319</p></td>
+<td><p>0.365</p></td>
+<td><p>0.272</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The ordering holds at every budget from 25 to 500 evaluations per
+dimension; the margin grows with budget.  Higher AOCC is better; see
+<a class="reference internal" href="guide_benchmarking.html"><span class="doc">Benchmarking and the Composite Score</span></a> for the metric.</p>
+<p>The same ordering holds at higher dimension (MA-BBOB, budget 100·d,
+instances 0–2, seeds 42 / 7 / 1234):</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 11.7%" />
+<col style="width: 24.3%" />
+<col style="width: 21.4%" />
+<col style="width: 21.4%" />
+<col style="width: 21.4%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>dim</p></th>
+<th class="head"><p>six-arm portfolio</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">CMAES</span></code> alone</p></th>
+<th class="head"><p><code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code> alone</p></th>
+<th class="head"><p>scipy DE</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>10</p></td>
+<td><p>0.181</p></td>
+<td><p><strong>0.301</strong></p></td>
+<td><p>0.192</p></td>
+<td><p>0.162</p></td>
+</tr>
+<tr class="row-odd"><td><p>20</p></td>
+<td><p>0.102</p></td>
+<td><p><strong>0.198</strong></p></td>
+<td><p>0.162</p></td>
+<td><p>0.080</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These numbers are for continuous, box-constrained problems from the
+MA-BBOB generator at dims 2, 5, 10 and 20.  For <em>constrained</em>
+problems, noisy objectives, or a different problem class, re-measure
+with the harness before trusting any ranking — including this one.</p>
+</div>
 <p><strong>Bayesian optimization (≤ 500 evals, smooth/expensive function):</strong></p>
+<p>The configurations below have <em>not</em> been measured against the
+single-optimizer default above.  Treat them as starting points to
+benchmark, not as recommendations.</p>
 <p>The gold standard for expensive black-box optimization.  The GP surrogate models the
 objective; Expected Improvement (EI) acquisition balances exploration and exploitation.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">NelderMead</span><span class="p">,</span> <span class="n">Random</span>
@@ -977,8 +1110,18 @@ or rotated search spaces.</p>
 competition-winning solvers on the BBOB/COCO benchmark suite.  When stagnation is detected
 the population doubles (λ → 2λ) and the search restarts from a diverse new center, enabling
 systematic escape from local optima while the full result history is retained.</p>
-<p>Pair <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> with the
-<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer:</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> already implements IPOP and
+BIPOP restarts internally (<code class="docutils literal notranslate"><span class="pre">restart_mode</span></code>), and it keeps its adapted
+covariance across them.  Adding the external
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer on top <em>halved</em>
+its score on the MA-BBOB battery (0.663 → 0.301 mean AOCC, d2+d5,
+seed 42): the analyzer’s restart event discards what the search has
+learned.  Prefer <code class="docutils literal notranslate"><span class="pre">CMAES(restart_mode=&quot;ipop&quot;)</span></code> on its own and measure
+before adding the analyzer.</p>
+</div>
+<p>For reference, the combination looks like this:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMAES</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">NelderMead</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Restart</span>
 </span><span data-line="3">
@@ -1057,6 +1200,7 @@ larger evaluation budget (≥ 200 evals).</p></li>
 </span><span data-line="5"><span class="c1"># Avoid gradient-based methods (LBFGSB)</span>
 </span></pre></div>
 </div>
+</section>
 </section>
 </section>
 <section id="choosing-a-strategy">
@@ -1312,8 +1456,10 @@ make a run a pure function of that seed:</p>
 </div>
 <p>Two such runs evaluate exactly the same points in the same order.  Every
 module derives its own <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a> from the master seed
-(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>), the event bus delivers events serially and the main loop
-waits for all handlers before drawing new points.  Without <code class="docutils literal notranslate"><span class="pre">seed</span></code> the
+(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>), the event bus delivers events serially, the main loop
+waits for all handlers before drawing new points, and each batch is
+evaluated sequentially in submission order (a thread pool would return
+results in completion order).  Without <code class="docutils literal notranslate"><span class="pre">seed</span></code> the
 strategy draws one from numpy’s global state, so <code class="docutils literal notranslate"><span class="pre">np.random.seed(s)</span></code>
 before construction also pins the run; <code class="docutils literal notranslate"><span class="pre">strategy.seed</span></code> reports which seed
 was used.  Heuristics that bridge a subprocess solver (<code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>,
@@ -1322,6 +1468,12 @@ guarantee.</p>
 </section>
 <section id="budget-management">
 <h3>Budget Management<a class="headerlink" href="#budget-management" title="Link to this heading">¶</a></h3>
+<p>A run always spends its full <code class="docutils literal notranslate"><span class="pre">max_eval</span></code> budget.  The
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Convergence" title="panobbgo.analyzers.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> analyzer publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code>
+event when the best value plateaus, but that event only ends the run if you
+opt in with <code class="docutils literal notranslate"><span class="pre">strategy.config.stop_on_convergence</span> <span class="pre">=</span> <span class="pre">True</span></code> (the plateau test
+fires routinely on multimodal problems, so stopping on it is not a safe
+default for global optimization).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Set evaluation budget</span>
 </span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
 </span><span data-line="3">

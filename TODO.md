@@ -90,10 +90,26 @@ Open follow-ups (measured, not yet done):
       `StrategyThompsonSampling` and round-robin on the same arm set,
       standard battery, 12 seeds → EMA credit wins (#313). UCB is flat,
       Thompson is between.
-- [ ] **Close the gap to `Baseline_SciPyDE`** — the standing goal. Standard
-      battery, seed 42: SciPyDE 0.5065 (d2) / 0.3437 (d5) vs the flagship
-      0.4555 / 0.3011. Sweep `explore`, the EMA smoothing, and the arm set
-      now that credit assignment measures arms honestly.
+- [x] **Closed the gap to `Baseline_SciPyDE` — and then some (#316).** Every
+      arm of the flagship beats the flagship when run alone. CMA-ES alone
+      scores 0.580 vs the portfolio's 0.352 and SciPyDE's 0.416 (standard
+      battery, 3 seeds); paired per seed **+0.2847 [+0.2772, +0.2921]**.
+      The competition candidate is now `RoundRobin_CMAES`.
+      Holds at every budget from 50 to 1000 evaluations at d2 (8 seeds).
+      The `Restart` analyzer halves CMA-ES (0.663 → 0.301) — the user
+      guide recommended that pairing and now warns against it.
+- [ ] **Does a portfolio ever pay?** (GOAL §5.8) Test multimodal, noisy,
+      constrained and higher-dimensional regimes with the plain-BBOB suite
+      and the composite battery's constrained problems. If a mix does win
+      somewhere, the strategy layer must allocate the budget in *blocks*
+      (`StrategyPhased`) rather than interleaving points — interleaved
+      credit assignment cannot fix starvation.
+- [ ] **Re-examine the composite registry.** All three of its CMA-ES specs
+      (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are portfolios that
+      also pair CMA-ES with the Restart analyzer. Untouched here because
+      the composite score is a frozen contract; needs Harald's call.
+- [ ] **Sweep CMA-ES's own knobs** (`sigma0`, `popsize`, `restart_mode`)
+      now that it is the default — script ready at `cmaes_knobs.py`.
 - [ ] Decide the problem battery: MA-BBOB (have), plain BBOB via `ioh`,
       own `lib/classic` battery; dims 2/5/10; budgets 200·d … 2000·d.
 - [ ] Re-enable the nightly only after the instrument is repaired.

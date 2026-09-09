@@ -49,7 +49,7 @@ def be_nice(niceness: int = DEFAULT_NICENESS) -> int:
         if current < niceness:
             return os.nice(niceness - current)
         return current
-    except AttributeError, OSError:  # not POSIX, or not permitted
+    except (AttributeError, OSError):  # not POSIX, or not permitted
         return 0
 
 
@@ -60,7 +60,7 @@ def available_memory_gb() -> Optional[float]:
             for line in fh:
                 if line.startswith("MemAvailable:"):
                     return int(line.split()[1]) / (1024.0**2)
-    except OSError, ValueError, IndexError:
+    except (OSError, ValueError, IndexError):
         pass
     return None
 

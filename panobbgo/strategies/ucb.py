@@ -88,7 +88,7 @@ class StrategyUCB(StrategyBase):
             c_val = getattr(self.config, "ucb_c", 1.414)
             try:
                 c = float(c_val)  # type: ignore
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 c = 1.414
 
             def until(points, target):

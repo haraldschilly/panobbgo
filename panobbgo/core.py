@@ -145,7 +145,7 @@ class Results:
             if value is not None and not value.empty:
                 try:
                     self._best_fx = float(value.xs(0, level=1, axis=1)["fx"].min())
-                except KeyError, ValueError:
+                except (KeyError, ValueError):
                     self._best_fx = float("inf")
             else:
                 self._best_fx = float("inf")
@@ -439,7 +439,7 @@ class Results:
                     prev_best = min([float(x) for x in fx_series.astype(float).dropna()])
                     if result.fx < prev_best:
                         context.is_improvement = True
-            except ValueError, TypeError, KeyError:
+            except (ValueError, TypeError, KeyError):
                 # If we can't determine improvement status, skip it
                 pass
 
@@ -1432,7 +1432,7 @@ class StrategyBase:
                 errors.append(f"max_eval must be positive, got {max_eval}")
             elif max_eval > 100000:  # Reasonable upper bound
                 errors.append(f"max_eval ({max_eval}) seems unreasonably high. Consider values < 100,000")
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             errors.append(f"max_eval must be a valid integer, got {self.config.max_eval}")
 
         # Check discount factor (used by rewarding strategy)
@@ -1440,7 +1440,7 @@ class StrategyBase:
             discount = float(self.config.discount)
             if not (0 < discount <= 1):
                 errors.append(f"discount must be between 0 and 1, got {discount}")
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             errors.append(f"discount must be a valid float between 0 and 1, got {self.config.discount}")
 
         # Check smoothing parameter
@@ -1448,7 +1448,7 @@ class StrategyBase:
             smooth = float(self.config.smooth)
             if smooth < 0:
                 errors.append(f"smooth must be non-negative, got {smooth}")
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             errors.append(f"smooth must be a valid float, got {self.config.smooth}")
 
         # Check evaluation method
@@ -1870,7 +1870,7 @@ with open('{result_file.name}', 'wb') as f:
         current_evals = len(self.results)
         try:
             max_evals = int(self.config.max_eval)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             max_evals = 1000
         budget_pct = (current_evals / max_evals) * 100 if max_evals > 0 else 0
 

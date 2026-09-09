@@ -154,13 +154,13 @@ class SQLiteStorage(StorageBackend):
 
                     try:
                         x = np.array(json.loads(x_json), dtype=np.float64)
-                    except ValueError, TypeError:
+                    except (ValueError, TypeError):
                         x = np.array([])
 
                     try:
                         cv_vec_list = json.loads(cv_vec_json)
                         cv_vec = np.array(cv_vec_list, dtype=np.float64) if cv_vec_list else None
-                    except ValueError, TypeError:
+                    except (ValueError, TypeError):
                         cv_vec = None
 
                     point = Point(x, who)

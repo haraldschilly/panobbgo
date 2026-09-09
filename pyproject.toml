@@ -92,6 +92,16 @@ addopts = "--durations=25 -ra"
 
 [tool.ruff]
 line-length = 120
+# Ruff infers its target from `requires-python`, and at py314 the 0.16
+# formatter rewrites `except (A, B):` into the PEP 758 form `except A, B:`,
+# which only *parses* on 3.14+.  That turns "unsupported on 3.13" into a
+# SyntaxError at import and is not something a dependency bump should
+# decide.  Pin the syntax target one notch back; the project still requires
+# 3.14 for its dependencies.
+target-version = "py312"
+# Ruff 0.16 also formats Python blocks inside Markdown.  planning/done/ is
+# archived history, kept verbatim on purpose — do not rewrite it.
+extend-exclude = ["planning/done"]
 
 [tool.ruff.lint]
 # Ruff's *default* selection through 0.14 was E4/E7/E9 + F.  0.16 widened
@@ -104,7 +114,7 @@ select = ["E4", "E7", "E9", "F"]
 [tool.pyright]
 include = ["panobbgo"]
 exclude = ["**/__pycache__", ".venv", "build", "dist"]
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 pythonPlatform = "Linux"
 typeCheckingMode = "basic"  # Can be "off", "basic", or "strict"
 reportMissingImports = "warning"  # Warn instead of error for missing imports

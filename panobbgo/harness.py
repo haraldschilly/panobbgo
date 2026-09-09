@@ -2733,7 +2733,7 @@ class BenchmarkHarness:
 
         try:
             return df[col_name].values.ravel()
-        except KeyError, Exception:
+        except (KeyError, Exception):
             return np.array([], dtype=object)
 
     @staticmethod
@@ -2755,7 +2755,7 @@ class BenchmarkHarness:
         for i, fx_raw in enumerate(fx_values):
             try:
                 fx = float(fx_raw)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 continue
 
             if np.isnan(fx) or np.isinf(fx):
@@ -2823,7 +2823,7 @@ class BenchmarkHarness:
                     if val is not None:
                         fx = float(val)
                         break
-                except AttributeError, TypeError, ValueError:
+                except (AttributeError, TypeError, ValueError):
                     pass
 
             if fx is None:

@@ -683,7 +683,7 @@ class Nearby(Heuristic):
                     continue
                 try:
                     fx = float(get_val(result))
-                except TypeError, ValueError:
+                except (TypeError, ValueError):
                     continue
                 self._hist_x.append(np.asarray(x, dtype=float))
                 self._hist_f.append(fx)

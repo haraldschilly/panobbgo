@@ -952,6 +952,13 @@ guarantee.
 Budget Management
 ~~~~~~~~~~~~~~~~~
 
+A run always spends its full ``max_eval`` budget.  The
+:class:`~panobbgo.analyzers.Convergence` analyzer publishes a ``converged``
+event when the best value plateaus, but that event only ends the run if you
+opt in with ``strategy.config.stop_on_convergence = True`` (the plateau test
+fires routinely on multimodal problems, so stopping on it is not a safe
+default for global optimization).
+
 .. code-block:: python
 
    # Set evaluation budget

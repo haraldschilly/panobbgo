@@ -271,7 +271,12 @@ class Config:
         # seed from numpy's global RNG at strategy construction, so
         # ``np.random.seed(s)`` before building a strategy still pins the run.
         self.seed = get_config("core.seed", "core", "seed", None, int)
-        self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", True, bool)
+        # Whether a ``converged`` event from the Convergence analyzer ends the
+        # run.  Off by default: the analyzer's plateau test (50 evaluations
+        # without improvement) fires routinely on multimodal problems and
+        # used to cut a 2500-evaluation run down to ~100.  The event is still
+        # published for listeners; opt in to stop early.
+        self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", False, bool)
         # Abort the main loop if no progress (no new points, no pending tasks,
         # no new results) for this many seconds. Guards against starved/deadlocked
         # heuristics burning CPU for minutes before the loop-count guard trips.

@@ -45,6 +45,11 @@ core:
   # Maximum number of evaluations
   max_eval: 1000
 
+  # Stop the run when the Convergence analyzer reports a plateau (default:
+  # false — the run always uses its full max_eval budget; the `converged`
+  # event is still published for listeners)
+  stop_on_convergence: false
+
   # Discount factor for performance calculation
   discount: 0.95
 

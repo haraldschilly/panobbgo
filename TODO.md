@@ -13,43 +13,67 @@ instances, `planning/DISCOVERY_2026-09-09.md` §14):
 | headroom for a perfect bandit | **+0.0723** |
 
 Instances won, out of 30: CMA-ES 19, NLSHADE_LBC 8, PSO 3, **jSO 0,
-L-SHADE 0**.  Two of the five arms cannot raise the oracle at all, so
-tuning the bandit before the arms would be optimising a choice between a
-strong option and four weaker ones.
+L-SHADE 0** — measured with each arm's *then*-current defaults, which the
+first sweep pass has since shown were badly chosen (below).  Tuning the
+bandit before the arms would be optimising a choice between one strong
+option and four under-tuned ones.
+
+### First pass — done, and it found one big thing
+
+The five sweeps ran (3 seeds, `planning/DISCOVERY_2026-09-09.md` §15).
+Every arm has a variant that beats its default on all three seeds with a
+CI excluding zero:
+
+| arm | best variant | Δ AOCC |
+|---|---|---|
+| cmaes | `ipop_factor=1.5` | **+0.0886** |
+| jso | `NP_init=30` | **+0.0997** |
+| lshade | `NP_init=30` | **+0.0791** |
+| pso | `v_max_frac=0.2` | **+0.0660** |
+| pso | `NP=10` | +0.0605 |
+| lbc | `NP_init=30` | **+0.0585** |
+
+**The dominant factor is population size.** All three DE arms default to
+`NP_init="auto"` = `min(18·dim, budget/12)` — 36 at *d* = 2, 83 at
+*d* ≥ 5 for a 1000-eval budget.  A fixed 30 beats that on every arm and
+every seed.  PSO says the same from the other side: `NP=10` +0.061,
+`NP=40` −0.048.  At 10³ total evaluations a population of 83 gets twelve
+generations, which is sampling, not evolution.
+
+This also means **§14's oracle bound was computed on under-tuned arms**.
+jSO reaches 0.5581 and L-SHADE 0.4923 with `NP_init=30`, against the
+0.4584 / 0.4132 that gave them 0-out-of-30 win counts.  Do not retire
+either arm until the oracle is recomputed on tuned versions.
 
 ### The immediate task
 
-`benchmarks/arm_sweep.py` sweeps one heuristic's own hyper-parameters
-with that heuristic as the *only* arm, paired per seed against its
-current default:
-
-```bash
-uv run python benchmarks/arm_sweep.py cmaes  /tmp/sw_cmaes.json  42 7 1234
-uv run python benchmarks/arm_sweep.py lbc    /tmp/sw_lbc.json    42 7 1234
-uv run python benchmarks/arm_sweep.py jso    /tmp/sw_jso.json    42 7 1234
-uv run python benchmarks/arm_sweep.py lshade /tmp/sw_lshade.json 42 7 1234
-uv run python benchmarks/arm_sweep.py pso    /tmp/sw_pso.json    42 7 1234
-```
-
-Three seeds screen; promote anything promising to the 12-seed decision
-roster before shipping it.  Run them niced; they write results after
-every seed.
-
-- [ ] **CMA-ES** (0.5801, wins 19/30) — `sigma0`, `restart_mode`
-      ipop vs bipop, `ipop_factor`.  It is the default, so every point
-      here lands directly in the shipped setup.
-- [ ] **NLSHADE_LBC** (0.5373, 8/30) — `k_rank`, `H`, `archive_factor`,
-      fixed vs `NP_init="auto"`.  The clear second arm and the main
-      contributor to the oracle gap.
-- [ ] **PSO** (0.4236, 3/30) — `NP`, inertia decay (`w`/`w_end`),
-      `lbest` vs `gbest` topology, `v_max_frac`.  Weak overall but wins
-      instances the DE family loses, so it is worth real diversity.
-- [ ] **jSO** (0.4587, 0/30) and **L-SHADE** (0.4167, 0/30) — decide
-      whether they can be made to win *any* instance.  If not, they
-      should stop being candidate arms rather than be carried.
+- [ ] **Locate the `NP_init` optimum, don't just bracket it.** 30 was
+      the only fixed value tested and it won everywhere; sweep
+      15 / 20 / 30 / 45 / 60 on `lbc`, `jso`, `lshade`.  If the optimum
+      really sits near `budget/30`, fix the divisor in
+      `_resolve_auto_np_init` (`panobbgo/heuristics/lshade.py`) — it is a
+      library default that every user gets, not a harness knob.
+- [ ] **Same for `ipop_factor`.** 1.5 beat 2.0 and 3.0 and sits at the
+      edge of the tested range; try 1.2 / 1.35 / 1.5.  CMA-ES is the
+      shipped default, so every point lands directly in the setup.
+- [ ] **Check whether the gains compose.** Each variant was measured
+      alone against the default; `NP_init=30` + `H=20` on lbc/jso may
+      overlap.  Combine the per-arm winners and re-measure.
+- [ ] **Promote to the 12-seed roster** before changing any default.
+      Three seeds screen an effect this size; they do not accept it.
+- [ ] **Recompute the oracle bound on the tuned arms** — that number
+      sizes Phase B and is currently stale.
 - [ ] Consider checking each implementation against its published
       reference: these are hand-rolled and none has been compared to a
       canonical implementation.
+
+Command form (niced, results written after every seed):
+
+```bash
+uv run python benchmarks/arm_sweep.py ARM OUT.json 42 7 1234
+```
+
+Add the new variants to `ARMS` in `benchmarks/arm_sweep.py`.
 
 ### Then Phase B — the selection policy
 

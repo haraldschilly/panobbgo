@@ -334,3 +334,75 @@ Three things follow.
    expected value of picking it.  Strengthening the individual
    optimizers therefore comes before tuning the selection policy — the
    policy can only choose among what it is given.
+
+## 15. Phase A, first pass: every arm is over-populated
+
+`benchmarks/arm_sweep.py` run on each of the five arms, standard
+battery, seeds 42 / 7 / 1234, each variant paired per seed against that
+arm's own current default.  `<--` marks a 95% t-CI that excludes zero.
+
+| arm | variant | mean AOCC | Δ vs default | CI | seeds won |
+|---|---|---|---|---|---|
+| **cmaes** | `ipop_factor=1.5` | 0.7023 | **+0.0886** | [+0.0435, +0.1336] | 3/3 `<--` |
+| | `ipop_factor=3` | 0.6193 | +0.0056 | [−0.0506, +0.0619] | 2/3 |
+| | *default* | 0.6137 | — | | |
+| | `sigma0=0.2` | 0.6100 | −0.0037 | [−0.4033, +0.3958] | 2/3 |
+| | `restart_mode=bipop` | 0.5963 | −0.0174 | [−0.0851, +0.0502] | 1/3 |
+| **lbc** | `NP_init=30` | 0.5971 | **+0.0585** | [+0.0294, +0.0877] | 3/3 `<--` |
+| | `H=20` | 0.5649 | **+0.0263** | [+0.0018, +0.0508] | 3/3 `<--` |
+| | `H=10` | 0.5473 | +0.0088 | [+0.0004, +0.0172] | 3/3 `<--` |
+| | `k_rank=6` | 0.5462 | +0.0077 | [+0.0016, +0.0139] | 3/3 `<--` |
+| | *default* | 0.5385 | — | | |
+| **jso** | `NP_init=30` | 0.5581 | **+0.0997** | [+0.0694, +0.1300] | 3/3 `<--` |
+| | `H=20` | 0.4971 | **+0.0387** | [+0.0281, +0.0492] | 3/3 `<--` |
+| | `H=10` | 0.4755 | +0.0171 | [−0.0089, +0.0432] | 3/3 |
+| | *default* | 0.4584 | — | | |
+| | `archive_factor=3` | 0.4135 | −0.0449 | [−0.0767, −0.0130] | 0/3 `<--` |
+| **lshade** | `NP_init=30` | 0.4923 | **+0.0791** | [+0.0709, +0.0873] | 3/3 `<--` |
+| | `F_schedule=jso` | 0.4336 | +0.0204 | [+0.0020, +0.0387] | 3/3 `<--` |
+| | *default* | 0.4132 | — | | |
+| | `archive_factor=3` | 0.3937 | −0.0195 | [−0.0317, −0.0072] | 0/3 `<--` |
+| **pso** | `v_max_frac=0.2` | 0.4817 | **+0.0660** | [+0.0364, +0.0955] | 3/3 `<--` |
+| | `NP=10` | 0.4762 | **+0.0605** | [+0.0360, +0.0850] | 3/3 `<--` |
+| | `topology=lbest` | 0.4283 | +0.0126 | [+0.0015, +0.0237] | 3/3 `<--` |
+| | *default* | 0.4157 | — | | |
+| | `NP=40` | 0.3675 | −0.0482 | [−0.0886, −0.0079] | 0/3 `<--` |
+
+### The single dominant factor is population size
+
+All three L-SHADE-lineage arms default to `NP_init="auto"`, which
+resolves to `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)` —
+36 at *d* = 2 and 83 at *d* ≥ 5 for a 1000-evaluation budget.  A **fixed
+`NP_init=30` beats that on every arm and every seed**, by +0.059
+(NLSHADE_LBC), +0.079 (L-SHADE) and +0.100 (jSO).  PSO tells the same
+story from its own default of 20: `NP=10` gains +0.061 and `NP=40` loses
+−0.048, monotonically.
+
+This is what §9 was measuring without naming it.  The canonical DE
+population sizes come from papers whose budget is 10⁴·*d* evaluations;
+at 10³ *total* a population of 83 gets about twelve generations, which
+is not enough for differential evolution to do anything but sample.
+`"auto"` already tries to correct for the budget, but its divisor of 12
+is far too generous — 30 corresponds to roughly `budget/33`.
+
+Two consequences worth stating plainly:
+
+* **jSO and L-SHADE were not beaten fairly in §14.** With `NP_init=30`
+  jSO reaches 0.5581 and L-SHADE 0.4923, against the 0.4584 / 0.4132 that
+  produced their 0-out-of-30 win counts.  The oracle bound must be
+  recomputed on the tuned arms before concluding that either belongs out
+  of the portfolio.
+* **The `"auto"` divisor is a library default, not a benchmark knob.**
+  If a re-sweep confirms the optimum sits near `budget/30`, the fix
+  belongs in `_resolve_auto_np_init`, where it helps every user, not in
+  the harness specs.
+
+### What this pass does *not* settle
+
+Each variant was measured alone against the default, so the gains are
+not known to compose — `NP_init=30` and `H=20` may well overlap.  The
+sweep also brackets rather than locates: `NP_init` was tested only at
+`auto` and 30, `ipop_factor` only at 1.5 / 2 / 3, and both winners sit
+at the edge of their tested range, so the optimum is plausibly beyond
+it.  Three seeds is enough to see an effect this large and not enough to
+accept a default; the 12-seed roster decides.

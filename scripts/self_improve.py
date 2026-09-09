@@ -149,6 +149,8 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from panobbgo import local_run
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -1239,6 +1241,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     rej_p.set_defaults(func=_cmd_codify_reject)
 
+    for sp in sub.choices.values():
+        local_run.add_arguments(sp)
     return parser
 
 
@@ -2869,11 +2873,13 @@ def _open_pr_for_candidate(
     return 0
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if apply_hygiene:
+        local_run.apply(args)
     return args.func(args)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(apply_hygiene=True))

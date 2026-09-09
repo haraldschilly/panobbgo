@@ -101,6 +101,8 @@ import sys
 from datetime import datetime
 from typing import Optional
 
+from panobbgo import local_run
+
 
 def _default_output_path(mode: str) -> str:
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -549,6 +551,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     list_p.set_defaults(func=cmd_list)
 
+    for sp in sub.choices.values():
+        local_run.add_arguments(sp)
     return parser
 
 
@@ -586,7 +590,7 @@ def _add_mode_group(parser: argparse.ArgumentParser) -> None:
     parser.set_defaults(mode="quick")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, apply_hygiene: bool = False) -> int:
     """Entry point.
 
     Args:
@@ -597,8 +601,10 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+    if apply_hygiene:
+        local_run.apply(args)
     return args.func(args)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(apply_hygiene=True))

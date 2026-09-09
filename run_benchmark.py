@@ -18,9 +18,10 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from panobbgo.benchmark import BenchmarkSuite, create_standard_problems, create_standard_strategies
+from panobbgo import local_run
 
 
-def main():
+def main(apply_hygiene: bool = False):
     parser = argparse.ArgumentParser(description="Run Panobbgo benchmarks")
     parser.add_argument("--problems", nargs="+", help="Specific problems to run (default: all standard problems)")
     parser.add_argument("--strategies", nargs="+", help="Specific strategies to run (default: all standard strategies)")
@@ -34,7 +35,10 @@ def main():
     )
     parser.add_argument("--quick", action="store_true", help="Run quick benchmark with reduced evaluations")
 
+    local_run.add_arguments(parser)
     args = parser.parse_args()
+    if apply_hygiene:
+        local_run.apply(args)
 
     print("🚀 Starting Panobbgo Benchmark Suite")
     print("=" * 50)
@@ -174,4 +178,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(apply_hygiene=True))

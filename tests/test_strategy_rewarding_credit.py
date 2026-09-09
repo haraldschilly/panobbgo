@@ -109,7 +109,7 @@ def test_ema_end_to_end_is_reproducible():
         s.add(Nearby, radius=0.1, axes="all", new=3)
         s.add(JSO, NP_init=8)
         s.start()
-        df = s.results._results_df
+        df = s.results.results  # the public property materialises the frame
         return df["fx"].to_numpy(dtype=float).ravel()
 
     fa, fb = run(), run()

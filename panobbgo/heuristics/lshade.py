@@ -422,6 +422,9 @@ class LSHADE(Heuristic):
         self.archive_factor: float = float(archive_factor)
         self.F_schedule: Optional[str] = normalized_F_schedule
         self._rng: np.random.Generator = self.derive_rng(seed)
+        # Ranking-key memo, see :meth:`_fx_of`.
+        self._fx_cache: Dict[int, float] = {}
+        self._fx_keep: List[Result] = []
 
         # Success-history memory.  Initial value 0.5 per the SHADE paper.
         self._M_F: np.ndarray = np.full(H, 0.5, dtype=float)
@@ -585,11 +588,27 @@ class LSHADE(Heuristic):
         return out
 
     def _fx_of(self, r: Result) -> float:
-        """Scalar fitness for ranking — falls back to ``r.fx`` if no handler."""
+        """Scalar fitness for ranking — falls back to ``r.fx`` if no handler.
+
+        Memoised per :class:`~panobbgo.lib.Result`: the population is ranked
+        on every trial generation, so the same handful of results would
+        otherwise be re-penalised thousands of times per run.  Results are
+        immutable, so the cached value cannot go stale.
+        """
+        cached = self._fx_cache.get(id(r))
+        if cached is not None:
+            return cached
         handler = getattr(self.strategy, "constraint_handler", None)
         if handler is None:
-            return float(r.fx) if r.fx is not None else float("inf")
-        return handler.get_penalty_value(r)
+            value = float(r.fx) if r.fx is not None else float("inf")
+        else:
+            value = handler.get_penalty_value(r)
+        self._fx_cache[id(r)] = value
+        self._fx_keep.append(r)  # keep alive so ``id`` cannot be reused
+        if len(self._fx_keep) > 4 * max(self.NP_init, 1):
+            self._fx_cache.clear()
+            del self._fx_keep[:]
+        return value
 
     def _archive_cap(self) -> int:
         """Maximum number of replaced parents the external archive retains.

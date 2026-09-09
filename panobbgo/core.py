@@ -1707,6 +1707,29 @@ with open('{result_file.name}', 'wb') as f:
         self.new_finished = []
         new_results = []
 
+        if getattr(self.config, "sync_evaluation", False):
+            # Reproducible mode: evaluate in submission order on this thread.
+            # A pool would return results in completion order, which makes
+            # the evaluation trajectory (and every anytime metric computed
+            # from it) depend on thread scheduling.  For cheap objectives
+            # this is also faster than the pool round trip.
+            for i, point in enumerate(points):
+                task_id = f"sync_task_{self.loops}_{i}"
+                t0 = time_module.time()
+                try:
+                    result = self._problem(point)
+                    if isinstance(result, list):
+                        new_results.extend(result)
+                    else:
+                        new_results.append(result)
+                except Exception as e:
+                    self.logger.error("Evaluation failed: %s" % e)
+                self.tasks_walltimes[task_id] = time_module.time() - t0
+                self.new_finished.append(task_id)
+                self.finished.append(task_id)
+            self.results += new_results
+            return
+
         # Submit all points to thread pool if any
         if points:
             for i, point in enumerate(points):

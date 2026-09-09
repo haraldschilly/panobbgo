@@ -941,8 +941,10 @@ make a run a pure function of that seed:
 
 Two such runs evaluate exactly the same points in the same order.  Every
 module derives its own :class:`numpy.random.Generator` from the master seed
-(``self.rng``), the event bus delivers events serially and the main loop
-waits for all handlers before drawing new points.  Without ``seed`` the
+(``self.rng``), the event bus delivers events serially, the main loop
+waits for all handlers before drawing new points, and each batch is
+evaluated sequentially in submission order (a thread pool would return
+results in completion order).  Without ``seed`` the
 strategy draws one from numpy's global state, so ``np.random.seed(s)``
 before construction also pins the run; ``strategy.seed`` reports which seed
 was used.  Heuristics that bridge a subprocess solver (``LBFGSB``, ``COBYQA``,

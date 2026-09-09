@@ -131,7 +131,8 @@ class RegionUCB(Heuristic):
         dim = len(lo)
 
         n_gauss = 0
-        if leaf.best is not None:
+        best = leaf.best
+        if best is not None:
             n_gauss = int(round(self.n_candidates * self.gauss_fraction))
         n_uniform = self.n_candidates - n_gauss
 
@@ -139,7 +140,8 @@ class RegionUCB(Heuristic):
         if n_gauss > 0:
             sigma = np.maximum(ranges * self.gauss_scale, 1e-12)
             for _ in range(n_gauss):
-                p = leaf.best.x + sigma * self.rng.standard_normal(dim)
+                assert best is not None
+                p = best.x + sigma * self.rng.standard_normal(dim)
                 points.append(np.clip(p, box[:, 0], box[:, 1]))
         return points
 

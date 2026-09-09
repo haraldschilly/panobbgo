@@ -55,6 +55,8 @@ class Extremal(Heuristic):
         self.vals = np.vstack((low, zero, center, high))
 
     def _draw(self):
+        vals = self.vals
+        assert vals is not None, "vals must be initialized in __start__"
         ret = np.empty(self.problem.dim)
         for i in range(self.problem.dim):
             r = self.rng.random()
@@ -64,13 +66,13 @@ class Extremal(Heuristic):
                     jitter = self.rng.normal(0, radius)
                     if idx == 0:
                         # minimum border
-                        ret[i] = self.vals[idx, i] + abs(jitter)
+                        ret[i] = vals[idx, i] + abs(jitter)
                     elif idx == len(self.probabilities) - 1:
                         # maximum border
-                        ret[i] = self.vals[idx, i] - abs(jitter)
+                        ret[i] = vals[idx, i] - abs(jitter)
                     else:
                         # around center or zero
-                        ret[i] = self.vals[idx, i] + jitter
+                        ret[i] = vals[idx, i] + jitter
                     break  # since we found the idx, break!
         return ret
 

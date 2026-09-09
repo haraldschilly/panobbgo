@@ -410,9 +410,10 @@ def make_ioh_strategies() -> List[StrategySpec]:
             strategy_class=StrategyRoundRobin,
             heuristics=[(CMAES, {})],
         ),
-        # Adaptive heuristic mix.  Kept as a control so the portfolio
-        # remains measured on every battery run.  This is the working candidate for the
-        # MA-BBOB competition entry: roughly the same heuristics as
+        # Adaptive heuristic mix.  The competition candidate until
+        # 2026-09-09, now kept only as a control so the portfolio stays
+        # measured against the single-optimizer candidate on every
+        # battery run.  Roughly the same heuristics as
         # ``Rewarding_Diverse`` from the composite-score harness.  The
         # Restart analyzer it originally shipped with was dropped by the
         # 2026-07-30 codify (18 confirmed drop_analyzer accepts across 17

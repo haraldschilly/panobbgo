@@ -203,15 +203,24 @@ class BaselineStrategy:
     #: DataFrame.  Subclasses override.
     who: str = "Baseline"
 
-    def __init__(self, problem: Problem, parse_args: bool = False) -> None:
+    def __init__(self, problem: Problem, parse_args: bool = False, seed: Optional[int] = None) -> None:
         # ``parse_args`` accepted for API compatibility with
         # ``StrategyBase.__init__`` — baselines never parse CLI.
         del parse_args
         self.problem: Problem = problem
+        #: Run seed handed in by the harness (``None`` → numpy global state).
+        self.seed: Optional[int] = None if seed is None else int(seed)
         self.config: _BaselineConfig = _BaselineConfig()
         self.results: _BaselineResults = _BaselineResults()
         self._best: Optional[Result] = None
         self._stopped: bool = False
+
+    def _run_seed(self) -> int:
+        """Integer seed for this run: the harness-provided ``seed`` if any,
+        else a draw from numpy's global state (which the harness seeds)."""
+        if self.seed is not None:
+            return int(self.seed)
+        return int(np.random.randint(0, 2**31 - 1))
 
     # -- harness compatibility shims ---------------------------------------
 
@@ -294,16 +303,12 @@ class RandomSearchStrategy(BaselineStrategy):
         objective = _make_objective(self.problem, log)
         lo = self.problem.box[:, 0]
         hi = self.problem.box[:, 1]
-        rng = np.random.default_rng()  # seeded by the harness' np.random.seed
+        rng = np.random.default_rng(self._run_seed())
         for _ in range(log.max_eval):
-            # np.random.default_rng() is independent of the legacy
-            # np.random.seed() call the harness makes, so use the legacy
-            # draw path for reproducibility with that seed.
-            x = np.random.uniform(lo, hi, size=self.problem.dim)
+            x = rng.uniform(lo, hi, size=self.problem.dim)
             objective(x)
             if self._stopped:
                 break
-        # ``rng`` unused but kept for future migration to modern RNG API.
         del rng
 
 
@@ -324,8 +329,9 @@ class SciPyDEStrategy(BaselineStrategy):
         parse_args: bool = False,
         popsize: int = 10,
         tol: float = 0.0,
+        seed: Optional[int] = None,
     ) -> None:
-        super().__init__(problem, parse_args=parse_args)
+        super().__init__(problem, parse_args=parse_args, seed=seed)
         self._popsize = popsize
         self._tol = tol
 
@@ -346,7 +352,7 @@ class SciPyDEStrategy(BaselineStrategy):
         # Seed derivation: the harness calls ``np.random.seed(seed)`` just
         # before this runs, so ``int(np.random.randint(...))`` gives us a
         # deterministic integer we can pass to scipy's RNG.
-        de_seed = int(np.random.randint(0, 2**31 - 1))
+        de_seed = self._run_seed()
         max_generations = max(1, log.max_eval // max(1, self._popsize * self.problem.dim))
 
         # ``differential_evolution`` uses ``rng`` in scipy >= 1.15 (``seed``
@@ -385,7 +391,7 @@ class SciPyAnnealStrategy(BaselineStrategy):
         objective = _make_objective(self.problem, log)
         bounds = [(float(lo), float(hi)) for lo, hi in self.problem.box]
 
-        da_seed = int(np.random.randint(0, 2**31 - 1))
+        da_seed = self._run_seed()
 
         # ``dual_annealing`` uses ``rng`` in scipy >= 1.15.
         try:

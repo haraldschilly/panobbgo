@@ -2598,7 +2598,7 @@ class BenchmarkHarness:
                 problem = prob_spec.create_problem_for_rep(rep)
             else:
                 problem = prob_spec.create_problem()
-            strategy = strat_spec.create_strategy(problem)
+            strategy = strat_spec.create_strategy(problem, seed=seed)
 
             # Configure evaluation budget and method
             strategy.config.max_eval = budget

@@ -303,9 +303,10 @@ class TestStrategySpecDimGate:
     class _RecordingStrategy:
         """Stands in for a StrategyBase: records add() calls, builds nothing."""
 
-        def __init__(self, problem, parse_args=False):
+        def __init__(self, problem, parse_args=False, seed=None):
             self.problem = problem
             self.config = type("Cfg", (), {})()
+            self.seed = seed
             self.added = []
 
         def add(self, heur_class, **kwargs):

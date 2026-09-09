@@ -925,6 +925,30 @@ Pareto Front (Constrained Problems)
 Advanced Topics
 ---------------
 
+Reproducible Runs
+~~~~~~~~~~~~~~~~~
+
+Pass ``seed`` to the strategy and enable the synchronous evaluation mode to
+make a run a pure function of that seed:
+
+.. code-block:: python
+
+   strategy = StrategyRewarding(problem, seed=1234)
+   strategy.config.sync_evaluation = True   # deterministic result batches
+   strategy.add(Random)
+   strategy.add(JSO, NP_init="auto")
+   strategy.start()
+
+Two such runs evaluate exactly the same points in the same order.  Every
+module derives its own :class:`numpy.random.Generator` from the master seed
+(``self.rng``), the event bus delivers events serially and the main loop
+waits for all handlers before drawing new points.  Without ``seed`` the
+strategy draws one from numpy's global state, so ``np.random.seed(s)``
+before construction also pins the run; ``strategy.seed`` reports which seed
+was used.  Heuristics that bridge a subprocess solver (``LBFGSB``, ``COBYQA``,
+``LocalPenaltySearch``) emit on their own schedule and are exempt from this
+guarantee.
+
 Budget Management
 ~~~~~~~~~~~~~~~~~
 

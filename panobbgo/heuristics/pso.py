@@ -277,7 +277,7 @@ class PSO(Heuristic):
             three geometric topologies are deterministic functions of
             ``NP`` and have no stochastic graph to rebuild.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
-            seeds from ``np.random.default_rng()``.
+            uses the module's strategy-derived ``self.rng`` stream.
         name: Override the heuristic's display name.
 
     Notes:
@@ -346,7 +346,7 @@ class PSO(Heuristic):
         self.k_neighbors: int = int(k_neighbors)
         self.w_end: Optional[float] = None if w_end is None else float(w_end)
         self.stagnation_threshold: Optional[int] = None if stagnation_threshold is None else int(stagnation_threshold)
-        self._rng: np.random.Generator = np.random.default_rng(seed)
+        self._rng: np.random.Generator = self.rng if seed is None else np.random.default_rng(seed)
 
         # Per-particle state.  Sized once on_start() runs (we need
         # ``problem.dim`` to allocate velocity arrays).
@@ -396,7 +396,9 @@ class PSO(Heuristic):
             self.logger.debug(f"PSO: projection failed: {exc}")
             return False
 
-        req_id = uuid.uuid4().hex
+        # Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so
+        # ``Result.who`` tags are reproducible under a fixed seed.
+        req_id = uuid.UUID(bytes=self._rng.bytes(16)).hex
         who = f"{self.name}:{req_id}"
         try:
             self._output.put_nowait(Point(x_proj, who))
@@ -642,7 +644,7 @@ class PSO(Heuristic):
         if social_idx is None or self._pbest_x[particle_idx] is None:
             # No memory to pull from yet — emit a fresh random point so
             # the particle stays active.
-            x = self.problem.random_point()
+            x = self.problem.random_point(rng=self._rng)
             self._emit_trial(x, particle_idx)
             return
 
@@ -689,7 +691,7 @@ class PSO(Heuristic):
         self._velocities = self._rng.uniform(-v_max, v_max, size=(self.NP, dim))
 
         for i in range(self.NP):
-            x = self.problem.random_point()
+            x = self.problem.random_point(rng=self._rng)
             self._positions[i] = x
             self._emit_trial(x, i)
 
@@ -755,7 +757,7 @@ class PSO(Heuristic):
         # radius equal to v_max.  A ball, not a point: identical
         # positions would collapse the swarm immediately.
         if center is None:
-            base = self.problem.random_point()
+            base = self.problem.random_point(rng=self._rng)
         else:
             base = np.asarray(center, dtype=float)
         for i in range(self.NP):

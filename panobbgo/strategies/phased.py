@@ -452,7 +452,7 @@ class StrategyPhased(StrategyBase):
                     h.ts_total_reward = 0.0
                 alpha = 1.0 + h.ts_total_reward
                 beta = 1.0 + max(0.0, h.ts_counts - h.ts_total_reward)
-                theta = np.random.beta(alpha, beta)
+                theta = self.rng.beta(alpha, beta)
                 samples.append((theta, h))
             samples.sort(key=lambda x: x[0], reverse=True)
             for _theta, h in samples:

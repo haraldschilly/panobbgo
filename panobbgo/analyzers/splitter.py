@@ -132,14 +132,11 @@ class Splitter(Analyzer):
         from panobbgo.lib import Result
 
         assert isinstance(result, Result)
-        # it might happen, that the result isn't in the result2leaf map
-        # then we have to wait until on_new_results got it
+        # The eventbus delivers events serially, so a result published
+        # before this call is already registered.  Never block here: a
+        # waiting handler would stall the whole dispatcher.
         with self._new_result:
-            while result not in self.result2leaf:
-                # logger.info("RESULT NOT FOUND %s" % result)
-                # logger.info("BOXES: %s" % self.get_all_boxes(result))
-                self._new_result.wait()
-        return self.result2leaf[result]
+            return self.result2leaf.get(result)
 
     def on_new_results(self, results):
         with self._new_result:

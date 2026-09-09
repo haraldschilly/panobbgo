@@ -35,6 +35,9 @@ class MockStrategy(StrategyBase):
     def __init__(self, problem):
         self.problem = problem
         self.config = MockConfig()
+        # Module.__init__ derives per-module RNGs via spawn_rng(), which needs these.
+        self.seed = 0
+        self.rng = np.random.default_rng(self.seed)
         self.eventbus = EventBus(self.config)
         self.results = Results(self)
         self.constraint_handler = AugmentedLagrangianConstraintHandler(self)

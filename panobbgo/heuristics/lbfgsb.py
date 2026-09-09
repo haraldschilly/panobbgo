@@ -127,6 +127,7 @@ from __future__ import annotations
 import multiprocessing
 from typing import Any, Optional
 
+import threading
 import numpy as np
 
 from panobbgo.core import Heuristic
@@ -270,7 +271,11 @@ class LBFGSB(Heuristic):
         # Parent-side RNG for the warm-start perturbation / fallback draw.  Kept
         # distinct from the worker's restart RNG (which lives in the subprocess)
         # so the two streams never share state across the process boundary.
-        self._warm_rng = np.random.default_rng(seed)
+        self._warm_rng = self.rng if seed is None else np.random.default_rng(seed)
+        # Seed handed to the worker subprocess; derived from ``self.rng`` when
+        # no explicit seed is given so the restart stream is pinned by the
+        # strategy's master seed rather than fresh OS entropy.
+        self._worker_seed: int = int(self.rng.integers(2**31)) if seed is None else int(seed)
 
         # Subprocess handles — populated by :meth:`__start__`.
         self.p1: Any = None  # parent end of the request pipe
@@ -309,7 +314,7 @@ class LBFGSB(Heuristic):
                 bounds,
                 lb,
                 ub,
-                self.seed,
+                self._worker_seed,
                 self.max_starts,
                 self.maxfun,
                 self.epsilon,
@@ -397,13 +402,24 @@ class LBFGSB(Heuristic):
         _safe_send(output, {"done": starts})
 
     def on_start(self) -> None:
-        """Pipe x → emit → wait for fx → pipe.send loop (shared with COBYQA).
+        """Start the pipe pump: x → emit → wait for fx → pipe.send (shared with COBYQA).
 
         Under ``warm_start`` the worker interleaves :data:`_X0_REQUEST`
         sentinels with its ``f(x)`` sends; those are answered inline with a
         perturbed incumbent (:meth:`_warm_start_x0`) rather than emitted for
         evaluation.
+
+        The pipe pump runs on its own daemon thread (appended to
+        ``self._threads``) so the event bus, which delivers handlers serially,
+        is never blocked by it.  Emissions from a subprocess bridge are
+        inherently timing-dependent; such heuristics are excluded from the
+        reproducible synchronous mode's guarantees.
         """
+        t = threading.Thread(target=self._pump, name="%s-pump" % self.name, daemon=True)
+        self._threads.append(t)
+        t.start()
+
+    def _pump(self) -> None:
         while not self._stopped:
             try:
                 if self.out1.poll(0):

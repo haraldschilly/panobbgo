@@ -214,7 +214,7 @@ class ConstraintGradient(Heuristic):
         count = needed + 2
         for _ in range(count):
             # Perturbation scale: step_size * ranges
-            step = np.random.randn(dim) * self.step_size * self.problem.ranges
+            step = self.rng.standard_normal(dim) * self.step_size * self.problem.ranges
             # Ensure it's not zero (unlikely)
             if np.linalg.norm(step) < 1e-9:
                 continue

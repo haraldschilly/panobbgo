@@ -110,7 +110,7 @@ class RegionUCB(Heuristic):
 
         empty = np.where(counts == 0)[0]
         if len(empty) > 0:
-            return leafs[int(np.random.choice(empty))]
+            return leafs[int(self.rng.choice(empty))]
 
         # rank-based quality in [0, 1]: best penalty -> 1, worst -> 0
         penalties = np.array([self._leaf_penalty(leaf) for leaf in leafs])
@@ -135,11 +135,11 @@ class RegionUCB(Heuristic):
             n_gauss = int(round(self.n_candidates * self.gauss_fraction))
         n_uniform = self.n_candidates - n_gauss
 
-        points = [lo + ranges * np.random.rand(dim) for _ in range(n_uniform)]
+        points = [lo + ranges * self.rng.random(dim) for _ in range(n_uniform)]
         if n_gauss > 0:
             sigma = np.maximum(ranges * self.gauss_scale, 1e-12)
             for _ in range(n_gauss):
-                p = leaf.best.x + sigma * np.random.randn(dim)
+                p = leaf.best.x + sigma * self.rng.standard_normal(dim)
                 points.append(np.clip(p, box[:, 0], box[:, 1]))
         return points
 
@@ -156,7 +156,7 @@ class RegionUCB(Heuristic):
         if not leafs:
             # No Splitter (yet) — sample the full problem box instead.
             self.clear_output()
-            self.emit([self.problem.random_point() for _ in range(self.n_candidates)])
+            self.emit([self.problem.random_point(rng=self.rng) for _ in range(self.n_candidates)])
             return
 
         leaf = self.select_leaf(leafs)

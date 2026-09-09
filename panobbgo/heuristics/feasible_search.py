@@ -104,7 +104,7 @@ class FeasibleSearch(Heuristic):
 
             for _ in range(self.samples):
                 # Beta(2, 1) distribution: more samples near the feasible point
-                alpha = np.random.beta(2, 1)
+                alpha = self.rng.beta(2, 1)
                 candidate_x = x_infeasible + alpha * diff_vec
                 points.append(candidate_x)
 
@@ -112,7 +112,7 @@ class FeasibleSearch(Heuristic):
             # Fallback to random search if no feasible point known
             for _ in range(self.samples):
                 # Generate random direction
-                direction = np.random.randn(self.problem.dim)
+                direction = self.rng.standard_normal(self.problem.dim)
                 norm = np.linalg.norm(direction)
                 if norm > 1e-9:
                     direction /= norm

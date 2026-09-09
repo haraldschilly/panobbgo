@@ -154,7 +154,7 @@ class StrategyThompsonSampling(StrategyBase):
                     h.ts_beta = beta
 
                     # Sample theta
-                    theta = np.random.beta(alpha, beta)
+                    theta = self.rng.beta(alpha, beta)
                     samples.append((theta, h))
 
                 # Sort by sampled value (highest first)

@@ -152,8 +152,8 @@ class Restart(Analyzer):
         if self._restart_strategy == "diverse" and self._previous_centers:
             return self._diverse_center()
         if self._restart_strategy == "sphere":
-            return self.problem.random_point(distribution="normal")
-        return self.problem.random_point()
+            return self.problem.random_point(distribution="normal", rng=self.rng)
+        return self.problem.random_point(rng=self.rng)
 
     def _diverse_center(self) -> np.ndarray:
         """Pick the point that maximizes minimum distance to previous centers."""
@@ -161,7 +161,7 @@ class Restart(Analyzer):
         best_min_dist = -1.0
 
         for _ in range(20):  # try 20 random candidates
-            candidate = self.problem.random_point()
+            candidate = self.problem.random_point(rng=self.rng)
             min_dist = min(float(np.linalg.norm(candidate - c)) for c in self._previous_centers)
             if min_dist > best_min_dist:
                 best_min_dist = min_dist

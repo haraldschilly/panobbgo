@@ -76,9 +76,9 @@ class Sobol(Heuristic):
         scramble: If ``True`` (default), apply Owen scrambling so different
             seeds produce statistically independent point sets while
             preserving the low-discrepancy property within each set.
-        seed: Optional seed for reproducibility.  ``None`` (default) uses
-            ``numpy.random``'s global state, which the harness seeds via
-            ``np.random.seed``.
+        seed: Optional seed for reproducibility.  ``None`` (default) draws
+            the sampler seed from the module's strategy-derived ``self.rng``
+            stream, so the run is pinned by the strategy's master seed.
         name: Override the heuristic's display name.
 
     Notes:
@@ -131,7 +131,8 @@ class Sobol(Heuristic):
         dim = self.problem.dim
         # qmc.Sobol(rng=...) accepts None, an int, or a Generator.  We use
         # ``rng`` (modern scipy keyword) instead of the deprecated ``seed``.
-        sampler = qmc.Sobol(d=dim, scramble=self.scramble, rng=self.seed)
+        seed = int(self.rng.integers(2**31)) if self.seed is None else self.seed
+        sampler = qmc.Sobol(d=dim, scramble=self.scramble, rng=seed)
 
         # Use random_base2 when n is a power of two — preserves Sobol's
         # balance properties.  Otherwise fall back to .random(n).

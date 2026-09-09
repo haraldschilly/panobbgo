@@ -358,7 +358,7 @@ class GaussianProcessHeuristic(Heuristic):
         bounds = [(low, high) for low, high in self.problem.box.box]
         starts = []
         for _ in range(self.n_restarts):
-            s = [np.random.uniform(low_val, high_val) for low_val, high_val in bounds]
+            s = [self.rng.uniform(low_val, high_val) for low_val, high_val in bounds]
             start = np.array(s)
             starts.append(start)
 

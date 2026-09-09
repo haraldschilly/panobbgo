@@ -38,7 +38,7 @@ class WeightedAverage(Heuristic):
     def on_new_best(self, best):
         assert best is not None and best.x is not None
         box = self.strategy.analyzer("Splitter").get_leaf(best)
-        if len(box.results) < 3:
+        if box is None or len(box.results) < 3:
             return
 
         # actual calculation
@@ -72,7 +72,7 @@ class WeightedAverage(Heuristic):
         # self.logger.info("std: %s" % std)
         for i in range(self.cap):
             ret = avg_ret.copy()
-            ret += (float(i) / self.cap) * np.random.normal(0, std)
+            ret += (float(i) / self.cap) * self.rng.normal(0, std)
             if np.linalg.norm(best.x - ret) > 0.01:
                 # self.logger.info("out: %s" % ret)
                 self.emit(ret)

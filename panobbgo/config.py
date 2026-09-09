@@ -267,6 +267,10 @@ class Config:
         self.discount = get_config("core.discount", "core", "discount", 0.95, float)
         self.smooth = get_config("core.smooth", "core", "smooth", 0.5, float)
         self.capacity = get_config("heuristic.capacity", "heuristic", "capacity", 20, int)
+        # Master random seed for a strategy run.  ``None`` (default) draws a
+        # seed from numpy's global RNG at strategy construction, so
+        # ``np.random.seed(s)`` before building a strategy still pins the run.
+        self.seed = get_config("core.seed", "core", "seed", None, int)
         self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", True, bool)
         # Abort the main loop if no progress (no new points, no pending tasks,
         # no new results) for this many seconds. Guards against starved/deadlocked

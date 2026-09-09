@@ -93,8 +93,8 @@ EventBus
 
 1. Modules define methods named ``on_<event_name>(self, **kwargs)``
 2. EventBus automatically discovers these methods via introspection
-3. When an event is published, all subscribers are notified in separate threads
-4. Each subscription runs in a daemon thread to avoid blocking
+3. When an event is published, one delivery per subscriber is appended to a single FIFO
+4. One dispatcher thread calls the handlers serially, in subscription order
 
 **Common events:**
 
@@ -638,17 +638,26 @@ Threading Model
 Event Handling
 ~~~~~~~~~~~~~~
 
-Each event subscription runs in a **daemon thread**:
+Events are delivered **serially by one dispatcher thread**:
 
-- Non-blocking: publishing returns immediately
-- Concurrent: multiple handlers run simultaneously
-- Fire-and-forget: no return values from handlers
+- Non-blocking: publishing returns immediately; the event is queued
+- Ordered: handlers run one after the other, in the order the events were published
+- Handlers must return promptly — a module *reacts* to events, it never loops,
+  sleeps or waits inside a handler (subprocess bridges such as
+  :class:`~panobbgo.heuristics.LBFGSB` pump their pipe on a private thread)
+- Fire-and-forget: a handler's return value, if any, is passed to ``emit``
 
-**Thread safety:**
+Because no two handlers ever run at the same time, module state needs no
+locking.  The sequence of handler calls is a pure function of the sequence of
+``publish`` calls, which is what makes a seeded run reproducible:
+:meth:`~panobbgo.core.EventBus.wait_idle` blocks until every queued event
+(and the events those handlers published) has been handled, and the
+synchronous evaluation mode (``config.sync_evaluation``) waits for that before
+every draw of new points.
 
-- Results database uses pandas (generally thread-safe for reads)
-- Heuristic queues use thread-safe operations
-- Analyzers should use locks if maintaining mutable state
+**Randomness:** every module owns a :class:`numpy.random.Generator`
+(``self.rng``) derived from the strategy's master ``seed`` in construction
+order; modules never touch the global ``numpy.random`` state.
 
 Parallel Evaluation
 ~~~~~~~~~~~~~~~~~~~

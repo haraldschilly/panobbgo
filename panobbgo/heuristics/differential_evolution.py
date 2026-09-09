@@ -17,7 +17,7 @@ from panobbgo.core import Heuristic
 from panobbgo.lib import Point
 import numpy as np
 import uuid
-import random
+from typing import Any
 
 
 class DifferentialEvolution(Heuristic):
@@ -43,7 +43,7 @@ class DifferentialEvolution(Heuristic):
         self.NP = NP
 
         # Population: list of Result objects (or None for uninitialized slots)
-        self.population = [None] * NP
+        self.population: list[Any] = [None] * NP
         self.pop_size = 0
         self.active_indices = []
 
@@ -58,7 +58,8 @@ class DifferentialEvolution(Heuristic):
             x = self.problem.project(x)
 
             # Create unique ID for this trial
-            req_id = str(uuid.uuid4())
+            # Drawn from self.rng (not uuid4/OS entropy) so who-tags are seed-reproducible.
+            req_id = str(uuid.UUID(bytes=self.rng.bytes(16)))
             # Result.who will be "DifferentialEvolution:<uuid>"
             who = f"{self.name}:{req_id}"
 
@@ -75,7 +76,7 @@ class DifferentialEvolution(Heuristic):
         # Initial population generation
         # We emit NP random points.
         for i in range(self.NP):
-            x = self.problem.random_point()
+            x = self.problem.random_point(rng=self.rng)
             self._emit_trial(x, i)
 
     def on_new_results(self, results):
@@ -147,7 +148,7 @@ class DifferentialEvolution(Heuristic):
 
         # Select r1, r2, r3 distinct from target_idx and each other
         # Sample 4 to ensure we can exclude target_idx without re-scanning active_indices
-        idxs = random.sample(self.active_indices, 4)
+        idxs = [int(i) for i in self.rng.choice(self.active_indices, size=4, replace=False)]
         if target_idx in idxs:
             idxs.remove(target_idx)
             idxs = idxs[:3]
@@ -167,9 +168,9 @@ class DifferentialEvolution(Heuristic):
         target_x = self.population[target_idx].x
         dim = self.problem.dim
 
-        cross_points = np.random.rand(dim) < self.CR
+        cross_points = self.rng.random(dim) < self.CR
         # Ensure at least one parameter changes
-        j_rand = np.random.randint(dim)
+        j_rand = int(self.rng.integers(dim))
         cross_points[j_rand] = True
 
         u = np.where(cross_points, v, target_x)

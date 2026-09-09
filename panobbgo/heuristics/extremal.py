@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+
 from panobbgo.core import Heuristic
 
 
@@ -52,30 +54,34 @@ class Extremal(Heuristic):
         center = low + (high - low) / 2.0
         self.vals = np.vstack((low, zero, center, high))
 
-    def on_start(self):
-        import numpy as np
+    def _draw(self):
+        ret = np.empty(self.problem.dim)
+        for i in range(self.problem.dim):
+            r = self.rng.random()
+            for idx, val in enumerate(self.probabilities):
+                if val > r:
+                    radius = self.problem.ranges[i] * self.diameter
+                    jitter = self.rng.normal(0, radius)
+                    if idx == 0:
+                        # minimum border
+                        ret[i] = self.vals[idx, i] + abs(jitter)
+                    elif idx == len(self.probabilities) - 1:
+                        # maximum border
+                        ret[i] = self.vals[idx, i] - abs(jitter)
+                    else:
+                        # around center or zero
+                        ret[i] = self.vals[idx, i] + jitter
+                    break  # since we found the idx, break!
+        return ret
 
+    def _fill(self):
+        free = self.cap - self._output.qsize()
+        if free > 0:
+            self.emit([self._draw() for _ in range(free)])
+
+    def on_start(self):
         assert self.vals is not None, "vals must be initialized in __start__"
-        while True:
-            ret = np.empty(self.problem.dim)
-            for i in range(self.problem.dim):
-                r = np.random.rand()
-                for idx, val in enumerate(self.probabilities):
-                    if val > r:
-                        radius = self.problem.ranges[i] * self.diameter
-                        # jitter = radius * (np.random.rand() - .5)
-                        jitter = np.random.normal(0, radius)
-                        if idx == 0:
-                            # minimum border
-                            ret[i] = self.vals[idx, i] + abs(jitter)
-                        elif idx == len(self.probabilities) - 1:
-                            # maximum border
-                            ret[i] = self.vals[idx, i] - abs(jitter)
-                        else:
-                            # around center or zero
-                            ret[i] = self.vals[idx, i] + jitter
-                        break  # since we found the idx, break!
-            self.emit(ret)
-            # stop early, if run by unittests
-            if self.strategy.config.testing_mode:
-                return
+        self._fill()
+
+    def on_new_results(self, results):
+        self._fill()

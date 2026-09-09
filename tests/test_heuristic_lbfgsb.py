@@ -182,7 +182,7 @@ class LBFGSBPipeTests(PanobbgoTestCase):
         h.p1 = mock.MagicMock()
         h.p1.poll.side_effect = EOFError()
         h._stopped = False
-        h.on_start()  # must exit silently
+        h._pump()  # must exit silently
 
     def test_on_start_logs_output(self):
         h = LBFGSB(self.strategy)
@@ -193,7 +193,7 @@ class LBFGSBPipeTests(PanobbgoTestCase):
         h.p1.poll.side_effect = EOFError()
         h._stopped = False
         h.logger = mock.MagicMock()
-        h.on_start()
+        h._pump()
         h.logger.info.assert_called_with("status payload")
 
     def test_on_start_emits_requested_point(self):
@@ -214,7 +214,7 @@ class LBFGSBPipeTests(PanobbgoTestCase):
 
         h._stopped = False
         with mock.patch.object(h, "emit", side_effect=fake_emit):
-            h.on_start()
+            h._pump()
         assert len(emitted) == 1
         np.testing.assert_allclose(emitted[0], [0.1, 0.2])
 
@@ -314,7 +314,7 @@ class LBFGSBWarmStartTests(PanobbgoTestCase):
         h.p1.send.side_effect = stop_after_send
         h._stopped = False
         with mock.patch.object(h, "emit") as mock_emit:
-            h.on_start()
+            h._pump()
         mock_emit.assert_not_called()
         assert len(sent) == 1
         # The answer is a valid in-box point (uniform draw since no incumbent).

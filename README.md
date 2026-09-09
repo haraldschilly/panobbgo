@@ -60,19 +60,23 @@ Threaded local evaluation needs no setup. A minimal run:
 
 ```python
 from panobbgo.lib.classic import Rosenbrock
-from panobbgo.strategies.rewarding import StrategyRewarding
-from panobbgo.heuristics import Center, Random, NelderMead
+from panobbgo.strategies import StrategyRoundRobin
+from panobbgo.heuristics import CMAES
 
 problem = Rosenbrock(dims=5)
-strategy = StrategyRewarding(problem, max_evaluations=500)
-strategy.add(Center)
-strategy.add(Random)
-strategy.add(NelderMead)
+strategy = StrategyRoundRobin(problem, max_evaluations=500, seed=42)
+strategy.add(CMAES)           # self-adapting covariance, IPOP restarts
 strategy.start()
 
 print(strategy.best)          # best result found
 df = strategy.results.results # pandas DataFrame of all evaluations
 ```
+
+Start with **one** strong population method rather than a portfolio: on the
+MA-BBOB battery a six-arm mix scored below every one of its own arms run
+alone, because splitting a fixed budget starves the population dynamics.
+Add heuristics only when a paired A/B shows they earn their evaluations —
+see [Recommended Configurations](https://haraldschilly.github.io/panobbgo/guide_usage.html).
 
 `panobbgo.lib.classic` contains the built-in test problems (Rosenbrock,
 Rastrigin, Himmelblau, Shekel, ...). To define your own, subclass

@@ -401,7 +401,7 @@ class PSO(Heuristic):
         req_id = uuid.UUID(bytes=self._rng.bytes(16)).hex
         who = f"{self.name}:{req_id}"
         try:
-            self._output.put_nowait(Point(x_proj, who))
+            self._put(Point(x_proj, who))
         except Exception as exc:  # queue full or shutdown
             self.logger.debug(f"PSO: emit failed: {exc}")
             return False

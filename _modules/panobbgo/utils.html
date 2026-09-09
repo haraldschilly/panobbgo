@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.utils"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.utils"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,24 +135,24 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf-8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sa">r</span><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Utilities</span>
 </span><span data-line="18"><span class="sd">---------</span>
 </span><span data-line="19">
 </span><span data-line="20"><span class="sd">Some utility functions, will move eventually.</span>
-</span><span data-line="21"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="21"><span class="sd">"""</span>
 </span><span data-line="22">
 </span><span data-line="23"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 </span><span data-line="24"><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
@@ -161,38 +162,38 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="28"><span class="k">class</span><span class="w"> </span><span class="nc">ColoredFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">):</span>
 </span><span data-line="29">    <span class="n">BLACK</span><span class="p">,</span> <span class="n">RED</span><span class="p">,</span> <span class="n">GREEN</span><span class="p">,</span> <span class="n">YELLOW</span><span class="p">,</span> <span class="n">BLUE</span><span class="p">,</span> <span class="n">MAGENTA</span><span class="p">,</span> <span class="n">CYAN</span><span class="p">,</span> <span class="n">WHITE</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span>
 </span><span data-line="30">
-</span><span data-line="31">    <span class="n">RESET_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0m&quot;</span>
-</span><span data-line="32">    <span class="n">COLOR_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[0;</span><span class="si">%d</span><span class="s2">m&quot;</span>
-</span><span data-line="33">    <span class="n">COLOR_SEQ_BOLD</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1;</span><span class="si">%d</span><span class="s2">m&quot;</span>
-</span><span data-line="34">    <span class="n">BOLD_SEQ</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\033</span><span class="s2">[1m&quot;</span>
+</span><span data-line="31">    <span class="n">RESET_SEQ</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[0m"</span>
+</span><span data-line="32">    <span class="n">COLOR_SEQ</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[0;</span><span class="si">%d</span><span class="s2">m"</span>
+</span><span data-line="33">    <span class="n">COLOR_SEQ_BOLD</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[1;</span><span class="si">%d</span><span class="s2">m"</span>
+</span><span data-line="34">    <span class="n">BOLD_SEQ</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\033</span><span class="s2">[1m"</span>
 </span><span data-line="35">
 </span><span data-line="36">    <span class="n">COLORS</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="37">        <span class="s2">&quot;DEBUG&quot;</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span>
-</span><span data-line="38">        <span class="s2">&quot;INFO&quot;</span><span class="p">:</span> <span class="n">WHITE</span><span class="p">,</span>
-</span><span data-line="39">        <span class="s2">&quot;WARNING&quot;</span><span class="p">:</span> <span class="n">YELLOW</span><span class="p">,</span>
-</span><span data-line="40">        <span class="s2">&quot;CRITICAL&quot;</span><span class="p">:</span> <span class="n">MAGENTA</span><span class="p">,</span>
-</span><span data-line="41">        <span class="s2">&quot;ERROR&quot;</span><span class="p">:</span> <span class="n">RED</span><span class="p">,</span>
+</span><span data-line="37">        <span class="s2">"DEBUG"</span><span class="p">:</span> <span class="n">BLUE</span><span class="p">,</span>
+</span><span data-line="38">        <span class="s2">"INFO"</span><span class="p">:</span> <span class="n">WHITE</span><span class="p">,</span>
+</span><span data-line="39">        <span class="s2">"WARNING"</span><span class="p">:</span> <span class="n">YELLOW</span><span class="p">,</span>
+</span><span data-line="40">        <span class="s2">"CRITICAL"</span><span class="p">:</span> <span class="n">MAGENTA</span><span class="p">,</span>
+</span><span data-line="41">        <span class="s2">"ERROR"</span><span class="p">:</span> <span class="n">RED</span><span class="p">,</span>
 </span><span data-line="42">    <span class="p">}</span>
 </span><span data-line="43">
 </span><span data-line="44">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_color</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 </span><span data-line="45">        <span class="c1"># use_color=None → auto-detect from stderr (the default</span>
 </span><span data-line="46">        <span class="c1"># StreamHandler target).  In a log file the ANSI escapes</span>
-</span><span data-line="47">        <span class="c1"># render as literal &quot;^[[1m...&quot; garbage, so non-TTY = plain.</span>
+</span><span data-line="47">        <span class="c1"># render as literal "^[[1m..." garbage, so non-TTY = plain.</span>
 </span><span data-line="48">        <span class="k">if</span> <span class="n">use_color</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="49">            <span class="n">use_color</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">isatty</span><span class="p">()</span>
 </span><span data-line="50">        <span class="bp">self</span><span class="o">.</span><span class="n">use_color</span> <span class="o">=</span> <span class="n">use_color</span>
 </span><span data-line="51">        <span class="k">if</span> <span class="n">use_color</span><span class="p">:</span>
-</span><span data-line="52">            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> $BOLD</span><span class="si">%(name)-5s</span><span class="s2">$RESET </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">&quot;</span>
-</span><span data-line="53">            <span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$RESET&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;$BOLD&quot;</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">BOLD_SEQ</span><span class="p">)</span>
+</span><span data-line="52">            <span class="n">msg</span> <span class="o">=</span> <span class="s2">"</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> $BOLD</span><span class="si">%(name)-5s</span><span class="s2">$RESET </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">"</span>
+</span><span data-line="53">            <span class="n">msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"$RESET"</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"$BOLD"</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">BOLD_SEQ</span><span class="p">)</span>
 </span><span data-line="54">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="55">            <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> </span><span class="si">%(name)-5s</span><span class="s2"> </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">&quot;</span>
+</span><span data-line="55">            <span class="n">msg</span> <span class="o">=</span> <span class="s2">"</span><span class="si">%(runtime)f</span><span class="s2"> </span><span class="si">%(where)-15s</span><span class="s2"> </span><span class="si">%(name)-5s</span><span class="s2"> </span><span class="si">%(levelname)-9s</span><span class="s2"> </span><span class="si">%(message)s</span><span class="s2">"</span>
 </span><span data-line="56">        <span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="n">msg</span><span class="p">)</span>
 </span><span data-line="57">
 </span><span data-line="58">    <span class="nd">@staticmethod</span>
 </span><span data-line="59">    <span class="k">def</span><span class="w"> </span><span class="nf">colorize</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">color</span><span class="p">,</span> <span class="n">bold</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 </span><span data-line="60">        <span class="n">cs</span> <span class="o">=</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ_BOLD</span> <span class="k">if</span> <span class="n">bold</span> <span class="k">else</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">COLOR_SEQ</span>
-</span><span data-line="61">        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s%s%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cs</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">color</span><span class="p">),</span> <span class="n">string</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span>
-</span><span data-line="62">        <span class="n">string</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%-20s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">string</span>
+</span><span data-line="61">        <span class="n">string</span> <span class="o">=</span> <span class="s2">"</span><span class="si">%s%s%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">cs</span> <span class="o">%</span> <span class="p">(</span><span class="mi">30</span> <span class="o">+</span> <span class="n">color</span><span class="p">),</span> <span class="n">string</span><span class="p">,</span> <span class="n">ColoredFormatter</span><span class="o">.</span><span class="n">RESET_SEQ</span><span class="p">)</span>
+</span><span data-line="62">        <span class="n">string</span> <span class="o">=</span> <span class="s2">"</span><span class="si">%-20s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">string</span>
 </span><span data-line="63">        <span class="k">return</span> <span class="n">string</span>
 </span><span data-line="64">
 </span><span data-line="65">    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">):</span>
@@ -224,24 +225,24 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="87">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span data-line="88">
 </span><span data-line="89">        <span class="n">record</span><span class="o">.</span><span class="n">runtime</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start</span>
-</span><span data-line="90">        <span class="n">record</span><span class="o">.</span><span class="n">where</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span> <span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span>
+</span><span data-line="90">        <span class="n">record</span><span class="o">.</span><span class="n">where</span> <span class="o">=</span> <span class="s2">"</span><span class="si">%s</span><span class="s2">:</span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">filename</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">],</span> <span class="n">record</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span>
 </span><span data-line="91">        <span class="k">return</span> <span class="kc">True</span></div>
 </div>
 
 </span><span data-line="92">
 </span><span data-line="93">
 </span><span data-line="94"><span class="k">class</span><span class="w"> </span><span class="nc">PanobbgoHandler</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">):</span>
-</span><span data-line="95"><span class="w">    </span><span class="sd">&quot;&quot;&quot;The one stream handler panobbgo attaches to a logger.</span>
+</span><span data-line="95"><span class="w">    </span><span class="sd">"""The one stream handler panobbgo attaches to a logger.</span>
 </span><span data-line="96">
 </span><span data-line="97"><span class="sd">    Marked by its type so :func:`create_logger` can find and reuse it</span>
 </span><span data-line="98"><span class="sd">    instead of stacking a new handler per :class:`~panobbgo.config.Config`.</span>
-</span><span data-line="99"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="99"><span class="sd">    """</span>
 </span><span data-line="100">
 </span><span data-line="101">
 </span><span data-line="102"><span class="k">def</span><span class="w"> </span><span class="nf">create_logger</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
-</span><span data-line="103"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="103"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="104"><span class="sd">    Creates logger with ``name`` and given ``level`` logging level.</span>
-</span><span data-line="105"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="105"><span class="sd">    """</span>
 </span><span data-line="106">    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
 </span><span data-line="107">    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
 </span><span data-line="108">    <span class="c1"># Loggers are process-global while Config objects are per strategy:</span>
@@ -259,37 +260,37 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="120">
 </span><span data-line="121">
 </span><span data-line="122"><span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">():</span>
-</span><span data-line="123"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="123"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="124"><span class="sd">    Shows a bit of info about the libraries and other environment information.</span>
-</span><span data-line="125"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="125"><span class="sd">    """</span>
 </span><span data-line="126">    <span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 </span><span data-line="127">
-</span><span data-line="128">    <span class="n">git</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">&quot;git&quot;</span><span class="p">,</span> <span class="s2">&quot;rev-parse&quot;</span><span class="p">,</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">],</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+</span><span data-line="128">    <span class="n">git</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">"git"</span><span class="p">,</span> <span class="s2">"rev-parse"</span><span class="p">,</span> <span class="s2">"HEAD"</span><span class="p">],</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
 </span><span data-line="129">    <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="130">
 </span><span data-line="131">    <span class="k">def</span><span class="w"> </span><span class="nf">version</span><span class="p">(</span><span class="n">what</span><span class="p">):</span>
 </span><span data-line="132">        <span class="n">m</span> <span class="o">=</span> <span class="nb">__import__</span><span class="p">(</span><span class="n">what</span><span class="p">)</span>
 </span><span data-line="133">        <span class="n">v</span><span class="p">[</span><span class="n">what</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">__version__</span>
 </span><span data-line="134">
-</span><span data-line="135">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;numpy&quot;</span><span class="p">)</span>
-</span><span data-line="136">    <span class="n">version</span><span class="p">(</span><span class="s2">&quot;scipy&quot;</span><span class="p">)</span>
+</span><span data-line="135">    <span class="n">version</span><span class="p">(</span><span class="s2">"numpy"</span><span class="p">)</span>
+</span><span data-line="136">    <span class="n">version</span><span class="p">(</span><span class="s2">"scipy"</span><span class="p">)</span>
 </span><span data-line="137">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="138">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span>
+</span><span data-line="138">        <span class="n">version</span><span class="p">(</span><span class="s2">"pandas"</span><span class="p">)</span>
 </span><span data-line="139">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="140">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pandas not available&quot;</span><span class="p">)</span>
+</span><span data-line="140">        <span class="nb">print</span><span class="p">(</span><span class="s2">"pandas not available"</span><span class="p">)</span>
 </span><span data-line="141">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="142">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;statsmodels&quot;</span><span class="p">)</span>
+</span><span data-line="142">        <span class="n">version</span><span class="p">(</span><span class="s2">"statsmodels"</span><span class="p">)</span>
 </span><span data-line="143">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="144">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;statsmodels not available&quot;</span><span class="p">)</span>
+</span><span data-line="144">        <span class="nb">print</span><span class="p">(</span><span class="s2">"statsmodels not available"</span><span class="p">)</span>
 </span><span data-line="145">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="146">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">)</span>
+</span><span data-line="146">        <span class="n">version</span><span class="p">(</span><span class="s2">"matplotlib"</span><span class="p">)</span>
 </span><span data-line="147">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="148">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matplotlib not available&quot;</span><span class="p">)</span>
+</span><span data-line="148">        <span class="nb">print</span><span class="p">(</span><span class="s2">"matplotlib not available"</span><span class="p">)</span>
 </span><span data-line="149">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="150">        <span class="n">version</span><span class="p">(</span><span class="s2">&quot;dask&quot;</span><span class="p">)</span>
+</span><span data-line="150">        <span class="n">version</span><span class="p">(</span><span class="s2">"dask"</span><span class="p">)</span>
 </span><span data-line="151">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="152">        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dask not available&quot;</span><span class="p">)</span>
-</span><span data-line="153">    <span class="n">v</span><span class="p">[</span><span class="s2">&quot;git HEAD&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">git</span><span class="o">.</span><span class="n">communicate</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="152">        <span class="nb">print</span><span class="p">(</span><span class="s2">"dask not available"</span><span class="p">)</span>
+</span><span data-line="153">    <span class="n">v</span><span class="p">[</span><span class="s2">"git HEAD"</span><span class="p">]</span> <span class="o">=</span> <span class="n">git</span><span class="o">.</span><span class="n">communicate</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 </span><span data-line="154">    <span class="k">return</span> <span class="n">v</span>
 </span><span data-line="155">
 </span><span data-line="156">
@@ -298,22 +299,22 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="159">
 </span><span data-line="160">
 </span><span data-line="161"><span class="k">def</span><span class="w"> </span><span class="nf">is_right</span><span class="p">(</span><span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">ptest</span><span class="p">):</span>
-</span><span data-line="162"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="162"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="163"><span class="sd">    p0-&gt;p1 existing results, ptest other point</span>
 </span><span data-line="164"><span class="sd">    return true, if ptest is on the right of p0-&gt;p1</span>
 </span><span data-line="165">
 </span><span data-line="166"><span class="sd">    Args::</span>
 </span><span data-line="167">
 </span><span data-line="168"><span class="sd">      - p0, p1, ptest: :class:`numpy.ndarray`.</span>
-</span><span data-line="169"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="169"><span class="sd">    """</span>
 </span><span data-line="170">    <span class="n">v1</span> <span class="o">=</span> <span class="n">p1</span> <span class="o">-</span> <span class="n">p0</span>
 </span><span data-line="171">    <span class="n">v2</span> <span class="o">=</span> <span class="n">ptest</span> <span class="o">-</span> <span class="n">p0</span>
 </span><span data-line="172">    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">det</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="mi">0</span>
 </span><span data-line="173">
 </span><span data-line="174">
 </span><span data-line="175"><span class="k">class</span><span class="w"> </span><span class="nc">memoize</span><span class="p">:</span>
-</span><span data-line="176"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="177"><span class="sd">    Caches the return value of a method inside the instance&#39;s function!</span>
+</span><span data-line="176"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="177"><span class="sd">    Caches the return value of a method inside the instance's function!</span>
 </span><span data-line="178">
 </span><span data-line="179"><span class="sd">    This class is meant to be used as a decorator of methods. The return value</span>
 </span><span data-line="180"><span class="sd">    from a given method invocation will be cached on the instance whose method</span>
@@ -339,7 +340,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="200"><span class="sd">      Obj.add_to(1, 2) # returns 3, result is not cached</span>
 </span><span data-line="201">
 </span><span data-line="202"><span class="sd">    Derived from `ActiveState 577432 &lt;http://code.activestate.com/recipes/577452-a-memoize-decorator-for-instance-methods/&gt;`_.</span>
-</span><span data-line="203"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="203"><span class="sd">    """</span>
 </span><span data-line="204">
 </span><span data-line="205">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
 </span><span data-line="206">        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
@@ -363,17 +364,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="224">        <span class="c1"># Handle arguments correctly:</span>
 </span><span data-line="225">        <span class="c1"># If the method is called as instance.method(), args[0] is self (obj)</span>
 </span><span data-line="226">        <span class="c1"># We want to cache based on the OTHER arguments.</span>
-</span><span data-line="227">        <span class="c1"># But wait, __get__ does partial application, so args[0] passed here is likely &#39;obj&#39;</span>
+</span><span data-line="227">        <span class="c1"># But wait, __get__ does partial application, so args[0] passed here is likely 'obj'</span>
 </span><span data-line="228">
 </span><span data-line="229">        <span class="c1"># NOTE: self.func is the UNBOUND function.</span>
-</span><span data-line="230">        <span class="c1"># args[0] is the instance &#39;obj&#39;.</span>
+</span><span data-line="230">        <span class="c1"># args[0] is the instance 'obj'.</span>
 </span><span data-line="231">        <span class="c1"># The actual arguments to the function are args[1:].</span>
 </span><span data-line="232">
 </span><span data-line="233">        <span class="c1"># However, numpy arrays are not hashable, so they cannot be part of the key directly.</span>
 </span><span data-line="234">        <span class="c1"># If any argument is a numpy array, we should probably not cache or use a different key strategy.</span>
 </span><span data-line="235">        <span class="c1"># For Splitter.Box.ranges (which uses this), there are NO arguments besides self.</span>
 </span><span data-line="236">
-</span><span data-line="237">        <span class="c1"># Let&#39;s handle unhashable arguments gracefully by skipping caching or converting</span>
+</span><span data-line="237">        <span class="c1"># Let's handle unhashable arguments gracefully by skipping caching or converting</span>
 </span><span data-line="238">        <span class="n">key_args</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="239">
 </span><span data-line="240">        <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
@@ -393,13 +394,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="254">
 </span><span data-line="255">
 </span><span data-line="256"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="257"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="257"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="258"><span class="sd">    Evaluate a point using a problem instance.</span>
 </span><span data-line="259">
 </span><span data-line="260"><span class="sd">    This function is used by all evaluation modes:</span>
-</span><span data-line="261"><span class="sd">    - &#39;threaded&#39;: Called directly in thread pool</span>
-</span><span data-line="262"><span class="sd">    - &#39;processes&#39;: Called in subprocess after deserializing problem/point</span>
-</span><span data-line="263"><span class="sd">    - &#39;dask&#39;: Called on worker nodes</span>
+</span><span data-line="261"><span class="sd">    - 'threaded': Called directly in thread pool</span>
+</span><span data-line="262"><span class="sd">    - 'processes': Called in subprocess after deserializing problem/point</span>
+</span><span data-line="263"><span class="sd">    - 'dask': Called on worker nodes</span>
 </span><span data-line="264">
 </span><span data-line="265"><span class="sd">    Args:</span>
 </span><span data-line="266"><span class="sd">        problem: The optimization problem instance</span>
@@ -407,7 +408,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="268">
 </span><span data-line="269"><span class="sd">    Returns:</span>
 </span><span data-line="270"><span class="sd">        The evaluation result (Result object)</span>
-</span><span data-line="271"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="271"><span class="sd">    """</span>
 </span><span data-line="272">    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
 </span><span data-line="273">
 </span><span data-line="274">
@@ -419,18 +420,18 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="280">
 </span><span data-line="281">
 </span><span data-line="282"><span class="k">def</span><span class="w"> </span><span class="nf">expected_failure</span><span class="p">(</span><span class="n">exptn</span><span class="p">,</span> <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="283"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="283"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="284"><span class="sd">    Wrapper for a test function, which expects a certain Exception.</span>
 </span><span data-line="285">
 </span><span data-line="286"><span class="sd">    Example::</span>
 </span><span data-line="287">
-</span><span data-line="288"><span class="sd">        @expected_failure(ValueError, &quot;point must be an instance of lib.Point&quot;)</span>
+</span><span data-line="288"><span class="sd">        @expected_failure(ValueError, "point must be an instance of lib.Point")</span>
 </span><span data-line="289"><span class="sd">        def test_result_error(self):</span>
 </span><span data-line="290"><span class="sd">            Result([1., 1.], 1.1)</span>
 </span><span data-line="291">
 </span><span data-line="292"><span class="sd">    @param Exception exptn: exception class</span>
 </span><span data-line="293"><span class="sd">    @param str msg: expected message</span>
-</span><span data-line="294"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="294"><span class="sd">    """</span>
 </span><span data-line="295">
 </span><span data-line="296">    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">testfn</span><span class="p">):</span>
 </span><span data-line="297">        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">testfn</span><span class="p">)</span>
@@ -439,9 +440,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="300">                <span class="n">testfn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span><span data-line="301">            <span class="k">except</span> <span class="n">exptn</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
 </span><span data-line="302">                <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="303">                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">&quot;message: &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
+</span><span data-line="303">                    <span class="k">assert</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span> <span class="o">==</span> <span class="n">msg</span><span class="p">,</span> <span class="s2">"message: '</span><span class="si">%s</span><span class="s2">'"</span> <span class="o">%</span> <span class="nb">str</span><span class="p">(</span><span class="n">ex</span><span class="p">)</span>
 </span><span data-line="304">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="305">                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;No Exception &#39;</span><span class="si">%s</span><span class="s2">&#39; raised in &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">))</span>
+</span><span data-line="305">                <span class="k">raise</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">"No Exception '</span><span class="si">%s</span><span class="s2">' raised in '</span><span class="si">%s</span><span class="s2">'"</span> <span class="o">%</span> <span class="p">(</span><span class="n">exptn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">testfn</span><span class="o">.</span><span class="vm">__name__</span><span class="p">))</span>
 </span><span data-line="306">
 </span><span data-line="307">        <span class="k">return</span> <span class="n">inner</span>
 </span><span data-line="308">
@@ -488,17 +489,17 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="PanobbgoTestCase.random_results">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.random_results">[docs]</a>
 </span><span data-line="344">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="345"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build ``N`` synthetic :class:`~panobbgo.lib.Result` objects (test helper).</span>
+</span><span data-line="345"><span class="w">        </span><span class="sd">"""Build ``N`` synthetic :class:`~panobbgo.lib.Result` objects (test helper).</span>
 </span><span data-line="346">
 </span><span data-line="347"><span class="sd">        :param rng: optional :class:`numpy.random.Generator`; ``None`` falls back</span>
-</span><span data-line="348"><span class="sd">            to numpy&#39;s global state so ``np.random.seed`` still pins the data.</span>
-</span><span data-line="349"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="348"><span class="sd">            to numpy's global state so ``np.random.seed`` still pins the data.</span>
+</span><span data-line="349"><span class="sd">        """</span>
 </span><span data-line="350">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
 </span><span data-line="351">
 </span><span data-line="352">        <span class="n">r_</span> <span class="o">=</span> <span class="n">rng</span> <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span>
 </span><span data-line="353">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="354">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-</span><span data-line="355">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">r_</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="355">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">r_</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">"test"</span><span class="p">)</span>
 </span><span data-line="356">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="357">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
 </span><span data-line="358">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
@@ -511,7 +512,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="364">
 <div class="viewcode-block" id="PanobbgoTestCase.init_strategy">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.init_strategy">[docs]</a>
-</span><span data-line="365">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
+</span><span data-line="365">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">"panobbgo.core.StrategyBase"</span><span class="p">)</span>
 </span><span data-line="366">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
 </span><span data-line="367">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
 </span><span data-line="368">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
@@ -547,14 +548,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

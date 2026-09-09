@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.feasible_search"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.feasible_search"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,14 +135,14 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012-2025 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
@@ -153,7 +154,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="FeasibleSearch">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.FeasibleSearch">[docs]</a>
 </span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">FeasibleSearch</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="21"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="21"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="22"><span class="sd">    Constraint-specific heuristic that targets feasible regions.</span>
 </span><span data-line="23">
 </span><span data-line="24"><span class="sd">    Behavior:</span>
@@ -166,17 +167,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="31"><span class="sd">      infeasible best and the feasible best to find the feasibility boundary.</span>
 </span><span data-line="32"><span class="sd">    - If the current best is feasible, this heuristic reduces its activity (emits fewer points</span>
 </span><span data-line="33"><span class="sd">      or stops), as its primary goal is finding feasible regions.</span>
-</span><span data-line="34"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="34"><span class="sd">    """</span>
 </span><span data-line="35">
 </span><span data-line="36">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">decay</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">samples</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
-</span><span data-line="37"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="37"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="38"><span class="sd">        Args:</span>
 </span><span data-line="39"><span class="sd">            strategy: Reference to the strategy.</span>
 </span><span data-line="40"><span class="sd">            radius (float): Initial search radius (relative to box size).</span>
 </span><span data-line="41"><span class="sd">            decay (float): Decay factor for radius when improvement is found.</span>
 </span><span data-line="42"><span class="sd">            samples (int): Number of points to generate per event.</span>
-</span><span data-line="43"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="44">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;FeasibleSearch&quot;</span><span class="p">)</span>
+</span><span data-line="43"><span class="sd">        """</span>
+</span><span data-line="44">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"FeasibleSearch"</span><span class="p">)</span>
 </span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="n">radius</span>
 </span><span data-line="46">        <span class="bp">self</span><span class="o">.</span><span class="n">decay</span> <span class="o">=</span> <span class="n">decay</span>
 </span><span data-line="47">        <span class="bp">self</span><span class="o">.</span><span class="n">samples</span> <span class="o">=</span> <span class="n">samples</span>
@@ -186,10 +187,10 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="FeasibleSearch.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.FeasibleSearch.on_new_best">[docs]</a>
 </span><span data-line="51">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="52"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="52"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="53"><span class="sd">        React to a new best point found by the strategy.</span>
-</span><span data-line="54"><span class="sd">        If it&#39;s infeasible, we try to improve it (reduce CV).</span>
-</span><span data-line="55"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="54"><span class="sd">        If it's infeasible, we try to improve it (reduce CV).</span>
+</span><span data-line="55"><span class="sd">        """</span>
 </span><span data-line="56">        <span class="bp">self</span><span class="o">.</span><span class="n">current_best</span> <span class="o">=</span> <span class="n">best</span>
 </span><span data-line="57">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
 </span><span data-line="58">
@@ -197,24 +198,24 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="60">            <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="o">=</span> <span class="n">best</span>
 </span><span data-line="61">
 </span><span data-line="62">        <span class="c1"># If we are already feasible, we might not need to do much.</span>
-</span><span data-line="63">        <span class="c1"># But let&#39;s check if we want to support finding *better* feasible points too?</span>
-</span><span data-line="64">        <span class="c1"># The docstring says &quot;targets feasible regions&quot;.</span>
+</span><span data-line="63">        <span class="c1"># But let's check if we want to support finding *better* feasible points too?</span>
+</span><span data-line="64">        <span class="c1"># The docstring says "targets feasible regions".</span>
 </span><span data-line="65">        <span class="c1"># So primarily for when cv &gt; 0.</span>
 </span><span data-line="66">
 </span><span data-line="67">        <span class="k">if</span> <span class="n">best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="68">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_repair_points</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 </span><span data-line="69">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="70">            <span class="c1"># Maybe generate a few points near the boundary?</span>
-</span><span data-line="71">            <span class="c1"># For now, let&#39;s just stay idle or generate very few.</span>
+</span><span data-line="71">            <span class="c1"># For now, let's just stay idle or generate very few.</span>
 </span><span data-line="72">            <span class="k">pass</span></div>
 
 </span><span data-line="73">
 <div class="viewcode-block" id="FeasibleSearch.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.FeasibleSearch.on_new_results">[docs]</a>
 </span><span data-line="74">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="75"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="75"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="76"><span class="sd">        Listen to all results to find any feasible point, not just the best.</span>
-</span><span data-line="77"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="77"><span class="sd">        """</span>
 </span><span data-line="78">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
 </span><span data-line="79">            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="80">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_feasible</span><span class="o">.</span><span class="n">fx</span><span class="p">:</span>
@@ -222,9 +223,9 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="82">
 </span><span data-line="83">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_repair_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center_result</span><span class="p">):</span>
-</span><span data-line="84"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="84"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="85"><span class="sd">        Generates points around the center_result to reduce CV.</span>
-</span><span data-line="86"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="86"><span class="sd">        """</span>
 </span><span data-line="87">        <span class="n">x_infeasible</span> <span class="o">=</span> <span class="n">center_result</span><span class="o">.</span><span class="n">x</span>
 </span><span data-line="88">        <span class="k">if</span> <span class="n">x_infeasible</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="89">            <span class="k">return</span>
@@ -293,14 +294,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

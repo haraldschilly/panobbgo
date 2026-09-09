@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.random"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.random"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,14 +135,14 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 - 2026 Harald Schilly &lt;harald.schilly@univie.ac.at&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
@@ -152,21 +153,21 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Random">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random">[docs]</a>
 </span><span data-line="19"><span class="k">class</span><span class="w"> </span><span class="nc">Random</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="20"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="20"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="21"><span class="sd">    Generates uniformly random points inside the box of the current</span>
-</span><span data-line="22"><span class="sd">    &quot;best leaf&quot; (see :class:`~panobbgo.analyzers.Splitter`), or inside the</span>
+</span><span data-line="22"><span class="sd">    "best leaf" (see :class:`~panobbgo.analyzers.Splitter`), or inside the</span>
 </span><span data-line="23"><span class="sd">    whole problem box until the Splitter has published one.</span>
 </span><span data-line="24">
 </span><span data-line="25"><span class="sd">    The heuristic is *reactive*: it fills its output queue on ``start`` and</span>
 </span><span data-line="26"><span class="sd">    tops it up whenever results arrive or the best leaf changes.  It never</span>
 </span><span data-line="27"><span class="sd">    sleeps or polls, so the sequence of points it produces is a pure</span>
 </span><span data-line="28"><span class="sd">    function of its :attr:`rng` and the events it receives.</span>
-</span><span data-line="29"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="29"><span class="sd">    """</span>
 </span><span data-line="30">
 <div class="viewcode-block" id="Random.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.random.Random.html#panobbgo.heuristics.random.Random.__init__">[docs]</a>
 </span><span data-line="31">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="32">        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Random&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">name</span>
+</span><span data-line="32">        <span class="n">name</span> <span class="o">=</span> <span class="s2">"Random"</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">name</span>
 </span><span data-line="33">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="34">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="n">cap</span><span class="p">)</span></div>
 
@@ -181,8 +182,8 @@ data-aria-dark="Switch to auto color mode">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_start">[docs]</a>
 </span><span data-line="42">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="43">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="44">            <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span>
-</span><span data-line="45">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">splitter</span><span class="p">,</span> <span class="s2">&quot;root&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="44">            <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">"Splitter"</span><span class="p">)</span>
+</span><span data-line="45">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">splitter</span><span class="p">,</span> <span class="s2">"root"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="46">                <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="n">splitter</span><span class="o">.</span><span class="n">root</span>
 </span><span data-line="47">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
 </span><span data-line="48">            <span class="k">pass</span>
@@ -205,9 +206,9 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Random.on_new_split">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_new_split">[docs]</a>
 </span><span data-line="58">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">box</span><span class="p">,</span> <span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
-</span><span data-line="59"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Track the (possibly new) leaf around the best point.&quot;&quot;&quot;</span>
-</span><span data-line="60">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Best&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">best</span>
-</span><span data-line="61">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="59"><span class="w">        </span><span class="sd">"""Track the (possibly new) leaf around the best point."""</span>
+</span><span data-line="60">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">"Best"</span><span class="p">)</span><span class="o">.</span><span class="n">best</span>
+</span><span data-line="61">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">"Splitter"</span><span class="p">)</span><span class="o">.</span><span class="n">get_leaf</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
 </span><span data-line="62">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
 </span><span data-line="63">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">)</span></div>
 
@@ -215,16 +216,16 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Random.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.random.Random.on_restart">[docs]</a>
 </span><span data-line="65">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="66"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the search area after a restart event.</span>
+</span><span data-line="66"><span class="w">        </span><span class="sd">"""Reset the search area after a restart event.</span>
 </span><span data-line="67">
 </span><span data-line="68"><span class="sd">        ``Splitter.get_leaf`` only locates leaves around *observed*</span>
 </span><span data-line="69"><span class="sd">        results and a restart proposes an unobserved ``center``, so fall</span>
-</span><span data-line="70"><span class="sd">        back to the Splitter&#39;s root box (the whole search space) until the</span>
+</span><span data-line="70"><span class="sd">        back to the Splitter's root box (the whole search space) until the</span>
 </span><span data-line="71"><span class="sd">        next split assigns a tighter leaf around the new incumbent.</span>
-</span><span data-line="72"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="72"><span class="sd">        """</span>
 </span><span data-line="73">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="74">        <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">&quot;Splitter&quot;</span><span class="p">)</span>
-</span><span data-line="75">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">splitter</span><span class="p">,</span> <span class="s2">&quot;root&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="74">        <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">"Splitter"</span><span class="p">)</span>
+</span><span data-line="75">        <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">splitter</span><span class="p">,</span> <span class="s2">"root"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="76">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">)</span></div>
 </div>
 
@@ -250,14 +251,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

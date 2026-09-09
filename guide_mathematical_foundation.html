@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Mathematical Foundation"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Mathematical Foundation"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -176,12 +177,12 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="mathematical-foundation">
-<h1>Mathematical Foundation<a class="headerlink" href="#mathematical-foundation" title="Link to this heading">¶</a></h1>
+<h1>Mathematical Foundation<a class="headerlink" href="#mathematical-foundation" title="Link to this heading">#</a></h1>
 <p>This section provides the mathematical foundation underlying Panobbgo’s approach to black-box global optimization.</p>
 <section id="problem-formulation">
-<h2>Problem Formulation<a class="headerlink" href="#problem-formulation" title="Link to this heading">¶</a></h2>
+<h2>Problem Formulation<a class="headerlink" href="#problem-formulation" title="Link to this heading">#</a></h2>
 <section id="objective-function">
-<h3>Objective Function<a class="headerlink" href="#objective-function" title="Link to this heading">¶</a></h3>
+<h3>Objective Function<a class="headerlink" href="#objective-function" title="Link to this heading">#</a></h3>
 <p>The basic optimization problem is:</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
@@ -194,7 +195,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </section>
 <section id="constraint-handling">
-<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">¶</a></h3>
+<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">#</a></h3>
 <p>If constraint functions <span class="math notranslate nohighlight">\(g_i(x) \leq 0\)</span> for <span class="math notranslate nohighlight">\(i = 1, \ldots, m\)</span> exist, we define the constraint violation vector:</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
@@ -207,10 +208,10 @@ data-aria-dark="Switch to auto color mode">
 </div>
 </section>
 <section id="improvement-calculation">
-<h3>Improvement Calculation<a class="headerlink" href="#improvement-calculation" title="Link to this heading">¶</a></h3>
+<h3>Improvement Calculation<a class="headerlink" href="#improvement-calculation" title="Link to this heading">#</a></h3>
 <p>When comparing two results (e.g., the current best vs. a new result) to calculate rewards for heuristics, Panobbgo uses a dedicated <code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintHandler</span></code>.</p>
 <section id="default-constraint-handler">
-<h4>Default Constraint Handler<a class="headerlink" href="#default-constraint-handler" title="Link to this heading">¶</a></h4>
+<h4>Default Constraint Handler<a class="headerlink" href="#default-constraint-handler" title="Link to this heading">#</a></h4>
 <p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">DefaultConstraintHandler</span></code> prioritizes feasibility using a lexicographic approach:</p>
 <ol class="arabic">
 <li><p><strong>Both Feasible</strong>: Standard improvement in objective function.</p>
@@ -236,7 +237,7 @@ data-aria-dark="Switch to auto color mode">
 </ol>
 </section>
 <section id="penalty-constraint-handlers">
-<h4>Penalty Constraint Handlers<a class="headerlink" href="#penalty-constraint-handlers" title="Link to this heading">¶</a></h4>
+<h4>Penalty Constraint Handlers<a class="headerlink" href="#penalty-constraint-handlers" title="Link to this heading">#</a></h4>
 <p>Alternatively, Panobbgo supports penalty-based handlers which combine the objective and constraint violation into a single scalar metric <span class="math notranslate nohighlight">\(P(x)\)</span>.</p>
 <p><strong>PenaltyConstraintHandler</strong>:
 Uses a static penalty function:</p>
@@ -254,7 +255,7 @@ Uses a penalty factor that increases over time to gradually enforce constraints:
 <p>where <span class="math notranslate nohighlight">\(\rho(t)\)</span> grows with the number of evaluations.</p>
 </section>
 <section id="heuristic-specific-approaches">
-<h4>Heuristic-Specific Approaches<a class="headerlink" href="#heuristic-specific-approaches" title="Link to this heading">¶</a></h4>
+<h4>Heuristic-Specific Approaches<a class="headerlink" href="#heuristic-specific-approaches" title="Link to this heading">#</a></h4>
 <p>Some heuristics implement specialized constraint handling logic beyond the general handlers.</p>
 <p><strong>Expected Improvement with Constraints (EIC)</strong>:
 The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a> supports EIC. It models the objective function <span class="math notranslate nohighlight">\(f(x)\)</span> and constraint violation <span class="math notranslate nohighlight">\(cv(x)\)</span> separately using Gaussian Processes.</p>
@@ -266,7 +267,7 @@ The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.Gaus
 </section>
 </section>
 <section id="lexicographic-ordering">
-<h3>Lexicographic Ordering<a class="headerlink" href="#lexicographic-ordering" title="Link to this heading">¶</a></h3>
+<h3>Lexicographic Ordering<a class="headerlink" href="#lexicographic-ordering" title="Link to this heading">#</a></h3>
 <p>For maintaining the global “best” point, point <span class="math notranslate nohighlight">\(x\)</span> is considered better than <span class="math notranslate nohighlight">\(y\)</span> if:</p>
 <ol class="arabic simple">
 <li><p><span class="math notranslate nohighlight">\(CV(x) &lt; CV(y)\)</span> (less constraint violation), <strong>OR</strong></p></li>
@@ -281,14 +282,14 @@ The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.Gaus
 </section>
 </section>
 <section id="the-exploration-exploitation-tradeoff">
-<h2>The Exploration-Exploitation Tradeoff<a class="headerlink" href="#the-exploration-exploitation-tradeoff" title="Link to this heading">¶</a></h2>
+<h2>The Exploration-Exploitation Tradeoff<a class="headerlink" href="#the-exploration-exploitation-tradeoff" title="Link to this heading">#</a></h2>
 <p>Black-box optimization requires balancing two competing objectives:</p>
 <ul class="simple">
 <li><p><strong>Exploration</strong>: Sample broadly to discover the global structure and avoid missing the global optimum</p></li>
 <li><p><strong>Exploitation</strong>: Sample intensively in promising regions to refine the current best solution</p></li>
 </ul>
 <section id="traditional-approaches">
-<h3>Traditional Approaches<a class="headerlink" href="#traditional-approaches" title="Link to this heading">¶</a></h3>
+<h3>Traditional Approaches<a class="headerlink" href="#traditional-approaches" title="Link to this heading">#</a></h3>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -324,7 +325,7 @@ The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.Gaus
 </div>
 </section>
 <section id="panobbgo-s-approach">
-<h3>Panobbgo’s Approach<a class="headerlink" href="#panobbgo-s-approach" title="Link to this heading">¶</a></h3>
+<h3>Panobbgo’s Approach<a class="headerlink" href="#panobbgo-s-approach" title="Link to this heading">#</a></h3>
 <p>Panobbgo addresses the tradeoff through:</p>
 <ol class="arabic simple">
 <li><p><strong>Diverse heuristics</strong>: Each with different exploration/exploitation profiles</p></li>
@@ -334,9 +335,9 @@ The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.Gaus
 </section>
 </section>
 <section id="multi-armed-bandit-strategy">
-<h2>Multi-Armed Bandit Strategy<a class="headerlink" href="#multi-armed-bandit-strategy" title="Link to this heading">¶</a></h2>
+<h2>Multi-Armed Bandit Strategy<a class="headerlink" href="#multi-armed-bandit-strategy" title="Link to this heading">#</a></h2>
 <section id="the-core-idea">
-<h3>The Core Idea<a class="headerlink" href="#the-core-idea" title="Link to this heading">¶</a></h3>
+<h3>The Core Idea<a class="headerlink" href="#the-core-idea" title="Link to this heading">#</a></h3>
 <p>Selecting which heuristic to use next is modeled as a <strong>multi-armed bandit problem</strong>:</p>
 <ul class="simple">
 <li><p>Each heuristic <span class="math notranslate nohighlight">\(h \in H\)</span> is an “arm” of a slot machine</p></li>
@@ -351,7 +352,7 @@ The <a class="reference internal" href="heuristics.html#panobbgo.heuristics.Gaus
 </ul>
 </section>
 <section id="implementation-in-strategyrewarding">
-<h3>Implementation in StrategyRewarding<a class="headerlink" href="#implementation-in-strategyrewarding" title="Link to this heading">¶</a></h3>
+<h3>Implementation in StrategyRewarding<a class="headerlink" href="#implementation-in-strategyrewarding" title="Link to this heading">#</a></h3>
 <p>Each heuristic <span class="math notranslate nohighlight">\(h\)</span> maintains a performance score <span class="math notranslate nohighlight">\(p_h(t)\)</span> updated as:</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
@@ -368,7 +369,7 @@ p_h(t) &amp; \text{otherwise}
 </ul>
 </section>
 <section id="selection-probability">
-<h3>Selection Probability<a class="headerlink" href="#selection-probability" title="Link to this heading">¶</a></h3>
+<h3>Selection Probability<a class="headerlink" href="#selection-probability" title="Link to this heading">#</a></h3>
 <p>Heuristic <span class="math notranslate nohighlight">\(h\)</span> is selected with probability:</p>
 <div class="math-wrapper docutils container">
 <div class="math notranslate nohighlight">
@@ -384,7 +385,7 @@ p_h(t) &amp; \text{otherwise}
 </ul>
 </section>
 <section id="why-this-works">
-<h3>Why This Works<a class="headerlink" href="#why-this-works" title="Link to this heading">¶</a></h3>
+<h3>Why This Works<a class="headerlink" href="#why-this-works" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Adaptivity</strong>: Performance tracked dynamically, strategy adapts to problem</p></li>
 <li><p><strong>Diversification</strong>: Multiple heuristics with different search characteristics</p></li>
@@ -394,9 +395,9 @@ p_h(t) &amp; \text{otherwise}
 </section>
 </section>
 <section id="pareto-optimality-for-constrained-problems">
-<h2>Pareto Optimality for Constrained Problems<a class="headerlink" href="#pareto-optimality-for-constrained-problems" title="Link to this heading">¶</a></h2>
+<h2>Pareto Optimality for Constrained Problems<a class="headerlink" href="#pareto-optimality-for-constrained-problems" title="Link to this heading">#</a></h2>
 <section id="pareto-front-definition">
-<h3>Pareto Front Definition<a class="headerlink" href="#pareto-front-definition" title="Link to this heading">¶</a></h3>
+<h3>Pareto Front Definition<a class="headerlink" href="#pareto-front-definition" title="Link to this heading">#</a></h3>
 <p>For constrained problems, we track the <strong>Pareto front</strong> in <span class="math notranslate nohighlight">\((f, CV)\)</span> space.</p>
 <p>A point <span class="math notranslate nohighlight">\((f, cv)\)</span> is <strong>Pareto optimal</strong> if there exists no other point <span class="math notranslate nohighlight">\((f', cv')\)</span> such that:</p>
 <div class="math-wrapper docutils container">
@@ -406,7 +407,7 @@ p_h(t) &amp; \text{otherwise}
 <p>In other words: no other point is better in both objectives simultaneously.</p>
 </section>
 <section id="pareto-update-algorithm">
-<h3>Pareto Update Algorithm<a class="headerlink" href="#pareto-update-algorithm" title="Link to this heading">¶</a></h3>
+<h3>Pareto Update Algorithm<a class="headerlink" href="#pareto-update-algorithm" title="Link to this heading">#</a></h3>
 <p>When a new result <span class="math notranslate nohighlight">\((f_{new}, cv_{new})\)</span> arrives:</p>
 <ol class="arabic">
 <li><p>Check if dominated by existing Pareto points:</p>
@@ -426,7 +427,7 @@ p_h(t) &amp; \text{otherwise}
 </ol>
 </section>
 <section id="practical-implications">
-<h3>Practical Implications<a class="headerlink" href="#practical-implications" title="Link to this heading">¶</a></h3>
+<h3>Practical Implications<a class="headerlink" href="#practical-implications" title="Link to this heading">#</a></h3>
 <p>The Pareto front reveals:</p>
 <ul class="simple">
 <li><p><strong>Trade-off curve</strong>: How much objective improvement costs in constraint violations</p></li>
@@ -436,15 +437,15 @@ p_h(t) &amp; \text{otherwise}
 </section>
 </section>
 <section id="hierarchical-spatial-decomposition">
-<h2>Hierarchical Spatial Decomposition<a class="headerlink" href="#hierarchical-spatial-decomposition" title="Link to this heading">¶</a></h2>
+<h2>Hierarchical Spatial Decomposition<a class="headerlink" href="#hierarchical-spatial-decomposition" title="Link to this heading">#</a></h2>
 <section id="motivation">
-<h3>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">¶</a></h3>
+<h3>Motivation<a class="headerlink" href="#motivation" title="Link to this heading">#</a></h3>
 <p>As optimization progresses, we learn which regions of the search space are promising.
 The <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> maintains a hierarchical decomposition
 to focus search appropriately.</p>
 </section>
 <section id="box-tree-algorithm">
-<h3>Box Tree Algorithm<a class="headerlink" href="#box-tree-algorithm" title="Link to this heading">¶</a></h3>
+<h3>Box Tree Algorithm<a class="headerlink" href="#box-tree-algorithm" title="Link to this heading">#</a></h3>
 <ol class="arabic">
 <li><p><strong>Initialization</strong>: Root node = entire bounding box <span class="math notranslate nohighlight">\(B\)</span></p></li>
 <li><p><strong>Split Criterion</strong>: When a box <span class="math notranslate nohighlight">\(B_i\)</span> contains sufficient points:</p>
@@ -467,7 +468,7 @@ to focus search appropriately.</p>
 </ol>
 </section>
 <section id="usage-by-heuristics">
-<h3>Usage by Heuristics<a class="headerlink" href="#usage-by-heuristics" title="Link to this heading">¶</a></h3>
+<h3>Usage by Heuristics<a class="headerlink" href="#usage-by-heuristics" title="Link to this heading">#</a></h3>
 <p>Heuristics can adapt their sampling based on the decomposition:</p>
 <ul class="simple">
 <li><p><strong>Random</strong>: Samples uniformly from the best leaf box</p></li>
@@ -482,9 +483,9 @@ to focus search appropriately.</p>
 </section>
 </section>
 <section id="convergence-properties">
-<h2>Convergence Properties<a class="headerlink" href="#convergence-properties" title="Link to this heading">¶</a></h2>
+<h2>Convergence Properties<a class="headerlink" href="#convergence-properties" title="Link to this heading">#</a></h2>
 <section id="theoretical-guarantees">
-<h3>Theoretical Guarantees<a class="headerlink" href="#theoretical-guarantees" title="Link to this heading">¶</a></h3>
+<h3>Theoretical Guarantees<a class="headerlink" href="#theoretical-guarantees" title="Link to this heading">#</a></h3>
 <p>Under mild assumptions, Panobbgo converges to the global optimum almost surely:</p>
 <p><strong>Assumptions:</strong></p>
 <ol class="arabic simple">
@@ -501,7 +502,7 @@ to focus search appropriately.</p>
 </ol>
 </section>
 <section id="practical-convergence-rate">
-<h3>Practical Convergence Rate<a class="headerlink" href="#practical-convergence-rate" title="Link to this heading">¶</a></h3>
+<h3>Practical Convergence Rate<a class="headerlink" href="#practical-convergence-rate" title="Link to this heading">#</a></h3>
 <p>In practice, convergence depends on:</p>
 <ul class="simple">
 <li><p><strong>Problem difficulty</strong>: Multimodality, noise level, dimension</p></li>
@@ -511,7 +512,7 @@ to focus search appropriately.</p>
 </ul>
 </section>
 <section id="complexity-analysis">
-<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading">¶</a></h3>
+<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading">#</a></h3>
 <p><strong>Per iteration:</strong></p>
 <ul class="simple">
 <li><p>Sorting results: <span class="math notranslate nohighlight">\(O(N \log N)\)</span> where <span class="math notranslate nohighlight">\(N\)</span> = evaluations so far</p></li>
@@ -531,7 +532,7 @@ to focus search appropriately.</p>
 </section>
 </section>
 <section id="references">
-<h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
+<h2>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h2>
 <div role="list" class="citation-list">
 <div class="citation" id="auer2002" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Auer2002<span class="fn-bracket">]</span></span>
@@ -595,15 +596,15 @@ Lipschitzian optimization without the Lipschitz constant.
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

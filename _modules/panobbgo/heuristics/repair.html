@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.repair"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.repair"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,14 +135,14 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2025 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
@@ -153,26 +154,26 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="ConstraintRepair">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.ConstraintRepair">[docs]</a>
 </span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">ConstraintRepair</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="21"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="21"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="22"><span class="sd">    Heuristic that attempts to repair infeasible solutions by projecting them</span>
 </span><span data-line="23"><span class="sd">    onto the feasible region.</span>
 </span><span data-line="24">
 </span><span data-line="25"><span class="sd">    It triggers when a new best point is found that is infeasible (cv &gt; 0).</span>
-</span><span data-line="26"><span class="sd">    It uses Scipy&#39;s SLSQP optimizer to minimize the distance to the original point</span>
-</span><span data-line="27"><span class="sd">    subject to the problem&#39;s constraints.</span>
+</span><span data-line="26"><span class="sd">    It uses Scipy's SLSQP optimizer to minimize the distance to the original point</span>
+</span><span data-line="27"><span class="sd">    subject to the problem's constraints.</span>
 </span><span data-line="28">
 </span><span data-line="29"><span class="sd">    Objective: min ||x - x_start||^2</span>
 </span><span data-line="30"><span class="sd">    Subject to: g(x) &lt;= 0  (evaluated via problem.eval_constraints)</span>
-</span><span data-line="31"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="31"><span class="sd">    """</span>
 </span><span data-line="32">
 </span><span data-line="33">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
-</span><span data-line="34"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="34"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="35"><span class="sd">        Args:</span>
 </span><span data-line="36"><span class="sd">            strategy: Reference to strategy.</span>
 </span><span data-line="37"><span class="sd">            max_iter (int): Maximum iterations for the repair optimizer.</span>
 </span><span data-line="38"><span class="sd">            tolerance (float): Feasibility tolerance.</span>
-</span><span data-line="39"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="40">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ConstraintRepair&quot;</span><span class="p">)</span>
+</span><span data-line="39"><span class="sd">        """</span>
+</span><span data-line="40">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"ConstraintRepair"</span><span class="p">)</span>
 </span><span data-line="41">        <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
 </span><span data-line="42">        <span class="bp">self</span><span class="o">.</span><span class="n">tolerance</span> <span class="o">=</span> <span class="n">tolerance</span>
 </span><span data-line="43">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_repaired_hash</span> <span class="o">=</span> <span class="kc">None</span>
@@ -180,9 +181,9 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="ConstraintRepair.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.ConstraintRepair.on_new_best">[docs]</a>
 </span><span data-line="45">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="46"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="46"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="47"><span class="sd">        Check if the new best point needs repair.</span>
-</span><span data-line="48"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="48"><span class="sd">        """</span>
 </span><span data-line="49">        <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="50">            <span class="k">return</span>
 </span><span data-line="51">
@@ -201,7 +202,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="63">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="64">            <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
 </span><span data-line="65">        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="66">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Scipy not installed, ConstraintRepair disabled.&quot;</span><span class="p">)</span>
+</span><span data-line="66">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Scipy not installed, ConstraintRepair disabled."</span><span class="p">)</span>
 </span><span data-line="67">            <span class="k">return</span>
 </span><span data-line="68">
 </span><span data-line="69">        <span class="n">x0</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -214,7 +215,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="76">            <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span>
 </span><span data-line="77">
 </span><span data-line="78">        <span class="c1"># Define constraints</span>
-</span><span data-line="79">        <span class="c1"># Scipy &#39;ineq&#39; means fun(x) &gt;= 0</span>
+</span><span data-line="79">        <span class="c1"># Scipy 'ineq' means fun(x) &gt;= 0</span>
 </span><span data-line="80">        <span class="c1"># Panobbgo eval_constraints returns g(x) where g(x) &lt;= 0 is feasible</span>
 </span><span data-line="81">        <span class="c1"># So we need -g(x) &gt;= 0</span>
 </span><span data-line="82">        <span class="k">def</span><span class="w"> </span><span class="nf">constraint_fun</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -224,7 +225,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="86">                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
 </span><span data-line="87">            <span class="k">return</span> <span class="o">-</span><span class="n">val</span>
 </span><span data-line="88">
-</span><span data-line="89">        <span class="n">constraints</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;ineq&quot;</span><span class="p">,</span> <span class="s2">&quot;fun&quot;</span><span class="p">:</span> <span class="n">constraint_fun</span><span class="p">}</span>
+</span><span data-line="89">        <span class="n">constraints</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"ineq"</span><span class="p">,</span> <span class="s2">"fun"</span><span class="p">:</span> <span class="n">constraint_fun</span><span class="p">}</span>
 </span><span data-line="90">
 </span><span data-line="91">        <span class="c1"># Box bounds</span>
 </span><span data-line="92">        <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span>
@@ -233,30 +234,30 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="95">            <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
 </span><span data-line="96">                <span class="n">obj</span><span class="p">,</span>
 </span><span data-line="97">                <span class="n">x0</span><span class="p">,</span>
-</span><span data-line="98">                <span class="n">method</span><span class="o">=</span><span class="s2">&quot;SLSQP&quot;</span><span class="p">,</span>
+</span><span data-line="98">                <span class="n">method</span><span class="o">=</span><span class="s2">"SLSQP"</span><span class="p">,</span>
 </span><span data-line="99">                <span class="n">jac</span><span class="o">=</span><span class="n">jac_obj</span><span class="p">,</span>
 </span><span data-line="100">                <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
 </span><span data-line="101">                <span class="n">constraints</span><span class="o">=</span><span class="n">constraints</span><span class="p">,</span>
-</span><span data-line="102">                <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;maxiter&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">,</span> <span class="s2">&quot;disp&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+</span><span data-line="102">                <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">"maxiter"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">,</span> <span class="s2">"disp"</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
 </span><span data-line="103">            <span class="p">)</span>
 </span><span data-line="104">
-</span><span data-line="105">            <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span> <span class="ow">or</span> <span class="n">res</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s2">&quot;Iteration limit reached&quot;</span><span class="p">:</span>
+</span><span data-line="105">            <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span> <span class="ow">or</span> <span class="n">res</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s2">"Iteration limit reached"</span><span class="p">:</span>
 </span><span data-line="106">                <span class="c1"># Check if we actually improved feasibility</span>
 </span><span data-line="107">                <span class="c1"># SLSQP might stop without full feasibility if max_iter reached</span>
 </span><span data-line="108">                <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="109">
 </span><span data-line="110">                <span class="c1"># We emit the point. The Strategy will evaluate it.</span>
-</span><span data-line="111">                <span class="c1"># If it&#39;s feasible, great. If it&#39;s just &quot;more feasible&quot;, also good.</span>
+</span><span data-line="111">                <span class="c1"># If it's feasible, great. If it's just "more feasible", also good.</span>
 </span><span data-line="112">
 </span><span data-line="113">                <span class="c1"># Check distance to avoid emitting same point</span>
 </span><span data-line="114">                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_new</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
 </span><span data-line="115">                    <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
-</span><span data-line="116">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Emitted repaired point (success=</span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="116">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Emitted repaired point (success=</span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </span><span data-line="117">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="118">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Repair failed: </span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="118">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Repair failed: </span><span class="si">{</span><span class="n">res</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="119">
 </span><span data-line="120">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="121">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Exception during repair: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+</span><span data-line="121">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Exception during repair: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">
@@ -280,14 +281,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Architecture Overview"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Architecture Overview"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -178,11 +179,11 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="architecture-overview">
-<h1>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h1>
+<h1>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">#</a></h1>
 <p>This section describes Panobbgo’s architecture, explaining how the components fit together
 and interact during optimization.</p>
 <section id="high-level-design">
-<h2>High-Level Design<a class="headerlink" href="#high-level-design" title="Link to this heading">¶</a></h2>
+<h2>High-Level Design<a class="headerlink" href="#high-level-design" title="Link to this heading">#</a></h2>
 <p>Panobbgo follows an <strong>event-driven, modular architecture</strong> where independent components
 communicate through an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a>. This design enables:</p>
 <ul class="simple">
@@ -192,7 +193,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 <li><p><strong>Parallelism</strong>: Events processed asynchronously in separate threads</p></li>
 </ul>
 <section id="data-flow-diagram">
-<h3>Data Flow Diagram<a class="headerlink" href="#data-flow-diagram" title="Link to this heading">¶</a></h3>
+<h3>Data Flow Diagram<a class="headerlink" href="#data-flow-diagram" title="Link to this heading">#</a></h3>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">┌─────────────────────────────────────────────────────────────┐
 </span><span data-line="2">│                         Strategy                            │
 </span><span data-line="3">│  ┌─────────────┐      ┌──────────────┐     ┌─────────────┐│
@@ -212,9 +213,9 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </section>
 </section>
 <section id="core-components">
-<h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h2>
+<h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">#</a></h2>
 <section id="strategybase">
-<h3>StrategyBase<a class="headerlink" href="#strategybase" title="Link to this heading">¶</a></h3>
+<h3>StrategyBase<a class="headerlink" href="#strategybase" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> is the main orchestrator that:</p>
 <ul class="simple">
 <li><p>Manages the optimization loop</p></li>
@@ -239,7 +240,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </ul>
 </section>
 <section id="results-database">
-<h3>Results Database<a class="headerlink" href="#results-database" title="Link to this heading">¶</a></h3>
+<h3>Results Database<a class="headerlink" href="#results-database" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="core.html#panobbgo.core.Results" title="panobbgo.core.Results"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> stores all evaluated points in a pandas DataFrame.</p>
 <p><strong>Structure:</strong></p>
 <p>The DataFrame uses MultiIndex columns:</p>
@@ -258,7 +259,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </ul>
 </section>
 <section id="eventbus">
-<h3>EventBus<a class="headerlink" href="#eventbus" title="Link to this heading">¶</a></h3>
+<h3>EventBus<a class="headerlink" href="#eventbus" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a> implements the publisher-subscriber pattern.</p>
 <p><strong>How it works:</strong></p>
 <ol class="arabic simple">
@@ -319,7 +320,7 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 </div>
 </section>
 <section id="module-base-classes">
-<h3>Module Base Classes<a class="headerlink" href="#module-base-classes" title="Link to this heading">¶</a></h3>
+<h3>Module Base Classes<a class="headerlink" href="#module-base-classes" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="core.html#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> is the abstract parent for <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a>
 and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a>.</p>
 <p><strong>Lifecycle:</strong></p>
@@ -341,10 +342,10 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 </section>
 </section>
 <section id="heuristics-point-generators">
-<h2>Heuristics (Point Generators)<a class="headerlink" href="#heuristics-point-generators" title="Link to this heading">¶</a></h2>
+<h2>Heuristics (Point Generators)<a class="headerlink" href="#heuristics-point-generators" title="Link to this heading">#</a></h2>
 <p><a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a> extends Module to generate candidate points.</p>
 <section id="architecture">
-<h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h3>
+<h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h3>
 <p>Each heuristic maintains:</p>
 <ul class="simple">
 <li><p><strong>Output queue</strong>: FIFO queue with configurable capacity (default: 20)</p></li>
@@ -374,7 +375,7 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 </div>
 </section>
 <section id="implemented-heuristics">
-<h3>Implemented Heuristics<a class="headerlink" href="#implemented-heuristics" title="Link to this heading">¶</a></h3>
+<h3>Implemented Heuristics<a class="headerlink" href="#implemented-heuristics" title="Link to this heading">#</a></h3>
 <p><strong>Initialization:</strong></p>
 <ul class="simple">
 <li><p><a class="reference internal" href="_autosummary/panobbgo.heuristics.center.Center.html#panobbgo.heuristics.center.Center" title="panobbgo.heuristics.center.Center"><code class="xref py py-class docutils literal notranslate"><span class="pre">Center</span></code></a>: Returns center of bounding box</p></li>
@@ -558,10 +559,10 @@ them back into the feasible region using nearest-feasible-point logic.</p></li>
 </section>
 </section>
 <section id="analyzers-result-processors">
-<h2>Analyzers (Result Processors)<a class="headerlink" href="#analyzers-result-processors" title="Link to this heading">¶</a></h2>
+<h2>Analyzers (Result Processors)<a class="headerlink" href="#analyzers-result-processors" title="Link to this heading">#</a></h2>
 <p><a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a> extends Module to process results and maintain derived information.</p>
 <section id="id1">
-<h3>Architecture<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<h3>Architecture<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <p>Analyzers typically:</p>
 <ul class="simple">
 <li><p>Subscribe to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> event</p></li>
@@ -570,7 +571,7 @@ them back into the feasible region using nearest-feasible-point logic.</p></li>
 </ul>
 </section>
 <section id="implemented-analyzers">
-<h3>Implemented Analyzers<a class="headerlink" href="#implemented-analyzers" title="Link to this heading">¶</a></h3>
+<h3>Implemented Analyzers<a class="headerlink" href="#implemented-analyzers" title="Link to this heading">#</a></h3>
 <p><strong>Best Tracker</strong></p>
 <p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.best.Best" title="panobbgo.analyzers.best.Best"><code class="xref py py-class docutils literal notranslate"><span class="pre">Best</span></code></a> maintains:</p>
 <ul class="simple">
@@ -620,10 +621,10 @@ Enables multi-start optimization without losing accumulated results.</p>
 </section>
 </section>
 <section id="strategies-orchestration">
-<h2>Strategies (Orchestration)<a class="headerlink" href="#strategies-orchestration" title="Link to this heading">¶</a></h2>
+<h2>Strategies (Orchestration)<a class="headerlink" href="#strategies-orchestration" title="Link to this heading">#</a></h2>
 <p>Strategy subclasses implement the <code class="docutils literal notranslate"><span class="pre">execute()</span></code> method to determine which points to evaluate next.</p>
 <section id="strategyroundrobin">
-<h3>StrategyRoundRobin<a class="headerlink" href="#strategyroundrobin" title="Link to this heading">¶</a></h3>
+<h3>StrategyRoundRobin<a class="headerlink" href="#strategyroundrobin" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="_autosummary/panobbgo.strategies.round_robin.StrategyRoundRobin.html#panobbgo.strategies.round_robin.StrategyRoundRobin" title="panobbgo.strategies.round_robin.StrategyRoundRobin"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code></a> cycles through heuristics in fixed order:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="2">    <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
@@ -640,7 +641,7 @@ Enables multi-start optimization without losing accumulated results.</p>
 </ul>
 </section>
 <section id="strategyrewarding">
-<h3>StrategyRewarding<a class="headerlink" href="#strategyrewarding" title="Link to this heading">¶</a></h3>
+<h3>StrategyRewarding<a class="headerlink" href="#strategyrewarding" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a> implements multi-armed bandit:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="2">    <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
@@ -661,7 +662,7 @@ Enables multi-start optimization without losing accumulated results.</p>
 </ul>
 </section>
 <section id="strategyucb">
-<h3>StrategyUCB<a class="headerlink" href="#strategyucb" title="Link to this heading">¶</a></h3>
+<h3>StrategyUCB<a class="headerlink" href="#strategyucb" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB" title="panobbgo.strategies.ucb.StrategyUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyUCB</span></code></a> extends the multi-armed bandit with an Upper
 Confidence Bound selection rule (UCB1 / UCB-tuned variant):</p>
 <div class="math-wrapper docutils container">
@@ -673,7 +674,7 @@ selections of heuristic <span class="math notranslate nohighlight">\(h\)</span>,
 a principled exploration–exploitation trade-off with theoretical regret bounds.</p>
 </section>
 <section id="strategythompsonsampling">
-<h3>StrategyThompsonSampling<a class="headerlink" href="#strategythompsonsampling" title="Link to this heading">¶</a></h3>
+<h3>StrategyThompsonSampling<a class="headerlink" href="#strategythompsonsampling" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyThompsonSampling" title="panobbgo.strategies.thompson.StrategyThompsonSampling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyThompsonSampling</span></code></a> uses Thompson Sampling (Beta–
 Bernoulli bandit) to select heuristics.  Each heuristic maintains a Beta posterior
 <span class="math notranslate nohighlight">\(\text{Beta}(\alpha_h, \beta_h)\)</span> over its success probability.  At each step, an arm is
@@ -681,7 +682,7 @@ selected by drawing a sample from each posterior and picking the largest.</p>
 <p><strong>Advantages:</strong> Naturally balances exploration and exploitation; often outperforms UCB in practice.</p>
 </section>
 <section id="strategylinucb">
-<h3>StrategyLinUCB<a class="headerlink" href="#strategylinucb" title="Link to this heading">¶</a></h3>
+<h3>StrategyLinUCB<a class="headerlink" href="#strategylinucb" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyLinUCB" title="panobbgo.strategies.contextual.StrategyLinUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a> implements a contextual bandit using
 disjoint linear UCB models.  Each heuristic has its own linear reward model:</p>
 <div class="math-wrapper docutils container">
@@ -692,7 +693,7 @@ disjoint linear UCB models.  Each heuristic has its own linear reward model:</p>
 term.  LinUCB adapts selection to the <em>current optimization context</em>, not just historical averages.</p>
 </section>
 <section id="strategyphased">
-<h3>StrategyPhased<a class="headerlink" href="#strategyphased" title="Link to this heading">¶</a></h3>
+<h3>StrategyPhased<a class="headerlink" href="#strategyphased" title="Link to this heading">#</a></h3>
 <p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyPhased" title="panobbgo.strategies.phased.StrategyPhased"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyPhased</span></code></a> divides the evaluation budget into phases.
 Each phase can use a different sub-strategy or heuristic portfolio.  The phase transitions are
 triggered by evaluation count, enabling a two-stage approach (e.g., initial exploration followed
@@ -701,9 +702,9 @@ by focused exploitation).</p>
 </section>
 </section>
 <section id="execution-flow">
-<h2>Execution Flow<a class="headerlink" href="#execution-flow" title="Link to this heading">¶</a></h2>
+<h2>Execution Flow<a class="headerlink" href="#execution-flow" title="Link to this heading">#</a></h2>
 <section id="initialization-phase">
-<h3>Initialization Phase<a class="headerlink" href="#initialization-phase" title="Link to this heading">¶</a></h3>
+<h3>Initialization Phase<a class="headerlink" href="#initialization-phase" title="Link to this heading">#</a></h3>
 <ol class="arabic">
 <li><p>User creates Strategy with Problem:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
@@ -722,7 +723,7 @@ by focused exploitation).</p>
 </ol>
 </section>
 <section id="startup">
-<h3>Startup<a class="headerlink" href="#startup" title="Link to this heading">¶</a></h3>
+<h3>Startup<a class="headerlink" href="#startup" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Strategy initializes the evaluation environment</p></li>
 <li><p>Strategy calls <code class="docutils literal notranslate"><span class="pre">__start__()</span></code> on all modules</p></li>
@@ -731,7 +732,7 @@ by focused exploitation).</p>
 </ol>
 </section>
 <section id="main-loop">
-<h3>Main Loop<a class="headerlink" href="#main-loop" title="Link to this heading">¶</a></h3>
+<h3>Main Loop<a class="headerlink" href="#main-loop" title="Link to this heading">#</a></h3>
 <p>While budget remaining:</p>
 <ol class="arabic">
 <li><p><strong>Generate points</strong>:</p>
@@ -751,7 +752,7 @@ by focused exploitation).</p>
 </div>
 </li>
 <li><p><strong>Publish event</strong>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_results&quot;</span><span class="p">,</span> <span class="n">results</span><span class="o">=</span><span class="n">results</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_results"</span><span class="p">,</span> <span class="n">results</span><span class="o">=</span><span class="n">results</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </li>
@@ -776,7 +777,7 @@ by focused exploitation).</p>
 </ol>
 </section>
 <section id="termination">
-<h3>Termination<a class="headerlink" href="#termination" title="Link to this heading">¶</a></h3>
+<h3>Termination<a class="headerlink" href="#termination" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>EventBus publishes <code class="docutils literal notranslate"><span class="pre">finished</span></code> event</p></li>
 <li><p>Modules call <code class="docutils literal notranslate"><span class="pre">__stop__()</span></code> for cleanup</p></li>
@@ -785,9 +786,9 @@ by focused exploitation).</p>
 </section>
 </section>
 <section id="threading-model">
-<h2>Threading Model<a class="headerlink" href="#threading-model" title="Link to this heading">¶</a></h2>
+<h2>Threading Model<a class="headerlink" href="#threading-model" title="Link to this heading">#</a></h2>
 <section id="event-handling">
-<h3>Event Handling<a class="headerlink" href="#event-handling" title="Link to this heading">¶</a></h3>
+<h3>Event Handling<a class="headerlink" href="#event-handling" title="Link to this heading">#</a></h3>
 <p>Events are delivered <strong>serially by one dispatcher thread</strong>:</p>
 <ul class="simple">
 <li><p>Non-blocking: publishing returns immediately; the event is queued</p></li>
@@ -809,7 +810,7 @@ every draw of new points.</p>
 order; modules never touch the global <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> state.</p>
 </section>
 <section id="parallel-evaluation">
-<h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">¶</a></h3>
+<h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">#</a></h3>
 <p>Function evaluations can run in parallel using different engines:</p>
 <ul class="simple">
 <li><p><strong>Threaded (Default)</strong>: Evaluations run in a local thread pool. Suitable for lightweight functions or when running on a single machine.</p></li>
@@ -826,10 +827,10 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 </div>
 </section>
 <section id="configuration">
-<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h3>
 <p>Parallelism parameters in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
-</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or &#39;dask&#39;</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or 'dask'</span>
 </span><span data-line="3"><span class="w">  </span><span class="c1"># Dask specific configuration</span>
 </span><span data-line="4"><span class="w">  </span><span class="nt">dask</span><span class="p">:</span>
 </span><span data-line="5"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">localhost:8786</span>
@@ -842,7 +843,7 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 </section>
 </section>
 <section id="extension-points">
-<h2>Extension Points<a class="headerlink" href="#extension-points" title="Link to this heading">¶</a></h2>
+<h2>Extension Points<a class="headerlink" href="#extension-points" title="Link to this heading">#</a></h2>
 <p>To extend Panobbgo:</p>
 <ol class="arabic simple">
 <li><p><strong>Add a heuristic</strong>: Subclass <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p></li>
@@ -854,7 +855,7 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 <p>See <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a> for detailed examples.</p>
 </section>
 <section id="design-principles">
-<h2>Design Principles<a class="headerlink" href="#design-principles" title="Link to this heading">¶</a></h2>
+<h2>Design Principles<a class="headerlink" href="#design-principles" title="Link to this heading">#</a></h2>
 <p>The architecture follows these principles:</p>
 <dl class="simple">
 <dt><strong>Modularity</strong></dt><dd><p>Components are independent and interchangeable</p>
@@ -908,15 +909,15 @@ lazily — install the optional extra (<code class="docutils literal notranslate
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

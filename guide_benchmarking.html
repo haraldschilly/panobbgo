@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Benchmarking and the Composite Score"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Benchmarking and the Composite Score"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -171,7 +172,7 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="benchmarking-and-the-composite-score">
-<h1>Benchmarking and the Composite Score<a class="headerlink" href="#benchmarking-and-the-composite-score" title="Link to this heading">¶</a></h1>
+<h1>Benchmarking and the Composite Score<a class="headerlink" href="#benchmarking-and-the-composite-score" title="Link to this heading">#</a></h1>
 <p>This chapter explains <em>how we measure the quality of Panobbgo</em> — what number
 we track, what it means, how to compute it, and how to decide whether a
 change is an improvement.  The internals of the (currently dormant)
@@ -226,7 +227,7 @@ in <code class="docutils literal notranslate"><span class="pre">planning/LOOP_RE
 </ul>
 </nav>
 <section id="why-a-single-number">
-<h2><a class="toc-backref" href="#id2" role="doc-backlink">Why a single number?</a><a class="headerlink" href="#why-a-single-number" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Why a single number?</a><a class="headerlink" href="#why-a-single-number" title="Link to this heading">#</a></h2>
 <p>Black-box optimization has no shortage of metrics: success rate, ERT
 (Expected Running Time), best distance to optimum, area under the convergence
 curve, wall-clock time. Each captures a facet, none captures the whole.</p>
@@ -241,7 +242,7 @@ curve, wall-clock time. Each captures a facet, none captures the whole.</p>
 <code class="docutils literal notranslate"><span class="pre">HarnessResult.composite_score</span></code>.</p>
 </section>
 <section id="definition">
-<h2><a class="toc-backref" href="#id3" role="doc-backlink">Definition</a><a class="headerlink" href="#definition" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Definition</a><a class="headerlink" href="#definition" title="Link to this heading">#</a></h2>
 <p>For each optimization run we track a <em>convergence trace</em> — the sequence of
 evaluation indices at which the best-so-far value improved. From the trace we
 extract the <strong>first-hit evaluation</strong> <span class="math notranslate nohighlight">\(k^\star\)</span>, defined as the first
@@ -264,7 +265,7 @@ The final <code class="docutils literal notranslate"><span class="pre">composite
 exact implementation.</p>
 </section>
 <section id="interpretation">
-<h2><a class="toc-backref" href="#id4" role="doc-backlink">Interpretation</a><a class="headerlink" href="#interpretation" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Interpretation</a><a class="headerlink" href="#interpretation" title="Link to this heading">#</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -296,7 +297,7 @@ exact implementation.</p>
 </table>
 </div>
 <section id="also-reported">
-<h3><a class="toc-backref" href="#id5" role="doc-backlink">Also reported</a><a class="headerlink" href="#also-reported" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Also reported</a><a class="headerlink" href="#also-reported" title="Link to this heading">#</a></h3>
 <p>Alongside <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> each pair exposes:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">success_rate</span></code> — fraction of reps hitting tolerance.</p></li>
@@ -309,7 +310,7 @@ it moved.</p>
 </section>
 </section>
 <section id="running-benchmarks">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">Running benchmarks</a><a class="headerlink" href="#running-benchmarks" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Running benchmarks</a><a class="headerlink" href="#running-benchmarks" title="Link to this heading">#</a></h2>
 <p>The CLI lives at the repository root.  Always prefix with <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span></code> so the
 correct environment is used.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Quick — ~30 seconds, 3 problems × 2 strategies × 3 reps, 75 evals each.</span>
@@ -367,7 +368,7 @@ correct environment is used.</p>
 </table>
 </div>
 <section id="reproducibility">
-<h3><a class="toc-backref" href="#id7" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#reproducibility" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#reproducibility" title="Link to this heading">#</a></h3>
 <p>Seeds are deterministic: each <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy,</span> <span class="pre">rep)</span></code> triple derives its
 seed via SHA-256 from a base seed (default <code class="docutils literal notranslate"><span class="pre">42</span></code>). Re-running with the same
 base seed produces byte-identical convergence traces. See
@@ -375,7 +376,7 @@ base seed produces byte-identical convergence traces. See
 </section>
 </section>
 <section id="the-compare-workflow">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a><a class="headerlink" href="#the-compare-workflow" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">The <code class="docutils literal notranslate"><span class="pre">compare</span></code> workflow</a><a class="headerlink" href="#the-compare-workflow" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">compare</span> <span class="pre">before.json</span> <span class="pre">after.json</span></code> reports:</p>
 <ul class="simple">
 <li><p>Composite-score delta and relative percent change.</p></li>
@@ -387,7 +388,7 @@ scores worse.  Useful for CI gating and automated accept/revert loops.</p></li>
 </ul>
 </section>
 <section id="statistical-acceptance-rule">
-<h2><a class="toc-backref" href="#id9" role="doc-backlink">Statistical acceptance rule</a><a class="headerlink" href="#statistical-acceptance-rule" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Statistical acceptance rule</a><a class="headerlink" href="#statistical-acceptance-rule" title="Link to this heading">#</a></h2>
 <p>The naive <code class="docutils literal notranslate"><span class="pre">|Δ|</span> <span class="pre">&gt;</span> <span class="pre">eps</span></code> gate is fast but fragile — at quick-mode sample sizes
 a single lucky/unlucky run can flip it.  For rigorous gating (the kind an
 autonomous self-improvement loop needs), add the <code class="docutils literal notranslate"><span class="pre">--statistical</span></code> flag:</p>
@@ -456,7 +457,7 @@ see <em>Paired vs unpaired bootstrap</em> below.</p></td>
 </table>
 </div>
 <section id="paired-vs-unpaired-bootstrap">
-<h3><a class="toc-backref" href="#id10" role="doc-backlink">Paired vs unpaired bootstrap</a><a class="headerlink" href="#paired-vs-unpaired-bootstrap" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Paired vs unpaired bootstrap</a><a class="headerlink" href="#paired-vs-unpaired-bootstrap" title="Link to this heading">#</a></h3>
 <p>Under <code class="docutils literal notranslate"><span class="pre">--randomize</span></code> the harness keeps reps <strong>instance-aligned by index</strong>
 — rep <code class="docutils literal notranslate"><span class="pre">i</span></code> on the <code class="docutils literal notranslate"><span class="pre">before</span></code> side and rep <code class="docutils literal notranslate"><span class="pre">i</span></code> on the <code class="docutils literal notranslate"><span class="pre">after</span></code> side
 are evaluated on the <em>same</em> sampled problem instance (the SHA-256 stream
@@ -503,17 +504,17 @@ one pair, <code class="docutils literal notranslate"><span class="pre">False</sp
 regressing pair, and per-pair CIs — everything an agent needs to drill
 into a rejection:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">{</span>
-</span><span data-line="2"><span class="w">  </span><span class="nt">&quot;statistical&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span data-line="3"><span class="w">    </span><span class="nt">&quot;accept&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-</span><span data-line="4"><span class="w">    </span><span class="nt">&quot;delta&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0002</span><span class="p">,</span>
-</span><span data-line="5"><span class="w">    </span><span class="nt">&quot;ci_low&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0534</span><span class="p">,</span>
-</span><span data-line="6"><span class="w">    </span><span class="nt">&quot;ci_high&quot;</span><span class="p">:</span><span class="w">  </span><span class="mf">0.0527</span><span class="p">,</span>
-</span><span data-line="7"><span class="w">    </span><span class="nt">&quot;worst_pair_regression&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.34</span><span class="p">,</span>
-</span><span data-line="8"><span class="w">    </span><span class="nt">&quot;worst_pair&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;Rastrigin_2D&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;UCB_Diverse&quot;</span><span class="p">],</span>
-</span><span data-line="9"><span class="w">    </span><span class="nt">&quot;reasons&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span data-line="10"><span class="w">      </span><span class="s2">&quot;lower CI bound -0.0534 ≤ 0 — improvement not statistically distinguishable from noise&quot;</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">"statistical"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="3"><span class="w">    </span><span class="nt">"accept"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+</span><span data-line="4"><span class="w">    </span><span class="nt">"delta"</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0002</span><span class="p">,</span>
+</span><span data-line="5"><span class="w">    </span><span class="nt">"ci_low"</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.0534</span><span class="p">,</span>
+</span><span data-line="6"><span class="w">    </span><span class="nt">"ci_high"</span><span class="p">:</span><span class="w">  </span><span class="mf">0.0527</span><span class="p">,</span>
+</span><span data-line="7"><span class="w">    </span><span class="nt">"worst_pair_regression"</span><span class="p">:</span><span class="w"> </span><span class="mf">-0.34</span><span class="p">,</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">"worst_pair"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Rastrigin_2D"</span><span class="p">,</span><span class="w"> </span><span class="s2">"UCB_Diverse"</span><span class="p">],</span>
+</span><span data-line="9"><span class="w">    </span><span class="nt">"reasons"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span data-line="10"><span class="w">      </span><span class="s2">"lower CI bound -0.0534 ≤ 0 — improvement not statistically distinguishable from noise"</span>
 </span><span data-line="11"><span class="w">    </span><span class="p">],</span>
-</span><span data-line="12"><span class="w">    </span><span class="nt">&quot;per_pair&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">]</span>
+</span><span data-line="12"><span class="w">    </span><span class="nt">"per_pair"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">]</span>
 </span><span data-line="13"><span class="w">  </span><span class="p">}</span>
 </span><span data-line="14"><span class="p">}</span>
 </span></pre></div>
@@ -528,7 +529,7 @@ change the underlying number.</p>
 </section>
 </section>
 <section id="when-to-run-which-mode">
-<h2><a class="toc-backref" href="#id11" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">When to run which mode</a><a class="headerlink" href="#when-to-run-which-mode" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><strong>During development</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> after each meaningful change.  Fast
 enough to keep you honest without hurting flow.</p></li>
@@ -539,7 +540,7 @@ machine you are not actively using.</p></li>
 </ul>
 </section>
 <section id="pitfalls-and-statistical-caveats">
-<h2><a class="toc-backref" href="#id12" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Pitfalls and statistical caveats</a><a class="headerlink" href="#pitfalls-and-statistical-caveats" title="Link to this heading">#</a></h2>
 <p>The composite score is <strong>noisy</strong>. Three symptoms to watch for:</p>
 <ol class="arabic simple">
 <li><p><strong>Few reps</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> uses only 3 reps per pair. A delta of <code class="docutils literal notranslate"><span class="pre">±0.02</span></code>
@@ -555,7 +556,7 @@ parametrically randomised battery described below.</p></li>
 before accepting a <code class="docutils literal notranslate"><span class="pre">+0.01</span></code> to <code class="docutils literal notranslate"><span class="pre">+0.03</span></code> delta.</p>
 </section>
 <section id="parametrically-randomised-problems">
-<h2><a class="toc-backref" href="#id13" role="doc-backlink">Parametrically randomised problems</a><a class="headerlink" href="#parametrically-randomised-problems" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Parametrically randomised problems</a><a class="headerlink" href="#parametrically-randomised-problems" title="Link to this heading">#</a></h2>
 <p>The fixed registry (<code class="docutils literal notranslate"><span class="pre">_make_quick_problems</span></code> etc. in
 <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>) is great for A/B reproducibility but vulnerable to
 over-fitting: an agent that tunes a heuristic to the specific Rosenbrock
@@ -565,7 +566,7 @@ self-improvement loop) that samples fresh transformed instances per
 repetition, turning <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> into a Monte-Carlo estimate of
 <em>expected</em> performance on a problem family.</p>
 <section id="usage">
-<h3><a class="toc-backref" href="#id14" role="doc-backlink">Usage</a><a class="headerlink" href="#usage" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">Usage</a><a class="headerlink" href="#usage" title="Link to this heading">#</a></h3>
 <p>Add <code class="docutils literal notranslate"><span class="pre">--randomize</span></code> to <code class="docutils literal notranslate"><span class="pre">run</span></code> or <code class="docutils literal notranslate"><span class="pre">list</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>list<span class="w"> </span>--randomize
 </span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>run<span class="w"> </span>--randomize<span class="w"> </span>--output<span class="w"> </span>rand_before.json
@@ -582,7 +583,7 @@ across iterations the instances intentionally differ, so repeatedly
 many iterations are real improvements.</p>
 </section>
 <section id="what-gets-randomised">
-<h3><a class="toc-backref" href="#id15" role="doc-backlink">What gets randomised</a><a class="headerlink" href="#what-gets-randomised" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">What gets randomised</a><a class="headerlink" href="#what-gets-randomised" title="Link to this heading">#</a></h3>
 <p>For each <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemFamily</span></code>, the sampler
 composes four transforms (filtered by per-family capability flags):</p>
 <div class="table-wrapper colwidths-given docutils container">
@@ -631,7 +632,7 @@ composes four transforms (filtered by per-family capability flags):</p>
 works unchanged.</p>
 </section>
 <section id="default-families">
-<h3><a class="toc-backref" href="#id16" role="doc-backlink">Default families</a><a class="headerlink" href="#default-families" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Default families</a><a class="headerlink" href="#default-families" title="Link to this heading">#</a></h3>
 <p><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness_randomized.make_default_families()</span></code> returns four
 families covering the main optimisation challenges:</p>
 <ul class="simple">
@@ -652,7 +653,7 @@ dimensions is invisible to the composite metric, the anti-cherry-pick
 guard, and codify-scan.</p>
 </section>
 <section id="opt-in-extended-higher-dimensional-battery">
-<span id="opt-in-extended-battery"></span><h3><a class="toc-backref" href="#id17" role="doc-backlink">Opt-in extended (higher-dimensional) battery</a><a class="headerlink" href="#opt-in-extended-higher-dimensional-battery" title="Link to this heading">¶</a></h3>
+<span id="opt-in-extended-battery"></span><h3><a class="toc-backref" href="#id17" role="doc-backlink">Opt-in extended (higher-dimensional) battery</a><a class="headerlink" href="#opt-in-extended-higher-dimensional-battery" title="Link to this heading">#</a></h3>
 <p>To probe a regime the frozen 2-D default battery cannot reach <em>without</em>
 changing the composite contract, append extra families via the
 <code class="docutils literal notranslate"><span class="pre">--extra-highdim</span></code> flag (<code class="docutils literal notranslate"><span class="pre">run</span></code> and <code class="docutils literal notranslate"><span class="pre">list</span></code>) or the
@@ -683,7 +684,7 @@ The flag is inert on the AOCC metric path, whose battery is defined by
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_ioh</span></code>, not by randomized families.</p>
 </section>
 <section id="stratified-dimension-sampling">
-<h3><a class="toc-backref" href="#id18" role="doc-backlink">Stratified dimension sampling</a><a class="headerlink" href="#stratified-dimension-sampling" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Stratified dimension sampling</a><a class="headerlink" href="#stratified-dimension-sampling" title="Link to this heading">#</a></h3>
 <p>When a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemFamily</span></code> declares
 <code class="docutils literal notranslate"><span class="pre">dim_choices</span> <span class="pre">=</span> <span class="pre">(2,</span> <span class="pre">5,</span> <span class="pre">10)</span></code>, naive random selection would produce a
 different mix of dimensions on each loop iteration — and since
@@ -700,7 +701,7 @@ once:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.harness_randomized</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProblemFamily</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">DeJong</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">fam</span> <span class="o">=</span> <span class="n">ProblemFamily</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;dejong3&quot;</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">DeJong</span><span class="p">,</span>
+</span><span data-line="4"><span class="n">fam</span> <span class="o">=</span> <span class="n">ProblemFamily</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"dejong3"</span><span class="p">,</span> <span class="n">base_class</span><span class="o">=</span><span class="n">DeJong</span><span class="p">,</span>
 </span><span data-line="5">                    <span class="n">dim_choices</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>  <span class="c1"># stratify_dims=True</span>
 </span><span data-line="6"><span class="p">[</span><span class="n">fam</span><span class="o">.</span><span class="n">stratified_dim_for_rep</span><span class="p">(</span><span class="n">rep</span><span class="p">)</span> <span class="k">for</span> <span class="n">rep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">7</span><span class="p">)]</span>
 </span><span data-line="7"><span class="c1"># → [2, 5, 10, 2, 5, 10, 2]</span>
@@ -715,7 +716,7 @@ For backwards compatibility with older ledgers, set
 <code class="docutils literal notranslate"><span class="pre">stratified_dim:</span> <span class="pre">bool</span></code> field, useful for ledger introspection.</p>
 </section>
 <section id="id1">
-<h3><a class="toc-backref" href="#id19" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#id1" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
 <p>All randomness flows from a single 32-bit seed derived via SHA-256 from
 <code class="docutils literal notranslate"><span class="pre">(base_seed,</span> <span class="pre">iteration_id,</span> <span class="pre">family_name,</span> <span class="pre">rep)</span></code> — the same scheme the
 harness already uses for strategy seeds.  A regression flagged by the loop
@@ -737,7 +738,7 @@ is deterministically reproducible from the printed tuple:</p>
 </section>
 </section>
 <section id="absolute-baselines">
-<h2><a class="toc-backref" href="#id20" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Absolute baselines</a><a class="headerlink" href="#absolute-baselines" title="Link to this heading">#</a></h2>
 <p>The harness runs <em>Panobbgo strategies vs. Panobbgo strategies</em> by default.
 To judge Panobbgo in <strong>absolute</strong> terms, the
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> module plugs three external reference
@@ -759,7 +760,7 @@ composite score still averages over every <code class="docutils literal notransl
 so a fair comparison should either <em>include baselines on both sides</em> of
 a <code class="docutils literal notranslate"><span class="pre">compare</span></code> call or <em>exclude them from both</em>.</p>
 <section id="design">
-<h3><a class="toc-backref" href="#id21" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Design</a><a class="headerlink" href="#design" title="Link to this heading">#</a></h3>
 <p>Baselines are thin adapters that implement the subset of the strategy
 surface the harness actually uses (<code class="docutils literal notranslate"><span class="pre">.config.max_eval</span></code>, <code class="docutils literal notranslate"><span class="pre">.start()</span></code>,
 <code class="docutils literal notranslate"><span class="pre">.best</span></code>, <code class="docutils literal notranslate"><span class="pre">.results.results</span></code>).  They do <strong>not</strong> subclass
@@ -773,7 +774,7 @@ the wrapper’s log, and the results DataFrame carries the same MultiIndex
 columns (<code class="docutils literal notranslate"><span class="pre">(&quot;fx&quot;,</span> <span class="pre">0)</span></code>, <code class="docutils literal notranslate"><span class="pre">(&quot;who&quot;,</span> <span class="pre">0)</span></code>, …) the harness expects.</p>
 </section>
 <section id="cma-es-as-a-baseline">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">#</a></h3>
 <p>The pure CMA-ES reference is already available <strong>inside</strong> Panobbgo via
 the <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic, used by the
 <code class="docutils literal notranslate"><span class="pre">CMAES_Portfolio</span></code> and <code class="docutils literal notranslate"><span class="pre">IPOP_CMAES</span></code> strategies.  That gives a fair
@@ -785,9 +786,9 @@ upstream reference becomes valuable.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -797,7 +798,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -807,7 +808,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -816,7 +817,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id27" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies
@@ -867,15 +868,15 @@ reference (the loop is not currently in use).</p></li>
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

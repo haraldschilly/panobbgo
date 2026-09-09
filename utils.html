@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Utilities Module"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Utilities Module"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -99,13 +100,13 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.init_strategy"><code class="docutils literal notranslate">init_strategy()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.random_results"><code class="docutils literal notranslate">random_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.setUp"><code class="docutils literal notranslate">setUp()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.init_strategy"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase.init_strategy()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.random_results"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase.random_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoTestCase.setUp"><code class="docutils literal notranslate"><span class="pre">PanobbgoTestCase.setUp()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.utils.PanobbgoContext"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.utils.PanobbgoContext.filter"><code class="docutils literal notranslate">filter()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.utils.PanobbgoContext.filter"><code class="docutils literal notranslate"><span class="pre">PanobbgoContext.filter()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -139,23 +140,23 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="utilities-module">
-<h1>Utilities Module<a class="headerlink" href="#utilities-module" title="Link to this heading">¶</a></h1>
+<h1>Utilities Module<a class="headerlink" href="#utilities-module" title="Link to this heading">#</a></h1>
 <p>Utility functions and helper classes.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoTestCase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoTestCase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">TestCase</span></code></p>
 <p>Create an instance of the class that will use the named test
 method when executed. Raises a ValueError if the instance does
 not have a method with the specified name.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase.init_strategy">
-<span class="sig-name descname"><span class="pre">init_strategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">StrategyBaseMock</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.init_strategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.init_strategy" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">init_strategy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">StrategyBaseMock</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.init_strategy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.init_strategy" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase.random_results">
-<span class="sig-name descname"><span class="pre">random_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pcv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.random_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.random_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">random_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pcv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.random_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.random_results" title="Link to this definition">#</a></dt>
 <dd><p>Build <code class="docutils literal notranslate"><span class="pre">N</span></code> synthetic <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a> objects (test helper).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -167,7 +168,7 @@ to numpy’s global state so <code class="docutils literal notranslate"><span cl
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase.setUp">
-<span class="sig-name descname"><span class="pre">setUp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.setUp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.setUp" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">setUp</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.setUp"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.setUp" title="Link to this definition">#</a></dt>
 <dd><p>Hook method for setting up the test fixture before exercising it.</p>
 </dd></dl>
 
@@ -175,7 +176,7 @@ to numpy’s global state so <code class="docutils literal notranslate"><span cl
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoContext">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoContext</span></span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.utils.</span></span><span class="sig-name descname"><span class="pre">PanobbgoContext</span></span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/logging.html#logging.Filter" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Filter</span></code></a></p>
 <p>Initialize a filter.</p>
 <p>Initialize with the name of the logger which, together with its
@@ -183,7 +184,7 @@ children, will have its events allowed through the filter. If no
 name is specified, allow every event.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoContext.filter">
-<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext.filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext.filter" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">record</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoContext.filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoContext.filter" title="Link to this definition">#</a></dt>
 <dd><p>Determine if the specified record is to be logged.</p>
 <p>Returns True if the record should be logged, or False otherwise.
 If deemed appropriate, the record may be modified in-place.</p>
@@ -228,14 +229,14 @@ If deemed appropriate, the record may be modified in-place.</p>
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="_static/shibuya.js?v=50760d75"></script></body>
 </html>

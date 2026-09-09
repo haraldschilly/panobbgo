@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.pso"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.pso"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 -- 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Particle Swarm Optimization (PSO) Heuristic</span>
 </span><span data-line="18"><span class="sd">============================================</span>
 </span><span data-line="19">
@@ -173,25 +174,25 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="40">
 </span><span data-line="41"><span class="sd">How ``sbest_i`` is determined depends on the *swarm topology*:</span>
 </span><span data-line="42">
-</span><span data-line="43"><span class="sd">* ``&quot;gbest&quot;`` (default, Kennedy-Eberhart 1995) — the social neighbourhood</span>
+</span><span data-line="43"><span class="sd">* ``"gbest"`` (default, Kennedy-Eberhart 1995) — the social neighbourhood</span>
 </span><span data-line="44"><span class="sd">  is the entire swarm: every particle pulls toward the single global</span>
 </span><span data-line="45"><span class="sd">  best.  Fast contraction once a basin is found, but premature</span>
 </span><span data-line="46"><span class="sd">  convergence on multimodal problems where the first good basin is</span>
 </span><span data-line="47"><span class="sd">  rarely the global one.</span>
-</span><span data-line="48"><span class="sd">* ``&quot;lbest&quot;`` — *ring* topology: each particle ``i`` is connected only</span>
+</span><span data-line="48"><span class="sd">* ``"lbest"`` — *ring* topology: each particle ``i`` is connected only</span>
 </span><span data-line="49"><span class="sd">  to its ``k_neighbors`` closest indices on a wrap-around ring, so it</span>
 </span><span data-line="50"><span class="sd">  pulls toward the best ``pbest`` among ``{(i ± j) mod NP : j ≤ k}``.</span>
 </span><span data-line="51"><span class="sd">  Information about a new best diffuses through the swarm only one hop</span>
 </span><span data-line="52"><span class="sd">  per iteration, which is *slower* but lets multiple sub-swarms explore</span>
 </span><span data-line="53"><span class="sd">  different basins in parallel.  Empirically beats ``gbest`` on</span>
 </span><span data-line="54"><span class="sd">  multimodal problems (Kennedy &amp; Mendes, 2002).</span>
-</span><span data-line="55"><span class="sd">* ``&quot;vonneumann&quot;`` — 2-D *toroidal grid* topology (Mendes 2004): each</span>
+</span><span data-line="55"><span class="sd">* ``"vonneumann"`` — 2-D *toroidal grid* topology (Mendes 2004): each</span>
 </span><span data-line="56"><span class="sd">  particle is laid out on an ``R × C`` grid with ``R · C ≥ NP`` and</span>
 </span><span data-line="57"><span class="sd">  ``R ≈ √NP`` so the grid is as square as possible.  Its social</span>
 </span><span data-line="58"><span class="sd">  neighbourhood is the 4-connected wrap-around N/S/E/W set plus the</span>
 </span><span data-line="59"><span class="sd">  particle itself (size 5 on a full rectangular grid).  Information</span>
 </span><span data-line="60"><span class="sd">  diffuses two-dimensionally — *faster* than a 1-D ring of similar</span>
-</span><span data-line="61"><span class="sd">  fan-out but *slower* than ``gbest``&#39;s instantaneous diffusion — and</span>
+</span><span data-line="61"><span class="sd">  fan-out but *slower* than ``gbest``'s instantaneous diffusion — and</span>
 </span><span data-line="62"><span class="sd">  it is widely cited as a stable middle ground that wins on a broader</span>
 </span><span data-line="63"><span class="sd">  range of multimodal problem classes than either pure ring or pure</span>
 </span><span data-line="64"><span class="sd">  star (Kennedy &amp; Mendes, 2003; Mendes, 2004).  When ``NP`` does not</span>
@@ -199,7 +200,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="66"><span class="sd">  would land on a phantom (out-of-range) grid slot lose that</span>
 </span><span data-line="67"><span class="sd">  neighbour — so the neighbourhood size drops from 5 to 4 (or</span>
 </span><span data-line="68"><span class="sd">  occasionally 3) on the trailing partial row.</span>
-</span><span data-line="69"><span class="sd">* ``&quot;random&quot;`` — *random informer graph* (Mendes 2004; Clerc 2007 /</span>
+</span><span data-line="69"><span class="sd">* ``"random"`` — *random informer graph* (Mendes 2004; Clerc 2007 /</span>
 </span><span data-line="70"><span class="sd">  SPSO 2011).  Each particle ``i`` is connected to itself plus</span>
 </span><span data-line="71"><span class="sd">  ``k_neighbors`` *informers* picked uniformly from</span>
 </span><span data-line="72"><span class="sd">  ``{0..NP-1} \\ {i}`` *with replacement*; duplicates are removed</span>
@@ -207,8 +208,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="74"><span class="sd">  draws collided) and ``k_neighbors + 1`` (no collisions).  Unlike</span>
 </span><span data-line="75"><span class="sd">  the three geometric topologies — whose adjacency is a closed-form</span>
 </span><span data-line="76"><span class="sd">  function of ``NP`` — the random graph is sampled at ``on_start``</span>
-</span><span data-line="77"><span class="sd">  (and re-sampled at ``on_restart``) from the heuristic&#39;s RNG.  The</span>
-</span><span data-line="78"><span class="sd">  graph is *asymmetric*: ``j`` being in ``i``&#39;s informer set does not</span>
+</span><span data-line="77"><span class="sd">  (and re-sampled at ``on_restart``) from the heuristic's RNG.  The</span>
+</span><span data-line="78"><span class="sd">  graph is *asymmetric*: ``j`` being in ``i``'s informer set does not</span>
 </span><span data-line="79"><span class="sd">  imply the reverse.  Practical role: when neither ``gbest`` (too</span>
 </span><span data-line="80"><span class="sd">  greedy), ``lbest`` (too slow to diffuse), nor ``vonneumann`` (locked</span>
 </span><span data-line="81"><span class="sd">  to a fixed 2-D grid geometry) consistently wins, the random graph</span>
@@ -225,7 +226,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="92"><span class="sd">  a bad realisation for hundreds of iterations.  Opt in via</span>
 </span><span data-line="93"><span class="sd">  ``stagnation_threshold=NP`` (the SPSO 2011 setting): when ``NP``</span>
 </span><span data-line="94"><span class="sd">  consecutive incoming results land without lifting ``_gbest_idx``,</span>
-</span><span data-line="95"><span class="sd">  the adjacency is rebuilt from the heuristic&#39;s RNG and the counter</span>
+</span><span data-line="95"><span class="sd">  the adjacency is rebuilt from the heuristic's RNG and the counter</span>
 </span><span data-line="96"><span class="sd">  resets.  ``stagnation_threshold=None`` (default) preserves the</span>
 </span><span data-line="97"><span class="sd">  static-between-restarts behaviour shipped 2026-05-29.</span>
 </span><span data-line="98">
@@ -235,14 +236,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="102"><span class="sd">all particles into the first decent basin, ``vonneumann`` between the</span>
 </span><span data-line="103"><span class="sd">two with a fixed 2-D geometry, and ``random`` as a structure-free</span>
 </span><span data-line="104"><span class="sd">alternative whose diffusion speed depends on the realised graph.</span>
-</span><span data-line="105"><span class="sd">Panobbgo&#39;s structural mutation catalog ships *all four* variants so the</span>
+</span><span data-line="105"><span class="sd">Panobbgo's structural mutation catalog ships *all four* variants so the</span>
 </span><span data-line="106"><span class="sd">self-improvement loop can pick whichever helps on a given problem family.</span>
 </span><span data-line="107">
 </span><span data-line="108"><span class="sd">Adaptive inertia (Shi-Eberhart 1998)</span>
 </span><span data-line="109"><span class="sd">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
 </span><span data-line="110">
 </span><span data-line="111"><span class="sd">Optionally pass ``w_end`` to linearly decrease the inertia weight from</span>
-</span><span data-line="112"><span class="sd">``w`` (the *initial* value) to ``w_end`` over the strategy&#39;s evaluation</span>
+</span><span data-line="112"><span class="sd">``w`` (the *initial* value) to ``w_end`` over the strategy's evaluation</span>
 </span><span data-line="113"><span class="sd">budget — the swarm explores broadly with high inertia early and refines</span>
 </span><span data-line="114"><span class="sd">with low inertia late.  The schedule is paced by</span>
 </span><span data-line="115"><span class="sd">``len(strategy.results) / strategy.config.max_eval``; when the budget is</span>
@@ -269,43 +270,43 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="136"><span class="sd">2. ``on_new_results()`` matches incoming results back to their particle</span>
 </span><span data-line="137"><span class="sd">   index (via the ``who`` tag), updates ``pbest_i`` if the result improves,</span>
 </span><span data-line="138"><span class="sd">   refreshes the global best (for reporting) plus the per-particle</span>
-</span><span data-line="139"><span class="sd">   neighbourhood best (for ``lbest`` topology), and emits the particle&#39;s</span>
+</span><span data-line="139"><span class="sd">   neighbourhood best (for ``lbest`` topology), and emits the particle's</span>
 </span><span data-line="140"><span class="sd">   next position generated from the velocity update above.</span>
 </span><span data-line="141"><span class="sd">3. ``on_restart(center, reason)`` resets all particles to a randomized</span>
 </span><span data-line="142"><span class="sd">   ball around the new center, drops in-flight trials, and starts a fresh</span>
-</span><span data-line="143"><span class="sd">   swarm (matching the &quot;warm restart&quot; behaviour of CMA-ES IPOP).</span>
+</span><span data-line="143"><span class="sd">   swarm (matching the "warm restart" behaviour of CMA-ES IPOP).</span>
 </span><span data-line="144">
 </span><span data-line="145"><span class="sd">References</span>
 </span><span data-line="146"><span class="sd">----------</span>
 </span><span data-line="147">
-</span><span data-line="148"><span class="sd">* J. Kennedy &amp; R. Eberhart (1995). &quot;Particle Swarm Optimization.&quot;</span>
-</span><span data-line="149"><span class="sd">  *Proceedings of ICNN&#39;95.*</span>
-</span><span data-line="150"><span class="sd">* Y. Shi &amp; R. Eberhart (1998). &quot;A Modified Particle Swarm Optimizer.&quot;</span>
+</span><span data-line="148"><span class="sd">* J. Kennedy &amp; R. Eberhart (1995). "Particle Swarm Optimization."</span>
+</span><span data-line="149"><span class="sd">  *Proceedings of ICNN'95.*</span>
+</span><span data-line="150"><span class="sd">* Y. Shi &amp; R. Eberhart (1998). "A Modified Particle Swarm Optimizer."</span>
 </span><span data-line="151"><span class="sd">  *Proceedings of the IEEE International Conference on Evolutionary</span>
 </span><span data-line="152"><span class="sd">  Computation*, pages 69–73 — linearly decreasing inertia weight.</span>
-</span><span data-line="153"><span class="sd">* M. Clerc &amp; J. Kennedy (2002). &quot;The Particle Swarm — Explosion, Stability,</span>
-</span><span data-line="154"><span class="sd">  and Convergence in a Multidimensional Complex Space.&quot;</span>
+</span><span data-line="153"><span class="sd">* M. Clerc &amp; J. Kennedy (2002). "The Particle Swarm — Explosion, Stability,</span>
+</span><span data-line="154"><span class="sd">  and Convergence in a Multidimensional Complex Space."</span>
 </span><span data-line="155"><span class="sd">  *IEEE Transactions on Evolutionary Computation*, 6(1):58–73.</span>
-</span><span data-line="156"><span class="sd">* J. Kennedy &amp; R. Mendes (2002). &quot;Population Structure and Particle Swarm</span>
-</span><span data-line="157"><span class="sd">  Performance.&quot; *Proceedings of CEC 2002*, 1671–1676.</span>
+</span><span data-line="156"><span class="sd">* J. Kennedy &amp; R. Mendes (2002). "Population Structure and Particle Swarm</span>
+</span><span data-line="157"><span class="sd">  Performance." *Proceedings of CEC 2002*, 1671–1676.</span>
 </span><span data-line="158"><span class="sd">  Empirical study showing ``lbest`` beats ``gbest`` on multimodal</span>
 </span><span data-line="159"><span class="sd">  benchmarks.</span>
-</span><span data-line="160"><span class="sd">* J. Kennedy &amp; R. Mendes (2003). &quot;Neighborhood Topologies in Fully</span>
-</span><span data-line="161"><span class="sd">  Informed and Best-of-Neighborhood Particle Swarms.&quot; *Proceedings of the</span>
+</span><span data-line="160"><span class="sd">* J. Kennedy &amp; R. Mendes (2003). "Neighborhood Topologies in Fully</span>
+</span><span data-line="161"><span class="sd">  Informed and Best-of-Neighborhood Particle Swarms." *Proceedings of the</span>
 </span><span data-line="162"><span class="sd">  IEEE SMC Workshop on Soft Computing in Industrial Applications*.</span>
 </span><span data-line="163"><span class="sd">  Introduces the Von Neumann 2-D grid topology as a stable middle ground.</span>
-</span><span data-line="164"><span class="sd">* R. Mendes (2004). &quot;Population Topologies and Their Influence in Particle</span>
-</span><span data-line="165"><span class="sd">  Swarm Performance.&quot; PhD thesis, Universidade do Minho.  Comprehensive</span>
+</span><span data-line="164"><span class="sd">* R. Mendes (2004). "Population Topologies and Their Influence in Particle</span>
+</span><span data-line="165"><span class="sd">  Swarm Performance." PhD thesis, Universidade do Minho.  Comprehensive</span>
 </span><span data-line="166"><span class="sd">  empirical study; identifies Von Neumann as a strong default and</span>
 </span><span data-line="167"><span class="sd">  introduces the random-graph topology as a structure-free alternative.</span>
-</span><span data-line="168"><span class="sd">* M. Clerc (2007). &quot;Stagnation Analysis in Particle Swarm Optimisation</span>
-</span><span data-line="169"><span class="sd">  or What Happens When Nothing Happens.&quot; *Technical Report*, CSM-460,</span>
+</span><span data-line="168"><span class="sd">* M. Clerc (2007). "Stagnation Analysis in Particle Swarm Optimisation</span>
+</span><span data-line="169"><span class="sd">  or What Happens When Nothing Happens." *Technical Report*, CSM-460,</span>
 </span><span data-line="170"><span class="sd">  Department of Computer Science, University of Essex.  Standardises</span>
 </span><span data-line="171"><span class="sd">  the random informer graph for SPSO 2007 / 2011 with ``K=3`` informers</span>
 </span><span data-line="172"><span class="sd">  per particle drawn uniformly with replacement.</span>
-</span><span data-line="173"><span class="sd">* R. Poli, J. Kennedy, T. Blackwell (2007). &quot;Particle Swarm Optimization:</span>
-</span><span data-line="174"><span class="sd">  An Overview.&quot; *Swarm Intelligence*, 1(1):33–57.</span>
-</span><span data-line="175"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="173"><span class="sd">* R. Poli, J. Kennedy, T. Blackwell (2007). "Particle Swarm Optimization:</span>
+</span><span data-line="174"><span class="sd">  An Overview." *Swarm Intelligence*, 1(1):33–57.</span>
+</span><span data-line="175"><span class="sd">"""</span>
 </span><span data-line="176">
 </span><span data-line="177"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="178">
@@ -326,13 +327,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="193"><span class="c1"># Topologies controlling the *social* attraction term in the velocity</span>
 </span><span data-line="194"><span class="c1"># update.  Kept as a tuple for runtime introspection (``topology in</span>
 </span><span data-line="195"><span class="c1"># _TOPOLOGIES``).</span>
-</span><span data-line="196"><span class="n">_TOPOLOGIES</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;gbest&quot;</span><span class="p">,</span> <span class="s2">&quot;lbest&quot;</span><span class="p">,</span> <span class="s2">&quot;vonneumann&quot;</span><span class="p">,</span> <span class="s2">&quot;random&quot;</span><span class="p">)</span>
+</span><span data-line="196"><span class="n">_TOPOLOGIES</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"gbest"</span><span class="p">,</span> <span class="s2">"lbest"</span><span class="p">,</span> <span class="s2">"vonneumann"</span><span class="p">,</span> <span class="s2">"random"</span><span class="p">)</span>
 </span><span data-line="197">
 </span><span data-line="198">
 <div class="viewcode-block" id="PSO">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO">[docs]</a>
 </span><span data-line="199"><span class="k">class</span><span class="w"> </span><span class="nc">PSO</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="200"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Asynchronous Particle Swarm Optimization heuristic.</span>
+</span><span data-line="200"><span class="w">    </span><span class="sd">"""Asynchronous Particle Swarm Optimization heuristic.</span>
 </span><span data-line="201">
 </span><span data-line="202"><span class="sd">    Args:</span>
 </span><span data-line="203"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
@@ -355,12 +356,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="220"><span class="sd">            swarm from exploding outside the search box.  Default</span>
 </span><span data-line="221"><span class="sd">            ``0.5`` — a common conservative choice.</span>
 </span><span data-line="222"><span class="sd">        topology: Social-attraction topology (see module docstring).</span>
-</span><span data-line="223"><span class="sd">            ``&quot;gbest&quot;`` (default) pulls every particle toward the single</span>
-</span><span data-line="224"><span class="sd">            global best.  ``&quot;lbest&quot;`` switches to a wrap-around *ring*</span>
+</span><span data-line="223"><span class="sd">            ``"gbest"`` (default) pulls every particle toward the single</span>
+</span><span data-line="224"><span class="sd">            global best.  ``"lbest"`` switches to a wrap-around *ring*</span>
 </span><span data-line="225"><span class="sd">            of width ``2 · k_neighbors + 1`` and pulls toward the best</span>
 </span><span data-line="226"><span class="sd">            ``pbest`` in that ring; this slows information diffusion and</span>
 </span><span data-line="227"><span class="sd">            is empirically stronger on multimodal problems</span>
-</span><span data-line="228"><span class="sd">            (Kennedy &amp; Mendes, 2002).  ``&quot;vonneumann&quot;`` arranges the</span>
+</span><span data-line="228"><span class="sd">            (Kennedy &amp; Mendes, 2002).  ``"vonneumann"`` arranges the</span>
 </span><span data-line="229"><span class="sd">            swarm on a 2-D toroidal grid of shape ``R × C`` with</span>
 </span><span data-line="230"><span class="sd">            ``R · C ≥ NP`` and ``R ≈ √NP`` so the grid is as square as</span>
 </span><span data-line="231"><span class="sd">            possible, and pulls each particle toward the best ``pbest``</span>
@@ -370,27 +371,27 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="235"><span class="sd">            rectangle).  Empirically a stable middle ground that wins</span>
 </span><span data-line="236"><span class="sd">            on a broader range of problem classes than either pure ring</span>
 </span><span data-line="237"><span class="sd">            or pure star (Kennedy &amp; Mendes 2003; Mendes 2004).</span>
-</span><span data-line="238"><span class="sd">            ``&quot;random&quot;`` connects each particle to itself plus</span>
+</span><span data-line="238"><span class="sd">            ``"random"`` connects each particle to itself plus</span>
 </span><span data-line="239"><span class="sd">            ``k_neighbors`` *informers* drawn uniformly with replacement</span>
 </span><span data-line="240"><span class="sd">            from the other particles, dropping duplicates so the actual</span>
 </span><span data-line="241"><span class="sd">            neighbourhood size lies in ``[2, k_neighbors + 1]``.  The</span>
 </span><span data-line="242"><span class="sd">            adjacency is sampled at ``on_start`` and re-sampled at</span>
-</span><span data-line="243"><span class="sd">            ``on_restart`` from the heuristic&#39;s RNG (Mendes 2004;</span>
+</span><span data-line="243"><span class="sd">            ``on_restart`` from the heuristic's RNG (Mendes 2004;</span>
 </span><span data-line="244"><span class="sd">            Clerc 2007 / SPSO 2011 — Clerc reports ``K=3`` as the</span>
 </span><span data-line="245"><span class="sd">            standard default).</span>
 </span><span data-line="246"><span class="sd">        k_neighbors: Size knob for the neighbourhood.  Under</span>
-</span><span data-line="247"><span class="sd">            ``&quot;lbest&quot;`` it is the *half-width* of the ring — the</span>
+</span><span data-line="247"><span class="sd">            ``"lbest"`` it is the *half-width* of the ring — the</span>
 </span><span data-line="248"><span class="sd">            neighbourhood spans ``2 · k_neighbors + 1`` particles</span>
 </span><span data-line="249"><span class="sd">            including the centre — and the default ``2`` matches</span>
 </span><span data-line="250"><span class="sd">            Kennedy &amp; Mendes 2002 (neighbourhood size 5).  Under</span>
-</span><span data-line="251"><span class="sd">            ``&quot;random&quot;`` it is the *number of random informers*</span>
+</span><span data-line="251"><span class="sd">            ``"random"`` it is the *number of random informers*</span>
 </span><span data-line="252"><span class="sd">            drawn per particle (in addition to self); after</span>
 </span><span data-line="253"><span class="sd">            de-duplication the realised neighbourhood size lies in</span>
 </span><span data-line="254"><span class="sd">            ``[2, k_neighbors + 1]``.  Must be a positive integer;</span>
-</span><span data-line="255"><span class="sd">            ``k_neighbors &gt;= NP // 2`` under ``&quot;lbest&quot;`` makes the</span>
+</span><span data-line="255"><span class="sd">            ``k_neighbors &gt;= NP // 2`` under ``"lbest"`` makes the</span>
 </span><span data-line="256"><span class="sd">            neighbourhood span the whole swarm and degenerates to</span>
-</span><span data-line="257"><span class="sd">            ``&quot;gbest&quot;``.  Ignored when ``topology in {&quot;gbest&quot;,</span>
-</span><span data-line="258"><span class="sd">            &quot;vonneumann&quot;}``.</span>
+</span><span data-line="257"><span class="sd">            ``"gbest"``.  Ignored when ``topology in {"gbest",</span>
+</span><span data-line="258"><span class="sd">            "vonneumann"}``.</span>
 </span><span data-line="259"><span class="sd">        w_end: Final inertia weight for the linearly-decreasing</span>
 </span><span data-line="260"><span class="sd">            (Shi-Eberhart 1998) schedule.  When set, the inertia at</span>
 </span><span data-line="261"><span class="sd">            evaluation count ``e`` (out of ``E = strategy.config.max_eval``)</span>
@@ -404,15 +405,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="269"><span class="sd">            When a positive integer, the random adjacency is re-sampled</span>
 </span><span data-line="270"><span class="sd">            mid-run after ``stagnation_threshold`` consecutive incoming</span>
 </span><span data-line="271"><span class="sd">            results land without lifting the global best.  The Clerc /</span>
-</span><span data-line="272"><span class="sd">            SPSO 2011 default is ``NP`` (one swarm-cycle&#39;s worth of</span>
+</span><span data-line="272"><span class="sd">            SPSO 2011 default is ``NP`` (one swarm-cycle's worth of</span>
 </span><span data-line="273"><span class="sd">            evaluations).  ``None`` (default) preserves the static-</span>
 </span><span data-line="274"><span class="sd">            between-restarts behaviour shipped 2026-05-29.  Ignored</span>
-</span><span data-line="275"><span class="sd">            for ``topology in {&quot;gbest&quot;, &quot;lbest&quot;, &quot;vonneumann&quot;}`` — the</span>
+</span><span data-line="275"><span class="sd">            for ``topology in {"gbest", "lbest", "vonneumann"}`` — the</span>
 </span><span data-line="276"><span class="sd">            three geometric topologies are deterministic functions of</span>
 </span><span data-line="277"><span class="sd">            ``NP`` and have no stochastic graph to rebuild.</span>
 </span><span data-line="278"><span class="sd">        seed: Optional seed for the per-instance RNG.  ``None`` (default)</span>
-</span><span data-line="279"><span class="sd">            uses the module&#39;s strategy-derived ``self.rng`` stream.</span>
-</span><span data-line="280"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="279"><span class="sd">            uses the module's strategy-derived ``self.rng`` stream.</span>
+</span><span data-line="280"><span class="sd">        name: Override the heuristic's display name.</span>
 </span><span data-line="281">
 </span><span data-line="282"><span class="sd">    Notes:</span>
 </span><span data-line="283"><span class="sd">        - The constructor validates all numeric arguments and raises</span>
@@ -425,7 +426,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="290"><span class="sd">          ``self.strategy.constraint_handler.is_better`` and</span>
 </span><span data-line="291"><span class="sd">          ``get_penalty_value`` exactly like</span>
 </span><span data-line="292"><span class="sd">          :class:`DifferentialEvolution`.</span>
-</span><span data-line="293"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="293"><span class="sd">    """</span>
 </span><span data-line="294">
 </span><span data-line="295">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="296">        <span class="bp">self</span><span class="p">,</span>
@@ -435,7 +436,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="300">        <span class="n">c1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_C1</span><span class="p">,</span>
 </span><span data-line="301">        <span class="n">c2</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_C2</span><span class="p">,</span>
 </span><span data-line="302">        <span class="n">v_max_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-</span><span data-line="303">        <span class="n">topology</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;gbest&quot;</span><span class="p">,</span>
+</span><span data-line="303">        <span class="n">topology</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gbest"</span><span class="p">,</span>
 </span><span data-line="304">        <span class="n">k_neighbors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
 </span><span data-line="305">        <span class="n">w_end</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="306">        <span class="n">stagnation_threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -443,34 +444,34 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="308">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="309">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="310">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">NP</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="311">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: NP must be an integer, got </span><span class="si">{</span><span class="n">NP</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="311">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: NP must be an integer, got </span><span class="si">{</span><span class="n">NP</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="312">        <span class="k">if</span> <span class="n">NP</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="313">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: NP must be &gt;= 2, got </span><span class="si">{</span><span class="n">NP</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="313">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: NP must be &gt;= 2, got </span><span class="si">{</span><span class="n">NP</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="314">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
-</span><span data-line="315">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: w must be finite, got </span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="315">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: w must be finite, got </span><span class="si">{</span><span class="n">w</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="316">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span> <span class="ow">or</span> <span class="n">c1</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="317">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: c1 must be a non-negative finite float, got </span><span class="si">{</span><span class="n">c1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="317">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: c1 must be a non-negative finite float, got </span><span class="si">{</span><span class="n">c1</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="318">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">c2</span><span class="p">)</span> <span class="ow">or</span> <span class="n">c2</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="319">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: c2 must be a non-negative finite float, got </span><span class="si">{</span><span class="n">c2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="319">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: c2 must be a non-negative finite float, got </span><span class="si">{</span><span class="n">c2</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="320">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">v_max_frac</span><span class="p">)</span> <span class="ow">or</span> <span class="n">v_max_frac</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="321">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: v_max_frac must be a positive finite float, got </span><span class="si">{</span><span class="n">v_max_frac</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="321">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: v_max_frac must be a positive finite float, got </span><span class="si">{</span><span class="n">v_max_frac</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="322">        <span class="k">if</span> <span class="n">topology</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_TOPOLOGIES</span><span class="p">:</span>
-</span><span data-line="323">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: topology must be one of </span><span class="si">{</span><span class="n">_TOPOLOGIES</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">topology</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="323">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: topology must be one of </span><span class="si">{</span><span class="n">_TOPOLOGIES</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">topology</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="324">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">k_neighbors</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="325">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: k_neighbors must be an integer, got </span><span class="si">{</span><span class="n">k_neighbors</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="325">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: k_neighbors must be an integer, got </span><span class="si">{</span><span class="n">k_neighbors</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="326">        <span class="k">if</span> <span class="n">k_neighbors</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="327">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: k_neighbors must be &gt;= 1, got </span><span class="si">{</span><span class="n">k_neighbors</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="327">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: k_neighbors must be &gt;= 1, got </span><span class="si">{</span><span class="n">k_neighbors</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="328">        <span class="k">if</span> <span class="n">w_end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">w_end</span><span class="p">):</span>
-</span><span data-line="329">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: w_end must be finite when set, got </span><span class="si">{</span><span class="n">w_end</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="329">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: w_end must be finite when set, got </span><span class="si">{</span><span class="n">w_end</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="330">        <span class="k">if</span> <span class="n">stagnation_threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="331">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stagnation_threshold</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stagnation_threshold</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
 </span><span data-line="332">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="333">                    <span class="sa">f</span><span class="s2">&quot;PSO: stagnation_threshold must be a positive integer or None, got </span><span class="si">{</span><span class="n">stagnation_threshold</span><span class="si">!r}</span><span class="s2">&quot;</span>
+</span><span data-line="333">                    <span class="sa">f</span><span class="s2">"PSO: stagnation_threshold must be a positive integer or None, got </span><span class="si">{</span><span class="n">stagnation_threshold</span><span class="si">!r}</span><span class="s2">"</span>
 </span><span data-line="334">                <span class="p">)</span>
 </span><span data-line="335">            <span class="k">if</span> <span class="n">stagnation_threshold</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="336">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: stagnation_threshold must be &gt;= 1 when set, got </span><span class="si">{</span><span class="n">stagnation_threshold</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="336">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: stagnation_threshold must be &gt;= 1 when set, got </span><span class="si">{</span><span class="n">stagnation_threshold</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="337">
-</span><span data-line="338">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;PSO&quot;</span><span class="p">)</span>
+</span><span data-line="338">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"PSO"</span><span class="p">)</span>
 </span><span data-line="339">        <span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NP</span>
 </span><span data-line="340">        <span class="bp">self</span><span class="o">.</span><span class="n">w</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
 </span><span data-line="341">        <span class="bp">self</span><span class="o">.</span><span class="n">c1</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">c1</span><span class="p">)</span>
@@ -497,14 +498,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="362">
 </span><span data-line="363">        <span class="c1"># Per-particle random informer adjacency list, sized once at</span>
 </span><span data-line="364">        <span class="c1"># ``on_start`` and re-sampled at ``on_restart``.  Only populated</span>
-</span><span data-line="365">        <span class="c1"># when ``topology == &quot;random&quot;``; ``None`` otherwise.</span>
+</span><span data-line="365">        <span class="c1"># when ``topology == "random"``; ``None`` otherwise.</span>
 </span><span data-line="366">        <span class="bp">self</span><span class="o">.</span><span class="n">_random_adjacency</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="367">
 </span><span data-line="368">        <span class="c1"># Stochastic-K stagnation counter (Clerc 2007 / SPSO 2011).</span>
 </span><span data-line="369">        <span class="c1"># Counts consecutive incoming results that did *not* lift</span>
 </span><span data-line="370">        <span class="c1"># ``_gbest_idx``.  Reset on improvement, on_start, and</span>
 </span><span data-line="371">        <span class="c1"># on_restart.  Only consulted when</span>
-</span><span data-line="372">        <span class="c1"># ``topology == &quot;random&quot;`` and ``stagnation_threshold`` is set.</span>
+</span><span data-line="372">        <span class="c1"># ``topology == "random"`` and ``stagnation_threshold`` is set.</span>
 </span><span data-line="373">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="374">
 </span><span data-line="375">    <span class="c1"># ------------------------------------------------------------------</span>
@@ -512,28 +513,28 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="377">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="378">
 </span><span data-line="379">    <span class="k">def</span><span class="w"> </span><span class="nf">_v_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="380"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-dimension velocity clamp from the problem box ranges.&quot;&quot;&quot;</span>
+</span><span data-line="380"><span class="w">        </span><span class="sd">"""Per-dimension velocity clamp from the problem box ranges."""</span>
 </span><span data-line="381">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
 </span><span data-line="382">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_max_frac</span> <span class="o">*</span> <span class="n">ranges</span>
 </span><span data-line="383">
 </span><span data-line="384">    <span class="k">def</span><span class="w"> </span><span class="nf">_emit_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="385"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Emit a candidate point tagged with a fresh trial id.</span>
+</span><span data-line="385"><span class="w">        </span><span class="sd">"""Emit a candidate point tagged with a fresh trial id.</span>
 </span><span data-line="386">
 </span><span data-line="387"><span class="sd">        Returns True if the point was queued, False otherwise.  The</span>
 </span><span data-line="388"><span class="sd">        heuristic stops emitting once :attr:`_stopped` is set.</span>
-</span><span data-line="389"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="389"><span class="sd">        """</span>
 </span><span data-line="390">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
 </span><span data-line="391">            <span class="k">return</span> <span class="kc">False</span>
 </span><span data-line="392">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="393">            <span class="n">x_proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="394">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="395">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;PSO: projection failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="395">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"PSO: projection failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="396">            <span class="k">return</span> <span class="kc">False</span>
 </span><span data-line="397">
 </span><span data-line="398">        <span class="c1"># Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so</span>
 </span><span data-line="399">        <span class="c1"># ``Result.who`` tags are reproducible under a fixed seed.</span>
 </span><span data-line="400">        <span class="n">who</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_who</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="401">        <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="401">        <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">":"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
 </span><span data-line="402">        <span class="bp">self</span><span class="o">.</span><span class="n">_put</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_proj</span><span class="p">,</span> <span class="n">who</span><span class="p">))</span>
 </span><span data-line="403">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">particle_idx</span>
 </span><span data-line="404">        <span class="c1"># Remember the actually-evaluated position so the velocity</span>
@@ -544,7 +545,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="409">        <span class="k">return</span> <span class="kc">True</span>
 </span><span data-line="410">
 </span><span data-line="411">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_global_best</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="412"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Recompute ``_gbest_idx`` from the current per-particle bests.&quot;&quot;&quot;</span>
+</span><span data-line="412"><span class="w">        </span><span class="sd">"""Recompute ``_gbest_idx`` from the current per-particle bests."""</span>
 </span><span data-line="413">        <span class="n">best_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="414">        <span class="n">best_result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Result</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="415">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
@@ -557,30 +558,30 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="422">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="n">best_idx</span>
 </span><span data-line="423">
 </span><span data-line="424">    <span class="k">def</span><span class="w"> </span><span class="nf">_ring_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="425"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Indices in the ring neighbourhood of ``particle_idx``.</span>
+</span><span data-line="425"><span class="w">        </span><span class="sd">"""Indices in the ring neighbourhood of ``particle_idx``.</span>
 </span><span data-line="426">
 </span><span data-line="427"><span class="sd">        The wrap-around ring includes the particle itself plus</span>
 </span><span data-line="428"><span class="sd">        :attr:`k_neighbors` indices on each side.  Ordered so the centre</span>
-</span><span data-line="429"><span class="sd">        particle&#39;s index appears in the middle, but the order is not</span>
+</span><span data-line="429"><span class="sd">        particle's index appears in the middle, but the order is not</span>
 </span><span data-line="430"><span class="sd">        observed by callers — only the set matters.</span>
-</span><span data-line="431"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="431"><span class="sd">        """</span>
 </span><span data-line="432">        <span class="k">return</span> <span class="p">[(</span><span class="n">particle_idx</span> <span class="o">+</span> <span class="n">j</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">k_neighbors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_neighbors</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
 </span><span data-line="433">
 </span><span data-line="434">    <span class="k">def</span><span class="w"> </span><span class="nf">_vonneumann_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-</span><span data-line="435"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``(rows, cols)`` for the Von Neumann grid layout.</span>
+</span><span data-line="435"><span class="w">        </span><span class="sd">"""Return ``(rows, cols)`` for the Von Neumann grid layout.</span>
 </span><span data-line="436">
 </span><span data-line="437"><span class="sd">        Chosen so that ``rows * cols &gt;= NP`` and ``rows ≈ √NP`` — the</span>
 </span><span data-line="438"><span class="sd">        grid is as square as possible.  When ``NP`` does not factor into</span>
 </span><span data-line="439"><span class="sd">        a perfect rectangle (e.g. ``NP`` is prime), ``rows * cols &gt; NP``</span>
 </span><span data-line="440"><span class="sd">        and the trailing ``rows * cols - NP`` cells are *phantom* slots</span>
 </span><span data-line="441"><span class="sd">        that :meth:`_vonneumann_neighbors` skips.</span>
-</span><span data-line="442"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="442"><span class="sd">        """</span>
 </span><span data-line="443">        <span class="n">rows</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">)))</span>
 </span><span data-line="444">        <span class="n">cols</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span> <span class="o">+</span> <span class="n">rows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">rows</span>  <span class="c1"># ceil(NP / rows)</span>
 </span><span data-line="445">        <span class="k">return</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span>
 </span><span data-line="446">
 </span><span data-line="447">    <span class="k">def</span><span class="w"> </span><span class="nf">_vonneumann_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="448"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Indices in the Von Neumann neighbourhood of ``particle_idx``.</span>
+</span><span data-line="448"><span class="w">        </span><span class="sd">"""Indices in the Von Neumann neighbourhood of ``particle_idx``.</span>
 </span><span data-line="449">
 </span><span data-line="450"><span class="sd">        Returns the 4-connected wrap-around N/S/E/W cells plus the</span>
 </span><span data-line="451"><span class="sd">        particle itself.  Phantom cells (grid slots whose flat index</span>
@@ -589,7 +590,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="454"><span class="sd">        lose 1 or 2 of their 4 neighbours.  Duplicates from very small</span>
 </span><span data-line="455"><span class="sd">        swarms (where wrap-around collapses two cells onto the same</span>
 </span><span data-line="456"><span class="sd">        index) are de-duplicated so the caller always sees a *set*.</span>
-</span><span data-line="457"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="457"><span class="sd">        """</span>
 </span><span data-line="458">        <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vonneumann_grid</span><span class="p">()</span>
 </span><span data-line="459">        <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">,</span> <span class="n">cols</span><span class="p">)</span>
 </span><span data-line="460">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">(</span>
@@ -609,7 +610,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="474">        <span class="k">return</span> <span class="n">out</span>
 </span><span data-line="475">
 </span><span data-line="476">    <span class="k">def</span><span class="w"> </span><span class="nf">_init_random_adjacency</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="477"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample one random informer set per particle.</span>
+</span><span data-line="477"><span class="w">        </span><span class="sd">"""Sample one random informer set per particle.</span>
 </span><span data-line="478">
 </span><span data-line="479"><span class="sd">        Each particle ``i`` is connected to itself plus</span>
 </span><span data-line="480"><span class="sd">        :attr:`k_neighbors` *informers* drawn uniformly from</span>
@@ -623,7 +624,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="488"><span class="sd">        Matches the Clerc 2007 / SPSO 2011 convention: stochastic and</span>
 </span><span data-line="489"><span class="sd">        asymmetric (``j ∈ informers(i)`` does not imply</span>
 </span><span data-line="490"><span class="sd">        ``i ∈ informers(j)``).  Re-sampled every :meth:`on_restart`.</span>
-</span><span data-line="491"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="491"><span class="sd">        """</span>
 </span><span data-line="492">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
 </span><span data-line="493">            <span class="c1"># Pathological — the constructor already rejects NP &lt; 2,</span>
 </span><span data-line="494">            <span class="c1"># but be defensive in case some subclass bypasses it.</span>
@@ -639,13 +640,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="504">        <span class="bp">self</span><span class="o">.</span><span class="n">_random_adjacency</span> <span class="o">=</span> <span class="n">adjacency</span>
 </span><span data-line="505">
 </span><span data-line="506">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_rebuild_random_adjacency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prev_gbest_result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="507"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the stochastic-K stagnation-rebuild policy if active.</span>
+</span><span data-line="507"><span class="w">        </span><span class="sd">"""Apply the stochastic-K stagnation-rebuild policy if active.</span>
 </span><span data-line="508">
 </span><span data-line="509"><span class="sd">        Increments :attr:`_stagnation_counter` when the most recent</span>
 </span><span data-line="510"><span class="sd">        global-best update did **not** strictly improve the previous</span>
 </span><span data-line="511"><span class="sd">        global best.  When the counter reaches</span>
-</span><span data-line="512"><span class="sd">        :attr:`stagnation_threshold` (and the topology is ``&quot;random&quot;``),</span>
-</span><span data-line="513"><span class="sd">        the adjacency is rebuilt from the heuristic&#39;s RNG and the</span>
+</span><span data-line="512"><span class="sd">        :attr:`stagnation_threshold` (and the topology is ``"random"``),</span>
+</span><span data-line="513"><span class="sd">        the adjacency is rebuilt from the heuristic's RNG and the</span>
 </span><span data-line="514"><span class="sd">        counter resets.  No-op for any other topology, when the</span>
 </span><span data-line="515"><span class="sd">        threshold is ``None`` (default), or when the swarm has not</span>
 </span><span data-line="516"><span class="sd">        seen any global best yet.</span>
@@ -655,8 +656,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="520"><span class="sd">                attached to ``_gbest_idx`` *before*</span>
 </span><span data-line="521"><span class="sd">                :meth:`_update_global_best` was last called.  ``None``</span>
 </span><span data-line="522"><span class="sd">                if no global best had been observed yet.</span>
-</span><span data-line="523"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="524">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">!=</span> <span class="s2">&quot;random&quot;</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">stagnation_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="523"><span class="sd">        """</span>
+</span><span data-line="524">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">!=</span> <span class="s2">"random"</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">stagnation_threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="525">            <span class="k">return</span>
 </span><span data-line="526">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="527">            <span class="k">return</span>  <span class="c1"># no swarm-wide signal yet</span>
@@ -667,8 +668,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="532">            <span class="n">improved</span> <span class="o">=</span> <span class="kc">True</span>
 </span><span data-line="533">        <span class="k">elif</span> <span class="n">current</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">prev_gbest_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="534">            <span class="c1"># ``is_better(a, b)`` returns True iff ``b`` strictly beats</span>
-</span><span data-line="535">            <span class="c1"># ``a`` under the constraint handler&#39;s ordering — exactly</span>
-</span><span data-line="536">            <span class="c1"># the &quot;global best moved&quot; predicate we need.</span>
+</span><span data-line="535">            <span class="c1"># ``a`` under the constraint handler's ordering — exactly</span>
+</span><span data-line="536">            <span class="c1"># the "global best moved" predicate we need.</span>
 </span><span data-line="537">            <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
 </span><span data-line="538">            <span class="n">improved</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">prev_gbest_result</span><span class="p">,</span> <span class="n">current</span><span class="p">)</span>
 </span><span data-line="539">
@@ -682,32 +683,32 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="547">            <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="548">
 </span><span data-line="549">    <span class="k">def</span><span class="w"> </span><span class="nf">_random_neighbors</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="550"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the random informer list for ``particle_idx``.</span>
+</span><span data-line="550"><span class="w">        </span><span class="sd">"""Return the random informer list for ``particle_idx``.</span>
 </span><span data-line="551">
 </span><span data-line="552"><span class="sd">        Falls back to ``[particle_idx]`` if :attr:`_random_adjacency`</span>
 </span><span data-line="553"><span class="sd">        has not been initialised (e.g. ``on_start`` has not run yet);</span>
 </span><span data-line="554"><span class="sd">        callers then degrade gracefully through ``_social_best_idx``.</span>
-</span><span data-line="555"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="555"><span class="sd">        """</span>
 </span><span data-line="556">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random_adjacency</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="557">            <span class="k">return</span> <span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
 </span><span data-line="558">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random_adjacency</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
 </span><span data-line="559">
 </span><span data-line="560">    <span class="k">def</span><span class="w"> </span><span class="nf">_social_best_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="561"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the index of the social attractor for ``particle_idx``.</span>
+</span><span data-line="561"><span class="w">        </span><span class="sd">"""Return the index of the social attractor for ``particle_idx``.</span>
 </span><span data-line="562">
-</span><span data-line="563"><span class="sd">        For ``topology == &quot;gbest&quot;`` this is just :attr:`_gbest_idx`.</span>
-</span><span data-line="564"><span class="sd">        For ``topology == &quot;lbest&quot;`` it is the index of the best</span>
+</span><span data-line="563"><span class="sd">        For ``topology == "gbest"`` this is just :attr:`_gbest_idx`.</span>
+</span><span data-line="564"><span class="sd">        For ``topology == "lbest"`` it is the index of the best</span>
 </span><span data-line="565"><span class="sd">        ``pbest`` among the wrap-around ring of width</span>
 </span><span data-line="566"><span class="sd">        ``2·k_neighbors + 1`` centred on ``particle_idx`` — slower</span>
 </span><span data-line="567"><span class="sd">        information diffusion than the gbest variant but stronger on</span>
 </span><span data-line="568"><span class="sd">        multimodal problems (Kennedy &amp; Mendes, 2002).</span>
-</span><span data-line="569"><span class="sd">        For ``topology == &quot;vonneumann&quot;`` it is the index of the best</span>
+</span><span data-line="569"><span class="sd">        For ``topology == "vonneumann"`` it is the index of the best</span>
 </span><span data-line="570"><span class="sd">        ``pbest`` among the 4-connected N/S/E/W cells (plus self) on a</span>
 </span><span data-line="571"><span class="sd">        toroidal 2-D grid — two-dimensional information diffusion, a</span>
 </span><span data-line="572"><span class="sd">        stable middle ground that wins on a broader range of problem</span>
 </span><span data-line="573"><span class="sd">        classes than either pure ring or pure star</span>
 </span><span data-line="574"><span class="sd">        (Kennedy &amp; Mendes 2003; Mendes 2004).</span>
-</span><span data-line="575"><span class="sd">        For ``topology == &quot;random&quot;`` it is the index of the best</span>
+</span><span data-line="575"><span class="sd">        For ``topology == "random"`` it is the index of the best</span>
 </span><span data-line="576"><span class="sd">        ``pbest`` among the per-particle random informer set sampled</span>
 </span><span data-line="577"><span class="sd">        at :meth:`on_start` / :meth:`on_restart` (Mendes 2004; Clerc</span>
 </span><span data-line="578"><span class="sd">        2007 / SPSO 2011).</span>
@@ -715,15 +716,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="580"><span class="sd">        Returns ``None`` if no neighbour has accumulated a personal</span>
 </span><span data-line="581"><span class="sd">        best yet, in which case :meth:`_generate_next` falls back to a</span>
 </span><span data-line="582"><span class="sd">        random point.</span>
-</span><span data-line="583"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="584">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">&quot;gbest&quot;</span><span class="p">:</span>
+</span><span data-line="583"><span class="sd">        """</span>
+</span><span data-line="584">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"gbest"</span><span class="p">:</span>
 </span><span data-line="585">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span>
 </span><span data-line="586">
-</span><span data-line="587">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">&quot;lbest&quot;</span><span class="p">:</span>
+</span><span data-line="587">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"lbest"</span><span class="p">:</span>
 </span><span data-line="588">            <span class="n">neighbour_idxs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ring_neighbors</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span>
-</span><span data-line="589">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">&quot;vonneumann&quot;</span><span class="p">:</span>
+</span><span data-line="589">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"vonneumann"</span><span class="p">:</span>
 </span><span data-line="590">            <span class="n">neighbour_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vonneumann_neighbors</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span>
-</span><span data-line="591">        <span class="k">else</span><span class="p">:</span>  <span class="c1"># &quot;random&quot;</span>
+</span><span data-line="591">        <span class="k">else</span><span class="p">:</span>  <span class="c1"># "random"</span>
 </span><span data-line="592">            <span class="n">neighbour_idxs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_random_neighbors</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span>
 </span><span data-line="593">
 </span><span data-line="594">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
@@ -739,7 +740,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="604">        <span class="k">return</span> <span class="n">best_idx</span>
 </span><span data-line="605">
 </span><span data-line="606">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_inertia</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="607"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the inertia weight to use for the next velocity update.</span>
+</span><span data-line="607"><span class="w">        </span><span class="sd">"""Return the inertia weight to use for the next velocity update.</span>
 </span><span data-line="608">
 </span><span data-line="609"><span class="sd">        When ``w_end`` is ``None`` this is the constant ``self.w``.</span>
 </span><span data-line="610"><span class="sd">        Otherwise it is a linearly-decreasing schedule paced by</span>
@@ -747,7 +748,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="612"><span class="sd">        Eberhart, 1998).  When the budget is unknown (no ``max_eval``,</span>
 </span><span data-line="613"><span class="sd">        zero, or non-numeric) the heuristic falls back to constant</span>
 </span><span data-line="614"><span class="sd">        ``self.w`` rather than guessing a horizon.</span>
-</span><span data-line="615"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="615"><span class="sd">        """</span>
 </span><span data-line="616">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="617">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
 </span><span data-line="618">        <span class="k">try</span><span class="p">:</span>
@@ -761,12 +762,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="626">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_end</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span>
 </span><span data-line="627">
 </span><span data-line="628">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_next</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="629"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Produce the next candidate position for ``particle_idx``.</span>
+</span><span data-line="629"><span class="w">        </span><span class="sd">"""Produce the next candidate position for ``particle_idx``.</span>
 </span><span data-line="630">
-</span><span data-line="631"><span class="sd">        Falls back to a fresh random point if we don&#39;t yet have a</span>
+</span><span data-line="631"><span class="sd">        Falls back to a fresh random point if we don't yet have a</span>
 </span><span data-line="632"><span class="sd">        social attractor (e.g. all initial trials still pending, or</span>
 </span><span data-line="633"><span class="sd">        ``lbest`` mode with the entire local neighbourhood empty).</span>
-</span><span data-line="634"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="634"><span class="sd">        """</span>
 </span><span data-line="635">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="636">            <span class="k">return</span>
 </span><span data-line="637">
@@ -804,7 +805,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="PSO.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_start">[docs]</a>
 </span><span data-line="669">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="670"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state and emit the initial swarm of random positions.&quot;&quot;&quot;</span>
+</span><span data-line="670"><span class="w">        </span><span class="sd">"""Allocate state and emit the initial swarm of random positions."""</span>
 </span><span data-line="671">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="672">        <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 </span><span data-line="673">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
@@ -813,12 +814,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="676">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="677">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="678">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="679">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">&quot;random&quot;</span><span class="p">:</span>
+</span><span data-line="679">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
 </span><span data-line="680">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
 </span><span data-line="681">
 </span><span data-line="682">        <span class="c1"># Initial velocities are drawn uniformly inside the velocity</span>
-</span><span data-line="683">        <span class="c1"># clamp.  This avoids the &quot;stalled at zero velocity for the</span>
-</span><span data-line="684">        <span class="c1"># first iteration&quot; pathology of pure-zero-init PSO.</span>
+</span><span data-line="683">        <span class="c1"># clamp.  This avoids the "stalled at zero velocity for the</span>
+</span><span data-line="684">        <span class="c1"># first iteration" pathology of pure-zero-init PSO.</span>
 </span><span data-line="685">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
 </span><span data-line="686">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
 </span><span data-line="687">
@@ -831,14 +832,14 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="PSO.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_new_results">[docs]</a>
 </span><span data-line="693">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="694"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Process incoming evaluation results and emit follow-up trials.&quot;&quot;&quot;</span>
+</span><span data-line="694"><span class="w">        </span><span class="sd">"""Process incoming evaluation results and emit follow-up trials."""</span>
 </span><span data-line="695">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="696">            <span class="k">return</span>  <span class="c1"># not started yet</span>
 </span><span data-line="697">
-</span><span data-line="698">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:&quot;</span>
+</span><span data-line="698">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
 </span><span data-line="699">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
 </span><span data-line="700">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="701">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;who&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="701">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
 </span><span data-line="702">            <span class="k">if</span> <span class="ow">not</span> <span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
 </span><span data-line="703">                <span class="k">continue</span>
 </span><span data-line="704">            <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
@@ -866,15 +867,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="725">
 <div class="viewcode-block" id="PSO.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_restart">[docs]</a>
-</span><span data-line="726">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="727"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop in-flight trials and reseed the swarm around ``center``.</span>
+</span><span data-line="726">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="727"><span class="w">        </span><span class="sd">"""Drop in-flight trials and reseed the swarm around ``center``.</span>
 </span><span data-line="728">
 </span><span data-line="729"><span class="sd">        The behaviour mirrors the IPOP-style warm restart used by</span>
 </span><span data-line="730"><span class="sd">        :class:`~panobbgo.heuristics.cma_es.CMAES`: the global memory is</span>
 </span><span data-line="731"><span class="sd">        wiped, particles are scattered around the suggested center, and</span>
 </span><span data-line="732"><span class="sd">        the next evaluation cycle behaves as if the heuristic had just</span>
 </span><span data-line="733"><span class="sd">        started — except the strategy keeps its accumulated history.</span>
-</span><span data-line="734"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="734"><span class="sd">        """</span>
 </span><span data-line="735">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
 </span><span data-line="736">            <span class="k">return</span>
 </span><span data-line="737">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
@@ -886,7 +887,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="743">        <span class="c1"># Re-sample the random informer graph on restart (matches the</span>
 </span><span data-line="744">        <span class="c1"># Clerc 2007 / SPSO 2011 convention: when the swarm loses</span>
 </span><span data-line="745">        <span class="c1"># cohesion, the social network is rebuilt to break stagnation).</span>
-</span><span data-line="746">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">&quot;random&quot;</span><span class="p">:</span>
+</span><span data-line="746">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
 </span><span data-line="747">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
 </span><span data-line="748">
 </span><span data-line="749">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
@@ -932,14 +933,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

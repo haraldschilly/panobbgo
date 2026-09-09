@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.best"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.best"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,14 +135,14 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
@@ -153,11 +154,11 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Best">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best">[docs]</a>
 </span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">Best</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
-</span><span data-line="21"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="22"><span class="sd">    Listens on all results, does accounting for &quot;best&quot; results,</span>
+</span><span data-line="21"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="22"><span class="sd">    Listens on all results, does accounting for "best" results,</span>
 </span><span data-line="23"><span class="sd">    manages a pareto front of good points and emits the following events:</span>
 </span><span data-line="24">
-</span><span data-line="25"><span class="sd">    - ``new_best``: when a new &quot;best&quot; point,</span>
+</span><span data-line="25"><span class="sd">    - ``new_best``: when a new "best" point,</span>
 </span><span data-line="26"><span class="sd">    - ``new_min``: a point with smallest objective function value,</span>
 </span><span data-line="27"><span class="sd">    - ``new_cv``: one with a smaller</span>
 </span><span data-line="28"><span class="sd">      :attr:`~panobbgo.lib.Result.cv`, or</span>
@@ -181,13 +182,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="46"><span class="sd">       This is an example of how several pareto fronts progress during the optimization.</span>
 </span><span data-line="47">
 </span><span data-line="48">
-</span><span data-line="49"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="49"><span class="sd">    """</span>
 </span><span data-line="50">
 <div class="viewcode-block" id="Best.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.analyzers.best.Best.html#panobbgo.analyzers.best.Best.__init__">[docs]</a>
 </span><span data-line="51">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
 </span><span data-line="52">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;BEST&quot;</span><span class="p">)</span>
+</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"BEST"</span><span class="p">)</span>
 </span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">_min</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="55">        <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="56">        <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="o">=</span> <span class="kc">None</span>
@@ -196,22 +197,22 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="58">
 </span><span data-line="59">    <span class="nd">@property</span>
 </span><span data-line="60">    <span class="k">def</span><span class="w"> </span><span class="nf">best</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="61"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="61"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="62"><span class="sd">        Currently best :class:`~panobbgo.lib.Result`.</span>
 </span><span data-line="63">
 </span><span data-line="64"><span class="sd">        .. Note::</span>
 </span><span data-line="65">
 </span><span data-line="66"><span class="sd">          At the moment, this is :attr:`.pareto` but might change.</span>
-</span><span data-line="67"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="67"><span class="sd">        """</span>
 </span><span data-line="68">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto</span>
 </span><span data-line="69">
 </span><span data-line="70">    <span class="nd">@property</span>
 </span><span data-line="71">    <span class="k">def</span><span class="w"> </span><span class="nf">cv</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="72"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="72"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="73"><span class="sd">        The point with currently minimal constraint violation, likely 0.0.</span>
 </span><span data-line="74"><span class="sd">        If there are several points with the same minimal constraint violation,</span>
 </span><span data-line="75"><span class="sd">        the value of the objective function is a secondary selection argument.</span>
-</span><span data-line="76"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="76"><span class="sd">        """</span>
 </span><span data-line="77">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span>
 </span><span data-line="78">
 </span><span data-line="79">    <span class="nd">@property</span>
@@ -220,29 +221,29 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="82">
 </span><span data-line="83">    <span class="nd">@property</span>
 </span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">min</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="85"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="85"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="86"><span class="sd">        The point, with currently smallest objective function value.</span>
-</span><span data-line="87"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="87"><span class="sd">        """</span>
 </span><span data-line="88">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span>
 </span><span data-line="89">
 </span><span data-line="90">    <span class="nd">@property</span>
 </span><span data-line="91">    <span class="k">def</span><span class="w"> </span><span class="nf">pareto_front</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="92"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="92"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="93"><span class="sd">        This is the list of points building the current pareto front.</span>
 </span><span data-line="94">
 </span><span data-line="95"><span class="sd">        .. Note::</span>
 </span><span data-line="96">
 </span><span data-line="97"><span class="sd">          This is a shallow copy.</span>
-</span><span data-line="98"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="98"><span class="sd">        """</span>
 </span><span data-line="99">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto_front</span><span class="p">[:]</span>
 </span><span data-line="100">
 </span><span data-line="101">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_pareto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="102"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="102"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="103"><span class="sd">        Update the pareto front with this new @result.</span>
 </span><span data-line="104">
 </span><span data-line="105"><span class="sd">        Either ignore it, or add it to the front and remove</span>
 </span><span data-line="106"><span class="sd">        all points from the front which are obsolete.</span>
-</span><span data-line="107"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="107"><span class="sd">        """</span>
 </span><span data-line="108">        <span class="c1"># Note: result.pp returns np.array([cv, fx])</span>
 </span><span data-line="109">        <span class="c1"># add the new point</span>
 </span><span data-line="110">        <span class="n">pf_old</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span>
@@ -260,7 +261,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="122">        <span class="c1"># next point needs to be left (smaller cv) and and above (higher fx)</span>
 </span><span data-line="123">        <span class="c1">#  while len(new_front) &gt; 1 and new_front[-1].cv &gt;= new_front[-2].cv:</span>
 </span><span data-line="124">        <span class="c1">#    del new_front[-1]</span>
-</span><span data-line="125">        <span class="c1"># always a &quot;right turn&quot;, concerning the &quot;.pp&quot; pareto points</span>
+</span><span data-line="125">        <span class="c1"># always a "right turn", concerning the ".pp" pareto points</span>
 </span><span data-line="126">        <span class="c1">#  while len(new_front) &gt; 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):</span>
 </span><span data-line="127">        <span class="c1">#    del new_front[-2]</span>
 </span><span data-line="128">
@@ -278,27 +279,27 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="140">        <span class="bp">self</span><span class="o">.</span><span class="n">_pareto_front</span> <span class="o">=</span> <span class="n">new_front</span>
 </span><span data-line="141">        <span class="k">if</span> <span class="n">pf_old</span> <span class="o">!=</span> <span class="n">new_front</span><span class="p">:</span>
 </span><span data-line="142">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="143">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;pareto: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">[(</span><span class="n">x</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span><span class="p">])</span>
-</span><span data-line="144">            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_pareto_front&quot;</span><span class="p">,</span> <span class="n">front</span><span class="o">=</span><span class="n">new_front</span><span class="p">)</span>
+</span><span data-line="143">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"pareto: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">[(</span><span class="n">x</span><span class="o">.</span><span class="n">cv</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pareto_front</span><span class="p">])</span>
+</span><span data-line="144">            <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_pareto_front"</span><span class="p">,</span> <span class="n">front</span><span class="o">=</span><span class="n">new_front</span><span class="p">)</span>
 </span><span data-line="145">
 <div class="viewcode-block" id="Best.on_new_results">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_results">[docs]</a>
 </span><span data-line="146">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
 </span><span data-line="147">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
 </span><span data-line="148">            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_min</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">fx</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min</span><span class="o">.</span><span class="n">cv</span><span class="p">):</span>
-</span><span data-line="149">                <span class="c1"># self.logger.info(u&quot;\u2318 %s by %s&quot; %(r, r.who))</span>
+</span><span data-line="149">                <span class="c1"># self.logger.info(u"\u2318 %s by %s" %(r, r.who))</span>
 </span><span data-line="150">                <span class="bp">self</span><span class="o">.</span><span class="n">_min</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="151">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_min&quot;</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="151">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_min"</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
 </span><span data-line="152">
 </span><span data-line="153">            <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">cv</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">cv</span> <span class="ow">and</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span><span class="o">.</span><span class="n">fx</span><span class="p">):</span>
 </span><span data-line="154">                <span class="bp">self</span><span class="o">.</span><span class="n">_cv</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="155">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_cv&quot;</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="155">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_cv"</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
 </span><span data-line="156">
-</span><span data-line="157">            <span class="c1"># Use the strategy&#39;s constraint handler to determine if the new point is better</span>
+</span><span data-line="157">            <span class="c1"># Use the strategy's constraint handler to determine if the new point is better</span>
 </span><span data-line="158">            <span class="n">is_better</span> <span class="o">=</span> <span class="kc">False</span>
 </span><span data-line="159">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="160">                <span class="n">is_better</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="161">            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;constraint_handler&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="p">:</span>
+</span><span data-line="161">            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="p">:</span>
 </span><span data-line="162">                <span class="n">is_better</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
 </span><span data-line="163">            <span class="k">else</span><span class="p">:</span>
 </span><span data-line="164">                <span class="c1"># Fallback to default lexicographic behavior</span>
@@ -309,8 +310,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="169">
 </span><span data-line="170">            <span class="k">if</span> <span class="n">is_better</span><span class="p">:</span>
 </span><span data-line="171">                <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="172">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_pareto&quot;</span><span class="p">,</span> <span class="n">pareto</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="173">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_best&quot;</span><span class="p">,</span> <span class="n">best</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="172">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_pareto"</span><span class="p">,</span> <span class="n">pareto</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="173">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_best"</span><span class="p">,</span> <span class="n">best</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
 </span><span data-line="174">
 </span><span data-line="175">            <span class="bp">self</span><span class="o">.</span><span class="n">_update_pareto</span><span class="p">(</span><span class="n">r</span><span class="p">)</span></div>
 
@@ -318,31 +319,31 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Best.on_new_pareto">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto">[docs]</a>
 </span><span data-line="177">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_pareto</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pareto</span><span class="p">):</span>
-</span><span data-line="178">        <span class="c1"># self.logger.info(&quot;pareto: %s&quot; % pareto)</span>
+</span><span data-line="178">        <span class="c1"># self.logger.info("pareto: %s" % pareto)</span>
 </span><span data-line="179">        <span class="k">pass</span></div>
 
 </span><span data-line="180">
 <div class="viewcode-block" id="Best.on_new_pareto_front">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto_front">[docs]</a>
 </span><span data-line="181">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_pareto_front</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">front</span><span class="p">):</span>
-</span><span data-line="182"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report progress when a new pareto front is found.&quot;&quot;&quot;</span>
-</span><span data-line="183">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="s2">&quot;New Pareto front&quot;</span><span class="p">,</span> <span class="s2">&quot;pareto_front&quot;</span><span class="p">)</span></div>
+</span><span data-line="182"><span class="w">        </span><span class="sd">"""Report progress when a new pareto front is found."""</span>
+</span><span data-line="183">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="s2">"New Pareto front"</span><span class="p">,</span> <span class="s2">"pareto_front"</span><span class="p">)</span></div>
 
 </span><span data-line="184">
 <div class="viewcode-block" id="Best.on_new_cv">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_cv">[docs]</a>
 </span><span data-line="185">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_cv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cv</span><span class="p">):</span>
-</span><span data-line="186"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report progress when a new constraint violation minimum is found.&quot;&quot;&quot;</span>
-</span><span data-line="187">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CV improved to </span><span class="si">{</span><span class="n">cv</span><span class="o">.</span><span class="n">cv</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;cv_improvement&quot;</span><span class="p">)</span></div>
+</span><span data-line="186"><span class="w">        </span><span class="sd">"""Report progress when a new constraint violation minimum is found."""</span>
+</span><span data-line="187">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CV improved to </span><span class="si">{</span><span class="n">cv</span><span class="o">.</span><span class="n">cv</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"cv_improvement"</span><span class="p">)</span></div>
 
 </span><span data-line="188">
 <div class="viewcode-block" id="Best.on_refresh_best">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_refresh_best">[docs]</a>
 </span><span data-line="189">    <span class="k">def</span><span class="w"> </span><span class="nf">on_refresh_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">candidates</span><span class="p">):</span>
-</span><span data-line="190"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="190"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="191"><span class="sd">        Handle a refresh_best event, which suggests candidate points that might be</span>
 </span><span data-line="192"><span class="sd">        better than current best due to changed criteria (e.g. updated constraint weights).</span>
-</span><span data-line="193"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="193"><span class="sd">        """</span>
 </span><span data-line="194">        <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
 </span><span data-line="195">            <span class="k">return</span>
 </span><span data-line="196">
@@ -351,7 +352,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="199">            <span class="n">is_better</span> <span class="o">=</span> <span class="kc">False</span>
 </span><span data-line="200">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="201">                <span class="n">is_better</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="202">            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;constraint_handler&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="p">:</span>
+</span><span data-line="202">            <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="p">:</span>
 </span><span data-line="203">                <span class="n">is_better</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
 </span><span data-line="204">            <span class="k">else</span><span class="p">:</span>
 </span><span data-line="205">                <span class="c1"># Fallback to default lexicographic behavior</span>
@@ -361,30 +362,30 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="209">                    <span class="n">is_better</span> <span class="o">=</span> <span class="kc">True</span>
 </span><span data-line="210">
 </span><span data-line="211">            <span class="k">if</span> <span class="n">is_better</span><span class="p">:</span>
-</span><span data-line="212">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Updated best point due to criteria change: </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2"> (cv=</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="212">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updated best point due to criteria change: </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2"> (cv=</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">cv</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </span><span data-line="213">                <span class="bp">self</span><span class="o">.</span><span class="n">_pareto</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="214">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_pareto&quot;</span><span class="p">,</span> <span class="n">pareto</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="215">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_best&quot;</span><span class="p">,</span> <span class="n">best</span><span class="o">=</span><span class="n">r</span><span class="p">)</span></div>
+</span><span data-line="214">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_pareto"</span><span class="p">,</span> <span class="n">pareto</span><span class="o">=</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="215">                <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_best"</span><span class="p">,</span> <span class="n">best</span><span class="o">=</span><span class="n">r</span><span class="p">)</span></div>
 
 </span><span data-line="216">
 <div class="viewcode-block" id="Best.on_new_min">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.best.Best.on_new_min">[docs]</a>
 </span><span data-line="217">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_min</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">min</span><span class="p">):</span>
-</span><span data-line="218"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report progress when a new global minimum is found.&quot;&quot;&quot;</span>
-</span><span data-line="219">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;New best: </span><span class="si">{</span><span class="nb">min</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="s2">&quot;new_best&quot;</span><span class="p">)</span></div>
+</span><span data-line="218"><span class="w">        </span><span class="sd">"""Report progress when a new global minimum is found."""</span>
+</span><span data-line="219">        <span class="bp">self</span><span class="o">.</span><span class="n">_report_progress_event</span><span class="p">(</span><span class="sa">f</span><span class="s2">"New best: </span><span class="si">{</span><span class="nb">min</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"new_best"</span><span class="p">)</span></div>
 
 </span><span data-line="220">
 </span><span data-line="221">    <span class="k">def</span><span class="w"> </span><span class="nf">_report_progress_event</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">event_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="222"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Report a significant optimization event via progress system.&quot;&quot;&quot;</span>
+</span><span data-line="222"><span class="w">        </span><span class="sd">"""Report a significant optimization event via progress system."""</span>
 </span><span data-line="223">        <span class="c1"># Log the event</span>
 </span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
 </span><span data-line="225">
 </span><span data-line="226">        <span class="c1"># Get progress reporter from strategy and trigger status update</span>
-</span><span data-line="227">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;panobbgo_logger&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="p">:</span>
+</span><span data-line="227">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"panobbgo_logger"</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="p">:</span>
 </span><span data-line="228">            <span class="n">progress_reporter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">panobbgo_logger</span><span class="o">.</span><span class="n">progress_reporter</span>
 </span><span data-line="229">            <span class="k">if</span> <span class="n">progress_reporter</span> <span class="ow">and</span> <span class="n">progress_reporter</span><span class="o">.</span><span class="n">enabled</span><span class="p">:</span>
 </span><span data-line="230">                <span class="c1"># Trigger a status update on the strategy (this will refresh the progress display)</span>
-</span><span data-line="231">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;_update_progress_status&quot;</span><span class="p">):</span>
+</span><span data-line="231">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_update_progress_status"</span><span class="p">):</span>
 </span><span data-line="232">                    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="233">                        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">_update_progress_status</span><span class="p">()</span>
 </span><span data-line="234">                    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -413,14 +414,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

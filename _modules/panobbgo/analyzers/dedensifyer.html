@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.dedensifyer"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.dedensifyer"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,14 +135,14 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
@@ -153,9 +154,9 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Box">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Box">[docs]</a>
 </span><span data-line="20"><span class="k">class</span><span class="w"> </span><span class="nc">Box</span><span class="p">:</span>
-</span><span data-line="21"><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="22"><span class="sd">    :class:`Dedensifyer&#39;s &lt;.Dedensifyer&gt;` helper class, that registeres points for the given box.</span>
-</span><span data-line="23"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="21"><span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
+</span><span data-line="22"><span class="sd">    :class:`Dedensifyer's &lt;.Dedensifyer&gt;` helper class, that registeres points for the given box.</span>
+</span><span data-line="23"><span class="sd">    """</span>
 </span><span data-line="24">
 </span><span data-line="25">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="26">        <span class="bp">self</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
@@ -187,13 +188,13 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Dedensifyer">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer">[docs]</a>
 </span><span data-line="48"><span class="k">class</span><span class="w"> </span><span class="nc">Dedensifyer</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
-</span><span data-line="49"><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="49"><span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 </span><span data-line="50"><span class="sd">    This analyzer stores points in a fixed hierarchical grid.</span>
 </span><span data-line="51"><span class="sd">    It discards previously added points in order to avoid a high number of points</span>
 </span><span data-line="52"><span class="sd">    in a close neighbourhood. The rules for discarding older points take</span>
 </span><span data-line="53"><span class="sd">    the function value and the constraint violation into account to store</span>
 </span><span data-line="54"><span class="sd">    the minimal and maximal representants for that region.</span>
-</span><span data-line="55"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="55"><span class="sd">    """</span>
 </span><span data-line="56">
 </span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
 </span><span data-line="58">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span>
@@ -233,9 +234,9 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Dedensifyer.register">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer.register">[docs]</a>
 </span><span data-line="86">    <span class="k">def</span><span class="w"> </span><span class="nf">register</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="87"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="87"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="88"><span class="sd">        analyzes a new result</span>
-</span><span data-line="89"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="89"><span class="sd">        """</span>
 </span><span data-line="90">        <span class="k">for</span> <span class="n">depth</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_depth</span><span class="p">):</span>
 </span><span data-line="91">            <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gridkey</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">depth</span><span class="p">)</span>
 </span><span data-line="92">            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">boxes</span><span class="p">[</span><span class="n">depth</span><span class="p">]:</span>
@@ -272,14 +273,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

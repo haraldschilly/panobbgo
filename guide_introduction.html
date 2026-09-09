@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Introduction to Panobbgo"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Introduction to Panobbgo"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -153,9 +154,9 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="introduction-to-panobbgo">
-<h1>Introduction to Panobbgo<a class="headerlink" href="#introduction-to-panobbgo" title="Link to this heading">¶</a></h1>
+<h1>Introduction to Panobbgo<a class="headerlink" href="#introduction-to-panobbgo" title="Link to this heading">#</a></h1>
 <section id="what-is-panobbgo">
-<h2>What is Panobbgo?<a class="headerlink" href="#what-is-panobbgo" title="Link to this heading">¶</a></h2>
+<h2>What is Panobbgo?<a class="headerlink" href="#what-is-panobbgo" title="Link to this heading">#</a></h2>
 <p><strong>Panobbgo</strong> (Parallel Noisy Black-Box Global Optimization) is a Python framework for optimizing black-box functions where:</p>
 <ul class="simple">
 <li><p><strong>Black-box</strong>: You can only evaluate the function, not analyze its structure</p></li>
@@ -166,7 +167,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </section>
 <section id="the-black-box-optimization-problem">
-<h2>The Black-Box Optimization Problem<a class="headerlink" href="#the-black-box-optimization-problem" title="Link to this heading">¶</a></h2>
+<h2>The Black-Box Optimization Problem<a class="headerlink" href="#the-black-box-optimization-problem" title="Link to this heading">#</a></h2>
 <p>Given:</p>
 <ul class="simple">
 <li><p>An unknown function <span class="math notranslate nohighlight">\(f: \mathbb{R}^n \rightarrow \mathbb{R}\)</span></p></li>
@@ -180,7 +181,7 @@ data-aria-dark="Switch to auto color mode">
 \[x^* = \arg\min_{x \in B} f(x) \quad \text{subject to} \quad g_i(x) \leq 0, \; \forall i\]</div>
 </div>
 <section id="real-world-challenges">
-<h3>Real-World Challenges<a class="headerlink" href="#real-world-challenges" title="Link to this heading">¶</a></h3>
+<h3>Real-World Challenges<a class="headerlink" href="#real-world-challenges" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Expensive evaluations</strong>: Each <span class="math notranslate nohighlight">\(f(x)\)</span> might take minutes to hours</p></li>
 <li><p><strong>No gradients</strong>: Cannot use derivative-based methods</p></li>
@@ -190,7 +191,7 @@ data-aria-dark="Switch to auto color mode">
 </ol>
 </section>
 <section id="panobbgo-s-solution">
-<h3>Panobbgo’s Solution<a class="headerlink" href="#panobbgo-s-solution" title="Link to this heading">¶</a></h3>
+<h3>Panobbgo’s Solution<a class="headerlink" href="#panobbgo-s-solution" title="Link to this heading">#</a></h3>
 <p>Panobbgo addresses these challenges through:</p>
 <ol class="arabic simple">
 <li><p><strong>Multiple search heuristics</strong> working in parallel</p></li>
@@ -202,9 +203,9 @@ data-aria-dark="Switch to auto color mode">
 </section>
 </section>
 <section id="key-features">
-<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">¶</a></h2>
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">#</a></h2>
 <section id="architecture">
-<h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h3>
+<h3>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><strong>Event-driven design</strong>: Modules communicate through an <a class="reference internal" href="core.html#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a></p></li>
 <li><p><strong>Modular components</strong>: Easy to add new heuristics, analyzers, or strategies</p></li>
@@ -213,7 +214,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </section>
 <section id="point-generators-heuristics">
-<h3>Point Generators (Heuristics)<a class="headerlink" href="#point-generators-heuristics" title="Link to this heading">¶</a></h3>
+<h3>Point Generators (Heuristics)<a class="headerlink" href="#point-generators-heuristics" title="Link to this heading">#</a></h3>
 <p>Panobbgo includes diverse heuristics with different search strategies:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -266,7 +267,7 @@ data-aria-dark="Switch to auto color mode">
 </div>
 </section>
 <section id="adaptive-selection">
-<h3>Adaptive Selection<a class="headerlink" href="#adaptive-selection" title="Link to this heading">¶</a></h3>
+<h3>Adaptive Selection<a class="headerlink" href="#adaptive-selection" title="Link to this heading">#</a></h3>
 <p>Panobbgo provides several adaptive strategies based on <strong>multi-armed bandit</strong> algorithms, plus a
 budget-phased meta-strategy:</p>
 <ul class="simple">
@@ -278,7 +279,7 @@ budget-phased meta-strategy:</p>
 </ul>
 </section>
 <section id="result-analysis">
-<h3>Result Analysis<a class="headerlink" href="#result-analysis" title="Link to this heading">¶</a></h3>
+<h3>Result Analysis<a class="headerlink" href="#result-analysis" title="Link to this heading">#</a></h3>
 <p>Analyzers process results and maintain derived information:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -327,7 +328,7 @@ budget-phased meta-strategy:</p>
 </div>
 </section>
 <section id="benchmark-problems">
-<h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading">¶</a></h3>
+<h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading">#</a></h3>
 <p>The library includes 22 benchmark problems for testing and validation:</p>
 <ul class="simple">
 <li><p><strong>Classic</strong>: Rosenbrock, Rastrigin, Himmelblau, Beale, Branin</p></li>
@@ -338,7 +339,7 @@ budget-phased meta-strategy:</p>
 </section>
 </section>
 <section id="when-to-use-panobbgo">
-<h2>When to Use Panobbgo<a class="headerlink" href="#when-to-use-panobbgo" title="Link to this heading">¶</a></h2>
+<h2>When to Use Panobbgo<a class="headerlink" href="#when-to-use-panobbgo" title="Link to this heading">#</a></h2>
 <p>Panobbgo is ideal when you have:</p>
 <p>✓ An expensive-to-evaluate objective function
 ✓ No access to gradients or function derivatives
@@ -348,7 +349,7 @@ budget-phased meta-strategy:</p>
 ✓ Access to parallel computing resources
 ✓ A limited evaluation budget</p>
 <section id="common-applications">
-<h3>Common Applications<a class="headerlink" href="#common-applications" title="Link to this heading">¶</a></h3>
+<h3>Common Applications<a class="headerlink" href="#common-applications" title="Link to this heading">#</a></h3>
 <ul class="simple">
 <li><p><strong>Hyperparameter optimization</strong>: Tuning machine learning models</p></li>
 <li><p><strong>Simulation calibration</strong>: Matching simulation outputs to real data</p></li>
@@ -358,7 +359,7 @@ budget-phased meta-strategy:</p>
 </ul>
 </section>
 <section id="when-not-to-use-panobbgo">
-<h3>When NOT to Use Panobbgo<a class="headerlink" href="#when-not-to-use-panobbgo" title="Link to this heading">¶</a></h3>
+<h3>When NOT to Use Panobbgo<a class="headerlink" href="#when-not-to-use-panobbgo" title="Link to this heading">#</a></h3>
 <p>Consider other methods if you have:</p>
 <p>✗ Access to gradients (use gradient-based optimization)
 ✗ Cheap function evaluations (simple methods may suffice)
@@ -368,7 +369,7 @@ budget-phased meta-strategy:</p>
 </section>
 </section>
 <section id="getting-started">
-<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">¶</a></h2>
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">#</a></h2>
 <p>See <a class="reference internal" href="guide_usage.html"><span class="doc">Usage Guide</span></a> for installation instructions and basic examples.</p>
 <p>For a deeper understanding of the mathematical foundations, see <a class="reference internal" href="guide_mathematical_foundation.html"><span class="doc">Mathematical Foundation</span></a>.</p>
 <p>To understand the system architecture, see <a class="reference internal" href="guide_architecture.html"><span class="doc">Architecture Overview</span></a>.</p>
@@ -410,15 +411,15 @@ budget-phased meta-strategy:</p>
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

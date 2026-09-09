@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.center"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.center"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -136,14 +137,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="3"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="4"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="5"><span class="c1">#</span>
-</span><span data-line="6"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="6"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="7"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="8"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="11"><span class="c1">#</span>
 </span><span data-line="12"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="13"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="13"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="14"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="15"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="16"><span class="c1"># limitations under the License.</span>
@@ -154,14 +155,14 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Center">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.center.Center">[docs]</a>
 </span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">Center</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="22"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="23"><span class="sd">    This heuristic checks the point in the center of the box.</span>
-</span><span data-line="24"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="24"><span class="sd">    """</span>
 </span><span data-line="25">
 <div class="viewcode-block" id="Center.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.center.Center.html#panobbgo.heuristics.center.Center.__init__">[docs]</a>
 </span><span data-line="26">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
-</span><span data-line="27">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Center&quot;</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
+</span><span data-line="27">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"Center"</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div>
 
 </span><span data-line="28">
 <div class="viewcode-block" id="Center.on_start">
@@ -193,14 +194,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

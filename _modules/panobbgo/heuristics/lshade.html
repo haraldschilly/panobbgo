@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.lshade"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.lshade"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 -- 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">L-SHADE Heuristic</span>
 </span><span data-line="18"><span class="sd">=================</span>
 </span><span data-line="19">
@@ -162,7 +163,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="29">
 </span><span data-line="30"><span class="sd">1. **Success-History parameter Adaptation (SHADE / Zhang-Sanderson 2009)**.</span>
 </span><span data-line="31"><span class="sd">   Instead of fixed scalars, each trial draws its own ``(F_i, CR_i)``</span>
-</span><span data-line="32"><span class="sd">   from per-bin Cauchy / Normal distributions.  After every &quot;generation&quot;</span>
+</span><span data-line="32"><span class="sd">   from per-bin Cauchy / Normal distributions.  After every "generation"</span>
 </span><span data-line="33"><span class="sd">   of ``NP_current`` trials, the bins that produced *successful*</span>
 </span><span data-line="34"><span class="sd">   replacements update their centres via the **weighted Lehmer mean**</span>
 </span><span data-line="35"><span class="sd">   of the F/CR values that worked, weighted by the magnitude of the</span>
@@ -170,7 +171,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="37"><span class="sd">   recent successes dominate.</span>
 </span><span data-line="38"><span class="sd">2. **Linear Population Size Reduction (LPSR)**.  The population shrinks</span>
 </span><span data-line="39"><span class="sd">   linearly from ``NP_init`` (typically large, 18·d in the paper) down</span>
-</span><span data-line="40"><span class="sd">   to ``NP_min = 4`` over the strategy&#39;s evaluation budget.  Larger</span>
+</span><span data-line="40"><span class="sd">   to ``NP_min = 4`` over the strategy's evaluation budget.  Larger</span>
 </span><span data-line="41"><span class="sd">   populations explore broadly early; smaller ones exploit the leading</span>
 </span><span data-line="42"><span class="sd">   basin late.</span>
 </span><span data-line="43">
@@ -199,33 +200,33 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="66"><span class="sd">Optionally pass ``F_schedule`` to enable an asymmetric F-cap schedule.</span>
 </span><span data-line="67"><span class="sd">Three named regimes ship out-of-the-box:</span>
 </span><span data-line="68">
-</span><span data-line="69"><span class="sd">* ``&quot;jso&quot;`` (Brest et al. 2017) — ``F ≤ 0.7`` while ``progress &lt; 0.6``,</span>
+</span><span data-line="69"><span class="sd">* ``"jso"`` (Brest et al. 2017) — ``F ≤ 0.7`` while ``progress &lt; 0.6``,</span>
 </span><span data-line="70"><span class="sd">  ``F ≤ 0.8`` while ``progress &lt; 0.9``, unclamped in the final 10%.</span>
-</span><span data-line="71"><span class="sd">* ``&quot;early&quot;`` — kicks in earlier with a tighter first cap: ``F ≤ 0.6``</span>
+</span><span data-line="71"><span class="sd">* ``"early"`` — kicks in earlier with a tighter first cap: ``F ≤ 0.6``</span>
 </span><span data-line="72"><span class="sd">  while ``progress &lt; 0.4``, ``F ≤ 0.8`` while ``progress &lt; 0.7``,</span>
 </span><span data-line="73"><span class="sd">  unclamped after that.  Useful when the basin sits near the box centre</span>
 </span><span data-line="74"><span class="sd">  and small initial steps help converge faster.</span>
-</span><span data-line="75"><span class="sd">* ``&quot;strict&quot;`` — aggressive throughout: ``F ≤ 0.5`` while</span>
+</span><span data-line="75"><span class="sd">* ``"strict"`` — aggressive throughout: ``F ≤ 0.5`` while</span>
 </span><span data-line="76"><span class="sd">  ``progress &lt; 0.5``, ``F ≤ 0.7`` while ``progress &lt; 0.85``, unclamped</span>
 </span><span data-line="77"><span class="sd">  in the final 15%.  Useful when large F is harmful (ill-conditioned</span>
 </span><span data-line="78"><span class="sd">  basins, narrow valleys).</span>
 </span><span data-line="79">
-</span><span data-line="80"><span class="sd">``F_schedule=&quot;off&quot;`` (explicit) and ``F_schedule=None`` (default) both</span>
+</span><span data-line="80"><span class="sd">``F_schedule="off"`` (explicit) and ``F_schedule=None`` (default) both</span>
 </span><span data-line="81"><span class="sd">keep the unclamped Tanabe-Fukunaga behaviour.  For backwards</span>
-</span><span data-line="82"><span class="sd">compatibility ``True`` is accepted as a synonym for ``&quot;jso&quot;`` and</span>
-</span><span data-line="83"><span class="sd">``False`` as a synonym for ``&quot;off&quot;``; jSO opts into ``&quot;jso&quot;`` by</span>
+</span><span data-line="82"><span class="sd">compatibility ``True`` is accepted as a synonym for ``"jso"`` and</span>
+</span><span data-line="83"><span class="sd">``False`` as a synonym for ``"off"``; jSO opts into ``"jso"`` by</span>
 </span><span data-line="84"><span class="sd">construction.</span>
 </span><span data-line="85">
 </span><span data-line="86"><span class="sd">Asynchronous execution</span>
 </span><span data-line="87"><span class="sd">----------------------</span>
 </span><span data-line="88">
-</span><span data-line="89"><span class="sd">Like Panobbgo&#39;s other population heuristics, L-SHADE here runs</span>
+</span><span data-line="89"><span class="sd">Like Panobbgo's other population heuristics, L-SHADE here runs</span>
 </span><span data-line="90"><span class="sd">asynchronously inside the event loop:</span>
 </span><span data-line="91">
 </span><span data-line="92"><span class="sd">1. ``on_start()`` emits ``NP_init`` random initial positions.</span>
 </span><span data-line="93"><span class="sd">2. ``on_new_results()`` matches incoming results back to their slot via</span>
 </span><span data-line="94"><span class="sd">   the ``who`` tag, fills the slot on the first arrival, and on later</span>
-</span><span data-line="95"><span class="sd">   arrivals competes the trial against the slot&#39;s incumbent — the loser</span>
+</span><span data-line="95"><span class="sd">   arrivals competes the trial against the slot's incumbent — the loser</span>
 </span><span data-line="96"><span class="sd">   is discarded, the winner stays in the population, and the loser (if</span>
 </span><span data-line="97"><span class="sd">   it was the parent) is pushed onto the archive.  After every</span>
 </span><span data-line="98"><span class="sd">   ``NP_current`` evolutionary trials complete, the heuristic updates</span>
@@ -242,7 +243,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="109"><span class="sd">Synchronous L-SHADE applies parameter adaptation only at the *end* of</span>
 </span><span data-line="110"><span class="sd">each generation, after every individual has been re-evaluated.  In the</span>
 </span><span data-line="111"><span class="sd">async port we batch by *count*: every ``NP_current`` completed</span>
-</span><span data-line="112"><span class="sd">evolutionary trials forms one &quot;generation&quot;.  This keeps the same total</span>
+</span><span data-line="112"><span class="sd">evolutionary trials forms one "generation".  This keeps the same total</span>
 </span><span data-line="113"><span class="sd">update cadence; the only difference is that within one async generation</span>
 </span><span data-line="114"><span class="sd">a slot may have been touched twice (or zero times) rather than exactly</span>
 </span><span data-line="115"><span class="sd">once.  In practice the SHADE memory adaptation is robust to this</span>
@@ -258,22 +259,22 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="125"><span class="sd">References</span>
 </span><span data-line="126"><span class="sd">----------</span>
 </span><span data-line="127">
-</span><span data-line="128"><span class="sd">* J. Zhang &amp; A. Sanderson (2009). &quot;JADE: Adaptive Differential Evolution</span>
-</span><span data-line="129"><span class="sd">  with Optional External Archive.&quot; *IEEE Transactions on Evolutionary</span>
+</span><span data-line="128"><span class="sd">* J. Zhang &amp; A. Sanderson (2009). "JADE: Adaptive Differential Evolution</span>
+</span><span data-line="129"><span class="sd">  with Optional External Archive." *IEEE Transactions on Evolutionary</span>
 </span><span data-line="130"><span class="sd">  Computation*, 13(5):945-958.</span>
-</span><span data-line="131"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2013). &quot;Success-History Based Parameter</span>
-</span><span data-line="132"><span class="sd">  Adaptation for Differential Evolution.&quot; *Proceedings of CEC 2013*.</span>
-</span><span data-line="133"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2014). &quot;Improving the Search Performance of</span>
-</span><span data-line="134"><span class="sd">  SHADE Using Linear Population Size Reduction.&quot; *Proceedings of</span>
+</span><span data-line="131"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2013). "Success-History Based Parameter</span>
+</span><span data-line="132"><span class="sd">  Adaptation for Differential Evolution." *Proceedings of CEC 2013*.</span>
+</span><span data-line="133"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2014). "Improving the Search Performance of</span>
+</span><span data-line="134"><span class="sd">  SHADE Using Linear Population Size Reduction." *Proceedings of</span>
 </span><span data-line="135"><span class="sd">  CEC 2014*.  Winner of the CEC-2014 single-objective competition.</span>
-</span><span data-line="136"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2016). &quot;iL-SHADE: Improved</span>
-</span><span data-line="137"><span class="sd">  L-SHADE Algorithm for Single Objective Real-Parameter Optimization.&quot;</span>
+</span><span data-line="136"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2016). "iL-SHADE: Improved</span>
+</span><span data-line="137"><span class="sd">  L-SHADE Algorithm for Single Objective Real-Parameter Optimization."</span>
 </span><span data-line="138"><span class="sd">  *Proceedings of CEC 2016*.  Introduces the linearly-decreasing</span>
 </span><span data-line="139"><span class="sd">  ``p_best`` schedule.</span>
-</span><span data-line="140"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). &quot;Single Objective</span>
-</span><span data-line="141"><span class="sd">  Real-Parameter Optimization: Algorithm jSO.&quot; *Proceedings of CEC</span>
+</span><span data-line="140"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). "Single Objective</span>
+</span><span data-line="141"><span class="sd">  Real-Parameter Optimization: Algorithm jSO." *Proceedings of CEC</span>
 </span><span data-line="142"><span class="sd">  2017*.  Winner of the CEC-2017 single-objective competition.</span>
-</span><span data-line="143"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="143"><span class="sd">"""</span>
 </span><span data-line="144">
 </span><span data-line="145"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="146">
@@ -290,14 +291,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="157"><span class="n">_DEFAULT_NP_INIT</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
 </span><span data-line="158"><span class="n">_DEFAULT_NP_MIN</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
 </span><span data-line="159">
-</span><span data-line="160"><span class="c1"># Budget-adaptive (&quot;auto&quot;) NP_init sizing.  A single fixed ``NP_init`` is</span>
+</span><span data-line="160"><span class="c1"># Budget-adaptive ("auto") NP_init sizing.  A single fixed ``NP_init`` is</span>
 </span><span data-line="161"><span class="c1"># mistuned across budgets: too large a population at a tight evaluation</span>
 </span><span data-line="162"><span class="c1"># budget spends most of the budget on the initial random fill and never</span>
 </span><span data-line="163"><span class="c1"># runs enough generations for the SHADE success-history adaptation to pay</span>
-</span><span data-line="164"><span class="c1"># off.  Measured on Panobbgo&#39;s own battery: at budget 200 (standard),</span>
+</span><span data-line="164"><span class="c1"># off.  Measured on Panobbgo's own battery: at budget 200 (standard),</span>
 </span><span data-line="165"><span class="c1"># ``NP_init=15`` scores ~2× ``NP_init=30`` on Rosenbrock (0.61 vs 0.30);</span>
 </span><span data-line="166"><span class="c1"># at budget 75 (quick — the nightly loop budget) the optimum drops to ~6.</span>
-</span><span data-line="167"><span class="c1"># ``NP_init=&quot;auto&quot;`` sizes the population from the strategy budget and</span>
+</span><span data-line="167"><span class="c1"># ``NP_init="auto"`` sizes the population from the strategy budget and</span>
 </span><span data-line="168"><span class="c1"># problem dimension::</span>
 </span><span data-line="169"><span class="c1">#</span>
 </span><span data-line="170"><span class="c1">#     NP = clip( round( min(_AUTO_DIM_COEF · dim, budget / _AUTO_GEN_TARGET) ),</span>
@@ -338,43 +339,43 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="205"><span class="c1">#   phase1_bound ≤ progress &lt; phase2_bound     → F ≤ phase2_cap</span>
 </span><span data-line="206"><span class="c1">#   progress ≥ phase2_bound                    → F unclamped (just F ≤ 1)</span>
 </span><span data-line="207"><span class="c1">#</span>
-</span><span data-line="208"><span class="c1"># The ``&quot;jso&quot;`` regime is the canonical Brest, Maučec &amp; Bošković (2017,</span>
-</span><span data-line="209"><span class="c1"># §III-D) settings; ``&quot;early&quot;`` and ``&quot;strict&quot;`` extend the literature</span>
+</span><span data-line="208"><span class="c1"># The ``"jso"`` regime is the canonical Brest, Maučec &amp; Bošković (2017,</span>
+</span><span data-line="209"><span class="c1"># §III-D) settings; ``"early"`` and ``"strict"`` extend the literature</span>
 </span><span data-line="210"><span class="c1"># regime with tighter or earlier-kicking caps so the bandit can search</span>
 </span><span data-line="211"><span class="c1"># the broader cap geometry without changing the heuristic at all.</span>
-</span><span data-line="212"><span class="c1"># ``&quot;off&quot;`` / ``None`` / ``False`` all bypass the cap entirely</span>
+</span><span data-line="212"><span class="c1"># ``"off"`` / ``None`` / ``False`` all bypass the cap entirely</span>
 </span><span data-line="213"><span class="c1"># (byte-identical Tanabe-Fukunaga behaviour shipped 2026-05-10).</span>
 </span><span data-line="214"><span class="n">_F_SCHEDULE_REGIMES</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="215">    <span class="s2">&quot;jso&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">),</span>
-</span><span data-line="216">    <span class="s2">&quot;early&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">),</span>
-</span><span data-line="217">    <span class="s2">&quot;strict&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">),</span>
+</span><span data-line="215">    <span class="s2">"jso"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">),</span>
+</span><span data-line="216">    <span class="s2">"early"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">),</span>
+</span><span data-line="217">    <span class="s2">"strict"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.85</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">),</span>
 </span><span data-line="218"><span class="p">}</span>
 </span><span data-line="219"><span class="c1"># Backwards-compatibility aliases for the original boolean toggle</span>
 </span><span data-line="220"><span class="c1"># (shipped 2026-05-21 as ``F_schedule: bool``).  The literature canonical</span>
-</span><span data-line="221"><span class="c1"># breakpoints / caps live on the ``&quot;jso&quot;`` regime above; these constants</span>
+</span><span data-line="221"><span class="c1"># breakpoints / caps live on the ``"jso"`` regime above; these constants</span>
 </span><span data-line="222"><span class="c1"># stay so module-level introspection code (and existing tests pinning</span>
 </span><span data-line="223"><span class="c1"># the canonical Brest 2017 values) keeps working.</span>
-</span><span data-line="224"><span class="n">_F_SCHEDULE_PHASE1_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">&quot;jso&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="225"><span class="n">_F_SCHEDULE_PHASE2_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">&quot;jso&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
-</span><span data-line="226"><span class="n">_F_SCHEDULE_PHASE1_CAP</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">&quot;jso&quot;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
-</span><span data-line="227"><span class="n">_F_SCHEDULE_PHASE2_CAP</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">&quot;jso&quot;</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span>
+</span><span data-line="224"><span class="n">_F_SCHEDULE_PHASE1_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">"jso"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="225"><span class="n">_F_SCHEDULE_PHASE2_BOUND</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">"jso"</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="226"><span class="n">_F_SCHEDULE_PHASE1_CAP</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">"jso"</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+</span><span data-line="227"><span class="n">_F_SCHEDULE_PHASE2_CAP</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">[</span><span class="s2">"jso"</span><span class="p">][</span><span class="mi">3</span><span class="p">]</span>
 </span><span data-line="228">
 </span><span data-line="229">
 </span><span data-line="230"><span class="k">def</span><span class="w"> </span><span class="nf">_resolve_auto_np_init</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="231"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve ``NP_init=&quot;auto&quot;`` to a concrete budget-adaptive population size.</span>
+</span><span data-line="231"><span class="w">    </span><span class="sd">"""Resolve ``NP_init="auto"`` to a concrete budget-adaptive population size.</span>
 </span><span data-line="232">
-</span><span data-line="233"><span class="sd">    Uses the owning strategy&#39;s evaluation budget (``strategy.config.max_eval``)</span>
+</span><span data-line="233"><span class="sd">    Uses the owning strategy's evaluation budget (``strategy.config.max_eval``)</span>
 </span><span data-line="234"><span class="sd">    and the problem dimension (``strategy.problem.dim``).  Returns the fixed</span>
 </span><span data-line="235"><span class="sd">    :data:`_DEFAULT_NP_INIT` fallback when the budget is unknown (no</span>
 </span><span data-line="236"><span class="sd">    ``max_eval``, zero, or non-numeric) or the dimension is unavailable, so the</span>
 </span><span data-line="237"><span class="sd">    caller degrades to the literature default rather than guessing a horizon.</span>
 </span><span data-line="238"><span class="sd">    See the :data:`_AUTO_DIM_COEF` / :data:`_AUTO_GEN_TARGET` comment for the</span>
 </span><span data-line="239"><span class="sd">    sizing formula and the measured motivation.</span>
-</span><span data-line="240"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="240"><span class="sd">    """</span>
 </span><span data-line="241">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="242">        <span class="n">budget</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span>
 </span><span data-line="243">    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="244">        <span class="n">budget</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">)</span>
+</span><span data-line="244">        <span class="n">budget</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
 </span><span data-line="245">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="246">        <span class="n">dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="247">    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -392,30 +393,30 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="259">
 </span><span data-line="260">
 </span><span data-line="261"><span class="k">def</span><span class="w"> </span><span class="nf">_normalize_F_schedule</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-</span><span data-line="262"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Map the constructor&#39;s ``F_schedule`` argument onto a regime name.</span>
+</span><span data-line="262"><span class="w">    </span><span class="sd">"""Map the constructor's ``F_schedule`` argument onto a regime name.</span>
 </span><span data-line="263">
 </span><span data-line="264"><span class="sd">    Returns ``None`` for the cap-disabled regimes (``None`` / ``False`` /</span>
-</span><span data-line="265"><span class="sd">    ``&quot;off&quot;``) so :meth:`LSHADE._apply_F_cap` can branch on a single</span>
+</span><span data-line="265"><span class="sd">    ``"off"``) so :meth:`LSHADE._apply_F_cap` can branch on a single</span>
 </span><span data-line="266"><span class="sd">    ``is None`` check.  Returns a key into :data:`_F_SCHEDULE_REGIMES`</span>
 </span><span data-line="267"><span class="sd">    for the active regimes.  Raises :class:`ValueError` for any other</span>
 </span><span data-line="268"><span class="sd">    input — bools other than ``True`` / ``False``, unknown strings, etc.</span>
-</span><span data-line="269"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="269"><span class="sd">    """</span>
 </span><span data-line="270">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
 </span><span data-line="271">        <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="272">    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="273">        <span class="k">return</span> <span class="s2">&quot;jso&quot;</span>
+</span><span data-line="273">        <span class="k">return</span> <span class="s2">"jso"</span>
 </span><span data-line="274">    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="275">        <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">&quot;off&quot;</span><span class="p">:</span>
+</span><span data-line="275">        <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="s2">"off"</span><span class="p">:</span>
 </span><span data-line="276">            <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="277">        <span class="k">if</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">_F_SCHEDULE_REGIMES</span><span class="p">:</span>
 </span><span data-line="278">            <span class="k">return</span> <span class="n">value</span>
-</span><span data-line="279">        <span class="n">valid</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;off&quot;</span><span class="p">,)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_F_SCHEDULE_REGIMES</span><span class="p">))</span>
-</span><span data-line="280">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: F_schedule must be one of </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s2"> (or None / True / False), got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="281">    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: F_schedule must be a string regime name, bool, or None, got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="279">        <span class="n">valid</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"off"</span><span class="p">,)</span> <span class="o">+</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_F_SCHEDULE_REGIMES</span><span class="p">))</span>
+</span><span data-line="280">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: F_schedule must be one of </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s2"> (or None / True / False), got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="281">    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: F_schedule must be a string regime name, bool, or None, got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="282">
 </span><span data-line="283">
 </span><span data-line="284"><span class="k">class</span><span class="w"> </span><span class="nc">_Dropped</span><span class="p">:</span>
-</span><span data-line="285"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sentinel used to mark population slots removed by LPSR.&quot;&quot;&quot;</span>
+</span><span data-line="285"><span class="w">    </span><span class="sd">"""Sentinel used to mark population slots removed by LPSR."""</span>
 </span><span data-line="286">
 </span><span data-line="287">
 </span><span data-line="288"><span class="n">_DROPPED</span> <span class="o">=</span> <span class="n">_Dropped</span><span class="p">()</span>
@@ -424,17 +425,17 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="LSHADE">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE">[docs]</a>
 </span><span data-line="291"><span class="k">class</span><span class="w"> </span><span class="nc">LSHADE</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="292"><span class="w">    </span><span class="sd">&quot;&quot;&quot;L-SHADE: linear-population-reduction SHADE adaptive DE.</span>
+</span><span data-line="292"><span class="w">    </span><span class="sd">"""L-SHADE: linear-population-reduction SHADE adaptive DE.</span>
 </span><span data-line="293">
 </span><span data-line="294"><span class="sd">    Args:</span>
 </span><span data-line="295"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="296"><span class="sd">        NP_init: Initial population size, or the string ``&quot;auto&quot;`` for</span>
+</span><span data-line="296"><span class="sd">        NP_init: Initial population size, or the string ``"auto"`` for</span>
 </span><span data-line="297"><span class="sd">            budget-adaptive sizing.  Default ``30`` — the standard</span>
 </span><span data-line="298"><span class="sd">            literature setting.  The CEC-2014 paper used ``18 · d``,</span>
-</span><span data-line="299"><span class="sd">            which is a heavier swarm than Panobbgo&#39;s typical budget can</span>
+</span><span data-line="299"><span class="sd">            which is a heavier swarm than Panobbgo's typical budget can</span>
 </span><span data-line="300"><span class="sd">            support; ``30`` is a good middle ground for the 2-10 D</span>
-</span><span data-line="301"><span class="sd">            problems in our benchmark battery.  Pass ``&quot;auto&quot;`` to size</span>
-</span><span data-line="302"><span class="sd">            the population from the strategy&#39;s evaluation budget and the</span>
+</span><span data-line="301"><span class="sd">            problems in our benchmark battery.  Pass ``"auto"`` to size</span>
+</span><span data-line="302"><span class="sd">            the population from the strategy's evaluation budget and the</span>
 </span><span data-line="303"><span class="sd">            problem dimension via</span>
 </span><span data-line="304"><span class="sd">            ``clip(round(min(18·dim, budget / 12)), max(NP_min, 6), 400)``</span>
 </span><span data-line="305"><span class="sd">            — this tracks the measured optimum across budgets (≈ 15 at</span>
@@ -474,19 +475,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="339"><span class="sd">            Default ``1.0``.  Setting it to ``0`` disables the archive</span>
 </span><span data-line="340"><span class="sd">            (``r2`` is then drawn only from the live population).</span>
 </span><span data-line="341"><span class="sd">        F_schedule: Optional asymmetric F-cap regime.  Accepts one of</span>
-</span><span data-line="342"><span class="sd">            the named regimes ``&quot;off&quot;`` / ``&quot;jso&quot;`` / ``&quot;early&quot;`` /</span>
-</span><span data-line="343"><span class="sd">            ``&quot;strict&quot;`` (see the module docstring for the per-regime</span>
+</span><span data-line="342"><span class="sd">            the named regimes ``"off"`` / ``"jso"`` / ``"early"`` /</span>
+</span><span data-line="343"><span class="sd">            ``"strict"`` (see the module docstring for the per-regime</span>
 </span><span data-line="344"><span class="sd">            breakpoints and caps), or ``None`` (default — same as</span>
-</span><span data-line="345"><span class="sd">            ``&quot;off&quot;``).  ``True`` / ``False`` are accepted as</span>
-</span><span data-line="346"><span class="sd">            backwards-compatible synonyms for ``&quot;jso&quot;`` / ``&quot;off&quot;``.</span>
+</span><span data-line="345"><span class="sd">            ``"off"``).  ``True`` / ``False`` are accepted as</span>
+</span><span data-line="346"><span class="sd">            backwards-compatible synonyms for ``"jso"`` / ``"off"``.</span>
 </span><span data-line="347"><span class="sd">            The constructor normalizes the value so</span>
 </span><span data-line="348"><span class="sd">            :attr:`F_schedule` is ``None`` for the disabled regimes and</span>
 </span><span data-line="349"><span class="sd">            a string regime name otherwise.  Falls back to the</span>
 </span><span data-line="350"><span class="sd">            unclamped behaviour when the strategy budget is unknown.</span>
-</span><span data-line="351"><span class="sd">            jSO opts into ``&quot;jso&quot;`` by construction.</span>
+</span><span data-line="351"><span class="sd">            jSO opts into ``"jso"`` by construction.</span>
 </span><span data-line="352"><span class="sd">        seed: Optional seed for the per-instance RNG.  ``None`` (default)</span>
-</span><span data-line="353"><span class="sd">            uses the module&#39;s strategy-derived ``self.rng`` stream.</span>
-</span><span data-line="354"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="353"><span class="sd">            uses the module's strategy-derived ``self.rng`` stream.</span>
+</span><span data-line="354"><span class="sd">        name: Override the heuristic's display name.</span>
 </span><span data-line="355">
 </span><span data-line="356"><span class="sd">    Notes:</span>
 </span><span data-line="357"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
@@ -499,7 +500,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="364"><span class="sd">          the budget is unknown (no ``max_eval``, zero, or non-numeric)</span>
 </span><span data-line="365"><span class="sd">          the heuristic falls back to a *constant* population at</span>
 </span><span data-line="366"><span class="sd">          ``NP_init``.</span>
-</span><span data-line="367"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="367"><span class="sd">    """</span>
 </span><span data-line="368">
 </span><span data-line="369">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="370">        <span class="bp">self</span><span class="p">,</span>
@@ -514,41 +515,41 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="379">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="380">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="381">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="382">        <span class="c1"># ``NP_init=&quot;auto&quot;`` resolves to a concrete budget-adaptive size here,</span>
+</span><span data-line="382">        <span class="c1"># ``NP_init="auto"`` resolves to a concrete budget-adaptive size here,</span>
 </span><span data-line="383">        <span class="c1"># so every downstream code path (validation, ``on_start``, LPSR, and all</span>
 </span><span data-line="384">        <span class="c1"># subclasses) sees a normal ``int`` and needs no further branching.</span>
 </span><span data-line="385">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">NP_init</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="386">            <span class="k">if</span> <span class="n">NP_init</span> <span class="o">!=</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
-</span><span data-line="387">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: NP_init string must be &#39;auto&#39;, got </span><span class="si">{</span><span class="n">NP_init</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="386">            <span class="k">if</span> <span class="n">NP_init</span> <span class="o">!=</span> <span class="s2">"auto"</span><span class="p">:</span>
+</span><span data-line="387">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: NP_init string must be 'auto', got </span><span class="si">{</span><span class="n">NP_init</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="388">            <span class="n">NP_init</span> <span class="o">=</span> <span class="n">_resolve_auto_np_init</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">NP_min</span><span class="p">)</span>
 </span><span data-line="389">        <span class="c1"># A bool is an ``int`` subclass — reject it explicitly so ``True`` / ``False``</span>
-</span><span data-line="390">        <span class="c1"># don&#39;t silently become populations of size 1 / 0.</span>
+</span><span data-line="390">        <span class="c1"># don't silently become populations of size 1 / 0.</span>
 </span><span data-line="391">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">NP_init</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">NP_init</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="392">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: NP_init must be an integer or &#39;auto&#39;, got </span><span class="si">{</span><span class="n">NP_init</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="392">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: NP_init must be an integer or 'auto', got </span><span class="si">{</span><span class="n">NP_init</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="393">        <span class="k">if</span> <span class="n">NP_init</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
-</span><span data-line="394">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: NP_init must be &gt;= 4, got </span><span class="si">{</span><span class="n">NP_init</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="394">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: NP_init must be &gt;= 4, got </span><span class="si">{</span><span class="n">NP_init</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="395">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">NP_min</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="396">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: NP_min must be an integer, got </span><span class="si">{</span><span class="n">NP_min</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="396">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: NP_min must be an integer, got </span><span class="si">{</span><span class="n">NP_min</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="397">        <span class="k">if</span> <span class="n">NP_min</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
-</span><span data-line="398">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: NP_min must be &gt;= 4, got </span><span class="si">{</span><span class="n">NP_min</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="398">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: NP_min must be &gt;= 4, got </span><span class="si">{</span><span class="n">NP_min</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="399">        <span class="k">if</span> <span class="n">NP_min</span> <span class="o">&gt;</span> <span class="n">NP_init</span><span class="p">:</span>
-</span><span data-line="400">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: NP_min (</span><span class="si">{</span><span class="n">NP_min</span><span class="si">}</span><span class="s2">) must be &lt;= NP_init (</span><span class="si">{</span><span class="n">NP_init</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="400">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: NP_min (</span><span class="si">{</span><span class="n">NP_min</span><span class="si">}</span><span class="s2">) must be &lt;= NP_init (</span><span class="si">{</span><span class="n">NP_init</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </span><span data-line="401">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="402">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: H must be an integer, got </span><span class="si">{</span><span class="n">H</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="402">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: H must be an integer, got </span><span class="si">{</span><span class="n">H</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="403">        <span class="k">if</span> <span class="n">H</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="404">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: H must be &gt;= 1, got </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="404">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: H must be &gt;= 1, got </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="405">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p_best</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">p_best</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="406">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: p_best must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="406">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: p_best must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="407">        <span class="k">if</span> <span class="n">p_best_end</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p_best_end</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">p_best_end</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)):</span>
-</span><span data-line="408">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: p_best_end must be in (0, 1] when set, got </span><span class="si">{</span><span class="n">p_best_end</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="408">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: p_best_end must be in (0, 1] when set, got </span><span class="si">{</span><span class="n">p_best_end</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="409">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">archive_factor</span><span class="p">)</span> <span class="ow">or</span> <span class="n">archive_factor</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="410">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: archive_factor must be a non-negative finite float, got </span><span class="si">{</span><span class="n">archive_factor</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="410">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: archive_factor must be a non-negative finite float, got </span><span class="si">{</span><span class="n">archive_factor</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="411">        <span class="c1"># ``_normalize_F_schedule`` validates and maps the input onto a</span>
 </span><span data-line="412">        <span class="c1"># regime name; backward-compat bool inputs collapse onto the</span>
 </span><span data-line="413">        <span class="c1"># canonical string regimes.</span>
 </span><span data-line="414">        <span class="n">normalized_F_schedule</span> <span class="o">=</span> <span class="n">_normalize_F_schedule</span><span class="p">(</span><span class="n">F_schedule</span><span class="p">)</span>
 </span><span data-line="415">
-</span><span data-line="416">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;LSHADE&quot;</span><span class="p">)</span>
+</span><span data-line="416">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"LSHADE"</span><span class="p">)</span>
 </span><span data-line="417">        <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NP_init</span>
 </span><span data-line="418">        <span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NP_min</span>
 </span><span data-line="419">        <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">H</span>
@@ -575,13 +576,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="440">        <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">NP_init</span>
 </span><span data-line="441">
 </span><span data-line="442">        <span class="c1"># External archive of replaced parents.  Stored as raw position</span>
-</span><span data-line="443">        <span class="c1"># vectors so we don&#39;t carry full :class:`Result` overhead.</span>
+</span><span data-line="443">        <span class="c1"># vectors so we don't carry full :class:`Result` overhead.</span>
 </span><span data-line="444">        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="445">
 </span><span data-line="446">        <span class="c1"># Pending trials: req_id -&gt; (slot_idx, F, CR).  Initial random</span>
-</span><span data-line="447">        <span class="c1"># trials use F=NaN, CR=NaN so they don&#39;t contribute to the</span>
+</span><span data-line="447">        <span class="c1"># trials use F=NaN, CR=NaN so they don't contribute to the</span>
 </span><span data-line="448">        <span class="c1"># success memory.</span>
-</span><span data-line="449">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;_TrialMeta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="449">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">"_TrialMeta"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="450">
 </span><span data-line="451">        <span class="c1"># Current-generation success buffer.  At end of generation we</span>
 </span><span data-line="452">        <span class="c1"># update memory and clear.</span>
@@ -595,7 +596,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="460">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="461">
 </span><span data-line="462">    <span class="k">def</span><span class="w"> </span><span class="nf">_max_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-</span><span data-line="463"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the strategy&#39;s evaluation budget, or ``None`` if unknown.&quot;&quot;&quot;</span>
+</span><span data-line="463"><span class="w">        </span><span class="sd">"""Return the strategy's evaluation budget, or ``None`` if unknown."""</span>
 </span><span data-line="464">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="465">            <span class="n">v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span>  <span class="c1"># type: ignore[union-attr]</span>
 </span><span data-line="466">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
@@ -605,12 +606,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="470">        <span class="k">return</span> <span class="n">v</span>
 </span><span data-line="471">
 </span><span data-line="472">    <span class="k">def</span><span class="w"> </span><span class="nf">_progress</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-</span><span data-line="473"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.</span>
+</span><span data-line="473"><span class="w">        </span><span class="sd">"""Return ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.</span>
 </span><span data-line="474">
 </span><span data-line="475"><span class="sd">        Returns ``None`` when the budget is unknown so callers can</span>
-</span><span data-line="476"><span class="sd">        distinguish &quot;early phase&quot; (progress = 0.0) from &quot;no budget at</span>
-</span><span data-line="477"><span class="sd">        all&quot; and pick a safe fallback for each schedule.</span>
-</span><span data-line="478"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="476"><span class="sd">        distinguish "early phase" (progress = 0.0) from "no budget at</span>
+</span><span data-line="477"><span class="sd">        all" and pick a safe fallback for each schedule.</span>
+</span><span data-line="478"><span class="sd">        """</span>
 </span><span data-line="479">        <span class="n">max_eval</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_eval</span><span class="p">()</span>
 </span><span data-line="480">        <span class="k">if</span> <span class="n">max_eval</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="481">            <span class="k">return</span> <span class="kc">None</span>
@@ -621,7 +622,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="486">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">current</span> <span class="o">/</span> <span class="n">max_eval</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
 </span><span data-line="487">
 </span><span data-line="488">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_p_best</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="489"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the ``p_best`` value to use for the next trial.</span>
+</span><span data-line="489"><span class="w">        </span><span class="sd">"""Return the ``p_best`` value to use for the next trial.</span>
 </span><span data-line="490">
 </span><span data-line="491"><span class="sd">        When ``p_best_end`` is ``None`` this is the constant ``self.p_best``,</span>
 </span><span data-line="492"><span class="sd">        i.e. the byte-identical L-SHADE behaviour shipped 2026-05-10.</span>
@@ -632,7 +633,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="497"><span class="sd">        the budget is unknown (no ``max_eval``, zero, or non-numeric)</span>
 </span><span data-line="498"><span class="sd">        the heuristic falls back to constant ``self.p_best`` rather than</span>
 </span><span data-line="499"><span class="sd">        guessing a horizon.</span>
-</span><span data-line="500"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="500"><span class="sd">        """</span>
 </span><span data-line="501">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="502">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best</span>
 </span><span data-line="503">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
@@ -641,14 +642,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="506">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_end</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span>
 </span><span data-line="507">
 </span><span data-line="508">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_F_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="509"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the configured asymmetric F-cap regime, when opted in.</span>
+</span><span data-line="509"><span class="w">        </span><span class="sd">"""Apply the configured asymmetric F-cap regime, when opted in.</span>
 </span><span data-line="510">
-</span><span data-line="511"><span class="sd">        ``F_schedule`` resolves to ``None`` (default / ``&quot;off&quot;`` /</span>
+</span><span data-line="511"><span class="sd">        ``F_schedule`` resolves to ``None`` (default / ``"off"`` /</span>
 </span><span data-line="512"><span class="sd">        ``False``) → ``F`` is returned unchanged, byte-identical to the</span>
 </span><span data-line="513"><span class="sd">        unclamped Tanabe-Fukunaga L-SHADE.  For an active regime name,</span>
 </span><span data-line="514"><span class="sd">        the three-phase cap is keyed on</span>
 </span><span data-line="515"><span class="sd">        ``progress = len(strategy.results) / strategy.config.max_eval``</span>
-</span><span data-line="516"><span class="sd">        with the regime&#39;s ``(phase1_bound, phase2_bound, phase1_cap,</span>
+</span><span data-line="516"><span class="sd">        with the regime's ``(phase1_bound, phase2_bound, phase1_cap,</span>
 </span><span data-line="517"><span class="sd">        phase2_cap)`` 4-tuple from :data:`_F_SCHEDULE_REGIMES`:</span>
 </span><span data-line="518">
 </span><span data-line="519"><span class="sd">        * ``progress &lt; phase1_bound``: ``F`` clamped at ``phase1_cap``.</span>
@@ -660,7 +661,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="525"><span class="sd">        When the strategy budget is unknown the cap is bypassed — the</span>
 </span><span data-line="526"><span class="sd">        same safe fallback used by :meth:`_current_p_best` and</span>
 </span><span data-line="527"><span class="sd">        :meth:`_apply_lpsr`.</span>
-</span><span data-line="528"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="528"><span class="sd">        """</span>
 </span><span data-line="529">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">F_schedule</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="530">            <span class="k">return</span> <span class="n">F</span>
 </span><span data-line="531">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
@@ -673,49 +674,49 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="538">            <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">F</span><span class="p">,</span> <span class="n">cap2</span><span class="p">)</span>
 </span><span data-line="539">        <span class="k">return</span> <span class="n">F</span>
 </span><span data-line="540">
-</span><span data-line="541">    <span class="k">def</span><span class="w"> </span><span class="nf">_make_trial_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;_TrialMeta&quot;</span><span class="p">:</span>
-</span><span data-line="542"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct the per-trial bookkeeping record for ``_pending``.</span>
+</span><span data-line="541">    <span class="k">def</span><span class="w"> </span><span class="nf">_make_trial_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"_TrialMeta"</span><span class="p">:</span>
+</span><span data-line="542"><span class="w">        </span><span class="sd">"""Construct the per-trial bookkeeping record for ``_pending``.</span>
 </span><span data-line="543">
 </span><span data-line="544"><span class="sd">        Default returns a plain :class:`_TrialMeta`.  Subclasses (e.g.</span>
 </span><span data-line="545"><span class="sd">        :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`) override</span>
 </span><span data-line="546"><span class="sd">        this to attach per-trial metadata (e.g. which sinusoid produced</span>
 </span><span data-line="547"><span class="sd">        ``F``) needed by their adaptation rules.</span>
-</span><span data-line="548"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="548"><span class="sd">        """</span>
 </span><span data-line="549">        <span class="k">return</span> <span class="n">_TrialMeta</span><span class="p">(</span><span class="n">slot_idx</span><span class="o">=</span><span class="n">slot_idx</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="o">=</span><span class="n">CR</span><span class="p">)</span>
 </span><span data-line="550">
-</span><span data-line="551">    <span class="k">def</span><span class="w"> </span><span class="nf">_record_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="s2">&quot;_TrialMeta&quot;</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="552"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Hook called for every successful competitive trial.</span>
+</span><span data-line="551">    <span class="k">def</span><span class="w"> </span><span class="nf">_record_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="s2">"_TrialMeta"</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="552"><span class="w">        </span><span class="sd">"""Hook called for every successful competitive trial.</span>
 </span><span data-line="553">
 </span><span data-line="554"><span class="sd">        Default is a no-op.  Subclasses that adapt per-trial metadata</span>
-</span><span data-line="555"><span class="sd">        (e.g. :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`&#39;s</span>
+</span><span data-line="555"><span class="sd">        (e.g. :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`'s</span>
 </span><span data-line="556"><span class="sd">        sinusoidal-ensemble success counters and frequency memory) extend</span>
 </span><span data-line="557"><span class="sd">        this without having to override the whole :meth:`on_new_results`</span>
-</span><span data-line="558"><span class="sd">        loop.  ``meta`` is the trial&#39;s ``_pending`` record (post-pop),</span>
+</span><span data-line="558"><span class="sd">        loop.  ``meta`` is the trial's ``_pending`` record (post-pop),</span>
 </span><span data-line="559"><span class="sd">        ``delta`` is the absolute fitness improvement that survived the</span>
 </span><span data-line="560"><span class="sd">        constraint handler.</span>
-</span><span data-line="561"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="561"><span class="sd">        """</span>
 </span><span data-line="562">        <span class="k">return</span>
 </span><span data-line="563">
 </span><span data-line="564">    <span class="k">def</span><span class="w"> </span><span class="nf">_emit_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="565"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Project, queue, and book-keep one candidate point.&quot;&quot;&quot;</span>
+</span><span data-line="565"><span class="w">        </span><span class="sd">"""Project, queue, and book-keep one candidate point."""</span>
 </span><span data-line="566">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
 </span><span data-line="567">            <span class="k">return</span> <span class="kc">False</span>
 </span><span data-line="568">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="569">            <span class="n">x_proj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="570">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="571">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LSHADE: projection failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="571">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LSHADE: projection failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="572">            <span class="k">return</span> <span class="kc">False</span>
 </span><span data-line="573">
 </span><span data-line="574">        <span class="c1"># Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so</span>
 </span><span data-line="575">        <span class="c1"># ``Result.who`` tags are reproducible under a fixed seed.</span>
 </span><span data-line="576">        <span class="n">who</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_who</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="577">        <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="577">        <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">":"</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
 </span><span data-line="578">        <span class="bp">self</span><span class="o">.</span><span class="n">_put</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_proj</span><span class="p">,</span> <span class="n">who</span><span class="p">))</span>
 </span><span data-line="579">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">req_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_trial_meta</span><span class="p">(</span><span class="n">slot_idx</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="p">)</span>
 </span><span data-line="580">        <span class="k">return</span> <span class="kc">True</span>
 </span><span data-line="581">
 </span><span data-line="582">    <span class="k">def</span><span class="w"> </span><span class="nf">_live_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="583"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Indices of currently-filled, non-dropped population slots.&quot;&quot;&quot;</span>
+</span><span data-line="583"><span class="w">        </span><span class="sd">"""Indices of currently-filled, non-dropped population slots."""</span>
 </span><span data-line="584">        <span class="n">out</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="585">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">slot</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">):</span>
 </span><span data-line="586">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">Result</span><span class="p">):</span>
@@ -723,19 +724,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="588">        <span class="k">return</span> <span class="n">out</span>
 </span><span data-line="589">
 </span><span data-line="590">    <span class="k">def</span><span class="w"> </span><span class="nf">_fx_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="n">Result</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="591"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Scalar fitness for ranking — falls back to ``r.fx`` if no handler.</span>
+</span><span data-line="591"><span class="w">        </span><span class="sd">"""Scalar fitness for ranking — falls back to ``r.fx`` if no handler.</span>
 </span><span data-line="592">
 </span><span data-line="593"><span class="sd">        Memoised per :class:`~panobbgo.lib.Result`: the population is ranked</span>
 </span><span data-line="594"><span class="sd">        on every trial generation, so the same handful of results would</span>
 </span><span data-line="595"><span class="sd">        otherwise be re-penalised thousands of times per run.  Results are</span>
 </span><span data-line="596"><span class="sd">        immutable, so the cached value cannot go stale.</span>
-</span><span data-line="597"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="597"><span class="sd">        """</span>
 </span><span data-line="598">        <span class="n">cached</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
 </span><span data-line="599">        <span class="k">if</span> <span class="n">cached</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="600">            <span class="k">return</span> <span class="n">cached</span>
-</span><span data-line="601">        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;constraint_handler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="601">        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="602">        <span class="k">if</span> <span class="n">handler</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="603">            <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="603">            <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 </span><span data-line="604">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="605">            <span class="n">value</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
 </span><span data-line="606">        <span class="bp">self</span><span class="o">.</span><span class="n">_fx_cache</span><span class="p">[</span><span class="nb">id</span><span class="p">(</span><span class="n">r</span><span class="p">)]</span> <span class="o">=</span> <span class="n">value</span>
@@ -746,24 +747,24 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="611">        <span class="k">return</span> <span class="n">value</span>
 </span><span data-line="612">
 </span><span data-line="613">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="614"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Maximum number of replaced parents the external archive retains.</span>
+</span><span data-line="614"><span class="w">        </span><span class="sd">"""Maximum number of replaced parents the external archive retains.</span>
 </span><span data-line="615">
 </span><span data-line="616"><span class="sd">        Default is the fixed ``archive_factor · NP_current`` cap from</span>
 </span><span data-line="617"><span class="sd">        Tanabe-Fukunaga (2014).  Subclasses (e.g.</span>
 </span><span data-line="618"><span class="sd">        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override</span>
 </span><span data-line="619"><span class="sd">        this to randomise the cap per generation.</span>
-</span><span data-line="620"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="620"><span class="sd">        """</span>
 </span><span data-line="621">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">archive_factor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
 </span><span data-line="622">
 </span><span data-line="623">    <span class="k">def</span><span class="w"> </span><span class="nf">_trim_archive</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="624"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Cap the archive at :meth:`_archive_cap` (drop random entries).&quot;&quot;&quot;</span>
+</span><span data-line="624"><span class="w">        </span><span class="sd">"""Cap the archive at :meth:`_archive_cap` (drop random entries)."""</span>
 </span><span data-line="625">        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_cap</span><span class="p">()</span>
 </span><span data-line="626">        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
 </span><span data-line="627">            <span class="n">j</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)))</span>
 </span><span data-line="628">            <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">j</span><span class="p">)</span>
 </span><span data-line="629">
 </span><span data-line="630">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_r1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="631"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Pick the index ``r1`` for the differential ``F · (x_r1 − x_r2)`` term.</span>
+</span><span data-line="631"><span class="w">        </span><span class="sd">"""Pick the index ``r1`` for the differential ``F · (x_r1 − x_r2)`` term.</span>
 </span><span data-line="632">
 </span><span data-line="633"><span class="sd">        Default: uniform over live slots excluding the target — the</span>
 </span><span data-line="634"><span class="sd">        Tanabe-Fukunaga / jSO behaviour.  Subclasses (e.g.</span>
@@ -771,14 +772,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="636"><span class="sd">        this to bias the choice toward higher-ranked individuals</span>
 </span><span data-line="637"><span class="sd">        (rank-based selective pressure).  Returns ``None`` when no</span>
 </span><span data-line="638"><span class="sd">        candidate is available so the caller can abort the trial.</span>
-</span><span data-line="639"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="639"><span class="sd">        """</span>
 </span><span data-line="640">        <span class="n">r1_pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
 </span><span data-line="641">        <span class="k">if</span> <span class="ow">not</span> <span class="n">r1_pool</span><span class="p">:</span>
 </span><span data-line="642">            <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="643">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r1_pool</span><span class="p">)))</span>
 </span><span data-line="644">
 </span><span data-line="645">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-</span><span data-line="646"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw one ``(F, CR)`` pair from a random history bin.&quot;&quot;&quot;</span>
+</span><span data-line="646"><span class="w">        </span><span class="sd">"""Draw one ``(F, CR)`` pair from a random history bin."""</span>
 </span><span data-line="647">        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
 </span><span data-line="648">        <span class="c1"># CR sampling: Normal(M_CR[r], 0.1), clamped to [0, 1].  The</span>
 </span><span data-line="649">        <span class="c1"># M_CR = -1 sentinel collapses to deterministic CR = 0.</span>
@@ -801,7 +802,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="666">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_F_cap</span><span class="p">(</span><span class="n">F</span><span class="p">),</span> <span class="n">CR</span>
 </span><span data-line="667">
 </span><span data-line="668">    <span class="k">def</span><span class="w"> </span><span class="nf">_reflect_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">x_target</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="669"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Midpoint reflection bounds repair (Tanabe-Fukunaga §III-A).&quot;&quot;&quot;</span>
+</span><span data-line="669"><span class="w">        </span><span class="sd">"""Midpoint reflection bounds repair (Tanabe-Fukunaga §III-A)."""</span>
 </span><span data-line="670">        <span class="n">lb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
 </span><span data-line="671">        <span class="n">ub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
 </span><span data-line="672">        <span class="n">out</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -814,7 +815,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="679">        <span class="k">return</span> <span class="n">out</span>
 </span><span data-line="680">
 </span><span data-line="681">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="682"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and emit one ``current-to-pbest/1`` trial vector.&quot;&quot;&quot;</span>
+</span><span data-line="682"><span class="w">        </span><span class="sd">"""Build and emit one ``current-to-pbest/1`` trial vector."""</span>
 </span><span data-line="683">        <span class="n">live</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live_indices</span><span class="p">()</span>
 </span><span data-line="684">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">live</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">target_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">live</span><span class="p">:</span>
 </span><span data-line="685">            <span class="k">return</span>
@@ -875,7 +876,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="740">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="p">)</span>
 </span><span data-line="741">
 </span><span data-line="742">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="743"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the weighted Lehmer-mean memory update for one generation.&quot;&quot;&quot;</span>
+</span><span data-line="743"><span class="w">        </span><span class="sd">"""Apply the weighted Lehmer-mean memory update for one generation."""</span>
 </span><span data-line="744">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">:</span>
 </span><span data-line="745">            <span class="k">return</span>  <span class="c1"># no successes — leave memory untouched</span>
 </span><span data-line="746">        <span class="n">F_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
@@ -907,17 +908,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="772">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span>
 </span><span data-line="773">
 </span><span data-line="774">    <span class="k">def</span><span class="w"> </span><span class="nf">_lpsr_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="775"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Target population size at ``progress`` (Tanabe-Fukunaga 2014, linear).</span>
+</span><span data-line="775"><span class="w">        </span><span class="sd">"""Target population size at ``progress`` (Tanabe-Fukunaga 2014, linear).</span>
 </span><span data-line="776">
 </span><span data-line="777"><span class="sd">        Linear interpolation from ``NP_init`` (progress 0) down to</span>
 </span><span data-line="778"><span class="sd">        ``NP_min`` (progress 1).  Subclasses (e.g.</span>
 </span><span data-line="779"><span class="sd">        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override</span>
 </span><span data-line="780"><span class="sd">        this with a non-linear schedule.</span>
-</span><span data-line="781"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="781"><span class="sd">        """</span>
 </span><span data-line="782">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span><span class="p">))</span>
 </span><span data-line="783">
 </span><span data-line="784">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_lpsr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="785"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Shrink the population to ``NP_target`` based on budget progress.&quot;&quot;&quot;</span>
+</span><span data-line="785"><span class="w">        </span><span class="sd">"""Shrink the population to ``NP_target`` based on budget progress."""</span>
 </span><span data-line="786">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
 </span><span data-line="787">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="788">            <span class="k">return</span>
@@ -941,7 +942,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="806">        <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
 </span><span data-line="807">
 </span><span data-line="808">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_of_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="809"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Run memory + LPSR updates and reset the success buffer.&quot;&quot;&quot;</span>
+</span><span data-line="809"><span class="w">        </span><span class="sd">"""Run memory + LPSR updates and reset the success buffer."""</span>
 </span><span data-line="810">        <span class="bp">self</span><span class="o">.</span><span class="n">_update_memory</span><span class="p">()</span>
 </span><span data-line="811">        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_lpsr</span><span class="p">()</span>
 </span><span data-line="812">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">=</span> <span class="mi">0</span>
@@ -950,7 +951,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="815">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
 </span><span data-line="816">
 </span><span data-line="817">    <span class="k">def</span><span class="w"> </span><span class="nf">_wake_idle_slots</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="818"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Make sure every live slot has at most one pending trial.</span>
+</span><span data-line="818"><span class="w">        </span><span class="sd">"""Make sure every live slot has at most one pending trial.</span>
 </span><span data-line="819">
 </span><span data-line="820"><span class="sd">        Slots that finished their initial random fill before the</span>
 </span><span data-line="821"><span class="sd">        population reached the four-individual threshold for</span>
@@ -958,7 +959,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="823"><span class="sd">        in-flight trial.  Once the threshold is met we kick them off</span>
 </span><span data-line="824"><span class="sd">        with their first evolutionary trial so the swarm gets back to</span>
 </span><span data-line="825"><span class="sd">        full async throughput.</span>
-</span><span data-line="826"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="826"><span class="sd">        """</span>
 </span><span data-line="827">        <span class="n">live</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_live_indices</span><span class="p">())</span>
 </span><span data-line="828">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">live</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">:</span>
 </span><span data-line="829">            <span class="k">return</span>
@@ -973,7 +974,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="LSHADE.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_start">[docs]</a>
 </span><span data-line="838">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="839"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state and emit ``NP_init`` random initial trials.&quot;&quot;&quot;</span>
+</span><span data-line="839"><span class="w">        </span><span class="sd">"""Allocate state and emit ``NP_init`` random initial trials."""</span>
 </span><span data-line="840">        <span class="bp">self</span><span class="o">.</span><span class="n">_population</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
 </span><span data-line="841">        <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
 </span><span data-line="842">        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
@@ -988,20 +989,20 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="851">
 </span><span data-line="852">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
 </span><span data-line="853">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="854">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">))</span></div>
+</span><span data-line="854">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
 
 </span><span data-line="855">
 <div class="viewcode-block" id="LSHADE.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_new_results">[docs]</a>
 </span><span data-line="856">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="857"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Process incoming evaluations and dispatch follow-up trials.&quot;&quot;&quot;</span>
+</span><span data-line="857"><span class="w">        </span><span class="sd">"""Process incoming evaluations and dispatch follow-up trials."""</span>
 </span><span data-line="858">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
 </span><span data-line="859">            <span class="k">return</span>  <span class="c1"># not started yet</span>
 </span><span data-line="860">
-</span><span data-line="861">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:&quot;</span>
+</span><span data-line="861">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
 </span><span data-line="862">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
 </span><span data-line="863">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="864">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;who&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="864">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
 </span><span data-line="865">            <span class="k">if</span> <span class="ow">not</span> <span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
 </span><span data-line="866">                <span class="k">continue</span>
 </span><span data-line="867">            <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
@@ -1050,8 +1051,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="909">
 <div class="viewcode-block" id="LSHADE.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_restart">[docs]</a>
-</span><span data-line="910">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="911"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop in-flight state and reseed the population around ``center``.</span>
+</span><span data-line="910">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="911"><span class="w">        </span><span class="sd">"""Drop in-flight state and reseed the population around ``center``.</span>
 </span><span data-line="912">
 </span><span data-line="913"><span class="sd">        Mirrors the warm-restart pattern used by</span>
 </span><span data-line="914"><span class="sd">        :class:`~panobbgo.heuristics.pso.PSO` and the IPOP/BIPOP CMA-ES</span>
@@ -1059,7 +1060,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="916"><span class="sd">        re-randomised in a small ball around ``center`` (or random in</span>
 </span><span data-line="917"><span class="sd">        the box if ``center`` is ``None``), and a fresh round of</span>
 </span><span data-line="918"><span class="sd">        initial-random trials emitted.</span>
-</span><span data-line="919"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="919"><span class="sd">        """</span>
 </span><span data-line="920">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
 </span><span data-line="921">            <span class="k">return</span>
 </span><span data-line="922">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
@@ -1091,15 +1092,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="948">            <span class="k">else</span><span class="p">:</span>
 </span><span data-line="949">                <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ball</span><span class="p">,</span> <span class="n">ball</span><span class="p">)</span>
 </span><span data-line="950">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
-</span><span data-line="951">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;nan&quot;</span><span class="p">))</span></div>
+</span><span data-line="951">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
 </div>
 
 </span><span data-line="952">
 </span><span data-line="953">
 </span><span data-line="954"><span class="k">class</span><span class="w"> </span><span class="nc">_TrialMeta</span><span class="p">:</span>
-</span><span data-line="955"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-trial bookkeeping used to identify which slot/F/CR a result came from.&quot;&quot;&quot;</span>
+</span><span data-line="955"><span class="w">    </span><span class="sd">"""Per-trial bookkeeping used to identify which slot/F/CR a result came from."""</span>
 </span><span data-line="956">
-</span><span data-line="957">    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;slot_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">,</span> <span class="s2">&quot;CR&quot;</span><span class="p">)</span>
+</span><span data-line="957">    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"slot_idx"</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">,</span> <span class="s2">"CR"</span><span class="p">)</span>
 </span><span data-line="958">
 </span><span data-line="959">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="960">        <span class="bp">self</span><span class="o">.</span><span class="n">slot_idx</span> <span class="o">=</span> <span class="n">slot_idx</span>
@@ -1127,14 +1128,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

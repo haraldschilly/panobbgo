@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.ucb"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.ucb"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -142,7 +143,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyUCB">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB">[docs]</a>
 </span><span data-line="9"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyUCB</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
-</span><span data-line="10"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="10"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="11"><span class="sd">    This strategy uses the Upper Confidence Bound (UCB1) algorithm to select</span>
 </span><span data-line="12"><span class="sd">    heuristics. It balances exploration (trying less used heuristics) and</span>
 </span><span data-line="13"><span class="sd">    exploitation (using heuristics that have performed well).</span>
@@ -150,10 +151,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="15"><span class="sd">    The Multi-Armed Bandit formulation here is:</span>
 </span><span data-line="16"><span class="sd">    - Arms: Heuristics</span>
 </span><span data-line="17"><span class="sd">    - Pull: Generating points from a heuristic</span>
-</span><span data-line="18"><span class="sd">    - Reward: 0 if point doesn&#39;t improve best; &gt;0 if it improves best.</span>
+</span><span data-line="18"><span class="sd">    - Reward: 0 if point doesn't improve best; &gt;0 if it improves best.</span>
 </span><span data-line="19"><span class="sd">      Reward calculation: R(x) = 1 - e^{-(improvement)}.</span>
 </span><span data-line="20"><span class="sd">    - Value Q_t(a): Average reward per point generated.</span>
-</span><span data-line="21"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="21"><span class="sd">    """</span>
 </span><span data-line="22">
 <div class="viewcode-block" id="StrategyUCB.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.strategies.ucb.StrategyUCB.html#panobbgo.strategies.ucb.StrategyUCB.__init__">[docs]</a>
@@ -175,7 +176,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyUCB.reward">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.reward">[docs]</a>
 </span><span data-line="34">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="35"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="35"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="36"><span class="sd">        Calculate reward for a heuristic based on the improvement.</span>
 </span><span data-line="37">
 </span><span data-line="38"><span class="sd">        Args:</span>
@@ -183,7 +184,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="40">
 </span><span data-line="41"><span class="sd">        Returns:</span>
 </span><span data-line="42"><span class="sd">            float: Reward value in [0, 1]</span>
-</span><span data-line="43"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="43"><span class="sd">        """</span>
 </span><span data-line="44">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="45">            <span class="c1"># First point found is treated as a baseline success (max reward)</span>
 </span><span data-line="46">            <span class="k">return</span> <span class="mf">1.0</span>
@@ -200,29 +201,29 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyUCB.on_new_best">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.ucb.StrategyUCB.on_new_best">[docs]</a>
 </span><span data-line="56">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="57"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="57"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="58"><span class="sd">        Called when a new best solution is found.</span>
 </span><span data-line="59"><span class="sd">        Updates the reward statistics for the heuristic that generated the solution.</span>
-</span><span data-line="60"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="60"><span class="sd">        """</span>
 </span><span data-line="61">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 </span><span data-line="62">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span>
 </span><span data-line="63">
-</span><span data-line="64">        <span class="c1"># Update the heuristic&#39;s statistics</span>
+</span><span data-line="64">        <span class="c1"># Update the heuristic's statistics</span>
 </span><span data-line="65">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="66">            <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
-</span><span data-line="67">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_total_reward&quot;</span><span class="p">):</span>
+</span><span data-line="67">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ucb_total_reward"</span><span class="p">):</span>
 </span><span data-line="68">                <span class="c1"># Accumulate reward.</span>
 </span><span data-line="69">                <span class="c1"># Note: ucb_count is incremented in execute() when points are generated.</span>
-</span><span data-line="70">                <span class="c1"># Points that don&#39;t become &#39;best&#39; contribute 0 to total_reward</span>
+</span><span data-line="70">                <span class="c1"># Points that don't become 'best' contribute 0 to total_reward</span>
 </span><span data-line="71">                <span class="c1"># but increment ucb_count, thus lowering the average reward (Q value).</span>
 </span><span data-line="72">                <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">+=</span> <span class="n">reward</span>
-</span><span data-line="73">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Updated </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> reward: +</span><span class="si">{</span><span class="n">reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="73">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updated </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> reward: +</span><span class="si">{</span><span class="n">reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="74">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="75">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing ucb_total_reward&quot;</span><span class="p">)</span>
+</span><span data-line="75">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Heuristic </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing ucb_total_reward"</span><span class="p">)</span>
 </span><span data-line="76">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-</span><span data-line="77">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic &#39;</span><span class="si">{</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="si">}</span><span class="s2">&#39; not found in strategy.&quot;</span><span class="p">)</span>
+</span><span data-line="77">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Heuristic '</span><span class="si">{</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="si">}</span><span class="s2">' not found in strategy."</span><span class="p">)</span>
 </span><span data-line="78">
-</span><span data-line="79">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (UCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
+</span><span data-line="79">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (UCB)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
 
 </span><span data-line="80">
 <div class="viewcode-block" id="StrategyUCB.execute">
@@ -234,7 +235,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="85">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="86">            <span class="c1"># UCB Parameter c (exploration weight)</span>
 </span><span data-line="87">            <span class="c1"># Default to sqrt(2) approx 1.414</span>
-</span><span data-line="88">            <span class="n">c_val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;ucb_c&quot;</span><span class="p">,</span> <span class="mf">1.414</span><span class="p">)</span>
+</span><span data-line="88">            <span class="n">c_val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">"ucb_c"</span><span class="p">,</span> <span class="mf">1.414</span><span class="p">)</span>
 </span><span data-line="89">            <span class="k">try</span><span class="p">:</span>
 </span><span data-line="90">                <span class="n">c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">c_val</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
 </span><span data-line="91">            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
@@ -252,13 +253,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="103">                <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="104">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
 </span><span data-line="105">                    <span class="c1"># Ensure initialization if added dynamically or somehow missed</span>
-</span><span data-line="106">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="106">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ucb_count"</span><span class="p">):</span>
 </span><span data-line="107">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="108">                        <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
 </span><span data-line="109">
 </span><span data-line="110">                    <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="111">                        <span class="c1"># Infinite score for unselected arms to force exploration</span>
-</span><span data-line="112">                        <span class="n">score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="112">                        <span class="n">score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 </span><span data-line="113">                    <span class="k">else</span><span class="p">:</span>
 </span><span data-line="114">                        <span class="c1"># Q_t(a) = Average Reward</span>
 </span><span data-line="115">                        <span class="n">average_reward</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
@@ -309,14 +310,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

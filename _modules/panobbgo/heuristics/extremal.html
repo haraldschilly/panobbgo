@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.extremal"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.extremal"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,14 +135,14 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
@@ -154,16 +155,16 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Extremal">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal">[docs]</a>
 </span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">Extremal</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="22"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="23"><span class="sd">    This heuristic is specifically seeking for points at the</span>
 </span><span data-line="24"><span class="sd">    border of the box and around 0.</span>
 </span><span data-line="25"><span class="sd">    The @where parameter takes a list or tuple, which has values</span>
 </span><span data-line="26"><span class="sd">    from 0 to 1, which indicate the probability for sampling from the</span>
 </span><span data-line="27"><span class="sd">    minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</span>
-</span><span data-line="28"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="28"><span class="sd">    """</span>
 </span><span data-line="29">
 </span><span data-line="30">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <span class="n">prob</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="31">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Extremal&quot;</span><span class="p">)</span>
+</span><span data-line="31">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"Extremal"</span><span class="p">)</span>
 </span><span data-line="32">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="33">
 </span><span data-line="34">        <span class="k">if</span> <span class="n">prob</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -176,9 +177,9 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Extremal.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_restart">[docs]</a>
 </span><span data-line="41">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="42"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="42"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="43"><span class="sd">        Respond to a restart event by flushing stale points.</span>
-</span><span data-line="44"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="44"><span class="sd">        """</span>
 </span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span></div>
 
 </span><span data-line="46">
@@ -194,7 +195,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="56">
 </span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="nf">_draw</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="58">        <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span>
-</span><span data-line="59">        <span class="k">assert</span> <span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
+</span><span data-line="59">        <span class="k">assert</span> <span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"vals must be initialized in __start__"</span>
 </span><span data-line="60">        <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="61">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
 </span><span data-line="62">            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
@@ -217,7 +218,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Extremal.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_start">[docs]</a>
 </span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="80">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
+</span><span data-line="80">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">"vals must be initialized in __start__"</span>
 </span><span data-line="81">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">)</span></div>
 
 </span><span data-line="82">
@@ -249,14 +250,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

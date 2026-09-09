@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Research Context and Future Directions"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Research Context and Future Directions"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -183,14 +184,14 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="research-context-and-future-directions">
-<h1>Research Context and Future Directions<a class="headerlink" href="#research-context-and-future-directions" title="Link to this heading">¶</a></h1>
+<h1>Research Context and Future Directions<a class="headerlink" href="#research-context-and-future-directions" title="Link to this heading">#</a></h1>
 <p>This section places Panobbgo in the broader context of optimization research and outlines future research directions.</p>
 <section id="inspiration-snobfit">
-<h2>Inspiration: SNOBFIT<a class="headerlink" href="#inspiration-snobfit" title="Link to this heading">¶</a></h2>
+<h2>Inspiration: SNOBFIT<a class="headerlink" href="#inspiration-snobfit" title="Link to this heading">#</a></h2>
 <p>Panobbgo is inspired by <a class="reference external" href="http://www.mat.univie.ac.at/~neum/software/snobfit/">SNOBFIT</a>
 (Stable Noisy Optimization by Branch and Fit) <a class="reference internal" href="#huyer2008" id="id1"><span>[Huyer2008]</span></a>.</p>
 <section id="snobfit-s-key-ideas">
-<h3>SNOBFIT’s Key Ideas<a class="headerlink" href="#snobfit-s-key-ideas" title="Link to this heading">¶</a></h3>
+<h3>SNOBFIT’s Key Ideas<a class="headerlink" href="#snobfit-s-key-ideas" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Quadratic local models</strong> with uncertainty quantification</p></li>
 <li><p><strong>Branch-and-bound</strong> spatial decomposition of search space</p></li>
@@ -199,7 +200,7 @@ data-aria-dark="Switch to auto color mode">
 </ol>
 </section>
 <section id="panobbgo-s-innovations">
-<h3>Panobbgo’s Innovations<a class="headerlink" href="#panobbgo-s-innovations" title="Link to this heading">¶</a></h3>
+<h3>Panobbgo’s Innovations<a class="headerlink" href="#panobbgo-s-innovations" title="Link to this heading">#</a></h3>
 <p>While inspired by SNOBFIT, Panobbgo introduces several innovations:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -241,10 +242,10 @@ data-aria-dark="Switch to auto color mode">
 </section>
 </section>
 <section id="related-algorithms">
-<h2>Related Algorithms<a class="headerlink" href="#related-algorithms" title="Link to this heading">¶</a></h2>
+<h2>Related Algorithms<a class="headerlink" href="#related-algorithms" title="Link to this heading">#</a></h2>
 <p>Black-box optimization is a rich research area with many approaches.</p>
 <section id="bayesian-optimization">
-<h3>Bayesian Optimization<a class="headerlink" href="#bayesian-optimization" title="Link to this heading">¶</a></h3>
+<h3>Bayesian Optimization<a class="headerlink" href="#bayesian-optimization" title="Link to this heading">#</a></h3>
 <p><strong>Approach</strong>: Fit Gaussian process (GP) surrogate model, optimize acquisition function</p>
 <p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a>
 fits a Matérn-5/2 GP via scikit-learn and optimises EI / UCB / PI acquisition functions.  Uses
@@ -259,7 +260,7 @@ faster, less accurate quadratic surrogate alternative.</p>
 <p><strong>References</strong>: <a class="reference internal" href="#mockus1989" id="id2"><span>[Mockus1989]</span></a>, <a class="reference internal" href="#brochu2010" id="id3"><span>[Brochu2010]</span></a></p>
 </section>
 <section id="cma-es-covariance-matrix-adaptation-evolution-strategy">
-<h3>CMA-ES (Covariance Matrix Adaptation Evolution Strategy)<a class="headerlink" href="#cma-es-covariance-matrix-adaptation-evolution-strategy" title="Link to this heading">¶</a></h3>
+<h3>CMA-ES (Covariance Matrix Adaptation Evolution Strategy)<a class="headerlink" href="#cma-es-covariance-matrix-adaptation-evolution-strategy" title="Link to this heading">#</a></h3>
 <p><strong>Approach</strong>: Evolutionary algorithm with adaptive covariance matrix</p>
 <p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> provides a pure-NumPy
 CMA-ES with asynchronous generation tracking that fits panobbgo’s threaded evaluation model.
@@ -277,7 +278,7 @@ accumulated result history is preserved.</p>
 <p><strong>References</strong>: <a class="reference internal" href="#hansen2001" id="id4"><span>[Hansen2001]</span></a></p>
 </section>
 <section id="differential-evolution">
-<h3>Differential Evolution<a class="headerlink" href="#differential-evolution" title="Link to this heading">¶</a></h3>
+<h3>Differential Evolution<a class="headerlink" href="#differential-evolution" title="Link to this heading">#</a></h3>
 <p><strong>Approach</strong>: Population-based mutation/crossover/selection on a population of solution vectors</p>
 <p><strong>Panobbgo implementation</strong>: <a class="reference internal" href="heuristics.html#panobbgo.heuristics.DifferentialEvolution" title="panobbgo.heuristics.differential_evolution.DifferentialEvolution"><code class="xref py py-class docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a>
 runs the basic <code class="docutils literal notranslate"><span class="pre">DE/rand/1/bin</span></code> operators against the accumulated result database.  Strong
@@ -304,7 +305,7 @@ NL-SHADE-RSP, NL-SHADE-LBC) all cite jSO as their direct ancestor.</p>
 Brest, Maučec &amp; Bošković (CEC 2017).</p>
 </section>
 <section id="particle-swarm-optimization">
-<h3>Particle Swarm Optimization<a class="headerlink" href="#particle-swarm-optimization" title="Link to this heading">¶</a></h3>
+<h3>Particle Swarm Optimization<a class="headerlink" href="#particle-swarm-optimization" title="Link to this heading">#</a></h3>
 <p><strong>Approach</strong>: A population (swarm) of particles, each carrying a position, velocity, and
 memory of its personal best.  Velocities are pulled toward both the personal best and the
 global best with random per-component weights, giving the swarm both <em>momentum</em> (velocity
@@ -329,7 +330,7 @@ so the self-improvement loop can pick whichever helps on a given problem family.
 (2002); Poli, Kennedy &amp; Blackwell (2007).</p>
 </section>
 <section id="direct-dividing-rectangles">
-<h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">¶</a></h3>
+<h3>DIRECT (Dividing Rectangles)<a class="headerlink" href="#direct-dividing-rectangles" title="Link to this heading">#</a></h3>
 <p><strong>Approach</strong>: Lipschitz-based partitioning, optimistic sampling</p>
 <p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>
 provides hierarchical box decomposition, but without Lipschitz assumptions</p>
@@ -341,7 +342,7 @@ provides hierarchical box decomposition, but without Lipschitz assumptions</p>
 <p><strong>References</strong>: <a class="reference internal" href="#jones1993" id="id6"><span>[Jones1993]</span></a></p>
 </section>
 <section id="simulated-annealing">
-<h3>Simulated Annealing<a class="headerlink" href="#simulated-annealing" title="Link to this heading">¶</a></h3>
+<h3>Simulated Annealing<a class="headerlink" href="#simulated-annealing" title="Link to this heading">#</a></h3>
 <p><strong>Approach</strong>: Probabilistic acceptance with cooling schedule</p>
 <p><strong>Panobbgo equivalent</strong>: <a class="reference internal" href="_autosummary/panobbgo.strategies.rewarding.StrategyRewarding.html#panobbgo.strategies.rewarding.StrategyRewarding" title="panobbgo.strategies.rewarding.StrategyRewarding"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRewarding</span></code></a>
 uses probabilistic selection, but without explicit temperature</p>
@@ -353,7 +354,7 @@ uses probabilistic selection, but without explicit temperature</p>
 <p><strong>References</strong>: <a class="reference internal" href="#kirkpatrick1983" id="id7"><span>[Kirkpatrick1983]</span></a></p>
 </section>
 <section id="comparison-summary">
-<h3>Comparison Summary<a class="headerlink" href="#comparison-summary" title="Link to this heading">¶</a></h3>
+<h3>Comparison Summary<a class="headerlink" href="#comparison-summary" title="Link to this heading">#</a></h3>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -401,9 +402,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="theoretical-properties">
-<h2>Theoretical Properties<a class="headerlink" href="#theoretical-properties" title="Link to this heading">¶</a></h2>
+<h2>Theoretical Properties<a class="headerlink" href="#theoretical-properties" title="Link to this heading">#</a></h2>
 <section id="convergence-guarantees">
-<h3>Convergence Guarantees<a class="headerlink" href="#convergence-guarantees" title="Link to this heading">¶</a></h3>
+<h3>Convergence Guarantees<a class="headerlink" href="#convergence-guarantees" title="Link to this heading">#</a></h3>
 <p><strong>Theorem</strong> (Informal): Under mild assumptions, Panobbgo converges to the global optimum almost surely as the number of evaluations <span class="math notranslate nohighlight">\(N \to \infty\)</span>.</p>
 <p><strong>Assumptions</strong>:</p>
 <ol class="arabic simple">
@@ -425,7 +426,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="complexity-analysis">
-<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading">¶</a></h3>
+<h3>Complexity Analysis<a class="headerlink" href="#complexity-analysis" title="Link to this heading">#</a></h3>
 <p><strong>Per-iteration complexity</strong>:</p>
 <ul class="simple">
 <li><p>Sorting results: <span class="math notranslate nohighlight">\(O(N \log N)\)</span></p></li>
@@ -448,9 +449,9 @@ uses probabilistic selection, but without explicit temperature</p>
 </section>
 </section>
 <section id="current-research-challenges">
-<h2>Current Research Challenges<a class="headerlink" href="#current-research-challenges" title="Link to this heading">¶</a></h2>
+<h2>Current Research Challenges<a class="headerlink" href="#current-research-challenges" title="Link to this heading">#</a></h2>
 <section id="high-dimensional-optimization">
-<h3>High-Dimensional Optimization<a class="headerlink" href="#high-dimensional-optimization" title="Link to this heading">¶</a></h3>
+<h3>High-Dimensional Optimization<a class="headerlink" href="#high-dimensional-optimization" title="Link to this heading">#</a></h3>
 <p><strong>Challenge</strong>: Curse of dimensionality—exponential growth of search space</p>
 <p><strong>Current approaches</strong>:</p>
 <ul class="simple">
@@ -466,7 +467,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="multi-fidelity-optimization">
-<h3>Multi-Fidelity Optimization<a class="headerlink" href="#multi-fidelity-optimization" title="Link to this heading">¶</a></h3>
+<h3>Multi-Fidelity Optimization<a class="headerlink" href="#multi-fidelity-optimization" title="Link to this heading">#</a></h3>
 <p><strong>Challenge</strong>: Leverage cheap low-fidelity evaluations to guide expensive high-fidelity ones</p>
 <p><strong>Example</strong>: CFD simulation at coarse vs. fine mesh</p>
 <p><strong>Approach</strong>:</p>
@@ -483,7 +484,7 @@ uses probabilistic selection, but without explicit temperature</p>
 </ul>
 </section>
 <section id="constraint-handling">
-<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">¶</a></h3>
+<h3>Constraint Handling<a class="headerlink" href="#constraint-handling" title="Link to this heading">#</a></h3>
 <p><strong>Challenge</strong>: Efficiently find feasible solutions</p>
 <p><strong>Current Panobbgo</strong>: Pluggable <code class="xref py py-class docutils literal notranslate"><span class="pre">ConstraintHandler</span></code> implementations:</p>
 <ul class="simple">
@@ -505,7 +506,7 @@ ConstraintGradient (finite-difference constraint-gradient descent), LocalPenalty
 </ul>
 </section>
 <section id="robust-optimization">
-<h3>Robust Optimization<a class="headerlink" href="#robust-optimization" title="Link to this heading">¶</a></h3>
+<h3>Robust Optimization<a class="headerlink" href="#robust-optimization" title="Link to this heading">#</a></h3>
 <p><strong>Challenge</strong>: Optimize under uncertainty in parameters or noise</p>
 <p><strong>Formulation</strong>:</p>
 <div class="math-wrapper docutils container">
@@ -521,7 +522,7 @@ ConstraintGradient (finite-difference constraint-gradient descent), LocalPenalty
 </ul>
 </section>
 <section id="transfer-learning">
-<h3>Transfer Learning<a class="headerlink" href="#transfer-learning" title="Link to this heading">¶</a></h3>
+<h3>Transfer Learning<a class="headerlink" href="#transfer-learning" title="Link to this heading">#</a></h3>
 <p><strong>Challenge</strong>: Learn from previous optimization runs on related problems</p>
 <p><strong>Approach</strong>:</p>
 <ul class="simple">
@@ -538,9 +539,9 @@ ConstraintGradient (finite-difference constraint-gradient descent), LocalPenalty
 </section>
 </section>
 <section id="future-directions">
-<h2>Future Directions<a class="headerlink" href="#future-directions" title="Link to this heading">¶</a></h2>
+<h2>Future Directions<a class="headerlink" href="#future-directions" title="Link to this heading">#</a></h2>
 <section id="recently-completed">
-<h3>Recently Completed<a class="headerlink" href="#recently-completed" title="Link to this heading">¶</a></h3>
+<h3>Recently Completed<a class="headerlink" href="#recently-completed" title="Link to this heading">#</a></h3>
 <p>The following items from earlier roadmaps have been implemented:</p>
 <ol class="arabic simple">
 <li><p><strong>Gaussian Process Surrogate</strong> — see <a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a>
@@ -567,7 +568,7 @@ CLI for measuring the impact of code changes on optimisation performance.</p></l
 </ol>
 </section>
 <section id="short-term-improvements">
-<h3>Short-Term Improvements<a class="headerlink" href="#short-term-improvements" title="Link to this heading">¶</a></h3>
+<h3>Short-Term Improvements<a class="headerlink" href="#short-term-improvements" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Enhanced Visualization</strong></p>
 <ul class="simple">
@@ -587,7 +588,7 @@ CLI for measuring the impact of code changes on optimisation performance.</p></l
 </ol>
 </section>
 <section id="medium-term-research">
-<h3>Medium-Term Research<a class="headerlink" href="#medium-term-research" title="Link to this heading">¶</a></h3>
+<h3>Medium-Term Research<a class="headerlink" href="#medium-term-research" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Multi-Fidelity Support</strong></p>
 <ul class="simple">
@@ -613,7 +614,7 @@ CLI for measuring the impact of code changes on optimisation performance.</p></l
 </ol>
 </section>
 <section id="long-term-vision-1-2-years">
-<h3>Long-Term Vision (1-2 years)<a class="headerlink" href="#long-term-vision-1-2-years" title="Link to this heading">¶</a></h3>
+<h3>Long-Term Vision (1-2 years)<a class="headerlink" href="#long-term-vision-1-2-years" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Transfer Learning Framework</strong></p>
 <ul class="simple">
@@ -659,7 +660,7 @@ CLI for measuring the impact of code changes on optimisation performance.</p></l
 adaptive strategies (multi-armed bandits).</p>
 </section>
 <section id="benchmark-script">
-<h3>Benchmark Script<a class="headerlink" href="#benchmark-script" title="Link to this heading">¶</a></h3>
+<h3>Benchmark Script<a class="headerlink" href="#benchmark-script" title="Link to this heading">#</a></h3>
 <p>The script <code class="docutils literal notranslate"><span class="pre">benchmarks/run_bandit_comparison.py</span></code> allows you to empirically
 compare the performance of:</p>
 <ul class="simple">
@@ -676,7 +677,7 @@ compare the performance of:</p>
 <p>This generates convergence plots and a summary CSV in <code class="docutils literal notranslate"><span class="pre">benchmarks/results_bandits/</span></code>.</p>
 </section>
 <section id="strategies-compared">
-<h3>Strategies Compared<a class="headerlink" href="#strategies-compared" title="Link to this heading">¶</a></h3>
+<h3>Strategies Compared<a class="headerlink" href="#strategies-compared" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p><strong>StrategyRoundRobin</strong>:
 Cycles through heuristics in a fixed order. Serves as a robust baseline
@@ -700,9 +701,9 @@ exploration early, local search late).</p></li>
 </section>
 </section>
 <section id="contributing-to-research">
-<h2>Contributing to Research<a class="headerlink" href="#contributing-to-research" title="Link to this heading">¶</a></h2>
+<h2>Contributing to Research<a class="headerlink" href="#contributing-to-research" title="Link to this heading">#</a></h2>
 <section id="academic-usage">
-<h3>Academic Usage<a class="headerlink" href="#academic-usage" title="Link to this heading">¶</a></h3>
+<h3>Academic Usage<a class="headerlink" href="#academic-usage" title="Link to this heading">#</a></h3>
 <p>If you use Panobbgo in academic research, please cite:</p>
 <div class="highlight-bibtex notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nc">@software</span><span class="p">{</span><span class="nl">panobbgo</span><span class="p">,</span>
 </span><span data-line="2"><span class="w">  </span><span class="na">author</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s">{Schilly, Harald}</span><span class="p">,</span>
@@ -715,7 +716,7 @@ exploration early, local search late).</p></li>
 </div>
 </section>
 <section id="research-collaboration">
-<h3>Research Collaboration<a class="headerlink" href="#research-collaboration" title="Link to this heading">¶</a></h3>
+<h3>Research Collaboration<a class="headerlink" href="#research-collaboration" title="Link to this heading">#</a></h3>
 <p>We welcome research collaborations! Areas of interest:</p>
 <ul class="simple">
 <li><p>Novel heuristic designs</p></li>
@@ -727,7 +728,7 @@ exploration early, local search late).</p></li>
 <p>Contact: See <a class="reference external" href="https://github.com/haraldschilly/panobbgo">https://github.com/haraldschilly/panobbgo</a></p>
 </section>
 <section id="open-problems">
-<h3>Open Problems<a class="headerlink" href="#open-problems" title="Link to this heading">¶</a></h3>
+<h3>Open Problems<a class="headerlink" href="#open-problems" title="Link to this heading">#</a></h3>
 <p>Interesting open questions:</p>
 <ol class="arabic simple">
 <li><p><strong>Optimal heuristic portfolio</strong>: What’s the minimal set of heuristics for broad effectiveness?</p></li>
@@ -739,9 +740,9 @@ exploration early, local search late).</p></li>
 </section>
 </section>
 <section id="experimental-validation">
-<h2>Experimental Validation<a class="headerlink" href="#experimental-validation" title="Link to this heading">¶</a></h2>
+<h2>Experimental Validation<a class="headerlink" href="#experimental-validation" title="Link to this heading">#</a></h2>
 <section id="benchmark-problems">
-<h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading">¶</a></h3>
+<h3>Benchmark Problems<a class="headerlink" href="#benchmark-problems" title="Link to this heading">#</a></h3>
 <p>Standard test suites for validation:</p>
 <ul class="simple">
 <li><p><strong>CEC Benchmark Functions</strong> <a class="reference internal" href="#liang2013" id="id10"><span>[Liang2013]</span></a></p></li>
@@ -750,7 +751,7 @@ exploration early, local search late).</p></li>
 </ul>
 </section>
 <section id="performance-metrics">
-<h3>Performance Metrics<a class="headerlink" href="#performance-metrics" title="Link to this heading">¶</a></h3>
+<h3>Performance Metrics<a class="headerlink" href="#performance-metrics" title="Link to this heading">#</a></h3>
 <p>Common metrics for comparison:</p>
 <ol class="arabic simple">
 <li><p><strong>Best value found</strong>: <span class="math notranslate nohighlight">\(f(x^*)\)</span></p></li>
@@ -761,7 +762,7 @@ exploration early, local search late).</p></li>
 </ol>
 </section>
 <section id="experimental-design">
-<h3>Experimental Design<a class="headerlink" href="#experimental-design" title="Link to this heading">¶</a></h3>
+<h3>Experimental Design<a class="headerlink" href="#experimental-design" title="Link to this heading">#</a></h3>
 <p>Rigorous benchmarking requires:</p>
 <ul class="simple">
 <li><p><strong>Multiple runs</strong>: Account for stochasticity (typically 20-50 runs)</p></li>
@@ -773,7 +774,7 @@ exploration early, local search late).</p></li>
 </section>
 </section>
 <section id="references">
-<h2>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h2>
+<h2>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h2>
 <div role="list" class="citation-list">
 <div class="citation" id="auer2002" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Auer2002<span class="fn-bracket">]</span></span>
@@ -899,15 +900,15 @@ Bayesian optimization in high dimensions via random embeddings.
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script>
+      <script src="_static/shibuya.js?v=50760d75"></script>
       <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

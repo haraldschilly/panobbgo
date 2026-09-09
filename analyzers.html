@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Analyzers Module"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Analyzers Module"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -100,128 +101,128 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#analyzers">Analyzers</a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.best"><code class="docutils literal notranslate">best</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.cv"><code class="docutils literal notranslate">cv</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.min"><code class="docutils literal notranslate">min</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_cv"><code class="docutils literal notranslate">on_new_cv()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_min"><code class="docutils literal notranslate">on_new_min()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_pareto"><code class="docutils literal notranslate">on_new_pareto()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_pareto_front"><code class="docutils literal notranslate">on_new_pareto_front()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.pareto"><code class="docutils literal notranslate">pareto</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.pareto_front"><code class="docutils literal notranslate">pareto_front</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.best"><code class="docutils literal notranslate"><span class="pre">Best.best</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.cv"><code class="docutils literal notranslate"><span class="pre">Best.cv</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.min"><code class="docutils literal notranslate"><span class="pre">Best.min</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_cv"><code class="docutils literal notranslate"><span class="pre">Best.on_new_cv()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_min"><code class="docutils literal notranslate"><span class="pre">Best.on_new_min()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_pareto"><code class="docutils literal notranslate"><span class="pre">Best.on_new_pareto()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_pareto_front"><code class="docutils literal notranslate"><span class="pre">Best.on_new_pareto_front()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_new_results"><code class="docutils literal notranslate"><span class="pre">Best.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Best.on_refresh_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.pareto"><code class="docutils literal notranslate"><span class="pre">Best.pareto</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.best.Best.pareto_front"><code class="docutils literal notranslate"><span class="pre">Best.pareto_front</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence"><code class="docutils literal notranslate"><span class="pre">Convergence</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.on_new_results"><code class="docutils literal notranslate"><span class="pre">Convergence.on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid"><code class="docutils literal notranslate"><span class="pre">Grid</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid.in_same_grid"><code class="docutils literal notranslate">in_same_grid()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid.in_same_grid"><code class="docutils literal notranslate"><span class="pre">Grid.in_same_grid()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid.on_new_results"><code class="docutils literal notranslate"><span class="pre">Grid.on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Box.register"><code class="docutils literal notranslate">register()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Box.register"><code class="docutils literal notranslate"><span class="pre">Box.register()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box"><code class="docutils literal notranslate">get_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey"><code class="docutils literal notranslate">gridkey()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register"><code class="docutils literal notranslate">register()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.get_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.gridkey()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.register()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter"><code class="docutils literal notranslate"><span class="pre">Splitter</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box"><code class="docutils literal notranslate">Box</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH"><code class="docutils literal notranslate">Box.MAX_DEPTH</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.add_result"><code class="docutils literal notranslate">Box.add_result()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.contains"><code class="docutils literal notranslate">Box.contains()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.fx"><code class="docutils literal notranslate">Box.fx</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes"><code class="docutils literal notranslate">Box.get_child_boxes()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.leaf"><code class="docutils literal notranslate">Box.leaf</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.log_volume"><code class="docutils literal notranslate">Box.log_volume</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.ranges"><code class="docutils literal notranslate">Box.ranges</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.split"><code class="docutils literal notranslate">Box.split()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.volume"><code class="docutils literal notranslate">Box.volume</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box"><code class="docutils literal notranslate"><span class="pre">Splitter.Box</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.MAX_DEPTH</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.add_result"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.add_result()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.contains"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.contains()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.fx"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.fx</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.get_child_boxes()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.leaf</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.log_volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.log_volume</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.ranges"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.ranges</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.split"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.volume</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_all_boxes"><code class="docutils literal notranslate">get_all_boxes()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_box"><code class="docutils literal notranslate">get_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_leaf"><code class="docutils literal notranslate">get_leaf()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth"><code class="docutils literal notranslate">on_new_biggest_by_depth()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate">on_new_biggest_leaf()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_all_boxes"><code class="docutils literal notranslate"><span class="pre">Splitter.get_all_boxes()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_box"><code class="docutils literal notranslate"><span class="pre">Splitter.get_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.get_leaf()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_by_depth()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_leaf()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_results"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_split"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Splitter.on_refresh_best()</span></code></a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Best"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.best"><code class="docutils literal notranslate">best</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.cv"><code class="docutils literal notranslate">cv</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.min"><code class="docutils literal notranslate">min</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_cv"><code class="docutils literal notranslate">on_new_cv()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_min"><code class="docutils literal notranslate">on_new_min()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_pareto"><code class="docutils literal notranslate">on_new_pareto()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_pareto_front"><code class="docutils literal notranslate">on_new_pareto_front()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.pareto"><code class="docutils literal notranslate">pareto</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Best.pareto_front"><code class="docutils literal notranslate">pareto_front</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.best"><code class="docutils literal notranslate"><span class="pre">Best.best</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.cv"><code class="docutils literal notranslate"><span class="pre">Best.cv</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.min"><code class="docutils literal notranslate"><span class="pre">Best.min</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_cv"><code class="docutils literal notranslate"><span class="pre">Best.on_new_cv()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_min"><code class="docutils literal notranslate"><span class="pre">Best.on_new_min()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_pareto"><code class="docutils literal notranslate"><span class="pre">Best.on_new_pareto()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_pareto_front"><code class="docutils literal notranslate"><span class="pre">Best.on_new_pareto_front()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_new_results"><code class="docutils literal notranslate"><span class="pre">Best.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Best.on_refresh_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.pareto"><code class="docutils literal notranslate"><span class="pre">Best.pareto</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Best.pareto_front"><code class="docutils literal notranslate"><span class="pre">Best.pareto_front</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Convergence"><code class="docutils literal notranslate"><span class="pre">Convergence</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Convergence.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Convergence.on_new_results"><code class="docutils literal notranslate"><span class="pre">Convergence.on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer"><code class="docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.get_box"><code class="docutils literal notranslate">get_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.gridkey"><code class="docutils literal notranslate">gridkey()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.register"><code class="docutils literal notranslate">register()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.get_box"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.get_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.gridkey"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.gridkey()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.on_new_results"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.register"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.register()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Grid"><code class="docutils literal notranslate"><span class="pre">Grid</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Grid.in_same_grid"><code class="docutils literal notranslate">in_same_grid()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Grid.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Grid.in_same_grid"><code class="docutils literal notranslate"><span class="pre">Grid.in_same_grid()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Grid.on_new_results"><code class="docutils literal notranslate"><span class="pre">Grid.on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart"><code class="docutils literal notranslate"><span class="pre">Restart</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES"><code class="docutils literal notranslate">SUPPORTED_RESTART_STRATEGIES</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Restart.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Restart.restart_count"><code class="docutils literal notranslate">restart_count</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES"><code class="docutils literal notranslate"><span class="pre">Restart.SUPPORTED_RESTART_STRATEGIES</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Restart.on_new_results"><code class="docutils literal notranslate"><span class="pre">Restart.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Restart.restart_count"><code class="docutils literal notranslate"><span class="pre">Restart.restart_count</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Sensitivity"><code class="docutils literal notranslate"><span class="pre">Sensitivity</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Sensitivity.importance"><code class="docutils literal notranslate">importance</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Sensitivity.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Sensitivity.importance"><code class="docutils literal notranslate"><span class="pre">Sensitivity.importance</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Sensitivity.on_new_results"><code class="docutils literal notranslate"><span class="pre">Sensitivity.on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter"><code class="docutils literal notranslate"><span class="pre">Splitter</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box"><code class="docutils literal notranslate">Box</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.MAX_DEPTH"><code class="docutils literal notranslate">Box.MAX_DEPTH</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.add_result"><code class="docutils literal notranslate">Box.add_result()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.contains"><code class="docutils literal notranslate">Box.contains()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.fx"><code class="docutils literal notranslate">Box.fx</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.get_child_boxes"><code class="docutils literal notranslate">Box.get_child_boxes()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.leaf"><code class="docutils literal notranslate">Box.leaf</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.log_volume"><code class="docutils literal notranslate">Box.log_volume</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.ranges"><code class="docutils literal notranslate">Box.ranges</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.split"><code class="docutils literal notranslate">Box.split()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.volume"><code class="docutils literal notranslate">Box.volume</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box"><code class="docutils literal notranslate"><span class="pre">Splitter.Box</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.MAX_DEPTH"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.MAX_DEPTH</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.add_result"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.add_result()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.contains"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.contains()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.fx"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.fx</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.get_child_boxes"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.get_child_boxes()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.leaf</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.log_volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.log_volume</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.ranges"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.ranges</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.split"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.volume</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_all_boxes"><code class="docutils literal notranslate">get_all_boxes()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_box"><code class="docutils literal notranslate">get_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_leaf"><code class="docutils literal notranslate">get_leaf()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_by_depth"><code class="docutils literal notranslate">on_new_biggest_by_depth()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate">on_new_biggest_leaf()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_refresh_best"><code class="docutils literal notranslate">on_refresh_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_all_boxes"><code class="docutils literal notranslate"><span class="pre">Splitter.get_all_boxes()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_box"><code class="docutils literal notranslate"><span class="pre">Splitter.get_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.get_leaf()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_by_depth"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_by_depth()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_leaf()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_results"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_split"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_split()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Splitter.on_refresh_best()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -255,7 +256,7 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="analyzers-module">
-<h1>Analyzers Module<a class="headerlink" href="#analyzers-module" title="Link to this heading">¶</a></h1>
+<h1>Analyzers Module<a class="headerlink" href="#analyzers-module" title="Link to this heading">#</a></h1>
 <p>Result analysis and monitoring components:</p>
 <ul class="simple">
 <li><p><strong>Analyzer</strong>: Base class for analysis components</p></li>
@@ -268,7 +269,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Splitter</strong>: Adaptive hierarchical box-decomposition of the search space; publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> and identifies the best leaf box</p></li>
 </ul>
 <section id="analyzers">
-<span id="module-panobbgo.analyzers"></span><h2>Analyzers<a class="headerlink" href="#analyzers" title="Link to this heading">¶</a></h2>
+<span id="module-panobbgo.analyzers"></span><h2>Analyzers<a class="headerlink" href="#analyzers" title="Link to this heading">#</a></h2>
 <p>Analyzers, just like <a class="reference internal" href="heuristics.html#module-panobbgo.heuristics" title="panobbgo.heuristics"><code class="xref py py-mod docutils literal notranslate"><span class="pre">heuristics</span></code></a>, listen to events
 and change their internal state based on local and
 global data. They can emit <a class="reference internal" href="core.html#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">events</span></code></a>
@@ -277,7 +278,7 @@ on their own and they are accessible via the
 the strategy.</p>
 <dl class="py class" id="module-panobbgo.analyzers.best">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.best.</span></span><span class="sig-name descname"><span class="pre">Best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.best.</span></span><span class="sig-name descname"><span class="pre">Best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Listens on all results, does accounting for “best” results,
 manages a pareto front of good points and emits the following events:</p>
@@ -303,7 +304,7 @@ There is also <a class="reference internal" href="#panobbgo.analyzers.best.Best.
 <a class="reference internal image-reference" href="_images/pareto-front.png"><img alt="_images/pareto-front.png" height="328" src="_images/pareto-front.png" width="368" />
 </a>
 <figcaption>
-<p><span class="caption-text">This is an example of how several pareto fronts progress during the optimization.</span><a class="headerlink" href="#id1" title="Link to this image">¶</a></p>
+<p><span class="caption-text">This is an example of how several pareto fronts progress during the optimization.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <dl class="field-list simple">
@@ -317,7 +318,7 @@ There is also <a class="reference internal" href="#panobbgo.analyzers.best.Best.
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.best">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">best</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.best" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">best</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.best" title="Link to this definition">#</a></dt>
 <dd><p>Currently best <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -327,7 +328,7 @@ There is also <a class="reference internal" href="#panobbgo.analyzers.best.Best.
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.cv">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cv</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.cv" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cv</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.cv" title="Link to this definition">#</a></dt>
 <dd><p>The point with currently minimal constraint violation, likely 0.0.
 If there are several points with the same minimal constraint violation,
 the value of the objective function is a secondary selection argument.</p>
@@ -335,53 +336,53 @@ the value of the objective function is a secondary selection argument.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.min">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">min</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.min" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">min</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.min" title="Link to this definition">#</a></dt>
 <dd><p>The point, with currently smallest objective function value.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_new_cv">
-<span class="sig-name descname"><span class="pre">on_new_cv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_cv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_cv" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_cv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_cv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_cv" title="Link to this definition">#</a></dt>
 <dd><p>Report progress when a new constraint violation minimum is found.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_new_min">
-<span class="sig-name descname"><span class="pre">on_new_min</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_min" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_min</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_min" title="Link to this definition">#</a></dt>
 <dd><p>Report progress when a new global minimum is found.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_new_pareto">
-<span class="sig-name descname"><span class="pre">on_new_pareto</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pareto</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_pareto" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_pareto</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pareto</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_pareto" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_new_pareto_front">
-<span class="sig-name descname"><span class="pre">on_new_pareto_front</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">front</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto_front"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_pareto_front" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_pareto_front</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">front</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto_front"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_pareto_front" title="Link to this definition">#</a></dt>
 <dd><p>Report progress when a new pareto front is found.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.on_refresh_best">
-<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_refresh_best" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best.on_refresh_best" title="Link to this definition">#</a></dt>
 <dd><p>Handle a refresh_best event, which suggests candidate points that might be
 better than current best due to changed criteria (e.g. updated constraint weights).</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.pareto">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.pareto" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.pareto" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best.pareto_front">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto_front</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.pareto_front" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto_front</span></span><a class="headerlink" href="#panobbgo.analyzers.best.Best.pareto_front" title="Link to this definition">#</a></dt>
 <dd><p>This is the list of points building the current pareto front.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -393,7 +394,7 @@ better than current best due to changed criteria (e.g. updated constraint weight
 
 <dl class="py class" id="module-panobbgo.analyzers.convergence">
 <dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.convergence.</span></span><span class="sig-name descname"><span class="pre">Convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_evaluations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.convergence.</span></span><span class="sig-name descname"><span class="pre">Convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_evaluations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Analyzes the progress of the optimization to detect convergence or stagnation.</p>
 <p>It listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events and tracks the history of the best objective function values.
@@ -421,7 +422,7 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence.on_new_results" title="Link to this definition">#</a></dt>
 <dd><p>Listen to all results to detect stagnation (no improvement for many evaluations).</p>
 </dd></dl>
 
@@ -429,7 +430,7 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 
 <dl class="py class" id="module-panobbgo.analyzers.grid">
 <dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.grid.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.grid.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>packs nearby points into grid boxes</p>
 <dl class="field-list simple">
@@ -443,31 +444,31 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid.in_same_grid">
-<span class="sig-name descname"><span class="pre">in_same_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.in_same_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid.in_same_grid" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">in_same_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.in_same_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid.in_same_grid" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class" id="module-panobbgo.analyzers.dedensifyer">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Box">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.dedensifyer.</span></span><span class="sig-name descname"><span class="pre">Box</span></span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Box" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.dedensifyer.</span></span><span class="sig-name descname"><span class="pre">Box</span></span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Box" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer's</span></code></a> helper class, that registeres points for the given box.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Box.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Box.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Box.register" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Box.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Box.register" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.dedensifyer.</span></span><span class="sig-name descname"><span class="pre">Dedensifyer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.dedensifyer.</span></span><span class="sig-name descname"><span class="pre">Dedensifyer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>This analyzer stores points in a fixed hierarchical grid.
 It discards previously added points in order to avoid a high number of points
@@ -485,22 +486,22 @@ the minimal and maximal representants for that region.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.get_box">
-<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey">
-<span class="sig-name descname"><span class="pre">gridkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.gridkey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">gridkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.gridkey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register" title="Link to this definition">#</a></dt>
 <dd><p>analyzes a new result</p>
 </dd></dl>
 
@@ -508,7 +509,7 @@ the minimal and maximal representants for that region.</p>
 
 <dl class="py class" id="module-panobbgo.analyzers.splitter">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Manages a tree of splits.
 Each split in this tree is a <a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">box</span></code></a>, which
@@ -529,7 +530,7 @@ to investigate interesting subregions.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Used by <a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>, therefore nested.</p>
 <p>Most important routine is <a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.split" title="panobbgo.analyzers.splitter.Splitter.Box.split"><code class="xref py py-meth docutils literal notranslate"><span class="pre">split()</span></code></a>.</p>
@@ -540,7 +541,7 @@ splitting methods.</p>
 </div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH">
-<span class="sig-name descname"><span class="pre">MAX_DEPTH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">MAX_DEPTH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH" title="Link to this definition">#</a></dt>
 <dd><p>A box deeper than this is never split again.  Depth grows by one
 per split, so the bound is generous for any real search; it exists
 only so a pathological point cloud cannot deepen the tree without
@@ -549,7 +550,7 @@ end.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.add_result">
-<span class="sig-name descname"><span class="pre">add_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.add_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.add_result" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">add_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.add_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.add_result" title="Link to this definition">#</a></dt>
 <dd><p>Registers and adds a new <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>.
 In particular, it adds the given <code class="docutils literal notranslate"><span class="pre">result</span></code> to the
 current box and it’s children (also all descendents).</p>
@@ -563,44 +564,44 @@ routine is called.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.contains">
-<span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.contains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.contains" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.contains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.contains" title="Link to this definition">#</a></dt>
 <dd><p>true, if given point is inside this box (including boundaries).</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.fx">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fx</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.fx" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fx</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.fx" title="Link to this definition">#</a></dt>
 <dd><p>Function value of best point in this particular box.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes">
-<span class="sig-name descname"><span class="pre">get_child_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.get_child_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_child_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.get_child_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes" title="Link to this definition">#</a></dt>
 <dd><p>returns all immediate child boxes, which contain given point.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.leaf">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">leaf</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.leaf" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">leaf</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.leaf" title="Link to this definition">#</a></dt>
 <dd><p>returns <code class="docutils literal notranslate"><span class="pre">true</span></code>, if this box is a leaf. i.e. no children</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.log_volume">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">log_volume</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.log_volume" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">log_volume</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.log_volume" title="Link to this definition">#</a></dt>
 <dd><p>Returns the <cite>logarithmic</cite> volume of this box.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.ranges">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ranges</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.ranges" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ranges</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.ranges" title="Link to this definition">#</a></dt>
 <dd><p>Gives back a vector with all the ranges of this box,
 i.e. upper - lower bound.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.split">
-<span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.split" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.split" title="Link to this definition">#</a></dt>
 <dd><p>Arguments:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">- ``dim``: Dimension, along which to split. (default: `None`, and calculated)
 </span></pre></div>
@@ -609,7 +610,7 @@ i.e. upper - lower bound.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.volume">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">volume</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.volume" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">volume</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.volume" title="Link to this definition">#</a></dt>
 <dd><p>Returns the volume of the box.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -621,45 +622,45 @@ i.e. upper - lower bound.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.get_all_boxes">
-<span class="sig-name descname"><span class="pre">get_all_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_all_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_all_boxes" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_all_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_all_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_all_boxes" title="Link to this definition">#</a></dt>
 <dd><p>return all boxes, where point is contained in</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.get_box">
-<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_box" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_box" title="Link to this definition">#</a></dt>
 <dd><p>return “leftmost” leaf box, where given point is contained in</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.get_leaf">
-<span class="sig-name descname"><span class="pre">get_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_leaf" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_leaf" title="Link to this definition">#</a></dt>
 <dd><p>returns the leaf box, where given result is currently sitting in</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth">
-<span class="sig-name descname"><span class="pre">on_new_biggest_by_depth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_by_depth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_biggest_by_depth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_by_depth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf">
-<span class="sig-name descname"><span class="pre">on_new_biggest_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_biggest_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_split">
-<span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_split" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_split" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_refresh_best">
-<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best" title="Link to this definition">#</a></dt>
 <dd><p>Called when the definition of “best” changes (e.g. ALM parameter update).
 We need to re-evaluate the local best for all leaf boxes and update the global best box.</p>
 </dd></dl>
@@ -669,7 +670,7 @@ We need to re-evaluate the local best for all leaf boxes and update the global b
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Listens on all results, does accounting for “best” results,
 manages a pareto front of good points and emits the following events:</p>
@@ -695,7 +696,7 @@ There is also <a class="reference internal" href="#panobbgo.analyzers.Best.cv" t
 <a class="reference internal image-reference" href="_images/pareto-front.png"><img alt="_images/pareto-front.png" height="328" src="_images/pareto-front.png" width="368" />
 </a>
 <figcaption>
-<p><span class="caption-text">This is an example of how several pareto fronts progress during the optimization.</span><a class="headerlink" href="#id2" title="Link to this image">¶</a></p>
+<p><span class="caption-text">This is an example of how several pareto fronts progress during the optimization.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <dl class="field-list simple">
@@ -709,7 +710,7 @@ There is also <a class="reference internal" href="#panobbgo.analyzers.Best.cv" t
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.best">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">best</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.best" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">best</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.best" title="Link to this definition">#</a></dt>
 <dd><p>Currently best <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -719,7 +720,7 @@ There is also <a class="reference internal" href="#panobbgo.analyzers.Best.cv" t
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.cv">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cv</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.cv" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cv</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.cv" title="Link to this definition">#</a></dt>
 <dd><p>The point with currently minimal constraint violation, likely 0.0.
 If there are several points with the same minimal constraint violation,
 the value of the objective function is a secondary selection argument.</p>
@@ -727,53 +728,53 @@ the value of the objective function is a secondary selection argument.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.min">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">min</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.min" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">min</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.min" title="Link to this definition">#</a></dt>
 <dd><p>The point, with currently smallest objective function value.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_new_cv">
-<span class="sig-name descname"><span class="pre">on_new_cv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_cv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_cv" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_cv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cv</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_cv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_cv" title="Link to this definition">#</a></dt>
 <dd><p>Report progress when a new constraint violation minimum is found.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_new_min">
-<span class="sig-name descname"><span class="pre">on_new_min</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_min" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_min</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">min</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_min"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_min" title="Link to this definition">#</a></dt>
 <dd><p>Report progress when a new global minimum is found.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_new_pareto">
-<span class="sig-name descname"><span class="pre">on_new_pareto</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pareto</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_pareto" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_pareto</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pareto</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_pareto" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_new_pareto_front">
-<span class="sig-name descname"><span class="pre">on_new_pareto_front</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">front</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto_front"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_pareto_front" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_pareto_front</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">front</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_pareto_front"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_pareto_front" title="Link to this definition">#</a></dt>
 <dd><p>Report progress when a new pareto front is found.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.on_refresh_best">
-<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_refresh_best" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best.on_refresh_best" title="Link to this definition">#</a></dt>
 <dd><p>Handle a refresh_best event, which suggests candidate points that might be
 better than current best due to changed criteria (e.g. updated constraint weights).</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.pareto">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.pareto" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.pareto" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best.pareto_front">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto_front</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.pareto_front" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">pareto_front</span></span><a class="headerlink" href="#panobbgo.analyzers.Best.pareto_front" title="Link to this definition">#</a></dt>
 <dd><p>This is the list of points building the current pareto front.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -785,7 +786,7 @@ better than current best due to changed criteria (e.g. updated constraint weight
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Convergence">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_evaluations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Convergence" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_evaluations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Convergence" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Analyzes the progress of the optimization to detect convergence or stagnation.</p>
 <p>It listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events and tracks the history of the best objective function values.
@@ -813,7 +814,7 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Convergence.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Convergence.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Convergence.on_new_results" title="Link to this definition">#</a></dt>
 <dd><p>Listen to all results to detect stagnation (no improvement for many evaluations).</p>
 </dd></dl>
 
@@ -821,7 +822,7 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Dedensifyer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Dedensifyer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>This analyzer stores points in a fixed hierarchical grid.
 It discards previously added points in order to avoid a high number of points
@@ -839,22 +840,22 @@ the minimal and maximal representants for that region.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.get_box">
-<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.get_box" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.get_box" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.gridkey">
-<span class="sig-name descname"><span class="pre">gridkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.gridkey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.gridkey" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">gridkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.gridkey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.gridkey" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.register" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.register" title="Link to this definition">#</a></dt>
 <dd><p>analyzes a new result</p>
 </dd></dl>
 
@@ -862,7 +863,7 @@ the minimal and maximal representants for that region.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Grid">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>packs nearby points into grid boxes</p>
 <dl class="field-list simple">
@@ -876,19 +877,19 @@ the minimal and maximal representants for that region.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Grid.in_same_grid">
-<span class="sig-name descname"><span class="pre">in_same_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.in_same_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid.in_same_grid" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">in_same_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.in_same_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid.in_same_grid" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Grid.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Restart">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">improvement_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'random'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">improvement_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'random'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Detects search stagnation and publishes <code class="docutils literal notranslate"><span class="pre">restart</span></code> events.</p>
 <p>Listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code>, tracks the best penalty value in a sliding window,
@@ -927,17 +928,17 @@ boundary; biases the restart cloud toward the centroid.</p></li>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES">
-<span class="sig-name descname"><span class="pre">SUPPORTED_RESTART_STRATEGIES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('random',</span> <span class="pre">'diverse',</span> <span class="pre">'sphere')</span></span><a class="headerlink" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">SUPPORTED_RESTART_STRATEGIES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('random',</span> <span class="pre">'diverse',</span> <span class="pre">'sphere')</span></span><a class="headerlink" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Restart.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Restart.restart_count">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">restart_count</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.Restart.restart_count" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">restart_count</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.Restart.restart_count" title="Link to this definition">#</a></dt>
 <dd><p>Number of restarts triggered so far.</p>
 </dd></dl>
 
@@ -945,7 +946,7 @@ boundary; biases the restart cloud toward the centroid.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Sensitivity">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Sensitivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spearman'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/sensitivity.html#Sensitivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Sensitivity" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Sensitivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spearman'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/sensitivity.html#Sensitivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Sensitivity" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Estimates per-dimension sensitivity from evaluation history.</p>
 <p>Listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events, accumulates X and y (penalty values),
@@ -971,20 +972,20 @@ and periodically computes importance scores for each dimension.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Sensitivity.importance">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">importance</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><a class="headerlink" href="#panobbgo.analyzers.Sensitivity.importance" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">importance</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><a class="headerlink" href="#panobbgo.analyzers.Sensitivity.importance" title="Link to this definition">#</a></dt>
 <dd><p>Current importance scores, or None if not yet computed.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Sensitivity.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/sensitivity.html#Sensitivity.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Sensitivity.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/sensitivity.html#Sensitivity.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Sensitivity.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Manages a tree of splits.
 Each split in this tree is a <a class="reference internal" href="#panobbgo.analyzers.Splitter.Box" title="panobbgo.analyzers.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">box</span></code></a>, which
@@ -1005,7 +1006,7 @@ to investigate interesting subregions.</p>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">parent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">splitter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Used by <a class="reference internal" href="#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>, therefore nested.</p>
 <p>Most important routine is <a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.split" title="panobbgo.analyzers.Splitter.Box.split"><code class="xref py py-meth docutils literal notranslate"><span class="pre">split()</span></code></a>.</p>
@@ -1016,7 +1017,7 @@ splitting methods.</p>
 </div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.MAX_DEPTH">
-<span class="sig-name descname"><span class="pre">MAX_DEPTH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.MAX_DEPTH" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">MAX_DEPTH</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.MAX_DEPTH" title="Link to this definition">#</a></dt>
 <dd><p>A box deeper than this is never split again.  Depth grows by one
 per split, so the bound is generous for any real search; it exists
 only so a pathological point cloud cannot deepen the tree without
@@ -1025,7 +1026,7 @@ end.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.add_result">
-<span class="sig-name descname"><span class="pre">add_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.add_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.add_result" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">add_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.add_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.add_result" title="Link to this definition">#</a></dt>
 <dd><p>Registers and adds a new <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>.
 In particular, it adds the given <code class="docutils literal notranslate"><span class="pre">result</span></code> to the
 current box and it’s children (also all descendents).</p>
@@ -1039,44 +1040,44 @@ routine is called.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.contains">
-<span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.contains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.contains" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.contains"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.contains" title="Link to this definition">#</a></dt>
 <dd><p>true, if given point is inside this box (including boundaries).</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.fx">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fx</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.fx" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">fx</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.fx" title="Link to this definition">#</a></dt>
 <dd><p>Function value of best point in this particular box.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.get_child_boxes">
-<span class="sig-name descname"><span class="pre">get_child_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.get_child_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.get_child_boxes" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_child_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.get_child_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.get_child_boxes" title="Link to this definition">#</a></dt>
 <dd><p>returns all immediate child boxes, which contain given point.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.leaf">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">leaf</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.leaf" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">leaf</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.leaf" title="Link to this definition">#</a></dt>
 <dd><p>returns <code class="docutils literal notranslate"><span class="pre">true</span></code>, if this box is a leaf. i.e. no children</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.log_volume">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">log_volume</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.log_volume" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">log_volume</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.log_volume" title="Link to this definition">#</a></dt>
 <dd><p>Returns the <cite>logarithmic</cite> volume of this box.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.ranges">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ranges</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.ranges" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ranges</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.ranges" title="Link to this definition">#</a></dt>
 <dd><p>Gives back a vector with all the ranges of this box,
 i.e. upper - lower bound.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.split">
-<span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.split" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.split" title="Link to this definition">#</a></dt>
 <dd><p>Arguments:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">- ``dim``: Dimension, along which to split. (default: `None`, and calculated)
 </span></pre></div>
@@ -1085,7 +1086,7 @@ i.e. upper - lower bound.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.volume">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">volume</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.volume" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">volume</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.volume" title="Link to this definition">#</a></dt>
 <dd><p>Returns the volume of the box.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1097,45 +1098,45 @@ i.e. upper - lower bound.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.get_all_boxes">
-<span class="sig-name descname"><span class="pre">get_all_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_all_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_all_boxes" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_all_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_all_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_all_boxes" title="Link to this definition">#</a></dt>
 <dd><p>return all boxes, where point is contained in</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.get_box">
-<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_box" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_box" title="Link to this definition">#</a></dt>
 <dd><p>return “leftmost” leaf box, where given point is contained in</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.get_leaf">
-<span class="sig-name descname"><span class="pre">get_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_leaf" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">get_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_leaf" title="Link to this definition">#</a></dt>
 <dd><p>returns the leaf box, where given result is currently sitting in</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_biggest_by_depth">
-<span class="sig-name descname"><span class="pre">on_new_biggest_by_depth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_by_depth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_biggest_by_depth" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_biggest_by_depth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_by_depth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_biggest_by_depth" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_biggest_leaf">
-<span class="sig-name descname"><span class="pre">on_new_biggest_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_biggest_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_results" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_results" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_split">
-<span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_split" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_split" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_refresh_best">
-<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_refresh_best" title="Link to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">on_refresh_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">candidates</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_refresh_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_refresh_best" title="Link to this definition">#</a></dt>
 <dd><p>Called when the definition of “best” changes (e.g. ALM parameter update).
 We need to re-evaluate the local best for all leaf boxes and update the global best box.</p>
 </dd></dl>
@@ -1179,14 +1180,14 @@ We need to re-evaluate the local best for all leaf boxes and update the global b
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="_static/shibuya.js?v=50760d75"></script></body>
 </html>

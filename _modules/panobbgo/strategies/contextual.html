@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.contextual"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.contextual"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -137,14 +138,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Copyright 2025 Panobbgo Contributors</span>
 </span><span data-line="6"><span class="c1">#</span>
-</span><span data-line="7"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="7"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="8"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="9"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="10"><span class="c1">#</span>
 </span><span data-line="11"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="12"><span class="c1">#</span>
 </span><span data-line="13"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="14"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="14"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="15"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="16"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="17"><span class="c1"># limitations under the License.</span>
@@ -157,7 +158,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyLinUCB">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB">[docs]</a>
 </span><span data-line="24"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyLinUCB</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
-</span><span data-line="25"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="25"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="26"><span class="sd">    This strategy uses the Linear Upper Confidence Bound (LinUCB) algorithm (disjoint)</span>
 </span><span data-line="27"><span class="sd">    to select heuristics based on context features.</span>
 </span><span data-line="28">
@@ -172,12 +173,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="37"><span class="sd">    - UCB Score: $p_{t,a} = \\hat{r}_{t,a} + \\alpha \\sqrt{x_t^T A_a^{-1} x_t}$</span>
 </span><span data-line="38">
 </span><span data-line="39"><span class="sd">    where $A_a = \\sum x_s x_s^T + I$ and $b_a = \\sum r_s x_s$.</span>
-</span><span data-line="40"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="40"><span class="sd">    """</span>
 </span><span data-line="41">
 </span><span data-line="42">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 </span><span data-line="43">        <span class="bp">self</span><span class="o">.</span><span class="n">local_best</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Track best internally to avoid event bus race conditions</span>
 </span><span data-line="44">        <span class="c1"># Default alpha increased to 2.0 to encourage exploration</span>
-</span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;linucb_alpha&quot;</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"linucb_alpha"</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>
 </span><span data-line="46">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">RLock</span><span class="p">()</span>
 </span><span data-line="47">
 </span><span data-line="48">        <span class="c1"># LinUCB state per heuristic: A (d x d), b (d), theta (d)</span>
@@ -200,14 +201,14 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="63">
 </span><span data-line="64">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_context_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="65"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="65"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="66"><span class="sd">        Constructs the context vector $x_t$ for the current state.</span>
 </span><span data-line="67">
 </span><span data-line="68"><span class="sd">        Features:</span>
 </span><span data-line="69"><span class="sd">        1. Bias (1.0)</span>
 </span><span data-line="70"><span class="sd">        2. Budget Progress [0, 1]</span>
 </span><span data-line="71"><span class="sd">        3. Recent Success Rate [0, 1]</span>
-</span><span data-line="72"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="72"><span class="sd">        """</span>
 </span><span data-line="73">        <span class="c1"># 1. Bias</span>
 </span><span data-line="74">        <span class="n">feat_bias</span> <span class="o">=</span> <span class="mf">1.0</span>
 </span><span data-line="75">
@@ -217,7 +218,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="79">        <span class="n">feat_progress</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span>
 </span><span data-line="80">
 </span><span data-line="81">        <span class="c1"># 3. Recent Success Rate</span>
-</span><span data-line="82">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_recent_rewards&quot;</span><span class="p">):</span>
+</span><span data-line="82">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_recent_rewards"</span><span class="p">):</span>
 </span><span data-line="83">            <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="84">
 </span><span data-line="85">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="p">:</span>
@@ -231,7 +232,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyLinUCB.reward">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.reward">[docs]</a>
 </span><span data-line="93">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">improvement</span><span class="p">):</span>
-</span><span data-line="94"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="94"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="95"><span class="sd">        Calculate reward based on improvement magnitude.</span>
 </span><span data-line="96">
 </span><span data-line="97"><span class="sd">        Args:</span>
@@ -239,7 +240,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="99">
 </span><span data-line="100"><span class="sd">        Returns:</span>
 </span><span data-line="101"><span class="sd">            float: Reward in [0, 1]</span>
-</span><span data-line="102"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="102"><span class="sd">        """</span>
 </span><span data-line="103">        <span class="k">if</span> <span class="n">improvement</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="104">            <span class="k">return</span> <span class="mf">0.0</span>
 </span><span data-line="105">        <span class="c1"># Bounded reward in [0, 1]</span>
@@ -249,25 +250,25 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyLinUCB.on_new_best">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.on_new_best">[docs]</a>
 </span><span data-line="108">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="109"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="109"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="110"><span class="sd">        Logging only. Reward calculation is handled in on_new_results to avoid race conditions.</span>
-</span><span data-line="111"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="111"><span class="sd">        """</span>
 </span><span data-line="112">        <span class="c1"># This method is triggered by the Best analyzer via EventBus.</span>
-</span><span data-line="113">        <span class="c1"># We don&#39;t use it for logic anymore, but we log the event.</span>
+</span><span data-line="113">        <span class="c1"># We don't use it for logic anymore, but we log the event.</span>
 </span><span data-line="114">        <span class="k">pass</span></div>
 
 </span><span data-line="115">
 <div class="viewcode-block" id="StrategyLinUCB.on_new_results">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyLinUCB.on_new_results">[docs]</a>
 </span><span data-line="116">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="117"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="117"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="118"><span class="sd">        Process new results to update LinUCB models.</span>
-</span><span data-line="119"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="119"><span class="sd">        """</span>
 </span><span data-line="120">        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
 </span><span data-line="121">            <span class="k">return</span>
 </span><span data-line="122">
 </span><span data-line="123">        <span class="c1"># Update recent rewards buffer</span>
-</span><span data-line="124">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_recent_rewards&quot;</span><span class="p">):</span>
+</span><span data-line="124">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_recent_rewards"</span><span class="p">):</span>
 </span><span data-line="125">            <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="126">
 </span><span data-line="127">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
@@ -285,7 +286,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="139">                <span class="n">reward_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">improvement</span><span class="p">)</span>
 </span><span data-line="140">
 </span><span data-line="141">                <span class="k">if</span> <span class="n">reward_val</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="142">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (LinUCB)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">reward_val</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
+</span><span data-line="142">                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (LinUCB)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">reward_val</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">who</span><span class="p">))</span>
 </span><span data-line="143">
 </span><span data-line="144">                <span class="c1"># Update recent rewards (keep last 100)</span>
 </span><span data-line="145">                <span class="bp">self</span><span class="o">.</span><span class="n">_recent_rewards</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reward_val</span><span class="p">)</span>
@@ -294,7 +295,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="148">
 </span><span data-line="149">                <span class="c1"># Get context vector from point</span>
 </span><span data-line="150">                <span class="c1"># It should have been attached in execute()</span>
-</span><span data-line="151">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="p">,</span> <span class="s2">&quot;context_vector&quot;</span><span class="p">):</span>
+</span><span data-line="151">                <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="p">,</span> <span class="s2">"context_vector"</span><span class="p">):</span>
 </span><span data-line="152">                    <span class="n">x_t</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">point</span><span class="o">.</span><span class="n">context_vector</span>
 </span><span data-line="153">
 </span><span data-line="154">                    <span class="k">try</span><span class="p">:</span>
@@ -312,9 +313,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="166">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span><span class="p">)</span>
 </span><span data-line="167">
 </span><span data-line="168">                    <span class="c1"># Update stats for logging</span>
-</span><span data-line="169">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="169">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"linucb_count"</span><span class="p">):</span>
 </span><span data-line="170">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="171">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_reward&quot;</span><span class="p">):</span>
+</span><span data-line="171">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"linucb_reward"</span><span class="p">):</span>
 </span><span data-line="172">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
 </span><span data-line="173">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_count</span> <span class="o">+=</span> <span class="mi">1</span>
 </span><span data-line="174">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_reward</span> <span class="o">+=</span> <span class="n">reward_val</span>
@@ -346,7 +347,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="197">                <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="198">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
 </span><span data-line="199">                    <span class="c1"># Ensure initialization</span>
-</span><span data-line="200">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A&quot;</span><span class="p">):</span>
+</span><span data-line="200">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"linucb_A"</span><span class="p">):</span>
 </span><span data-line="201">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
 </span><span data-line="202">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
 </span><span data-line="203">                        <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">context_dim</span><span class="p">)</span>
@@ -385,13 +386,13 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="236">
 </span><span data-line="237">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="238"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
+</span><span data-line="238"><span class="w">        </span><span class="sd">"""Return strategy-specific status info."""</span>
 </span><span data-line="239">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="240">        <span class="c1"># Report max theta magnitude</span>
 </span><span data-line="241">        <span class="n">max_theta</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="242">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="242">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">""</span>
 </span><span data-line="243">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
-</span><span data-line="244">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A_inv&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_b&quot;</span><span class="p">):</span>
+</span><span data-line="244">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"linucb_A_inv"</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"linucb_b"</span><span class="p">):</span>
 </span><span data-line="245">                <span class="n">theta</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">@</span> <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span>
 </span><span data-line="246">                <span class="n">norm_theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
 </span><span data-line="247">                <span class="k">if</span> <span class="n">norm_theta</span> <span class="o">&gt;</span> <span class="n">max_theta</span><span class="p">:</span>
@@ -399,7 +400,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="249">                    <span class="n">best_h_name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
 </span><span data-line="250">
 </span><span data-line="251">        <span class="k">if</span> <span class="n">best_h_name</span><span class="p">:</span>
-</span><span data-line="252">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;max_theta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">max_theta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="252">            <span class="n">info</span><span class="p">[</span><span class="s2">"max_theta"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">max_theta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)"</span>
 </span><span data-line="253">        <span class="k">return</span> <span class="n">info</span></div>
 
 </span></pre></div>
@@ -424,14 +425,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

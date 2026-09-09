@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.cma_es"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.cma_es"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012-2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">CMA-ES Heuristic (with IPOP / BIPOP restart)</span>
 </span><span data-line="18"><span class="sd">=============================================</span>
 </span><span data-line="19">
@@ -188,11 +189,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="55"><span class="sd">optimization.</span>
 </span><span data-line="56">
 </span><span data-line="57"><span class="sd">This implementation follows:</span>
-</span><span data-line="58"><span class="sd">  - N. Hansen (2016). &quot;The CMA Evolution Strategy: A Tutorial.&quot; arXiv:1604.00772.</span>
-</span><span data-line="59"><span class="sd">  - A. Auger &amp; N. Hansen (2005). &quot;A restart CMA evolution strategy with increasing</span>
-</span><span data-line="60"><span class="sd">    population size.&quot; CEC 2005.</span>
-</span><span data-line="61"><span class="sd">  - N. Hansen (2009). &quot;Benchmarking a BI-Population CMA-ES on the BBOB-2009</span>
-</span><span data-line="62"><span class="sd">    Function Testbed.&quot; GECCO Workshop on BBOB.</span>
+</span><span data-line="58"><span class="sd">  - N. Hansen (2016). "The CMA Evolution Strategy: A Tutorial." arXiv:1604.00772.</span>
+</span><span data-line="59"><span class="sd">  - A. Auger &amp; N. Hansen (2005). "A restart CMA evolution strategy with increasing</span>
+</span><span data-line="60"><span class="sd">    population size." CEC 2005.</span>
+</span><span data-line="61"><span class="sd">  - N. Hansen (2009). "Benchmarking a BI-Population CMA-ES on the BBOB-2009</span>
+</span><span data-line="62"><span class="sd">    Function Testbed." GECCO Workshop on BBOB.</span>
 </span><span data-line="63">
 </span><span data-line="64"><span class="sd">The heuristic works asynchronously inside the panobbgo event loop:</span>
 </span><span data-line="65">
@@ -201,10 +202,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="68"><span class="sd">   When at least μ results from the oldest open generation have arrived, perform</span>
 </span><span data-line="69"><span class="sd">   one CMA-ES update step and emit the next generation.</span>
 </span><span data-line="70"><span class="sd">3. ``on_restart(center, reason)``  — reset distribution to *center* with the</span>
-</span><span data-line="71"><span class="sd">   restart regime selected by ``restart_mode`` (``&quot;ipop&quot;`` or ``&quot;bipop&quot;``).</span>
+</span><span data-line="71"><span class="sd">   restart regime selected by ``restart_mode`` (``"ipop"`` or ``"bipop"``).</span>
 </span><span data-line="72">
 </span><span data-line="73"><span class="sd">.. codeauthor:: Harald Schilly</span>
-</span><span data-line="74"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="74"><span class="sd">"""</span>
 </span><span data-line="75">
 </span><span data-line="76"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="77">
@@ -219,7 +220,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="CMAES">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES">[docs]</a>
 </span><span data-line="86"><span class="k">class</span><span class="w"> </span><span class="nc">CMAES</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="87"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP / BIPOP restart.</span>
+</span><span data-line="87"><span class="w">    </span><span class="sd">"""Covariance Matrix Adaptation Evolution Strategy heuristic with IPOP / BIPOP restart.</span>
 </span><span data-line="88">
 </span><span data-line="89"><span class="sd">    Maintains a multivariate Gaussian search distribution N(m, σ²C) and</span>
 </span><span data-line="90"><span class="sd">    adapts it from the history of evaluated points.  Particularly effective</span>
@@ -228,10 +229,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="93"><span class="sd">    When paired with the :class:`~panobbgo.analyzers.restart.Restart` analyzer,</span>
 </span><span data-line="94"><span class="sd">    the heuristic implements either:</span>
 </span><span data-line="95">
-</span><span data-line="96"><span class="sd">    * **IPOP-CMA-ES** (``restart_mode=&quot;ipop&quot;``, default): each restart multiplies</span>
+</span><span data-line="96"><span class="sd">    * **IPOP-CMA-ES** (``restart_mode="ipop"``, default): each restart multiplies</span>
 </span><span data-line="97"><span class="sd">      the population size by ``ipop_factor`` (default 2.0) and resets the search</span>
 </span><span data-line="98"><span class="sd">      distribution to the new center.  Good for moderately multimodal problems.</span>
-</span><span data-line="99"><span class="sd">    * **BIPOP-CMA-ES** (``restart_mode=&quot;bipop&quot;``): alternates between a *large*</span>
+</span><span data-line="99"><span class="sd">    * **BIPOP-CMA-ES** (``restart_mode="bipop"``): alternates between a *large*</span>
 </span><span data-line="100"><span class="sd">      regime (geometric population growth from the base λ) and a *small* regime</span>
 </span><span data-line="101"><span class="sd">      (small λ with a random small σ).  The regime that has consumed *fewer*</span>
 </span><span data-line="102"><span class="sd">      cumulative evaluations is selected next, balancing exploitation and</span>
@@ -252,9 +253,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="117"><span class="sd">        ipop_factor (float): Population multiplication factor applied on each</span>
 </span><span data-line="118"><span class="sd">            IPOP restart.  Default 2.0 (standard IPOP doubling).  Ignored in</span>
 </span><span data-line="119"><span class="sd">            BIPOP mode (which always doubles the large regime).</span>
-</span><span data-line="120"><span class="sd">        restart_mode (str): Restart scheme selector — ``&quot;ipop&quot;`` (default) or</span>
-</span><span data-line="121"><span class="sd">            ``&quot;bipop&quot;``.</span>
-</span><span data-line="122"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="120"><span class="sd">        restart_mode (str): Restart scheme selector — ``"ipop"`` (default) or</span>
+</span><span data-line="121"><span class="sd">            ``"bipop"``.</span>
+</span><span data-line="122"><span class="sd">    """</span>
 </span><span data-line="123">
 </span><span data-line="124">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="125">        <span class="bp">self</span><span class="p">,</span>
@@ -263,16 +264,16 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="128">        <span class="n">popsize</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="129">        <span class="n">min_results_fraction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
 </span><span data-line="130">        <span class="n">ipop_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
-</span><span data-line="131">        <span class="n">restart_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;ipop&quot;</span><span class="p">,</span>
+</span><span data-line="131">        <span class="n">restart_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"ipop"</span><span class="p">,</span>
 </span><span data-line="132">    <span class="p">):</span>
-</span><span data-line="133">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;CMAES&quot;</span><span class="p">)</span>
-</span><span data-line="134">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;H:CMA&quot;</span><span class="p">)</span>
+</span><span data-line="133">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"CMAES"</span><span class="p">)</span>
+</span><span data-line="134">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"H:CMA"</span><span class="p">)</span>
 </span><span data-line="135">        <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">=</span> <span class="n">sigma0</span>
 </span><span data-line="136">        <span class="bp">self</span><span class="o">.</span><span class="n">_popsize_override</span> <span class="o">=</span> <span class="n">popsize</span>
 </span><span data-line="137">        <span class="bp">self</span><span class="o">.</span><span class="n">_min_results_fraction</span> <span class="o">=</span> <span class="n">min_results_fraction</span>
 </span><span data-line="138">        <span class="bp">self</span><span class="o">.</span><span class="n">_ipop_factor</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">ipop_factor</span><span class="p">)</span>
-</span><span data-line="139">        <span class="k">if</span> <span class="n">restart_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;ipop&quot;</span><span class="p">,</span> <span class="s2">&quot;bipop&quot;</span><span class="p">):</span>
-</span><span data-line="140">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;restart_mode must be &#39;ipop&#39; or &#39;bipop&#39;, got </span><span class="si">{</span><span class="n">restart_mode</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="139">        <span class="k">if</span> <span class="n">restart_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"ipop"</span><span class="p">,</span> <span class="s2">"bipop"</span><span class="p">):</span>
+</span><span data-line="140">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"restart_mode must be 'ipop' or 'bipop', got </span><span class="si">{</span><span class="n">restart_mode</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="141">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_mode</span> <span class="o">=</span> <span class="n">restart_mode</span>
 </span><span data-line="142">
 </span><span data-line="143">        <span class="c1"># IPOP restart tracking</span>
@@ -284,13 +285,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="149">        <span class="c1">#   (drives population growth λ_l = 2^k · λ_default)</span>
 </span><span data-line="150">        <span class="c1"># _bipop_evals_large / _bipop_evals_small: cumulative evaluations spent</span>
 </span><span data-line="151">        <span class="c1">#   in each regime — the regime with fewer evals is picked next</span>
-</span><span data-line="152">        <span class="c1"># _bipop_current_regime: &quot;large&quot; or &quot;small&quot; (the regime *currently* running)</span>
+</span><span data-line="152">        <span class="c1"># _bipop_current_regime: "large" or "small" (the regime *currently* running)</span>
 </span><span data-line="153">        <span class="c1"># _bipop_regime_eval_anchor: counteval value when the current regime began,</span>
 </span><span data-line="154">        <span class="c1">#   used to attribute evaluations on regime switch</span>
 </span><span data-line="155">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_large_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="156">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_large</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="157">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_small</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="158">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;large&quot;</span>  <span class="c1"># first run is always &quot;large&quot;</span>
+</span><span data-line="158">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"large"</span>  <span class="c1"># first run is always "large"</span>
 </span><span data-line="159">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_regime_eval_anchor</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="160">
 </span><span data-line="161">        <span class="c1"># CMA-ES algorithm state (set in on_start)</span>
@@ -337,7 +338,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="CMAES.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES.on_start">[docs]</a>
 </span><span data-line="202">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="203"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialise CMA-ES state and emit the first generation.&quot;&quot;&quot;</span>
+</span><span data-line="203"><span class="w">        </span><span class="sd">"""Initialise CMA-ES state and emit the first generation."""</span>
 </span><span data-line="204">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="205">
 </span><span data-line="206">        <span class="c1"># Population sizes</span>
@@ -414,11 +415,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="277">            <span class="bp">self</span><span class="o">.</span><span class="n">_base_lam</span> <span class="o">=</span> <span class="n">lam</span>
 </span><span data-line="278">
 </span><span data-line="279">        <span class="c1"># BIPOP: first run counts as the large regime, anchor at 0 evals</span>
-</span><span data-line="280">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span> <span class="o">=</span> <span class="s2">&quot;large&quot;</span>
+</span><span data-line="280">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span> <span class="o">=</span> <span class="s2">"large"</span>
 </span><span data-line="281">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_regime_eval_anchor</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="282">
 </span><span data-line="283">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-</span><span data-line="284">            <span class="s2">&quot;CMA-ES started: n=</span><span class="si">%d</span><span class="s2"> λ=</span><span class="si">%d</span><span class="s2"> μ=</span><span class="si">%d</span><span class="s2"> σ0=</span><span class="si">%.4f</span><span class="s2"> mode=</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span data-line="284">            <span class="s2">"CMA-ES started: n=</span><span class="si">%d</span><span class="s2"> λ=</span><span class="si">%d</span><span class="s2"> μ=</span><span class="si">%d</span><span class="s2"> σ0=</span><span class="si">%.4f</span><span class="s2"> mode=</span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
 </span><span data-line="285">            <span class="n">n</span><span class="p">,</span>
 </span><span data-line="286">            <span class="n">lam</span><span class="p">,</span>
 </span><span data-line="287">            <span class="n">mu</span><span class="p">,</span>
@@ -435,16 +436,16 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="CMAES.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES.on_new_results">[docs]</a>
 </span><span data-line="297">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="298"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Collect results and trigger a CMA-ES update when enough have arrived.&quot;&quot;&quot;</span>
+</span><span data-line="298"><span class="w">        </span><span class="sd">"""Collect results and trigger a CMA-ES update when enough have arrived."""</span>
 </span><span data-line="299">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="300">            <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;CMAES:&quot;</span><span class="p">):</span>
+</span><span data-line="300">            <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"CMAES:"</span><span class="p">):</span>
 </span><span data-line="301">                <span class="k">continue</span>
 </span><span data-line="302">
 </span><span data-line="303">            <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">who</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="304">            <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="305">                <span class="k">continue</span>
 </span><span data-line="306">
-</span><span data-line="307">            <span class="n">gen</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;gen&quot;</span><span class="p">]</span>
+</span><span data-line="307">            <span class="n">gen</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"gen"</span><span class="p">]</span>
 </span><span data-line="308">            <span class="n">gen_bucket</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">gen</span><span class="p">)</span>
 </span><span data-line="309">            <span class="k">if</span> <span class="n">gen_bucket</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="310">                <span class="k">continue</span>
@@ -457,14 +458,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="317">            <span class="c1"># emitting for the rest of the run.  No measured case of that is</span>
 </span><span data-line="318">            <span class="c1"># on record; this is a guard, not a fix for an observed failure.</span>
 </span><span data-line="319">            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span><span class="p">):</span>
-</span><span data-line="320">                <span class="n">penalty</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="320">                <span class="n">penalty</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 </span><span data-line="321">            <span class="k">else</span><span class="p">:</span>
 </span><span data-line="322">                <span class="n">penalty</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
 </span><span data-line="323">            <span class="n">gen_bucket</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
 </span><span data-line="324">                <span class="p">{</span>
-</span><span data-line="325">                    <span class="s2">&quot;penalty&quot;</span><span class="p">:</span> <span class="n">penalty</span><span class="p">,</span>
-</span><span data-line="326">                    <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
-</span><span data-line="327">                    <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span>
+</span><span data-line="325">                    <span class="s2">"penalty"</span><span class="p">:</span> <span class="n">penalty</span><span class="p">,</span>
+</span><span data-line="326">                    <span class="s2">"x"</span><span class="p">:</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span>
+</span><span data-line="327">                    <span class="s2">"y"</span><span class="p">:</span> <span class="n">info</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span>
 </span><span data-line="328">                <span class="p">}</span>
 </span><span data-line="329">            <span class="p">)</span>
 </span><span data-line="330">
@@ -486,8 +487,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="345">
 <div class="viewcode-block" id="CMAES.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.CMAES.on_restart">[docs]</a>
-</span><span data-line="346">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="347"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset CMA-ES to *center* using the configured restart scheme.</span>
+</span><span data-line="346">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="347"><span class="w">        </span><span class="sd">"""Reset CMA-ES to *center* using the configured restart scheme.</span>
 </span><span data-line="348">
 </span><span data-line="349"><span class="sd">        Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer</span>
 </span><span data-line="350"><span class="sd">        when stagnation is detected.  Dispatches to the IPOP or BIPOP</span>
@@ -506,60 +507,60 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="363"><span class="sd">        Args:</span>
 </span><span data-line="364"><span class="sd">            center (np.ndarray): New starting mean for the search distribution.</span>
 </span><span data-line="365"><span class="sd">            reason (str): Human-readable reason string from the Restart analyzer.</span>
-</span><span data-line="366"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="366"><span class="sd">        """</span>
 </span><span data-line="367">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="368">            <span class="c1"># on_start() has not been called yet — ignore</span>
 </span><span data-line="369">            <span class="k">return</span>
 </span><span data-line="370">
-</span><span data-line="371">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_mode</span> <span class="o">==</span> <span class="s2">&quot;bipop&quot;</span><span class="p">:</span>
+</span><span data-line="371">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_mode</span> <span class="o">==</span> <span class="s2">"bipop"</span><span class="p">:</span>
 </span><span data-line="372">            <span class="bp">self</span><span class="o">.</span><span class="n">_restart_bipop</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
 </span><span data-line="373">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="374">            <span class="bp">self</span><span class="o">.</span><span class="n">_restart_ipop</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span></div>
 
 </span><span data-line="375">
 </span><span data-line="376">    <span class="k">def</span><span class="w"> </span><span class="nf">_restart_ipop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="377"><span class="w">        </span><span class="sd">&quot;&quot;&quot;IPOP restart: multiply λ by ``ipop_factor`` and reset σ.&quot;&quot;&quot;</span>
+</span><span data-line="377"><span class="w">        </span><span class="sd">"""IPOP restart: multiply λ by ``ipop_factor`` and reset σ."""</span>
 </span><span data-line="378">        <span class="n">new_lam</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lam</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ipop_factor</span><span class="p">)</span>
 </span><span data-line="379">        <span class="n">new_sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_default</span><span class="p">()</span>
 </span><span data-line="380">        <span class="n">prev_lam</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span>
 </span><span data-line="381">        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">new_lam</span><span class="p">,</span> <span class="n">new_sigma</span><span class="p">)</span>
 </span><span data-line="382">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-</span><span data-line="383">            <span class="s2">&quot;CMA-ES IPOP restart #</span><span class="si">%d</span><span class="s2">: λ </span><span class="si">%d</span><span class="s2">→</span><span class="si">%d</span><span class="s2">  σ=</span><span class="si">%.4f</span><span class="s2">  center=</span><span class="si">%s</span><span class="s2">  (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+</span><span data-line="383">            <span class="s2">"CMA-ES IPOP restart #</span><span class="si">%d</span><span class="s2">: λ </span><span class="si">%d</span><span class="s2">→</span><span class="si">%d</span><span class="s2">  σ=</span><span class="si">%.4f</span><span class="s2">  center=</span><span class="si">%s</span><span class="s2">  (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span>
 </span><span data-line="384">            <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span><span class="p">,</span>
 </span><span data-line="385">            <span class="n">prev_lam</span><span class="p">,</span>
 </span><span data-line="386">            <span class="n">new_lam</span><span class="p">,</span>
 </span><span data-line="387">            <span class="n">new_sigma</span><span class="p">,</span>
 </span><span data-line="388">            <span class="n">np</span><span class="o">.</span><span class="n">array2string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_m</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">suppress_small</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
 </span><span data-line="389">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="390">            <span class="k">else</span> <span class="s2">&quot;?&quot;</span><span class="p">,</span>
-</span><span data-line="391">            <span class="n">reason</span> <span class="ow">or</span> <span class="s2">&quot;stagnation&quot;</span><span class="p">,</span>
+</span><span data-line="390">            <span class="k">else</span> <span class="s2">"?"</span><span class="p">,</span>
+</span><span data-line="391">            <span class="n">reason</span> <span class="ow">or</span> <span class="s2">"stagnation"</span><span class="p">,</span>
 </span><span data-line="392">        <span class="p">)</span>
 </span><span data-line="393">
 </span><span data-line="394">    <span class="k">def</span><span class="w"> </span><span class="nf">_restart_bipop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="395"><span class="w">        </span><span class="sd">&quot;&quot;&quot;BIPOP restart: alternate between large and small regimes (Hansen 2009).</span>
+</span><span data-line="395"><span class="w">        </span><span class="sd">"""BIPOP restart: alternate between large and small regimes (Hansen 2009).</span>
 </span><span data-line="396">
 </span><span data-line="397"><span class="sd">        Attribution rule: evaluations consumed since the previous restart (or</span>
 </span><span data-line="398"><span class="sd">        start) are credited to the regime that was *running*.  The regime that</span>
 </span><span data-line="399"><span class="sd">        has accumulated the *fewer* total evaluations is selected next.  Ties</span>
 </span><span data-line="400"><span class="sd">        are broken by selecting the large regime so that the population grows</span>
 </span><span data-line="401"><span class="sd">        steadily over a long run (matches the BBOB-2009 reference code).</span>
-</span><span data-line="402"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="402"><span class="sd">        """</span>
 </span><span data-line="403">        <span class="c1"># 1) Attribute evaluations spent in the regime that is finishing.</span>
 </span><span data-line="404">        <span class="n">delta</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_regime_eval_anchor</span><span class="p">)</span>
-</span><span data-line="405">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span> <span class="o">==</span> <span class="s2">&quot;large&quot;</span><span class="p">:</span>
+</span><span data-line="405">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span> <span class="o">==</span> <span class="s2">"large"</span><span class="p">:</span>
 </span><span data-line="406">            <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_large</span> <span class="o">+=</span> <span class="n">delta</span>
 </span><span data-line="407">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="408">            <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_small</span> <span class="o">+=</span> <span class="n">delta</span>
 </span><span data-line="409">
 </span><span data-line="410">        <span class="c1"># 2) Pick next regime.  Ties → large (matches reference behaviour).</span>
 </span><span data-line="411">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_small</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_large</span><span class="p">:</span>
-</span><span data-line="412">            <span class="n">next_regime</span> <span class="o">=</span> <span class="s2">&quot;small&quot;</span>
+</span><span data-line="412">            <span class="n">next_regime</span> <span class="o">=</span> <span class="s2">"small"</span>
 </span><span data-line="413">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="414">            <span class="n">next_regime</span> <span class="o">=</span> <span class="s2">&quot;large&quot;</span>
+</span><span data-line="414">            <span class="n">next_regime</span> <span class="o">=</span> <span class="s2">"large"</span>
 </span><span data-line="415">
 </span><span data-line="416">        <span class="n">sigma_default</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_default</span><span class="p">()</span>
 </span><span data-line="417">
-</span><span data-line="418">        <span class="k">if</span> <span class="n">next_regime</span> <span class="o">==</span> <span class="s2">&quot;large&quot;</span><span class="p">:</span>
+</span><span data-line="418">        <span class="k">if</span> <span class="n">next_regime</span> <span class="o">==</span> <span class="s2">"large"</span><span class="p">:</span>
 </span><span data-line="419">            <span class="c1"># IPOP-style geometric growth: λ_l = 2^k · λ_default</span>
 </span><span data-line="420">            <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_large_count</span> <span class="o">+=</span> <span class="mi">1</span>
 </span><span data-line="421">            <span class="n">new_lam</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_base_lam</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_bipop_large_count</span><span class="p">))</span>
@@ -583,7 +584,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="439">        <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_regime_eval_anchor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_counteval</span>  <span class="c1"># reset to 0 below</span>
 </span><span data-line="440">
 </span><span data-line="441">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-</span><span data-line="442">            <span class="s2">&quot;CMA-ES BIPOP restart #</span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">): λ </span><span class="si">%d</span><span class="s2">→</span><span class="si">%d</span><span class="s2">  σ=</span><span class="si">%.4f</span><span class="s2">  large_evals=</span><span class="si">%d</span><span class="s2"> small_evals=</span><span class="si">%d</span><span class="s2">  large_count=</span><span class="si">%d</span><span class="s2">  (</span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+</span><span data-line="442">            <span class="s2">"CMA-ES BIPOP restart #</span><span class="si">%d</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">): λ </span><span class="si">%d</span><span class="s2">→</span><span class="si">%d</span><span class="s2">  σ=</span><span class="si">%.4f</span><span class="s2">  large_evals=</span><span class="si">%d</span><span class="s2"> small_evals=</span><span class="si">%d</span><span class="s2">  large_count=</span><span class="si">%d</span><span class="s2">  (</span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span>
 </span><span data-line="443">            <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span><span class="p">,</span>
 </span><span data-line="444">            <span class="n">next_regime</span><span class="p">,</span>
 </span><span data-line="445">            <span class="n">prev_lam</span><span class="p">,</span>
@@ -592,23 +593,23 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="448">            <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_large</span><span class="p">,</span>
 </span><span data-line="449">            <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_small</span><span class="p">,</span>
 </span><span data-line="450">            <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_large_count</span><span class="p">,</span>
-</span><span data-line="451">            <span class="n">reason</span> <span class="ow">or</span> <span class="s2">&quot;stagnation&quot;</span><span class="p">,</span>
+</span><span data-line="451">            <span class="n">reason</span> <span class="ow">or</span> <span class="s2">"stagnation"</span><span class="p">,</span>
 </span><span data-line="452">        <span class="p">)</span>
 </span><span data-line="453">
 </span><span data-line="454">    <span class="k">def</span><span class="w"> </span><span class="nf">_sigma0_default</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="455"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initial step size as a fraction of the mean box half-range.&quot;&quot;&quot;</span>
+</span><span data-line="455"><span class="w">        </span><span class="sd">"""Initial step size as a fraction of the mean box half-range."""</span>
 </span><span data-line="456">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span data-line="457">        <span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma0_frac</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ranges</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span><span class="p">)</span>
 </span><span data-line="458">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">)</span>
 </span><span data-line="459">
 </span><span data-line="460">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">new_lam</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">new_sigma</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="461"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset distribution state for *new_lam* and *new_sigma* at *center*.</span>
+</span><span data-line="461"><span class="w">        </span><span class="sd">"""Reset distribution state for *new_lam* and *new_sigma* at *center*.</span>
 </span><span data-line="462">
 </span><span data-line="463"><span class="sd">        Common bookkeeping shared by both IPOP and BIPOP restart paths.</span>
 </span><span data-line="464"><span class="sd">        Increments :attr:`_restart_count`, recomputes μ and the CMA-ES</span>
 </span><span data-line="465"><span class="sd">        adaptation constants, resets paths/covariance/eigendecomposition,</span>
 </span><span data-line="466"><span class="sd">        flushes stale generation tracking, and emits the first generation.</span>
-</span><span data-line="467"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="467"><span class="sd">        """</span>
 </span><span data-line="468">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span> <span class="o">+=</span> <span class="mi">1</span>
 </span><span data-line="469">
 </span><span data-line="470">        <span class="n">new_lam</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">new_lam</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># CMA-ES requires λ ≥ 4</span>
@@ -666,25 +667,25 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="522">
 </span><span data-line="523">    <span class="nd">@property</span>
 </span><span data-line="524">    <span class="k">def</span><span class="w"> </span><span class="nf">restart_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="525"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of restarts triggered so far (IPOP or BIPOP).&quot;&quot;&quot;</span>
+</span><span data-line="525"><span class="w">        </span><span class="sd">"""Number of restarts triggered so far (IPOP or BIPOP)."""</span>
 </span><span data-line="526">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span>
 </span><span data-line="527">
 </span><span data-line="528">    <span class="nd">@property</span>
 </span><span data-line="529">    <span class="k">def</span><span class="w"> </span><span class="nf">bipop_regime</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-</span><span data-line="530"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Current BIPOP regime (``&quot;large&quot;`` or ``&quot;small&quot;``).</span>
+</span><span data-line="530"><span class="w">        </span><span class="sd">"""Current BIPOP regime (``"large"`` or ``"small"``).</span>
 </span><span data-line="531">
-</span><span data-line="532"><span class="sd">        In IPOP mode this stays at ``&quot;large&quot;``.</span>
-</span><span data-line="533"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="532"><span class="sd">        In IPOP mode this stays at ``"large"``.</span>
+</span><span data-line="533"><span class="sd">        """</span>
 </span><span data-line="534">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_current_regime</span>
 </span><span data-line="535">
 </span><span data-line="536">    <span class="nd">@property</span>
 </span><span data-line="537">    <span class="k">def</span><span class="w"> </span><span class="nf">bipop_evals_large</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="538"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Cumulative evaluations spent in the BIPOP large regime.&quot;&quot;&quot;</span>
+</span><span data-line="538"><span class="w">        </span><span class="sd">"""Cumulative evaluations spent in the BIPOP large regime."""</span>
 </span><span data-line="539">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_large</span>
 </span><span data-line="540">
 </span><span data-line="541">    <span class="nd">@property</span>
 </span><span data-line="542">    <span class="k">def</span><span class="w"> </span><span class="nf">bipop_evals_small</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="543"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Cumulative evaluations spent in the BIPOP small regime.&quot;&quot;&quot;</span>
+</span><span data-line="543"><span class="w">        </span><span class="sd">"""Cumulative evaluations spent in the BIPOP small regime."""</span>
 </span><span data-line="544">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bipop_evals_small</span>
 </span><span data-line="545">
 </span><span data-line="546">    <span class="c1"># ------------------------------------------------------------------</span>
@@ -692,7 +693,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="548">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="549">
 </span><span data-line="550">    <span class="k">def</span><span class="w"> </span><span class="nf">_emit_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="551"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Sample λ candidates from N(m, σ²C) and emit them.&quot;&quot;&quot;</span>
+</span><span data-line="551"><span class="w">        </span><span class="sd">"""Sample λ candidates from N(m, σ²C) and emit them."""</span>
 </span><span data-line="552">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_B</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_D</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="553">            <span class="k">return</span>
 </span><span data-line="554">
@@ -714,24 +715,24 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="570">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sigma</span> <span class="o">*</span> <span class="n">y</span>
 </span><span data-line="571">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="572">
-</span><span data-line="573">            <span class="n">who</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;CMAES:g</span><span class="si">{</span><span class="n">gen</span><span class="si">}</span><span class="s2">:i</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="574">            <span class="c1"># Put directly to bypass emit()&#39;s ndarray-only check,</span>
-</span><span data-line="575">            <span class="c1"># preserving the custom &#39;who&#39; tag needed for generation tracking.</span>
+</span><span data-line="573">            <span class="n">who</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"CMAES:g</span><span class="si">{</span><span class="n">gen</span><span class="si">}</span><span class="s2">:i</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="574">            <span class="c1"># Put directly to bypass emit()'s ndarray-only check,</span>
+</span><span data-line="575">            <span class="c1"># preserving the custom 'who' tag needed for generation tracking.</span>
 </span><span data-line="576">            <span class="bp">self</span><span class="o">.</span><span class="n">_put</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">who</span><span class="p">))</span>
-</span><span data-line="577">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">who</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;gen&quot;</span><span class="p">:</span> <span class="n">gen</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>
+</span><span data-line="577">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">who</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"gen"</span><span class="p">:</span> <span class="n">gen</span><span class="p">,</span> <span class="s2">"i"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">:</span> <span class="n">y</span><span class="p">}</span>
 </span><span data-line="578">            <span class="n">emitted</span> <span class="o">+=</span> <span class="mi">1</span>
 </span><span data-line="579">
 </span><span data-line="580">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_emitted</span><span class="p">[</span><span class="n">gen</span><span class="p">]</span> <span class="o">=</span> <span class="n">emitted</span>
 </span><span data-line="581">        <span class="k">if</span> <span class="n">emitted</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span><span class="p">:</span>
 </span><span data-line="582">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-</span><span data-line="583">                <span class="s2">&quot;CMA-ES generation </span><span class="si">%d</span><span class="s2">: only </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> points emitted (output queue full)&quot;</span><span class="p">,</span>
+</span><span data-line="583">                <span class="s2">"CMA-ES generation </span><span class="si">%d</span><span class="s2">: only </span><span class="si">%d</span><span class="s2">/</span><span class="si">%d</span><span class="s2"> points emitted (output queue full)"</span><span class="p">,</span>
 </span><span data-line="584">                <span class="n">gen</span><span class="p">,</span>
 </span><span data-line="585">                <span class="n">emitted</span><span class="p">,</span>
 </span><span data-line="586">                <span class="bp">self</span><span class="o">.</span><span class="n">_lam</span><span class="p">,</span>
 </span><span data-line="587">            <span class="p">)</span>
 </span><span data-line="588">
 </span><span data-line="589">    <span class="k">def</span><span class="w"> </span><span class="nf">_update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">collected</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">dict</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="590"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform one CMA-ES parameter update from a set of evaluated offspring.&quot;&quot;&quot;</span>
+</span><span data-line="590"><span class="w">        </span><span class="sd">"""Perform one CMA-ES parameter update from a set of evaluated offspring."""</span>
 </span><span data-line="591">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span data-line="592">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span data-line="593">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -753,7 +754,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="609">        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="610">
 </span><span data-line="611">        <span class="c1"># Sort by penalty (ascending = minimise)</span>
-</span><span data-line="612">        <span class="n">collected</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;penalty&quot;</span><span class="p">])</span>
+</span><span data-line="612">        <span class="n">collected</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span><span class="p">[</span><span class="s2">"penalty"</span><span class="p">])</span>
 </span><span data-line="613">        <span class="n">selected</span> <span class="o">=</span> <span class="n">collected</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu</span><span class="p">]</span>
 </span><span data-line="614">
 </span><span data-line="615">        <span class="c1"># Recombination weights (may use fewer than μ if fewer arrived)</span>
@@ -768,10 +769,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="624">            <span class="n">mu_eff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mu_eff</span>
 </span><span data-line="625">
 </span><span data-line="626">        <span class="c1"># --- Mean update ---</span>
-</span><span data-line="627">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>  <span class="c1"># type: ignore[assignment]</span>
+</span><span data-line="627">        <span class="bp">self</span><span class="o">.</span><span class="n">_m</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>  <span class="c1"># type: ignore[assignment]</span>
 </span><span data-line="628">
 </span><span data-line="629">        <span class="c1"># Step in normalised y-space (weighted recombination)</span>
-</span><span data-line="630">        <span class="n">y_w</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>
+</span><span data-line="630">        <span class="n">y_w</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">d</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">selected</span><span class="p">))</span>
 </span><span data-line="631">
 </span><span data-line="632">        <span class="c1"># --- Step-size path update ---</span>
 </span><span data-line="633">        <span class="c1"># C^{-1/2} y_w  =  B diag(1/D) Bᵀ y_w</span>
@@ -792,7 +793,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="648">
 </span><span data-line="649">        <span class="c1"># --- Covariance matrix update ---</span>
 </span><span data-line="650">        <span class="c1"># Rank-μ term</span>
-</span><span data-line="651">        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">])</span>  <span class="c1"># (n, actual_mu)</span>
+</span><span data-line="651">        <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">d</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">selected</span><span class="p">])</span>  <span class="c1"># (n, actual_mu)</span>
 </span><span data-line="652">        <span class="n">rank_mu</span> <span class="o">=</span> <span class="p">(</span><span class="n">Y</span> <span class="o">*</span> <span class="n">w</span><span class="p">[:</span><span class="n">actual_mu</span><span class="p">])</span> <span class="o">@</span> <span class="n">Y</span><span class="o">.</span><span class="n">T</span>  <span class="c1"># weighted outer-product sum</span>
 </span><span data-line="653">
 </span><span data-line="654">        <span class="c1"># Correction for h_sigma = 0</span>
@@ -824,7 +825,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="680">            <span class="k">try</span><span class="p">:</span>
 </span><span data-line="681">                <span class="n">eigvals</span><span class="p">,</span> <span class="n">B_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">C_sym</span><span class="p">)</span>
 </span><span data-line="682">            <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
-</span><span data-line="683">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;CMA-ES: eigendecomposition failed — resetting C&quot;</span><span class="p">)</span>
+</span><span data-line="683">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"CMA-ES: eigendecomposition failed — resetting C"</span><span class="p">)</span>
 </span><span data-line="684">                <span class="bp">self</span><span class="o">.</span><span class="n">_reset_covariance</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 </span><span data-line="685">                <span class="k">return</span>
 </span><span data-line="686">
@@ -837,11 +838,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="693">
 </span><span data-line="694">            <span class="c1"># Condition-number guard</span>
 </span><span data-line="695">            <span class="k">if</span> <span class="n">D_new</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="n">D_new</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">1e7</span><span class="p">:</span>
-</span><span data-line="696">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;CMA-ES: condition number too large — resetting C&quot;</span><span class="p">)</span>
+</span><span data-line="696">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"CMA-ES: condition number too large — resetting C"</span><span class="p">)</span>
 </span><span data-line="697">                <span class="bp">self</span><span class="o">.</span><span class="n">_reset_covariance</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 </span><span data-line="698">
 </span><span data-line="699">    <span class="k">def</span><span class="w"> </span><span class="nf">_reset_covariance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="700"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset covariance to identity (recover from ill-conditioning).&quot;&quot;&quot;</span>
+</span><span data-line="700"><span class="w">        </span><span class="sd">"""Reset covariance to identity (recover from ill-conditioning)."""</span>
 </span><span data-line="701">        <span class="bp">self</span><span class="o">.</span><span class="n">_C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 </span><span data-line="702">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_c</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
 </span><span data-line="703">        <span class="bp">self</span><span class="o">.</span><span class="n">_p_sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
@@ -870,14 +871,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.jso"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.jso"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 -- 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">jSO Heuristic</span>
 </span><span data-line="18"><span class="sd">=============</span>
 </span><span data-line="19">
@@ -199,11 +200,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="66"><span class="sd">   at ``M_F = M_CR = 0.9`` and never updated by the SHADE Lehmer-mean</span>
 </span><span data-line="67"><span class="sd">   rule.  ``_update_memory`` advances the pointer through indices</span>
 </span><span data-line="68"><span class="sd">   ``[0, H − 2]``; the anchor bin is still drawn from at sampling time,</span>
-</span><span data-line="69"><span class="sd">   so it stably contributes a &quot;moderately greedy&quot; parameter setting</span>
+</span><span data-line="69"><span class="sd">   so it stably contributes a "moderately greedy" parameter setting</span>
 </span><span data-line="70"><span class="sd">   regardless of what the live success-history has learned.</span>
 </span><span data-line="71">
 </span><span data-line="72"><span class="sd">5. **Initial memory values**.  ``M_F[0..H − 2]`` start at ``0.3``</span>
-</span><span data-line="73"><span class="sd">   (vs L-SHADE&#39;s ``0.5``) and ``M_CR[0..H − 2]`` start at ``0.8``</span>
+</span><span data-line="73"><span class="sd">   (vs L-SHADE's ``0.5``) and ``M_CR[0..H − 2]`` start at ``0.8``</span>
 </span><span data-line="74"><span class="sd">   (vs ``0.5``).  These are the values Brest et al. measured to</span>
 </span><span data-line="75"><span class="sd">   give good early-run behaviour across the CEC battery.</span>
 </span><span data-line="76">
@@ -217,7 +218,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="84"><span class="sd">are :meth:`_generate_trial` (``F_w`` weighting + linear ``p_best``)</span>
 </span><span data-line="85"><span class="sd">and :meth:`_update_memory` (skip the anchor bin, advance pointer</span>
 </span><span data-line="86"><span class="sd">mod ``H − 1``).  The asymmetric F-cap is inherited from</span>
-</span><span data-line="87"><span class="sd">:meth:`LSHADE._apply_F_cap` via ``F_schedule=&quot;jso&quot;``.</span>
+</span><span data-line="87"><span class="sd">:meth:`LSHADE._apply_F_cap` via ``F_schedule="jso"``.</span>
 </span><span data-line="88">
 </span><span data-line="89"><span class="sd">Progress measurement uses ``len(strategy.results) / max_eval`` —</span>
 </span><span data-line="90"><span class="sd">the same idiom L-SHADE uses for LPSR pacing — so the F-clamping and</span>
@@ -226,21 +227,21 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="93"><span class="sd">When the strategy budget is unknown (no ``max_eval``, zero, or</span>
 </span><span data-line="94"><span class="sd">non-numeric), jSO falls back to ``progress = 0.0`` for the ``F_w``</span>
 </span><span data-line="95"><span class="sd">schedule, ``p_best = p_best_max`` for the greediness schedule, and</span>
-</span><span data-line="96"><span class="sd">the F-cap is bypassed entirely.  This matches L-SHADE&#39;s &quot;no budget</span>
-</span><span data-line="97"><span class="sd">→ no LPSR&quot; fallback and keeps the heuristic safe in unmeasured</span>
+</span><span data-line="96"><span class="sd">the F-cap is bypassed entirely.  This matches L-SHADE's "no budget</span>
+</span><span data-line="97"><span class="sd">→ no LPSR" fallback and keeps the heuristic safe in unmeasured</span>
 </span><span data-line="98"><span class="sd">environments.</span>
 </span><span data-line="99">
 </span><span data-line="100"><span class="sd">References</span>
 </span><span data-line="101"><span class="sd">----------</span>
 </span><span data-line="102">
-</span><span data-line="103"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017).  &quot;Single Objective</span>
-</span><span data-line="104"><span class="sd">  Real-Parameter Optimization: Algorithm jSO.&quot;  *Proceedings of CEC</span>
+</span><span data-line="103"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017).  "Single Objective</span>
+</span><span data-line="104"><span class="sd">  Real-Parameter Optimization: Algorithm jSO."  *Proceedings of CEC</span>
 </span><span data-line="105"><span class="sd">  2017*, pp. 1311-1318.  Winner of the CEC-2017 single-objective</span>
 </span><span data-line="106"><span class="sd">  bound-constrained competition.</span>
-</span><span data-line="107"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2014).  &quot;Improving the Search Performance</span>
-</span><span data-line="108"><span class="sd">  of SHADE Using Linear Population Size Reduction.&quot;  *Proceedings of</span>
+</span><span data-line="107"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2014).  "Improving the Search Performance</span>
+</span><span data-line="108"><span class="sd">  of SHADE Using Linear Population Size Reduction."  *Proceedings of</span>
 </span><span data-line="109"><span class="sd">  CEC 2014*.  The L-SHADE foundation jSO refines.</span>
-</span><span data-line="110"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="110"><span class="sd">"""</span>
 </span><span data-line="111">
 </span><span data-line="112"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="113">
@@ -260,7 +261,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="127"><span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.125</span>
 </span><span data-line="128"><span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
 </span><span data-line="129">
-</span><span data-line="130"><span class="c1"># Initial memory values (vs L-SHADE&#39;s 0.5 / 0.5).</span>
+</span><span data-line="130"><span class="c1"># Initial memory values (vs L-SHADE's 0.5 / 0.5).</span>
 </span><span data-line="131"><span class="n">_INIT_M_F</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.3</span>
 </span><span data-line="132"><span class="n">_INIT_M_CR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>
 </span><span data-line="133">
@@ -280,13 +281,13 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="JSO">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.JSO">[docs]</a>
 </span><span data-line="147"><span class="k">class</span><span class="w"> </span><span class="nc">JSO</span><span class="p">(</span><span class="n">LSHADE</span><span class="p">):</span>
-</span><span data-line="148"><span class="w">    </span><span class="sd">&quot;&quot;&quot;jSO: linear-p_best, weighted-mutation refinement of L-SHADE.</span>
+</span><span data-line="148"><span class="w">    </span><span class="sd">"""jSO: linear-p_best, weighted-mutation refinement of L-SHADE.</span>
 </span><span data-line="149">
 </span><span data-line="150"><span class="sd">    Args:</span>
 </span><span data-line="151"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="152"><span class="sd">        NP_init: Initial population size, or ``&quot;auto&quot;`` for budget-adaptive</span>
+</span><span data-line="152"><span class="sd">        NP_init: Initial population size, or ``"auto"`` for budget-adaptive</span>
 </span><span data-line="153"><span class="sd">            sizing.  Default ``30``.  See</span>
-</span><span data-line="154"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``&quot;auto&quot;``</span>
+</span><span data-line="154"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``"auto"``</span>
 </span><span data-line="155"><span class="sd">            sizing formula and budget notes.</span>
 </span><span data-line="156"><span class="sd">        NP_min: Minimum population size after LPSR shrinking.  Default</span>
 </span><span data-line="157"><span class="sd">            ``4``.</span>
@@ -301,7 +302,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="166"><span class="sd">        archive_factor: Multiplier for the external archive size.</span>
 </span><span data-line="167"><span class="sd">            Default ``1.0``.  Setting it to ``0`` disables the archive.</span>
 </span><span data-line="168"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
-</span><span data-line="169"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="169"><span class="sd">        name: Override the heuristic's display name.</span>
 </span><span data-line="170">
 </span><span data-line="171"><span class="sd">    Notes:</span>
 </span><span data-line="172"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
@@ -316,8 +317,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="181"><span class="sd">        - When the strategy budget is unknown, jSO degrades gracefully:</span>
 </span><span data-line="182"><span class="sd">          ``progress = 0.0`` for the F-clamp and ``F_w`` schedule, and</span>
 </span><span data-line="183"><span class="sd">          ``p_best = p_best_max`` for the greediness schedule.  This</span>
-</span><span data-line="184"><span class="sd">          matches L-SHADE&#39;s LPSR fallback.</span>
-</span><span data-line="185"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="184"><span class="sd">          matches L-SHADE's LPSR fallback.</span>
+</span><span data-line="185"><span class="sd">    """</span>
 </span><span data-line="186">
 </span><span data-line="187">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="188">        <span class="bp">self</span><span class="p">,</span>
@@ -332,15 +333,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="197">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="198">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="199">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
-</span><span data-line="200">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: H must be an integer, got </span><span class="si">{</span><span class="n">H</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="200">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"JSO: H must be an integer, got </span><span class="si">{</span><span class="n">H</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="201">        <span class="k">if</span> <span class="n">H</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="202">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: H must be &gt;= 2 (anchor bin requires at least one writable bin), got </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="202">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"JSO: H must be &gt;= 2 (anchor bin requires at least one writable bin), got </span><span class="si">{</span><span class="n">H</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="203">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p_best_max</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">p_best_max</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="204">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: p_best_max must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best_max</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="204">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"JSO: p_best_max must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best_max</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="205">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">p_best_min</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">p_best_min</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="206">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: p_best_min must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best_min</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="206">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"JSO: p_best_min must be in (0, 1], got </span><span class="si">{</span><span class="n">p_best_min</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="207">        <span class="k">if</span> <span class="n">p_best_min</span> <span class="o">&gt;</span> <span class="n">p_best_max</span><span class="p">:</span>
-</span><span data-line="208">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSO: p_best_min (</span><span class="si">{</span><span class="n">p_best_min</span><span class="si">}</span><span class="s2">) must be &lt;= p_best_max (</span><span class="si">{</span><span class="n">p_best_max</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="208">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"JSO: p_best_min (</span><span class="si">{</span><span class="n">p_best_min</span><span class="si">}</span><span class="s2">) must be &lt;= p_best_max (</span><span class="si">{</span><span class="n">p_best_max</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </span><span data-line="209">
 </span><span data-line="210">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="211">            <span class="n">strategy</span><span class="p">,</span>
@@ -349,9 +350,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="214">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
 </span><span data-line="215">            <span class="n">p_best</span><span class="o">=</span><span class="n">p_best_max</span><span class="p">,</span>  <span class="c1"># parent stores fixed greediness; we override per-call</span>
 </span><span data-line="216">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
-</span><span data-line="217">            <span class="n">F_schedule</span><span class="o">=</span><span class="s2">&quot;jso&quot;</span><span class="p">,</span>  <span class="c1"># jSO opts into the asymmetric F-cap by construction</span>
+</span><span data-line="217">            <span class="n">F_schedule</span><span class="o">=</span><span class="s2">"jso"</span><span class="p">,</span>  <span class="c1"># jSO opts into the asymmetric F-cap by construction</span>
 </span><span data-line="218">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-</span><span data-line="219">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;JSO&quot;</span><span class="p">,</span>
+</span><span data-line="219">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"JSO"</span><span class="p">,</span>
 </span><span data-line="220">        <span class="p">)</span>
 </span><span data-line="221">        <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_best_max</span><span class="p">)</span>
 </span><span data-line="222">        <span class="bp">self</span><span class="o">.</span><span class="n">p_best_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">p_best_min</span><span class="p">)</span>
@@ -368,7 +369,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="233">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="234">
 </span><span data-line="235">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_p_best</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="236"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Linear ``p_best`` schedule from ``p_best_max`` to ``p_best_min``.</span>
+</span><span data-line="236"><span class="w">        </span><span class="sd">"""Linear ``p_best`` schedule from ``p_best_max`` to ``p_best_min``.</span>
 </span><span data-line="237">
 </span><span data-line="238"><span class="sd">        Overrides :meth:`LSHADE._current_p_best` (which uses the</span>
 </span><span data-line="239"><span class="sd">        ``p_best`` / ``p_best_end`` annealing pair) because jSO names</span>
@@ -377,17 +378,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="242"><span class="sd">        budget is unknown the schedule falls back to</span>
 </span><span data-line="243"><span class="sd">        ``p_best_max`` (the early-phase value), matching the L-SHADE</span>
 </span><span data-line="244"><span class="sd">        fall-back pattern.</span>
-</span><span data-line="245"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="245"><span class="sd">        """</span>
 </span><span data-line="246">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
 </span><span data-line="247">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="248">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span>
 </span><span data-line="249">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best_min</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span><span class="p">)</span>
 </span><span data-line="250">
 </span><span data-line="251">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_F_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="252"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Three-phase ``F_w`` factor for the weighted current-to-pbest term.</span>
+</span><span data-line="252"><span class="w">        </span><span class="sd">"""Three-phase ``F_w`` factor for the weighted current-to-pbest term.</span>
 </span><span data-line="253">
 </span><span data-line="254"><span class="sd">        Falls back to the early-phase factor when the budget is unknown.</span>
-</span><span data-line="255"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="255"><span class="sd">        """</span>
 </span><span data-line="256">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
 </span><span data-line="257">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="258">            <span class="k">return</span> <span class="n">_FW_PHASE1_FACTOR</span>
@@ -402,15 +403,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="267">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="268">
 </span><span data-line="269">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_trial</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="270"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build and emit one ``current-to-pbest-w/1`` trial vector.</span>
+</span><span data-line="270"><span class="w">        </span><span class="sd">"""Build and emit one ``current-to-pbest-w/1`` trial vector.</span>
 </span><span data-line="271">
-</span><span data-line="272"><span class="sd">        Differs from L-SHADE&#39;s ``current-to-pbest/1`` by:</span>
+</span><span data-line="272"><span class="sd">        Differs from L-SHADE's ``current-to-pbest/1`` by:</span>
 </span><span data-line="273">
 </span><span data-line="274"><span class="sd">        * applying the linear ``p_best`` schedule (``_current_p_best``)</span>
 </span><span data-line="275"><span class="sd">          when picking the pbest pool size;</span>
 </span><span data-line="276"><span class="sd">        * weighting the pbest direction by ``F_w`` (``_current_F_weight``)</span>
 </span><span data-line="277"><span class="sd">          while keeping the differential ``F`` unchanged.</span>
-</span><span data-line="278"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="278"><span class="sd">        """</span>
 </span><span data-line="279">        <span class="n">live</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_live_indices</span><span class="p">()</span>
 </span><span data-line="280">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">live</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">target_idx</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">live</span><span class="p">:</span>
 </span><span data-line="281">            <span class="k">return</span>
@@ -469,12 +470,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="334">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">,</span> <span class="n">F</span><span class="p">,</span> <span class="n">CR</span><span class="p">)</span>
 </span><span data-line="335">
 </span><span data-line="336">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="337"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the Lehmer-mean memory update, skipping the anchor bin.</span>
+</span><span data-line="337"><span class="w">        </span><span class="sd">"""Apply the Lehmer-mean memory update, skipping the anchor bin.</span>
 </span><span data-line="338">
 </span><span data-line="339"><span class="sd">        Identical to :meth:`LSHADE._update_memory` except the writable</span>
 </span><span data-line="340"><span class="sd">        index range is ``[0, H − 2]`` (the anchor bin ``H − 1`` is</span>
 </span><span data-line="341"><span class="sd">        frozen).  The pointer wraps modulo ``H − 1``.</span>
-</span><span data-line="342"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="342"><span class="sd">        """</span>
 </span><span data-line="343">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="p">:</span>
 </span><span data-line="344">            <span class="k">return</span>
 </span><span data-line="345">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>  <span class="c1"># defensive — constructor enforces H &gt;= 2</span>
@@ -520,7 +521,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="JSO.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.JSO.on_start">[docs]</a>
 </span><span data-line="385">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="386"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state, plant the anchor bin, and emit initial trials.&quot;&quot;&quot;</span>
+</span><span data-line="386"><span class="w">        </span><span class="sd">"""Allocate state, plant the anchor bin, and emit initial trials."""</span>
 </span><span data-line="387">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
 </span><span data-line="388">        <span class="c1"># ``LSHADE.on_start`` resets memory to ``0.5`` — re-stamp the jSO</span>
 </span><span data-line="389">        <span class="c1"># initial values *and* the frozen anchor bin afterwards.</span>
@@ -532,13 +533,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="394">
 <div class="viewcode-block" id="JSO.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.JSO.on_restart">[docs]</a>
-</span><span data-line="395">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="396"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop in-flight state and reseed the population around ``center``.</span>
+</span><span data-line="395">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="396"><span class="w">        </span><span class="sd">"""Drop in-flight state and reseed the population around ``center``.</span>
 </span><span data-line="397">
 </span><span data-line="398"><span class="sd">        Mirrors :meth:`LSHADE.on_restart` but re-stamps the jSO initial</span>
 </span><span data-line="399"><span class="sd">        memory values and the frozen anchor bin so the warm-restart</span>
 </span><span data-line="400"><span class="sd">        memory matches construction-time.</span>
-</span><span data-line="401"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="401"><span class="sd">        """</span>
 </span><span data-line="402">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
 </span><span data-line="403">        <span class="c1"># ``LSHADE.on_restart`` resets memory to ``0.5`` — re-stamp jSO.</span>
 </span><span data-line="404">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">_INIT_M_F</span>
@@ -569,14 +570,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

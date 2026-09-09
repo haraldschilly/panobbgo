@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.nearby"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.nearby"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012-2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Nearby Heuristic</span>
 </span><span data-line="18"><span class="sd">================</span>
 </span><span data-line="19">
@@ -172,7 +173,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="39"><span class="sd">With ``quadratic=True`` the heuristic keeps a small rolling buffer of the most</span>
 </span><span data-line="40"><span class="sd">recent evaluated ``(x, f(x))`` pairs and, on each new best, fits a **local</span>
 </span><span data-line="41"><span class="sd">quadratic model** to the points nearest the incumbent (distance-weighted ridge</span>
-</span><span data-line="42"><span class="sd">least squares in box-normalised coordinates).  It then emits the model&#39;s</span>
+</span><span data-line="42"><span class="sd">least squares in box-normalised coordinates).  It then emits the model's</span>
 </span><span data-line="43"><span class="sd">trust-region-constrained Newton minimiser as the *first* refinement point — a</span>
 </span><span data-line="44"><span class="sd">curvature-aware step that follows the valley floor — while the remaining</span>
 </span><span data-line="45"><span class="sd">``new - 1`` points stay isotropic perturbations so exploration is preserved.</span>
@@ -181,7 +182,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="48"><span class="sd">classic behaviour.  ``quadratic=False`` (the default) is byte-for-byte the</span>
 </span><span data-line="49"><span class="sd">historical heuristic — no buffer is kept and no model is ever fitted.</span>
 </span><span data-line="50">
-</span><span data-line="51"><span class="sd">Diagonal-plus-low-rank Hessian (``quadratic_hessian_rank=&quot;auto&quot;``)</span>
+</span><span data-line="51"><span class="sd">Diagonal-plus-low-rank Hessian (``quadratic_hessian_rank="auto"``)</span>
 </span><span data-line="52"><span class="sd">------------------------------------------------------------------</span>
 </span><span data-line="53">
 </span><span data-line="54"><span class="sd">A *full* quadratic has ``dim·(dim+1)/2`` coupling coefficients and needs</span>
@@ -190,7 +191,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="57"><span class="sd">the fitted Hessian recovers per-axis (marginal) curvature but *not* the</span>
 </span><span data-line="58"><span class="sd">coordinate *coupling* that defines a Rosenbrock valley — the residual half of</span>
 </span><span data-line="59"><span class="sd">the ``Rosenbrock_5D`` gap that localising the fit (2026-07-11) left open.  With</span>
-</span><span data-line="60"><span class="sd">``quadratic_hessian_rank=&quot;auto&quot;`` (the default) the local cloud is first</span>
+</span><span data-line="60"><span class="sd">``quadratic_hessian_rank="auto"`` (the default) the local cloud is first</span>
 </span><span data-line="61"><span class="sd">rotated into its weighted principal-component basis and a</span>
 </span><span data-line="62"><span class="sd">*diagonal-plus-low-rank* quadratic is fitted with coupling terms only among the</span>
 </span><span data-line="63"><span class="sd">top-``r`` PCA directions — the subspace the data actually explores — with ``r``</span>
@@ -198,7 +199,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="65"><span class="sd">axis with the valley floor and captures its anisotropy from far fewer,</span>
 </span><span data-line="66"><span class="sd">better-determined parameters; on an isotropic / full-rank neighbourhood BIC</span>
 </span><span data-line="67"><span class="sd">keeps the full model, so the change never regresses the smooth-sphere case.</span>
-</span><span data-line="68"><span class="sd">At ``dim ≤ 2`` — a single, always-well-determined cross term — ``&quot;auto&quot;`` keeps</span>
+</span><span data-line="68"><span class="sd">At ``dim ≤ 2`` — a single, always-well-determined cross term — ``"auto"`` keeps</span>
 </span><span data-line="69"><span class="sd">the legacy full quadratic, so the default is byte-identical to the previous</span>
 </span><span data-line="70"><span class="sd">behaviour on the 2-D battery the self-improvement loop measures and purely</span>
 </span><span data-line="71"><span class="sd">additive for the higher-dimensional problems the coupling model targets.  See</span>
@@ -210,7 +211,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="77"><span class="sd">from points the *rest of the portfolio* already evaluated, so it spends **zero**</span>
 </span><span data-line="78"><span class="sd">extra objective evaluations building its curvature estimate — the L-BFGS-B</span>
 </span><span data-line="79"><span class="sd">worker, by contrast, spends ``O(dim)`` evaluations per gradient.</span>
-</span><span data-line="80"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="80"><span class="sd">"""</span>
 </span><span data-line="81">
 </span><span data-line="82"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 </span><span data-line="83">
@@ -220,7 +221,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="87">
 </span><span data-line="88">
 </span><span data-line="89"><span class="k">def</span><span class="w"> </span><span class="nf">_distance_weights</span><span class="p">(</span><span class="n">dists</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">weight_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="90"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-sample weights for the local fit (see ``fit_quadratic_step``).&quot;&quot;&quot;</span>
+</span><span data-line="90"><span class="w">    </span><span class="sd">"""Per-sample weights for the local fit (see ``fit_quadratic_step``)."""</span>
 </span><span data-line="91">    <span class="k">if</span> <span class="n">weight_sigma</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="92">        <span class="n">rank</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">dists</span><span class="p">))</span>
 </span><span data-line="93">        <span class="k">return</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">rank</span><span class="p">)</span>
@@ -234,14 +235,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="101">
 </span><span data-line="102">
 </span><span data-line="103"><span class="k">def</span><span class="w"> </span><span class="nf">_solve_weighted_ridge</span><span class="p">(</span><span class="n">phi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ridge</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="104"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Weighted ridge least squares with an intercept-free per-column penalty.</span>
+</span><span data-line="104"><span class="w">    </span><span class="sd">"""Weighted ridge least squares with an intercept-free per-column penalty.</span>
 </span><span data-line="105">
 </span><span data-line="106"><span class="sd">    Shrinks each coefficient relative to its *own* column scale, leaving the</span>
 </span><span data-line="107"><span class="sd">    intercept unpenalised.  A single trace-based lambda would be dominated by</span>
 </span><span data-line="108"><span class="sd">    the intercept column (whose scale is ~1) and would swamp the much</span>
 </span><span data-line="109"><span class="sd">    smaller-scaled linear / quadratic columns, biasing the recovered minimiser</span>
 </span><span data-line="110"><span class="sd">    badly.  Returns the coefficient vector, or ``None`` on a singular system.</span>
-</span><span data-line="111"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="111"><span class="sd">    """</span>
 </span><span data-line="112">    <span class="n">phi_w</span> <span class="o">=</span> <span class="n">phi</span> <span class="o">*</span> <span class="n">w</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span>
 </span><span data-line="113">    <span class="n">ata</span> <span class="o">=</span> <span class="n">phi</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">phi_w</span>
 </span><span data-line="114">    <span class="n">aty</span> <span class="o">=</span> <span class="n">phi_w</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">values</span>
@@ -257,7 +258,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="124">
 </span><span data-line="125">
 </span><span data-line="126"><span class="k">def</span><span class="w"> </span><span class="nf">_weighted_ss</span><span class="p">(</span><span class="n">phi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">beta</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-</span><span data-line="127"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``(ss_res, ss_tot)`` — the weighted residual / total sum of squares.&quot;&quot;&quot;</span>
+</span><span data-line="127"><span class="w">    </span><span class="sd">"""Return ``(ss_res, ss_tot)`` — the weighted residual / total sum of squares."""</span>
 </span><span data-line="128">    <span class="n">pred</span> <span class="o">=</span> <span class="n">phi</span> <span class="o">@</span> <span class="n">beta</span>
 </span><span data-line="129">    <span class="n">wsum</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 </span><span data-line="130">    <span class="n">wmean</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="n">w</span> <span class="o">*</span> <span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">wsum</span><span class="p">)</span> <span class="k">if</span> <span class="n">wsum</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
@@ -275,7 +276,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="142">    <span class="n">hessian_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span data-line="143">    <span class="n">min_r2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
 </span><span data-line="144"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="145"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a *diagonal-plus-low-rank* quadratic in the weighted-PCA basis.</span>
+</span><span data-line="145"><span class="w">    </span><span class="sd">"""Fit a *diagonal-plus-low-rank* quadratic in the weighted-PCA basis.</span>
 </span><span data-line="146">
 </span><span data-line="147"><span class="sd">    A full quadratic has ``dim·(dim+1)/2`` coupling terms and needs ``O(dim²)``</span>
 </span><span data-line="148"><span class="sd">    local points to estimate them; from a thin cloud the ridge shrinks the</span>
@@ -294,11 +295,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="161"><span class="sd">    valley floor and captures its anisotropy with far fewer, better-determined</span>
 </span><span data-line="162"><span class="sd">    parameters.</span>
 </span><span data-line="163">
-</span><span data-line="164"><span class="sd">    With ``hessian_rank=&quot;auto&quot;`` the rank is chosen per fit by BIC over</span>
+</span><span data-line="164"><span class="sd">    With ``hessian_rank="auto"`` the rank is chosen per fit by BIC over</span>
 </span><span data-line="165"><span class="sd">    ``r ∈ {0, …, dim}``, so an isotropic / full-rank neighbourhood keeps the</span>
 </span><span data-line="166"><span class="sd">    full model while a thin valley cloud collapses to the robust low-rank one.</span>
 </span><span data-line="167"><span class="sd">    Returns the model ``(g, H)`` in normalised coordinates, or ``None``.</span>
-</span><span data-line="168"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="168"><span class="sd">    """</span>
 </span><span data-line="169">    <span class="n">n</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 </span><span data-line="170">    <span class="n">wsum</span> <span class="o">=</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 </span><span data-line="171">    <span class="k">if</span> <span class="n">wsum</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
@@ -318,7 +319,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="185">    <span class="n">ones</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 </span><span data-line="186">    <span class="n">diag_sq</span> <span class="o">=</span> <span class="n">wcoord</span><span class="o">**</span><span class="mi">2</span>
 </span><span data-line="187">
-</span><span data-line="188">    <span class="k">if</span> <span class="n">hessian_rank</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span><span class="p">:</span>
+</span><span data-line="188">    <span class="k">if</span> <span class="n">hessian_rank</span> <span class="o">==</span> <span class="s2">"auto"</span><span class="p">:</span>
 </span><span data-line="189">        <span class="n">candidate_ranks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
 </span><span data-line="190">    <span class="k">else</span><span class="p">:</span>
 </span><span data-line="191">        <span class="n">candidate_ranks</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">hessian_rank</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">dim</span><span class="p">))]</span>
@@ -387,9 +388,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="254">    <span class="n">min_r2</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
 </span><span data-line="255">    <span class="n">max_points</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="256">    <span class="n">weight_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="mf">0.35</span><span class="p">,</span>
-</span><span data-line="257">    <span class="n">hessian_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+</span><span data-line="257">    <span class="n">hessian_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
 </span><span data-line="258"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="259"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fit a local quadratic model and return a trust-region Newton step.</span>
+</span><span data-line="259"><span class="w">    </span><span class="sd">"""Fit a local quadratic model and return a trust-region Newton step.</span>
 </span><span data-line="260">
 </span><span data-line="261"><span class="sd">    Fits ``f(x) ≈ b + gᵀu + ½ uᵀ H u`` (with ``u = (x - center) / ranges`` a</span>
 </span><span data-line="262"><span class="sd">    box-normalised offset) to the ``(points, values)`` sample by</span>
@@ -399,7 +400,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="266"><span class="sd">    space.  Returns ``None`` when no reliable step is available.</span>
 </span><span data-line="267">
 </span><span data-line="268"><span class="sd">    Working in normalised coordinates keeps the design matrix well conditioned</span>
-</span><span data-line="269"><span class="sd">    regardless of the box scale — crucial under the randomized battery&#39;s</span>
+</span><span data-line="269"><span class="sd">    regardless of the box scale — crucial under the randomized battery's</span>
 </span><span data-line="270"><span class="sd">    log-uniform diagonal scaling, which is exactly the ill-conditioning a</span>
 </span><span data-line="271"><span class="sd">    curvature-aware step is meant to exploit.</span>
 </span><span data-line="272">
@@ -436,8 +437,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="303"><span class="sd">            ``planning/SELF_IMPROVEMENT_LOG.md``).  ``None`` selects the legacy</span>
 </span><span data-line="304"><span class="sd">            rank-based weights ``1 / (1 + rank)`` (byte-for-byte the pre-</span>
 </span><span data-line="305"><span class="sd">            2026-07-11 behaviour) for callers that need it.  Default ``0.35``.</span>
-</span><span data-line="306"><span class="sd">        hessian_rank: Controls the Hessian model&#39;s coupling rank (see</span>
-</span><span data-line="307"><span class="sd">            :func:`_fit_reduced_hessian`).  ``&quot;auto&quot;`` (default) fits a</span>
+</span><span data-line="306"><span class="sd">        hessian_rank: Controls the Hessian model's coupling rank (see</span>
+</span><span data-line="307"><span class="sd">            :func:`_fit_reduced_hessian`).  ``"auto"`` (default) fits a</span>
 </span><span data-line="308"><span class="sd">            *diagonal-plus-low-rank* quadratic in the weighted-PCA basis and</span>
 </span><span data-line="309"><span class="sd">            selects the coupling rank per fit by BIC — a full quadratic needs</span>
 </span><span data-line="310"><span class="sd">            ``O(dim²)`` local points and, from a thin valley cloud, its ridge</span>
@@ -445,7 +446,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="312"><span class="sd">            not the coordinate *coupling* of a Rosenbrock valley), so BIC</span>
 </span><span data-line="313"><span class="sd">            collapses to a robust low-rank model there while keeping the full</span>
 </span><span data-line="314"><span class="sd">            model on an isotropic / full-rank neighbourhood.  At ``dim ≤ 2``</span>
-</span><span data-line="315"><span class="sd">            (a single cross term, always well determined) ``&quot;auto&quot;`` keeps the</span>
+</span><span data-line="315"><span class="sd">            (a single cross term, always well determined) ``"auto"`` keeps the</span>
 </span><span data-line="316"><span class="sd">            legacy full quadratic, so the model is byte-identical to the</span>
 </span><span data-line="317"><span class="sd">            pre-``hessian_rank`` behaviour on the 2-D battery and purely</span>
 </span><span data-line="318"><span class="sd">            additive for the higher-dimensional problems the coupling model</span>
@@ -454,11 +455,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="321"><span class="sd">            of ``dim``.  ``None`` selects the legacy single-model full quadratic</span>
 </span><span data-line="322"><span class="sd">            fitted in the *raw* axis basis (byte-for-byte the</span>
 </span><span data-line="323"><span class="sd">            pre-``hessian_rank`` behaviour) for callers that need it.  Default</span>
-</span><span data-line="324"><span class="sd">            ``&quot;auto&quot;``.</span>
+</span><span data-line="324"><span class="sd">            ``"auto"``.</span>
 </span><span data-line="325">
 </span><span data-line="326"><span class="sd">    Returns:</span>
 </span><span data-line="327"><span class="sd">        The raw-coordinate step ``p`` (shape ``(dim,)``), or ``None``.</span>
-</span><span data-line="328"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="328"><span class="sd">    """</span>
 </span><span data-line="329">    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 </span><span data-line="330">    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
 </span><span data-line="331">    <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
@@ -512,13 +513,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="379">    <span class="c1"># A full quadratic has only ``dim·(dim+1)/2`` coupling terms; at ``dim ≤ 2``</span>
 </span><span data-line="380">    <span class="c1"># that is a single cross term, always well determined, so the</span>
 </span><span data-line="381">    <span class="c1"># diagonal-plus-low-rank machinery cannot help and would only add BIC</span>
-</span><span data-line="382">    <span class="c1"># selection noise.  ``&quot;auto&quot;`` therefore keeps the legacy full quadratic</span>
+</span><span data-line="382">    <span class="c1"># selection noise.  ``"auto"`` therefore keeps the legacy full quadratic</span>
 </span><span data-line="383">    <span class="c1"># there — this makes it byte-identical to the pre-``hessian_rank`` behaviour</span>
 </span><span data-line="384">    <span class="c1"># on the 2-D battery the self-improvement loop measures, so the model change</span>
 </span><span data-line="385">    <span class="c1"># is purely additive for the higher-dimensional problems where a thin cloud</span>
 </span><span data-line="386">    <span class="c1"># actually under-determines the coupling.  An explicit integer rank is</span>
 </span><span data-line="387">    <span class="c1"># always honoured regardless of ``dim``.</span>
-</span><span data-line="388">    <span class="n">use_legacy</span> <span class="o">=</span> <span class="n">hessian_rank</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="n">hessian_rank</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">)</span>
+</span><span data-line="388">    <span class="n">use_legacy</span> <span class="o">=</span> <span class="n">hessian_rank</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="n">hessian_rank</span> <span class="o">==</span> <span class="s2">"auto"</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">)</span>
 </span><span data-line="389">
 </span><span data-line="390">    <span class="k">if</span> <span class="n">use_legacy</span><span class="p">:</span>
 </span><span data-line="391">        <span class="c1"># Legacy path: a single full quadratic fitted in the raw axis basis.</span>
@@ -580,8 +581,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="447">    <span class="c1"># Trust region: never step further than the local data supports.  A</span>
 </span><span data-line="448">    <span class="c1"># quadratic fitted to a small cloud is only trustworthy *inside* that</span>
 </span><span data-line="449">    <span class="c1"># cloud; stepping beyond it is extrapolation, which blows up on strongly</span>
-</span><span data-line="450">    <span class="c1"># non-quadratic landscapes (e.g. Rosenbrock&#39;s quartic valley).  Cap the</span>
-</span><span data-line="451">    <span class="c1"># step at the smaller of the caller&#39;s ``trust_radius`` and the radius of</span>
+</span><span data-line="450">    <span class="c1"># non-quadratic landscapes (e.g. Rosenbrock's quartic valley).  Cap the</span>
+</span><span data-line="451">    <span class="c1"># step at the smaller of the caller's ``trust_radius`` and the radius of</span>
 </span><span data-line="452">    <span class="c1"># the kept data cloud.</span>
 </span><span data-line="453">    <span class="n">support_radius</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dists</span><span class="p">))</span>
 </span><span data-line="454">    <span class="n">eff_trust</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">trust_radius</span><span class="p">,</span> <span class="n">support_radius</span><span class="p">)</span>
@@ -600,7 +601,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Nearby">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby">[docs]</a>
 </span><span data-line="467"><span class="k">class</span><span class="w"> </span><span class="nc">Nearby</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="468"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="468"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="469"><span class="sd">    Generates new points based on a cheap, fast algorithm.</span>
 </span><span data-line="470">
 </span><span data-line="471"><span class="sd">    For each new best point, generates ``new`` many nearby points by applying</span>
@@ -608,7 +609,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="473">
 </span><span data-line="474"><span class="sd">    When a :class:`~panobbgo.analyzers.sensitivity.Sensitivity` analyzer is active</span>
 </span><span data-line="475"><span class="sd">    and has produced importance scores, the perturbation along each dimension is</span>
-</span><span data-line="476"><span class="sd">    scaled proportionally to that dimension&#39;s importance score. This focuses the</span>
+</span><span data-line="476"><span class="sd">    scaled proportionally to that dimension's importance score. This focuses the</span>
 </span><span data-line="477"><span class="sd">    local search on dimensions that have the greatest impact on the objective,</span>
 </span><span data-line="478"><span class="sd">    making it significantly more efficient in high-dimensional problems.</span>
 </span><span data-line="479">
@@ -620,7 +621,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="485"><span class="sd">      * ``all``: perturb all axes simultaneously</span>
 </span><span data-line="486">
 </span><span data-line="487"><span class="sd">    - ``new``: number of new points to generate per best update (default: 1)</span>
-</span><span data-line="488"><span class="sd">    - ``radius``: perturbation size as a fraction of the dimension&#39;s range (default: 0.01)</span>
+</span><span data-line="488"><span class="sd">    - ``radius``: perturbation size as a fraction of the dimension's range (default: 0.01)</span>
 </span><span data-line="489"><span class="sd">    - ``sensitivity_scale``: when sensitivity data is available, scale perturbations</span>
 </span><span data-line="490"><span class="sd">      by dimension importance raised to this power (default: 1.0). Higher values focus</span>
 </span><span data-line="491"><span class="sd">      more aggressively on important dimensions; 0.0 disables sensitivity scaling.</span>
@@ -647,19 +648,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="512"><span class="sd">      unweighted fit over the whole buffer.  Only consulted when</span>
 </span><span data-line="513"><span class="sd">      ``quadratic=True``.  See :func:`fit_quadratic_step`.</span>
 </span><span data-line="514"><span class="sd">    - ``quadratic_hessian_rank``: coupling rank of the local Hessian model</span>
-</span><span data-line="515"><span class="sd">      (default: ``&quot;auto&quot;``).  ``&quot;auto&quot;`` fits a *diagonal-plus-low-rank*</span>
+</span><span data-line="515"><span class="sd">      (default: ``"auto"``).  ``"auto"`` fits a *diagonal-plus-low-rank*</span>
 </span><span data-line="516"><span class="sd">      quadratic in the weighted-PCA basis and selects the coupling rank per</span>
 </span><span data-line="517"><span class="sd">      fit by BIC, which recovers the coordinate *coupling* of a curved</span>
 </span><span data-line="518"><span class="sd">      (Rosenbrock) valley from a thin local cloud that a ridge-regularised full</span>
 </span><span data-line="519"><span class="sd">      quadratic shrinks to zero — while still keeping the full model on an</span>
 </span><span data-line="520"><span class="sd">      isotropic neighbourhood.  A non-negative ``int`` pins the rank (``0`` =</span>
 </span><span data-line="521"><span class="sd">      diagonal in the PCA basis; ``≥ dim`` = full quadratic); ``None`` selects</span>
-</span><span data-line="522"><span class="sd">      the legacy full quadratic fitted in the raw axis basis.  ``&quot;auto&quot;`` keeps</span>
+</span><span data-line="522"><span class="sd">      the legacy full quadratic fitted in the raw axis basis.  ``"auto"`` keeps</span>
 </span><span data-line="523"><span class="sd">      the legacy full quadratic at ``dim ≤ 2`` (byte-identical to the previous</span>
 </span><span data-line="524"><span class="sd">      behaviour on the 2-D battery), engaging the coupling model only at</span>
 </span><span data-line="525"><span class="sd">      ``dim ≥ 3`` where a thin cloud under-determines the cross terms.  Only</span>
 </span><span data-line="526"><span class="sd">      consulted when ``quadratic=True``.  See :func:`fit_quadratic_step`.</span>
-</span><span data-line="527"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="527"><span class="sd">    """</span>
 </span><span data-line="528">
 <div class="viewcode-block" id="Nearby.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.nearby.Nearby.html#panobbgo.heuristics.nearby.Nearby.__init__">[docs]</a>
@@ -669,38 +670,38 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="532">        <span class="n">cap</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
 </span><span data-line="533">        <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="mi">100</span><span class="p">,</span>
 </span><span data-line="534">        <span class="n">new</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-</span><span data-line="535">        <span class="n">axes</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;one&quot;</span><span class="p">,</span>
+</span><span data-line="535">        <span class="n">axes</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"one"</span><span class="p">,</span>
 </span><span data-line="536">        <span class="n">sensitivity_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
 </span><span data-line="537">        <span class="n">quadratic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 </span><span data-line="538">        <span class="n">quadratic_trust</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span>
 </span><span data-line="539">        <span class="n">quadratic_min_r2</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span>
 </span><span data-line="540">        <span class="n">quadratic_weight_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.35</span><span class="p">,</span>
-</span><span data-line="541">        <span class="n">quadratic_hessian_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+</span><span data-line="541">        <span class="n">quadratic_hessian_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
 </span><span data-line="542">    <span class="p">):</span>
 </span><span data-line="543">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">quadratic</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="544">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nearby: quadratic must be a bool, got </span><span class="si">{</span><span class="n">quadratic</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="544">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Nearby: quadratic must be a bool, got </span><span class="si">{</span><span class="n">quadratic</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="545">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">quadratic_trust</span><span class="p">)</span> <span class="ow">or</span> <span class="n">quadratic_trust</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="546">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nearby: quadratic_trust must be a positive finite float, got </span><span class="si">{</span><span class="n">quadratic_trust</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="546">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Nearby: quadratic_trust must be a positive finite float, got </span><span class="si">{</span><span class="n">quadratic_trust</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="547">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">quadratic_min_r2</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">quadratic_min_r2</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="548">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nearby: quadratic_min_r2 must be a float in [0, 1], got </span><span class="si">{</span><span class="n">quadratic_min_r2</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="548">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Nearby: quadratic_min_r2 must be a float in [0, 1], got </span><span class="si">{</span><span class="n">quadratic_min_r2</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="549">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">quadratic_weight_sigma</span><span class="p">)</span> <span class="ow">or</span> <span class="n">quadratic_weight_sigma</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
 </span><span data-line="550">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="551">                <span class="sa">f</span><span class="s2">&quot;Nearby: quadratic_weight_sigma must be a positive finite float, got </span><span class="si">{</span><span class="n">quadratic_weight_sigma</span><span class="si">!r}</span><span class="s2">&quot;</span>
+</span><span data-line="551">                <span class="sa">f</span><span class="s2">"Nearby: quadratic_weight_sigma must be a positive finite float, got </span><span class="si">{</span><span class="n">quadratic_weight_sigma</span><span class="si">!r}</span><span class="s2">"</span>
 </span><span data-line="552">            <span class="p">)</span>
 </span><span data-line="553">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">quadratic_hessian_rank</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span>
-</span><span data-line="554">            <span class="n">quadratic_hessian_rank</span> <span class="o">==</span> <span class="s2">&quot;auto&quot;</span>
+</span><span data-line="554">            <span class="n">quadratic_hessian_rank</span> <span class="o">==</span> <span class="s2">"auto"</span>
 </span><span data-line="555">            <span class="ow">or</span> <span class="n">quadratic_hessian_rank</span> <span class="ow">is</span> <span class="kc">None</span>
 </span><span data-line="556">            <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">quadratic_hessian_rank</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
 </span><span data-line="557">        <span class="p">):</span>
 </span><span data-line="558">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="559">                <span class="s2">&quot;Nearby: quadratic_hessian_rank must be &#39;auto&#39;, None, or a non-negative int, &quot;</span>
-</span><span data-line="560">                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">quadratic_hessian_rank</span><span class="si">!r}</span><span class="s2">&quot;</span>
+</span><span data-line="559">                <span class="s2">"Nearby: quadratic_hessian_rank must be 'auto', None, or a non-negative int, "</span>
+</span><span data-line="560">                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="n">quadratic_hessian_rank</span><span class="si">!r}</span><span class="s2">"</span>
 </span><span data-line="561">            <span class="p">)</span>
 </span><span data-line="562">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">quadratic_hessian_rank</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="n">quadratic_hessian_rank</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="563">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Nearby: quadratic_hessian_rank must be non-negative, got </span><span class="si">{</span><span class="n">quadratic_hessian_rank</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="564">        <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Nearby </span><span class="si">%.3f</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
+</span><span data-line="563">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Nearby: quadratic_hessian_rank must be non-negative, got </span><span class="si">{</span><span class="n">quadratic_hessian_rank</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="564">        <span class="n">name</span> <span class="o">=</span> <span class="s2">"Nearby </span><span class="si">%.3f</span><span class="s2">/</span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="n">axes</span><span class="p">)</span>
 </span><span data-line="565">        <span class="k">if</span> <span class="n">quadratic</span><span class="p">:</span>
-</span><span data-line="566">            <span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;+quad&quot;</span>
+</span><span data-line="566">            <span class="n">name</span> <span class="o">+=</span> <span class="s2">"+quad"</span>
 </span><span data-line="567">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="n">cap</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
 </span><span data-line="568">        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="n">radius</span>
 </span><span data-line="569">        <span class="bp">self</span><span class="o">.</span><span class="n">new</span> <span class="o">=</span> <span class="n">new</span>
@@ -723,7 +724,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="586">        <span class="bp">self</span><span class="o">.</span><span class="n">_hist_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 </span><span data-line="587">        <span class="bp">self</span><span class="o">.</span><span class="n">_hist_x</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="588">        <span class="bp">self</span><span class="o">.</span><span class="n">_hist_f</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="589">        <span class="c1"># Cap sized to comfortably hold a full quadratic fit&#39;s worth of points</span>
+</span><span data-line="589">        <span class="c1"># Cap sized to comfortably hold a full quadratic fit's worth of points</span>
 </span><span data-line="590">        <span class="c1"># (n_features = 1 + dim + dim(dim+1)/2) with headroom for the nearest-</span>
 </span><span data-line="591">        <span class="c1"># point selection; resolved lazily on the first result batch.</span>
 </span><span data-line="592">        <span class="bp">self</span><span class="o">.</span><span class="n">_hist_cap</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span></div>
@@ -732,23 +733,23 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Nearby.on_new_sensitivity">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby.on_new_sensitivity">[docs]</a>
 </span><span data-line="594">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_sensitivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">importance</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="595"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="595"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="596"><span class="sd">        Called when the Sensitivity analyzer produces updated importance scores.</span>
 </span><span data-line="597">
 </span><span data-line="598"><span class="sd">        Args:</span>
 </span><span data-line="599"><span class="sd">            importance: Array of shape ``(dim,)`` with values in ``[0, 1]``.</span>
 </span><span data-line="600"><span class="sd">                Higher means more important. Used to scale perturbation per dimension.</span>
-</span><span data-line="601"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="601"><span class="sd">        """</span>
 </span><span data-line="602">        <span class="bp">self</span><span class="o">.</span><span class="n">_importance</span> <span class="o">=</span> <span class="n">importance</span></div>
 
 </span><span data-line="603">
 </span><span data-line="604">    <span class="k">def</span><span class="w"> </span><span class="nf">_perturbation_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="605"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="605"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="606"><span class="sd">        Return per-dimension perturbation weights based on sensitivity, or None.</span>
 </span><span data-line="607">
 </span><span data-line="608"><span class="sd">        Weights are non-negative and normalised so that their mean equals 1,</span>
 </span><span data-line="609"><span class="sd">        preserving the overall perturbation magnitude set by ``radius``.</span>
-</span><span data-line="610"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="610"><span class="sd">        """</span>
 </span><span data-line="611">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_importance</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">sensitivity_scale</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
 </span><span data-line="612">            <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="613">
@@ -762,23 +763,23 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="621">        <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="622">
 </span><span data-line="623">    <span class="k">def</span><span class="w"> </span><span class="nf">_make_perturbation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="624"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="624"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="625"><span class="sd">        Apply a single random perturbation to *x* and return the new candidate.</span>
 </span><span data-line="626">
 </span><span data-line="627"><span class="sd">        If sensitivity weights are available the perturbation is scaled per-dimension;</span>
 </span><span data-line="628"><span class="sd">        otherwise the standard uniform perturbation is used.</span>
-</span><span data-line="629"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="629"><span class="sd">        """</span>
 </span><span data-line="630">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 </span><span data-line="631">        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perturbation_weights</span><span class="p">()</span>
 </span><span data-line="632">
-</span><span data-line="633">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span>
+</span><span data-line="633">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span> <span class="o">==</span> <span class="s2">"all"</span><span class="p">:</span>
 </span><span data-line="634">            <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>
 </span><span data-line="635">            <span class="n">dx</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
 </span><span data-line="636">            <span class="k">if</span> <span class="n">weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="637">                <span class="n">dx</span> <span class="o">*=</span> <span class="n">weights</span>
 </span><span data-line="638">            <span class="n">new_x</span> <span class="o">+=</span> <span class="n">dx</span>
 </span><span data-line="639">
-</span><span data-line="640">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span> <span class="o">==</span> <span class="s2">&quot;one&quot;</span><span class="p">:</span>
+</span><span data-line="640">        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">axes</span> <span class="o">==</span> <span class="s2">"one"</span><span class="p">:</span>
 </span><span data-line="641">            <span class="k">if</span> <span class="n">weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="642">                <span class="c1"># Sample dimension proportional to importance</span>
 </span><span data-line="643">                <span class="n">probs</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">/</span> <span class="n">weights</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
@@ -793,14 +794,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="652">
 </span><span data-line="653">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="654">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="655">                <span class="sa">f</span><span class="s2">&quot;Nearby heuristic received invalid &#39;axes&#39; parameter: &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
-</span><span data-line="656">                <span class="sa">f</span><span class="s2">&quot;Valid options are &#39;one&#39; (perturb one axis) or &#39;all&#39; (perturb all axes).&quot;</span>
+</span><span data-line="655">                <span class="sa">f</span><span class="s2">"Nearby heuristic received invalid 'axes' parameter: '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">axes</span><span class="si">}</span><span class="s2">'. "</span>
+</span><span data-line="656">                <span class="sa">f</span><span class="s2">"Valid options are 'one' (perturb one axis) or 'all' (perturb all axes)."</span>
 </span><span data-line="657">            <span class="p">)</span>
 </span><span data-line="658">
 </span><span data-line="659">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">new_x</span><span class="p">)</span>
 </span><span data-line="660">
 </span><span data-line="661">    <span class="k">def</span><span class="w"> </span><span class="nf">_hist_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="662"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Rolling-buffer size — lazily sized to hold a full quadratic fit.&quot;&quot;&quot;</span>
+</span><span data-line="662"><span class="w">        </span><span class="sd">"""Rolling-buffer size — lazily sized to hold a full quadratic fit."""</span>
 </span><span data-line="663">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hist_cap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="664">            <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="665">            <span class="n">n_features</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">dim</span> <span class="o">+</span> <span class="n">dim</span> <span class="o">*</span> <span class="p">(</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
@@ -810,18 +811,18 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Nearby.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby.on_new_results">[docs]</a>
 </span><span data-line="669">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="670"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Accumulate recent ``(x, penalty-value)`` pairs for the quadratic fit.</span>
+</span><span data-line="670"><span class="w">        </span><span class="sd">"""Accumulate recent ``(x, penalty-value)`` pairs for the quadratic fit.</span>
 </span><span data-line="671">
 </span><span data-line="672"><span class="sd">        A no-op unless ``quadratic`` is enabled, so ``quadratic=False`` keeps</span>
 </span><span data-line="673"><span class="sd">        the classic heuristic free of any per-result bookkeeping.</span>
-</span><span data-line="674"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="674"><span class="sd">        """</span>
 </span><span data-line="675">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">quadratic</span><span class="p">:</span>
 </span><span data-line="676">            <span class="k">return</span>
 </span><span data-line="677">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
 </span><span data-line="678">        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hist_capacity</span><span class="p">()</span>
 </span><span data-line="679">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hist_lock</span><span class="p">:</span>
 </span><span data-line="680">            <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="681">                <span class="n">x</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="681">                <span class="n">x</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="682">                <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="683">                    <span class="k">continue</span>
 </span><span data-line="684">                <span class="k">try</span><span class="p">:</span>
@@ -838,7 +839,7 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="695">
 </span><span data-line="696">    <span class="k">def</span><span class="w"> </span><span class="nf">_quadratic_candidate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="697"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the projected trust-region Newton step around ``center``, or None.&quot;&quot;&quot;</span>
+</span><span data-line="697"><span class="w">        </span><span class="sd">"""Return the projected trust-region Newton step around ``center``, or None."""</span>
 </span><span data-line="698">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hist_lock</span><span class="p">:</span>
 </span><span data-line="699">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hist_x</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
 </span><span data-line="700">                <span class="k">return</span> <span class="kc">None</span>
@@ -865,13 +866,13 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Nearby.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby.on_restart">[docs]</a>
 </span><span data-line="721">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="722"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="722"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="723"><span class="sd">        Respond to a restart event by generating points around the new center.</span>
 </span><span data-line="724">
 </span><span data-line="725"><span class="sd">        Args:</span>
 </span><span data-line="726"><span class="sd">            center: New search center suggested by the Restart analyzer.</span>
 </span><span data-line="727"><span class="sd">            reason: Human-readable reason string for the restart.</span>
-</span><span data-line="728"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="728"><span class="sd">        """</span>
 </span><span data-line="729">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="730">            <span class="k">return</span>
 </span><span data-line="731">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
@@ -882,7 +883,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Nearby.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nearby.Nearby.on_new_best">[docs]</a>
 </span><span data-line="735">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="736"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="736"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="737"><span class="sd">        React to a new best result by generating nearby candidate points.</span>
 </span><span data-line="738">
 </span><span data-line="739"><span class="sd">        When ``quadratic`` is enabled and a local model can be fitted, the first</span>
@@ -892,7 +893,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="743">
 </span><span data-line="744"><span class="sd">        Args:</span>
 </span><span data-line="745"><span class="sd">            best: The new best :class:`~panobbgo.lib.Result`.</span>
-</span><span data-line="746"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="746"><span class="sd">        """</span>
 </span><span data-line="747">        <span class="n">x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span>
 </span><span data-line="748">        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="749">            <span class="k">return</span>
@@ -929,14 +930,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

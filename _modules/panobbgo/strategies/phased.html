@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.phased"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.phased"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2026 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Phased Strategy</span>
 </span><span data-line="18"><span class="sd">===============</span>
 </span><span data-line="19">
@@ -161,7 +162,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="28"><span class="sd">so model-building heuristics accumulate data even before their phase</span>
 </span><span data-line="29"><span class="sd">is active. Only the selection logic and active heuristic set change</span>
 </span><span data-line="30"><span class="sd">at phase boundaries.</span>
-</span><span data-line="31"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="31"><span class="sd">"""</span>
 </span><span data-line="32">
 </span><span data-line="33"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="34">
@@ -175,7 +176,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyPhased">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyPhased">[docs]</a>
 </span><span data-line="42"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyPhased</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
-</span><span data-line="43"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="43"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="44"><span class="sd">    Phased meta-strategy that composes existing strategies across budget phases.</span>
 </span><span data-line="45">
 </span><span data-line="46"><span class="sd">    Each phase specifies:</span>
@@ -187,20 +188,20 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="52">
 </span><span data-line="53"><span class="sd">        StrategyPhased(problem, phases=[</span>
 </span><span data-line="54"><span class="sd">            {</span>
-</span><span data-line="55"><span class="sd">                &quot;pct&quot;: 25,</span>
-</span><span data-line="56"><span class="sd">                &quot;strategy&quot;: (StrategyRoundRobin, {&quot;size&quot;: 10}),</span>
-</span><span data-line="57"><span class="sd">                &quot;heuristics&quot;: [(Random, {}), (LatinHypercube, {})],</span>
+</span><span data-line="55"><span class="sd">                "pct": 25,</span>
+</span><span data-line="56"><span class="sd">                "strategy": (StrategyRoundRobin, {"size": 10}),</span>
+</span><span data-line="57"><span class="sd">                "heuristics": [(Random, {}), (LatinHypercube, {})],</span>
 </span><span data-line="58"><span class="sd">            },</span>
 </span><span data-line="59"><span class="sd">            {</span>
-</span><span data-line="60"><span class="sd">                &quot;strategy&quot;: (StrategyRewarding, {}),</span>
-</span><span data-line="61"><span class="sd">                &quot;heuristics&quot;: [(GaussianProcessHeuristic, {}), (LBFGSB, {})],</span>
+</span><span data-line="60"><span class="sd">                "strategy": (StrategyRewarding, {}),</span>
+</span><span data-line="61"><span class="sd">                "heuristics": [(GaussianProcessHeuristic, {}), (LBFGSB, {})],</span>
 </span><span data-line="62"><span class="sd">            },</span>
 </span><span data-line="63"><span class="sd">        ])</span>
 </span><span data-line="64">
 </span><span data-line="65"><span class="sd">    At each phase boundary, bandit/selection statistics are reset for the</span>
-</span><span data-line="66"><span class="sd">    new phase&#39;s heuristics, but domain state (GP models, accumulated data,</span>
+</span><span data-line="66"><span class="sd">    new phase's heuristics, but domain state (GP models, accumulated data,</span>
 </span><span data-line="67"><span class="sd">    etc.) is preserved.</span>
-</span><span data-line="68"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="68"><span class="sd">    """</span>
 </span><span data-line="69">
 </span><span data-line="70">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="n">phases</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 </span><span data-line="71">        <span class="c1"># Validate and store phase config before base init</span>
@@ -218,55 +219,55 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="83">
 </span><span data-line="84">    <span class="nd">@staticmethod</span>
 </span><span data-line="85">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_phases</span><span class="p">(</span><span class="n">phases</span><span class="p">):</span>
-</span><span data-line="86"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate the phases configuration list.&quot;&quot;&quot;</span>
+</span><span data-line="86"><span class="w">        </span><span class="sd">"""Validate the phases configuration list."""</span>
 </span><span data-line="87">        <span class="k">if</span> <span class="ow">not</span> <span class="n">phases</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">phases</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span data-line="88">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;phases must be a non-empty list&quot;</span><span class="p">)</span>
+</span><span data-line="88">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"phases must be a non-empty list"</span><span class="p">)</span>
 </span><span data-line="89">
 </span><span data-line="90">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">phases</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="91">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;StrategyPhased requires at least 2 phases&quot;</span><span class="p">)</span>
+</span><span data-line="91">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"StrategyPhased requires at least 2 phases"</span><span class="p">)</span>
 </span><span data-line="92">
 </span><span data-line="93">        <span class="n">total_pct</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="94">        <span class="n">configs</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="95">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">phase</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">phases</span><span class="p">):</span>
 </span><span data-line="96">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-</span><span data-line="97">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> must be a dict, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="97">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> must be a dict, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="98">
 </span><span data-line="99">            <span class="c1"># Validate strategy</span>
-</span><span data-line="100">            <span class="k">if</span> <span class="s2">&quot;strategy&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">phase</span><span class="p">:</span>
-</span><span data-line="101">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> missing &#39;strategy&#39; key&quot;</span><span class="p">)</span>
-</span><span data-line="102">            <span class="n">strat</span> <span class="o">=</span> <span class="n">phase</span><span class="p">[</span><span class="s2">&quot;strategy&quot;</span><span class="p">]</span>
+</span><span data-line="100">            <span class="k">if</span> <span class="s2">"strategy"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">phase</span><span class="p">:</span>
+</span><span data-line="101">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> missing 'strategy' key"</span><span class="p">)</span>
+</span><span data-line="102">            <span class="n">strat</span> <span class="o">=</span> <span class="n">phase</span><span class="p">[</span><span class="s2">"strategy"</span><span class="p">]</span>
 </span><span data-line="103">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">strat</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">strat</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="104">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> &#39;strategy&#39; must be a (StrategyClass, kwargs_dict) tuple&quot;</span><span class="p">)</span>
+</span><span data-line="104">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> 'strategy' must be a (StrategyClass, kwargs_dict) tuple"</span><span class="p">)</span>
 </span><span data-line="105">
 </span><span data-line="106">            <span class="c1"># Validate heuristics</span>
-</span><span data-line="107">            <span class="k">if</span> <span class="s2">&quot;heuristics&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">phase</span><span class="p">:</span>
-</span><span data-line="108">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> missing &#39;heuristics&#39; key&quot;</span><span class="p">)</span>
-</span><span data-line="109">            <span class="n">heurs</span> <span class="o">=</span> <span class="n">phase</span><span class="p">[</span><span class="s2">&quot;heuristics&quot;</span><span class="p">]</span>
+</span><span data-line="107">            <span class="k">if</span> <span class="s2">"heuristics"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">phase</span><span class="p">:</span>
+</span><span data-line="108">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> missing 'heuristics' key"</span><span class="p">)</span>
+</span><span data-line="109">            <span class="n">heurs</span> <span class="o">=</span> <span class="n">phase</span><span class="p">[</span><span class="s2">"heuristics"</span><span class="p">]</span>
 </span><span data-line="110">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">heurs</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">heurs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="111">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> &#39;heuristics&#39; must be a non-empty list&quot;</span><span class="p">)</span>
+</span><span data-line="111">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> 'heuristics' must be a non-empty list"</span><span class="p">)</span>
 </span><span data-line="112">            <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">heurs</span><span class="p">):</span>
 </span><span data-line="113">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="114">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> heuristic </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2"> must be a (HeuristicClass, kwargs_dict) tuple&quot;</span><span class="p">)</span>
+</span><span data-line="114">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> heuristic </span><span class="si">{</span><span class="n">j</span><span class="si">}</span><span class="s2"> must be a (HeuristicClass, kwargs_dict) tuple"</span><span class="p">)</span>
 </span><span data-line="115">
 </span><span data-line="116">            <span class="c1"># Validate pct</span>
 </span><span data-line="117">            <span class="n">is_last</span> <span class="o">=</span> <span class="n">i</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">phases</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
-</span><span data-line="118">            <span class="n">pct</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pct&quot;</span><span class="p">)</span>
+</span><span data-line="118">            <span class="n">pct</span> <span class="o">=</span> <span class="n">phase</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"pct"</span><span class="p">)</span>
 </span><span data-line="119">            <span class="k">if</span> <span class="n">pct</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="120">                <span class="n">pct</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct</span><span class="p">)</span>
 </span><span data-line="121">                <span class="k">if</span> <span class="n">pct</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">pct</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">:</span>
-</span><span data-line="122">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> pct must be in (0, 100], got </span><span class="si">{</span><span class="n">pct</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="122">                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> pct must be in (0, 100], got </span><span class="si">{</span><span class="n">pct</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="123">                <span class="n">total_pct</span> <span class="o">+=</span> <span class="n">pct</span>
 </span><span data-line="124">            <span class="k">elif</span> <span class="ow">not</span> <span class="n">is_last</span><span class="p">:</span>
-</span><span data-line="125">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> must have &#39;pct&#39; (only the last phase may omit it)&quot;</span><span class="p">)</span>
+</span><span data-line="125">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Phase </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> must have 'pct' (only the last phase may omit it)"</span><span class="p">)</span>
 </span><span data-line="126">
-</span><span data-line="127">            <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="n">pct</span><span class="p">,</span> <span class="s2">&quot;strategy&quot;</span><span class="p">:</span> <span class="n">strat</span><span class="p">,</span> <span class="s2">&quot;heuristics&quot;</span><span class="p">:</span> <span class="n">heurs</span><span class="p">})</span>
+</span><span data-line="127">            <span class="n">configs</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"pct"</span><span class="p">:</span> <span class="n">pct</span><span class="p">,</span> <span class="s2">"strategy"</span><span class="p">:</span> <span class="n">strat</span><span class="p">,</span> <span class="s2">"heuristics"</span><span class="p">:</span> <span class="n">heurs</span><span class="p">})</span>
 </span><span data-line="128">
 </span><span data-line="129">        <span class="k">if</span> <span class="n">total_pct</span> <span class="o">&gt;=</span> <span class="mi">100</span><span class="p">:</span>
-</span><span data-line="130">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sum of explicit pct values must be &lt; 100, got </span><span class="si">{</span><span class="n">total_pct</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="130">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sum of explicit pct values must be &lt; 100, got </span><span class="si">{</span><span class="n">total_pct</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="131">
 </span><span data-line="132">        <span class="c1"># Fill in last phase pct if missing</span>
-</span><span data-line="133">        <span class="k">if</span> <span class="n">configs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;pct&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="134">            <span class="n">configs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;pct&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">100.0</span> <span class="o">-</span> <span class="n">total_pct</span>
+</span><span data-line="133">        <span class="k">if</span> <span class="n">configs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">"pct"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="134">            <span class="n">configs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">"pct"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">100.0</span> <span class="o">-</span> <span class="n">total_pct</span>
 </span><span data-line="135">
 </span><span data-line="136">        <span class="k">return</span> <span class="n">configs</span>
 </span><span data-line="137">
@@ -277,19 +278,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="140">        <span class="n">max_eval</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="k">else</span> <span class="mi">1000</span>
 </span><span data-line="141">        <span class="n">cumulative</span> <span class="o">=</span> <span class="mf">0.0</span>
 </span><span data-line="142">        <span class="k">for</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_configs</span><span class="p">:</span>
-</span><span data-line="143">            <span class="n">cumulative</span> <span class="o">+=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;pct&quot;</span><span class="p">]</span>
+</span><span data-line="143">            <span class="n">cumulative</span> <span class="o">+=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"pct"</span><span class="p">]</span>
 </span><span data-line="144">            <span class="n">cutoff</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_eval</span> <span class="o">*</span> <span class="n">cumulative</span> <span class="o">/</span> <span class="mf">100.0</span><span class="p">)</span>
 </span><span data-line="145">            <span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cutoff</span><span class="p">)</span>
 </span><span data-line="146">
 </span><span data-line="147">        <span class="c1"># Instantiate all heuristics for all phases, tracking which belong where</span>
 </span><span data-line="148">        <span class="k">for</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_configs</span><span class="p">:</span>
 </span><span data-line="149">            <span class="n">phase_names</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="150">            <span class="n">strat_cls</span><span class="p">,</span> <span class="n">strat_kwargs</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;strategy&quot;</span><span class="p">]</span>
+</span><span data-line="150">            <span class="n">strat_cls</span><span class="p">,</span> <span class="n">strat_kwargs</span> <span class="o">=</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"strategy"</span><span class="p">]</span>
 </span><span data-line="151">
-</span><span data-line="152">            <span class="k">for</span> <span class="n">heur_cls</span><span class="p">,</span> <span class="n">heur_kwargs</span> <span class="ow">in</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;heuristics&quot;</span><span class="p">]:</span>
+</span><span data-line="152">            <span class="k">for</span> <span class="n">heur_cls</span><span class="p">,</span> <span class="n">heur_kwargs</span> <span class="ow">in</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">"heuristics"</span><span class="p">]:</span>
 </span><span data-line="153">                <span class="n">h</span> <span class="o">=</span> <span class="n">heur_cls</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">heur_kwargs</span><span class="p">)</span>
 </span><span data-line="154">                <span class="c1"># Deduplicate: if the same heuristic name already exists</span>
-</span><span data-line="155">                <span class="c1"># (e.g., same class used across phases), add to this phase&#39;s set</span>
+</span><span data-line="155">                <span class="c1"># (e.g., same class used across phases), add to this phase's set</span>
 </span><span data-line="156">                <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_heuristics</span><span class="p">:</span>
 </span><span data-line="157">                    <span class="bp">self</span><span class="o">.</span><span class="n">_hs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
 </span><span data-line="158">                <span class="n">phase_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -297,9 +298,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="160">            <span class="bp">self</span><span class="o">.</span><span class="n">_phase_heuristic_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">phase_names</span><span class="p">)</span>
 </span><span data-line="161">            <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
 </span><span data-line="162">                <span class="p">{</span>
-</span><span data-line="163">                    <span class="s2">&quot;cls&quot;</span><span class="p">:</span> <span class="n">strat_cls</span><span class="p">,</span>
-</span><span data-line="164">                    <span class="s2">&quot;kwargs&quot;</span><span class="p">:</span> <span class="n">strat_kwargs</span><span class="p">,</span>
-</span><span data-line="165">                    <span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="p">{},</span>
+</span><span data-line="163">                    <span class="s2">"cls"</span><span class="p">:</span> <span class="n">strat_cls</span><span class="p">,</span>
+</span><span data-line="164">                    <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">strat_kwargs</span><span class="p">,</span>
+</span><span data-line="165">                    <span class="s2">"state"</span><span class="p">:</span> <span class="p">{},</span>
 </span><span data-line="166">                <span class="p">}</span>
 </span><span data-line="167">            <span class="p">)</span>
 </span><span data-line="168">
@@ -308,12 +309,12 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="171">
 </span><span data-line="172">    <span class="k">def</span><span class="w"> </span><span class="nf">_phase_heuristics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="173"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return only the heuristics active in the current phase.&quot;&quot;&quot;</span>
+</span><span data-line="173"><span class="w">        </span><span class="sd">"""Return only the heuristics active in the current phase."""</span>
 </span><span data-line="174">        <span class="n">names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_heuristic_names</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
 </span><span data-line="175">        <span class="k">return</span> <span class="p">[</span><span class="n">h</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span> <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
 </span><span data-line="176">
 </span><span data-line="177">    <span class="k">def</span><span class="w"> </span><span class="nf">_check_phase_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="178"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if we should advance to the next phase.&quot;&quot;&quot;</span>
+</span><span data-line="178"><span class="w">        </span><span class="sd">"""Check if we should advance to the next phase."""</span>
 </span><span data-line="179">        <span class="n">n_results</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
 </span><span data-line="180">        <span class="k">while</span> <span class="p">(</span>
 </span><span data-line="181">            <span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">n_results</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
@@ -322,15 +323,15 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="184">            <span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span> <span class="o">+=</span> <span class="mi">1</span>
 </span><span data-line="185">            <span class="n">new_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
 </span><span data-line="186">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-</span><span data-line="187">                <span class="sa">f</span><span class="s2">&quot;Phase transition: </span><span class="si">{</span><span class="n">old_phase</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="si">}</span><span class="s2"> &quot;</span>
-</span><span data-line="188">                <span class="sa">f</span><span class="s2">&quot;(at </span><span class="si">{</span><span class="n">n_results</span><span class="si">}</span><span class="s2"> results, strategy: </span><span class="si">{</span><span class="n">new_info</span><span class="p">[</span><span class="s1">&#39;cls&#39;</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="187">                <span class="sa">f</span><span class="s2">"Phase transition: </span><span class="si">{</span><span class="n">old_phase</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="si">}</span><span class="s2"> "</span>
+</span><span data-line="188">                <span class="sa">f</span><span class="s2">"(at </span><span class="si">{</span><span class="n">n_results</span><span class="si">}</span><span class="s2"> results, strategy: </span><span class="si">{</span><span class="n">new_info</span><span class="p">[</span><span class="s1">'cls'</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">)"</span>
 </span><span data-line="189">            <span class="p">)</span>
 </span><span data-line="190">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_phase_stats</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">)</span>
 </span><span data-line="191">
 </span><span data-line="192">    <span class="k">def</span><span class="w"> </span><span class="nf">_init_phase_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_idx</span><span class="p">):</span>
-</span><span data-line="193"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize/reset selection statistics for a phase&#39;s heuristics.&quot;&quot;&quot;</span>
+</span><span data-line="193"><span class="w">        </span><span class="sd">"""Initialize/reset selection statistics for a phase's heuristics."""</span>
 </span><span data-line="194">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="n">phase_idx</span><span class="p">]</span>
-</span><span data-line="195">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;cls&quot;</span><span class="p">]</span>
+</span><span data-line="195">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"cls"</span><span class="p">]</span>
 </span><span data-line="196">        <span class="n">names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_heuristic_names</span><span class="p">[</span><span class="n">phase_idx</span><span class="p">]</span>
 </span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="198">
@@ -361,14 +362,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="223">                <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 </span><span data-line="224">
 </span><span data-line="225">        <span class="c1"># Reset phase-level state</span>
-</span><span data-line="226">        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="226">        <span class="n">info</span><span class="p">[</span><span class="s2">"state"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="227">        <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">strat_cls</span><span class="p">,</span> <span class="n">StrategyLinUCB</span><span class="p">):</span>
-</span><span data-line="228">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">][</span><span class="s2">&quot;recent_rewards&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="228">            <span class="n">info</span><span class="p">[</span><span class="s2">"state"</span><span class="p">][</span><span class="s2">"recent_rewards"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="229">
 <div class="viewcode-block" id="StrategyPhased.add_heuristic">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyPhased.add_heuristic">[docs]</a>
 </span><span data-line="230">    <span class="k">def</span><span class="w"> </span><span class="nf">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">):</span>
-</span><span data-line="231"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Override to initialize stats for the first phase&#39;s strategy.&quot;&quot;&quot;</span>
+</span><span data-line="231"><span class="w">        </span><span class="sd">"""Override to initialize stats for the first phase's strategy."""</span>
 </span><span data-line="232">        <span class="n">StrategyBase</span><span class="o">.</span><span class="n">add_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">)</span>
 </span><span data-line="233">        <span class="c1"># Initialize stats for whatever phase this heuristic first appears in</span>
 </span><span data-line="234">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">names</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_heuristic_names</span><span class="p">):</span>
@@ -378,9 +379,9 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="238">
 </span><span data-line="239">    <span class="k">def</span><span class="w"> </span><span class="nf">_init_phase_heuristic</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">phase_idx</span><span class="p">):</span>
-</span><span data-line="240"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a single heuristic&#39;s selection stats for a given phase.&quot;&quot;&quot;</span>
+</span><span data-line="240"><span class="w">        </span><span class="sd">"""Initialize a single heuristic's selection stats for a given phase."""</span>
 </span><span data-line="241">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="n">phase_idx</span><span class="p">]</span>
-</span><span data-line="242">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;cls&quot;</span><span class="p">]</span>
+</span><span data-line="242">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"cls"</span><span class="p">]</span>
 </span><span data-line="243">
 </span><span data-line="244">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.contextual</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyLinUCB</span>
 </span><span data-line="245">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
@@ -403,14 +404,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="262">            <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 </span><span data-line="263">            <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 </span><span data-line="264">
-</span><span data-line="265">    <span class="c1"># ── Event handlers (delegated to current phase&#39;s strategy logic) ──</span>
+</span><span data-line="265">    <span class="c1"># ── Event handlers (delegated to current phase's strategy logic) ──</span>
 </span><span data-line="266">
 <div class="viewcode-block" id="StrategyPhased.on_new_best">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyPhased.on_new_best">[docs]</a>
 </span><span data-line="267">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="268"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Delegate reward logic to the current phase&#39;s strategy.&quot;&quot;&quot;</span>
+</span><span data-line="268"><span class="w">        </span><span class="sd">"""Delegate reward logic to the current phase's strategy."""</span>
 </span><span data-line="269">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
-</span><span data-line="270">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;cls&quot;</span><span class="p">]</span>
+</span><span data-line="270">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"cls"</span><span class="p">]</span>
 </span><span data-line="271">
 </span><span data-line="272">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
 </span><span data-line="273">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.thompson</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyThompsonSampling</span>
@@ -431,25 +432,25 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="288">        <span class="k">if</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">strat_cls</span><span class="p">,</span> <span class="n">StrategyRewarding</span><span class="p">):</span>
 </span><span data-line="289">            <span class="n">h</span><span class="o">.</span><span class="n">performance</span> <span class="o">+=</span> <span class="n">reward</span>
 </span><span data-line="290">        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">strat_cls</span><span class="p">,</span> <span class="n">StrategyUCB</span><span class="p">):</span>
-</span><span data-line="291">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_total_reward&quot;</span><span class="p">):</span>
+</span><span data-line="291">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ucb_total_reward"</span><span class="p">):</span>
 </span><span data-line="292">                <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">+=</span> <span class="n">reward</span>
 </span><span data-line="293">        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">strat_cls</span><span class="p">,</span> <span class="n">StrategyThompsonSampling</span><span class="p">):</span>
-</span><span data-line="294">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_total_reward&quot;</span><span class="p">):</span>
+</span><span data-line="294">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ts_total_reward"</span><span class="p">):</span>
 </span><span data-line="295">                <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">+=</span> <span class="n">reward</span>
 </span><span data-line="296">
-</span><span data-line="297">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (Phased/</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">,</span> <span class="n">strat_cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">))</span>
+</span><span data-line="297">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (Phased/</span><span class="si">%s</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">,</span> <span class="n">strat_cls</span><span class="o">.</span><span class="vm">__name__</span><span class="p">))</span>
 </span><span data-line="298">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span></div>
 
 </span><span data-line="299">
 <div class="viewcode-block" id="StrategyPhased.on_new_results">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyPhased.on_new_results">[docs]</a>
 </span><span data-line="300">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="301"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Delegate result processing to the current phase&#39;s strategy.&quot;&quot;&quot;</span>
+</span><span data-line="301"><span class="w">        </span><span class="sd">"""Delegate result processing to the current phase's strategy."""</span>
 </span><span data-line="302">        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
 </span><span data-line="303">            <span class="k">return</span>
 </span><span data-line="304">
 </span><span data-line="305">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
-</span><span data-line="306">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;cls&quot;</span><span class="p">]</span>
+</span><span data-line="306">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"cls"</span><span class="p">]</span>
 </span><span data-line="307">
 </span><span data-line="308">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
 </span><span data-line="309">
@@ -466,7 +467,7 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="320">
 </span><span data-line="321">    <span class="k">def</span><span class="w"> </span><span class="nf">_reward_near_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">last_best</span><span class="p">,</span> <span class="n">ranges</span><span class="p">):</span>
-</span><span data-line="322"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Small reward for points near the best (Rewarding strategy logic).&quot;&quot;&quot;</span>
+</span><span data-line="322"><span class="w">        </span><span class="sd">"""Small reward for points near the best (Rewarding strategy logic)."""</span>
 </span><span data-line="323">        <span class="n">diff</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">fx</span> <span class="o">-</span> <span class="n">last_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
 </span><span data-line="324">        <span class="n">denom</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">last_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">last_best</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-9</span> <span class="k">else</span> <span class="mf">1.0</span>
 </span><span data-line="325">        <span class="n">rel_diff</span> <span class="o">=</span> <span class="n">diff</span> <span class="o">/</span> <span class="n">denom</span>
@@ -485,11 +486,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="338">    <span class="c1"># ── Selection logic per strategy type ──</span>
 </span><span data-line="339">
 </span><span data-line="340">    <span class="k">def</span><span class="w"> </span><span class="nf">_execute_round_robin</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_heurs</span><span class="p">,</span> <span class="n">strat_kwargs</span><span class="p">):</span>
-</span><span data-line="341"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Round-robin selection logic.&quot;&quot;&quot;</span>
-</span><span data-line="342">        <span class="n">size</span> <span class="o">=</span> <span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;size&quot;</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</span><span data-line="341"><span class="w">        </span><span class="sd">"""Round-robin selection logic."""</span>
+</span><span data-line="342">        <span class="n">size</span> <span class="o">=</span> <span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"size"</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
 </span><span data-line="343">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
-</span><span data-line="344">        <span class="n">state</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span>
-</span><span data-line="345">        <span class="n">current</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rr_current&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span><span data-line="344">        <span class="n">state</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"state"</span><span class="p">]</span>
+</span><span data-line="345">        <span class="n">current</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rr_current"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 </span><span data-line="346">
 </span><span data-line="347">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="348">        <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
@@ -505,11 +506,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="358">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="359">                <span class="n">time_module</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">)</span>
 </span><span data-line="360">
-</span><span data-line="361">        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;rr_current&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">current</span>
+</span><span data-line="361">        <span class="n">state</span><span class="p">[</span><span class="s2">"rr_current"</span><span class="p">]</span> <span class="o">=</span> <span class="n">current</span>
 </span><span data-line="362">        <span class="k">return</span> <span class="n">points</span>
 </span><span data-line="363">
 </span><span data-line="364">    <span class="k">def</span><span class="w"> </span><span class="nf">_execute_rewarding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_heurs</span><span class="p">,</span> <span class="n">strat_kwargs</span><span class="p">):</span>
-</span><span data-line="365"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Rewarding (probability-based) selection logic.&quot;&quot;&quot;</span>
+</span><span data-line="365"><span class="w">        </span><span class="sd">"""Rewarding (probability-based) selection logic."""</span>
 </span><span data-line="366">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
 </span><span data-line="367">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="368">            <span class="k">return</span> <span class="p">[]</span>
@@ -519,7 +520,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="372">        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
 </span><span data-line="373">            <span class="n">s</span> <span class="o">=</span> <span class="mf">0.5</span>
 </span><span data-line="374">
-</span><span data-line="375">        <span class="n">discount_val</span> <span class="o">=</span> <span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;discount&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="375">        <span class="n">discount_val</span> <span class="o">=</span> <span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"discount"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="376">
 </span><span data-line="377">        <span class="k">def</span><span class="w"> </span><span class="nf">selector</span><span class="p">():</span>
 </span><span data-line="378">            <span class="k">if</span> <span class="ow">not</span> <span class="n">phase_heurs</span><span class="p">:</span>
@@ -544,12 +545,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="397">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">)</span>
 </span><span data-line="398">
 </span><span data-line="399">    <span class="k">def</span><span class="w"> </span><span class="nf">_execute_ucb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_heurs</span><span class="p">,</span> <span class="n">strat_kwargs</span><span class="p">):</span>
-</span><span data-line="400"><span class="w">        </span><span class="sd">&quot;&quot;&quot;UCB1 selection logic.&quot;&quot;&quot;</span>
+</span><span data-line="400"><span class="w">        </span><span class="sd">"""UCB1 selection logic."""</span>
 </span><span data-line="401">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
 </span><span data-line="402">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="403">            <span class="k">return</span> <span class="p">[]</span>
 </span><span data-line="404">
-</span><span data-line="405">        <span class="n">c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ucb_c&quot;</span><span class="p">,</span> <span class="mf">1.414</span><span class="p">))</span>
+</span><span data-line="405">        <span class="n">c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ucb_c"</span><span class="p">,</span> <span class="mf">1.414</span><span class="p">))</span>
 </span><span data-line="406">
 </span><span data-line="407">        <span class="k">def</span><span class="w"> </span><span class="nf">until</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
 </span><span data-line="408">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span>
@@ -559,11 +560,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="412">                <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="413">            <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="414">            <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">phase_heurs</span><span class="p">:</span>
-</span><span data-line="415">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ucb_count&quot;</span><span class="p">):</span>
+</span><span data-line="415">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ucb_count"</span><span class="p">):</span>
 </span><span data-line="416">                    <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="417">                    <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
 </span><span data-line="418">                <span class="k">if</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="419">                    <span class="n">score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="419">                    <span class="n">score</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 </span><span data-line="420">                <span class="k">else</span><span class="p">:</span>
 </span><span data-line="421">                    <span class="n">avg</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_total_reward</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span>
 </span><span data-line="422">                    <span class="n">exploration</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">total_selections</span><span class="p">))</span> <span class="o">/</span> <span class="n">h</span><span class="o">.</span><span class="n">ucb_count</span><span class="p">)</span>
@@ -581,7 +582,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="434">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
 </span><span data-line="435">
 </span><span data-line="436">    <span class="k">def</span><span class="w"> </span><span class="nf">_execute_thompson</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_heurs</span><span class="p">,</span> <span class="n">strat_kwargs</span><span class="p">):</span>
-</span><span data-line="437"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Thompson Sampling selection logic.&quot;&quot;&quot;</span>
+</span><span data-line="437"><span class="w">        </span><span class="sd">"""Thompson Sampling selection logic."""</span>
 </span><span data-line="438">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
 </span><span data-line="439">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="440">            <span class="k">return</span> <span class="p">[]</span>
@@ -594,7 +595,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="447">                <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="448">            <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="449">            <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">phase_heurs</span><span class="p">:</span>
-</span><span data-line="450">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_counts&quot;</span><span class="p">):</span>
+</span><span data-line="450">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ts_counts"</span><span class="p">):</span>
 </span><span data-line="451">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="452">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
 </span><span data-line="453">                <span class="n">alpha</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span>
@@ -613,12 +614,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="466">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_points_safely</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">selector</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="n">until</span><span class="p">)</span>
 </span><span data-line="467">
 </span><span data-line="468">    <span class="k">def</span><span class="w"> </span><span class="nf">_execute_linucb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phase_heurs</span><span class="p">,</span> <span class="n">strat_kwargs</span><span class="p">):</span>
-</span><span data-line="469"><span class="w">        </span><span class="sd">&quot;&quot;&quot;LinUCB selection logic.&quot;&quot;&quot;</span>
+</span><span data-line="469"><span class="w">        </span><span class="sd">"""LinUCB selection logic."""</span>
 </span><span data-line="470">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">jobs_per_client</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="p">)</span>
 </span><span data-line="471">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">evaluators</span><span class="o">.</span><span class="n">outstanding</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
 </span><span data-line="472">            <span class="k">return</span> <span class="p">[]</span>
 </span><span data-line="473">
-</span><span data-line="474">        <span class="n">alpha</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;linucb_alpha&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
+</span><span data-line="474">        <span class="n">alpha</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">strat_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"linucb_alpha"</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
 </span><span data-line="475">        <span class="n">context_dim</span> <span class="o">=</span> <span class="mi">3</span>
 </span><span data-line="476">
 </span><span data-line="477">        <span class="c1"># Build context vector</span>
@@ -627,7 +628,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="480">        <span class="n">feat_progress</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">n_evals</span> <span class="o">/</span> <span class="n">max_evals</span><span class="p">)</span>
 </span><span data-line="481">
 </span><span data-line="482">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
-</span><span data-line="483">        <span class="n">recent</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;state&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;recent_rewards&quot;</span><span class="p">,</span> <span class="p">[])</span>
+</span><span data-line="483">        <span class="n">recent</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"state"</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"recent_rewards"</span><span class="p">,</span> <span class="p">[])</span>
 </span><span data-line="484">        <span class="n">feat_success</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">recent</span> <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">recent</span><span class="p">)</span> <span class="k">if</span> <span class="n">recent</span> <span class="k">else</span> <span class="mf">0.0</span>
 </span><span data-line="485">        <span class="n">context</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">feat_progress</span><span class="p">,</span> <span class="n">feat_success</span><span class="p">])</span>
 </span><span data-line="486">
@@ -639,7 +640,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="492">                <span class="k">return</span> <span class="kc">None</span>
 </span><span data-line="493">            <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="494">            <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">phase_heurs</span><span class="p">:</span>
-</span><span data-line="495">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;linucb_A&quot;</span><span class="p">):</span>
+</span><span data-line="495">                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"linucb_A"</span><span class="p">):</span>
 </span><span data-line="496">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">context_dim</span><span class="p">)</span>
 </span><span data-line="497">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">context_dim</span><span class="p">)</span>
 </span><span data-line="498">                    <span class="n">h</span><span class="o">.</span><span class="n">linucb_A_inv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">context_dim</span><span class="p">)</span>
@@ -666,18 +667,18 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="517">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="518">        <span class="bp">self</span><span class="o">.</span><span class="n">_check_phase_transition</span><span class="p">()</span>
 </span><span data-line="519">
-</span><span data-line="520">        <span class="c1"># Cap point generation to not exceed the current phase&#39;s budget.</span>
+</span><span data-line="520">        <span class="c1"># Cap point generation to not exceed the current phase's budget.</span>
 </span><span data-line="521">        <span class="c1"># Without this, a fast-generating strategy (e.g., RoundRobin) can</span>
 </span><span data-line="522">        <span class="c1"># submit so many in-flight evaluations that when they complete,</span>
-</span><span data-line="523">        <span class="c1"># results jump past the next phase&#39;s cutoff — skipping it entirely.</span>
+</span><span data-line="523">        <span class="c1"># results jump past the next phase's cutoff — skipping it entirely.</span>
 </span><span data-line="524">        <span class="n">phase_cutoff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
 </span><span data-line="525">        <span class="n">remaining</span> <span class="o">=</span> <span class="n">phase_cutoff</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pending</span><span class="p">)</span>
 </span><span data-line="526">        <span class="k">if</span> <span class="n">remaining</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="527">            <span class="k">return</span> <span class="p">[]</span>
 </span><span data-line="528">
 </span><span data-line="529">        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span><span class="p">]</span>
-</span><span data-line="530">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;cls&quot;</span><span class="p">]</span>
-</span><span data-line="531">        <span class="n">strat_kwargs</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;kwargs&quot;</span><span class="p">]</span>
+</span><span data-line="530">        <span class="n">strat_cls</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"cls"</span><span class="p">]</span>
+</span><span data-line="531">        <span class="n">strat_kwargs</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"kwargs"</span><span class="p">]</span>
 </span><span data-line="532">        <span class="n">phase_heurs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_heuristics</span><span class="p">()</span>
 </span><span data-line="533">
 </span><span data-line="534">        <span class="k">if</span> <span class="ow">not</span> <span class="n">phase_heurs</span><span class="p">:</span>
@@ -700,20 +701,20 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="551">        <span class="k">elif</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">strat_cls</span><span class="p">,</span> <span class="n">StrategyRewarding</span><span class="p">):</span>
 </span><span data-line="552">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_execute_rewarding</span><span class="p">(</span><span class="n">phase_heurs</span><span class="p">,</span> <span class="n">strat_kwargs</span><span class="p">)</span>
 </span><span data-line="553">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="554">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown strategy class: </span><span class="si">{</span><span class="n">strat_cls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="554">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown strategy class: </span><span class="si">{</span><span class="n">strat_cls</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="555">
 </span><span data-line="556">        <span class="k">return</span> <span class="n">points</span><span class="p">[:</span><span class="n">remaining</span><span class="p">]</span></div>
 
 </span><span data-line="557">
 </span><span data-line="558">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="559"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
+</span><span data-line="559"><span class="w">        </span><span class="sd">"""Return strategy-specific status info."""</span>
 </span><span data-line="560">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="561">        <span class="n">phase</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_phase</span>
 </span><span data-line="562">        <span class="n">total_phases</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_configs</span><span class="p">)</span>
-</span><span data-line="563">        <span class="n">strat_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="s2">&quot;cls&quot;</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span>
-</span><span data-line="564">        <span class="n">info</span><span class="p">[</span><span class="s2">&quot;phase&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">phase</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total_phases</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">strat_name</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="563">        <span class="n">strat_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_phase_strategy_info</span><span class="p">[</span><span class="n">phase</span><span class="p">][</span><span class="s2">"cls"</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span>
+</span><span data-line="564">        <span class="n">info</span><span class="p">[</span><span class="s2">"phase"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">phase</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total_phases</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">strat_name</span><span class="si">}</span><span class="s2">)"</span>
 </span><span data-line="565">        <span class="k">if</span> <span class="n">phase</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="p">):</span>
-</span><span data-line="566">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;phase_budget&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;until </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="si">}</span><span class="s2"> evals&quot;</span>
+</span><span data-line="566">            <span class="n">info</span><span class="p">[</span><span class="s2">"phase_budget"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"until </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_phase_cutoffs</span><span class="p">[</span><span class="n">phase</span><span class="p">]</span><span class="si">}</span><span class="s2"> evals"</span>
 </span><span data-line="567">        <span class="k">return</span> <span class="n">info</span></div>
 
 </span></pre></div>
@@ -738,14 +739,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

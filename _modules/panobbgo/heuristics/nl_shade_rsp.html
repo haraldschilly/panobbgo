@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.nl_shade_rsp"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.nl_shade_rsp"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2012 -- 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">NL-SHADE-RSP Heuristic</span>
 </span><span data-line="18"><span class="sd">======================</span>
 </span><span data-line="19">
@@ -188,7 +189,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="55"><span class="sd">       w_i = k_rank · (n − i) / n + 1</span>
 </span><span data-line="56">
 </span><span data-line="57"><span class="sd">   and is drawn with probability ``w_i / Σ_j w_j``.  The best</span>
-</span><span data-line="58"><span class="sd">   individual&#39;s weight is ``k_rank + 1``; the worst&#39;s is</span>
+</span><span data-line="58"><span class="sd">   individual's weight is ``k_rank + 1``; the worst's is</span>
 </span><span data-line="59"><span class="sd">   ``k_rank / n + 1 ≈ 1``.  ``k_rank = 0`` recovers uniform selection;</span>
 </span><span data-line="60"><span class="sd">   the literature default is ``k_rank = 3``.  Higher pressure pulls the</span>
 </span><span data-line="61"><span class="sd">   differential mutation toward the leading basin.</span>
@@ -198,9 +199,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="65"><span class="sd">   NL-SHADE-RSP resamples the effective cap *per generation* uniformly</span>
 </span><span data-line="66"><span class="sd">   in ``[0, A_max]`` (``A_max = round(archive_factor · NP_current)``),</span>
 </span><span data-line="67"><span class="sd">   randomising how much historical diversity the differential ``r2``</span>
-</span><span data-line="68"><span class="sd">   draw can reach.  This is the lightweight &quot;randomised archive size&quot;</span>
-</span><span data-line="69"><span class="sd">   variant from ``planning/SELF_IMPROVEMENT_LOOP.md`` §&quot;Next iteration</span>
-</span><span data-line="70"><span class="sd">   ideas&quot;.  Set ``adaptive_archive=False`` to recover jSO&#39;s fixed cap.</span>
+</span><span data-line="68"><span class="sd">   draw can reach.  This is the lightweight "randomised archive size"</span>
+</span><span data-line="69"><span class="sd">   variant from ``planning/SELF_IMPROVEMENT_LOOP.md`` §"Next iteration</span>
+</span><span data-line="70"><span class="sd">   ideas".  Set ``adaptive_archive=False`` to recover jSO's fixed cap.</span>
 </span><span data-line="71">
 </span><span data-line="72"><span class="sd">Deviations from the full CEC-2021 paper</span>
 </span><span data-line="73"><span class="sd">---------------------------------------</span>
@@ -234,17 +235,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="101"><span class="sd">References</span>
 </span><span data-line="102"><span class="sd">----------</span>
 </span><span data-line="103">
-</span><span data-line="104"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2021). &quot;NL-SHADE-RSP</span>
+</span><span data-line="104"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2021). "NL-SHADE-RSP</span>
 </span><span data-line="105"><span class="sd">  Algorithm with Adaptive Archive and Selective Pressure for CEC 2021</span>
-</span><span data-line="106"><span class="sd">  Numerical Optimization.&quot; *Proceedings of CEC 2021*.  Winner of the</span>
+</span><span data-line="106"><span class="sd">  Numerical Optimization." *Proceedings of CEC 2021*.  Winner of the</span>
 </span><span data-line="107"><span class="sd">  CEC-2021 single-objective bound-constrained competition.</span>
-</span><span data-line="108"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2018). &quot;LSHADE Algorithm</span>
+</span><span data-line="108"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2018). "LSHADE Algorithm</span>
 </span><span data-line="109"><span class="sd">  with Rank-Based Selective Pressure Strategy for Solving CEC 2017</span>
-</span><span data-line="110"><span class="sd">  Benchmark Problems.&quot; *Proceedings of CEC 2018*.  Introduces RSP.</span>
-</span><span data-line="111"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). &quot;Single Objective</span>
-</span><span data-line="112"><span class="sd">  Real-Parameter Optimization: Algorithm jSO.&quot; *Proceedings of CEC</span>
+</span><span data-line="110"><span class="sd">  Benchmark Problems." *Proceedings of CEC 2018*.  Introduces RSP.</span>
+</span><span data-line="111"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). "Single Objective</span>
+</span><span data-line="112"><span class="sd">  Real-Parameter Optimization: Algorithm jSO." *Proceedings of CEC</span>
 </span><span data-line="113"><span class="sd">  2017*.  The jSO foundation this refines.</span>
-</span><span data-line="114"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="114"><span class="sd">"""</span>
 </span><span data-line="115">
 </span><span data-line="116"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="117">
@@ -269,11 +270,11 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NLSHADE_RSP">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_RSP">[docs]</a>
 </span><span data-line="136"><span class="k">class</span><span class="w"> </span><span class="nc">NLSHADE_RSP</span><span class="p">(</span><span class="n">JSO</span><span class="p">):</span>
-</span><span data-line="137"><span class="w">    </span><span class="sd">&quot;&quot;&quot;NL-SHADE-RSP: non-linear reduction + rank selection + adaptive archive over jSO.</span>
+</span><span data-line="137"><span class="w">    </span><span class="sd">"""NL-SHADE-RSP: non-linear reduction + rank selection + adaptive archive over jSO.</span>
 </span><span data-line="138">
 </span><span data-line="139"><span class="sd">    Args:</span>
 </span><span data-line="140"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="141"><span class="sd">        NP_init: Initial population size, or ``&quot;auto&quot;`` for budget-adaptive</span>
+</span><span data-line="141"><span class="sd">        NP_init: Initial population size, or ``"auto"`` for budget-adaptive</span>
 </span><span data-line="142"><span class="sd">            sizing (see :class:`~panobbgo.heuristics.lshade.LSHADE`).</span>
 </span><span data-line="143"><span class="sd">            Default ``30``.</span>
 </span><span data-line="144"><span class="sd">        NP_min: Minimum population size after non-linear reduction.</span>
@@ -297,7 +298,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="162"><span class="sd">            cap per generation (NL-SHADE-RSP).  When ``False``, use the</span>
 </span><span data-line="163"><span class="sd">            fixed jSO / L-SHADE cap.</span>
 </span><span data-line="164"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
-</span><span data-line="165"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
+</span><span data-line="165"><span class="sd">        name: Override the heuristic's display name.</span>
 </span><span data-line="166">
 </span><span data-line="167"><span class="sd">    Notes:</span>
 </span><span data-line="168"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
@@ -308,7 +309,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="173"><span class="sd">          the schedules inherited from jSO fall back to their early-phase</span>
 </span><span data-line="174"><span class="sd">          values.  RSP and the randomised archive are budget-independent</span>
 </span><span data-line="175"><span class="sd">          and stay active.</span>
-</span><span data-line="176"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="176"><span class="sd">    """</span>
 </span><span data-line="177">
 </span><span data-line="178">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="179">        <span class="bp">self</span><span class="p">,</span>
@@ -325,9 +326,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="190">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 </span><span data-line="191">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="192">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">k_rank</span><span class="p">)</span> <span class="ow">or</span> <span class="n">k_rank</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="193">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_RSP: k_rank must be a finite float &gt;= 0, got </span><span class="si">{</span><span class="n">k_rank</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="193">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NLSHADE_RSP: k_rank must be a finite float &gt;= 0, got </span><span class="si">{</span><span class="n">k_rank</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="194">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">adaptive_archive</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="195">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NLSHADE_RSP: adaptive_archive must be a bool, got </span><span class="si">{</span><span class="n">adaptive_archive</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="195">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NLSHADE_RSP: adaptive_archive must be a bool, got </span><span class="si">{</span><span class="n">adaptive_archive</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="196">
 </span><span data-line="197">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="198">            <span class="n">strategy</span><span class="p">,</span>
@@ -338,7 +339,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="203">            <span class="n">p_best_min</span><span class="o">=</span><span class="n">p_best_min</span><span class="p">,</span>
 </span><span data-line="204">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
 </span><span data-line="205">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-</span><span data-line="206">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;NLSHADE_RSP&quot;</span><span class="p">,</span>
+</span><span data-line="206">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"NLSHADE_RSP"</span><span class="p">,</span>
 </span><span data-line="207">        <span class="p">)</span>
 </span><span data-line="208">        <span class="bp">self</span><span class="o">.</span><span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">k_rank</span><span class="p">)</span>
 </span><span data-line="209">        <span class="bp">self</span><span class="o">.</span><span class="n">adaptive_archive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">adaptive_archive</span><span class="p">)</span>
@@ -351,11 +352,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="216">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="217">
 </span><span data-line="218">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="219"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Upper bound on the archive cap (``round(archive_factor · NP)``).&quot;&quot;&quot;</span>
+</span><span data-line="219"><span class="w">        </span><span class="sd">"""Upper bound on the archive cap (``round(archive_factor · NP)``)."""</span>
 </span><span data-line="220">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">archive_factor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
 </span><span data-line="221">
 </span><span data-line="222">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a_max</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="223"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw a per-generation archive cap uniformly in ``[0, a_max]``.&quot;&quot;&quot;</span>
+</span><span data-line="223"><span class="w">        </span><span class="sd">"""Draw a per-generation archive cap uniformly in ``[0, a_max]``."""</span>
 </span><span data-line="224">        <span class="k">if</span> <span class="n">a_max</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="225">            <span class="k">return</span> <span class="mi">0</span>
 </span><span data-line="226">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">a_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
@@ -365,25 +366,25 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="230">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="231">
 </span><span data-line="232">    <span class="k">def</span><span class="w"> </span><span class="nf">_lpsr_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="233"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Non-Linear Population Size Reduction (NLPSR).</span>
+</span><span data-line="233"><span class="w">        </span><span class="sd">"""Non-Linear Population Size Reduction (NLPSR).</span>
 </span><span data-line="234">
 </span><span data-line="235"><span class="sd">        ``NP(r) = round((NP_min − NP_init) · r^(1 − r) + NP_init)``.</span>
 </span><span data-line="236"><span class="sd">        Reduces the population faster than the linear L-SHADE schedule</span>
 </span><span data-line="237"><span class="sd">        in the early phase while still reaching ``NP_min`` at ``r = 1``.</span>
-</span><span data-line="238"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="238"><span class="sd">        """</span>
 </span><span data-line="239">        <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">progress</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
 </span><span data-line="240">        <span class="n">factor</span> <span class="o">=</span> <span class="n">r</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
 </span><span data-line="241">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">)</span> <span class="o">*</span> <span class="n">factor</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">))</span>
 </span><span data-line="242">
 </span><span data-line="243">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_r1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="244"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Rank-based selective pressure (RSP) draw of the ``r1`` index.</span>
+</span><span data-line="244"><span class="w">        </span><span class="sd">"""Rank-based selective pressure (RSP) draw of the ``r1`` index.</span>
 </span><span data-line="245">
 </span><span data-line="246"><span class="sd">        Sorts the candidate pool (live slots excluding the target) by</span>
 </span><span data-line="247"><span class="sd">        fitness, assigns rank weights ``w_i = k_rank · (n − i) / n + 1``</span>
 </span><span data-line="248"><span class="sd">        (best first), and draws proportionally.  ``k_rank = 0`` degrades</span>
 </span><span data-line="249"><span class="sd">        to a uniform draw — but in that case the rank weights are all</span>
-</span><span data-line="250"><span class="sd">        equal, so the distribution still matches jSO&#39;s uniform selection.</span>
-</span><span data-line="251"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="250"><span class="sd">        equal, so the distribution still matches jSO's uniform selection.</span>
+</span><span data-line="251"><span class="sd">        """</span>
 </span><span data-line="252">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
 </span><span data-line="253">        <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
 </span><span data-line="254">            <span class="k">return</span> <span class="kc">None</span>
@@ -396,14 +397,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="261">        <span class="k">return</span> <span class="n">ordered</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span>
 </span><span data-line="262">
 </span><span data-line="263">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="264"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Per-generation randomised archive cap (NL-SHADE-RSP adaptive archive).</span>
+</span><span data-line="264"><span class="w">        </span><span class="sd">"""Per-generation randomised archive cap (NL-SHADE-RSP adaptive archive).</span>
 </span><span data-line="265">
 </span><span data-line="266"><span class="sd">        When ``adaptive_archive`` is off this is the fixed jSO / L-SHADE</span>
 </span><span data-line="267"><span class="sd">        cap.  When on, the cap is resampled uniformly in ``[0, A_max]``</span>
 </span><span data-line="268"><span class="sd">        at generation boundaries (and lazily on first use); intermediate</span>
 </span><span data-line="269"><span class="sd">        :meth:`_trim_archive` calls reuse the current sample, clipped to</span>
 </span><span data-line="270"><span class="sd">        the live ``A_max`` (which may have shrunk under NLPSR).</span>
-</span><span data-line="271"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="271"><span class="sd">        """</span>
 </span><span data-line="272">        <span class="n">a_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_max</span><span class="p">()</span>
 </span><span data-line="273">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">adaptive_archive</span><span class="p">:</span>
 </span><span data-line="274">            <span class="k">return</span> <span class="n">a_max</span>
@@ -412,7 +413,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="277">        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span><span class="p">,</span> <span class="n">a_max</span><span class="p">)</span>
 </span><span data-line="278">
 </span><span data-line="279">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_of_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="280"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the jSO end-of-generation update, then resample the archive cap.&quot;&quot;&quot;</span>
+</span><span data-line="280"><span class="w">        </span><span class="sd">"""Run the jSO end-of-generation update, then resample the archive cap."""</span>
 </span><span data-line="281">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
 </span><span data-line="282">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">adaptive_archive</span><span class="p">:</span>
 </span><span data-line="283">            <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive_max</span><span class="p">())</span>
@@ -425,15 +426,15 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NLSHADE_RSP.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_RSP.on_start">[docs]</a>
 </span><span data-line="290">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="291"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Allocate state and reset the per-generation archive cap.&quot;&quot;&quot;</span>
+</span><span data-line="291"><span class="w">        </span><span class="sd">"""Allocate state and reset the per-generation archive cap."""</span>
 </span><span data-line="292">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
 </span><span data-line="293">        <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 </span><span data-line="294">
 <div class="viewcode-block" id="NLSHADE_RSP.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_RSP.on_restart">[docs]</a>
-</span><span data-line="295">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="296"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reseed the population and reset the per-generation archive cap.&quot;&quot;&quot;</span>
+</span><span data-line="295">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="296"><span class="w">        </span><span class="sd">"""Reseed the population and reset the per-generation archive cap."""</span>
 </span><span data-line="297">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
 </span><span data-line="298">        <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="kc">None</span></div>
 </div>
@@ -460,14 +461,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

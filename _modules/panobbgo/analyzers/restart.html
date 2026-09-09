@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.restart"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.restart"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2026 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Restart Analyzer</span>
 </span><span data-line="18"><span class="sd">================</span>
 </span><span data-line="19">
@@ -167,7 +168,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="34"><span class="sd">   If both :class:`Restart` and :class:`~panobbgo.analyzers.convergence.Convergence`</span>
 </span><span data-line="35"><span class="sd">   are active, set ``patience`` lower than ``Convergence.window_size`` so that restarts</span>
 </span><span data-line="36"><span class="sd">   trigger *before* convergence declares the optimization done.</span>
-</span><span data-line="37"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="37"><span class="sd">"""</span>
 </span><span data-line="38">
 </span><span data-line="39"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
 </span><span data-line="40">
@@ -178,7 +179,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Restart">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.Restart">[docs]</a>
 </span><span data-line="45"><span class="k">class</span><span class="w"> </span><span class="nc">Restart</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
-</span><span data-line="46"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="46"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="47"><span class="sd">    Detects search stagnation and publishes ``restart`` events.</span>
 </span><span data-line="48">
 </span><span data-line="49"><span class="sd">    Listens to ``new_results``, tracks the best penalty value in a sliding window,</span>
@@ -192,11 +193,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="57"><span class="sd">    - ``max_restarts`` (int): Stop restarting after this many (default: 10).</span>
 </span><span data-line="58"><span class="sd">    - ``restart_strategy`` (str): How to pick the new center.  One of:</span>
 </span><span data-line="59">
-</span><span data-line="60"><span class="sd">      * ``&quot;random&quot;`` — uniform draw inside the box (default).</span>
-</span><span data-line="61"><span class="sd">      * ``&quot;diverse&quot;`` — uniform draw inside the box, picked from 20</span>
+</span><span data-line="60"><span class="sd">      * ``"random"`` — uniform draw inside the box (default).</span>
+</span><span data-line="61"><span class="sd">      * ``"diverse"`` — uniform draw inside the box, picked from 20</span>
 </span><span data-line="62"><span class="sd">        candidates to maximize the minimum distance to previous restart</span>
 </span><span data-line="63"><span class="sd">        centers.  Strong coverage signal once a few restarts have fired.</span>
-</span><span data-line="64"><span class="sd">      * ``&quot;sphere&quot;`` — Gaussian draw centered at the box centre with</span>
+</span><span data-line="64"><span class="sd">      * ``"sphere"`` — Gaussian draw centered at the box centre with</span>
 </span><span data-line="65"><span class="sd">        ``std = ranges / 6`` (clipped to the box).  Useful when the</span>
 </span><span data-line="66"><span class="sd">        optimum is expected to lie inside the box rather than near its</span>
 </span><span data-line="67"><span class="sd">        boundary; biases the restart cloud toward the centroid.</span>
@@ -204,9 +205,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="69"><span class="sd">    Events published:</span>
 </span><span data-line="70">
 </span><span data-line="71"><span class="sd">    - ``restart(center=ndarray, reason=str)``: Suggested new center for search.</span>
-</span><span data-line="72"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="72"><span class="sd">    """</span>
 </span><span data-line="73">
-</span><span data-line="74">    <span class="n">SUPPORTED_RESTART_STRATEGIES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;random&quot;</span><span class="p">,</span> <span class="s2">&quot;diverse&quot;</span><span class="p">,</span> <span class="s2">&quot;sphere&quot;</span><span class="p">)</span>
+</span><span data-line="74">    <span class="n">SUPPORTED_RESTART_STRATEGIES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"random"</span><span class="p">,</span> <span class="s2">"diverse"</span><span class="p">,</span> <span class="s2">"sphere"</span><span class="p">)</span>
 </span><span data-line="75">
 </span><span data-line="76">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="77">        <span class="bp">self</span><span class="p">,</span>
@@ -214,14 +215,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="79">        <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 </span><span data-line="80">        <span class="n">improvement_threshold</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span>
 </span><span data-line="81">        <span class="n">max_restarts</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-</span><span data-line="82">        <span class="n">restart_strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">,</span>
+</span><span data-line="82">        <span class="n">restart_strategy</span><span class="o">=</span><span class="s2">"random"</span><span class="p">,</span>
 </span><span data-line="83">    <span class="p">):</span>
 </span><span data-line="84">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="85">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;RSTAR&quot;</span><span class="p">)</span>
+</span><span data-line="85">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"RSTAR"</span><span class="p">)</span>
 </span><span data-line="86">
 </span><span data-line="87">        <span class="k">if</span> <span class="n">restart_strategy</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_RESTART_STRATEGIES</span><span class="p">:</span>
 </span><span data-line="88">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-</span><span data-line="89">                <span class="sa">f</span><span class="s2">&quot;restart_strategy must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_RESTART_STRATEGIES</span><span class="si">!r}</span><span class="s2">, got </span><span class="si">{</span><span class="n">restart_strategy</span><span class="si">!r}</span><span class="s2">&quot;</span>
+</span><span data-line="89">                <span class="sa">f</span><span class="s2">"restart_strategy must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">SUPPORTED_RESTART_STRATEGIES</span><span class="si">!r}</span><span class="s2">, got </span><span class="si">{</span><span class="n">restart_strategy</span><span class="si">!r}</span><span class="s2">"</span>
 </span><span data-line="90">            <span class="p">)</span>
 </span><span data-line="91">
 </span><span data-line="92">        <span class="bp">self</span><span class="o">.</span><span class="n">_patience_cfg</span> <span class="o">=</span> <span class="n">patience</span>
@@ -230,7 +231,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="95">        <span class="bp">self</span><span class="o">.</span><span class="n">_max_restarts</span> <span class="o">=</span> <span class="n">max_restarts</span>
 </span><span data-line="96">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_strategy</span> <span class="o">=</span> <span class="n">restart_strategy</span>
 </span><span data-line="97">
-</span><span data-line="98">        <span class="bp">self</span><span class="o">.</span><span class="n">_best_penalty</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+</span><span data-line="98">        <span class="bp">self</span><span class="o">.</span><span class="n">_best_penalty</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
 </span><span data-line="99">        <span class="bp">self</span><span class="o">.</span><span class="n">_evals_since_improvement</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="100">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="101">        <span class="bp">self</span><span class="o">.</span><span class="n">_previous_centers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -240,7 +241,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="105">
 </span><span data-line="106">    <span class="nd">@property</span>
 </span><span data-line="107">    <span class="k">def</span><span class="w"> </span><span class="nf">restart_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="108"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of restarts triggered so far.&quot;&quot;&quot;</span>
+</span><span data-line="108"><span class="w">        </span><span class="sd">"""Number of restarts triggered so far."""</span>
 </span><span data-line="109">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span>
 </span><span data-line="110">
 <div class="viewcode-block" id="Restart.on_new_results">
@@ -249,7 +250,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="112">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_max_restarts</span><span class="p">:</span>
 </span><span data-line="113">            <span class="k">return</span>
 </span><span data-line="114">
-</span><span data-line="115">        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;constraint_handler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="115">        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="116">
 </span><span data-line="117">        <span class="n">improved</span> <span class="o">=</span> <span class="kc">False</span>
 </span><span data-line="118">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
@@ -258,7 +259,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="121">            <span class="n">penalty</span> <span class="o">=</span> <span class="n">handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">if</span> <span class="n">handler</span> <span class="k">else</span> <span class="n">r</span><span class="o">.</span><span class="n">fx</span>
 </span><span data-line="122">
 </span><span data-line="123">            <span class="k">if</span> <span class="n">penalty</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_penalty</span><span class="p">:</span>
-</span><span data-line="124">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_penalty</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">):</span>
+</span><span data-line="124">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_penalty</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">):</span>
 </span><span data-line="125">                    <span class="bp">self</span><span class="o">.</span><span class="n">_best_penalty</span> <span class="o">=</span> <span class="n">penalty</span>
 </span><span data-line="126">                    <span class="n">improved</span> <span class="o">=</span> <span class="kc">True</span>
 </span><span data-line="127">                <span class="k">else</span><span class="p">:</span>
@@ -282,19 +283,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="144">        <span class="bp">self</span><span class="o">.</span><span class="n">_evals_since_improvement</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="145">        <span class="bp">self</span><span class="o">.</span><span class="n">_previous_centers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">center</span><span class="p">)</span>
 </span><span data-line="146">
-</span><span data-line="147">        <span class="n">reason</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;No improvement for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_patience</span><span class="si">}</span><span class="s2"> evaluations (restart </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_restarts</span><span class="si">}</span><span class="s2">)&quot;</span>
-</span><span data-line="148">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Restart triggered: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="149">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;restart&quot;</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">)</span>
+</span><span data-line="147">        <span class="n">reason</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"No improvement for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_patience</span><span class="si">}</span><span class="s2"> evaluations (restart </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_restart_count</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_max_restarts</span><span class="si">}</span><span class="s2">)"</span>
+</span><span data-line="148">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Restart triggered: </span><span class="si">{</span><span class="n">reason</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="149">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"restart"</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">)</span>
 </span><span data-line="150">
 </span><span data-line="151">    <span class="k">def</span><span class="w"> </span><span class="nf">_pick_new_center</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="152">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_strategy</span> <span class="o">==</span> <span class="s2">&quot;diverse&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_previous_centers</span><span class="p">:</span>
+</span><span data-line="152">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_strategy</span> <span class="o">==</span> <span class="s2">"diverse"</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_previous_centers</span><span class="p">:</span>
 </span><span data-line="153">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_diverse_center</span><span class="p">()</span>
-</span><span data-line="154">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_strategy</span> <span class="o">==</span> <span class="s2">&quot;sphere&quot;</span><span class="p">:</span>
-</span><span data-line="155">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">distribution</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
+</span><span data-line="154">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_strategy</span> <span class="o">==</span> <span class="s2">"sphere"</span><span class="p">:</span>
+</span><span data-line="155">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">distribution</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
 </span><span data-line="156">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
 </span><span data-line="157">
 </span><span data-line="158">    <span class="k">def</span><span class="w"> </span><span class="nf">_diverse_center</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="159"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Pick the point that maximizes minimum distance to previous centers.&quot;&quot;&quot;</span>
+</span><span data-line="159"><span class="w">        </span><span class="sd">"""Pick the point that maximizes minimum distance to previous centers."""</span>
 </span><span data-line="160">        <span class="n">best_candidate</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="161">        <span class="n">best_min_dist</span> <span class="o">=</span> <span class="o">-</span><span class="mf">1.0</span>
 </span><span data-line="162">
@@ -330,14 +331,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

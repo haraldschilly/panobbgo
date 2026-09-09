@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Panobbgo: Parallel Noisy Black-Box Global Optimization"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Panobbgo: Parallel Noisy Black-Box Global Optimization"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -143,9 +144,9 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="panobbgo-parallel-noisy-black-box-global-optimization">
-<h1>Panobbgo: Parallel Noisy Black-Box Global Optimization<a class="headerlink" href="#panobbgo-parallel-noisy-black-box-global-optimization" title="Link to this heading">¶</a></h1>
+<h1>Panobbgo: Parallel Noisy Black-Box Global Optimization<a class="headerlink" href="#panobbgo-parallel-noisy-black-box-global-optimization" title="Link to this heading">#</a></h1>
 <section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
 <p>Panobbgo is an open-source framework for parallel noisy black-box global optimization.
 The primary aim is to experiment with new ideas and algorithms.
 A couple of functional building blocks build the solver and
@@ -167,7 +168,7 @@ achieved via local threads, subprocesses, or on a cluster via Dask distributed.<
 </a>
 </section>
 <section id="user-guide">
-<h2>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">¶</a></h2>
+<h2>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading">#</a></h2>
 <p>Comprehensive guide covering concepts, usage, and extension.</p>
 <div class="toctree-wrapper compound">
 <ul>
@@ -185,10 +186,10 @@ achieved via local threads, subprocesses, or on a cluster via Dask distributed.<
 </div>
 </section>
 <section id="api-reference">
-<h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h2>
+<h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">#</a></h2>
 <p>Complete API documentation organized by component.</p>
 <section id="core-components">
-<h3>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h3>
+<h3>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">#</a></h3>
 <p>The fundamental building blocks of Panobbgo.</p>
 <div class="toctree-wrapper compound">
 <ul>
@@ -199,7 +200,7 @@ achieved via local threads, subprocesses, or on a cluster via Dask distributed.<
 </div>
 </section>
 <section id="optimization-components">
-<h3>Optimization Components<a class="headerlink" href="#optimization-components" title="Link to this heading">¶</a></h3>
+<h3>Optimization Components<a class="headerlink" href="#optimization-components" title="Link to this heading">#</a></h3>
 <p>Strategies, heuristics, and analyzers for optimization.</p>
 <div class="toctree-wrapper compound">
 <ul>
@@ -210,7 +211,7 @@ achieved via local threads, subprocesses, or on a cluster via Dask distributed.<
 </div>
 </section>
 <section id="problem-library">
-<h3>Problem Library<a class="headerlink" href="#problem-library" title="Link to this heading">¶</a></h3>
+<h3>Problem Library<a class="headerlink" href="#problem-library" title="Link to this heading">#</a></h3>
 <p>Built-in test problems and problem definition utilities.</p>
 <div class="toctree-wrapper compound">
 <ul>
@@ -222,11 +223,11 @@ achieved via local threads, subprocesses, or on a cluster via Dask distributed.<
 </section>
 </section>
 <section id="history">
-<h1>History<a class="headerlink" href="#history" title="Link to this heading">¶</a></h1>
+<h1>History<a class="headerlink" href="#history" title="Link to this heading">#</a></h1>
 <p>This project was revived in 2026 with the help of coding agents like Jules and Claude Code.</p>
 </section>
 <section id="links">
-<h1>Links<a class="headerlink" href="#links" title="Link to this heading">¶</a></h1>
+<h1>Links<a class="headerlink" href="#links" title="Link to this heading">#</a></h1>
 <ul class="simple">
 <li><p><a class="reference external" href="http://github.com/haraldschilly/panobbgo">source repository</a></p></li>
 <li><p>short <a class="reference external" href="https://docs.google.com/presentation/pub?id=10fyYYtti5B-rdVE9gaJ-H4LWLMCOlBCVUC8B_gk3wXo&amp;start=false&amp;loop=false&amp;delayms=3000">introduction talk</a></p></li>
@@ -240,7 +241,7 @@ achieved via local threads, subprocesses, or on a cluster via Dask distributed.<
 </ul>
 </section>
 <section id="references">
-<h1>References<a class="headerlink" href="#references" title="Link to this heading">¶</a></h1>
+<h1>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h1>
 <div role="list" class="citation-list">
 <div class="citation" id="dask" role="doc-biblioentry">
 <span class="label"><span class="fn-bracket">[</span>Dask<span class="fn-bracket">]</span></span>
@@ -321,14 +322,14 @@ Amsterdam: North-Holland, 1978.</p>
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="_static/shibuya.js?v=50760d75"></script></body>
 </html>

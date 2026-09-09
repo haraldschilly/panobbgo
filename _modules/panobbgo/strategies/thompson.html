@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.thompson"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.strategies.thompson"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -137,14 +138,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Copyright 2025 Panobbgo Contributors</span>
 </span><span data-line="6"><span class="c1">#</span>
-</span><span data-line="7"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="7"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="8"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="9"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="10"><span class="c1">#</span>
 </span><span data-line="11"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="12"><span class="c1">#</span>
 </span><span data-line="13"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="14"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="14"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="15"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="16"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="17"><span class="c1"># limitations under the License.</span>
@@ -156,7 +157,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyThompsonSampling">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyThompsonSampling">[docs]</a>
 </span><span data-line="23"><span class="k">class</span><span class="w"> </span><span class="nc">StrategyThompsonSampling</span><span class="p">(</span><span class="n">StrategyBase</span><span class="p">):</span>
-</span><span data-line="24"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="24"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="25"><span class="sd">    This strategy uses Thompson Sampling (Beta-Bernoulli bandit) to select heuristics.</span>
 </span><span data-line="26">
 </span><span data-line="27"><span class="sd">    It maintains a Beta distribution Beta(alpha, beta) for each heuristic, representing</span>
@@ -170,7 +171,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="35"><span class="sd">    Selection:</span>
 </span><span data-line="36"><span class="sd">    - Sample theta ~ Beta(alpha, beta) for each heuristic.</span>
 </span><span data-line="37"><span class="sd">    - Select heuristic with highest theta.</span>
-</span><span data-line="38"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="38"><span class="sd">    """</span>
 </span><span data-line="39">
 </span><span data-line="40">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 </span><span data-line="41">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="kc">None</span>
@@ -194,7 +195,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyThompsonSampling.reward">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyThompsonSampling.reward">[docs]</a>
 </span><span data-line="56">    <span class="k">def</span><span class="w"> </span><span class="nf">reward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="57"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="57"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="58"><span class="sd">        Calculate reward for a heuristic based on the improvement.</span>
 </span><span data-line="59">
 </span><span data-line="60"><span class="sd">        Args:</span>
@@ -202,7 +203,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="62">
 </span><span data-line="63"><span class="sd">        Returns:</span>
 </span><span data-line="64"><span class="sd">            float: Reward value in [0, 1]</span>
-</span><span data-line="65"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="65"><span class="sd">        """</span>
 </span><span data-line="66">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="67">            <span class="c1"># First point found is treated as a baseline success (max reward)</span>
 </span><span data-line="68">            <span class="k">return</span> <span class="mf">1.0</span>
@@ -220,17 +221,17 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyThompsonSampling.on_new_best">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.StrategyThompsonSampling.on_new_best">[docs]</a>
 </span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="80"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="80"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="81"><span class="sd">        Called when a new best solution is found.</span>
 </span><span data-line="82"><span class="sd">        Updates the Beta parameters for the heuristic that generated the solution.</span>
-</span><span data-line="83"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="83"><span class="sd">        """</span>
 </span><span data-line="84">        <span class="n">reward</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reward</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
 </span><span data-line="85">        <span class="bp">self</span><span class="o">.</span><span class="n">last_best</span> <span class="o">=</span> <span class="n">best</span>
 </span><span data-line="86">
-</span><span data-line="87">        <span class="c1"># Update the heuristic&#39;s statistics</span>
+</span><span data-line="87">        <span class="c1"># Update the heuristic's statistics</span>
 </span><span data-line="88">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="89">            <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristic</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">)</span>
-</span><span data-line="90">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_total_reward&quot;</span><span class="p">):</span>
+</span><span data-line="90">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ts_total_reward"</span><span class="p">):</span>
 </span><span data-line="91">                <span class="c1"># Accumulate reward (successes)</span>
 </span><span data-line="92">                <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">+=</span> <span class="n">reward</span>
 </span><span data-line="93">
@@ -241,28 +242,28 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="98">                <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">=</span> <span class="n">alpha</span>
 </span><span data-line="99">                <span class="n">h</span><span class="o">.</span><span class="n">ts_beta</span> <span class="o">=</span> <span class="n">beta</span>
 </span><span data-line="100">
-</span><span data-line="101">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Updated </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: reward=</span><span class="si">{</span><span class="n">reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> -&gt; Beta(</span><span class="si">{</span><span class="n">alpha</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">beta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="101">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Updated </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: reward=</span><span class="si">{</span><span class="n">reward</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> -&gt; Beta(</span><span class="si">{</span><span class="n">alpha</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">beta</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
 </span><span data-line="102">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="103">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing ts_total_reward&quot;</span><span class="p">)</span>
+</span><span data-line="103">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Heuristic </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing ts_total_reward"</span><span class="p">)</span>
 </span><span data-line="104">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-</span><span data-line="105">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristic &#39;</span><span class="si">{</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="si">}</span><span class="s2">&#39; not found in strategy.&quot;</span><span class="p">)</span>
+</span><span data-line="105">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Heuristic '</span><span class="si">{</span><span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="si">}</span><span class="s2">' not found in strategy."</span><span class="p">)</span>
 </span><span data-line="106">
-</span><span data-line="107">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (Thompson)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
+</span><span data-line="107">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"</span><span class="se">\u2318</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> | </span><span class="se">\u0394</span><span class="s2"> </span><span class="si">%.7f</span><span class="s2"> </span><span class="si">%s</span><span class="s2"> (Thompson)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">who</span><span class="p">))</span></div>
 
 </span><span data-line="108">
 </span><span data-line="109">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_status_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="110"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return strategy-specific status info.&quot;&quot;&quot;</span>
+</span><span data-line="110"><span class="w">        </span><span class="sd">"""Return strategy-specific status info."""</span>
 </span><span data-line="111">        <span class="n">info</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="112">        <span class="c1"># Report max alpha (best heuristic confidence)</span>
 </span><span data-line="113">        <span class="n">max_alpha</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="114">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+</span><span data-line="114">        <span class="n">best_h_name</span> <span class="o">=</span> <span class="s2">""</span>
 </span><span data-line="115">        <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span><span class="p">:</span>
-</span><span data-line="116">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_alpha&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">&gt;</span> <span class="n">max_alpha</span><span class="p">:</span>
+</span><span data-line="116">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ts_alpha"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span> <span class="o">&gt;</span> <span class="n">max_alpha</span><span class="p">:</span>
 </span><span data-line="117">                <span class="n">max_alpha</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">ts_alpha</span>
 </span><span data-line="118">                <span class="n">best_h_name</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">name</span>
 </span><span data-line="119">
 </span><span data-line="120">        <span class="k">if</span> <span class="n">best_h_name</span><span class="p">:</span>
-</span><span data-line="121">            <span class="n">info</span><span class="p">[</span><span class="s2">&quot;best_heuristic&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="se">\u03b1</span><span class="s2">=</span><span class="si">{</span><span class="n">max_alpha</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">)&quot;</span>
+</span><span data-line="121">            <span class="n">info</span><span class="p">[</span><span class="s2">"best_heuristic"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">best_h_name</span><span class="si">}</span><span class="s2"> (</span><span class="se">\u03b1</span><span class="s2">=</span><span class="si">{</span><span class="n">max_alpha</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">)"</span>
 </span><span data-line="122">        <span class="k">return</span> <span class="n">info</span>
 </span><span data-line="123">
 <div class="viewcode-block" id="StrategyThompsonSampling.execute">
@@ -285,7 +286,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="139">                <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="140">                <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">heurs</span><span class="p">:</span>
 </span><span data-line="141">                    <span class="c1"># Ensure initialization</span>
-</span><span data-line="142">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">&quot;ts_counts&quot;</span><span class="p">):</span>
+</span><span data-line="142">                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="s2">"ts_counts"</span><span class="p">):</span>
 </span><span data-line="143">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_counts</span> <span class="o">=</span> <span class="mi">0</span>
 </span><span data-line="144">                        <span class="n">h</span><span class="o">.</span><span class="n">ts_total_reward</span> <span class="o">=</span> <span class="mf">0.0</span>
 </span><span data-line="145">
@@ -349,14 +350,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

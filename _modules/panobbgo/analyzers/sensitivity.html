@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.sensitivity"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.sensitivity"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2026 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Sensitivity Analyzer</span>
 </span><span data-line="18"><span class="sd">====================</span>
 </span><span data-line="19">
@@ -155,7 +156,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="22">
 </span><span data-line="23"><span class="sd">Publishes ``new_sensitivity(importance=ndarray)`` events, where ``importance``</span>
 </span><span data-line="24"><span class="sd">is a ``(dim,)``-array with values in ``[0, 1]`` — higher means more important.</span>
-</span><span data-line="25"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="25"><span class="sd">"""</span>
 </span><span data-line="26">
 </span><span data-line="27"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
 </span><span data-line="28">
@@ -167,7 +168,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="Sensitivity">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.Sensitivity">[docs]</a>
 </span><span data-line="34"><span class="k">class</span><span class="w"> </span><span class="nc">Sensitivity</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
-</span><span data-line="35"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="35"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="36"><span class="sd">    Estimates per-dimension sensitivity from evaluation history.</span>
 </span><span data-line="37">
 </span><span data-line="38"><span class="sd">    Listens to ``new_results`` events, accumulates X and y (penalty values),</span>
@@ -177,16 +178,16 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="42">
 </span><span data-line="43"><span class="sd">    - ``min_samples`` (int): Minimum evaluations before first analysis (default: 10 * dim).</span>
 </span><span data-line="44"><span class="sd">    - ``update_interval`` (int): Recompute every N new results (default: 50).</span>
-</span><span data-line="45"><span class="sd">    - ``method`` (str): ``&quot;spearman&quot;`` (rank correlation) or ``&quot;partial&quot;`` (partial correlation).</span>
+</span><span data-line="45"><span class="sd">    - ``method`` (str): ``"spearman"`` (rank correlation) or ``"partial"`` (partial correlation).</span>
 </span><span data-line="46">
 </span><span data-line="47"><span class="sd">    Events published:</span>
 </span><span data-line="48">
 </span><span data-line="49"><span class="sd">    - ``new_sensitivity(importance=ndarray)``: Array of shape ``(dim,)``, values in ``[0, 1]``.</span>
-</span><span data-line="50"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="50"><span class="sd">    """</span>
 </span><span data-line="51">
-</span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">update_interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;spearman&quot;</span><span class="p">):</span>
+</span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">update_interval</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"spearman"</span><span class="p">):</span>
 </span><span data-line="53">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;SENSI&quot;</span><span class="p">)</span>
+</span><span data-line="54">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"SENSI"</span><span class="p">)</span>
 </span><span data-line="55">
 </span><span data-line="56">        <span class="bp">self</span><span class="o">.</span><span class="n">_min_samples_cfg</span> <span class="o">=</span> <span class="n">min_samples</span>
 </span><span data-line="57">        <span class="bp">self</span><span class="o">.</span><span class="n">_min_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># resolved in __start__</span>
@@ -204,7 +205,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="69">
 </span><span data-line="70">    <span class="nd">@property</span>
 </span><span data-line="71">    <span class="k">def</span><span class="w"> </span><span class="nf">importance</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="72"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Current importance scores, or None if not yet computed.&quot;&quot;&quot;</span>
+</span><span data-line="72"><span class="w">        </span><span class="sd">"""Current importance scores, or None if not yet computed."""</span>
 </span><span data-line="73">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_importance</span>
 </span><span data-line="74">
 <div class="viewcode-block" id="Sensitivity.on_new_results">
@@ -222,7 +223,7 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="85">
 </span><span data-line="86">    <span class="k">def</span><span class="w"> </span><span class="nf">_accumulate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="87">        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;constraint_handler&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="87">        <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 </span><span data-line="88">
 </span><span data-line="89">        <span class="n">new_X</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="90">        <span class="n">new_y</span> <span class="o">=</span> <span class="p">[]</span>
@@ -253,14 +254,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="115">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span data-line="116">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </span><span data-line="117">
-</span><span data-line="118">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method</span> <span class="o">==</span> <span class="s2">&quot;partial&quot;</span><span class="p">:</span>
+</span><span data-line="118">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_method</span> <span class="o">==</span> <span class="s2">"partial"</span><span class="p">:</span>
 </span><span data-line="119">            <span class="n">importance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_partial_correlation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y</span><span class="p">)</span>
 </span><span data-line="120">        <span class="k">else</span><span class="p">:</span>
 </span><span data-line="121">            <span class="n">importance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spearman_correlation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_y</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
 </span><span data-line="122">
 </span><span data-line="123">        <span class="bp">self</span><span class="o">.</span><span class="n">_importance</span> <span class="o">=</span> <span class="n">importance</span>
-</span><span data-line="124">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sensitivity: </span><span class="si">{</span><span class="n">importance</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="125">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">&quot;new_sensitivity&quot;</span><span class="p">,</span> <span class="n">importance</span><span class="o">=</span><span class="n">importance</span><span class="p">)</span>
+</span><span data-line="124">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sensitivity: </span><span class="si">{</span><span class="n">importance</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="125">        <span class="bp">self</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_sensitivity"</span><span class="p">,</span> <span class="n">importance</span><span class="o">=</span><span class="n">importance</span><span class="p">)</span>
 </span><span data-line="126">
 </span><span data-line="127">    <span class="nd">@staticmethod</span>
 </span><span data-line="128">    <span class="k">def</span><span class="w"> </span><span class="nf">_spearman_correlation</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
@@ -277,7 +278,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="139">
 </span><span data-line="140">    <span class="nd">@staticmethod</span>
 </span><span data-line="141">    <span class="k">def</span><span class="w"> </span><span class="nf">_partial_correlation</span><span class="p">(</span><span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="142"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Partial correlation: correlation of x_i with y after removing linear effect of other dims.&quot;&quot;&quot;</span>
+</span><span data-line="142"><span class="w">        </span><span class="sd">"""Partial correlation: correlation of x_i with y after removing linear effect of other dims."""</span>
 </span><span data-line="143">        <span class="n">dim</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </span><span data-line="144">        <span class="n">raw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="145">
@@ -330,14 +331,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

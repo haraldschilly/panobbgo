@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.dask_evaluation"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.dask_evaluation"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,31 +135,31 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2026 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Dask-based distributed evaluation backend</span>
 </span><span data-line="18"><span class="sd">=========================================</span>
 </span><span data-line="19">
 </span><span data-line="20"><span class="sd">Everything Dask-specific that used to live inline in :mod:`panobbgo.core`.</span>
 </span><span data-line="21"><span class="sd">``dask`` is imported lazily — only when a strategy actually runs with</span>
-</span><span data-line="22"><span class="sd">``evaluation_method = &quot;dask&quot;`` — so the rest of the framework carries no</span>
+</span><span data-line="22"><span class="sd">``evaluation_method = "dask"`` — so the rest of the framework carries no</span>
 </span><span data-line="23"><span class="sd">Dask code paths or import-time dependency.</span>
 </span><span data-line="24">
 </span><span data-line="25"><span class="sd">The functions operate on a :class:`~panobbgo.core.StrategyBase` instance and</span>
-</span><span data-line="26"><span class="sd">use the strategy&#39;s ``_client`` / ``_cluster`` / ``_problem_future``</span>
+</span><span data-line="26"><span class="sd">use the strategy's ``_client`` / ``_cluster`` / ``_problem_future``</span>
 </span><span data-line="27"><span class="sd">attributes, which tests and external code set/inspect directly.</span>
-</span><span data-line="28"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="28"><span class="sd">"""</span>
 </span><span data-line="29">
 </span><span data-line="30"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="31">
@@ -171,17 +172,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="38">
 <div class="viewcode-block" id="setup_cluster">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.setup_cluster">[docs]</a>
-</span><span data-line="39"><span class="k">def</span><span class="w"> </span><span class="nf">setup_cluster</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;StrategyBase&quot;</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="40"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="39"><span class="k">def</span><span class="w"> </span><span class="nf">setup_cluster</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="40"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="41"><span class="sd">    Set up a Dask cluster based on configuration.</span>
 </span><span data-line="42"><span class="sd">    Supports both local and remote clusters.</span>
-</span><span data-line="43"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="43"><span class="sd">    """</span>
 </span><span data-line="44">    <span class="kn">from</span><span class="w"> </span><span class="nn">dask.distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">LocalCluster</span>
 </span><span data-line="45">
 </span><span data-line="46">    <span class="n">config</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">config</span>
-</span><span data-line="47">    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_cluster_type</span> <span class="o">==</span> <span class="s2">&quot;local&quot;</span><span class="p">:</span>
+</span><span data-line="47">    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_cluster_type</span> <span class="o">==</span> <span class="s2">"local"</span><span class="p">:</span>
 </span><span data-line="48">        <span class="c1"># Create a local cluster</span>
-</span><span data-line="49">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting up local Dask cluster with </span><span class="si">%d</span><span class="s2"> workers&quot;</span> <span class="o">%</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_n_workers</span><span class="p">)</span>
+</span><span data-line="49">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Setting up local Dask cluster with </span><span class="si">%d</span><span class="s2"> workers"</span> <span class="o">%</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_n_workers</span><span class="p">)</span>
 </span><span data-line="50">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span> <span class="o">=</span> <span class="n">LocalCluster</span><span class="p">(</span>
 </span><span data-line="51">            <span class="n">n_workers</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dask_n_workers</span><span class="p">),</span>
 </span><span data-line="52">            <span class="n">threads_per_worker</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dask_threads_per_worker</span><span class="p">),</span>
@@ -192,27 +193,27 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="57">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span><span class="p">)</span>
 </span><span data-line="58">    <span class="k">else</span><span class="p">:</span>
 </span><span data-line="59">        <span class="c1"># Connect to remote cluster</span>
-</span><span data-line="60">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Connecting to remote Dask cluster at </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_scheduler_address</span><span class="p">)</span>
+</span><span data-line="60">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Connecting to remote Dask cluster at </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_scheduler_address</span><span class="p">)</span>
 </span><span data-line="61">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">Client</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">dask_scheduler_address</span><span class="p">)</span>
 </span><span data-line="62">
 </span><span data-line="63">    <span class="c1"># Scatter the problem to all workers</span>
 </span><span data-line="64">    <span class="n">strategy</span><span class="o">.</span><span class="n">_problem_future</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">broadcast</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="65">
-</span><span data-line="66">    <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Dask cluster ready with </span><span class="si">%d</span><span class="s2"> workers&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scheduler_info</span><span class="p">()[</span><span class="s2">&quot;workers&quot;</span><span class="p">]))</span>
-</span><span data-line="67">    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_cluster_type</span> <span class="o">==</span> <span class="s2">&quot;local&quot;</span><span class="p">:</span>
-</span><span data-line="68">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Dashboard available at: http://localhost</span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_dashboard_address</span><span class="p">)</span></div>
+</span><span data-line="66">    <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Dask cluster ready with </span><span class="si">%d</span><span class="s2"> workers"</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scheduler_info</span><span class="p">()[</span><span class="s2">"workers"</span><span class="p">]))</span>
+</span><span data-line="67">    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_cluster_type</span> <span class="o">==</span> <span class="s2">"local"</span><span class="p">:</span>
+</span><span data-line="68">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Dashboard available at: http://localhost</span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">config</span><span class="o">.</span><span class="n">dask_dashboard_address</span><span class="p">)</span></div>
 
 </span><span data-line="69">
 </span><span data-line="70">
 <div class="viewcode-block" id="DaskEvaluators">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.DaskEvaluators">[docs]</a>
 </span><span data-line="71"><span class="k">class</span><span class="w"> </span><span class="nc">DaskEvaluators</span><span class="p">:</span>
-</span><span data-line="72"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="72"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="73"><span class="sd">    Evaluators view for the Dask backend (compatibility object for strategies</span>
 </span><span data-line="74"><span class="sd">    that reference ``strategy.evaluators``).</span>
-</span><span data-line="75"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="75"><span class="sd">    """</span>
 </span><span data-line="76">
-</span><span data-line="77">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;StrategyBase&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="77">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="78">        <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span> <span class="o">=</span> <span class="n">strategy</span>
 </span><span data-line="79">
 </span><span data-line="80">    <span class="nd">@property</span>
@@ -222,25 +223,25 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="84">
 </span><span data-line="85">    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 </span><span data-line="86">        <span class="c1"># Return number of Dask workers</span>
-</span><span data-line="87">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;_client&quot;</span><span class="p">):</span>
-</span><span data-line="88">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scheduler_info</span><span class="p">()[</span><span class="s2">&quot;workers&quot;</span><span class="p">])</span>
+</span><span data-line="87">        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_client"</span><span class="p">):</span>
+</span><span data-line="88">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">scheduler_info</span><span class="p">()[</span><span class="s2">"workers"</span><span class="p">])</span>
 </span><span data-line="89">        <span class="k">return</span> <span class="mi">0</span></div>
 
 </span><span data-line="90">
 </span><span data-line="91">
 <div class="viewcode-block" id="run_evaluation">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.run_evaluation">[docs]</a>
-</span><span data-line="92"><span class="k">def</span><span class="w"> </span><span class="nf">run_evaluation</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;StrategyBase&quot;</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
-</span><span data-line="93"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="92"><span class="k">def</span><span class="w"> </span><span class="nf">run_evaluation</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+</span><span data-line="93"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="94"><span class="sd">    Run evaluation using Dask distributed computing.</span>
 </span><span data-line="95">
-</span><span data-line="96"><span class="sd">    Submits each point as a Dask future, updates the strategy&#39;s task</span>
+</span><span data-line="96"><span class="sd">    Submits each point as a Dask future, updates the strategy's task</span>
 </span><span data-line="97"><span class="sd">    accounting, and returns the newly finished results.</span>
-</span><span data-line="98"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="98"><span class="sd">    """</span>
 </span><span data-line="99">
 </span><span data-line="100">    <span class="c1"># Helper function to evaluate a point using the problem</span>
 </span><span data-line="101">    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="102"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate a single point using the problem instance&quot;&quot;&quot;</span>
+</span><span data-line="102"><span class="w">        </span><span class="sd">"""Evaluate a single point using the problem instance"""</span>
 </span><span data-line="103">        <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
 </span><span data-line="104">
 </span><span data-line="105">    <span class="c1"># distribute work using Dask futures</span>
@@ -255,7 +256,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="114">        <span class="p">)</span>
 </span><span data-line="115">        <span class="n">new_futures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
 </span><span data-line="116">
-</span><span data-line="117">    <span class="c1"># and don&#39;t forget, this updates the statistics</span>
+</span><span data-line="117">    <span class="c1"># and don't forget, this updates the statistics</span>
 </span><span data-line="118">    <span class="n">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">)</span>
 </span><span data-line="119">
 </span><span data-line="120">    <span class="c1"># collect new results for each finished task, hand them over to result DB</span>
@@ -270,17 +271,17 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="129">                <span class="k">else</span><span class="p">:</span>
 </span><span data-line="130">                    <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </span><span data-line="131">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="132">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Task failed with error: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+</span><span data-line="132">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"Task failed with error: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
 </span><span data-line="133">
 </span><span data-line="134">    <span class="k">return</span> <span class="n">new_results</span></div>
 
 </span><span data-line="135">
 </span><span data-line="136">
-</span><span data-line="137"><span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;StrategyBase&quot;</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="138"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="137"><span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="138"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="139"><span class="sd">    Accounting routine for the parallel Dask tasks</span>
 </span><span data-line="140"><span class="sd">    (moved from ``StrategyBase._add_tasks``).</span>
-</span><span data-line="141"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="141"><span class="sd">    """</span>
 </span><span data-line="142">    <span class="k">if</span> <span class="n">new_futures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="143">        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">new_futures</span><span class="p">:</span>
 </span><span data-line="144">            <span class="c1"># Use future.key as identifier</span>
@@ -297,7 +298,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="155">            <span class="n">strategy</span><span class="o">.</span><span class="n">finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
 </span><span data-line="156">
 </span><span data-line="157">            <span class="c1"># Calculate elapsed time if available</span>
-</span><span data-line="158">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">future</span><span class="p">,</span> <span class="s2">&quot;done&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+</span><span data-line="158">            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">future</span><span class="p">,</span> <span class="s2">"done"</span><span class="p">)</span> <span class="ow">and</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
 </span><span data-line="159">                <span class="k">try</span><span class="p">:</span>
 </span><span data-line="160">                    <span class="c1"># Get task duration from Dask</span>
 </span><span data-line="161">                    <span class="c1"># Note: This is approximate, based on completion time</span>
@@ -312,10 +313,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="170">
 <div class="viewcode-block" id="close">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.close">[docs]</a>
-</span><span data-line="171"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">&quot;StrategyBase&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="172"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="171"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="172"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="173"><span class="sd">    Cancel any outstanding Dask futures and close client + cluster.</span>
-</span><span data-line="174"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="174"><span class="sd">    """</span>
 </span><span data-line="175">    <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
 </span><span data-line="176">        <span class="k">try</span><span class="p">:</span>
 </span><span data-line="177">            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
@@ -323,9 +324,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="179">            <span class="k">pass</span>
 </span><span data-line="180">
 </span><span data-line="181">    <span class="c1"># Close Dask client and cluster</span>
-</span><span data-line="182">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;_client&quot;</span><span class="p">):</span>
+</span><span data-line="182">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_client"</span><span class="p">):</span>
 </span><span data-line="183">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="184">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">&quot;_cluster&quot;</span><span class="p">):</span>
+</span><span data-line="184">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_cluster"</span><span class="p">):</span>
 </span><span data-line="185">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 </span></pre></div>
@@ -350,14 +351,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

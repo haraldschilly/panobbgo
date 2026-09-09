@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.nelder_mead"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.nelder_mead"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -136,14 +137,14 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="3"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="4"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="5"><span class="c1">#</span>
-</span><span data-line="6"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="6"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="7"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="8"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="11"><span class="c1">#</span>
 </span><span data-line="12"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="13"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="13"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="14"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="15"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="16"><span class="c1"># limitations under the License.</span>
@@ -157,7 +158,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead">[docs]</a>
 </span><span data-line="24"><span class="k">class</span><span class="w"> </span><span class="nc">NelderMead</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="25"><span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="25"><span class="w">    </span><span class="sa">r</span><span class="sd">"""</span>
 </span><span data-line="26"><span class="sd">    This heuristic is inspired by the</span>
 </span><span data-line="27"><span class="sd">    `Nelder Mead Method &lt;http://en.wikipedia.org/wiki/Nelder%E2%80%93Mead_method&gt;`_</span>
 </span><span data-line="28">
@@ -175,13 +176,13 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="40"><span class="sd">    The heuristic is *reactive*: it recomputes its base whenever the</span>
 </span><span data-line="41"><span class="sd">    :class:`~panobbgo.analyzers.Splitter` publishes a new best box and tops</span>
 </span><span data-line="42"><span class="sd">    its output queue up on every result batch.  It never sleeps or polls.</span>
-</span><span data-line="43"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="43"><span class="sd">    """</span>
 </span><span data-line="44">
 <div class="viewcode-block" id="NelderMead.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead.__init__">[docs]</a>
 </span><span data-line="45">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
-</span><span data-line="46">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Nelder Mead&quot;</span><span class="p">)</span>
-</span><span data-line="47">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;H:NM&quot;</span><span class="p">)</span>
+</span><span data-line="46">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"Nelder Mead"</span><span class="p">)</span>
+</span><span data-line="47">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"H:NM"</span><span class="p">)</span>
 </span><span data-line="48">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="49">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="50">        <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span></div>
@@ -190,13 +191,13 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead.gram_schmidt">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.gram_schmidt">[docs]</a>
 </span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="nf">gram_schmidt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
-</span><span data-line="53"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="53"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="54"><span class="sd">        Tries to calculate an orthogonal base of dimension `dim`</span>
 </span><span data-line="55"><span class="sd">        with given list of :class:`Results &lt;panobbgo.lib.Result&gt;` points.</span>
 </span><span data-line="56"><span class="sd">        Retuns `None`, if not enough points or impossible.</span>
 </span><span data-line="57"><span class="sd">        The actual basis is not important, only the points for it are.</span>
 </span><span data-line="58"><span class="sd">        They are used in :meth:`~.nelder_mead`.</span>
-</span><span data-line="59"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="59"><span class="sd">        """</span>
 </span><span data-line="60">        <span class="c1"># start empty, and append in each iteration</span>
 </span><span data-line="61">        <span class="c1"># sort points ascending by fx -&gt; calc gs -&gt; skip if &lt;= tol</span>
 </span><span data-line="62">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -248,7 +249,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="108">                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">dim</span><span class="p">:</span>
 </span><span data-line="109">                    <span class="k">return</span> <span class="n">ret</span>
 </span><span data-line="110">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="111">                <span class="c1"># self.logger.info(&quot;below tol: %s (base: %s)&quot; % (np.abs(w),</span>
+</span><span data-line="111">                <span class="c1"># self.logger.info("below tol: %s (base: %s)" % (np.abs(w),</span>
 </span><span data-line="112">                <span class="c1"># base))</span>
 </span><span data-line="113">                <span class="k">pass</span>
 </span><span data-line="114">        <span class="k">return</span> <span class="kc">None</span></div>
@@ -257,10 +258,10 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead.nelder_mead_init">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead_init">[docs]</a>
 </span><span data-line="116">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead_init</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">):</span>
-</span><span data-line="117"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="117"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="118"><span class="sd">        Calculates the worst point and the centroid of the remaining points</span>
 </span><span data-line="119"><span class="sd">        from the given base.</span>
-</span><span data-line="120"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="120"><span class="sd">        """</span>
 </span><span data-line="121">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
 </span><span data-line="122">
 </span><span data-line="123">        <span class="k">def</span><span class="w"> </span><span class="nf">compare</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
@@ -298,9 +299,9 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead.nelder_mead_sample">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead_sample">[docs]</a>
 </span><span data-line="154">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span data-line="155"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="155"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="156"><span class="sd">        Generates a new randomized search point based on worst point and centroid.</span>
-</span><span data-line="157"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="157"><span class="sd">        """</span>
 </span><span data-line="158">        <span class="n">factor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">rayleigh</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="n">scale</span><span class="p">)</span> <span class="o">-</span> <span class="n">offset</span>
 </span><span data-line="159">        <span class="k">return</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">factor</span> <span class="o">*</span> <span class="p">(</span><span class="n">centroid</span> <span class="o">-</span> <span class="n">worst</span><span class="o">.</span><span class="n">x</span><span class="p">)</span></div>
 
@@ -308,7 +309,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead.nelder_mead">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.nelder_mead">[docs]</a>
 </span><span data-line="161">    <span class="k">def</span><span class="w"> </span><span class="nf">nelder_mead</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
-</span><span data-line="162"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="162"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="163"><span class="sd">        Retuns a new *randomized* search point for the given set of results (``base``),</span>
 </span><span data-line="164"><span class="sd">        which are linearly independent enough to form a orthonormal base,</span>
 </span><span data-line="165"><span class="sd">        using the Nelder-Mead Method.</span>
@@ -317,19 +318,19 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="168">
 </span><span data-line="169"><span class="sd">        - ``scale``: Used when sampling the new points via the :func:`~numpy.random.rayleigh` method.</span>
 </span><span data-line="170"><span class="sd">        - ``offset``: This is subtracted from the sample factor; i.e. negative</span>
-</span><span data-line="171"><span class="sd">          values account for the &quot;contraction&quot;.</span>
-</span><span data-line="172"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="171"><span class="sd">          values account for the "contraction".</span>
+</span><span data-line="172"><span class="sd">        """</span>
 </span><span data-line="173">        <span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_init</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
 </span><span data-line="174">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="n">worst</span><span class="p">,</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
 
 </span><span data-line="175">
 </span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">_refresh_base</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="177"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Derive ``worst`` / ``centroid`` from the current best box.</span>
+</span><span data-line="177"><span class="w">        </span><span class="sd">"""Derive ``worst`` / ``centroid`` from the current best box.</span>
 </span><span data-line="178">
 </span><span data-line="179"><span class="sd">        Walks up the box hierarchy until :meth:`gram_schmidt` finds enough</span>
 </span><span data-line="180"><span class="sd">        linearly independent results; leaves ``_worst`` / ``_centroid`` as</span>
 </span><span data-line="181"><span class="sd">        ``None`` when there are not enough.</span>
-</span><span data-line="182"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="182"><span class="sd">        """</span>
 </span><span data-line="183">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="184">        <span class="n">bb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span>
 </span><span data-line="185">        <span class="k">while</span> <span class="n">bb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -341,7 +342,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="191">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="192">
 </span><span data-line="193">    <span class="k">def</span><span class="w"> </span><span class="nf">_fill</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="194"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Top the output queue up with samples from the current base.&quot;&quot;&quot;</span>
+</span><span data-line="194"><span class="w">        </span><span class="sd">"""Top the output queue up with samples from the current base."""</span>
 </span><span data-line="195">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="196">            <span class="k">return</span>
 </span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">nelder_mead_sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_worst</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span><span class="p">))</span>
@@ -349,8 +350,8 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead.on_new_best_box">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_best_box">[docs]</a>
 </span><span data-line="199">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best_box</span><span class="p">):</span>
-</span><span data-line="200"><span class="w">        </span><span class="sd">&quot;&quot;&quot;A new best box (from the :class:`~.analyzers.Splitter`) resets the</span>
-</span><span data-line="201"><span class="sd">        search direction: the queue is flushed and refilled from the new base.&quot;&quot;&quot;</span>
+</span><span data-line="200"><span class="w">        </span><span class="sd">"""A new best box (from the :class:`~.analyzers.Splitter`) resets the</span>
+</span><span data-line="201"><span class="sd">        search direction: the queue is flushed and refilled from the new base."""</span>
 </span><span data-line="202">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="n">best_box</span>
 </span><span data-line="203">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
 </span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">_refresh_base</span><span class="p">()</span>
@@ -360,14 +361,14 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="NelderMead.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_new_results">[docs]</a>
 </span><span data-line="207">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="208"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Keep the queue topped up; the base only changes with the best box.&quot;&quot;&quot;</span>
+</span><span data-line="208"><span class="w">        </span><span class="sd">"""Keep the queue topped up; the base only changes with the best box."""</span>
 </span><span data-line="209">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
 
 </span><span data-line="210">
 <div class="viewcode-block" id="NelderMead.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.nelder_mead.NelderMead.on_restart">[docs]</a>
 </span><span data-line="211">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="212"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Flush points and pause until a new best box is found.&quot;&quot;&quot;</span>
+</span><span data-line="212"><span class="w">        </span><span class="sd">"""Flush points and pause until a new best box is found."""</span>
 </span><span data-line="213">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
 </span><span data-line="214">        <span class="bp">self</span><span class="o">.</span><span class="n">best_box</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="215">        <span class="bp">self</span><span class="o">.</span><span class="n">_worst</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_centroid</span> <span class="o">=</span> <span class="kc">None</span></div>
@@ -395,14 +396,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

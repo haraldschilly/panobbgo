@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="Panobbgo User Guide"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="Panobbgo User Guide"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -143,11 +144,11 @@ data-aria-dark="Switch to auto color mode">
       <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
   <article class="yue" role="main">
           <section id="panobbgo-user-guide">
-<h1>Panobbgo User Guide<a class="headerlink" href="#panobbgo-user-guide" title="Link to this heading">¶</a></h1>
+<h1>Panobbgo User Guide<a class="headerlink" href="#panobbgo-user-guide" title="Link to this heading">#</a></h1>
 <p>Welcome to the comprehensive guide for <strong>Panobbgo</strong> (Parallel Noisy Black-Box Global Optimization).</p>
 <p>This guide provides everything you need to understand, use, and extend Panobbgo for your black-box optimization problems.</p>
 <section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">#</a></h2>
 <p>Panobbgo is a flexible, modular Python framework for optimizing expensive black-box functions where:</p>
 <ul class="simple">
 <li><p>You can only evaluate the function, not analyze its internal structure</p></li>
@@ -160,7 +161,7 @@ data-aria-dark="Switch to auto color mode">
 that are coordinated by an adaptive <strong>strategy</strong> implementing a <strong>multi-armed bandit</strong> approach.</p>
 </section>
 <section id="quick-navigation">
-<h2>Quick Navigation<a class="headerlink" href="#quick-navigation" title="Link to this heading">¶</a></h2>
+<h2>Quick Navigation<a class="headerlink" href="#quick-navigation" title="Link to this heading">#</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -202,7 +203,7 @@ self-improvement loop that builds on it is documented in
 </div>
 </section>
 <section id="guide-contents">
-<h2>Guide Contents<a class="headerlink" href="#guide-contents" title="Link to this heading">¶</a></h2>
+<h2>Guide Contents<a class="headerlink" href="#guide-contents" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
@@ -216,7 +217,7 @@ self-improvement loop that builds on it is documented in
 </div>
 </section>
 <section id="key-concepts">
-<h2>Key Concepts<a class="headerlink" href="#key-concepts" title="Link to this heading">¶</a></h2>
+<h2>Key Concepts<a class="headerlink" href="#key-concepts" title="Link to this heading">#</a></h2>
 <p>Before diving in, here are the core concepts you’ll encounter throughout Panobbgo:</p>
 <dl class="simple">
 <dt><strong>Problem</strong></dt><dd><p>The black-box function you want to minimize, defined by its dimensionality and bounding box</p>
@@ -238,7 +239,7 @@ self-improvement loop that builds on it is documented in
 </dl>
 </section>
 <section id="typical-workflow">
-<h2>Typical Workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading">¶</a></h2>
+<h2>Typical Workflow<a class="headerlink" href="#typical-workflow" title="Link to this heading">#</a></h2>
 <p>A typical Panobbgo workflow looks like this:</p>
 <ol class="arabic">
 <li><p><strong>Define your problem</strong> by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a></p>
@@ -267,7 +268,7 @@ self-improvement loop that builds on it is documented in
 </div>
 </li>
 <li><p><strong>Analyze results</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Best found: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Best found: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span><span data-line="2"><span class="n">df</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
 </span></pre></div>
 </div>
@@ -275,7 +276,7 @@ self-improvement loop that builds on it is documented in
 </ol>
 </section>
 <section id="design-philosophy">
-<h2>Design Philosophy<a class="headerlink" href="#design-philosophy" title="Link to this heading">¶</a></h2>
+<h2>Design Philosophy<a class="headerlink" href="#design-philosophy" title="Link to this heading">#</a></h2>
 <p>Panobbgo’s design is guided by several principles:</p>
 <dl class="simple">
 <dt><strong>Modularity</strong></dt><dd><p>Components are independent and interchangeable. Add, remove, or replace heuristics without affecting others.</p>
@@ -293,7 +294,7 @@ self-improvement loop that builds on it is documented in
 </dl>
 </section>
 <section id="when-to-use-panobbgo">
-<h2>When to Use Panobbgo<a class="headerlink" href="#when-to-use-panobbgo" title="Link to this heading">¶</a></h2>
+<h2>When to Use Panobbgo<a class="headerlink" href="#when-to-use-panobbgo" title="Link to this heading">#</a></h2>
 <p>Panobbgo excels when you have:</p>
 <p>✓ Expensive function evaluations (seconds to hours per evaluation)</p>
 <p>✓ No access to gradients or derivatives</p>
@@ -311,7 +312,7 @@ self-improvement loop that builds on it is documented in
 <li><p>Industrial process optimization</p></li>
 </ul>
 <section id="when-not-to-use-panobbgo">
-<h3>When NOT to Use Panobbgo<a class="headerlink" href="#when-not-to-use-panobbgo" title="Link to this heading">¶</a></h3>
+<h3>When NOT to Use Panobbgo<a class="headerlink" href="#when-not-to-use-panobbgo" title="Link to this heading">#</a></h3>
 <p>Consider alternatives if you have:</p>
 <p>✗ Access to gradients (use gradient-based methods instead)</p>
 <p>✗ Cheap function evaluations (simple methods may suffice)</p>
@@ -321,16 +322,16 @@ self-improvement loop that builds on it is documented in
 </section>
 </section>
 <section id="system-requirements">
-<h2>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">¶</a></h2>
+<h2>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">#</a></h2>
 <ul class="simple">
-<li><p>Python ≥ 3.11</p></li>
+<li><p>Python ≥ 3.14</p></li>
 <li><p>NumPy, SciPy, pandas, matplotlib, statsmodels, scikit-learn</p></li>
 <li><p>Dask (optional <code class="docutils literal notranslate"><span class="pre">dask</span></code> extra) for distributed evaluation</p></li>
 <li><p>Tested on Linux and macOS (Windows should work but less tested)</p></li>
 </ul>
 </section>
 <section id="community-and-support">
-<h2>Community and Support<a class="headerlink" href="#community-and-support" title="Link to this heading">¶</a></h2>
+<h2>Community and Support<a class="headerlink" href="#community-and-support" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><strong>Source Code</strong>: <a class="reference external" href="https://github.com/haraldschilly/panobbgo">https://github.com/haraldschilly/panobbgo</a></p></li>
 <li><p><strong>Issue Tracker</strong>: <a class="reference external" href="https://github.com/haraldschilly/panobbgo/issues">https://github.com/haraldschilly/panobbgo/issues</a></p></li>
@@ -339,7 +340,7 @@ self-improvement loop that builds on it is documented in
 </ul>
 </section>
 <section id="contributing">
-<h2>Contributing<a class="headerlink" href="#contributing" title="Link to this heading">¶</a></h2>
+<h2>Contributing<a class="headerlink" href="#contributing" title="Link to this heading">#</a></h2>
 <p>Panobbgo is open-source (Apache 2.0 license) and welcomes contributions:</p>
 <ul class="simple">
 <li><p>Bug reports and feature requests</p></li>
@@ -351,7 +352,7 @@ self-improvement loop that builds on it is documented in
 <p>See the repository for contribution guidelines.</p>
 </section>
 <section id="what-s-next">
-<h2>What’s Next?<a class="headerlink" href="#what-s-next" title="Link to this heading">¶</a></h2>
+<h2>What’s Next?<a class="headerlink" href="#what-s-next" title="Link to this heading">#</a></h2>
 <p><strong>If you’re new</strong>: Start with <a class="reference internal" href="guide_introduction.html"><span class="doc">Introduction to Panobbgo</span></a> to understand black-box optimization and Panobbgo’s approach.</p>
 <p><strong>If you want to use it</strong>: Jump to <a class="reference internal" href="guide_usage.html"><span class="doc">Usage Guide</span></a> for installation and examples.</p>
 <p><strong>If you want to extend it</strong>: Go to <a class="reference internal" href="guide_extending.html"><span class="doc">Extending Panobbgo</span></a> for customization patterns.</p>
@@ -394,14 +395,14 @@ self-improvement loop that builds on it is documented in
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="_static/shibuya.js?v=50760d75"></script></body>
 </html>

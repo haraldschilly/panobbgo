@@ -6,7 +6,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
     <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,8 @@
   --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
 }
 </style>
-    <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.claude_heuristic"/>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.claude_heuristic"/>
     <meta name="twitter:card" content="summary"/>
   </head>
 <body><div class="sy-head">
@@ -134,19 +135,19 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
 </span><span data-line="2"><span class="c1"># Copyright 2026 Panobbgo Contributors</span>
 </span><span data-line="3"><span class="c1">#</span>
-</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
 </span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
 </span><span data-line="7"><span class="c1">#</span>
 </span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
 </span><span data-line="9"><span class="c1">#</span>
 </span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
-</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
 </span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="16"><span class="sd">"""</span>
 </span><span data-line="17"><span class="sd">Claude Heuristic — Cluster-Based Adaptive Search</span>
 </span><span data-line="18"><span class="sd">=================================================</span>
 </span><span data-line="19">
@@ -155,11 +156,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="22"><span class="sd">from the resulting mixture model.</span>
 </span><span data-line="23">
 </span><span data-line="24"><span class="sd">The intuition: near groups of good points, even better points may be hiding.</span>
-</span><span data-line="25"><span class="sd">By capturing each cluster&#39;s local geometry (elongated valleys, ridges) via</span>
+</span><span data-line="25"><span class="sd">By capturing each cluster's local geometry (elongated valleys, ridges) via</span>
 </span><span data-line="26"><span class="sd">the empirical covariance, we sample efficiently in promising directions.</span>
 </span><span data-line="27">
 </span><span data-line="28"><span class="sd">Related to the Cross-Entropy Method and Estimation of Distribution Algorithms.</span>
-</span><span data-line="29"><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="29"><span class="sd">"""</span>
 </span><span data-line="30">
 </span><span data-line="31"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
 </span><span data-line="32"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -168,7 +169,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="ClaudeHeuristic">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.ClaudeHeuristic">[docs]</a>
 </span><span data-line="35"><span class="k">class</span><span class="w"> </span><span class="nc">ClaudeHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="36"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="36"><span class="w">    </span><span class="sd">"""</span>
 </span><span data-line="37"><span class="sd">    Cluster-based adaptive search heuristic (written by Claude, hence the name).</span>
 </span><span data-line="38">
 </span><span data-line="39"><span class="sd">    Fits a Mixture of Gaussians to the top-performing evaluated points,</span>
@@ -177,12 +178,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="42">
 </span><span data-line="43"><span class="sd">    Args:</span>
 </span><span data-line="44"><span class="sd">        strategy: The optimization strategy instance.</span>
-</span><span data-line="45"><span class="sd">        elite_fraction: Fraction of all results to consider &quot;elite&quot; (default 0.2).</span>
+</span><span data-line="45"><span class="sd">        elite_fraction: Fraction of all results to consider "elite" (default 0.2).</span>
 </span><span data-line="46"><span class="sd">        max_clusters: Maximum number of clusters (default 5).</span>
 </span><span data-line="47"><span class="sd">        n_candidates: Number of points to emit per trigger (default 5).</span>
 </span><span data-line="48"><span class="sd">        min_points: Minimum total results before activating (default 2*dim+1).</span>
 </span><span data-line="49"><span class="sd">        regularization: Covariance regularization strength (default 1e-3).</span>
-</span><span data-line="50"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="50"><span class="sd">    """</span>
 </span><span data-line="51">
 </span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
 </span><span data-line="53">        <span class="bp">self</span><span class="p">,</span>
@@ -193,8 +194,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="58">        <span class="n">min_points</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 </span><span data-line="59">        <span class="n">regularization</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span>
 </span><span data-line="60">    <span class="p">):</span>
-</span><span data-line="61">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;ClaudeHeuristic&quot;</span><span class="p">)</span>
-</span><span data-line="62">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">&quot;H:CL&quot;</span><span class="p">)</span>
+</span><span data-line="61">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"ClaudeHeuristic"</span><span class="p">)</span>
+</span><span data-line="62">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"H:CL"</span><span class="p">)</span>
 </span><span data-line="63">        <span class="bp">self</span><span class="o">.</span><span class="n">elite_fraction</span> <span class="o">=</span> <span class="n">elite_fraction</span>
 </span><span data-line="64">        <span class="bp">self</span><span class="o">.</span><span class="n">max_clusters</span> <span class="o">=</span> <span class="n">max_clusters</span>
 </span><span data-line="65">        <span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span> <span class="o">=</span> <span class="n">n_candidates</span>
@@ -209,7 +210,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="ClaudeHeuristic.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.ClaudeHeuristic.on_start">[docs]</a>
 </span><span data-line="74">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="75"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset state at start of optimization.&quot;&quot;&quot;</span>
+</span><span data-line="75"><span class="w">        </span><span class="sd">"""Reset state at start of optimization."""</span>
 </span><span data-line="76">        <span class="bp">self</span><span class="o">.</span><span class="n">X_all</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="77">        <span class="bp">self</span><span class="o">.</span><span class="n">y_all</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="78">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_min_points_cfg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -221,7 +222,7 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="ClaudeHeuristic.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.ClaudeHeuristic.on_new_results">[docs]</a>
 </span><span data-line="83">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="84"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Accumulate results, rebuild clusters, sample new candidates.&quot;&quot;&quot;</span>
+</span><span data-line="84"><span class="w">        </span><span class="sd">"""Accumulate results, rebuild clusters, sample new candidates."""</span>
 </span><span data-line="85">        <span class="k">if</span> <span class="ow">not</span> <span class="n">results</span><span class="p">:</span>
 </span><span data-line="86">            <span class="k">return</span>
 </span><span data-line="87">
@@ -247,7 +248,7 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="107">
 </span><span data-line="108">    <span class="k">def</span><span class="w"> </span><span class="nf">_accumulate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="109"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Append new results to stored arrays. Returns True if any added.&quot;&quot;&quot;</span>
+</span><span data-line="109"><span class="w">        </span><span class="sd">"""Append new results to stored arrays. Returns True if any added."""</span>
 </span><span data-line="110">        <span class="n">get_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span>
 </span><span data-line="111">        <span class="n">new_X</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span data-line="112">        <span class="n">new_y</span> <span class="o">=</span> <span class="p">[]</span>
@@ -273,7 +274,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="132">        <span class="k">return</span> <span class="kc">True</span>
 </span><span data-line="133">
 </span><span data-line="134">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_elite</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-</span><span data-line="135"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return (X_elite, y_elite) — top elite_fraction by penalty value.&quot;&quot;&quot;</span>
+</span><span data-line="135"><span class="w">        </span><span class="sd">"""Return (X_elite, y_elite) — top elite_fraction by penalty value."""</span>
 </span><span data-line="136">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span><span data-line="137">        <span class="n">n_elite</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_all</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">elite_fraction</span><span class="p">))</span>
 </span><span data-line="138">        <span class="n">n_elite</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n_elite</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">y_all</span><span class="p">))</span>
@@ -281,12 +282,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="140">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">X_all</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">y_all</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
 </span><span data-line="141">
 </span><span data-line="142">    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_clusters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_elite</span><span class="p">,</span> <span class="n">y_elite</span><span class="p">):</span>
-</span><span data-line="143"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="143"><span class="w">        </span><span class="sd">"""</span>
 </span><span data-line="144"><span class="sd">        Cluster elite points via k-means, fit a Gaussian per cluster,</span>
 </span><span data-line="145"><span class="sd">        and assign mixture weights inversely proportional to mean penalty.</span>
 </span><span data-line="146">
-</span><span data-line="147"><span class="sd">        Returns list of dicts: [{&quot;mean&quot;: ndarray, &quot;cov&quot;: ndarray, &quot;weight&quot;: float}, ...]</span>
-</span><span data-line="148"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="147"><span class="sd">        Returns list of dicts: [{"mean": ndarray, "cov": ndarray, "weight": float}, ...]</span>
+</span><span data-line="148"><span class="sd">        """</span>
 </span><span data-line="149">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="150">        <span class="n">n_elite</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_elite</span><span class="p">)</span>
 </span><span data-line="151">
@@ -296,11 +297,11 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="155">        <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">n_elite</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">dim</span><span class="p">:</span>
 </span><span data-line="156">            <span class="c1"># Single Gaussian fallback</span>
 </span><span data-line="157">            <span class="n">mean</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_cluster_gaussian</span><span class="p">(</span><span class="n">X_elite</span><span class="p">)</span>
-</span><span data-line="158">            <span class="k">return</span> <span class="p">[{</span><span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="n">mean</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}]</span>
+</span><span data-line="158">            <span class="k">return</span> <span class="p">[{</span><span class="s2">"mean"</span><span class="p">:</span> <span class="n">mean</span><span class="p">,</span> <span class="s2">"cov"</span><span class="p">:</span> <span class="n">cov</span><span class="p">,</span> <span class="s2">"weight"</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}]</span>
 </span><span data-line="159">
 </span><span data-line="160">        <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeans</span>
 </span><span data-line="161">
-</span><span data-line="162">        <span class="n">kmeans</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span data-line="162">        <span class="n">kmeans</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span><span data-line="163">        <span class="n">labels</span> <span class="o">=</span> <span class="n">kmeans</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">X_elite</span><span class="p">)</span>
 </span><span data-line="164">
 </span><span data-line="165">        <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
@@ -318,7 +319,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="177">            <span class="k">else</span><span class="p">:</span>
 </span><span data-line="178">                <span class="n">mean</span><span class="p">,</span> <span class="n">cov</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_cluster_gaussian</span><span class="p">(</span><span class="n">X_c</span><span class="p">)</span>
 </span><span data-line="179">
-</span><span data-line="180">            <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="n">mean</span><span class="p">,</span> <span class="s2">&quot;cov&quot;</span><span class="p">:</span> <span class="n">cov</span><span class="p">})</span>
+</span><span data-line="180">            <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"mean"</span><span class="p">:</span> <span class="n">mean</span><span class="p">,</span> <span class="s2">"cov"</span><span class="p">:</span> <span class="n">cov</span><span class="p">})</span>
 </span><span data-line="181">            <span class="n">raw_penalties</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_c</span><span class="p">))</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_c</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
 </span><span data-line="182">
 </span><span data-line="183">        <span class="c1"># Compute mixture weights: lower penalty → higher weight</span>
@@ -327,12 +328,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="186">        <span class="n">inv_weights</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">shifted</span>
 </span><span data-line="187">        <span class="n">total</span> <span class="o">=</span> <span class="n">inv_weights</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 </span><span data-line="188">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">comp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">components</span><span class="p">):</span>
-</span><span data-line="189">            <span class="n">comp</span><span class="p">[</span><span class="s2">&quot;weight&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inv_weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">total</span><span class="p">)</span>
+</span><span data-line="189">            <span class="n">comp</span><span class="p">[</span><span class="s2">"weight"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">inv_weights</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">/</span> <span class="n">total</span><span class="p">)</span>
 </span><span data-line="190">
 </span><span data-line="191">        <span class="k">return</span> <span class="n">components</span>
 </span><span data-line="192">
 </span><span data-line="193">    <span class="k">def</span><span class="w"> </span><span class="nf">_fit_cluster_gaussian</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_cluster</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-</span><span data-line="194"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit a regularized Gaussian to a cluster of points.&quot;&quot;&quot;</span>
+</span><span data-line="194"><span class="w">        </span><span class="sd">"""Fit a regularized Gaussian to a cluster of points."""</span>
 </span><span data-line="195">        <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">X_cluster</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </span><span data-line="196">
 </span><span data-line="197">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_cluster</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
@@ -351,9 +352,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="210">        <span class="k">return</span> <span class="n">mean</span><span class="p">,</span> <span class="n">cov</span>
 </span><span data-line="211">
 </span><span data-line="212">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_from_mixture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">components</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-</span><span data-line="213"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Draw n_candidates points from the mixture model, projected to box.&quot;&quot;&quot;</span>
+</span><span data-line="213"><span class="w">        </span><span class="sd">"""Draw n_candidates points from the mixture model, projected to box."""</span>
 </span><span data-line="214">        <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="215">        <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="s2">&quot;weight&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">])</span>
+</span><span data-line="215">        <span class="n">weights</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="s2">"weight"</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">])</span>
 </span><span data-line="216">
 </span><span data-line="217">        <span class="c1"># Multinomial allocation of samples across components</span>
 </span><span data-line="218">        <span class="n">counts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span>
@@ -362,12 +363,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="221">            <span class="k">if</span> <span class="n">count</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
 </span><span data-line="222">                <span class="k">continue</span>
 </span><span data-line="223">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="224">                <span class="n">samples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">multivariate_normal</span><span class="p">(</span><span class="n">comp</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">],</span> <span class="n">comp</span><span class="p">[</span><span class="s2">&quot;cov&quot;</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">))</span>
+</span><span data-line="224">                <span class="n">samples</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">multivariate_normal</span><span class="p">(</span><span class="n">comp</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">],</span> <span class="n">comp</span><span class="p">[</span><span class="s2">"cov"</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">))</span>
 </span><span data-line="225">            <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
 </span><span data-line="226">                <span class="c1"># Fallback to isotropic sampling at mean</span>
-</span><span data-line="227">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Singular covariance, falling back to isotropic&quot;</span><span class="p">)</span>
+</span><span data-line="227">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Singular covariance, falling back to isotropic"</span><span class="p">)</span>
 </span><span data-line="228">                <span class="n">scale</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">regularization</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="229">                <span class="n">samples</span> <span class="o">=</span> <span class="n">comp</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">scale</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">comp</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">])))</span>
+</span><span data-line="229">                <span class="n">samples</span> <span class="o">=</span> <span class="n">comp</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">]</span> <span class="o">+</span> <span class="n">scale</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">count</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">comp</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">])))</span>
 </span><span data-line="230">
 </span><span data-line="231">            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
 </span><span data-line="232">                <span class="n">candidates</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
@@ -396,14 +397,14 @@ data-aria-dark="Switch to auto color mode">
   </p>
 </div>
       <div class="sy-foot-socials">
-<a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
-  <iconify-icon icon="simple-icons:github"></iconify-icon>
-</a></div>
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
     </div>
   </div>
 </footer>
       <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
       <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
 </html>

@@ -685,6 +685,16 @@ class Heuristic(Module):
         return new_points
 
     @property
+    def has_points(self) -> bool:
+        """``True`` iff this heuristic can hand out a point right now.
+
+        Selection strategies use this to skip heuristics that would
+        return an empty list, so the probability mass they would have
+        received is not wasted.
+        """
+        return self._output.qsize() > 0
+
+    @property
     def active(self) -> bool:
         """
         This is queried by the strategy to determine, if it should still consider it.

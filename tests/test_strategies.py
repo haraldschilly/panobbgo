@@ -52,7 +52,8 @@ class StrategiesTests(PanobbgoTestCase):
     def test_rewarding(self, my_setup_cluster):
         from panobbgo.strategies.rewarding import StrategyRewarding
 
-        rwd = StrategyRewarding(self.problem)
+        # This test exercises the legacy per-point discount mechanism.
+        rwd = StrategyRewarding(self.problem, credit="legacy")
         assert rwd is not None
         assert rwd.last_best is None
 
@@ -100,8 +101,8 @@ class StrategiesTests(PanobbgoTestCase):
     def test_rewarding_near_best(self, my_setup_cluster):
         from panobbgo.strategies.rewarding import StrategyRewarding
 
-        # Using Rosenbrock(3) from setUp
-        rwd = StrategyRewarding(self.problem)
+        # ``_reward_near_best`` is part of the legacy credit mechanism.
+        rwd = StrategyRewarding(self.problem, credit="legacy")
         rwd.add(Random)
 
         # Manually init heuristics

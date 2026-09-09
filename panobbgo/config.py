@@ -259,6 +259,15 @@ class Config:
         self.max_eval = get_config("core.max_eval", "core", "max_eval", 1000, int)
         self.discount = get_config("core.discount", "core", "discount", 0.95, float)
         self.smooth = get_config("core.smooth", "core", "smooth", 0.5, float)
+        # StrategyRewarding credit assignment: "ema" (default — exponential
+        # moving average of the reward per evaluation spent, probability
+        # matching with an exploration floor) or "legacy" (per-point
+        # discount, reward only on a new best).  "ema" measured +0.0135
+        # mean AOCC [+0.0032, +0.0238] over "legacy" on the standard IOH
+        # battery across the 12-seed decision roster; see
+        # panobbgo.strategies.rewarding and planning/DISCOVERY_2026-09-09.md §6.
+        self.rewarding_credit = get_config("core.rewarding_credit", "core", "rewarding_credit", "ema", str)
+        self.rewarding_explore = get_config("core.rewarding_explore", "core", "rewarding_explore", 0.2, float)
         self.capacity = get_config("heuristic.capacity", "heuristic", "capacity", 20, int)
         # Master random seed for a strategy run.  ``None`` (default) draws a
         # seed from numpy's global RNG at strategy construction, so

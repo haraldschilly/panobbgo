@@ -244,3 +244,51 @@ CMA-ES alone is 1.7× the portfolio at d10 and 1.9× at d20, and roughly
 double the external DE baseline at both.  The claim now covers dims 2,
 5, 10 and 20 at budgets from 25 to 500 evaluations per dimension; the
 portfolio is not preferable anywhere in that range.
+
+## 12. Block allocation does not rescue the portfolio
+
+§9 explained the portfolio's loss as starvation: interleaving points
+denies a population method the contiguous budget it needs.  The natural
+follow-up is to allocate the budget in *blocks* with `StrategyPhased`.
+Measured (standard battery, 3 seeds, paired against CMA-ES alone):
+
+| phased variant | Δ vs CMA-ES alone | CI95 |
+|---|---|---|
+| CMA-ES 60 % → NLSHADE_LBC | −0.0118 | [−0.0971, +0.0734] |
+| NLSHADE_LBC 50 % → CMA-ES | −0.1321 | [−0.2579, −0.0063] |
+| Sobol' 10 % → CMA-ES | −0.3788 | [−0.5083, −0.2494] |
+
+Blocking is better than interleaving (−0.012 versus −0.27 for the
+six-arm mix) but still does not beat the single method.  Handing CMA-ES
+a warm start from another method is worse than letting it start itself,
+and spending even 10 % of the budget on a Sobol' design is much worse.
+
+A fourth variant — CMA-ES 85 % then warm-started L-BFGS-B — could not be
+measured: `LBFGSB` spawns a subprocess and the driver script lacked an
+``if __name__ == "__main__":`` guard, so all 30 runs failed to
+initialise.  Worth re-running.  Note the sharp edge for users: any script
+that builds a strategy at module level and uses `LBFGSB`, `COBYQA`,
+`LocalPenaltySearch` or `QuadraticWlsModel` needs that guard.
+
+## 13. A live-lock in the Splitter, found while sweeping CMA-ES
+
+`Box.contains` includes both boundaries, so splitting a box through a
+cluster of *identical* points puts every one of them in **both**
+children.  Each child is then an over-full leaf that splits again on the
+next result, and the tree deepens without bound.  The event-bus
+dispatcher never returns from `on_new_results`, so every main-loop pass
+pays the full 30 s settle timeout and the run dies on the stall guard
+with most of its budget unspent.
+
+Reproducible case (CMA-ES alone, MA-BBOB d5 instance 0, seed 42, budget
+1000): the step size diverges to its clamp, most of a generation
+projects onto the same box corner, and the run stops at **408 of 1000
+evaluations after 154 s**.  With a guard that only splits along a
+dimension the results differ in: **1000 of 1000 in 0.5 s**, identical
+AOCC.  The whole test suite drops from 233 s to 124 s.
+
+The Splitter is force-injected into every strategy, so any point cloud
+that collapses can trigger this.  Measured AOCC is unaffected — a
+stalled run's trajectory is right-padded at its final value, which is
+what the optimizer would have produced anyway — so the numbers in §9–§11
+stand as measured.

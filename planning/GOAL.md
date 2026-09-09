@@ -250,16 +250,27 @@ Ordered by expected value; each item should enter through the loop above.
    idea.
 
 8. **Does a portfolio ever pay?** — *new 2026-09-09.*  The measured
-   answer so far is "not on this battery, at any budget from 25 to 500
-   evaluations per dimension".  Two questions follow.  (a) Is there a
-   problem class where a mix beats the best single arm — multimodal,
-   noisy, constrained, or much higher dimension?  Test with the
-   plain-BBOB suite (item 4) and the composite battery's constrained
-   problems.  (b) If yes, the strategy layer has to allocate the budget
-   in *blocks* rather than interleaving points, so a population method
-   keeps a contiguous stretch to adapt in — `StrategyPhased` is the
-   existing vehicle.  Interleaved credit assignment (however good) cannot
-   fix starvation.
+   answer so far is "no on this battery", at any budget from 25 to 500
+   evaluations per dimension and at dims 2, 5, 10 and 20.
+
+   *Block allocation was tested and does not rescue it.*  The hypothesis
+   was that a mix loses only because interleaving starves the population
+   dynamics, so giving each method a contiguous stretch with
+   `StrategyPhased` should help.  Measured (3 seeds, standard battery,
+   paired against CMA-ES alone): CMA-ES→NLSHADE_LBC **−0.0118**
+   [−0.0971, +0.0734], NLSHADE_LBC→CMA-ES **−0.1321**, Sobol→CMA-ES
+   **−0.3788**.  Handing CMA-ES a warm start from another method is worse
+   than letting it start itself; a Sobol' design phase is much worse.
+
+   What remains open: (a) a problem class where a mix wins — multimodal,
+   noisy, constrained, or much higher dimension.  Test with the
+   plain-BBOB suite (item 4) and constrained problems, neither of which
+   any battery currently covers.  (b) A *warm-started local polish* after
+   CMA-ES converges — the one phased variant that could not be measured,
+   because `LBFGSB` spawns a subprocess and the driver script lacked an
+   ``if __name__ == "__main__":`` guard.  Worth re-running; the
+   interleaved form of it (`CMA-ES + LBC + L-BFGS-B`) was +0.12 over the
+   old portfolio but well below CMA-ES alone.
 
 References: MA-BBOB generator (Vermetten et al., ACM TELO 2024);
 IOHprofiler competitions (iohprofiler.github.io/competitions); LLaMEA

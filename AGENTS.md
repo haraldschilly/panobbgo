@@ -38,6 +38,27 @@ actionable; history and design notes live under `planning/`.
 pyright, sphinx-build, scripts). Never call `.venv/bin/...` or bare
 `python` directly.
 
+**Dependency policy: track the bleeding edge of *stable* releases.**
+Keep `requires-python` and the floors in `pyproject.toml` at the newest
+released versions rather than the oldest that happen to work, and bump
+them deliberately instead of waiting for a Dependabot lockfile nudge.
+The project is a research codebase with one maintainer and no downstream
+users to keep compatible, so the cost of an old floor (silently untested
+combinations, security bumps that never reach `pyproject.toml`) is higher
+than the cost of moving early. Pre-releases and release candidates are
+*not* included — stable only.
+
+When bumping: raise the floors, `uv lock`, `uv sync --extra dev --extra
+dask`, run the full suite, `ruff check`, `pyright panobbgo` and both
+Sphinx builds, and bump `PYTHON` in `.github/workflows/tests.yml` and
+`self_improve_nightly.yml` plus `python-version` in `docs.yml` in the
+same change — the CI pin is part of the dependency set.
+
+One deliberate exception: `tools/ioh_worker/` is pinned to
+`>=3.11,<3.13` because the `ioh` wheels stop at cp312. It is an isolated
+uv project with its own venv precisely so that ceiling cannot hold the
+main package back; leave it alone until `ioh` ships newer wheels.
+
 ```bash
 uv sync --extra dev                       # install (pip: pip install -e ".[dev]")
 uv run pytest -q -n 4                     # full suite (~2000 tests, ~1 min)

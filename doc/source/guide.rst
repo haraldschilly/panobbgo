@@ -200,7 +200,7 @@ Consider alternatives if you have:
 System Requirements
 -------------------
 
-- Python ≥ 3.11
+- Python ≥ 3.14
 - NumPy, SciPy, pandas, matplotlib, statsmodels, scikit-learn
 - Dask (optional ``dask`` extra) for distributed evaluation
 - Tested on Linux and macOS (Windows should work but less tested)

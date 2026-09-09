@@ -44,7 +44,9 @@ problem sets. Findings with numbers: `planning/DISCOVERY_2026-09-09.md`.
   - [x] Deterministic seeded runs: `StrategyBase(seed=)`, per-module RNG
         streams, bus settle in sync mode; `tests/test_reproducibility.py`
         (#307). Standard battery, same seed, two processes: 0.4544 vs
-        0.4545 at d2 (was 0.40–0.49). The 4th-decimal residual is open.
+        0.4545 at d2 (was 0.40–0.49); bit-identical after #312 (sync mode
+        evaluates batches in submission order; spec `config_overrides` now
+        reach the constructor).
 - [x] **Local-run hygiene**: scripts nice themselves (15) and refuse to start
       below 2 GiB free (#311). The evaluator thread pool already defaults to
       `dask.local.n_workers` = 2, not `cpu_count()`.

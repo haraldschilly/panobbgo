@@ -566,7 +566,7 @@ class CMAES(Heuristic):
             # Put directly to bypass emit()'s ndarray-only check,
             # preserving the custom 'who' tag needed for generation tracking.
             try:
-                self._output.put_nowait(Point(x, who))
+                self._put(Point(x, who))
             except Exception:
                 # Track only points that will actually be evaluated.
                 continue

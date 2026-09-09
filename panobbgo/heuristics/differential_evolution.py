@@ -64,7 +64,7 @@ class DifferentialEvolution(Heuristic):
             who = f"{self.name}:{req_id}"
 
             point = Point(x, who)
-            self._output.put_nowait(point)
+            self._put(point)
 
             # Track
             self.pending_trials[req_id] = target_idx

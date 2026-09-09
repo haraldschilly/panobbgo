@@ -633,33 +633,40 @@ class Heuristic(Module):
                 q.maxsize = needed
                 q.not_full.notify_all()
 
+    def _put(self, point: "Point") -> None:
+        """Queue one :class:`Point`, growing the queue if it is full.
+
+        ``cap`` is the *fill level* reactive heuristics top up to, not a
+        hard limit: a population heuristic that emits a whole generation
+        at once must never lose part of it.  (Until 2026-09 the overflow
+        was dropped silently, so ``NP_init=90`` ran as a 20-member
+        population.)
+        """
+        self.ensure_output_capacity(1)
+        self._output.put_nowait(point)
+
     def emit(self, points: Union[np.ndarray, List[np.ndarray], "Point", List["Point"], List[Any]]) -> None:
         """
         This is used to send out new search points for evaluation.
         Args:
 
         - ``points``: Either a :class:`numpy.ndarray` of ``float64`` or preferrably a list of them.
+
+        Raises ``TypeError`` for anything that is not an ndarray — a wrong
+        return type is a bug in the heuristic, not something to skip quietly.
         """
         if self._stopped:
             raise StopHeuristic()
-        try:
-            if points is None:
-                raise StopHeuristic()
-            if not isinstance(points, (list, tuple)):
-                points = [points]
-            for point in points:
-                if not isinstance(point, np.ndarray):
-                    raise Exception("point is not a numpy ndarray")
-                x = self.problem.project(point)
-                point = Point(x, self.name)
-                self._output.put_nowait(point)  # Non-blocking put
-        except StopHeuristic:
+        if points is None:
             self._stopped = True
             self.logger.info("'%s' heuristic stopped." % self.name)
-        except Exception as e:
-            # Queue might be full or other issues - silently ignore for non-blocking behavior
-            self.logger.debug(f"Failed to emit point from {self.name}: {repr(e)}")
-            pass
+            return
+        if not isinstance(points, (list, tuple)):
+            points = [points]
+        for point in points:
+            if not isinstance(point, np.ndarray):
+                raise TypeError("%s emitted %r, expected a numpy ndarray" % (self.name, type(point).__name__))
+            self._put(Point(self.problem.project(point), self.name))
 
     def get_points(self, limit: Optional[int] = None) -> List["Point"]:
         """

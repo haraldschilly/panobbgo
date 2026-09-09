@@ -366,13 +366,15 @@ def make_full_battery() -> IOHBatterySpec:
 def make_ioh_strategies() -> List[StrategySpec]:
     """IOH-tuned strategy registry — primary entry point for AOCC runs.
 
-    Returns a small list rather than the full panobbgo zoo so each
-    iteration of the harness stays cheap.  Add baselines via
+    Three specs: a pure-random floor, the competition candidate
+    (``RoundRobin_CMAES``) and the previous six-arm portfolio kept as a
+    control.  Returns a small list rather than the full panobbgo zoo so
+    each iteration of the harness stays cheap.  Add baselines via
     :func:`panobbgo.harness_baselines.make_baseline_strategies` if you
     need an absolute reference.
     """
     from panobbgo.analyzers import Sensitivity
-    from panobbgo.heuristics import JSO, NLSHADE_LBC, Center, Nearby, NelderMead, Random
+    from panobbgo.heuristics import CMAES, JSO, NLSHADE_LBC, Center, Nearby, NelderMead, Random
     from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
 
     return [
@@ -385,7 +387,31 @@ def make_ioh_strategies() -> List[StrategySpec]:
             strategy_class=StrategyRoundRobin,
             heuristics=[(Random, {})],
         ),
-        # Adaptive heuristic mix.  This is the working candidate for the
+        # Competition candidate since 2026-09-09: one strong population
+        # method with the whole budget.
+        #
+        # Every arm of the previous six-arm candidate scores higher run
+        # *alone* than the portfolio does (standard battery, seeds
+        # 42/7/1234): CMA-ES 0.580, NLSHADE_LBC 0.537, jSO 0.459, PSO
+        # 0.424, L-SHADE 0.417, Baseline_SciPyDE 0.416, the portfolio
+        # 0.352, Random 0.319.  Population methods need the whole budget
+        # for their population dynamics; six arms sharing 1000
+        # evaluations leave CMA-ES ~150, fewer than it needs to adapt a
+        # covariance matrix.  The ordering holds at every budget from 25
+        # to 500 evaluations per dimension and the margin grows with
+        # budget, so this is not a large-budget artifact.  See
+        # planning/DISCOVERY_2026-09-09.md §9-§10.
+        #
+        # CMA-ES restarts itself (IPOP); the Restart *analyzer* on top
+        # halves it (0.663 -> 0.301, seed 42) because its restart event
+        # discards the adapted covariance.  Deliberately absent.
+        StrategySpec(
+            name="RoundRobin_CMAES",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(CMAES, {})],
+        ),
+        # Adaptive heuristic mix.  Kept as a control so the portfolio
+        # remains measured on every battery run.  This is the working candidate for the
         # MA-BBOB competition entry: roughly the same heuristics as
         # ``Rewarding_Diverse`` from the composite-score harness.  The
         # Restart analyzer it originally shipped with was dropped by the

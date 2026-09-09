@@ -17,9 +17,11 @@ MA-BBOB battery, at competition-style budgets, without regressing the frozen
 
 Concretely, in priority order:
 
-1. **Beat the internal floor**: `Rewarding_Restart` (the competition candidate
+1. **Beat the internal floor**: `RoundRobin_CMAES` (the competition candidate
    spec in `panobbgo/harness_ioh.py::make_ioh_strategies`) must dominate
    `RoundRobin_Random` on every battery tier (quick / standard / full).
+   `Rewarding_Restart`, the previous candidate, is kept in the registry as
+   a portfolio control.
 2. **Beat the external baselines**: `Baseline_SciPyDE` and
    `Baseline_SciPyAnneal` (`panobbgo/harness_baselines.py`) on mean AOCC at
    the standard battery. Random search is the hard floor — never lose to it.
@@ -34,7 +36,30 @@ Concretely, in priority order:
 `--metric aocc` self-improvement runs. `composite_score` is the frozen
 legacy contract — keep it green, don't optimize for it.
 
-## 2. State snapshot (2026-08-11 — update when it materially changes)
+## 2. State snapshot (2026-09-09 — update when it materially changes)
+
+* **The portfolio was the problem.**  Every arm of the previous
+  competition candidate scores higher run *alone* than the six-arm
+  portfolio does; CMA-ES alone beats it by **+0.228 mean AOCC** on the
+  standard battery, and five contenders (CMA-ES, NLSHADE_LBC, jSO, PSO,
+  L-SHADE) already beat `Baseline_SciPyDE`, the §1.2 target.  The
+  competition candidate is now `RoundRobin_CMAES`.  Full measurements:
+  `planning/DISCOVERY_2026-09-09.md` §9–§10 and the 2026-09-09 entry in
+  `SELF_IMPROVEMENT_LOG.md`.
+* **§5.2 is retracted.**  It concluded from a flat A/B that the CMA-ES
+  arm did not pay.  The A/B *added* CMA-ES as a seventh arm to the same
+  budget; adding a seventh mouth cannot pay.  Nobody had run it alone.
+* **The measurement instrument was repaired first** (PRs #307–#315):
+  seeded runs are now bit-identical (they varied by up to 0.09 AOCC),
+  a default-config run spends its whole budget (it used to stop after
+  ~4 %), `Config` no longer leaks between specs, population heuristics
+  no longer lose emitted points, and the standard battery is ~2× faster.
+  Credit assignment now rewards improvement per evaluation spent
+  (+0.0135 [+0.0032, +0.0238], 12 seeds).
+* Nightly cron is **disabled on GitHub** since 2026-08-13; the ledger
+  below is historical.
+
+## 2b. Previous snapshot (2026-08-11)
 
 * Nightly cron (`self_improve_nightly.yml`, 03:00 UTC) runs 20 mutation
   iterations on `--metric aocc`, quick IOH battery **widened with a d5 slice**,
@@ -164,13 +189,16 @@ Ordered by expected value; each item should enter through the loop above.
    NLSHADE_LBC gated to d≥5 in `Rewarding_Restart`, pooled d5 evidence
    +0.0070 [+0.0027, +0.0112]); budget-gating and the CMA-ES arm at d5
    remain open.
-2. **CMA-ES arm** — *shipped 2026-08-06*: the existing `CMAES` heuristic
-   (hand-rolled (μ/μ_w, λ)-ES with IPOP/BIPOP restart) is now a structural
-   catalog candidate, so the bandit measures it against the DE family
-   nightly.  Direct addition to `Rewarding_Restart` was flat on a 12-seed
-   paired quick-2-D A/B (CI95 [-0.0113, +0.0123]) — the open question is
-   whether the arm earns pulls at 5-D / standard regimes where covariance
-   adaptation should pay; watch the `add_heuristic` posterior and ledger.
+2. **CMA-ES arm** — ~~*shipped 2026-08-06*~~ **retracted 2026-09-09.**  The
+   original item recorded that adding the `CMAES` heuristic to
+   `Rewarding_Restart` was flat on a 12-seed paired quick-2-D A/B
+   (CI95 [-0.0113, +0.0123]) and asked whether the arm earns its pulls.
+   The question was wrong: the A/B added a *seventh* arm to a fixed
+   budget.  Run alone, CMA-ES scores 0.580 against the portfolio's 0.352
+   on the standard battery.  It is now the competition candidate
+   (`RoundRobin_CMAES`).  The open work is the opposite of what this item
+   assumed — see the new item 8.
+
 3. **Rank-based acceptance stats** — *shipped 2026-08-11 (#301)* as
    `statistical_accept(accept_stat="rank")` / `--accept-stat rank`: one-sided
    Wilcoxon signed-rank on the per-pair deltas shifted by `eps_accept`, with
@@ -220,6 +248,18 @@ Ordered by expected value; each item should enter through the loop above.
    2020+), adaptive operator selection, learning-to-optimize; Nevergrad's
    NGOpt is a hand-crafted (non-learned) version of the same switching
    idea.
+
+8. **Does a portfolio ever pay?** — *new 2026-09-09.*  The measured
+   answer so far is "not on this battery, at any budget from 25 to 500
+   evaluations per dimension".  Two questions follow.  (a) Is there a
+   problem class where a mix beats the best single arm — multimodal,
+   noisy, constrained, or much higher dimension?  Test with the
+   plain-BBOB suite (item 4) and the composite battery's constrained
+   problems.  (b) If yes, the strategy layer has to allocate the budget
+   in *blocks* rather than interleaving points, so a population method
+   keeps a contiguous stretch to adapt in — `StrategyPhased` is the
+   existing vehicle.  Interleaved credit assignment (however good) cannot
+   fix starvation.
 
 References: MA-BBOB generator (Vermetten et al., ACM TELO 2024);
 IOHprofiler competitions (iohprofiler.github.io/competitions); LLaMEA

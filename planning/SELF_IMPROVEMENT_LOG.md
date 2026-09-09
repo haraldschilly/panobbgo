@@ -17,6 +17,55 @@ Conventions:
 * Graduate items from "Next iteration ideas" to a dated entry when
   shipped.
 
+### 2026-09-09 — the portfolio was the problem: every arm beats the flagship alone
+
+* **What was measured** — with runs made reproducible and ~2× faster
+  (#307, #312, #315), each arm of `Rewarding_Restart` was run *alone*
+  (RoundRobin, no other heuristic) on the standard IOH battery.
+  Mean AOCC, seeds 42 / 7 / 1234:
+
+  | strategy | all | d2 | d5 |
+  |---|---|---|---|
+  | CMA-ES alone | **0.5801** | 0.6225 | 0.5377 |
+  | NLSHADE_LBC alone | 0.5373 | 0.6332 | 0.4414 |
+  | jSO alone | 0.4587 | 0.5530 | 0.3644 |
+  | PSO alone | 0.4236 | 0.4805 | 0.3667 |
+  | L-SHADE alone | 0.4167 | 0.5006 | 0.3328 |
+  | `Baseline_SciPyDE` | 0.4156 | 0.4999 | 0.3313 |
+  | **`Rewarding_Restart`** | **0.3524** | 0.4051 | 0.2998 |
+  | Random alone | 0.3185 | 0.3645 | 0.2724 |
+
+* **Why it matters** — the flagship scores below every one of its own
+  population-based arms and only 0.034 above pure random search.  The
+  gap to CMA-ES alone is **+0.228 AOCC**, roughly twenty times the
+  largest effect the nightly loop pursued in 34 nights, and five of the
+  contenders already beat `Baseline_SciPyDE`, the external reference
+  GOAL §1.2 asks the project to beat.
+
+* **Not a budget artifact** — d2, instances 0–2, 8 seeds per cell:
+  CMA-ES alone wins at 50, 100, 200, 400 and 1000 evaluations, with the
+  margin growing from +0.015 to +0.211.  There is no small-budget
+  regime where the portfolio is preferable.
+
+* **Mechanism** — population methods need the whole budget for their
+  population dynamics.  Six arms sharing 1000 evaluations leave CMA-ES
+  ~150, fewer than it needs to adapt a covariance matrix, while Random,
+  Center and Nearby spend the rest where a converging population would
+  never look.  The portfolio does not combine strengths, it starves them.
+
+* **Why it was never seen** — *every* spec in the repository is a
+  portfolio.  `CMAES_Portfolio`, `IPOP_CMAES` and `BIPOP_CMAES` in the
+  composite registry all mix CMA-ES with LatinHypercube and NelderMead;
+  `make_ioh_strategies` mixes six arms.  There was no single-arm spec to
+  compare against.  GOAL §5.2 recorded that *adding* CMA-ES to
+  `Rewarding_Restart` measured flat and concluded the arm did not pay —
+  adding a seventh mouth to the same budget cannot pay.
+
+* **Also measured** — the `Restart` analyzer, which the user guide
+  recommends pairing with CMA-ES, *halved* it at seed 42 (0.663 → 0.301):
+  CMA-ES already restarts itself (IPOP/BIPOP), and an external restart
+  discards the covariance it has learned.
+
 ### 2026-08-12 — dimension-gated arm activation ships; NLSHADE_LBC enters `Rewarding_Restart` gated to d≥5
 
 * **What** — the §4.3 "shippable form" that PR #298 asked for and could

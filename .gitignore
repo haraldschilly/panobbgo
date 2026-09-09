@@ -1,7 +1,5 @@
 .coverage
-.idea/*.iml
-.idea/workspace.xml
-.idea/tasks.xml
+.idea/
 *.swp
 *.pyc
 man/

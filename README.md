@@ -5,24 +5,29 @@
 Panobbgo minimizes a function over a box in $R^n$ (n = dimension of the problem)
 while respecting a vector of constraint violations.
 
-Panobbgo is a **framework for black-box optimization** that includes **out-of-the-box runnable examples** for testing and demonstration. Use the example scripts in `sketchpad/` to see complete optimization runs, or import components directly to build custom optimization pipelines.
+It is a **framework**: you compose a *strategy* (a multi-armed bandit over
+point generators), a portfolio of *heuristics* (random/space-filling designs,
+local search, DE/CMA-ES/PSO, surrogate models, ...) and *analyzers* into an
+optimization run in a few lines of Python. Evaluations are dispatched in
+parallel — local threads by default, optionally a Dask cluster.
 
 ## Documentation
 
-* [📚 Documentation](https://haraldschilly.github.io/panobbgo/) - Complete user guide with setup instructions
-* [Guide](doc/source/guide.rst) - Source documentation files (reStructuredText)
+* [Documentation](https://haraldschilly.github.io/panobbgo/) — user guide and API reference
+* [User guide sources](doc/source/guide.rst) — reStructuredText, built with Sphinx
+* [Benchmarking guide](doc/source/guide_benchmarking.rst) — how quality is measured (composite score, statistical acceptance)
+* `AGENTS.md` — rules and commands for contributors and coding agents; `TODO.md` — current status
 
 ## Installation
 
-### Using UV (Recommended)
+Panobbgo requires Python 3.11 or later. Core dependencies: NumPy, SciPy,
+pandas, matplotlib, statsmodels, scikit-learn (see
+[pyproject.toml](pyproject.toml) for the exact list). Dask is an optional
+extra (`dask`) for distributed evaluation.
 
-[UV](https://github.com/astral-sh/uv) is a fast Python package manager. Install it first:
+### Using UV (recommended)
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Then clone and install panobbgo:
+Install [UV](https://github.com/astral-sh/uv), then:
 
 ```bash
 git clone https://github.com/haraldschilly/panobbgo.git
@@ -35,81 +40,59 @@ uv sync --extra dev
 ```bash
 git clone https://github.com/haraldschilly/panobbgo.git
 cd panobbgo
-pip install -e .
-```
-
-For development:
-```bash
 pip install -e ".[dev]"
 ```
 
-## Dependencies
-
-Panobbgo requires Python 3.11 or later. Core dependencies include:
-
-* NumPy, SciPy, Pandas (Data processing)
-* Matplotlib (Visualization)
-* Statsmodels, Scikit-learn (Statistical models)
-* Dask (Parallel computing)
-
-For a complete and up-to-date list of dependencies with version requirements, please refer to [pyproject.toml](pyproject.toml).
-
-Development dependencies include pytest, ruff, mypy/pyright, and others. See the `[project.optional-dependencies]` section in `pyproject.toml`.
-
-## Running Tests
+## Running tests
 
 ```bash
-# With UV
-uv run pytest
-
-# With pip/virtualenv
-pytest
-
-# Run with coverage
-pytest --cov=panobbgo
+uv run pytest -q -n 4          # full suite, ~2000 tests, about a minute
+uv run pytest --cov=panobbgo   # with coverage
+uv run pyright panobbgo        # type checking
+uv run ruff format --check .   # formatting (the CI gate)
 ```
 
-All 27 tests should pass.
-
-## Type Checking
-
-This project uses Pyright for static type checking:
-
-```bash
-# Run type checker
-uv run pyright panobbgo
-
-# Or with pip/virtualenv
-pyright panobbgo
-```
+Serial `uv run pytest` also works; `-n 4` uses pytest-xdist.
 
 ## Usage
 
-### One-time Setup
+Threaded local evaluation needs no setup. A minimal run:
 
-1. **Local evaluation**: By default, Panobbgo uses threaded local evaluation. No additional setup is required.
-2. **Distributed evaluation (optional)**: For large-scale problems, you can use Dask. Setup your cluster according to the [Dask distributed documentation](https://docs.dask.org/en/stable/deploying.html).
-3. `panobbgo.lib` contains the problem definitions (Rosenbrock, HelicalValley, etc.)
-4. After running it the first time, it will create a `config.ini` file
-5. Configure your evaluation settings in `config.yaml` or `config.ini` if needed.
-
-### Running Optimization
-
-1. **Default**: Run your optimization script - it uses local threads by default.
-2. **Dask cluster**: Set `evaluation.method: dask` in your config and start your cluster manually: `dask scheduler & dask worker localhost:8786 --nprocs 4 &`
-
-Example:
 ```python
 from panobbgo.lib.classic import Rosenbrock
-from panobbgo.core import StrategyRoundRobin
+from panobbgo.strategies import StrategyRoundRobin
+from panobbgo.heuristics import CMAES
 
-# Define the problem
-problem = Rosenbrock(dim=5)
+problem = Rosenbrock(dims=5)
+strategy = StrategyRoundRobin(problem, max_evaluations=500, seed=42)
+strategy.add(CMAES)           # self-adapting covariance, IPOP restarts
+strategy.start()
 
-# Setup and run optimization
-strategy = StrategyRoundRobin(problem)
-# ... configure heuristics and run
+print(strategy.best)          # best result found
+df = strategy.results.results # pandas DataFrame of all evaluations
 ```
+
+Start with **one** strong population method rather than a portfolio: on the
+MA-BBOB battery a six-arm mix scored below every one of its own arms run
+alone, because splitting a fixed budget starves the population dynamics.
+Add heuristics only when a paired A/B shows they earn their evaluations —
+see [Recommended Configurations](https://haraldschilly.github.io/panobbgo/guide_usage.html).
+
+`panobbgo.lib.classic` contains the built-in test problems (Rosenbrock,
+Rastrigin, Himmelblau, Shekel, ...). To define your own, subclass
+`panobbgo.lib.Problem` and implement `eval(x)` (and optionally
+`eval_constraints(x)`). Configuration (evaluation backend, budgets, logging)
+lives in `config.yaml` / `~/.panobbgo/config.ini`; see the
+[usage guide](doc/source/guide_usage.rst) for Dask setup, constrained
+problems, persistent storage and more examples.
+
+## Repository layout
+
+* `panobbgo/` — the library (`core`, `strategies/`, `heuristics/`, `analyzers/`, `lib/` problems, benchmark harness)
+* `tests/` — pytest suite; `benchmarks/` — micro-benchmarks and comparison scripts
+* `benchmark_harness.py`, `scripts/` — the composite-score and IOH/MA-BBOB benchmark CLIs
+* `doc/` — Sphinx documentation; `planning/` — goals, design notes and history
+* `sketchpad/` — unpolished scratch scripts, not maintained
 
 ## License
 

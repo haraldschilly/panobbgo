@@ -1,5 +1,130 @@
 # TODO
 
+## Session 2026-09-09 — discovery pass; quality push before optimizer work
+
+Program (set by Harald): (1) discover robustness / effectiveness gaps →
+(2) docs consolidation + code simplification, CI green, pushed →
+(3) find an exceptionally strong default setup across standard + own
+problem sets. Findings with numbers: `planning/DISCOVERY_2026-09-09.md`.
+
+### Measured today (master fac26b8)
+- [x] **Flagship loses to `Baseline_SciPyDE`** on the standard IOH battery
+      at d2 (0.4555 vs 0.5065) and d5 (0.3011 vs 0.3437); GOAL §1.2 unmet.
+- [x] **Seeded runs are not reproducible**: same spec/seed/`--sync-eval`,
+      two processes → battery mean differs by ~0.01–0.05, one instance by
+      0.09. The nightly `eps_accept` (0.0125) sits inside this.
+- [x] **Default config stops after ~100 evals** (`Convergence` analyzer is
+      force-injected + `stop_on_convergence=True`): `max_eval=2500` → 105
+      evaluations used, f=64 on Rosenbrock-5D. Harness masks this by
+      disabling the stop.
+- [x] **`Config` is a process singleton** → `config_overrides` and any
+      `strategy.config.X = …` leak across strategies/specs in one process.
+- [x] **DE/PSO populations truncated to `capacity=20`**: `NP_init="auto"`
+      = 90 at d5 → 70 initial points silently dropped (`emit` swallows
+      `Full`). Only CMA-ES grows its queue. Raising capacity to 400 is flat
+      on AOCC (Δ −0.003 ± 0.035) — the DE arms are not carrying the spec.
+- [x] **`StrategyRewarding` ≈ round-robin**: per-point 0.95 discount zeroes
+      batch emitters instantly; `Center` (1 point, never discounted again)
+      holds the top selection weight (44 %) all run.
+- [x] Nightly workflow is `disabled_manually` on GitHub since 2026-08-13.
+- [x] Test suite: 2014 passed / 1 skipped in 62 s (`-n 4`); CI green.
+
+### Phase 2 — quality push (next)
+- [ ] **Robustness fixes with tests** (stacked PRs #307 → #308 → #309 → #310 → #311, drafts):
+  - [x] `stop_on_convergence` defaults to off; a run spends its full budget
+        (#308, `tests/test_defaults.py`).
+  - [x] `Config` is per strategy, no singleton; logger handlers attached once
+        (#309).
+  - [x] `Heuristic._put` grows the queue; nothing is dropped; `emit` raises on
+        bad input (#310). Measured effect on the flagship: none
+        (Δ −0.0001 ± 0.0011) — the DE arms get too few evaluations to matter.
+  - [x] `EventBus`: serial ordered dispatcher, one `Event` per subscriber,
+        `wait_idle()`; Random / NelderMead / LatinHypercube / Extremal are
+        reactive; subprocess bridges pump on their own thread (#307).
+  - [x] Deterministic seeded runs: `StrategyBase(seed=)`, per-module RNG
+        streams, bus settle in sync mode; `tests/test_reproducibility.py`
+        (#307). Standard battery, same seed, two processes: 0.4544 vs
+        0.4545 at d2 (was 0.40–0.49); bit-identical after #312 (sync mode
+        evaluates batches in submission order; spec `config_overrides` now
+        reach the constructor).
+- [x] **Local-run hygiene**: scripts nice themselves (15) and refuse to start
+      below 2 GiB free (#311). The evaluator thread pool already defaults to
+      `dask.local.n_workers` = 2, not `cpu_count()`.
+- [x] **Docs**: consolidated in #306 per `planning/DOCS_AUDIT_2026-09-09.md` —
+      `AGENTS.md` 1463 → ~200 lines, merge `guide_setup`→`guide_usage`,
+      split `guide_benchmarking.rst` (user chapter vs loop reference),
+      retire `DEVELOPMENT_PROMPT.md` / `planning/NEXT.md` / `test_plan.md`,
+      fix stale counts (README "27 tests", coverage %, Dask claim).
+- [ ] **Code**: `/simplify` pass over `core.py`, `self_improve.py`,
+      `harness*.py`; remove top-level clutter (`benchmark_import*.py`,
+      `debug*.py`, `logging_demo.py`, `test.sh`, `fabfile.py`, `.idea/`).
+- [ ] CI green, pushed, PRs merged → then Phase 3.
+
+### Phase 2 results — the stack (all draft PRs, CI green where it runs)
+
+| PR | what | measured |
+|---|---|---|
+| #306 | docs consolidation | AGENTS.md 1463 → 223 lines |
+| #307 | master seed, per-module RNGs, serial event bus | same-seed runs bit-identical (quick battery) |
+| #308 | `stop_on_convergence` off by default | a 300-eval run now uses all 300 (was 105 of 2500) |
+| #309 | one `Config` per strategy | overrides no longer leak between specs |
+| #310 | output queue grows; no dropped points | JSO NP=90 keeps 90 (was 20); AOCC effect nil |
+| #311 | `nice -n 15` + free-memory floor on all entry points | — |
+| #312 | sync mode evaluates in submission order | quick battery reproducible |
+| #313 | **EMA credit assignment (new default)** | **+0.0135 AOCC [+0.0032, +0.0238], 12 seeds** |
+| #314 | shared helpers, dead code removal | found the `seed=0` bug |
+| #315 | reproducible + ~2x faster standard battery | 60/60 identical (was 47/60); 249s → 179s |
+
+Open follow-ups (measured, not yet done):
+- [ ] `Config.__init__` runs `_create()` per strategy (~31 ms: `git rev-parse`,
+      YAML + INI parse, ArgumentParser). Cache the process-constant parts.
+- [ ] `Splitter.add_result` is ~1.9 s of a 2500-eval run; it is force-injected
+      even for strategies that never use boxes.
+- [ ] 71 hand-rolled strategy doubles in tests do not implement `spawn_rng`;
+      `_module_rng` keeps a documented fallback for them.
+- [ ] The composite harness does not use `sync_evaluation`, so its quick-mode
+      runs are not reproducible (same seed varied 0.4326 … 0.4674).
+
+### Phase 3 — strong default setup (in progress)
+- [x] Compared `StrategyRewarding` (legacy + EMA), `StrategyUCB`,
+      `StrategyThompsonSampling` and round-robin on the same arm set,
+      standard battery, 12 seeds → EMA credit wins (#313). UCB is flat,
+      Thompson is between.
+- [x] **Closed the gap to `Baseline_SciPyDE` — and then some (#316).** Every
+      arm of the flagship beats the flagship when run alone. CMA-ES alone
+      scores 0.580 vs the portfolio's 0.352 and SciPyDE's 0.416 (standard
+      battery, 3 seeds); paired per seed **+0.2847 [+0.2772, +0.2921]**.
+      The competition candidate is now `RoundRobin_CMAES`.
+      Holds at every budget from 50 to 1000 evaluations at d2 (8 seeds).
+      The `Restart` analyzer halves CMA-ES (0.663 → 0.301) — the user
+      guide recommended that pairing and now warns against it.
+- [x] **Block allocation tested — it does not rescue the portfolio.**
+      `StrategyPhased`, 3 seeds, paired vs CMA-ES alone: CMA-ES→LBC
+      −0.0118, LBC→CMA-ES −0.1321, Sobol→CMA-ES −0.3788. Blocking beats
+      interleaving (−0.012 vs −0.27) but still loses to one method.
+- [x] **Splitter live-lock fixed.** Identical points made its kd-tree
+      deepen without bound, hanging the event-bus dispatcher: a CMA-ES run
+      stopped at 408/1000 evaluations after 154 s (now 1000/1000 in 0.5 s).
+      The whole test suite went from 233 s to 124 s.
+- [ ] **Does a portfolio pay anywhere?** (GOAL §5.8) Still open for
+      multimodal, noisy, constrained and much higher dimensions — no
+      battery currently covers constrained problems at all.
+- [ ] **Re-run CMA-ES → warm-started L-BFGS-B polish.** The one phased
+      variant that could not be measured: `LBFGSB` spawns a subprocess and
+      the driver script lacked an `if __name__ == "__main__":` guard.
+- [ ] **Document that spawn guard** for users: any script building a
+      strategy at module level with `LBFGSB` / `COBYQA` /
+      `LocalPenaltySearch` / `QuadraticWlsModel` needs it.
+- [ ] **Re-examine the composite registry.** All three of its CMA-ES specs
+      (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are portfolios that
+      also pair CMA-ES with the Restart analyzer. Untouched here because
+      the composite score is a frozen contract; needs Harald's call.
+- [ ] **Sweep CMA-ES's own knobs** (`sigma0`, `popsize`, `restart_mode`)
+      now that it is the default — script ready at `cmaes_knobs.py`.
+- [ ] Decide the problem battery: MA-BBOB (have), plain BBOB via `ioh`,
+      own `lib/classic` battery; dims 2/5/10; budgets 200·d … 2000·d.
+- [ ] Re-enable the nightly only after the instrument is repaired.
+
 ## Recent Improvements (continued)
 
 ### Dimension-gated arm activation — 2026-08-12

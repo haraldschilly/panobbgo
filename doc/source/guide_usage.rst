@@ -41,6 +41,39 @@ Using pip
    cd panobbgo
    pip install -e ".[dev]"
 
+Verifying the installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The snippets below are doctests: they run in CI against the installed
+package, so if they pass for you the installation is complete.
+
+.. doctest::
+
+   >>> import sys
+   >>> print(f"Python version: {sys.version}")
+   Python version: ...
+
+   >>> import panobbgo
+   >>> print(f"Panobbgo version: {panobbgo.__version__}")
+   Panobbgo version: ...
+
+   >>> import numpy as np
+   >>> import scipy
+   >>> import pandas as pd
+   >>> import matplotlib
+   >>> print("All dependencies imported successfully")
+   All dependencies imported successfully
+
+   >>> print(f"NumPy: {np.__version__}, SciPy: {scipy.__version__}")
+   NumPy: ..., SciPy: ...
+
+To run the framework's own test suite (about 2000 tests, roughly a minute
+with four workers):
+
+.. code-block:: bash
+
+   uv run pytest -q -n 4
+
 Evaluation Setup
 ~~~~~~~~~~~~~~~~
 
@@ -113,7 +146,7 @@ Minimal Example
    from panobbgo.heuristics import Center, Random, NelderMead
 
    # Define problem
-   problem = Rosenbrock(dim=5)
+   problem = Rosenbrock(dims=5)
 
    # Create strategy
    strategy = StrategyRewarding(problem, max_evaluations=500)
@@ -145,13 +178,13 @@ Complete Example
    )
 
    # Define 10-dimensional Rosenbrock
-   problem = Rosenbrock(dim=10)
+   problem = Rosenbrock(dims=10)
 
-    # Create adaptive strategy
-    strategy = StrategyRewarding(
-        problem,
-        max_evaluations=2000      # Budget
-    )
+   # Create adaptive strategy
+   strategy = StrategyRewarding(
+       problem,
+       max_evaluations=2000      # Budget
+   )
 
    # Add analyzers (optional - Best is default)
    strategy.add_analyzer(Best)      # Track best points
@@ -179,6 +212,221 @@ Complete Example
    df = strategy.results.results
    print(f"\nDataFrame shape: {df.shape}")
    print(df.head())
+
+Verified Walkthrough
+~~~~~~~~~~~~~~~~~~~~
+
+The following steps are executable doctests (run in CI), so they double as
+a check that your installation behaves as documented.  They set up
+problems and strategies without starting an optimization run.
+
+**Step 1: Define a problem**
+
+Create a simple optimization problem by subclassing :class:`~panobbgo.lib.Problem`:
+
+.. doctest::
+
+   >>> import numpy as np
+   >>> from panobbgo.lib import Problem
+
+   >>> class SphereProblem(Problem):
+   ...     """Simple sphere function: f(x) = sum(x^2)"""
+   ...     def __init__(self, dim=2):
+   ...         # Define search bounds: each variable in [-5, 5]
+   ...         box = [(-5.0, 5.0)] * dim
+   ...         super().__init__(box)
+   ...
+   ...     def eval(self, x):
+   ...         """Evaluate the objective function"""
+   ...         return np.sum(x ** 2)
+
+   >>> # Create an instance
+   >>> problem = SphereProblem(dim=2)
+   >>> print(f"Problem dimension: {problem.dim}")
+   Problem dimension: 2
+
+   >>> # Test evaluation at the origin (global optimum)
+   >>> from panobbgo.lib import Point
+   >>> point = Point([0.0, 0.0], "test")
+   >>> result = problem(point)
+   >>> print(f"f([0,0]) = {result.fx}")
+   f([0,0]) = 0.0
+
+**Step 2: Evaluate points manually**
+
+Test point evaluation and bounds checking:
+
+.. doctest::
+
+   >>> # Generate a random point within bounds
+   >>> random_point = problem.random_point()
+   >>> print(f"Random point: {random_point}")
+   Random point: ...
+
+   >>> # Evaluate the random point
+   >>> random_point_obj = Point(random_point, "test")
+   >>> result = problem(random_point_obj)
+   >>> print(f"f({random_point}) = {result.fx}")
+   f(...) = ...
+
+   >>> # Check that point is within bounds
+   >>> in_bounds = all(problem.box[0][0] <= coord <= problem.box[0][1] for coord in random_point)
+   >>> print(f"Point within bounds: {in_bounds}")
+   Point within bounds: True
+
+**Step 3: Create a strategy and add heuristics**
+
+.. doctest::
+
+   >>> from panobbgo.strategies.rewarding import StrategyRewarding
+
+   >>> # Create strategy
+   >>> strategy = StrategyRewarding(problem)
+   >>> strategy.config.max_eval = 50  # Set evaluation budget
+   >>> print(f"Strategy created with max_evaluations: {strategy.config.max_eval}")
+   Strategy created with max_evaluations: 50
+
+   >>> from panobbgo.heuristics import Center, Random, Nearby
+
+   >>> # Add initialization heuristic
+   >>> strategy.add(Center)
+   >>> strategy.add(Random)
+   >>> strategy.add(Nearby, radius=0.1)
+   >>> print(f"Total heuristics: {len(strategy._hs)}")
+   Total heuristics: 3
+
+**Step 4: Verify the strategy setup**
+
+.. doctest::
+
+   >>> # Check strategy configuration
+   >>> print(f"Problem: {strategy.problem.__class__.__name__}")
+   Problem: SphereProblem
+   >>> print(f"Max evaluations: {strategy.config.max_eval}")
+   Max evaluations: 50
+   >>> print(f"Number of heuristics: {len(strategy._hs)}")
+   Number of heuristics: 3
+
+   >>> # The strategy is ready to run optimization with strategy.start()
+   >>> print("Strategy setup complete!")
+   Strategy setup complete!
+
+The optimization workflow from here is:
+
+1. Call ``strategy.start()`` to begin optimization
+2. The strategy coordinates heuristics to generate points
+3. Points are evaluated in parallel (using local threads by default)
+4. Results are collected and the best solution is tracked
+5. Optimization continues until the evaluation budget is exhausted
+
+**Step 5: Use a built-in test function**
+
+.. doctest::
+
+   >>> from panobbgo.lib.classic import Rosenbrock
+
+   >>> # Create Rosenbrock function (banana-shaped valley)
+   >>> rosenbrock = Rosenbrock(dims=2)
+   >>> print(f"Rosenbrock problem dimension: {rosenbrock.dim}")
+   Rosenbrock problem dimension: 2
+
+   >>> # Evaluate at global optimum
+   >>> optimum = Point([1.0, 1.0], "test")
+   >>> result = rosenbrock(optimum)
+   >>> print(f"Rosenbrock optimum f([1,1]) = {result.fx}")
+   Rosenbrock optimum f([1,1]) = 0.0
+
+   >>> # Evaluate at a different point
+   >>> test_point = Point([0.0, 0.0], "test")
+   >>> result = rosenbrock(test_point)
+   >>> print(f"Rosenbrock f([0,0]) = {result.fx:.3f}")
+   Rosenbrock f([0,0]) = 1.000
+
+   >>> # Create strategy for Rosenbrock
+   >>> strategy2 = StrategyRewarding(rosenbrock)
+   >>> strategy2.config.max_eval = 100
+   >>> strategy2.add(Center)
+   >>> strategy2.add(Random)
+   >>> strategy2.add(Nearby, radius=0.1)
+
+   >>> # Strategy is ready for optimization
+   >>> print(f"Rosenbrock strategy configured with {len(strategy2._hs)} heuristics")
+   Rosenbrock strategy configured with 3 heuristics
+   >>> print(f"Ready to optimize with budget of {strategy2.config.max_eval} evaluations")
+   Ready to optimize with budget of 100 evaluations
+
+**Step 6: Define a constrained problem**
+
+.. doctest::
+
+   >>> class ConstrainedSphere(Problem):
+   ...     """Sphere with constraint: sum(x) <= 1"""
+   ...     def __init__(self, dim=2):
+   ...         box = [(-2.0, 2.0)] * dim
+   ...         super().__init__(box)
+   ...
+   ...     def eval(self, x):
+   ...         return np.sum(x ** 2)
+   ...
+   ...     def eval_constraints(self, x):
+   ...         # Constraint: sum(x) - 1 <= 0 (feasible when sum(x) <= 1)
+   ...         return np.array([np.sum(x) - 1.0])
+
+   >>> constrained_problem = ConstrainedSphere(dim=2)
+   >>> print("Constrained problem created")
+   Constrained problem created
+
+   >>> # Test feasible point
+   >>> feasible_point = Point([0.3, 0.3], "test")
+   >>> result_feasible = constrained_problem(feasible_point)
+   >>> print(f"Feasible point: x = {feasible_point.x}, f(x) = {result_feasible.fx:.3f}")
+   Feasible point: x = [0.3 0.3], f(x) = 0.180
+   >>> print(f"Constraint violation: {result_feasible.cv_vec}")
+   Constraint violation: [-0.4]
+
+   >>> # Test infeasible point
+   >>> infeasible_point = Point([1.0, 1.0], "test")
+   >>> result_infeasible = constrained_problem(infeasible_point)
+   >>> print(f"Infeasible point: x = {infeasible_point.x}, f(x) = {result_infeasible.fx:.3f}")
+   Infeasible point: x = [1. 1.], f(x) = 2.000
+   >>> print(f"Constraint violation: {result_infeasible.cv_vec}")
+   Constraint violation: [1.]
+
+**Step 7: Full setup**
+
+.. doctest::
+
+   >>> # Import everything needed
+   >>> from panobbgo.lib.classic import Rosenbrock
+   >>> from panobbgo.strategies.rewarding import StrategyRewarding
+   >>> from panobbgo.heuristics import Center, Random, Nearby, NelderMead
+
+   >>> # Define problem
+   >>> problem = Rosenbrock(dims=3)
+   >>> print(f"Optimizing {problem.dim}D Rosenbrock function")
+   Optimizing 3D Rosenbrock function
+
+   >>> # Create strategy
+   >>> strategy = StrategyRewarding(problem)
+   >>> strategy.config.max_eval = 200
+
+   >>> # Add diverse heuristics
+   >>> strategy.add(Center)
+   >>> strategy.add(Random)
+   >>> strategy.add(Nearby, radius=0.1)
+   >>> strategy.add(NelderMead)
+
+   >>> # Verify setup
+   >>> print(f"Problem: {problem.__class__.__name__} ({problem.dim}D)")
+   Problem: Rosenbrock (3D)
+   >>> print(f"Strategy: {strategy.__class__.__name__}")
+   Strategy: StrategyRewarding
+   >>> print(f"Budget: {strategy.config.max_eval} evaluations")
+   Budget: 200 evaluations
+   >>> print(f"Heuristics: {len(strategy._hs)}")
+   Heuristics: 4
+   >>> print("Ready to run with: strategy.start()")
+   Ready to run with: strategy.start()
 
 Defining Custom Problems
 -------------------------
@@ -220,10 +468,10 @@ Instead of modifying your problem class, use composable wrappers from :mod:`pano
    from panobbgo.lib.wrappers import NormalizedProblem, NoisyProblem, LogTransformProblem
 
    # Normalize all dimensions to [0, 1]
-   problem = NormalizedProblem(Rosenbrock(dim=5))
+   problem = NormalizedProblem(Rosenbrock(dims=5))
 
    # Add noise for robustness testing (seed for reproducibility)
-   problem = NoisyProblem(Rosenbrock(dim=5), noise_std=0.1, seed=42)
+   problem = NoisyProblem(Rosenbrock(dims=5), noise_std=0.1, seed=42)
 
    # Log-transform for objectives spanning orders of magnitude
    problem = LogTransformProblem(MyProblem(), offset=0.0)
@@ -782,7 +1030,7 @@ is active.
        NelderMead, GaussianProcessHeuristic, LBFGSB
    )
 
-   problem = Rosenbrock(dim=5)
+   problem = Rosenbrock(dims=5)
 
    strategy = StrategyPhased(problem, phases=[
        {

@@ -30,22 +30,25 @@ problem sets. Findings with numbers: `planning/DISCOVERY_2026-09-09.md`.
 - [x] Test suite: 2014 passed / 1 skipped in 62 s (`-n 4`); CI green.
 
 ### Phase 2 — quality push (next)
-- [ ] **Robustness fixes with tests** (each its own PR, no behaviour change
-      to the frozen metrics beyond what is measured):
-  - [ ] `Convergence` must not stop a run by default, or its defaults must
-        be budget-relative; benchmark and library behaviour must match.
-  - [ ] `Config`: per-strategy config object (copy-on-construct), singleton
-        only for file loading.
-  - [ ] `Heuristic.emit`: grow the queue (or block) instead of dropping;
-        log at WARNING; DE/PSO call `ensure_output_capacity`.
-  - [ ] `EventBus.publish`: one `Event` per subscriber.
-  - [ ] Deterministic seeded runs: per-heuristic RNGs seeded from the
-        strategy seed, deterministic result-batch ordering under
-        `sync_evaluation`; add a bit-reproducibility test.
-- [ ] **Local-run hygiene**: `nice -n 15` + worker-count cap + free-memory
-      check in the harness/benchmark entry points; evaluator thread pool
-      not `cpu_count()` by default.
-- [ ] **Docs**: consolidate per `planning/DOCS_AUDIT_2026-09-09.md` —
+- [ ] **Robustness fixes with tests** (stacked PRs #307 → #308 → #309 → #310 → #311, drafts):
+  - [x] `stop_on_convergence` defaults to off; a run spends its full budget
+        (#308, `tests/test_defaults.py`).
+  - [x] `Config` is per strategy, no singleton; logger handlers attached once
+        (#309).
+  - [x] `Heuristic._put` grows the queue; nothing is dropped; `emit` raises on
+        bad input (#310). Measured effect on the flagship: none
+        (Δ −0.0001 ± 0.0011) — the DE arms get too few evaluations to matter.
+  - [x] `EventBus`: serial ordered dispatcher, one `Event` per subscriber,
+        `wait_idle()`; Random / NelderMead / LatinHypercube / Extremal are
+        reactive; subprocess bridges pump on their own thread (#307).
+  - [x] Deterministic seeded runs: `StrategyBase(seed=)`, per-module RNG
+        streams, bus settle in sync mode; `tests/test_reproducibility.py`
+        (#307). Standard battery, same seed, two processes: 0.4544 vs
+        0.4545 at d2 (was 0.40–0.49). The 4th-decimal residual is open.
+- [x] **Local-run hygiene**: scripts nice themselves (15) and refuse to start
+      below 2 GiB free (#311). The evaluator thread pool already defaults to
+      `dask.local.n_workers` = 2, not `cpu_count()`.
+- [x] **Docs**: consolidated in #306 per `planning/DOCS_AUDIT_2026-09-09.md` —
       `AGENTS.md` 1463 → ~200 lines, merge `guide_setup`→`guide_usage`,
       split `guide_benchmarking.rst` (user chapter vs loop reference),
       retire `DEVELOPMENT_PROMPT.md` / `planning/NEXT.md` / `test_plan.md`,

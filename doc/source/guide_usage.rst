@@ -502,8 +502,8 @@ Start here: one strong optimizer
 
 .. code-block:: python
 
-   from panobbgo.core import StrategyRoundRobin
    from panobbgo.heuristics import CMAES
+   from panobbgo.strategies import StrategyRoundRobin
 
    strategy = StrategyRoundRobin(problem, max_evaluations=1000, seed=42)
    strategy.add(CMAES)          # self-adapting covariance, IPOP restarts

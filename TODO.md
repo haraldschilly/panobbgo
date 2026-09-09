@@ -1,5 +1,93 @@
 # TODO
 
+## Next session — Phase A: make several optimizers individually strong
+
+**Why this order.** A selection policy can only choose among the arms it
+is given.  Measured oracle bound (standard battery, 3 seeds, 30
+instances, `planning/DISCOVERY_2026-09-09.md` §14):
+
+| | mean AOCC |
+|---|---|
+| best single arm (CMA-ES) | 0.5801 |
+| **oracle — best arm per instance** | **0.6523** |
+| headroom for a perfect bandit | **+0.0723** |
+
+Instances won, out of 30: CMA-ES 19, NLSHADE_LBC 8, PSO 3, **jSO 0,
+L-SHADE 0**.  Two of the five arms cannot raise the oracle at all, so
+tuning the bandit before the arms would be optimising a choice between a
+strong option and four weaker ones.
+
+### The immediate task
+
+`benchmarks/arm_sweep.py` sweeps one heuristic's own hyper-parameters
+with that heuristic as the *only* arm, paired per seed against its
+current default:
+
+```bash
+uv run python benchmarks/arm_sweep.py cmaes  /tmp/sw_cmaes.json  42 7 1234
+uv run python benchmarks/arm_sweep.py lbc    /tmp/sw_lbc.json    42 7 1234
+uv run python benchmarks/arm_sweep.py jso    /tmp/sw_jso.json    42 7 1234
+uv run python benchmarks/arm_sweep.py lshade /tmp/sw_lshade.json 42 7 1234
+uv run python benchmarks/arm_sweep.py pso    /tmp/sw_pso.json    42 7 1234
+```
+
+Three seeds screen; promote anything promising to the 12-seed decision
+roster before shipping it.  Run them niced; they write results after
+every seed.
+
+- [ ] **CMA-ES** (0.5801, wins 19/30) — `sigma0`, `restart_mode`
+      ipop vs bipop, `ipop_factor`.  It is the default, so every point
+      here lands directly in the shipped setup.
+- [ ] **NLSHADE_LBC** (0.5373, 8/30) — `k_rank`, `H`, `archive_factor`,
+      fixed vs `NP_init="auto"`.  The clear second arm and the main
+      contributor to the oracle gap.
+- [ ] **PSO** (0.4236, 3/30) — `NP`, inertia decay (`w`/`w_end`),
+      `lbest` vs `gbest` topology, `v_max_frac`.  Weak overall but wins
+      instances the DE family loses, so it is worth real diversity.
+- [ ] **jSO** (0.4587, 0/30) and **L-SHADE** (0.4167, 0/30) — decide
+      whether they can be made to win *any* instance.  If not, they
+      should stop being candidate arms rather than be carried.
+- [ ] Consider checking each implementation against its published
+      reference: these are hand-rolled and none has been compared to a
+      canonical implementation.
+
+### Then Phase B — the selection policy
+
+Only once the arms are strong.  It must allocate the budget in **blocks**:
+interleaving starves population methods (§9), and naive phasing already
+loses to a single arm (§12: CMA-ES→LBC −0.0118, LBC→CMA-ES −0.1321,
+Sobol→CMA-ES −0.3788).  Target a fraction of the oracle headroom, which
+itself moves as Phase A lands.
+
+### Carried over
+
+- [ ] **Re-run CMA-ES → warm-started L-BFGS-B polish.** The one phased
+      variant that could not be measured: `LBFGSB` spawns a subprocess
+      and the driver script lacked an `if __name__ == "__main__":` guard.
+- [ ] **Does a portfolio pay on other problem classes?** Constrained,
+      noisy and much higher dimensions are untested — no battery covers
+      constrained problems at all.
+- [ ] **Re-examine the composite registry.** All three of its CMA-ES
+      specs (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are
+      portfolios that also pair CMA-ES with the Restart analyzer, which
+      measured −0.067.  Untouched because the composite score is a
+      frozen contract; needs a decision.
+- [ ] **Document the multiprocessing spawn guard** for users: any script
+      building a strategy at module level with `LBFGSB` / `COBYQA` /
+      `LocalPenaltySearch` / `QuadraticWlsModel` needs
+      `if __name__ == "__main__":`.
+- [ ] **Adopt ruff 0.16's wider default rules** as its own change
+      (~2000 findings; the selection is pinned to E4/E7/E9/F for now).
+- [ ] `Config.__init__` runs `_create()` per strategy (~31 ms:
+      `git rev-parse`, YAML + INI parse, ArgumentParser). Cache the
+      process-constant parts.
+- [ ] 71 hand-rolled strategy doubles in tests do not implement
+      `spawn_rng`; `panobbgo.core._module_rng` keeps a documented
+      fallback for them.
+- [ ] The composite harness does not use `sync_evaluation`, so its
+      quick-mode runs are not reproducible (same seed varied
+      0.4326 … 0.4674).
+
 ## Session 2026-09-09 — discovery pass; quality push before optimizer work
 
 Program (set by Harald): (1) discover robustness / effectiveness gaps →

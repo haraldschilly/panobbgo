@@ -292,3 +292,45 @@ that collapses can trigger this.  Measured AOCC is unaffected — a
 stalled run's trajectory is right-padded at its final value, which is
 what the optimizer would have produced anyway — so the numbers in §9–§11
 stand as measured.
+
+## 14. How much is left for a bandit? The oracle bound
+
+With each optimizer measured alone (§9), the ceiling for *any* selection
+policy over those arms is computable: take the best arm on every
+instance.  Standard battery, seeds 42 / 7 / 1234, 30 instances:
+
+| | mean AOCC |
+|---|---|
+| best single arm (CMA-ES) | 0.5801 |
+| **oracle — best arm per instance** | **0.6523** |
+| headroom for a perfect bandit | **+0.0723** |
+
+Which arm wins each instance:
+
+| arm | instances won (of 30) |
+|---|---|
+| CMA-ES | 19 |
+| NLSHADE_LBC | 8 |
+| PSO | 3 |
+| jSO | 0 |
+| L-SHADE | 0 |
+
+Three things follow.
+
+1. **A portfolio is worth building, eventually.** No arm dominates: the
+   +0.0723 gap is five times the credit-assignment gain and a quarter of
+   the portfolio-to-single-arm fix.  It is an *upper* bound — a real
+   policy pays for the budget it spends discovering which arm is best,
+   and §12 shows that cost is not small.
+
+2. **Two of the five arms contribute nothing.** jSO and L-SHADE never
+   win an instance, so they cannot raise the oracle and can only dilute
+   a policy that includes them.  Either they improve or they should not
+   be arms.
+
+3. **Improving the arms raises the ceiling and the floor at once.**
+   Every point added to a weak arm's score on the instances where it is
+   already best raises the oracle; every point added anywhere raises the
+   expected value of picking it.  Strengthening the individual
+   optimizers therefore comes before tuning the selection policy — the
+   policy can only choose among what it is given.

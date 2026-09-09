@@ -73,8 +73,10 @@ class BenchmarkRunner:
                 consecutive_empty_loops = 0
 
             # Evaluate points
+            batch_results = []
             for point in points:
                 result = problem(point)
+                batch_results.append(result)
                 evaluations += 1
 
                 # Update heuristic stats
@@ -110,13 +112,20 @@ class BenchmarkRunner:
                 if evaluations >= self.max_evaluations:
                     break
 
+            # Feed the results back so analyzers, the strategy's credit
+            # assignment and the reactive heuristics see them — exactly what
+            # the strategy's own main loop does.
+            strategy.results += batch_results
+            strategy.eventbus.wait_idle(timeout=5.0)
+
             if evaluations >= self.max_evaluations:
                 break
 
-            # Small delay to prevent busy waiting
-            time.sleep(1e-4)
-
         elapsed_time = time.time() - start_time
+        try:
+            strategy._cleanup()
+        except Exception:  # noqa: BLE001 — benchmarking must not fail on teardown
+            pass
 
         # Calculate solution quality
         if best_x is not None and best_fx != float("inf"):

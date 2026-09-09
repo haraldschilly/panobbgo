@@ -1,5 +1,68 @@
 # TODO
 
+## Session 2026-09-09 — discovery pass; quality push before optimizer work
+
+Program (set by Harald): (1) discover robustness / effectiveness gaps →
+(2) docs consolidation + code simplification, CI green, pushed →
+(3) find an exceptionally strong default setup across standard + own
+problem sets. Findings with numbers: `planning/DISCOVERY_2026-09-09.md`.
+
+### Measured today (master fac26b8)
+- [x] **Flagship loses to `Baseline_SciPyDE`** on the standard IOH battery
+      at d2 (0.4555 vs 0.5065) and d5 (0.3011 vs 0.3437); GOAL §1.2 unmet.
+- [x] **Seeded runs are not reproducible**: same spec/seed/`--sync-eval`,
+      two processes → battery mean differs by ~0.01–0.05, one instance by
+      0.09. The nightly `eps_accept` (0.0125) sits inside this.
+- [x] **Default config stops after ~100 evals** (`Convergence` analyzer is
+      force-injected + `stop_on_convergence=True`): `max_eval=2500` → 105
+      evaluations used, f=64 on Rosenbrock-5D. Harness masks this by
+      disabling the stop.
+- [x] **`Config` is a process singleton** → `config_overrides` and any
+      `strategy.config.X = …` leak across strategies/specs in one process.
+- [x] **DE/PSO populations truncated to `capacity=20`**: `NP_init="auto"`
+      = 90 at d5 → 70 initial points silently dropped (`emit` swallows
+      `Full`). Only CMA-ES grows its queue. Raising capacity to 400 is flat
+      on AOCC (Δ −0.003 ± 0.035) — the DE arms are not carrying the spec.
+- [x] **`StrategyRewarding` ≈ round-robin**: per-point 0.95 discount zeroes
+      batch emitters instantly; `Center` (1 point, never discounted again)
+      holds the top selection weight (44 %) all run.
+- [x] Nightly workflow is `disabled_manually` on GitHub since 2026-08-13.
+- [x] Test suite: 2014 passed / 1 skipped in 62 s (`-n 4`); CI green.
+
+### Phase 2 — quality push (next)
+- [ ] **Robustness fixes with tests** (each its own PR, no behaviour change
+      to the frozen metrics beyond what is measured):
+  - [ ] `Convergence` must not stop a run by default, or its defaults must
+        be budget-relative; benchmark and library behaviour must match.
+  - [ ] `Config`: per-strategy config object (copy-on-construct), singleton
+        only for file loading.
+  - [ ] `Heuristic.emit`: grow the queue (or block) instead of dropping;
+        log at WARNING; DE/PSO call `ensure_output_capacity`.
+  - [ ] `EventBus.publish`: one `Event` per subscriber.
+  - [ ] Deterministic seeded runs: per-heuristic RNGs seeded from the
+        strategy seed, deterministic result-batch ordering under
+        `sync_evaluation`; add a bit-reproducibility test.
+- [ ] **Local-run hygiene**: `nice -n 15` + worker-count cap + free-memory
+      check in the harness/benchmark entry points; evaluator thread pool
+      not `cpu_count()` by default.
+- [ ] **Docs**: consolidate per `planning/DOCS_AUDIT_2026-09-09.md` —
+      `AGENTS.md` 1463 → ~200 lines, merge `guide_setup`→`guide_usage`,
+      split `guide_benchmarking.rst` (user chapter vs loop reference),
+      retire `DEVELOPMENT_PROMPT.md` / `planning/NEXT.md` / `test_plan.md`,
+      fix stale counts (README "27 tests", coverage %, Dask claim).
+- [ ] **Code**: `/simplify` pass over `core.py`, `self_improve.py`,
+      `harness*.py`; remove top-level clutter (`benchmark_import*.py`,
+      `debug*.py`, `logging_demo.py`, `test.sh`, `fabfile.py`, `.idea/`).
+- [ ] CI green, pushed, PRs merged → then Phase 3.
+
+### Phase 3 — strong default setup (after Phase 2; needs Harald's input)
+- [ ] Re-measure baselines once runs are reproducible; then compare
+      `StrategyRewarding` vs `StrategyUCB` / `StrategyThompsonSampling` /
+      `StrategyPhased` with the same arm set on quick+standard, 12 seeds.
+- [ ] Decide the problem battery: MA-BBOB (have), plain BBOB via `ioh`,
+      own `lib/classic` battery; dims 2/5/10; budgets 200·d … 2000·d.
+- [ ] Re-enable the nightly only after the instrument is repaired.
+
 ## Recent Improvements (continued)
 
 ### Dimension-gated arm activation — 2026-08-12

@@ -309,7 +309,6 @@ class RandomSearchStrategy(BaselineStrategy):
             objective(x)
             if self._stopped:
                 break
-        del rng
 
 
 class SciPyDEStrategy(BaselineStrategy):

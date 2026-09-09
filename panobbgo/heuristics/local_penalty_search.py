@@ -15,7 +15,6 @@
 
 from panobbgo.core import Heuristic
 from panobbgo.lib import Point
-import threading
 import multiprocessing
 import time
 from queue import Full
@@ -187,9 +186,7 @@ class LocalPenaltySearch(Heuristic):
         """
         x0 = self.problem.random_point(rng=self.rng)
         self._start_optimization(x0)
-        t = threading.Thread(target=self._pump, name="%s-pump" % self.name, daemon=True)
-        self._threads.append(t)
-        t.start()
+        self.spawn_thread(self._pump, name="%s-pump" % self.name)
 
     def _pump(self):
         while not self._stopped:

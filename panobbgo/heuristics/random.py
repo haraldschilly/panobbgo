@@ -39,12 +39,6 @@ class Random(Heuristic):
             return self.problem.random_point(rng=self.rng)
         return leaf.ranges * self.rng.random(len(leaf.ranges)) + leaf.box[:, 0]
 
-    def _fill(self):
-        """Top the output queue up to its capacity."""
-        free = self.cap - self._output.qsize()
-        if free > 0:
-            self.emit([self._draw() for _ in range(free)])
-
     def on_start(self):
         try:
             splitter = self.strategy.analyzer("Splitter")
@@ -52,21 +46,21 @@ class Random(Heuristic):
                 self.leaf = splitter.root
         except Exception:
             pass
-        self._fill()
+        self.fill_queue(self._draw)
 
     def on_new_results(self, results):
-        self._fill()
+        self.fill_queue(self._draw)
 
     def on_new_best_box(self, best_box):
         self.leaf = best_box
-        self._fill()
+        self.fill_queue(self._draw)
 
     def on_new_split(self, box, children, dim):
         """Track the (possibly new) leaf around the best point."""
         best = self.strategy.analyzer("Best").best
         self.leaf = self.strategy.analyzer("Splitter").get_leaf(best) if best is not None else None
         self.clear_output()
-        self._fill()
+        self.fill_queue(self._draw)
 
     def on_restart(self, center, reason):
         """Reset the search area after a restart event.
@@ -79,4 +73,4 @@ class Random(Heuristic):
         self.clear_output()
         splitter = self.strategy.analyzer("Splitter")
         self.leaf = getattr(splitter, "root", None)
-        self._fill()
+        self.fill_queue(self._draw)

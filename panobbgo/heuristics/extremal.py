@@ -76,14 +76,9 @@ class Extremal(Heuristic):
                     break  # since we found the idx, break!
         return ret
 
-    def _fill(self):
-        free = self.cap - self._output.qsize()
-        if free > 0:
-            self.emit([self._draw() for _ in range(free)])
-
     def on_start(self):
         assert self.vals is not None, "vals must be initialized in __start__"
-        self._fill()
+        self.fill_queue(self._draw)
 
     def on_new_results(self, results):
-        self._fill()
+        self.fill_queue(self._draw)

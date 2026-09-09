@@ -144,7 +144,6 @@ References
 
 from __future__ import annotations
 
-import uuid
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -422,7 +421,7 @@ class LSHADE(Heuristic):
         self.p_best_end: Optional[float] = None if p_best_end is None else float(p_best_end)
         self.archive_factor: float = float(archive_factor)
         self.F_schedule: Optional[str] = normalized_F_schedule
-        self._rng: np.random.Generator = self.rng if seed is None else np.random.default_rng(seed)
+        self._rng: np.random.Generator = self.derive_rng(seed)
 
         # Success-history memory.  Initial value 0.5 per the SHADE paper.
         self._M_F: np.ndarray = np.full(H, 0.5, dtype=float)
@@ -571,13 +570,9 @@ class LSHADE(Heuristic):
 
         # Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so
         # ``Result.who`` tags are reproducible under a fixed seed.
-        req_id = uuid.UUID(bytes=self._rng.bytes(16)).hex
-        who = f"{self.name}:{req_id}"
-        try:
-            self._put(Point(x_proj, who))
-        except Exception as exc:  # queue full or shutdown
-            self.logger.debug(f"LSHADE: emit failed: {exc}")
-            return False
+        who = self.new_who(self._rng)
+        req_id = who.split(":", 1)[1]
+        self._put(Point(x_proj, who))
         self._pending[req_id] = self._make_trial_meta(slot_idx, F, CR)
         return True
 

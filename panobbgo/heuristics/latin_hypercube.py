@@ -64,10 +64,17 @@ class LatinHypercube(Heuristic):
             self.rng.shuffle(pts[:, _])
         return [p for p in pts]  # needs to be a list of np.ndarrays
 
+    def _fill(self):
+        """Emit whole designs until the queue holds at least ``div`` points.
+
+        The unit of this heuristic is a design, not a point, so it refills in
+        design-sized blocks rather than topping up to ``cap`` point by point.
+        """
+        while self._output.qsize() < self.div:
+            self.emit(self._design())
+
     def on_start(self):
-        self.emit(self._design())
+        self._fill()
 
     def on_new_results(self, results):
-        """Emit a fresh design whenever the previous one has been drained."""
-        if self._output.qsize() == 0:
-            self.emit(self._design())
+        self._fill()

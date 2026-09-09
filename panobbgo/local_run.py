@@ -76,7 +76,17 @@ def check_free_memory(min_free_gb: float = DEFAULT_MIN_FREE_GB) -> None:
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add ``--nice`` / ``--no-nice`` / ``--min-free-mem-gb`` to ``parser``."""
+    """Add ``--nice`` / ``--no-nice`` / ``--min-free-mem-gb`` to ``parser``.
+
+    A parser with subcommands gets the flags on each subparser instead, so
+    they can be given after the subcommand name.
+    """
+    subparsers = [a for a in parser._actions if isinstance(a, argparse._SubParsersAction)]
+    if subparsers:
+        for action in subparsers:
+            for sub in action.choices.values():
+                add_arguments(sub)
+        return
     g = parser.add_argument_group("local-run hygiene")
     g.add_argument(
         "--nice",
@@ -97,7 +107,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 def apply(args: argparse.Namespace) -> None:
     """Apply the flags added by :func:`add_arguments`."""
-    if getattr(args, "min_free_mem_gb", 0) and args.min_free_mem_gb > 0:
+    if args.min_free_mem_gb > 0:
         check_free_memory(args.min_free_mem_gb)
-    if not getattr(args, "no_nice", False):
-        be_nice(getattr(args, "nice", DEFAULT_NICENESS))
+    if not args.no_nice:
+        be_nice(args.nice)

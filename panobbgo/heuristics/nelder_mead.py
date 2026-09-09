@@ -173,11 +173,12 @@ class NelderMead(Heuristic):
         worst, centroid = self.nelder_mead_init(base)
         return self.nelder_mead_sample(worst, centroid, scale, offset)
 
-    def _refresh_base(self) -> bool:
+    def _refresh_base(self) -> None:
         """Derive ``worst`` / ``centroid`` from the current best box.
 
         Walks up the box hierarchy until :meth:`gram_schmidt` finds enough
-        linearly independent results.  Returns ``True`` when a base exists.
+        linearly independent results; leaves ``_worst`` / ``_centroid`` as
+        ``None`` when there are not enough.
         """
         dim = self.problem.dim
         bb = self.best_box
@@ -185,26 +186,23 @@ class NelderMead(Heuristic):
             base = self.gram_schmidt(dim, bb.results)
             if base:
                 self._worst, self._centroid = self.nelder_mead_init(base)
-                return True
+                return
             bb = bb.parent
         self._worst = self._centroid = None
-        return False
 
     def _fill(self) -> None:
         """Top the output queue up with samples from the current base."""
         if self._worst is None or self._centroid is None:
             return
-        free = self.cap - self._output.qsize()
-        if free > 0:
-            self.emit([self.nelder_mead_sample(self._worst, self._centroid) for _ in range(free)])
+        self.fill_queue(lambda: self.nelder_mead_sample(self._worst, self._centroid))
 
     def on_new_best_box(self, best_box):
         """A new best box (from the :class:`~.analyzers.Splitter`) resets the
         search direction: the queue is flushed and refilled from the new base."""
         self.best_box = best_box
         self.clear_output()
-        if self._refresh_base():
-            self._fill()
+        self._refresh_base()
+        self._fill()
 
     def on_new_results(self, results):
         """Keep the queue topped up; the base only changes with the best box."""

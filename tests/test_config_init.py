@@ -48,10 +48,12 @@ class TestConfigInit(unittest.TestCase):
     def test_loggers_are_not_duplicated_across_instances(self):
         import logging
 
+        from panobbgo.utils import PanobbgoHandler
+
         for _ in range(3):
             Config(testing_mode=True).get_logger("CFGT")
         handlers = logging.getLogger("%-5s" % "CFGT").handlers
-        self.assertEqual(len([h for h in handlers if getattr(h, "_panobbgo", False)]), 1)
+        self.assertEqual(len([h for h in handlers if isinstance(h, PanobbgoHandler)]), 1)
 
 
 def test_strategies_own_their_config():

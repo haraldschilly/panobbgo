@@ -63,6 +63,14 @@ def test_seed_precedence():
     s = StrategyRoundRobin(problem, parse_args=False, seed=99)
     assert s.seed == 99
 
+    # 0 is a seed, not "unset".
+    assert StrategyRoundRobin(problem, parse_args=False, seed=0).seed == 0
+
+    # config.seed is the fallback when no kwarg is given.
+    s = StrategyRoundRobin(problem, parse_args=False)
+    s.config.seed = 0
+    assert StrategyRoundRobin(problem, parse_args=False, seed=None).seed != 0  # own config
+
     # Without an explicit seed, numpy's global state decides — so a
     # preceding np.random.seed still pins the run.
     np.random.seed(5)

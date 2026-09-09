@@ -98,12 +98,23 @@ Open follow-ups (measured, not yet done):
       Holds at every budget from 50 to 1000 evaluations at d2 (8 seeds).
       The `Restart` analyzer halves CMA-ES (0.663 → 0.301) — the user
       guide recommended that pairing and now warns against it.
-- [ ] **Does a portfolio ever pay?** (GOAL §5.8) Test multimodal, noisy,
-      constrained and higher-dimensional regimes with the plain-BBOB suite
-      and the composite battery's constrained problems. If a mix does win
-      somewhere, the strategy layer must allocate the budget in *blocks*
-      (`StrategyPhased`) rather than interleaving points — interleaved
-      credit assignment cannot fix starvation.
+- [x] **Block allocation tested — it does not rescue the portfolio.**
+      `StrategyPhased`, 3 seeds, paired vs CMA-ES alone: CMA-ES→LBC
+      −0.0118, LBC→CMA-ES −0.1321, Sobol→CMA-ES −0.3788. Blocking beats
+      interleaving (−0.012 vs −0.27) but still loses to one method.
+- [x] **Splitter live-lock fixed.** Identical points made its kd-tree
+      deepen without bound, hanging the event-bus dispatcher: a CMA-ES run
+      stopped at 408/1000 evaluations after 154 s (now 1000/1000 in 0.5 s).
+      The whole test suite went from 233 s to 124 s.
+- [ ] **Does a portfolio pay anywhere?** (GOAL §5.8) Still open for
+      multimodal, noisy, constrained and much higher dimensions — no
+      battery currently covers constrained problems at all.
+- [ ] **Re-run CMA-ES → warm-started L-BFGS-B polish.** The one phased
+      variant that could not be measured: `LBFGSB` spawns a subprocess and
+      the driver script lacked an `if __name__ == "__main__":` guard.
+- [ ] **Document that spawn guard** for users: any script building a
+      strategy at module level with `LBFGSB` / `COBYQA` /
+      `LocalPenaltySearch` / `QuadraticWlsModel` needs it.
 - [ ] **Re-examine the composite registry.** All three of its CMA-ES specs
       (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are portfolios that
       also pair CMA-ES with the Restart analyzer. Untouched here because

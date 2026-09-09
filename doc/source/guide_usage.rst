@@ -557,12 +557,35 @@ The ordering holds at every budget from 25 to 500 evaluations per
 dimension; the margin grows with budget.  Higher AOCC is better; see
 :doc:`guide_benchmarking` for the metric.
 
+The same ordering holds at higher dimension (MA-BBOB, budget 100·d,
+instances 0–2, seeds 42 / 7 / 1234):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 12 25 22 22 22
+
+   * - dim
+     - six-arm portfolio
+     - ``CMAES`` alone
+     - ``NLSHADE_LBC`` alone
+     - scipy DE
+   * - 10
+     - 0.181
+     - **0.301**
+     - 0.192
+     - 0.162
+   * - 20
+     - 0.102
+     - **0.198**
+     - 0.162
+     - 0.080
+
 .. note::
 
    These numbers are for continuous, box-constrained problems from the
-   MA-BBOB generator at dims 2 and 5.  For constrained problems, noisy
-   objectives, or much higher dimension, re-measure with the harness
-   before trusting any ranking — including this one.
+   MA-BBOB generator at dims 2, 5, 10 and 20.  For *constrained*
+   problems, noisy objectives, or a different problem class, re-measure
+   with the harness before trusting any ranking — including this one.
 
 **Bayesian optimization (≤ 500 evals, smooth/expensive function):**
 

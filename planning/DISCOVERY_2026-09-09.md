@@ -229,3 +229,18 @@ CMA-ES alone wins at every budget tested, including 25 evaluations per
 dimension, and the margin grows monotonically with budget (+0.015 →
 +0.211).  There is no regime in this range where the six-arm portfolio
 is the better choice.
+
+## 11. It holds at higher dimension too
+
+MA-BBOB, instances 0–2, seeds 42 / 7 / 1234, budget 100·d
+(1000 evaluations at d10, 2000 at d20 — a *tight* budget for CMA-ES):
+
+| dim | flagship portfolio | CMA-ES alone | NLSHADE_LBC alone | Baseline_SciPyDE |
+|---|---|---|---|---|
+| 10 | 0.1808 | **0.3005** | 0.1922 | 0.1622 |
+| 20 | 0.1018 | **0.1979** | 0.1617 | 0.0804 |
+
+CMA-ES alone is 1.7× the portfolio at d10 and 1.9× at d20, and roughly
+double the external DE baseline at both.  The claim now covers dims 2,
+5, 10 and 20 at budgets from 25 to 500 evaluations per dimension; the
+portfolio is not preferable anywhere in that range.

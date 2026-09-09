@@ -60,10 +60,40 @@ problem sets. Findings with numbers: `planning/DISCOVERY_2026-09-09.md`.
       `debug*.py`, `logging_demo.py`, `test.sh`, `fabfile.py`, `.idea/`).
 - [ ] CI green, pushed, PRs merged → then Phase 3.
 
-### Phase 3 — strong default setup (after Phase 2; needs Harald's input)
-- [ ] Re-measure baselines once runs are reproducible; then compare
-      `StrategyRewarding` vs `StrategyUCB` / `StrategyThompsonSampling` /
-      `StrategyPhased` with the same arm set on quick+standard, 12 seeds.
+### Phase 2 results — the stack (all draft PRs, CI green where it runs)
+
+| PR | what | measured |
+|---|---|---|
+| #306 | docs consolidation | AGENTS.md 1463 → 223 lines |
+| #307 | master seed, per-module RNGs, serial event bus | same-seed runs bit-identical (quick battery) |
+| #308 | `stop_on_convergence` off by default | a 300-eval run now uses all 300 (was 105 of 2500) |
+| #309 | one `Config` per strategy | overrides no longer leak between specs |
+| #310 | output queue grows; no dropped points | JSO NP=90 keeps 90 (was 20); AOCC effect nil |
+| #311 | `nice -n 15` + free-memory floor on all entry points | — |
+| #312 | sync mode evaluates in submission order | quick battery reproducible |
+| #313 | **EMA credit assignment (new default)** | **+0.0135 AOCC [+0.0032, +0.0238], 12 seeds** |
+| #314 | shared helpers, dead code removal | found the `seed=0` bug |
+| #315 | reproducible + ~2x faster standard battery | 60/60 identical (was 47/60); 249s → 179s |
+
+Open follow-ups (measured, not yet done):
+- [ ] `Config.__init__` runs `_create()` per strategy (~31 ms: `git rev-parse`,
+      YAML + INI parse, ArgumentParser). Cache the process-constant parts.
+- [ ] `Splitter.add_result` is ~1.9 s of a 2500-eval run; it is force-injected
+      even for strategies that never use boxes.
+- [ ] 71 hand-rolled strategy doubles in tests do not implement `spawn_rng`;
+      `_module_rng` keeps a documented fallback for them.
+- [ ] The composite harness does not use `sync_evaluation`, so its quick-mode
+      runs are not reproducible (same seed varied 0.4326 … 0.4674).
+
+### Phase 3 — strong default setup (in progress)
+- [x] Compared `StrategyRewarding` (legacy + EMA), `StrategyUCB`,
+      `StrategyThompsonSampling` and round-robin on the same arm set,
+      standard battery, 12 seeds → EMA credit wins (#313). UCB is flat,
+      Thompson is between.
+- [ ] **Close the gap to `Baseline_SciPyDE`** — the standing goal. Standard
+      battery, seed 42: SciPyDE 0.5065 (d2) / 0.3437 (d5) vs the flagship
+      0.4555 / 0.3011. Sweep `explore`, the EMA smoothing, and the arm set
+      now that credit assignment measures arms honestly.
 - [ ] Decide the problem battery: MA-BBOB (have), plain BBOB via `ioh`,
       own `lib/classic` battery; dims 2/5/10; budgets 200·d … 2000·d.
 - [ ] Re-enable the nightly only after the instrument is repaired.

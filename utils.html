@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
@@ -156,8 +155,15 @@ not have a method with the specified name.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase.random_results">
-<span class="sig-name descname"><span class="pre">random_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pcv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.random_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.random_results" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<span class="sig-name descname"><span class="pre">random_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">N</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pcv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rng</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/utils.html#PanobbgoTestCase.random_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.utils.PanobbgoTestCase.random_results" title="Link to this definition">¶</a></dt>
+<dd><p>Build <code class="docutils literal notranslate"><span class="pre">N</span></code> synthetic <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a> objects (test helper).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>rng</strong> – optional <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a>; <code class="docutils literal notranslate"><span class="pre">None</span></code> falls back
+to numpy’s global state so <code class="docutils literal notranslate"><span class="pre">np.random.seed</span></code> still pins the data.</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.utils.PanobbgoTestCase.setUp">

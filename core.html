@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
@@ -106,12 +105,14 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.core.EventBus.is_subscribed"><code class="docutils literal notranslate">is_subscribed()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.keys"><code class="docutils literal notranslate">keys</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.publish"><code class="docutils literal notranslate">publish()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.register"><code class="docutils literal notranslate">register()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.shutdown"><code class="docutils literal notranslate">shutdown()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.subscribe"><code class="docutils literal notranslate">subscribe()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.unsubscribe"><code class="docutils literal notranslate">unsubscribe()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.EventBus.wait_idle"><code class="docutils literal notranslate">wait_idle()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a><ul>
@@ -131,10 +132,10 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Module"><code class="docutils literal notranslate"><span class="pre">Module</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.core.Module.check_dependencies"><code class="docutils literal notranslate">check_dependencies()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.eventbus"><code class="docutils literal notranslate">eventbus</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.core.Module.eventbus_events"><code class="docutils literal notranslate">eventbus_events</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.name"><code class="docutils literal notranslate">name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.problem"><code class="docutils literal notranslate">problem</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.results"><code class="docutils literal notranslate">results</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Module.rng"><code class="docutils literal notranslate">rng</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.strategy"><code class="docutils literal notranslate">strategy</span></code></a></li>
 </ul>
 </li>
@@ -171,6 +172,9 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.initialize"><code class="docutils literal notranslate">initialize()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate">name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate">on_converged()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.rng"><code class="docutils literal notranslate">rng</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.seed"><code class="docutils literal notranslate">seed</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng"><code class="docutils literal notranslate">spawn_rng()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.start"><code class="docutils literal notranslate">start()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.time_cpu"><code class="docutils literal notranslate">time_cpu</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.time_start_str"><code class="docutils literal notranslate">time_start_str</span></code></a></li>
@@ -253,7 +257,7 @@ size=&quot;8.0, 12.0&quot;;
   &quot;panobbgo.core.Analyzer&quot; [URL=&quot;#panobbgo.core.Analyzer&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;Abstract parent class for all types of analyzers.&quot;];
   &quot;panobbgo.core.Module&quot; -&gt; &quot;panobbgo.core.Analyzer&quot; [arrowsize=0.5,style=&quot;setlinewidth(0.5)&quot;];
   &quot;panobbgo.core.Event&quot; [URL=&quot;#panobbgo.core.Event&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This class holds the data for one single :class:`~.EventBus` event.&quot;];
-  &quot;panobbgo.core.EventBus&quot; [URL=&quot;#panobbgo.core.EventBus&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This event bus is used to publish and send events.&quot;];
+  &quot;panobbgo.core.EventBus&quot; [URL=&quot;#panobbgo.core.EventBus&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;Publish/subscribe bus connecting the strategy, its analyzers and its&quot;];
   &quot;panobbgo.core.Heuristic&quot; [URL=&quot;#panobbgo.core.Heuristic&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This is the \&quot;abstract\&quot; parent class for all types of point generating classes,&quot;];
   &quot;panobbgo.core.Module&quot; -&gt; &quot;panobbgo.core.Heuristic&quot; [arrowsize=0.5,style=&quot;setlinewidth(0.5)&quot;];
   &quot;panobbgo.core.HeuristicSubprocess&quot; [URL=&quot;#panobbgo.core.HeuristicSubprocess&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting&quot;];
@@ -296,9 +300,28 @@ size=&quot;8.0, 12.0&quot;;
 <dt class="sig sig-object py" id="panobbgo.core.EventBus">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">EventBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>This event bus is used to publish and send events.
-E.g. it is used to send information like “new best point”
-to all subscribing heuristics.</p>
+<p>Publish/subscribe bus connecting the strategy, its analyzers and its
+heuristics.  E.g. the “new best point” information is sent to every
+subscribing heuristic.</p>
+<p>Delivery is <strong>serial and ordered</strong>: one dispatcher thread pops events
+from a single FIFO and calls the subscribers’ <code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> handlers one
+after the other, in subscription order.  Events published <em>by</em> a handler
+are appended to the same FIFO.  Consequently</p>
+<ul class="simple">
+<li><p>a module never has two handlers running at the same time, so module
+state needs no locking;</p></li>
+<li><p>the sequence of handler invocations is a pure function of the
+sequence of <code class="docutils literal notranslate"><span class="pre">publish</span></code> calls — the property the seeded, reproducible
+runs rely on (see <a class="reference internal" href="#panobbgo.core.EventBus.wait_idle" title="panobbgo.core.EventBus.wait_idle"><code class="xref py py-meth docutils literal notranslate"><span class="pre">wait_idle()</span></code></a>);</p></li>
+<li><p>handlers must return promptly.  A module <em>reacts</em> to events; it never
+sleeps, polls or waits for other events inside a handler.</p></li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.EventBus.is_subscribed">
+<span class="sig-name descname"><span class="pre">is_subscribed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.is_subscribed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.is_subscribed" title="Link to this definition">¶</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff <code class="docutils literal notranslate"><span class="pre">target</span></code> still listens to at least one key.</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus.keys">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">keys</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.core.EventBus.keys" title="Link to this definition">¶</a></dt>
@@ -311,12 +334,13 @@ to all subscribing heuristics.</p>
 <dd><p>Publishes a new <a class="reference internal" href="#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> to all subscribers,
 who listen to the given <code class="docutils literal notranslate"><span class="pre">key</span></code>.
 It is either possible to send an existing event or to create an event
-object on the fly with the given <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>.</p>
+object on the fly with the given <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>.  Every subscriber gets
+its own <a class="reference internal" href="#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> instance.</p>
 <p>Args:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">event</span></code>: if set, this given <a class="reference internal" href="#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is sent (and not a new one created).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">event</span></code>: if set, this given <a class="reference internal" href="#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a>’s payload is sent (and not a new one created).</p></li>
 <li><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">terminate</span></code>: if True, the associated thread will end.</dt><dd><p>(use it for <code class="docutils literal notranslate"><span class="pre">on_start</span></code> and similar).</p>
+<dt><code class="docutils literal notranslate"><span class="pre">terminate</span></code>: if True, the subscription of <code class="docutils literal notranslate"><span class="pre">key</span></code> ends after this event</dt><dd><p>(use it for <code class="docutils literal notranslate"><span class="pre">on_start</span></code> and similar one-shot lifecycle events).</p>
 </dd>
 </dl>
 </li>
@@ -331,9 +355,8 @@ object on the fly with the given <code class="docutils literal notranslate"><spa
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus.register">
 <span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.register" title="Link to this definition">¶</a></dt>
-<dd><p>Registers a given <code class="docutils literal notranslate"><span class="pre">target</span></code> for this EventBus instance.
-It needs to have suitable <code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> methods.
-For each of them, a <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Thread" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Thread</span></code></a> is spawn as a daemon.</p>
+<dd><p>Registers a given <code class="docutils literal notranslate"><span class="pre">target</span></code> for this EventBus instance: every
+<code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> method it has becomes a subscription to <code class="docutils literal notranslate"><span class="pre">key</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>target</strong> (<a class="reference internal" href="#panobbgo.core.Module" title="panobbgo.core.Module"><em>Module</em></a>)</p>
@@ -343,14 +366,9 @@ For each of them, a <a class="reference external" href="https://docs.python.org/
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus.shutdown">
-<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.shutdown"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.shutdown" title="Link to this definition">¶</a></dt>
-<dd><p>Terminate <em>all</em> dispatcher threads by sending a terminate event to
-every subscribed (key, target) pair.</p>
-<p>Without this, only subscribers of the <code class="docutils literal notranslate"><span class="pre">finished</span></code> key stop at
-cleanup — every other <code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> dispatcher thread stays blocked
-on its queue forever. The threads are daemons, so they don’t block
-interpreter exit, but long-lived processes that create many
-strategies (e.g. a test suite) accumulate thousands of them.</p>
+<span class="sig-name descname"><span class="pre">shutdown</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.shutdown"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.shutdown" title="Link to this definition">¶</a></dt>
+<dd><p>Deliver what is still queued (bounded by <code class="docutils literal notranslate"><span class="pre">timeout</span></code>), then stop the
+dispatcher thread and drop all subscriptions.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -370,6 +388,17 @@ strategies (e.g. a test suite) accumulate thousands of them.</p>
 <ul class="simple">
 <li><p>if <code class="docutils literal notranslate"><span class="pre">key</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>, the target is removed from all keys.</p></li>
 </ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.EventBus.wait_idle">
+<span class="sig-name descname"><span class="pre">wait_idle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.wait_idle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.wait_idle" title="Link to this definition">¶</a></dt>
+<dd><p>Block until every published event has been handled.</p>
+<p>Handlers may publish further events (<code class="docutils literal notranslate"><span class="pre">new_results</span></code> → <code class="docutils literal notranslate"><span class="pre">new_best</span></code> →
+<code class="docutils literal notranslate"><span class="pre">on_new_best</span></code> …); the whole cascade counts.  Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> when
+the bus is idle, <code class="docutils literal notranslate"><span class="pre">False</span></code> on timeout.  The synchronous evaluation mode
+calls this before every draw so each main-loop pass sees the fully
+updated state of all analyzers and heuristics.</p>
 </dd></dl>
 
 </dd></dl>
@@ -411,8 +440,8 @@ or to queue up tasks for itself.</p></li>
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">active</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.active" title="Link to this definition">¶</a></dt>
 <dd><p>This is queried by the strategy to determine, if it should still consider it.
 This is the case, iff there is still something in its output queue
-or if there is a chance that there will be something in the future (at least
-one thread is running).</p>
+or if there is a chance that there will be something in the future
+(it still listens to at least one event).</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -519,11 +548,6 @@ and heuristics.</p>
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">eventbus</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><span class="pre">EventBus</span></a></span><a class="headerlink" href="#panobbgo.core.Module.eventbus" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.core.Module.eventbus_events">
-<span class="sig-name descname"><span class="pre">eventbus_events</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.core.Module.eventbus_events" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.name">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><a class="headerlink" href="#panobbgo.core.Module.name" title="Link to this definition">¶</a></dt>
@@ -543,6 +567,11 @@ parameterized heuristics or analyzers!</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.results">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">results</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><a class="headerlink" href="#panobbgo.core.Module.results" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.Module.rng">
+<span class="sig-name descname"><span class="pre">rng</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span><a class="headerlink" href="#panobbgo.core.Module.rng" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py property">
@@ -795,6 +824,27 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.on_converged">
 <span class="sig-name descname"><span class="pre">on_converged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reason</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.on_converged"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.on_converged" title="Link to this definition">¶</a></dt>
 <dd><p>Called when the Convergence analyzer detects convergence.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.rng">
+<span class="sig-name descname"><span class="pre">rng</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span><a class="headerlink" href="#panobbgo.core.StrategyBase.rng" title="Link to this definition">¶</a></dt>
+<dd><p>Master generator; every <a class="reference internal" href="#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> derives its own stream
+from it via <a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">spawn_rng()</span></code></a> in construction order.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.seed">
+<span class="sig-name descname"><span class="pre">seed</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.core.StrategyBase.seed" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.spawn_rng">
+<span class="sig-name descname"><span class="pre">spawn_rng</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.spawn_rng"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.spawn_rng" title="Link to this definition">¶</a></dt>
+<dd><p>Return a fresh <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a> derived from the master seed.</p>
+<p>Streams are independent and reproducible: the <em>k</em>-th call always
+yields the same generator for a given <a class="reference internal" href="#panobbgo.core.StrategyBase.seed" title="panobbgo.core.StrategyBase.seed"><code class="xref py py-attr docutils literal notranslate"><span class="pre">seed</span></code></a>, so modules
+constructed in the same order draw the same random numbers.</p>
 </dd></dl>
 
 <dl class="py method">

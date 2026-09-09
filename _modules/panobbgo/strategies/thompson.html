@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
@@ -301,7 +300,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="154">                    <span class="n">h</span><span class="o">.</span><span class="n">ts_beta</span> <span class="o">=</span> <span class="n">beta</span>
 </span><span data-line="155">
 </span><span data-line="156">                    <span class="c1"># Sample theta</span>
-</span><span data-line="157">                    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+</span><span data-line="157">                    <span class="n">theta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
 </span><span data-line="158">                    <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">theta</span><span class="p">,</span> <span class="n">h</span><span class="p">))</span>
 </span><span data-line="159">
 </span><span data-line="160">                <span class="c1"># Sort by sampled value (highest first)</span>

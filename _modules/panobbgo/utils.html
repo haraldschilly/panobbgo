@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../guide_architecture.html">Architecture Overview</a></li>
@@ -475,31 +474,36 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="330">
 <div class="viewcode-block" id="PanobbgoTestCase.random_results">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.random_results">[docs]</a>
-</span><span data-line="331">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
-</span><span data-line="332">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy.random</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rnd</span>
-</span><span data-line="333">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
-</span><span data-line="334">
-</span><span data-line="335">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="336">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
-</span><span data-line="337">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
-</span><span data-line="338">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="339">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="340">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
-</span><span data-line="341">                    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
-</span><span data-line="342">                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">()</span>
-</span><span data-line="343">            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">rnd</span><span class="o">.</span><span class="n">rand</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
-</span><span data-line="344">            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="345">        <span class="k">return</span> <span class="n">results</span></div>
+</span><span data-line="331">    <span class="k">def</span><span class="w"> </span><span class="nf">random_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">pcv</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="332"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Build ``N`` synthetic :class:`~panobbgo.lib.Result` objects (test helper).</span>
+</span><span data-line="333">
+</span><span data-line="334"><span class="sd">        :param rng: optional :class:`numpy.random.Generator`; ``None`` falls back</span>
+</span><span data-line="335"><span class="sd">            to numpy&#39;s global state so ``np.random.seed`` still pins the data.</span>
+</span><span data-line="336"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="337">        <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span><span class="p">,</span> <span class="n">Point</span>
+</span><span data-line="338">
+</span><span data-line="339">        <span class="n">r_</span> <span class="o">=</span> <span class="n">rng</span> <span class="k">if</span> <span class="n">rng</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span>
+</span><span data-line="340">        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="341">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+</span><span data-line="342">            <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">r_</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">),</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="343">            <span class="n">cv_vec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="344">            <span class="k">if</span> <span class="n">pcv</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="345">                <span class="k">for</span> <span class="n">cvidx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+</span><span data-line="346">                    <span class="k">if</span> <span class="n">r_</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">pcv</span><span class="p">:</span>
+</span><span data-line="347">                        <span class="n">cv_vec</span><span class="p">[</span><span class="n">cvidx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r_</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">()</span>
+</span><span data-line="348">            <span class="n">r</span> <span class="o">=</span> <span class="n">Result</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">r_</span><span class="o">.</span><span class="n">random</span><span class="p">(),</span> <span class="n">cv_vec</span><span class="o">=</span><span class="n">cv_vec</span><span class="p">)</span>
+</span><span data-line="349">            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="350">        <span class="k">return</span> <span class="n">results</span></div>
 
-</span><span data-line="346">
+</span><span data-line="351">
 <div class="viewcode-block" id="PanobbgoTestCase.init_strategy">
 <a class="viewcode-back" href="../../utils.html#panobbgo.utils.PanobbgoTestCase.init_strategy">[docs]</a>
-</span><span data-line="347">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
-</span><span data-line="348">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
-</span><span data-line="349">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
-</span><span data-line="350">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
-</span><span data-line="351">        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
-</span><span data-line="352">        <span class="k">return</span> <span class="n">strategy</span></div>
+</span><span data-line="352">    <span class="nd">@mock</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;panobbgo.core.StrategyBase&quot;</span><span class="p">)</span>
+</span><span data-line="353">    <span class="k">def</span><span class="w"> </span><span class="nf">init_strategy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">StrategyBaseMock</span><span class="p">):</span>
+</span><span data-line="354">        <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBaseMock</span><span class="p">()</span>
+</span><span data-line="355">        <span class="n">strategy</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
+</span><span data-line="356">        <span class="n">strategy</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+</span><span data-line="357">        <span class="k">return</span> <span class="n">strategy</span></div>
 </div>
 
 </span></pre></div>

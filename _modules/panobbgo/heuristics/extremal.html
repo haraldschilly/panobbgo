@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
@@ -147,79 +146,90 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="16"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="17">
-</span><span data-line="18">
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="19">
+</span><span data-line="20">
 <div class="viewcode-block" id="Extremal">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal">[docs]</a>
-</span><span data-line="19"><span class="k">class</span><span class="w"> </span><span class="nc">Extremal</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="20"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="21"><span class="sd">    This heuristic is specifically seeking for points at the</span>
-</span><span data-line="22"><span class="sd">    border of the box and around 0.</span>
-</span><span data-line="23"><span class="sd">    The @where parameter takes a list or tuple, which has values</span>
-</span><span data-line="24"><span class="sd">    from 0 to 1, which indicate the probability for sampling from the</span>
-</span><span data-line="25"><span class="sd">    minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</span>
-</span><span data-line="26"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="27">
-</span><span data-line="28">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <span class="n">prob</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="29">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Extremal&quot;</span><span class="p">)</span>
-</span><span data-line="30">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="31">
-</span><span data-line="32">        <span class="k">if</span> <span class="n">prob</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="33">            <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span><span data-line="34">        <span class="n">prob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">prob</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">prob</span><span class="p">))</span>
-</span><span data-line="35">        <span class="bp">self</span><span class="o">.</span><span class="n">probabilities</span> <span class="o">=</span> <span class="n">prob</span><span class="o">.</span><span class="n">cumsum</span><span class="p">()</span>
-</span><span data-line="36">        <span class="bp">self</span><span class="o">.</span><span class="n">diameter</span> <span class="o">=</span> <span class="n">diameter</span>  <span class="c1"># inside the box or around zero</span>
-</span><span data-line="37">        <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="38">
+</span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">Extremal</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="22"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="23"><span class="sd">    This heuristic is specifically seeking for points at the</span>
+</span><span data-line="24"><span class="sd">    border of the box and around 0.</span>
+</span><span data-line="25"><span class="sd">    The @where parameter takes a list or tuple, which has values</span>
+</span><span data-line="26"><span class="sd">    from 0 to 1, which indicate the probability for sampling from the</span>
+</span><span data-line="27"><span class="sd">    minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</span>
+</span><span data-line="28"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="29">
+</span><span data-line="30">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">diameter</span><span class="o">=</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span> <span class="n">prob</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="31">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Extremal&quot;</span><span class="p">)</span>
+</span><span data-line="32">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="33">
+</span><span data-line="34">        <span class="k">if</span> <span class="n">prob</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="35">            <span class="n">prob</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="36">        <span class="n">prob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">prob</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">prob</span><span class="p">))</span>
+</span><span data-line="37">        <span class="bp">self</span><span class="o">.</span><span class="n">probabilities</span> <span class="o">=</span> <span class="n">prob</span><span class="o">.</span><span class="n">cumsum</span><span class="p">()</span>
+</span><span data-line="38">        <span class="bp">self</span><span class="o">.</span><span class="n">diameter</span> <span class="o">=</span> <span class="n">diameter</span>  <span class="c1"># inside the box or around zero</span>
+</span><span data-line="39">        <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="40">
 <div class="viewcode-block" id="Extremal.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_restart">[docs]</a>
-</span><span data-line="39">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="40"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-</span><span data-line="41"><span class="sd">        Respond to a restart event by flushing stale points.</span>
-</span><span data-line="42"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="43">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span></div>
+</span><span data-line="41">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="42"><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span data-line="43"><span class="sd">        Respond to a restart event by flushing stale points.</span>
+</span><span data-line="44"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="45">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span></div>
 
-</span><span data-line="44">
-</span><span data-line="45">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="46">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="47">
-</span><span data-line="48">        <span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
-</span><span data-line="49">        <span class="n">low</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="50">        <span class="n">high</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
-</span><span data-line="51">        <span class="n">zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="52">        <span class="n">center</span> <span class="o">=</span> <span class="n">low</span> <span class="o">+</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
-</span><span data-line="53">        <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">low</span><span class="p">,</span> <span class="n">zero</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">high</span><span class="p">))</span>
-</span><span data-line="54">
+</span><span data-line="46">
+</span><span data-line="47">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="48">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="49">
+</span><span data-line="50">        <span class="n">problem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span>
+</span><span data-line="51">        <span class="n">low</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="52">        <span class="n">high</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="53">        <span class="n">zero</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="54">        <span class="n">center</span> <span class="o">=</span> <span class="n">low</span> <span class="o">+</span> <span class="p">(</span><span class="n">high</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span>
+</span><span data-line="55">        <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">low</span><span class="p">,</span> <span class="n">zero</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">high</span><span class="p">))</span>
+</span><span data-line="56">
+</span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="nf">_draw</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="58">        <span class="n">vals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span>
+</span><span data-line="59">        <span class="k">assert</span> <span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
+</span><span data-line="60">        <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="61">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
+</span><span data-line="62">            <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span>
+</span><span data-line="63">            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">probabilities</span><span class="p">):</span>
+</span><span data-line="64">                <span class="k">if</span> <span class="n">val</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+</span><span data-line="65">                    <span class="n">radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">diameter</span>
+</span><span data-line="66">                    <span class="n">jitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
+</span><span data-line="67">                    <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="68">                        <span class="c1"># minimum border</span>
+</span><span data-line="69">                        <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">jitter</span><span class="p">)</span>
+</span><span data-line="70">                    <span class="k">elif</span> <span class="n">idx</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">probabilities</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="71">                        <span class="c1"># maximum border</span>
+</span><span data-line="72">                        <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="nb">abs</span><span class="p">(</span><span class="n">jitter</span><span class="p">)</span>
+</span><span data-line="73">                    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="74">                        <span class="c1"># around center or zero</span>
+</span><span data-line="75">                        <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">jitter</span>
+</span><span data-line="76">                    <span class="k">break</span>  <span class="c1"># since we found the idx, break!</span>
+</span><span data-line="77">        <span class="k">return</span> <span class="n">ret</span>
+</span><span data-line="78">
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">_fill</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="80">        <span class="n">free</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cap</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">qsize</span><span class="p">()</span>
+</span><span data-line="81">        <span class="k">if</span> <span class="n">free</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="82">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_draw</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">free</span><span class="p">)])</span>
+</span><span data-line="83">
 <div class="viewcode-block" id="Extremal.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_start">[docs]</a>
-</span><span data-line="55">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="56">        <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="57">
-</span><span data-line="58">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
-</span><span data-line="59">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="60">            <span class="n">ret</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="61">            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">):</span>
-</span><span data-line="62">                <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span>
-</span><span data-line="63">                <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">probabilities</span><span class="p">):</span>
-</span><span data-line="64">                    <span class="k">if</span> <span class="n">val</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
-</span><span data-line="65">                        <span class="n">radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">diameter</span>
-</span><span data-line="66">                        <span class="c1"># jitter = radius * (np.random.rand() - .5)</span>
-</span><span data-line="67">                        <span class="n">jitter</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
-</span><span data-line="68">                        <span class="k">if</span> <span class="n">idx</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="69">                            <span class="c1"># minimum border</span>
-</span><span data-line="70">                            <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">jitter</span><span class="p">)</span>
-</span><span data-line="71">                        <span class="k">elif</span> <span class="n">idx</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">probabilities</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="72">                            <span class="c1"># maximum border</span>
-</span><span data-line="73">                            <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="nb">abs</span><span class="p">(</span><span class="n">jitter</span><span class="p">)</span>
-</span><span data-line="74">                        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="75">                            <span class="c1"># around center or zero</span>
-</span><span data-line="76">                            <span class="n">ret</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">jitter</span>
-</span><span data-line="77">                        <span class="k">break</span>  <span class="c1"># since we found the idx, break!</span>
-</span><span data-line="78">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
-</span><span data-line="79">            <span class="c1"># stop early, if run by unittests</span>
-</span><span data-line="80">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">testing_mode</span><span class="p">:</span>
-</span><span data-line="81">                <span class="k">return</span></div>
+</span><span data-line="84">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="85">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">vals</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;vals must be initialized in __start__&quot;</span>
+</span><span data-line="86">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
+
+</span><span data-line="87">
+<div class="viewcode-block" id="Extremal.on_new_results">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Extremal.on_new_results">[docs]</a>
+</span><span data-line="88">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">_fill</span><span class="p">()</span></div>
 </div>
 
 </span></pre></div>

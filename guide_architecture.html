@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Architecture Overview</a></li>
@@ -265,8 +264,8 @@ communicate through an <a class="reference internal" href="core.html#panobbgo.co
 <ol class="arabic simple">
 <li><p>Modules define methods named <code class="docutils literal notranslate"><span class="pre">on_&lt;event_name&gt;(self,</span> <span class="pre">**kwargs)</span></code></p></li>
 <li><p>EventBus automatically discovers these methods via introspection</p></li>
-<li><p>When an event is published, all subscribers are notified in separate threads</p></li>
-<li><p>Each subscription runs in a daemon thread to avoid blocking</p></li>
+<li><p>When an event is published, one delivery per subscriber is appended to a single FIFO</p></li>
+<li><p>One dispatcher thread calls the handlers serially, in subscription order</p></li>
 </ol>
 <p><strong>Common events:</strong></p>
 <div class="table-wrapper colwidths-given docutils container">
@@ -789,18 +788,25 @@ by focused exploitation).</p>
 <h2>Threading Model<a class="headerlink" href="#threading-model" title="Link to this heading">¶</a></h2>
 <section id="event-handling">
 <h3>Event Handling<a class="headerlink" href="#event-handling" title="Link to this heading">¶</a></h3>
-<p>Each event subscription runs in a <strong>daemon thread</strong>:</p>
+<p>Events are delivered <strong>serially by one dispatcher thread</strong>:</p>
 <ul class="simple">
-<li><p>Non-blocking: publishing returns immediately</p></li>
-<li><p>Concurrent: multiple handlers run simultaneously</p></li>
-<li><p>Fire-and-forget: no return values from handlers</p></li>
+<li><p>Non-blocking: publishing returns immediately; the event is queued</p></li>
+<li><p>Ordered: handlers run one after the other, in the order the events were published</p></li>
+<li><p>Handlers must return promptly — a module <em>reacts</em> to events, it never loops,
+sleeps or waits inside a handler (subprocess bridges such as
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a> pump their pipe on a private thread)</p></li>
+<li><p>Fire-and-forget: a handler’s return value, if any, is passed to <code class="docutils literal notranslate"><span class="pre">emit</span></code></p></li>
 </ul>
-<p><strong>Thread safety:</strong></p>
-<ul class="simple">
-<li><p>Results database uses pandas (generally thread-safe for reads)</p></li>
-<li><p>Heuristic queues use thread-safe operations</p></li>
-<li><p>Analyzers should use locks if maintaining mutable state</p></li>
-</ul>
+<p>Because no two handlers ever run at the same time, module state needs no
+locking.  The sequence of handler calls is a pure function of the sequence of
+<code class="docutils literal notranslate"><span class="pre">publish</span></code> calls, which is what makes a seeded run reproducible:
+<a class="reference internal" href="core.html#panobbgo.core.EventBus.wait_idle" title="panobbgo.core.EventBus.wait_idle"><code class="xref py py-meth docutils literal notranslate"><span class="pre">wait_idle()</span></code></a> blocks until every queued event
+(and the events those handlers published) has been handled, and the
+synchronous evaluation mode (<code class="docutils literal notranslate"><span class="pre">config.sync_evaluation</span></code>) waits for that before
+every draw of new points.</p>
+<p><strong>Randomness:</strong> every module owns a <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>) derived from the strategy’s master <code class="docutils literal notranslate"><span class="pre">seed</span></code> in construction
+order; modules never touch the global <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> state.</p>
 </section>
 <section id="parallel-evaluation">
 <h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">¶</a></h3>

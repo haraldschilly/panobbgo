@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_architecture.html">Architecture Overview</a></li>
@@ -138,8 +137,13 @@ data-aria-dark="Switch to auto color mode">
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.random.Random">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.random.</span></span><span class="sig-name descname"><span class="pre">Random</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/heuristics/random.html#Random"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.random.Random" title="Link to this definition">¶</a></dt>
-<dd><p>always generates random points inside the box of the
-“best leaf” (see “Splitter”) until the capped queue is full.</p>
+<dd><p>Generates uniformly random points inside the box of the current
+“best leaf” (see <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>), or inside the
+whole problem box until the Splitter has published one.</p>
+<p>The heuristic is <em>reactive</em>: it fills its output queue on <code class="docutils literal notranslate"><span class="pre">start</span></code> and
+tops it up whenever results arrive or the best leaf changes.  It never
+sleeps or polls, so the sequence of points it produces is a pure
+function of its <code class="xref py py-attr docutils literal notranslate"><span class="pre">rng</span></code> and the events it receives.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -183,7 +187,7 @@ data-aria-dark="Switch to auto color mode">
 <td><p>this drains the output Queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code> elements are removed or the Queue is empty.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_split</span></code>(box, children, dim)</p></td>
-<td><p>we are only interested in the (possibly new) leaf around the best point</p></td>
+<td><p>Track the (possibly new) leaf around the best point.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_start</span></code>()</p></td>
 <td><p></p></td>

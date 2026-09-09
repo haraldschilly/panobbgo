@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
@@ -212,9 +211,9 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="76"><span class="sd">        scramble: If ``True`` (default), apply Owen scrambling so different</span>
 </span><span data-line="77"><span class="sd">            seeds produce statistically independent point sets while</span>
 </span><span data-line="78"><span class="sd">            preserving the low-discrepancy property within each set.</span>
-</span><span data-line="79"><span class="sd">        seed: Optional seed for reproducibility.  ``None`` (default) uses</span>
-</span><span data-line="80"><span class="sd">            ``numpy.random``&#39;s global state, which the harness seeds via</span>
-</span><span data-line="81"><span class="sd">            ``np.random.seed``.</span>
+</span><span data-line="79"><span class="sd">        seed: Optional seed for reproducibility.  ``None`` (default) draws</span>
+</span><span data-line="80"><span class="sd">            the sampler seed from the module&#39;s strategy-derived ``self.rng``</span>
+</span><span data-line="81"><span class="sd">            stream, so the run is pinned by the strategy&#39;s master seed.</span>
 </span><span data-line="82"><span class="sd">        name: Override the heuristic&#39;s display name.</span>
 </span><span data-line="83">
 </span><span data-line="84"><span class="sd">    Notes:</span>
@@ -267,27 +266,28 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="131">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
 </span><span data-line="132">        <span class="c1"># qmc.Sobol(rng=...) accepts None, an int, or a Generator.  We use</span>
 </span><span data-line="133">        <span class="c1"># ``rng`` (modern scipy keyword) instead of the deprecated ``seed``.</span>
-</span><span data-line="134">        <span class="n">sampler</span> <span class="o">=</span> <span class="n">qmc</span><span class="o">.</span><span class="n">Sobol</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scramble</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="135">
-</span><span data-line="136">        <span class="c1"># Use random_base2 when n is a power of two — preserves Sobol&#39;s</span>
-</span><span data-line="137">        <span class="c1"># balance properties.  Otherwise fall back to .random(n).</span>
-</span><span data-line="138">        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="139">            <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">))</span>
-</span><span data-line="140">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random_base2</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">)</span>
-</span><span data-line="141">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="142">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="143">
-</span><span data-line="144">        <span class="c1"># Map [0, 1)^d → box.</span>
-</span><span data-line="145">        <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="146">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
-</span><span data-line="147">        <span class="k">return</span> <span class="n">unit</span> <span class="o">*</span> <span class="n">ranges</span> <span class="o">+</span> <span class="n">lower</span>
-</span><span data-line="148">
+</span><span data-line="134">        <span class="n">seed</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">))</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">seed</span>
+</span><span data-line="135">        <span class="n">sampler</span> <span class="o">=</span> <span class="n">qmc</span><span class="o">.</span><span class="n">Sobol</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="n">dim</span><span class="p">,</span> <span class="n">scramble</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">scramble</span><span class="p">,</span> <span class="n">rng</span><span class="o">=</span><span class="n">seed</span><span class="p">)</span>
+</span><span data-line="136">
+</span><span data-line="137">        <span class="c1"># Use random_base2 when n is a power of two — preserves Sobol&#39;s</span>
+</span><span data-line="138">        <span class="c1"># balance properties.  Otherwise fall back to .random(n).</span>
+</span><span data-line="139">        <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&amp;</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="140">            <span class="n">m</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">))</span>
+</span><span data-line="141">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random_base2</span><span class="p">(</span><span class="n">m</span><span class="o">=</span><span class="n">m</span><span class="p">)</span>
+</span><span data-line="142">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="143">            <span class="n">unit</span> <span class="o">=</span> <span class="n">sampler</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="144">
+</span><span data-line="145">        <span class="c1"># Map [0, 1)^d → box.</span>
+</span><span data-line="146">        <span class="n">lower</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="147">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
+</span><span data-line="148">        <span class="k">return</span> <span class="n">unit</span> <span class="o">*</span> <span class="n">ranges</span> <span class="o">+</span> <span class="n">lower</span>
+</span><span data-line="149">
 <div class="viewcode-block" id="Sobol.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.Sobol.on_start">[docs]</a>
-</span><span data-line="149">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="150"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and emit the full Sobol&#39; batch once.&quot;&quot;&quot;</span>
-</span><span data-line="151">        <span class="n">pts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate</span><span class="p">()</span>
-</span><span data-line="152">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">])</span></div>
+</span><span data-line="150">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="151"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and emit the full Sobol&#39; batch once.&quot;&quot;&quot;</span>
+</span><span data-line="152">        <span class="n">pts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate</span><span class="p">()</span>
+</span><span data-line="153">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">])</span></div>
 </div>
 
 </span></pre></div>

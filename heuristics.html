@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
@@ -141,6 +140,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal"><code class="docutils literal notranslate"><span class="pre">Extremal</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Extremal.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
@@ -190,6 +190,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube"><code class="docutils literal notranslate"><span class="pre">LatinHypercube</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LatinHypercube.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
@@ -220,8 +221,8 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead_init"><code class="docutils literal notranslate">nelder_mead_init()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead_sample"><code class="docutils literal notranslate">nelder_mead_sample()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_new_best_box"><code class="docutils literal notranslate">on_new_best_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.PSO"><code class="docutils literal notranslate"><span class="pre">PSO</span></code></a><ul>
@@ -236,6 +237,8 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random"><code class="docutils literal notranslate"><span class="pre">Random</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.Random.on_new_best_box"><code class="docutils literal notranslate">on_new_best_box()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.Random.on_new_results"><code class="docutils literal notranslate">on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random.on_new_split"><code class="docutils literal notranslate">on_new_split()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random.on_restart"><code class="docutils literal notranslate">on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.Random.on_start"><code class="docutils literal notranslate">on_start()</span></code></a></li>
@@ -316,6 +319,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>LSHADE_EpSin</strong>: LSHADE-EpSin (Awad, Ali &amp; Suganthan, CEC 2016) — direct subclass of <a class="reference internal" href="#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a> that replaces the SHADE Cauchy-from-memory <code class="docutils literal notranslate"><span class="pre">F</span></code> sampling with an <strong>ensemble of two sinusoidal candidates</strong> during the first half of the search.  <em>Sinusoid 1</em> uses a fixed frequency (<code class="docutils literal notranslate"><span class="pre">0.5</span></code>) with a <em>decreasing</em> amplitude envelope <code class="docutils literal notranslate"><span class="pre">(G_max</span> <span class="pre">−</span> <span class="pre">g)/G_max</span></code>; <em>Sinusoid 2</em> draws its frequency from an adaptive <code class="docutils literal notranslate"><span class="pre">Cauchy(μ_freq,</span> <span class="pre">0.1)</span></code> clamped to <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code> and pairs it with an <em>increasing</em> envelope <code class="docutils literal notranslate"><span class="pre">g/G_max</span></code> and a <code class="docutils literal notranslate"><span class="pre">+π</span></code> phase shift.  Each trial picks one of the two sinusoids with probability <code class="docutils literal notranslate"><span class="pre">p_s</span></code> updated each generation from a Laplace-smoothed Sinusoid-1 success rate; <code class="docutils literal notranslate"><span class="pre">μ_freq</span></code> updates via the unweighted Lehmer mean of successful Sinusoid-2 frequencies.  Second half (<code class="docutils literal notranslate"><span class="pre">progress</span> <span class="pre">≥</span> <span class="pre">0.5</span></code>) reverts to the SHADE Cauchy-from-memory sampling — byte-identical to L-SHADE.  <code class="docutils literal notranslate"><span class="pre">CR</span></code> is always sampled from the SHADE Normal-from-memory bin (unchanged in both phases).  The sinusoidal envelope already provides a time-varying <code class="docutils literal notranslate"><span class="pre">F</span></code> magnitude, so the jSO asymmetric F-cap is intentionally <em>off</em> by default (<code class="docutils literal notranslate"><span class="pre">F_schedule=None</span></code>).  Different <em>branch</em> of the DE family tree from jSO / NL-SHADE-RSP — all the other DE arms adapt <code class="docutils literal notranslate"><span class="pre">F</span></code> via the SHADE Cauchy memory; EpSin’s deterministic-amplitude sinusoid is algorithmically distinct.  Opt-in via the structural mutation catalog.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same ensemble plus a covariance-matrix step — not ported here; CMA-ES is already a separate heuristic).</p></li>
 <li><p><strong>DifferentialEvolution / LSHADE / JSO / NLSHADE_RSP / NLSHADE_LBC / LSHADE_EpSin complementarity</strong>: Panobbgo carries all six DE-family arms in the structural catalog so the bandit can pick whichever wins on the current battery — basic DE for byte-identical legacy reproduction, L-SHADE for the established CEC-2014 high-water mark, jSO for the CEC-2017 refinement (Cauchy-F branch), NL-SHADE-RSP for the CEC-2021 refinement, NL-SHADE-LBC for the CEC-2022 refinement, and LSHADE-EpSin for the orthogonal CEC-2016 sinusoidal-F branch (predecessor of the CEC-2017 co-winner LSHADE-cnEpSin).  Each variant occupies a distinct exploration / exploitation regime and the literature shows real per-problem complementarity; on Panobbgo’s small-budget battery the CEC-DE refinements (RSP, LBC) measure within noise of jSO — they are large-budget specialists by construction.</p></li>
 <li><p><strong>PSO</strong>: Particle Swarm Optimization with the canonical Clerc–Kennedy (2002) constriction-coefficient parameters — a swarm of particles tracks personal and global bests with momentum, providing exploration dynamics distinct from CMA-ES (covariance) and DE (recombination); supports IPOP-style warm restarts via the Restart analyzer.  Four swarm topologies are available via the <code class="docutils literal notranslate"><span class="pre">topology</span></code> argument: the default fully-connected <code class="docutils literal notranslate"><span class="pre">&quot;gbest&quot;</span></code> (Kennedy-Eberhart 1995), the wrap-around ring <code class="docutils literal notranslate"><span class="pre">&quot;lbest&quot;</span></code> of width <code class="docutils literal notranslate"><span class="pre">2·k_neighbors+1</span></code> (Kennedy &amp; Mendes 2002), the 4-connected 2-D toroidal grid <code class="docutils literal notranslate"><span class="pre">&quot;vonneumann&quot;</span></code> (Kennedy &amp; Mendes 2003; Mendes 2004), and the <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> stochastic informer graph (Mendes 2004; Clerc 2007 / SPSO 2011 — each particle is connected to itself plus <code class="docutils literal notranslate"><span class="pre">k_neighbors</span></code> random informers re-sampled at <code class="docutils literal notranslate"><span class="pre">on_start</span></code> and <code class="docutils literal notranslate"><span class="pre">on_restart</span></code>, plus an optional <code class="docutils literal notranslate"><span class="pre">stagnation_threshold</span></code> for the stochastic-K mid-run rebuild that re-samples the graph when the swarm fails to lift its global best for <code class="docutils literal notranslate"><span class="pre">N</span></code> consecutive results) — four complementary information-diffusion regimes (instantaneous / one-hop linear / two-hop planar / asymmetric stochastic), with <code class="docutils literal notranslate"><span class="pre">&quot;vonneumann&quot;</span></code> widely cited as a stable middle ground and <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> providing a structure-free alternative whose diffusion speed depends on the realised graph.  Optional <code class="docutils literal notranslate"><span class="pre">w_end</span></code> enables the Shi–Eberhart (1998) linearly-decreasing inertia schedule (off by default; constant <code class="docutils literal notranslate"><span class="pre">w</span></code> reproduces the prior behaviour).</p></li>
+<li><p><strong>RegionUCB</strong>: UCB1 allocation over the leaves of the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> box decomposition (LA-MCTS-style region bandit) with in-leaf sampling — a configurable fraction of candidates is drawn from a Gaussian around the leaf’s best point (<code class="docutils literal notranslate"><span class="pre">gauss_fraction</span></code>, <code class="docutils literal notranslate"><span class="pre">gauss_scale</span></code>), the rest uniformly over the leaf; <code class="docutils literal notranslate"><span class="pre">ucb_c</span></code> sets the exploration weight.</p></li>
 <li><p><strong>FeasibleSearch</strong>: Actively searches for and repairs feasible solutions via line search towards feasibility.</p></li>
 <li><p><strong>ConstraintGradient</strong>: Uses estimated gradients of constraint violations to find feasible regions.</p></li>
 <li><p><strong>LocalPenaltySearch</strong>: Optimizes the scalarized penalty function directly with a local scipy optimizer.</p></li>
@@ -513,7 +517,12 @@ box centre, matching <code class="xref py py-meth docutils literal notranslate">
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA.on_start" title="Link to this definition">¶</a></dt>
-<dd><p>Pipe x → emit → wait for fx → pipe.send pattern.</p>
+<dd><p>Start the pipe pump: x → emit → wait for fx → pipe.send.</p>
+<p>The pipe pump runs on its own daemon thread (appended to
+<code class="docutils literal notranslate"><span class="pre">self._threads</span></code>) so the event bus, which delivers handlers serially,
+is never blocked by it.  Emissions from a subprocess bridge are
+inherently timing-dependent; such heuristics are excluded from the
+reproducible synchronous mode’s guarantees.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -713,6 +722,11 @@ minimum, zero, center and the maximum. default = ( 1, .2, .2, 1 )</p>
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Extremal.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/extremal.html#Extremal.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Extremal.on_new_results" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.Extremal.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/extremal.html#Extremal.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Extremal.on_restart" title="Link to this definition">¶</a></dt>
@@ -1037,11 +1051,16 @@ centre otherwise.  Subsequent descents resume random multi-start.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB.on_start" title="Link to this definition">¶</a></dt>
-<dd><p>Pipe x → emit → wait for fx → pipe.send loop (shared with COBYQA).</p>
+<dd><p>Start the pipe pump: x → emit → wait for fx → pipe.send (shared with COBYQA).</p>
 <p>Under <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> the worker interleaves <code class="xref py py-data docutils literal notranslate"><span class="pre">_X0_REQUEST</span></code>
 sentinels with its <code class="docutils literal notranslate"><span class="pre">f(x)</span></code> sends; those are answered inline with a
 perturbed incumbent (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_warm_start_x0()</span></code>) rather than emitted for
 evaluation.</p>
+<p>The pipe pump runs on its own daemon thread (appended to
+<code class="docutils literal notranslate"><span class="pre">self._threads</span></code>) so the event bus, which delivers handlers serially,
+is never blocked by it.  Emissions from a subprocess bridge are
+inherently timing-dependent; such heuristics are excluded from the
+reproducible synchronous mode’s guarantees.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1124,7 +1143,7 @@ a string regime name otherwise.  Falls back to the
 unclamped behaviour when the strategy budget is unknown.
 jSO opts into <code class="docutils literal notranslate"><span class="pre">&quot;jso&quot;</span></code> by construction.</p></li>
 <li><p><strong>seed</strong> – Optional seed for the per-instance RNG.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
-seeds from <code class="docutils literal notranslate"><span class="pre">np.random.default_rng()</span></code>.</p></li>
+uses the module’s strategy-derived <code class="docutils literal notranslate"><span class="pre">self.rng</span></code> stream.</p></li>
 <li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
 </ul>
 </dd>
@@ -1278,6 +1297,12 @@ Then, it randomly selects one point from inside such a cube.</p>
 </dd>
 </dl>
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LatinHypercube.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/latin_hypercube.html#LatinHypercube.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LatinHypercube.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Emit a fresh design whenever the previous one has been drained.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LatinHypercube.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/latin_hypercube.html#LatinHypercube.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LatinHypercube.on_start" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1328,7 +1353,13 @@ The heuristic thread acts as a bridge:
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_start" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Kick off the first local search and start the pipe pump.</p>
+<p>The pipe pump runs on its own daemon thread (appended to
+<code class="docutils literal notranslate"><span class="pre">self._threads</span></code>) so the event bus, which delivers handlers serially,
+is never blocked by it.  Emissions from a subprocess bridge are
+inherently timing-dependent; such heuristics are excluded from the
+reproducible synchronous mode’s guarantees.</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -1623,6 +1654,9 @@ close (in the same <a class="reference internal" href="analyzers.html#panobbgo.a
 several promising points into the same direction as
 the implied search direction. See <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">here</span></code></a>.</p></li>
 </ul>
+<p>The heuristic is <em>reactive</em>: it recomputes its base whenever the
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> publishes a new best box and tops
+its output queue up on every result batch.  It never sleeps or polls.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1672,31 +1706,20 @@ from the given base.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_new_best_box">
 <span class="sig-name descname"><span class="pre">on_new_best_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best_box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_new_best_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_new_best_box" title="Link to this definition">¶</a></dt>
-<dd><p>When a new best box has been found by the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>, the
-<code class="docutils literal notranslate"><span class="pre">got_bb</span></code> <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is set and the output queue is cleared.</p>
+<dd><p>A new best box (from the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>) resets the
+search direction: the queue is flushed and refilled from the new base.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_new_results" title="Link to this definition">¶</a></dt>
+<dd><p>Keep the queue topped up; the base only changes with the best box.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_restart" title="Link to this definition">¶</a></dt>
-<dd><p>Respond to a restart event by flushing points and pausing until a new best box is found.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.heuristics.NelderMead.on_start">
-<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/nelder_mead.html#NelderMead.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.NelderMead.on_start" title="Link to this definition">¶</a></dt>
-<dd><p>Algorithm Outline:</p>
-<ol class="arabic simple">
-<li><p>Wait until a first or new best box has been found.</p></li>
-<li><p>Clear the <code class="docutils literal notranslate"><span class="pre">got_bb</span></code> flag, later on we use this to be notified
-about new best boxes via <a class="reference internal" href="#panobbgo.heuristics.NelderMead.on_new_best_box" title="panobbgo.heuristics.NelderMead.on_new_best_box"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_new_best_box()</span></code></a>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">bb</span></code> is the currently used best box, it might be <code class="docutils literal notranslate"><span class="pre">None</span></code> if
-we have to look up the parents when searching for more result points.</p></li>
-<li><p>Inside the outer while, we try to find a suiteable base via <a class="reference internal" href="#panobbgo.heuristics.NelderMead.gram_schmidt" title="panobbgo.heuristics.NelderMead.gram_schmidt"><code class="xref py py-meth docutils literal notranslate"><span class="pre">gram_schmidt()</span></code></a>.</p></li>
-<li><p>If we got such a base, we generate new search points via <a class="reference internal" href="#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">nelder_mead()</span></code></a>
-until the queue is full (which blocks) or there is a new best box (breaks inner loop).</p></li>
-<li><p>The <code class="docutils literal notranslate"><span class="pre">break</span></code> exits the outer while and we start fresh with the new best box.</p></li>
-</ol>
+<dd><p>Flush points and pause until a new best box is found.</p>
 </dd></dl>
 
 </dd></dl>
@@ -1785,7 +1808,7 @@ for <code class="docutils literal notranslate"><span class="pre">topology</span>
 three geometric topologies are deterministic functions of
 <code class="docutils literal notranslate"><span class="pre">NP</span></code> and have no stochastic graph to rebuild.</p></li>
 <li><p><strong>seed</strong> – Optional seed for the per-instance RNG.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
-seeds from <code class="docutils literal notranslate"><span class="pre">np.random.default_rng()</span></code>.</p></li>
+uses the module’s strategy-derived <code class="docutils literal notranslate"><span class="pre">self.rng</span></code> stream.</p></li>
 <li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
 </ul>
 </dd>
@@ -1871,8 +1894,13 @@ compute something in between.</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.Random">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">Random</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
-<p>always generates random points inside the box of the
-“best leaf” (see “Splitter”) until the capped queue is full.</p>
+<p>Generates uniformly random points inside the box of the current
+“best leaf” (see <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>), or inside the
+whole problem box until the Splitter has published one.</p>
+<p>The heuristic is <em>reactive</em>: it fills its output queue on <code class="docutils literal notranslate"><span class="pre">start</span></code> and
+tops it up whenever results arrive or the best leaf changes.  It never
+sleeps or polls, so the sequence of points it produces is a pure
+function of its <code class="xref py py-attr docutils literal notranslate"><span class="pre">rng</span></code> and the events it receives.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1883,25 +1911,29 @@ compute something in between.</p>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_new_best_box">
+<span class="sig-name descname"><span class="pre">on_new_best_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best_box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_new_best_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_new_best_box" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_new_results" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_new_split">
 <span class="sig-name descname"><span class="pre">on_new_split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">children</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_new_split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_new_split" title="Link to this definition">¶</a></dt>
-<dd><p>we are only interested in the (possibly new)
-leaf around the best point</p>
+<dd><p>Track the (possibly new) leaf around the best point.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.Random.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/random.html#Random.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Random.on_restart" title="Link to this definition">¶</a></dt>
-<dd><p>Reset search area after a restart event.</p>
+<dd><p>Reset the search area after a restart event.</p>
 <p><code class="docutils literal notranslate"><span class="pre">Splitter.get_leaf</span></code> only locates leaves around <em>observed</em>
-<code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code> objects.  A restart proposes an unobserved
-<code class="docutils literal notranslate"><span class="pre">center</span></code> (a numpy array), so we cannot look up its leaf
-directly.  Instead we fall back to the Splitter’s current root
-box — Random will then sample uniformly across the full search
-space until the next split assigns a tighter leaf around the
-new incumbent.  This is the safe default; it sacrifices a tiny
-amount of geometric locality on the restart in exchange for not
-crashing the eventbus thread.</p>
+results and a restart proposes an unobserved <code class="docutils literal notranslate"><span class="pre">center</span></code>, so fall
+back to the Splitter’s root box (the whole search space) until the
+next split assigns a tighter leaf around the new incumbent.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1985,9 +2017,9 @@ and warns when <code class="docutils literal notranslate"><span class="pre">n</s
 <li><p><strong>scramble</strong> – If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), apply Owen scrambling so different
 seeds produce statistically independent point sets while
 preserving the low-discrepancy property within each set.</p></li>
-<li><p><strong>seed</strong> – Optional seed for reproducibility.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) uses
-<code class="docutils literal notranslate"><span class="pre">numpy.random</span></code>’s global state, which the harness seeds via
-<code class="docutils literal notranslate"><span class="pre">np.random.seed</span></code>.</p></li>
+<li><p><strong>seed</strong> – Optional seed for reproducibility.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) draws
+the sampler seed from the module’s strategy-derived <code class="docutils literal notranslate"><span class="pre">self.rng</span></code>
+stream, so the run is pinned by the strategy’s master seed.</p></li>
 <li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
 </ul>
 </dd>

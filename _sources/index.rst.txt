@@ -87,20 +87,11 @@ Problem Library
 
 Built-in test problems and problem definition utilities.
 
-.lib
-
 .. toctree::
    :maxdepth: 1
 
    classic
    lib
-
-User Interface
-~~~~~~~~~~~~~~
-
-Command-line interfaces.
-
-
 
 History
 ========

@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_architecture.html">Architecture Overview</a></li>
@@ -138,9 +137,22 @@ data-aria-dark="Switch to auto color mode">
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">EventBus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/core.html#EventBus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus" title="Link to this definition">¶</a></dt>
-<dd><p>This event bus is used to publish and send events.
-E.g. it is used to send information like “new best point”
-to all subscribing heuristics.</p>
+<dd><p>Publish/subscribe bus connecting the strategy, its analyzers and its
+heuristics.  E.g. the “new best point” information is sent to every
+subscribing heuristic.</p>
+<p>Delivery is <strong>serial and ordered</strong>: one dispatcher thread pops events
+from a single FIFO and calls the subscribers’ <code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> handlers one
+after the other, in subscription order.  Events published <em>by</em> a handler
+are appended to the same FIFO.  Consequently</p>
+<ul class="simple">
+<li><p>a module never has two handlers running at the same time, so module
+state needs no locking;</p></li>
+<li><p>the sequence of handler invocations is a pure function of the
+sequence of <code class="docutils literal notranslate"><span class="pre">publish</span></code> calls — the property the seeded, reproducible
+runs rely on (see <a class="reference internal" href="../core.html#panobbgo.core.EventBus.wait_idle" title="panobbgo.core.EventBus.wait_idle"><code class="xref py py-meth docutils literal notranslate"><span class="pre">wait_idle()</span></code></a>);</p></li>
+<li><p>handlers must return promptly.  A module <em>reacts</em> to events; it never
+sleeps, polls or waits for other events inside a handler.</p></li>
+</ul>
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/panobbgo/core.html#EventBus.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.__init__" title="Link to this definition">¶</a></dt>
@@ -157,7 +169,7 @@ to all subscribing heuristics.</p>
 <td><p>Publishes a new <a class="reference internal" href="../core.html#panobbgo.core.Event" title="panobbgo.core.Event"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> to all subscribers, who listen to the given <code class="docutils literal notranslate"><span class="pre">key</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.register" title="panobbgo.core.EventBus.register"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register</span></code></a>(target)</p></td>
-<td><p>Registers a given <code class="docutils literal notranslate"><span class="pre">target</span></code> for this EventBus instance.</p></td>
+<td><p>Registers a given <code class="docutils literal notranslate"><span class="pre">target</span></code> for this EventBus instance: every <code class="docutils literal notranslate"><span class="pre">on_&lt;key&gt;</span></code> method it has becomes a subscription to <code class="docutils literal notranslate"><span class="pre">key</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="../core.html#panobbgo.core.EventBus.subscribe" title="panobbgo.core.EventBus.subscribe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">subscribe</span></code></a>(key, target)</p></td>
 <td><p>Called by <a class="reference internal" href="../core.html#panobbgo.core.EventBus.register" title="panobbgo.core.EventBus.register"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register()</span></code></a>.</p></td>

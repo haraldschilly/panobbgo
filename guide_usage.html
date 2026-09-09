@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="guide.html">Panobbgo User Guide</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="guide_architecture.html">Architecture Overview</a></li>
@@ -103,6 +102,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
 <li><a class="reference internal" href="#using-uv-recommended">Using UV (Recommended)</a></li>
 <li><a class="reference internal" href="#using-pip">Using pip</a></li>
+<li><a class="reference internal" href="#verifying-the-installation">Verifying the installation</a></li>
 <li><a class="reference internal" href="#evaluation-setup">Evaluation Setup</a></li>
 <li><a class="reference internal" href="#configuration">Configuration</a></li>
 </ul>
@@ -110,6 +110,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#basic-usage">Basic Usage</a><ul>
 <li><a class="reference internal" href="#minimal-example">Minimal Example</a></li>
 <li><a class="reference internal" href="#complete-example">Complete Example</a></li>
+<li><a class="reference internal" href="#verified-walkthrough">Verified Walkthrough</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#defining-custom-problems">Defining Custom Problems</a><ul>
@@ -147,6 +148,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#advanced-topics">Advanced Topics</a><ul>
+<li><a class="reference internal" href="#reproducible-runs">Reproducible Runs</a></li>
 <li><a class="reference internal" href="#budget-management">Budget Management</a></li>
 <li><a class="reference internal" href="#parallel-evaluation">Parallel Evaluation</a></li>
 <li><a class="reference internal" href="#multi-start-optimization">Multi-start Optimization</a></li>
@@ -242,6 +244,35 @@ data-aria-dark="Switch to auto color mode">
 </span></pre></div>
 </div>
 </section>
+<section id="verifying-the-installation">
+<h3>Verifying the installation<a class="headerlink" href="#verifying-the-installation" title="Link to this heading">¶</a></h3>
+<p>The snippets below are doctests: they run in CI against the installed
+package, so if they pass for you the installation is complete.</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python version: </span><span class="si">{</span><span class="n">sys</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="go">Python version: ...</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">panobbgo</span>
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Panobbgo version: </span><span class="si">{</span><span class="n">panobbgo</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="7"><span class="go">Panobbgo version: ...</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="10"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
+</span><span data-line="11"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span data-line="12"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+</span><span data-line="13"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;All dependencies imported successfully&quot;</span><span class="p">)</span>
+</span><span data-line="14"><span class="go">All dependencies imported successfully</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NumPy: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">, SciPy: </span><span class="si">{</span><span class="n">scipy</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="17"><span class="go">NumPy: ..., SciPy: ...</span>
+</span></pre></div>
+</div>
+<p>To run the framework’s own test suite (about 2000 tests, roughly a minute
+with four workers):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span>
+</span></pre></div>
+</div>
+</section>
 <section id="evaluation-setup">
 <h3>Evaluation Setup<a class="headerlink" href="#evaluation-setup" title="Link to this heading">¶</a></h3>
 <p><strong>Threaded Evaluation (Default):</strong></p>
@@ -304,7 +335,7 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Center</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">NelderMead</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Define problem</span>
-</span><span data-line="6"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="c1"># Create strategy</span>
 </span><span data-line="9"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
@@ -335,13 +366,13 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span><span data-line="7"><span class="p">)</span>
 </span><span data-line="8">
 </span><span data-line="9"><span class="c1"># Define 10-dimensional Rosenbrock</span>
-</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </span><span data-line="11">
-</span><span data-line="12"> <span class="c1"># Create adaptive strategy</span>
-</span><span data-line="13"> <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span>
-</span><span data-line="14">     <span class="n">problem</span><span class="p">,</span>
-</span><span data-line="15">     <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">2000</span>      <span class="c1"># Budget</span>
-</span><span data-line="16"> <span class="p">)</span>
+</span><span data-line="12"><span class="c1"># Create adaptive strategy</span>
+</span><span data-line="13"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span>
+</span><span data-line="14">    <span class="n">problem</span><span class="p">,</span>
+</span><span data-line="15">    <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">2000</span>      <span class="c1"># Budget</span>
+</span><span data-line="16"><span class="p">)</span>
 </span><span data-line="17">
 </span><span data-line="18"><span class="c1"># Add analyzers (optional - Best is default)</span>
 </span><span data-line="19"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Best</span><span class="p">)</span>      <span class="c1"># Track best points</span>
@@ -369,6 +400,204 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span><span data-line="41"><span class="n">df</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">results</span>
 </span><span data-line="42"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">DataFrame shape: </span><span class="si">{</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span data-line="43"><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</span></pre></div>
+</div>
+</section>
+<section id="verified-walkthrough">
+<h3>Verified Walkthrough<a class="headerlink" href="#verified-walkthrough" title="Link to this heading">¶</a></h3>
+<p>The following steps are executable doctests (run in CI), so they double as
+a check that your installation behaves as documented.  They set up
+problems and strategies without starting an optimization run.</p>
+<p><strong>Step 1: Define a problem</strong></p>
+<p>Create a simple optimization problem by subclassing <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">SphereProblem</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
+</span><span data-line="5"><span class="gp">... </span><span class="w">    </span><span class="sd">&quot;&quot;&quot;Simple sphere function: f(x) = sum(x^2)&quot;&quot;&quot;</span>
+</span><span data-line="6"><span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+</span><span data-line="7"><span class="gp">... </span>        <span class="c1"># Define search bounds: each variable in [-5, 5]</span>
+</span><span data-line="8"><span class="gp">... </span>        <span class="n">box</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mf">5.0</span><span class="p">,</span> <span class="mf">5.0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dim</span>
+</span><span data-line="9"><span class="gp">... </span>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="10"><span class="gp">...</span>
+</span><span data-line="11"><span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="12"><span class="gp">... </span><span class="w">        </span><span class="sd">&quot;&quot;&quot;Evaluate the objective function&quot;&quot;&quot;</span>
+</span><span data-line="13"><span class="gp">... </span>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create an instance</span>
+</span><span data-line="16"><span class="gp">&gt;&gt;&gt; </span><span class="n">problem</span> <span class="o">=</span> <span class="n">SphereProblem</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="17"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Problem dimension: </span><span class="si">{</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="18"><span class="go">Problem dimension: 2</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Test evaluation at the origin (global optimum)</span>
+</span><span data-line="21"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+</span><span data-line="22"><span class="gp">&gt;&gt;&gt; </span><span class="n">point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="23"><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="24"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;f([0,0]) = </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="25"><span class="go">f([0,0]) = 0.0</span>
+</span></pre></div>
+</div>
+<p><strong>Step 2: Evaluate points manually</strong></p>
+<p>Test point evaluation and bounds checking:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Generate a random point within bounds</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">random_point</span> <span class="o">=</span> <span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Random point: </span><span class="si">{</span><span class="n">random_point</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="4"><span class="go">Random point: ...</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Evaluate the random point</span>
+</span><span data-line="7"><span class="gp">&gt;&gt;&gt; </span><span class="n">random_point_obj</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">random_point</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="8"><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">problem</span><span class="p">(</span><span class="n">random_point_obj</span><span class="p">)</span>
+</span><span data-line="9"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;f(</span><span class="si">{</span><span class="n">random_point</span><span class="si">}</span><span class="s2">) = </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="10"><span class="go">f(...) = ...</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Check that point is within bounds</span>
+</span><span data-line="13"><span class="gp">&gt;&gt;&gt; </span><span class="n">in_bounds</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">coord</span> <span class="o">&lt;=</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">coord</span> <span class="ow">in</span> <span class="n">random_point</span><span class="p">)</span>
+</span><span data-line="14"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Point within bounds: </span><span class="si">{</span><span class="n">in_bounds</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="15"><span class="go">Point within bounds: True</span>
+</span></pre></div>
+</div>
+<p><strong>Step 3: Create a strategy and add heuristics</strong></p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create strategy</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="5"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="o">=</span> <span class="mi">50</span>  <span class="c1"># Set evaluation budget</span>
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Strategy created with max_evaluations: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="7"><span class="go">Strategy created with max_evaluations: 50</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Center</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">Nearby</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Add initialization heuristic</span>
+</span><span data-line="12"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
+</span><span data-line="13"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+</span><span data-line="14"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span data-line="15"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total heuristics: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_hs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="16"><span class="go">Total heuristics: 3</span>
+</span></pre></div>
+</div>
+<p><strong>Step 4: Verify the strategy setup</strong></p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Check strategy configuration</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Problem: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="go">Problem: SphereProblem</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Max evaluations: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="5"><span class="go">Max evaluations: 50</span>
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of heuristics: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_hs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="7"><span class="go">Number of heuristics: 3</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># The strategy is ready to run optimization with strategy.start()</span>
+</span><span data-line="10"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Strategy setup complete!&quot;</span><span class="p">)</span>
+</span><span data-line="11"><span class="go">Strategy setup complete!</span>
+</span></pre></div>
+</div>
+<p>The optimization workflow from here is:</p>
+<ol class="arabic simple">
+<li><p>Call <code class="docutils literal notranslate"><span class="pre">strategy.start()</span></code> to begin optimization</p></li>
+<li><p>The strategy coordinates heuristics to generate points</p></li>
+<li><p>Points are evaluated in parallel (using local threads by default)</p></li>
+<li><p>Results are collected and the best solution is tracked</p></li>
+<li><p>Optimization continues until the evaluation budget is exhausted</p></li>
+</ol>
+<p><strong>Step 5: Use a built-in test function</strong></p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create Rosenbrock function (banana-shaped valley)</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="n">rosenbrock</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="5"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rosenbrock problem dimension: </span><span class="si">{</span><span class="n">rosenbrock</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="6"><span class="go">Rosenbrock problem dimension: 2</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Evaluate at global optimum</span>
+</span><span data-line="9"><span class="gp">&gt;&gt;&gt; </span><span class="n">optimum</span> <span class="o">=</span> <span class="n">Point</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="10"><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">rosenbrock</span><span class="p">(</span><span class="n">optimum</span><span class="p">)</span>
+</span><span data-line="11"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rosenbrock optimum f([1,1]) = </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="12"><span class="go">Rosenbrock optimum f([1,1]) = 0.0</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Evaluate at a different point</span>
+</span><span data-line="15"><span class="gp">&gt;&gt;&gt; </span><span class="n">test_point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="16"><span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">rosenbrock</span><span class="p">(</span><span class="n">test_point</span><span class="p">)</span>
+</span><span data-line="17"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rosenbrock f([0,0]) = </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="18"><span class="go">Rosenbrock f([0,0]) = 1.000</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create strategy for Rosenbrock</span>
+</span><span data-line="21"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy2</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">rosenbrock</span><span class="p">)</span>
+</span><span data-line="22"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy2</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="o">=</span> <span class="mi">100</span>
+</span><span data-line="23"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy2</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
+</span><span data-line="24"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy2</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+</span><span data-line="25"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy2</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span data-line="26">
+</span><span data-line="27"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Strategy is ready for optimization</span>
+</span><span data-line="28"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rosenbrock strategy configured with </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">strategy2</span><span class="o">.</span><span class="n">_hs</span><span class="p">)</span><span class="si">}</span><span class="s2"> heuristics&quot;</span><span class="p">)</span>
+</span><span data-line="29"><span class="go">Rosenbrock strategy configured with 3 heuristics</span>
+</span><span data-line="30"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ready to optimize with budget of </span><span class="si">{</span><span class="n">strategy2</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="si">}</span><span class="s2"> evaluations&quot;</span><span class="p">)</span>
+</span><span data-line="31"><span class="go">Ready to optimize with budget of 100 evaluations</span>
+</span></pre></div>
+</div>
+<p><strong>Step 6: Define a constrained problem</strong></p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">ConstrainedSphere</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
+</span><span data-line="2"><span class="gp">... </span><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sphere with constraint: sum(x) &lt;= 1&quot;&quot;&quot;</span>
+</span><span data-line="3"><span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+</span><span data-line="4"><span class="gp">... </span>        <span class="n">box</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dim</span>
+</span><span data-line="5"><span class="gp">... </span>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="6"><span class="gp">...</span>
+</span><span data-line="7"><span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="8"><span class="gp">... </span>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+</span><span data-line="9"><span class="gp">...</span>
+</span><span data-line="10"><span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="nf">eval_constraints</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="11"><span class="gp">... </span>        <span class="c1"># Constraint: sum(x) - 1 &lt;= 0 (feasible when sum(x) &lt;= 1)</span>
+</span><span data-line="12"><span class="gp">... </span>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">])</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="gp">&gt;&gt;&gt; </span><span class="n">constrained_problem</span> <span class="o">=</span> <span class="n">ConstrainedSphere</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="15"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Constrained problem created&quot;</span><span class="p">)</span>
+</span><span data-line="16"><span class="go">Constrained problem created</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Test feasible point</span>
+</span><span data-line="19"><span class="gp">&gt;&gt;&gt; </span><span class="n">feasible_point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">([</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="20"><span class="gp">&gt;&gt;&gt; </span><span class="n">result_feasible</span> <span class="o">=</span> <span class="n">constrained_problem</span><span class="p">(</span><span class="n">feasible_point</span><span class="p">)</span>
+</span><span data-line="21"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Feasible point: x = </span><span class="si">{</span><span class="n">feasible_point</span><span class="o">.</span><span class="n">x</span><span class="si">}</span><span class="s2">, f(x) = </span><span class="si">{</span><span class="n">result_feasible</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="22"><span class="go">Feasible point: x = [0.3 0.3], f(x) = 0.180</span>
+</span><span data-line="23"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Constraint violation: </span><span class="si">{</span><span class="n">result_feasible</span><span class="o">.</span><span class="n">cv_vec</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="24"><span class="go">Constraint violation: [-0.4]</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Test infeasible point</span>
+</span><span data-line="27"><span class="gp">&gt;&gt;&gt; </span><span class="n">infeasible_point</span> <span class="o">=</span> <span class="n">Point</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+</span><span data-line="28"><span class="gp">&gt;&gt;&gt; </span><span class="n">result_infeasible</span> <span class="o">=</span> <span class="n">constrained_problem</span><span class="p">(</span><span class="n">infeasible_point</span><span class="p">)</span>
+</span><span data-line="29"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Infeasible point: x = </span><span class="si">{</span><span class="n">infeasible_point</span><span class="o">.</span><span class="n">x</span><span class="si">}</span><span class="s2">, f(x) = </span><span class="si">{</span><span class="n">result_infeasible</span><span class="o">.</span><span class="n">fx</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="30"><span class="go">Infeasible point: x = [1. 1.], f(x) = 2.000</span>
+</span><span data-line="31"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Constraint violation: </span><span class="si">{</span><span class="n">result_infeasible</span><span class="o">.</span><span class="n">cv_vec</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="32"><span class="go">Constraint violation: [1.]</span>
+</span></pre></div>
+</div>
+<p><strong>Step 7: Full setup</strong></p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Import everything needed</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.rewarding</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Center</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">Nearby</span><span class="p">,</span> <span class="n">NelderMead</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Define problem</span>
+</span><span data-line="7"><span class="gp">&gt;&gt;&gt; </span><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</span><span data-line="8"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Optimizing </span><span class="si">{</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">D Rosenbrock function&quot;</span><span class="p">)</span>
+</span><span data-line="9"><span class="go">Optimizing 3D Rosenbrock function</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create strategy</span>
+</span><span data-line="12"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="13"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span> <span class="o">=</span> <span class="mi">200</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Add diverse heuristics</span>
+</span><span data-line="16"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
+</span><span data-line="17"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+</span><span data-line="18"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Nearby</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span data-line="19"><span class="gp">&gt;&gt;&gt; </span><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Verify setup</span>
+</span><span data-line="22"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Problem: </span><span class="si">{</span><span class="n">problem</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="si">}</span><span class="s2">D)&quot;</span><span class="p">)</span>
+</span><span data-line="23"><span class="go">Problem: Rosenbrock (3D)</span>
+</span><span data-line="24"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Strategy: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="25"><span class="go">Strategy: StrategyRewarding</span>
+</span><span data-line="26"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Budget: </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="si">}</span><span class="s2"> evaluations&quot;</span><span class="p">)</span>
+</span><span data-line="27"><span class="go">Budget: 200 evaluations</span>
+</span><span data-line="28"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Heuristics: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_hs</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="29"><span class="go">Heuristics: 4</span>
+</span><span data-line="30"><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Ready to run with: strategy.start()&quot;</span><span class="p">)</span>
+</span><span data-line="31"><span class="go">Ready to run with: strategy.start()</span>
 </span></pre></div>
 </div>
 </section>
@@ -406,10 +635,10 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.wrappers</span><span class="w"> </span><span class="kn">import</span> <span class="n">NormalizedProblem</span><span class="p">,</span> <span class="n">NoisyProblem</span><span class="p">,</span> <span class="n">LogTransformProblem</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Normalize all dimensions to [0, 1]</span>
-</span><span data-line="4"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+</span><span data-line="4"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="c1"># Add noise for robustness testing (seed for reproducibility)</span>
-</span><span data-line="7"><span class="n">problem</span> <span class="o">=</span> <span class="n">NoisyProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span data-line="7"><span class="n">problem</span> <span class="o">=</span> <span class="n">NoisyProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span><span data-line="8">
 </span><span data-line="9"><span class="c1"># Log-transform for objectives spanning orders of magnitude</span>
 </span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">LogTransformProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
@@ -933,7 +1162,7 @@ is active.</p>
 </span><span data-line="7">    <span class="n">NelderMead</span><span class="p">,</span> <span class="n">GaussianProcessHeuristic</span><span class="p">,</span> <span class="n">LBFGSB</span>
 </span><span data-line="8"><span class="p">)</span>
 </span><span data-line="9">
-</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 </span><span data-line="11">
 </span><span data-line="12"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyPhased</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="p">[</span>
 </span><span data-line="13">    <span class="p">{</span>
@@ -1070,6 +1299,27 @@ is preserved.</p>
 </section>
 <section id="advanced-topics">
 <h2>Advanced Topics<a class="headerlink" href="#advanced-topics" title="Link to this heading">¶</a></h2>
+<section id="reproducible-runs">
+<h3>Reproducible Runs<a class="headerlink" href="#reproducible-runs" title="Link to this heading">¶</a></h3>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">seed</span></code> to the strategy and enable the synchronous evaluation mode to
+make a run a pure function of that seed:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1234</span><span class="p">)</span>
+</span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">sync_evaluation</span> <span class="o">=</span> <span class="kc">True</span>   <span class="c1"># deterministic result batches</span>
+</span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">JSO</span><span class="p">,</span> <span class="n">NP_init</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>Two such runs evaluate exactly the same points in the same order.  Every
+module derives its own <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a> from the master seed
+(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>), the event bus delivers events serially and the main loop
+waits for all handlers before drawing new points.  Without <code class="docutils literal notranslate"><span class="pre">seed</span></code> the
+strategy draws one from numpy’s global state, so <code class="docutils literal notranslate"><span class="pre">np.random.seed(s)</span></code>
+before construction also pins the run; <code class="docutils literal notranslate"><span class="pre">strategy.seed</span></code> reports which seed
+was used.  Heuristics that bridge a subprocess solver (<code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>,
+<code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code>) emit on their own schedule and are exempt from this
+guarantee.</p>
+</section>
 <section id="budget-management">
 <h3>Budget Management<a class="headerlink" href="#budget-management" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Set evaluation budget</span>

@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../guide_architecture.html">Architecture Overview</a></li>
@@ -150,6 +149,9 @@ close (in the same <a class="reference internal" href="../analyzers.html#panobbg
 several promising points into the same direction as
 the implied search direction. See <a class="reference internal" href="../heuristics.html#panobbgo.heuristics.NelderMead.nelder_mead" title="panobbgo.heuristics.NelderMead.nelder_mead"><code class="xref py py-meth docutils literal notranslate"><span class="pre">here</span></code></a>.</p></li>
 </ul>
+<p>The heuristic is <em>reactive</em>: it recomputes its base whenever the
+<a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> publishes a new best box and tops
+its output queue up on every result batch.  It never sleeps or polls.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -199,10 +201,7 @@ the implied search direction. See <a class="reference internal" href="../heurist
 <td><p>Retuns a new <em>randomized</em> search point for the given set of results (<code class="docutils literal notranslate"><span class="pre">base</span></code>), which are linearly independent enough to form a orthonormal base, using the Nelder-Mead Method.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_new_best_box</span></code>(best_box)</p></td>
-<td><p>When a new best box has been found by the <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>, the <code class="docutils literal notranslate"><span class="pre">got_bb</span></code> <a class="reference external" href="https://docs.python.org/3/library/threading.html#threading.Event" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Event</span></code></a> is set and the output queue is cleared.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">on_start</span></code>()</p></td>
-<td><p>Algorithm Outline:</p></td>
+<td><p>A new best box (from the <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a>) resets the search direction: the queue is flushed and refilled from the new base.</p></td>
 </tr>
 </tbody>
 </table>

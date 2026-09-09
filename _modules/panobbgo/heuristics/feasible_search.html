@@ -63,7 +63,6 @@ data-aria-dark="Switch to auto color mode">
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="0"><ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../guide_setup.html">Setup and Quick Start Guide</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
@@ -246,7 +245,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="104">
 </span><span data-line="105">            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">):</span>
 </span><span data-line="106">                <span class="c1"># Beta(2, 1) distribution: more samples near the feasible point</span>
-</span><span data-line="107">                <span class="n">alpha</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="107">                <span class="n">alpha</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">beta</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 </span><span data-line="108">                <span class="n">candidate_x</span> <span class="o">=</span> <span class="n">x_infeasible</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">diff_vec</span>
 </span><span data-line="109">                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">candidate_x</span><span class="p">)</span>
 </span><span data-line="110">
@@ -254,7 +253,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="112">            <span class="c1"># Fallback to random search if no feasible point known</span>
 </span><span data-line="113">            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">samples</span><span class="p">):</span>
 </span><span data-line="114">                <span class="c1"># Generate random direction</span>
-</span><span data-line="115">                <span class="n">direction</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="115">                <span class="n">direction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="116">                <span class="n">norm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span>
 </span><span data-line="117">                <span class="k">if</span> <span class="n">norm</span> <span class="o">&gt;</span> <span class="mf">1e-9</span><span class="p">:</span>
 </span><span data-line="118">                    <span class="n">direction</span> <span class="o">/=</span> <span class="n">norm</span>

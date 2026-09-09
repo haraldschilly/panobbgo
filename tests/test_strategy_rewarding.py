@@ -16,6 +16,10 @@ class DummyHeur(Heuristic):
     def active(self):
         return True
 
+    @property
+    def has_points(self):
+        return True
+
     def get_points(self, limit):
         return [Point(np.array([1.0, 2.0]), self.name)]
 

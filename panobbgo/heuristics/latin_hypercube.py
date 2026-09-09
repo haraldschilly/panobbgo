@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+
 from panobbgo.core import Heuristic
 
 
@@ -50,16 +52,22 @@ class LatinHypercube(Heuristic):
         # length of each box'es dimension
         self.lengths = self.problem.ranges / float(self.div)
 
-    def on_start(self):
-        import numpy as np
-
+    def _design(self):
+        """One Latin-hypercube design of ``div`` points (a list of arrays)."""
         div = self.div
         dim = self.problem.dim
-        while True:
-            pts = np.repeat(np.arange(div, dtype=np.float64), dim).reshape(div, dim)
-            pts += np.random.rand(div, dim)  # add [0,1) jitter
-            pts *= self.lengths  # scale with length, already divided by div
-            pts += self.problem.box[:, 0]  # shift with min
-            for _ in range(dim):
-                np.random.shuffle(pts[:, _])
-            self.emit([p for p in pts])  # needs to be a list of np.ndarrays
+        pts = np.repeat(np.arange(div, dtype=np.float64), dim).reshape(div, dim)
+        pts += self.rng.random((div, dim))  # add [0,1) jitter
+        pts *= self.lengths  # scale with length, already divided by div
+        pts += self.problem.box[:, 0]  # shift with min
+        for _ in range(dim):
+            self.rng.shuffle(pts[:, _])
+        return [p for p in pts]  # needs to be a list of np.ndarrays
+
+    def on_start(self):
+        self.emit(self._design())
+
+    def on_new_results(self, results):
+        """Emit a fresh design whenever the previous one has been drained."""
+        if self._output.qsize() == 0:
+            self.emit(self._design())

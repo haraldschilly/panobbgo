@@ -86,6 +86,7 @@ from __future__ import annotations
 import multiprocessing
 from typing import Any, Optional
 
+import threading
 import numpy as np
 
 from panobbgo.core import Heuristic
@@ -312,7 +313,19 @@ class COBYQA(Heuristic):
         _safe_send(output, solution)
 
     def on_start(self) -> None:
-        """Pipe x → emit → wait for fx → pipe.send pattern."""
+        """Start the pipe pump: x → emit → wait for fx → pipe.send.
+
+        The pipe pump runs on its own daemon thread (appended to
+        ``self._threads``) so the event bus, which delivers handlers serially,
+        is never blocked by it.  Emissions from a subprocess bridge are
+        inherently timing-dependent; such heuristics are excluded from the
+        reproducible synchronous mode's guarantees.
+        """
+        t = threading.Thread(target=self._pump, name="%s-pump" % self.name, daemon=True)
+        self._threads.append(t)
+        t.start()
+
+    def _pump(self) -> None:
         while not self._stopped:
             try:
                 if self.out1.poll(0):

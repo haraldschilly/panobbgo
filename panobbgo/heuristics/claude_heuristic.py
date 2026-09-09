@@ -215,18 +215,18 @@ class ClaudeHeuristic(Heuristic):
         weights = np.array([c["weight"] for c in components])
 
         # Multinomial allocation of samples across components
-        counts = np.random.multinomial(self.n_candidates, weights)
+        counts = self.rng.multinomial(self.n_candidates, weights)
 
         for comp, count in zip(components, counts):
             if count == 0:
                 continue
             try:
-                samples = np.random.multivariate_normal(comp["mean"], comp["cov"], size=int(count))
+                samples = self.rng.multivariate_normal(comp["mean"], comp["cov"], size=int(count))
             except np.linalg.LinAlgError:
                 # Fallback to isotropic sampling at mean
                 self.logger.debug("Singular covariance, falling back to isotropic")
                 scale = np.sqrt(self.regularization) * self.problem.ranges
-                samples = comp["mean"] + scale * np.random.randn(int(count), len(comp["mean"]))
+                samples = comp["mean"] + scale * self.rng.standard_normal((int(count), len(comp["mean"])))
 
             for s in samples:
                 candidates.append(self.problem.project(s))

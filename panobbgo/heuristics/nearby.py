@@ -631,7 +631,7 @@ class Nearby(Heuristic):
         weights = self._perturbation_weights()
 
         if self.axes == "all":
-            dx = (2.0 * np.random.rand(self.problem.dim) - 1.0) * self.radius
+            dx = (2.0 * self.rng.random(self.problem.dim) - 1.0) * self.radius
             dx *= self.problem.ranges
             if weights is not None:
                 dx *= weights
@@ -641,10 +641,10 @@ class Nearby(Heuristic):
             if weights is not None:
                 # Sample dimension proportional to importance
                 probs = weights / weights.sum()
-                idx = np.random.choice(self.problem.dim, p=probs)
+                idx = int(self.rng.choice(self.problem.dim, p=probs))
             else:
-                idx = np.random.randint(self.problem.dim)
-            dx = (2.0 * np.random.rand() - 1.0) * self.radius
+                idx = int(self.rng.integers(self.problem.dim))
+            dx = (2.0 * self.rng.random() - 1.0) * self.radius
             dx *= self.problem.ranges[idx]
             if weights is not None:
                 dx *= weights[idx]

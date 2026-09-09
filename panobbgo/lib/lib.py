@@ -360,11 +360,13 @@ class Problem:
         assert isinstance(point, np.ndarray), "point must be a numpy ndarray"
         return np.minimum(np.maximum(point, self.box[:, 0]), self.box[:, 1])
 
-    def random_point(self, distribution: str = "uniform") -> np.ndarray:
+    def random_point(self, distribution: str = "uniform", rng: Optional[np.random.Generator] = None) -> np.ndarray:
         """
         Generates a random point inside the given search box.
 
         Args:
+            rng: Generator to draw from.  Modules pass their own ``self.rng``;
+                ``None`` falls back to numpy's global state.
             distribution: The distribution to use. Currently supports 'uniform' and 'normal'.
                           Normal distribution is centered in the box, scaled such that 3 standard
                           deviations cover half the range, and is clipped to ensure the point
@@ -376,14 +378,15 @@ class Problem:
         Raises:
             ValueError: If an unsupported distribution is specified.
         """
+        r: Any = rng if rng is not None else np.random
         if distribution == "uniform":
-            return self.ranges * np.random.rand(self.dim) + self._box[:, 0]
+            return self.ranges * r.random(self.dim) + self._box[:, 0]
         elif distribution == "normal":
             # Normally distributed around the center.
             # Std dev is chosen so that 3 std devs cover half the range,
             # meaning ~99.7% of points fall inside the box naturally.
             std_dev = self.ranges / 6.0
-            point = self.center + np.random.randn(self.dim) * std_dev
+            point = self.center + r.standard_normal(self.dim) * std_dev
             return self.project(point)
         else:
             raise ValueError(f"Unsupported distribution: '{distribution}'")

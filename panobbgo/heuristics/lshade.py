@@ -351,7 +351,7 @@ class LSHADE(Heuristic):
             unclamped behaviour when the strategy budget is unknown.
             jSO opts into ``"jso"`` by construction.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
-            seeds from ``np.random.default_rng()``.
+            uses the module's strategy-derived ``self.rng`` stream.
         name: Override the heuristic's display name.
 
     Notes:
@@ -422,7 +422,7 @@ class LSHADE(Heuristic):
         self.p_best_end: Optional[float] = None if p_best_end is None else float(p_best_end)
         self.archive_factor: float = float(archive_factor)
         self.F_schedule: Optional[str] = normalized_F_schedule
-        self._rng: np.random.Generator = np.random.default_rng(seed)
+        self._rng: np.random.Generator = self.rng if seed is None else np.random.default_rng(seed)
 
         # Success-history memory.  Initial value 0.5 per the SHADE paper.
         self._M_F: np.ndarray = np.full(H, 0.5, dtype=float)
@@ -569,7 +569,9 @@ class LSHADE(Heuristic):
             self.logger.debug(f"LSHADE: projection failed: {exc}")
             return False
 
-        req_id = uuid.uuid4().hex
+        # Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so
+        # ``Result.who`` tags are reproducible under a fixed seed.
+        req_id = uuid.UUID(bytes=self._rng.bytes(16)).hex
         who = f"{self.name}:{req_id}"
         try:
             self._output.put_nowait(Point(x_proj, who))
@@ -834,7 +836,7 @@ class LSHADE(Heuristic):
         self._success_delta.clear()
 
         for i in range(self.NP_init):
-            x = self.problem.random_point()
+            x = self.problem.random_point(rng=self._rng)
             self._emit_trial(x, i, F=float("nan"), CR=float("nan"))
 
     def on_new_results(self, results) -> None:
@@ -928,7 +930,7 @@ class LSHADE(Heuristic):
             base = np.asarray(center, dtype=float)
         for i in range(self.NP_init):
             if base is None:
-                x = self.problem.random_point()
+                x = self.problem.random_point(rng=self._rng)
             else:
                 offset = self._rng.uniform(-ball, ball)
                 x = self.problem.project(base + offset)

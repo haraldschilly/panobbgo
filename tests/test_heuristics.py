@@ -436,7 +436,7 @@ class HeuristicTests(PanobbgoTestCase):
 
         random_h = Random(self.strategy)
         random_h.clear_output = mock.Mock()
-        random_h.first_split.set = mock.Mock()
+        random_h._fill = mock.Mock()
 
         # Mock splitter — on_restart resets the search area to the
         # splitter's root box rather than calling get_leaf, because a
@@ -450,7 +450,7 @@ class HeuristicTests(PanobbgoTestCase):
         random_h.on_restart(center, "test_reason")
 
         random_h.clear_output.assert_called_once()
-        random_h.first_split.set.assert_called_once()
+        random_h._fill.assert_called_once()
         assert random_h.leaf == "mock_root_box"
 
     def test_nelder_mead_restart(self):
@@ -459,13 +459,13 @@ class HeuristicTests(PanobbgoTestCase):
 
         nm = NelderMead(self.strategy)
         nm.clear_output = mock.Mock()
-        nm.got_bb.clear = mock.Mock()
+        nm.best_box = object()
 
         center = np.array([0.5, 0.5])
         nm.on_restart(center, "test_reason")
 
         nm.clear_output.assert_called_once()
-        nm.got_bb.clear.assert_called_once()
+        assert nm.best_box is None
 
     def test_local_penalty_search_restart(self):
         from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch

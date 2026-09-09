@@ -418,10 +418,10 @@ class CMAES(Heuristic):
             # σ_s = σ_default · 10^(-2·U[0,1])
             cur_large_lam = self._base_lam * (2 ** max(self._bipop_large_count, 1))
             ratio = 0.5 * cur_large_lam / max(self._base_lam, 1)
-            u_pop = float(np.random.rand())
+            u_pop = float(self.rng.random())
             new_lam = int(np.floor(self._base_lam * (ratio ** (u_pop * u_pop))))
             new_lam = max(new_lam, self._base_lam)  # at least base
-            u_sig = float(np.random.rand())
+            u_sig = float(self.rng.random())
             new_sigma = sigma_default * (10.0 ** (-2.0 * u_sig))
             new_sigma = max(new_sigma, 1e-6)
 
@@ -556,7 +556,7 @@ class CMAES(Heuristic):
 
         emitted = 0
         for i in range(self._lam):
-            z = np.random.randn(n)
+            z = self.rng.standard_normal(n)
             # y = B D z  →  covariance = B D² Bᵀ = C
             y = self._B @ (self._D * z)
             x = self._m + self._sigma * y

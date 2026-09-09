@@ -839,7 +839,7 @@ def _run_one(
 
         tracker = IOHTracker(wrapped, budget=budget)
         try:
-            strategy = strategy_spec.create_strategy(wrapped)
+            strategy = strategy_spec.create_strategy(wrapped, seed=seed)
             strategy.config.max_eval = budget
             # Deterministic result batches for the threaded evaluator —
             # cuts adaptive-strategy measurement noise roughly in half

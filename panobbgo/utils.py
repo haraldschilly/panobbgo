@@ -328,19 +328,24 @@ class PanobbgoTestCase(unittest.TestCase):
         self.problem = Rosenbrock(2)
         self.strategy = self.init_strategy()
 
-    def random_results(self, dim, N, pcv=0.0):
-        import numpy.random as rnd
+    def random_results(self, dim, N, pcv=0.0, rng=None):
+        """Build ``N`` synthetic :class:`~panobbgo.lib.Result` objects (test helper).
+
+        :param rng: optional :class:`numpy.random.Generator`; ``None`` falls back
+            to numpy's global state so ``np.random.seed`` still pins the data.
+        """
         from panobbgo.lib import Result, Point
 
+        r_ = rng if rng is not None else np.random
         results = []
         for _ in range(N):
-            p = Point(rnd.rand(dim), "test")
+            p = Point(r_.random(dim), "test")
             cv_vec = np.zeros(dim)
             if pcv > 0.0:
                 for cvidx in range(dim):
-                    if np.random.random() < pcv:
-                        cv_vec[cvidx] = np.random.randn()
-            r = Result(p, rnd.rand(), cv_vec=cv_vec)
+                    if r_.random() < pcv:
+                        cv_vec[cvidx] = r_.standard_normal()
+            r = Result(p, r_.random(), cv_vec=cv_vec)
             results.append(r)
         return results
 

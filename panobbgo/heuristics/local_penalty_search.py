@@ -15,6 +15,7 @@
 
 from panobbgo.core import Heuristic
 from panobbgo.lib import Point
+import threading
 import multiprocessing
 import time
 from queue import Full
@@ -176,10 +177,21 @@ class LocalPenaltySearch(Heuristic):
         return False
 
     def on_start(self):
-        # Initial start
-        x0 = self.problem.random_point()
-        self._start_optimization(x0)
+        """Kick off the first local search and start the pipe pump.
 
+        The pipe pump runs on its own daemon thread (appended to
+        ``self._threads``) so the event bus, which delivers handlers serially,
+        is never blocked by it.  Emissions from a subprocess bridge are
+        inherently timing-dependent; such heuristics are excluded from the
+        reproducible synchronous mode's guarantees.
+        """
+        x0 = self.problem.random_point(rng=self.rng)
+        self._start_optimization(x0)
+        t = threading.Thread(target=self._pump, name="%s-pump" % self.name, daemon=True)
+        self._threads.append(t)
+        t.start()
+
+    def _pump(self):
         while not self._stopped:
             try:
                 # Check for messages from worker

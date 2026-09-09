@@ -314,7 +314,7 @@ class LocalPenaltySearchBranchTest(PanobbgoTestCase):
         h.parent_conn.poll.side_effect = poll
         h.parent_conn.recv.side_effect = lambda: msgs.pop(0)
 
-        h.on_start()  # returns via the EOF branch
+        h._pump()  # returns via the EOF branch
 
         # The eval message must have produced an emitted point.
         assert len(h.get_points()) == 1

@@ -209,7 +209,7 @@ class COBYQAPipeTests(PanobbgoTestCase):
         cobyqa.p1 = mock.MagicMock()
         cobyqa.p1.poll.side_effect = EOFError()
         cobyqa._stopped = False
-        cobyqa.on_start()  # must exit silently
+        cobyqa._pump()  # must exit silently
 
     def test_on_start_logs_output(self):
         cobyqa = COBYQA(self.strategy)
@@ -220,7 +220,7 @@ class COBYQAPipeTests(PanobbgoTestCase):
         cobyqa.p1.poll.side_effect = EOFError()
         cobyqa._stopped = False
         cobyqa.logger = mock.MagicMock()
-        cobyqa.on_start()
+        cobyqa._pump()
         cobyqa.logger.info.assert_called_with("solution payload")
 
 

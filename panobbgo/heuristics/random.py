@@ -1,12 +1,11 @@
-from __future__ import unicode_literals
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012 - 2026 Harald Schilly <harald.schilly@univie.ac.at>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,117 +18,65 @@ from panobbgo.core import Heuristic
 
 class Random(Heuristic):
     """
-    always generates random points inside the box of the
-    "best leaf" (see "Splitter") until the capped queue is full.
+    Generates uniformly random points inside the box of the current
+    "best leaf" (see :class:`~panobbgo.analyzers.Splitter`), or inside the
+    whole problem box until the Splitter has published one.
+
+    The heuristic is *reactive*: it fills its output queue on ``start`` and
+    tops it up whenever results arrive or the best leaf changes.  It never
+    sleeps or polls, so the sequence of points it produces is a pure
+    function of its :attr:`rng` and the events it receives.
     """
 
     def __init__(self, strategy, cap=None, name=None):
         name = "Random" if name is None else name
         self.leaf = None
-        from threading import Event
+        Heuristic.__init__(self, strategy, name=name, cap=cap)
 
-        # used in on_start, to continue when we have a leaf.
-        self.first_split = Event()
-        Heuristic.__init__(self, strategy, name=name)
+    def _draw(self):
+        leaf = self.leaf
+        if leaf is None:
+            return self.problem.random_point(rng=self.rng)
+        return leaf.ranges * self.rng.random(len(leaf.ranges)) + leaf.box[:, 0]
+
+    def _fill(self):
+        """Top the output queue up to its capacity."""
+        free = self.cap - self._output.qsize()
+        if free > 0:
+            self.emit([self._draw() for _ in range(free)])
 
     def on_start(self):
-        import numpy as np
-        import time
-
-        # Initialize by trying to get the root leaf from splitter
-        # This handles the initial case where no splits have happened yet
-        # but the root box exists
         try:
             splitter = self.strategy.analyzer("Splitter")
-            # If no specific leaf is set, start with the root leaf
-            if self.leaf is None and hasattr(splitter, "root"):
+            if self.leaf is None and getattr(splitter, "root", None) is not None:
                 self.leaf = splitter.root
-                self.first_split.set()
         except Exception:
             pass
+        self._fill()
 
-        # Wait for splitter to initialize, but with timeout to avoid hanging
-        split_available = self.first_split.wait(timeout=5.0)  # 5 second timeout
+    def on_new_results(self, results):
+        self._fill()
 
-        # Generate points in batches to avoid blocking on full queues
-        batch_size = 10
-        sleep_time = 0.01  # Small sleep to avoid busy waiting
-
-        if not split_available:
-            # No splits available yet, generate from full problem space
-            self.logger.warning("No search leaf available, generating from full problem space")
-            while not self._stopped:
-                points = []
-                for _ in range(batch_size):
-                    r = self.problem.random_point()
-                    points.append(r)
-                try:
-                    self.emit(points)
-                except Exception as e:
-                    # If emit fails (e.g., queue full), sleep and try again
-                    self.logger.debug(f"Random heuristic emit failed: {e}")
-                    time.sleep(sleep_time)
-                    continue
-                time.sleep(sleep_time)  # Small delay between batches
-            return
-
-        splitter = self.strategy.analyzer("Splitter")
-        if self.leaf is None:
-            # Fallback: generate from full problem space
-            self.logger.warning("No search leaf available, generating from full problem space")
-            while not self._stopped:
-                points = []
-                for _ in range(batch_size):
-                    r = self.problem.random_point()
-                    points.append(r)
-                try:
-                    self.emit(points)
-                except Exception as e:
-                    self.logger.debug(f"Random heuristic emit failed: {e}")
-                    time.sleep(sleep_time)
-                    continue
-                time.sleep(sleep_time)
-            return
-
-        # Generate from the current best leaf
-        while not self._stopped:
-            points = []
-            for _ in range(batch_size):
-                r = self.leaf.ranges * np.random.rand(splitter.dim) + self.leaf.box[:, 0]
-                points.append(r)
-            try:
-                self.emit(points)
-            except Exception as e:
-                self.logger.debug(f"Random heuristic emit failed: {e}")
-                time.sleep(sleep_time)
-                continue
-            time.sleep(sleep_time)
-
-    def on_restart(self, center, reason):
-        """Reset search area after a restart event.
-
-        ``Splitter.get_leaf`` only locates leaves around *observed*
-        :class:`Result` objects.  A restart proposes an unobserved
-        ``center`` (a numpy array), so we cannot look up its leaf
-        directly.  Instead we fall back to the Splitter's current root
-        box — Random will then sample uniformly across the full search
-        space until the next split assigns a tighter leaf around the
-        new incumbent.  This is the safe default; it sacrifices a tiny
-        amount of geometric locality on the restart in exchange for not
-        crashing the eventbus thread.
-        """
-        self.clear_output()
-        splitter = self.strategy.analyzer("Splitter")
-        if hasattr(splitter, "root"):
-            self.leaf = splitter.root
-            self.first_split.set()
+    def on_new_best_box(self, best_box):
+        self.leaf = best_box
+        self._fill()
 
     def on_new_split(self, box, children, dim):
-        """
-        we are only interested in the (possibly new)
-        leaf around the best point
-        """
+        """Track the (possibly new) leaf around the best point."""
         best = self.strategy.analyzer("Best").best
-        self.leaf = self.strategy.analyzer("Splitter").get_leaf(best)
+        self.leaf = self.strategy.analyzer("Splitter").get_leaf(best) if best is not None else None
         self.clear_output()
-        self.first_split.set()
+        self._fill()
+
+    def on_restart(self, center, reason):
+        """Reset the search area after a restart event.
+
+        ``Splitter.get_leaf`` only locates leaves around *observed*
+        results and a restart proposes an unobserved ``center``, so fall
+        back to the Splitter's root box (the whole search space) until the
+        next split assigns a tighter leaf around the new incumbent.
+        """
+        self.clear_output()
+        splitter = self.strategy.analyzer("Splitter")
+        self.leaf = getattr(splitter, "root", None)
+        self._fill()

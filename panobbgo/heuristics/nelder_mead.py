@@ -18,7 +18,6 @@ from __future__ import unicode_literals
 from panobbgo.core import Heuristic
 
 import numpy as np
-import time
 from functools import cmp_to_key
 
 
@@ -37,14 +36,18 @@ class NelderMead(Heuristic):
     * Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
       several promising points into the same direction as
       the implied search direction. See :meth:`here <.nelder_mead>`.
+
+    The heuristic is *reactive*: it recomputes its base whenever the
+    :class:`~panobbgo.analyzers.Splitter` publishes a new best box and tops
+    its output queue up on every result batch.  It never sleeps or polls.
     """
 
     def __init__(self, strategy):
         Heuristic.__init__(self, strategy, name="Nelder Mead")
         self.logger = self.config.get_logger("H:NM")
-        from threading import Event
-
-        self.got_bb = Event()
+        self.best_box = None
+        self._worst = None
+        self._centroid = None
 
     def gram_schmidt(self, dim, results, tol=1e-4):
         """
@@ -152,7 +155,7 @@ class NelderMead(Heuristic):
         """
         Generates a new randomized search point based on worst point and centroid.
         """
-        factor = np.random.rayleigh(scale=scale) - offset
+        factor = self.rng.rayleigh(scale=scale) - offset
         return worst.x + factor * (centroid - worst.x)
 
     def nelder_mead(self, base, scale=3, offset=0):
@@ -170,66 +173,45 @@ class NelderMead(Heuristic):
         worst, centroid = self.nelder_mead_init(base)
         return self.nelder_mead_sample(worst, centroid, scale, offset)
 
-    def on_start(self):
-        """
-        Algorithm Outline:
+    def _refresh_base(self) -> bool:
+        """Derive ``worst`` / ``centroid`` from the current best box.
 
-        #. Wait until a first or new best box has been found.
-
-        #. Clear the ``got_bb`` flag, later on we use this to be notified
-           about new best boxes via :meth:`.on_new_best_box`.
-
-        #. ``bb`` is the currently used best box, it might be ``None`` if
-           we have to look up the parents when searching for more result points.
-
-        #. Inside the outer while, we try to find a suiteable base via :meth:`.gram_schmidt`.
-
-        #. If we got such a base, we generate new search points via :meth:`.nelder_mead`
-           until the queue is full (which blocks) or there is a new best box (breaks inner loop).
-
-        #. The ``break`` exits the outer while and we start fresh with the new best box.
+        Walks up the box hierarchy until :meth:`gram_schmidt` finds enough
+        linearly independent results.  Returns ``True`` when a base exists.
         """
         dim = self.problem.dim
-        while not self._stopped:
-            # Wait with timeout to allow checking _stopped
-            if not self.got_bb.wait(timeout=0.1):
-                continue
+        bb = self.best_box
+        while bb is not None:
+            base = self.gram_schmidt(dim, bb.results)
+            if base:
+                self._worst, self._centroid = self.nelder_mead_init(base)
+                return True
+            bb = bb.parent
+        self._worst = self._centroid = None
+        return False
 
-            bb = self.best_box
-            self.got_bb.clear()
-            while bb is not None and not self._stopped:
-                base = self.gram_schmidt(dim, bb.results)
-                if base:  # was able to find a base
-                    if len(base) == 0:
-                        break
-
-                    worst, centroid = self.nelder_mead_init(base)
-
-                    while not self.got_bb.is_set() and not self._stopped:
-                        if self._output.full():
-                            time.sleep(0.1)
-                            continue
-                        new_point = self.nelder_mead_sample(worst, centroid)
-                        # self.logger.info("new point: %s" % new_point)
-                        self.emit(new_point)
-                    break
-                else:  # not able to find base, try with parent of current best box
-                    bb = bb.parent
-                    if bb is None:
-                        self.got_bb.clear()  # the "wait()" at the top is now active
-
-    def on_restart(self, center, reason):
-        """
-        Respond to a restart event by flushing points and pausing until a new best box is found.
-        """
-        self.clear_output()
-        self.got_bb.clear()
+    def _fill(self) -> None:
+        """Top the output queue up with samples from the current base."""
+        if self._worst is None or self._centroid is None:
+            return
+        free = self.cap - self._output.qsize()
+        if free > 0:
+            self.emit([self.nelder_mead_sample(self._worst, self._centroid) for _ in range(free)])
 
     def on_new_best_box(self, best_box):
-        """
-        When a new best box has been found by the :class:`~.analyzers.Splitter`, the
-        ``got_bb`` :class:`~threading.Event` is set and the output queue is cleared.
-        """
+        """A new best box (from the :class:`~.analyzers.Splitter`) resets the
+        search direction: the queue is flushed and refilled from the new base."""
         self.best_box = best_box
-        self.got_bb.set()
-        self.clear_output()  # clearing must come last
+        self.clear_output()
+        if self._refresh_base():
+            self._fill()
+
+    def on_new_results(self, results):
+        """Keep the queue topped up; the base only changes with the best box."""
+        self._fill()
+
+    def on_restart(self, center, reason):
+        """Flush points and pause until a new best box is found."""
+        self.clear_output()
+        self.best_box = None
+        self._worst = self._centroid = None

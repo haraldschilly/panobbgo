@@ -1,99 +1,58 @@
 # -*- coding: utf8 -*-
-import pytest
+"""NelderMead against real results: base finding and sampling end to end."""
+
 from unittest import mock
+
 import numpy as np
-from panobbgo.utils import PanobbgoTestCase
+
 from panobbgo.heuristics.nelder_mead import NelderMead
-from panobbgo.lib import Result, Point
+from panobbgo.utils import PanobbgoTestCase
 
 
 class TestHeuristicNelderMead(PanobbgoTestCase):
-    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
-    def test_on_start_loop_timeout(self, mock_setup):
+    def _box(self, n=10):
+        box = mock.MagicMock()
+        box.results = self.random_results(self.problem.dim, n)
+        box.parent = None
+        return box
+
+    def test_new_best_box_emits_from_real_base(self):
         nm = NelderMead(self.strategy)
+        emitted = []
+        nm.emit = lambda pts: emitted.extend(pts)
 
-        # Test the loop exits properly when stopped
-        def delayed_stop():
-            import time
+        nm.on_new_best_box(self._box())
 
-            time.sleep(0.2)
-            nm._stopped = True
+        assert nm._worst is not None and nm._centroid is not None
+        assert len(emitted) == nm.cap
+        for p in emitted:
+            assert p.shape == (self.problem.dim,)
 
-        import threading
-
-        t = threading.Thread(target=delayed_stop)
-        t.start()
-
-        # Should exit loop after timeout when stopped
-        nm.on_start()
-        t.join()
-
-    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
-    def test_on_start_process_base(self, mock_setup):
+    def test_results_top_up_queue(self):
         nm = NelderMead(self.strategy)
+        nm.on_new_best_box(self._box())
+        drained = nm.get_points(3)
+        assert len(drained) == 3
 
-        # Create a mock best box
-        mock_box = mock.MagicMock()
+        nm.on_new_results([])
 
-        # Create results for gram schmidt
-        pts = self.random_results(self.problem.dim, 10)
-        mock_box.results = pts
-        mock_box.parent = None
+        assert nm._output.qsize() == nm.cap
 
-        nm.best_box = mock_box
-
-        # Trigger the wait
-        nm.got_bb.set()
-
-        # Make the loop run once and then stop
-        def fake_emit(point):
-            nm._stopped = True
-
-        with mock.patch.object(nm, "emit", side_effect=fake_emit):
-            nm.on_start()
-
-
-class TestHeuristicNelderMeadRobustness(PanobbgoTestCase):
-    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
-    def test_on_start_loop_timeout(self, mock_setup):
+    def test_too_few_results_means_no_base(self):
         nm = NelderMead(self.strategy)
+        nm.emit = mock.Mock()
 
-        # Test the loop exits properly when stopped
-        def delayed_stop():
-            import time
+        nm.on_new_best_box(self._box(n=1))
 
-            time.sleep(0.2)
-            nm._stopped = True
+        assert nm._worst is None
+        nm.emit.assert_not_called()
 
-        import threading
-
-        t = threading.Thread(target=delayed_stop)
-        t.start()
-
-        # Should exit loop after timeout when stopped
-        nm.on_start()
-        t.join()
-
-    @mock.patch("panobbgo.core.StrategyBase._setup_cluster")
-    def test_on_start_process_base(self, mock_setup):
-        nm = NelderMead(self.strategy)
-
-        # Create a mock best box
-        mock_box = mock.MagicMock()
-
-        # Create results for gram schmidt
-        pts = self.random_results(self.problem.dim, 10)
-        mock_box.results = pts
-        mock_box.parent = None
-
-        nm.best_box = mock_box
-
-        # Trigger the wait
-        nm.got_bb.set()
-
-        # Make the loop run once and then stop
-        def fake_emit(point):
-            nm._stopped = True
-
-        with mock.patch.object(nm, "emit", side_effect=fake_emit):
-            nm.on_start()
+    def test_samples_are_seeded(self):
+        a, b = NelderMead(self.strategy), NelderMead(self.strategy)
+        a.rng, b.rng = np.random.default_rng(3), np.random.default_rng(3)
+        box = self._box()
+        a.on_new_best_box(box)
+        b.on_new_best_box(box)
+        xa = np.array([p.x for p in a.get_points()])
+        xb = np.array([p.x for p in b.get_points()])
+        np.testing.assert_array_equal(xa, xb)

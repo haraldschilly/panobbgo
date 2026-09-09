@@ -51,14 +51,13 @@ import time as time_module
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, MultiIndex, concat
-import sys
 import os
 import pickle
 import subprocess
 import tempfile
 import inspect
 from queue import Empty, Queue
-from threading import RLock, Thread
+from threading import Condition, RLock, Thread
 import multiprocessing
 import collections
 import re
@@ -466,11 +465,18 @@ class Module:
         self._strategy: "StrategyBase" = strategy
         self.config = strategy.config
         self._name: str = name
+        #: Per-module random generator, seeded deterministically from the
+        #: strategy's master seed (see :meth:`StrategyBase.spawn_rng`).
+        #: Modules must draw randomness from here, never from the global
+        #: ``np.random`` state, which is shared across all eventbus threads.
+        #: Tests construct modules with a mock strategy whose ``spawn_rng``
+        #: returns a mock, so fall back to a fresh generator in that case.
+        rng = strategy.spawn_rng() if callable(getattr(strategy, "spawn_rng", None)) else None
+        self.rng: np.random.Generator = rng if isinstance(rng, np.random.Generator) else np.random.default_rng()
         self._threads: List[Any] = []
         # implicit dependency check (only class references)
         self._depends_on: List[Any] = []
         self._stopped: bool = False
-        self.eventbus_events: dict[str, Any] = {}
         # Ensure logger name is at most 5 characters to satisfy config.get_logger assertion
         log_name = self._name[:5].upper()
         self.logger = self.config.get_logger(log_name)
@@ -530,25 +536,10 @@ class Module:
         Called right at the end after the strategy has finished.
         """
         self._stopped = True
-
-        # First, ensure all event queues have at least one termination event
-        # to unblock any threads waiting on get(block=True)
-        if hasattr(self, "eventbus_events"):
-            for _, q in self.eventbus_events.items():
-                try:
-                    # Create a dummy termination event if not already stopped
-                    event = Event()
-                    event.terminate = True
-                    q.put(event, block=False)
-                except Exception:
-                    pass
-
-        for t in self._threads:
-            if t.is_alive():
-                # Don't use t._Thread__stop(), it's unsafe and deprecated
-                t.join(timeout=0.5)  # Wait with timeout to avoid permanent hang
-                if t.is_alive():
-                    self.logger.debug(f"Thread {t.name} did not terminate gracefully.")
+        try:
+            self._strategy.eventbus.unsubscribe(None, self)
+        except Exception:
+            pass
 
     def _init_plot(self) -> Tuple[Any, Any]:
         """
@@ -691,12 +682,17 @@ class Heuristic(Module):
         """
         This is queried by the strategy to determine, if it should still consider it.
         This is the case, iff there is still something in its output queue
-        or if there is a chance that there will be something in the future (at least
-        one thread is running).
+        or if there is a chance that there will be something in the future
+        (it still listens to at least one event).
         """
-        t = any(t.is_alive() for t in self._threads)
-        q = self._output.qsize() > 0
-        return t or q
+        if self._output.qsize() > 0:
+            return True
+        if self._stopped:
+            return False
+        if any(t.is_alive() for t in self._threads):
+            return True  # a background pump (subprocess bridge) is still running
+        bus = getattr(self._strategy, "eventbus", None)
+        return bool(bus.is_subscribed(self)) if bus is not None else True
 
 
 class HeuristicSubprocess(Heuristic):
@@ -769,9 +765,22 @@ class Event:
 
 class EventBus:
     """
-    This event bus is used to publish and send events.
-    E.g. it is used to send information like "new best point"
-    to all subscribing heuristics.
+    Publish/subscribe bus connecting the strategy, its analyzers and its
+    heuristics.  E.g. the "new best point" information is sent to every
+    subscribing heuristic.
+
+    Delivery is **serial and ordered**: one dispatcher thread pops events
+    from a single FIFO and calls the subscribers' ``on_<key>`` handlers one
+    after the other, in subscription order.  Events published *by* a handler
+    are appended to the same FIFO.  Consequently
+
+    * a module never has two handlers running at the same time, so module
+      state needs no locking;
+    * the sequence of handler invocations is a pure function of the
+      sequence of ``publish`` calls — the property the seeded, reproducible
+      runs rely on (see :meth:`wait_idle`);
+    * handlers must return promptly.  A module *reacts* to events; it never
+      sleeps, polls or waits for other events inside a handler.
     """
 
     # pattern for a valid key
@@ -782,6 +791,13 @@ class EventBus:
         self._subs: Dict[str, List[Any]] = {}
         self.config = config
         self.logger = config.get_logger("EVBUS")
+        self._queue: "collections.deque[Tuple[str, Any, Event]]" = collections.deque()
+        self._cv = Condition()
+        # queued + currently running events; ``wait_idle`` waits for zero.
+        self._inflight: int = 0
+        self._running: bool = True
+        self._thread = Thread(target=self._loop, name="EventBus", daemon=True)
+        self._thread.start()
 
     @property
     def keys(self) -> List[str]:
@@ -790,94 +806,15 @@ class EventBus:
         """
         return list(self._subs.keys())
 
+    # -- registration ------------------------------------------------------
+
     def register(self, target: Any) -> None:
         """
-        Registers a given ``target`` for this EventBus instance.
-        It needs to have suitable ``on_<key>`` methods.
-        For each of them, a :class:`~threading.Thread` is spawn as a daemon.
+        Registers a given ``target`` for this EventBus instance: every
+        ``on_<key>`` method it has becomes a subscription to ``key``.
 
         :param Module target:
         """
-
-        # important: this decouples the dispatcher's thread from the actual
-        # target
-        def run(key, target, drain=False):
-            if drain:  # not using draining for now, doesn't make much sense
-                isfirst = True
-                while True:
-                    # draining the queue... otherwise it might get really huge
-                    # it's up to the heuristics to only work with the most
-                    # important points
-                    events = []
-                    terminate = False
-                    try:
-                        while True:
-                            event = target.eventbus_events[key].get(block=isfirst)
-                            terminate |= event.terminate
-                            events.append(event)
-                            isfirst = False
-                    except Empty:
-                        isfirst = True
-
-                    try:
-                        new_points = None
-                        try:
-                            new_points = getattr(target, "on_%s" % key)(events)
-                        except TypeError:
-                            if not terminate:
-                                raise
-
-                        # heuristics might call self.emit and/or return a list
-                        if new_points is not None:
-                            target.emit(new_points)
-
-                        if terminate:
-                            raise StopHeuristic("%s terminated" % target.name)
-                    except StopHeuristic as e:
-                        self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, str(e)))
-                        self.unsubscribe(key, target)
-                        return
-
-            else:  # not draining (default)
-                while True:
-                    try:
-                        event = target.eventbus_events[key].get(block=True)
-                        assert isinstance(event, Event)
-                        try:
-                            new_points = None
-                            try:
-                                new_points = getattr(target, "on_%s" % key)(**event._kwargs)
-                            except TypeError:
-                                if not event.terminate:
-                                    raise
-
-                            # heuristics might call self.emit and/or return a
-                            # list
-                            if new_points is not None:
-                                target.emit(new_points)
-
-                            if event.terminate:
-                                raise StopHeuristic("%s terminated" % target.name)
-                        except StopHeuristic as e:
-                            self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, str(e)))
-                            self.unsubscribe(key, target)
-                            return
-                    except Exception as e:
-                        # usually, they only happen during shutdown
-                        if self.config.debug:
-                            # sys.exc_info() -> re-create original exception
-                            # (otherwise we don't know the actual cause!)
-                            exc_info = sys.exc_info()
-                            if exc_info:
-                                e = exc_info[1]
-                                if e is not None:
-                                    raise e
-                        else:  # just issue a critical warning
-                            self.logger.critical("Exception: %s in %s: %s" % (key, target, e))
-                        return
-
-        target.eventbus_events = {}
-        # bind all 'on_<key>' methods to events in the eventbus
         cls = type(target)
         if cls not in self._method_cache:
             methods = []
@@ -887,22 +824,7 @@ class EventBus:
             self._method_cache[cls] = methods
 
         for name in self._method_cache[cls]:
-            key = self._check_key(name[3:])
-            target.eventbus_events[key] = Queue()
-            t = Thread(
-                target=run,
-                args=(
-                    key,
-                    target,
-                ),
-                name="EventBus::%s/%s" % (target.name, key),
-            )
-            t.daemon = True
-            t.start()
-            target._threads.append(t)
-            # thread running, now subscribe to events
-            self.subscribe(key, target)
-            # logger.debug("%s subscribed and running." % t.name)
+            self.subscribe(self._check_key(name[3:]), target)
 
     @staticmethod
     def _check_key(key: str) -> str:
@@ -917,11 +839,11 @@ class EventBus:
         .. Note:: counterpart is :func:`unsubscribe`.
         """
         self._check_key(key)
-        if key not in self._subs:
-            self._subs[key] = []
-
-        assert target not in self._subs[key]
-        self._subs[key].append(target)
+        with self._cv:
+            if key not in self._subs:
+                self._subs[key] = []
+            assert target not in self._subs[key]
+            self._subs[key].append(target)
 
     def unsubscribe(self, key: Optional[str], target: Any) -> None:
         """
@@ -931,32 +853,40 @@ class EventBus:
 
         """
         if key is None:
-            for k, v in list(self._subs.items()):
-                for t in v:
-                    if t is target:
-                        self.unsubscribe(k, t)
+            with self._cv:
+                for v in list(self._subs.values()):
+                    if target in v:
+                        v.remove(target)
             return
 
         self._check_key(key)
-        if key not in self._subs:
-            self.logger.critical("cannot unsubscribe unknown key '%s'" % key)
-            return
+        with self._cv:
+            if key not in self._subs:
+                self.logger.critical("cannot unsubscribe unknown key '%s'" % key)
+                return
+            if target in self._subs[key]:
+                self._subs[key].remove(target)
 
-        if target in self._subs[key]:
-            self._subs[key].remove(target)
+    def is_subscribed(self, target: Any) -> bool:
+        """``True`` iff ``target`` still listens to at least one key."""
+        with self._cv:
+            return any(target in v for v in self._subs.values())
+
+    # -- publishing / dispatching ----------------------------------------------
 
     def publish(self, key: str, event: Optional[Event] = None, terminate: bool = False, **kwargs: Any) -> None:
         """
         Publishes a new :class:`.Event` to all subscribers,
         who listen to the given ``key``.
         It is either possible to send an existing event or to create an event
-        object on the fly with the given ``**kwargs``.
+        object on the fly with the given ``**kwargs``.  Every subscriber gets
+        its own :class:`Event` instance.
 
         Args:
 
-        - ``event``: if set, this given :class:`.Event` is sent (and not a new one created).
-        - ``terminate``: if True, the associated thread will end.
-                         (use it for ``on_start`` and similar).
+        - ``event``: if set, this given :class:`.Event`'s payload is sent (and not a new one created).
+        - ``terminate``: if True, the subscription of ``key`` ends after this event
+                         (use it for ``on_start`` and similar one-shot lifecycle events).
         - ``**kwargs``: any additional keyword arguments are stored inside the Event
                         if ``event`` is ``None``.
         """
@@ -964,32 +894,78 @@ class EventBus:
             if self.config.debug:
                 self.logger.warning("key '%s' unknown." % key)
             return
+        payload = dict(kwargs) if event is None else dict(event._kwargs)
+        with self._cv:
+            for target in list(self._subs[key]):
+                ev = Event(**payload)
+                ev.terminate = terminate
+                self._queue.append((key, target, ev))
+                self._inflight += 1
+            self._cv.notify_all()
 
-        for target in self._subs[key]:
-            event = Event(**kwargs) if event is None else event
-            event.terminate = terminate
-            # logger.info("EventBus: publishing %s -> %s" % (key, event))
-            target.eventbus_events[key].put(event)
+    def _loop(self) -> None:
+        while True:
+            with self._cv:
+                while not self._queue and self._running:
+                    self._cv.wait()
+                if not self._queue:
+                    return  # shut down and drained
+                key, target, event = self._queue.popleft()
+            try:
+                self._dispatch(key, target, event)
+            finally:
+                with self._cv:
+                    self._inflight -= 1
+                    self._cv.notify_all()
 
-    def shutdown(self) -> None:
+    def _dispatch(self, key: str, target: Any, event: Event) -> None:
+        with self._cv:
+            subscribed = target in self._subs.get(key, [])
+        if not subscribed:
+            return  # unsubscribed after the event was queued
+        try:
+            new_points = None
+            try:
+                new_points = getattr(target, "on_%s" % key)(**event._kwargs)
+            except TypeError:
+                if not event.terminate:
+                    raise
+            # heuristics might call self.emit and/or return a list
+            if new_points is not None:
+                target.emit(new_points)
+            if event.terminate:
+                raise StopHeuristic("%s terminated" % target.name)
+        except StopHeuristic as e:
+            self.logger.debug("'%s/on_%s' %s -> unsubscribing." % (target.name, key, str(e)))
+            self.unsubscribe(key, target)
+        except Exception as e:
+            # A failing handler must not take the dispatcher down; report
+            # loudly and keep serving the other modules.
+            self.logger.critical("Exception in %s/on_%s: %r" % (target, key, e), exc_info=True)
+
+    def wait_idle(self, timeout: Optional[float] = None) -> bool:
+        """Block until every published event has been handled.
+
+        Handlers may publish further events (``new_results`` → ``new_best`` →
+        ``on_new_best`` ...); the whole cascade counts.  Returns ``True`` when
+        the bus is idle, ``False`` on timeout.  The synchronous evaluation mode
+        calls this before every draw so each main-loop pass sees the fully
+        updated state of all analyzers and heuristics.
         """
-        Terminate *all* dispatcher threads by sending a terminate event to
-        every subscribed (key, target) pair.
+        with self._cv:
+            return self._cv.wait_for(lambda: self._inflight == 0, timeout=timeout)
 
-        Without this, only subscribers of the ``finished`` key stop at
-        cleanup — every other ``on_<key>`` dispatcher thread stays blocked
-        on its queue forever. The threads are daemons, so they don't block
-        interpreter exit, but long-lived processes that create many
-        strategies (e.g. a test suite) accumulate thousands of them.
-        """
-        for key, targets in list(self._subs.items()):
-            for target in list(targets):
-                try:
-                    event = Event()
-                    event.terminate = True
-                    target.eventbus_events[key].put(event)
-                except Exception:
-                    pass
+    def shutdown(self, timeout: float = 2.0) -> None:
+        """Deliver what is still queued (bounded by ``timeout``), then stop the
+        dispatcher thread and drop all subscriptions."""
+        self.wait_idle(timeout=timeout)
+        with self._cv:
+            self._running = False
+            self._queue.clear()
+            self._subs.clear()
+            self._cv.notify_all()
+        if self._thread.is_alive() and threading.current_thread() is not self._thread:
+            self._thread.join(timeout=timeout)
 
 
 class StrategyBase:
@@ -1038,6 +1014,19 @@ class StrategyBase:
             self.config.max_eval = kwargs.pop("max_evaluations")
         if "max_eval" in kwargs:
             self.config.max_eval = kwargs.pop("max_eval")
+
+        # Master seed.  Precedence: explicit ``seed=`` kwarg, then
+        # ``config.seed``, then a draw from numpy's global RNG (so a
+        # preceding ``np.random.seed(s)`` still makes the run reproducible).
+        seed = kwargs.pop("seed", None)
+        if seed is None:
+            seed = getattr(self.config, "seed", None)
+        if seed is None:
+            seed = int(np.random.randint(0, 2**31 - 1))
+        self.seed: int = int(seed)
+        #: Master generator; every :class:`Module` derives its own stream
+        #: from it via :meth:`spawn_rng` in construction order.
+        self.rng: np.random.Generator = np.random.default_rng(self.seed)
 
         # Apply remaining kwargs to config if they match existing config attributes
         for k, v in kwargs.items():
@@ -1165,8 +1154,8 @@ class StrategyBase:
 
         # Prepare for execution
         self.eventbus.publish("start", terminate=True)
-        # Give heuristics a moment to process the start event and emit initial points
-        time_module.sleep(0.1)
+        # Let the heuristics process the start event and emit their initial points.
+        self.eventbus.wait_idle(timeout=5.0)
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' initialized" % self._name)
@@ -1189,6 +1178,15 @@ class StrategyBase:
     @property
     def analyzers(self):
         return list(self._analyzers.values())
+
+    def spawn_rng(self) -> np.random.Generator:
+        """Return a fresh :class:`numpy.random.Generator` derived from the master seed.
+
+        Streams are independent and reproducible: the *k*-th call always
+        yields the same generator for a given :attr:`seed`, so modules
+        constructed in the same order draw the same random numbers.
+        """
+        return np.random.default_rng(int(self.rng.integers(0, 2**63 - 1)))
 
     def heuristic(self, who):
         """Look up a heuristic by its *who* tag.
@@ -1510,6 +1508,12 @@ class StrategyBase:
                 )
                 break
 
+            if getattr(self.config, "sync_evaluation", False):
+                # Every handler (including ``on_start`` cascades) has to be
+                # done before we draw, otherwise which points sit in the
+                # queues depends on thread scheduling, not on the seed.
+                self.eventbus.wait_idle(timeout=self._max_stall_seconds)
+
             # execute the actual strategy
             points = self.execute()
 
@@ -1525,7 +1529,19 @@ class StrategyBase:
             elif self.config.evaluation_method == "threaded":
                 self._run_threaded_evaluation(points)
 
-            self.jobs_per_client = max(1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task)))
+            if getattr(self.config, "sync_evaluation", False):
+                # Let every analyzer / heuristic finish reacting to this batch
+                # before the next draw, so the run is a deterministic
+                # function of the seed rather than of thread scheduling.
+                if not self.eventbus.wait_idle(timeout=self._max_stall_seconds):
+                    self.logger.warning("eventbus did not settle within %.1fs" % self._max_stall_seconds)
+
+            if getattr(self.config, "sync_evaluation", False):
+                # Batch size must not depend on wall-clock task timings in
+                # the reproducible mode.
+                self.jobs_per_client = max(1, int(self.config.max_eval / 50.0))
+            else:
+                self.jobs_per_client = max(1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task)))
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
@@ -1889,8 +1905,7 @@ with open('{result_file.name}', 'wb') as f:
         self.info()
         self.results.info()
         [m.__stop__() for m in self.analyzers + self.heuristics]
-        # Stop ALL eventbus dispatcher threads, not just 'finished' subscribers —
-        # otherwise ~20 daemon threads leak per strategy instance.
+        # Deliver what is still queued (e.g. on_finished), then stop the dispatcher.
         self.eventbus.shutdown()
         self.results.close()
 

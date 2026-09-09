@@ -50,6 +50,9 @@ class MockStrategy(StrategyBase):
         self.logger = self.config.get_logger("STRAT")
         self.slogger = self.config.get_logger("STATS")
         self.problem = problem
+        # Module.__init__ derives per-module RNGs via spawn_rng(), which needs these.
+        self.seed = 0
+        self.rng = np.random.default_rng(self.seed)
 
         from panobbgo.lib.constraints import DefaultConstraintHandler
 

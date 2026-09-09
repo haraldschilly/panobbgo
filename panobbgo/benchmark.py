@@ -148,9 +148,14 @@ class StrategySpec:
     analyzers: List[Tuple[type, Dict[str, Any]]] = field(default_factory=list)
     config_overrides: Dict[str, Any] = field(default_factory=dict)
 
-    def create_strategy(self, problem: Problem) -> StrategyBase:
-        """Create and configure a strategy instance."""
-        strategy = self.strategy_class(problem, parse_args=False)
+    def create_strategy(self, problem: Problem, seed: Optional[int] = None) -> StrategyBase:
+        """Create and configure a strategy instance.
+
+        ``seed`` pins the strategy's master RNG (see
+        :attr:`panobbgo.core.StrategyBase.seed`); ``None`` lets the strategy
+        draw one from numpy's global state.
+        """
+        strategy = self.strategy_class(problem, parse_args=False, seed=seed)
 
         # Apply config overrides
         for key, value in self.config_overrides.items():

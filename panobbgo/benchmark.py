@@ -155,9 +155,14 @@ class StrategySpec:
         :attr:`panobbgo.core.StrategyBase.seed`); ``None`` lets the strategy
         draw one from numpy's global state.
         """
-        strategy = self.strategy_class(problem, parse_args=False, seed=seed)
-
-        # Apply config overrides
+        # Config overrides that name a config attribute go in through the
+        # constructor so they are in effect *before* the evaluation backend
+        # is set up (e.g. ``evaluation_method``, ``dask_n_workers``); the
+        # external baselines take no such kwargs, so fall back to setattr.
+        try:
+            strategy = self.strategy_class(problem, parse_args=False, seed=seed, **self.config_overrides)
+        except TypeError:
+            strategy = self.strategy_class(problem, parse_args=False, seed=seed)
         for key, value in self.config_overrides.items():
             setattr(strategy.config, key, value)
 

@@ -1241,8 +1241,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     rej_p.set_defaults(func=_cmd_codify_reject)
 
-    for sp in sub.choices.values():
-        local_run.add_arguments(sp)
+    local_run.add_arguments(parser)
     return parser
 
 

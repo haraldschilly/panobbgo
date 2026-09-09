@@ -91,6 +91,14 @@ class PanobbgoContext(logging.Filter):
         return True
 
 
+class PanobbgoHandler(logging.StreamHandler):
+    """The one stream handler panobbgo attaches to a logger.
+
+    Marked by its type so :func:`create_logger` can find and reuse it
+    instead of stacking a new handler per :class:`~panobbgo.config.Config`.
+    """
+
+
 def create_logger(name, level=logging.INFO):
     """
     Creates logger with ``name`` and given ``level`` logging level.
@@ -102,10 +110,9 @@ def create_logger(name, level=logging.INFO):
     # new strategy would add another handler and duplicate each log line.
     if not any(isinstance(f, PanobbgoContext) for f in logger.filters):
         logger.addFilter(PanobbgoContext())
-    handler = next((h for h in logger.handlers if getattr(h, "_panobbgo", False)), None)
+    handler = next((h for h in logger.handlers if isinstance(h, PanobbgoHandler)), None)
     if handler is None:
-        handler = logging.StreamHandler()
-        handler._panobbgo = True  # type: ignore[attr-defined]
+        handler = PanobbgoHandler()
         handler.setFormatter(ColoredFormatter())
         logger.addHandler(handler)
     handler.setLevel(level)
@@ -360,4 +367,10 @@ class PanobbgoTestCase(unittest.TestCase):
         strategy = StrategyBaseMock()
         strategy.problem = self.problem
         strategy.config = self.config
+        # Modules derive their RNG from the strategy, so the stand-in has to
+        # honour that contract — with a fixed seed, so module tests are
+        # reproducible.
+        strategy.seed = 0
+        strategy.rng = np.random.default_rng(0)
+        strategy.spawn_rng.side_effect = lambda: np.random.default_rng(0)
         return strategy

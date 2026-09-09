@@ -56,15 +56,16 @@ import pickle
 import subprocess
 import tempfile
 import inspect
+import uuid
 from queue import Empty, Queue
 from threading import Condition, RLock, Thread
 import multiprocessing
 import collections
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
+from concurrent.futures import ThreadPoolExecutor
 from .logging.progress import ProgressContext
-from typing import TYPE_CHECKING, Any, cast, Optional, List, Dict, Union, Tuple, Type
+from typing import TYPE_CHECKING, Any, Callable, cast, Optional, List, Dict, Union, Tuple
 
 if TYPE_CHECKING:
     from .lib import Problem, Result
@@ -449,6 +450,21 @@ class Results:
         progress_reporter.report_evaluation(result, context)
 
 
+def _module_rng(strategy: Any) -> np.random.Generator:
+    """The generator a :class:`Module` owned by ``strategy`` should draw from.
+
+    Normally this is a fresh stream from
+    :meth:`StrategyBase.spawn_rng`, which makes the module's randomness a
+    function of the strategy's seed.  Modules are also constructed against
+    strategy *stand-ins* in the test suite; one that does not implement the
+    method gets an independent generator so it can still be built, at the
+    cost of reproducibility.
+    """
+    spawn = getattr(strategy, "spawn_rng", None)
+    rng = spawn() if callable(spawn) else None
+    return rng if isinstance(rng, np.random.Generator) else np.random.default_rng()
+
+
 class Module:
     """
     "Abstract" parent class for various panobbgo modules, e.g.
@@ -468,11 +484,8 @@ class Module:
         #: Per-module random generator, seeded deterministically from the
         #: strategy's master seed (see :meth:`StrategyBase.spawn_rng`).
         #: Modules must draw randomness from here, never from the global
-        #: ``np.random`` state, which is shared across all eventbus threads.
-        #: Tests construct modules with a mock strategy whose ``spawn_rng``
-        #: returns a mock, so fall back to a fresh generator in that case.
-        rng = strategy.spawn_rng() if callable(getattr(strategy, "spawn_rng", None)) else None
-        self.rng: np.random.Generator = rng if isinstance(rng, np.random.Generator) else np.random.default_rng()
+        #: ``np.random`` state.
+        self.rng: np.random.Generator = _module_rng(strategy)
         self._threads: List[Any] = []
         # implicit dependency check (only class references)
         self._depends_on: List[Any] = []
@@ -480,6 +493,31 @@ class Module:
         # Ensure logger name is at most 5 characters to satisfy config.get_logger assertion
         log_name = self._name[:5].upper()
         self.logger = self.config.get_logger(log_name)
+
+    def derive_rng(self, seed: Optional[int]) -> np.random.Generator:
+        """Generator for a sub-component: ``seed`` if given, else this module's own.
+
+        Heuristics that expose a ``seed`` argument use this so an explicit
+        seed pins that component while ``None`` keeps it inside the
+        strategy's reproducible stream.
+        """
+        return self.rng if seed is None else np.random.default_rng(seed)
+
+    def derive_seed(self, seed: Optional[int]) -> int:
+        """Integer seed for a component that needs one (e.g. ``scipy.stats.qmc``)."""
+        return int(seed) if seed is not None else int(self.rng.integers(2**31))
+
+    def spawn_thread(self, target: Callable[[], None], name: Optional[str] = None) -> "Thread":
+        """Run ``target`` on a daemon thread owned by this module.
+
+        The event bus delivers handlers serially, so anything that blocks —
+        a pipe pump bridging a subprocess solver, say — must not run inside
+        a handler.  Threads registered here are joined by :meth:`__stop__`.
+        """
+        t = Thread(target=target, name=name or ("%s-thread" % self._name), daemon=True)
+        self._threads.append(t)
+        t.start()
+        return t
 
     @property
     def name(self) -> str:
@@ -536,10 +574,12 @@ class Module:
         Called right at the end after the strategy has finished.
         """
         self._stopped = True
-        try:
-            self._strategy.eventbus.unsubscribe(None, self)
-        except Exception:
-            pass
+        self._strategy.eventbus.unsubscribe(None, self)
+        for t in self._threads:
+            if t.is_alive():
+                t.join(timeout=0.5)
+                if t.is_alive():
+                    self.logger.debug("Thread %s did not terminate gracefully." % t.name)
 
     def _init_plot(self) -> Tuple[Any, Any]:
         """
@@ -645,6 +685,28 @@ class Heuristic(Module):
         self.ensure_output_capacity(1)
         self._output.put_nowait(point)
 
+    def new_who(self, rng: Optional[np.random.Generator] = None) -> str:
+        """A ``who`` tag carrying a unique request id: ``"<name>:<hex>"``.
+
+        Heuristics that must match a result back to the trial that produced
+        it (the DE family, PSO) tag each point this way.  The id is drawn
+        from the module's own generator, so it is part of the reproducible
+        stream.
+        """
+        return "%s:%s" % (self.name, uuid.UUID(bytes=(rng or self.rng).bytes(16)).hex)
+
+    def fill_queue(self, draw: Callable[[], np.ndarray]) -> None:
+        """Top the output queue up to :attr:`cap` with points from ``draw``.
+
+        The refill contract of every *reactive* heuristic: fill on ``start``
+        (or whatever event defines its search region) and top up on each
+        result batch, so the strategy always finds points without the
+        heuristic having to poll.
+        """
+        free = self.cap - self._output.qsize()
+        if free > 0:
+            self.emit([draw() for _ in range(free)])
+
     def emit(self, points: Union[np.ndarray, List[np.ndarray], "Point", List["Point"], List[Any]]) -> None:
         """
         This is used to send out new search points for evaluation.
@@ -663,10 +725,11 @@ class Heuristic(Module):
             return
         if not isinstance(points, (list, tuple)):
             points = [points]
+        self.ensure_output_capacity(len(points))
         for point in points:
             if not isinstance(point, np.ndarray):
                 raise TypeError("%s emitted %r, expected a numpy ndarray" % (self.name, type(point).__name__))
-            self._put(Point(self.problem.project(point), self.name))
+            self._output.put_nowait(Point(self.problem.project(point), self.name))
 
     def get_points(self, limit: Optional[int] = None) -> List["Point"]:
         """
@@ -802,7 +865,6 @@ class EventBus:
 
     # pattern for a valid key
     _re_key = re.compile(r"^[a-z_]+$")
-    _method_cache: Dict[Type[Any], List[str]] = {}
 
     def __init__(self, config: Any) -> None:
         self._subs: Dict[str, List[Any]] = {}
@@ -832,16 +894,9 @@ class EventBus:
 
         :param Module target:
         """
-        cls = type(target)
-        if cls not in self._method_cache:
-            methods = []
-            for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
-                if name.startswith("on_"):
-                    methods.append(name)
-            self._method_cache[cls] = methods
-
-        for name in self._method_cache[cls]:
-            self.subscribe(self._check_key(name[3:]), target)
+        for name, _ in inspect.getmembers(target, predicate=inspect.ismethod):
+            if name.startswith("on_"):
+                self.subscribe(self._check_key(name[3:]), target)
 
     @staticmethod
     def _check_key(key: str) -> str:
@@ -933,7 +988,8 @@ class EventBus:
             finally:
                 with self._cv:
                     self._inflight -= 1
-                    self._cv.notify_all()
+                    if self._inflight == 0:
+                        self._cv.notify_all()
 
     def _dispatch(self, key: str, target: Any, event: Event) -> None:
         with self._cv:
@@ -983,6 +1039,27 @@ class EventBus:
             self._cv.notify_all()
         if self._thread.is_alive() and threading.current_thread() is not self._thread:
             self._thread.join(timeout=timeout)
+
+
+class _DirectEvaluators:
+    """View of the in-process evaluation backend (threads or subprocesses).
+
+    Mirrors the interface of :class:`panobbgo.dask_evaluation.DaskEvaluators`
+    so strategies can ask "how many workers, how many tasks in flight" without
+    knowing which backend they run on.
+    """
+
+    def __init__(self, strategy: "StrategyBase") -> None:
+        self.strategy = strategy
+
+    @property
+    def outstanding(self) -> List[Any]:
+        """Keys of the tasks currently in flight."""
+        return list(self.strategy.pending.keys())
+
+    def __len__(self) -> int:
+        """Number of workers."""
+        return getattr(self.strategy, "_n_processes", 1)
 
 
 class StrategyBase:
@@ -1036,11 +1113,9 @@ class StrategyBase:
         # ``config.seed``, then a draw from numpy's global RNG (so a
         # preceding ``np.random.seed(s)`` still makes the run reproducible).
         seed = kwargs.pop("seed", None)
-        if seed is None:
-            seed = getattr(self.config, "seed", None)
-        if seed is None:
-            seed = int(np.random.randint(0, 2**31 - 1))
-        self.seed: int = int(seed)
+        if seed is None:  # not ``or``: seed=0 is a valid seed
+            seed = self.config.seed
+        self.seed: int = int(seed) if seed is not None else int(np.random.randint(0, 2**31 - 1))
         #: Master generator; every :class:`Module` derives its own stream
         #: from it via :meth:`spawn_rng` in construction order.
         self.rng: np.random.Generator = np.random.default_rng(self.seed)
@@ -1482,22 +1557,7 @@ class StrategyBase:
             from . import dask_evaluation
 
             return dask_evaluation.DaskEvaluators(self)
-        else:  # process or threaded evaluation
-
-            class DirectEvaluatorsMock:
-                def __init__(self, strategy):
-                    self.strategy = strategy
-
-                @property
-                def outstanding(self):
-                    # Return list of pending task keys
-                    return list(self.strategy.pending.keys())
-
-                def __len__(self):
-                    # Return number of subprocesses
-                    return getattr(self.strategy, "_n_processes", 1)
-
-            return DirectEvaluatorsMock(self)
+        return _DirectEvaluators(self)  # process or threaded evaluation
 
     def _run(self):
         # Initialization logic moved to self.initialize() which is called by self.start()
@@ -1511,6 +1571,7 @@ class StrategyBase:
         self._max_loops_without_progress = 10000  # backstop; the time-based guard below trips first
         self._stall_started: Optional[float] = None
         self._max_stall_seconds = float(getattr(self.config, "max_stall_seconds", 30.0))
+        sync = bool(self.config.sync_evaluation)
         max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
         self._max_total_loops = max_eval_int * 10000  # Much more headroom
 
@@ -1524,12 +1585,6 @@ class StrategyBase:
                     f"Results so far: {len(self.results)}. Stopping optimization."
                 )
                 break
-
-            if getattr(self.config, "sync_evaluation", False):
-                # Every handler (including ``on_start`` cascades) has to be
-                # done before we draw, otherwise which points sit in the
-                # queues depends on thread scheduling, not on the seed.
-                self.eventbus.wait_idle(timeout=self._max_stall_seconds)
 
             # execute the actual strategy
             points = self.execute()
@@ -1546,16 +1601,13 @@ class StrategyBase:
             elif self.config.evaluation_method == "threaded":
                 self._run_threaded_evaluation(points)
 
-            if getattr(self.config, "sync_evaluation", False):
+            if sync:
                 # Let every analyzer / heuristic finish reacting to this batch
-                # before the next draw, so the run is a deterministic
-                # function of the seed rather than of thread scheduling.
+                # before the next draw, so the run is a deterministic function
+                # of the seed rather than of thread scheduling, and size the
+                # next batch without consulting wall-clock task timings.
                 if not self.eventbus.wait_idle(timeout=self._max_stall_seconds):
                     self.logger.warning("eventbus did not settle within %.1fs" % self._max_stall_seconds)
-
-            if getattr(self.config, "sync_evaluation", False):
-                # Batch size must not depend on wall-clock task timings in
-                # the reproducible mode.
                 self.jobs_per_client = max(1, int(self.config.max_eval / 50.0))
             else:
                 self.jobs_per_client = max(1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task)))
@@ -1601,8 +1653,10 @@ class StrategyBase:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
                 break
 
-            # limit loop speed - sleep briefly
-            time_module.sleep(1e-3)
+            if not sync:
+                # limit loop speed - sleep briefly (nothing is in flight in
+                # sync mode, so the sleep would be pure latency there)
+                time_module.sleep(1e-3)
 
         # Final forced update to ensure UI shows 100% or final results
         self._update_progress_status(force=True)
@@ -1717,7 +1771,7 @@ with open('{result_file.name}', 'wb') as f:
         self.new_finished = []
         new_results = []
 
-        if getattr(self.config, "sync_evaluation", False):
+        if self.config.sync_evaluation:
             # Reproducible mode: evaluate in submission order on this thread.
             # A pool would return results in completion order, which makes
             # the evaluation trajectory (and every anytime metric computed
@@ -1755,14 +1809,6 @@ with open('{result_file.name}', 'wb') as f:
         # Wait for completion with short timeout for responsiveness
         self.new_finished = []
         new_results = []
-
-        # Synchronous harvest (config.sync_evaluation): block until every
-        # submitted future is done so each loop pass sees a deterministic
-        # result batch instead of whichever futures the OS scheduler
-        # happened to finish.  Opt-in; benchmark drivers use it to cut
-        # measurement noise for adaptive strategies.
-        if getattr(self.config, "sync_evaluation", False) and self._futures:
-            futures_wait(list(self._futures.values()))
 
         # Check which futures are done
         completed_ids = []

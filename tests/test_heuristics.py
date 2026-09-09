@@ -436,7 +436,7 @@ class HeuristicTests(PanobbgoTestCase):
 
         random_h = Random(self.strategy)
         random_h.clear_output = mock.Mock()
-        random_h._fill = mock.Mock()
+        random_h.fill_queue = mock.Mock()
 
         # Mock splitter — on_restart resets the search area to the
         # splitter's root box rather than calling get_leaf, because a
@@ -450,7 +450,7 @@ class HeuristicTests(PanobbgoTestCase):
         random_h.on_restart(center, "test_reason")
 
         random_h.clear_output.assert_called_once()
-        random_h._fill.assert_called_once()
+        random_h.fill_queue.assert_called_once()
         assert random_h.leaf == "mock_root_box"
 
     def test_nelder_mead_restart(self):

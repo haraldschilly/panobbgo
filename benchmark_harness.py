@@ -551,8 +551,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     list_p.set_defaults(func=cmd_list)
 
-    for sp in sub.choices.values():
-        local_run.add_arguments(sp)
+    local_run.add_arguments(parser)
     return parser
 
 

@@ -176,7 +176,6 @@ References
 
 from __future__ import annotations
 
-import uuid
 from typing import Dict, List, Optional
 
 import numpy as np
@@ -346,7 +345,7 @@ class PSO(Heuristic):
         self.k_neighbors: int = int(k_neighbors)
         self.w_end: Optional[float] = None if w_end is None else float(w_end)
         self.stagnation_threshold: Optional[int] = None if stagnation_threshold is None else int(stagnation_threshold)
-        self._rng: np.random.Generator = self.rng if seed is None else np.random.default_rng(seed)
+        self._rng: np.random.Generator = self.derive_rng(seed)
 
         # Per-particle state.  Sized once on_start() runs (we need
         # ``problem.dim`` to allocate velocity arrays).
@@ -398,13 +397,9 @@ class PSO(Heuristic):
 
         # Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so
         # ``Result.who`` tags are reproducible under a fixed seed.
-        req_id = uuid.UUID(bytes=self._rng.bytes(16)).hex
-        who = f"{self.name}:{req_id}"
-        try:
-            self._put(Point(x_proj, who))
-        except Exception as exc:  # queue full or shutdown
-            self.logger.debug(f"PSO: emit failed: {exc}")
-            return False
+        who = self.new_who(self._rng)
+        req_id = who.split(":", 1)[1]
+        self._put(Point(x_proj, who))
         self._pending[req_id] = particle_idx
         # Remember the actually-evaluated position so the velocity
         # update next time uses the projected coordinates (not the

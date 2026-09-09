@@ -280,8 +280,7 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     cmp_p.add_argument("--fail-on-regression", action="store_true")
     cmp_p.set_defaults(func=cmd_compare)
 
-    for sp in sub.choices.values():
-        local_run.add_arguments(sp)
+    local_run.add_arguments(p)
     args = p.parse_args(argv)
     if apply_hygiene:
         local_run.apply(args)

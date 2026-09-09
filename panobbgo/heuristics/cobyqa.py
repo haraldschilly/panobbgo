@@ -86,7 +86,6 @@ from __future__ import annotations
 import multiprocessing
 from typing import Any, Optional
 
-import threading
 import numpy as np
 
 from panobbgo.core import Heuristic
@@ -321,9 +320,7 @@ class COBYQA(Heuristic):
         inherently timing-dependent; such heuristics are excluded from the
         reproducible synchronous mode's guarantees.
         """
-        t = threading.Thread(target=self._pump, name="%s-pump" % self.name, daemon=True)
-        self._threads.append(t)
-        t.start()
+        self.spawn_thread(self._pump, name="%s-pump" % self.name)
 
     def _pump(self) -> None:
         while not self._stopped:

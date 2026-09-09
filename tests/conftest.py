@@ -31,14 +31,6 @@ def dask_cluster():
 
     time.sleep(0.5)
 
-    # Tests using this fixture mutate the singleton Config
-    # (evaluation_method="dask", dashboard_address=<full URL>). Reset it so a
-    # later test's strategy constructor doesn't try to start a LocalCluster
-    # with the stale URL as dashboard_address (order-dependent RuntimeError).
-    from panobbgo.config import Config
-
-    Config._instance = None
-
 
 @pytest.fixture
 def strategy():
@@ -47,15 +39,19 @@ def strategy():
     Avoids resource leaks by mocking the core background threads.
     """
     from unittest import mock
+    import numpy as np
     from panobbgo.config import Config
     from panobbgo.core import EventBus
 
     with mock.patch("panobbgo.core.StrategyBase") as MockStrategy:
         strategy_mock = MockStrategy.return_value
-        Config._instance = None
         strategy_mock.config = Config(parse_args=False, testing_mode=True)
         strategy_mock.config.ui_show = False
         strategy_mock.eventbus = EventBus(strategy_mock.config)
+        # Modules derive their RNG from the strategy (see Module.__init__).
+        strategy_mock.seed = 0
+        strategy_mock.rng = np.random.default_rng(0)
+        strategy_mock.spawn_rng.side_effect = lambda: np.random.default_rng(0)
         yield strategy_mock
 
 
@@ -72,9 +68,6 @@ def real_strategy():
     strategies_to_cleanup = []
 
     def _strategy_factory(strategy_class, problem, **kwargs):
-        from panobbgo.config import Config
-
-        Config._instance = None
         kwargs.setdefault("parse_args", False)
         kwargs.setdefault("testing_mode", True)
 

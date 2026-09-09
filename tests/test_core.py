@@ -128,10 +128,13 @@ from unittest import mock
 def test_on_converged_stops_strategy():
     problem = mock.Mock()
     strategy = StrategyBase(problem, parse_args=False)
-
-    assert not strategy._stop_requested
-    strategy.on_converged("Test Reason", {"stats": True})
-    assert strategy._stop_requested
+    strategy.config.stop_on_convergence = True
+    try:
+        assert not strategy._stop_requested
+        strategy.on_converged("Test Reason", {"stats": True})
+        assert strategy._stop_requested
+    finally:
+        strategy.config.stop_on_convergence = False  # Config is a process singleton
 
 
 def test_on_converged_does_not_stop_if_configured():

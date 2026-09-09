@@ -390,8 +390,43 @@ class Splitter(Analyzer):
             if not self.leaf:
                 for child in self.get_child_boxes(result.x):
                     child += result  # recursive
-            elif self.leaf and len(self.results) >= self.limit:
+            elif self.leaf and len(self.results) >= self.limit and self._can_split():
                 self.split()
+
+        #: A box deeper than this is never split again.  Depth grows by one
+        #: per split, so the bound is generous for any real search; it exists
+        #: only so a pathological point cloud cannot deepen the tree without
+        #: end.
+        MAX_DEPTH = 60
+
+        def _split_dim(self):
+            """Widest dimension along which the results actually differ.
+
+            Returns ``None`` when no such dimension exists — every result
+            sits at the same coordinate everywhere the box still has width,
+            so no cut can separate them.
+            """
+            if len(self.results) < 2:
+                return None
+            xs = np.vstack([r.x for r in self.results])
+            spread = xs.max(axis=0) - xs.min(axis=0)
+            usable = np.where(spread > 0.0, self.ranges, -1.0)
+            dim = int(np.argmax(usable))
+            return dim if usable[dim] > 0.0 else None
+
+        def _can_split(self):
+            """``False`` when splitting cannot make progress.
+
+            ``Box.contains`` includes both boundaries, so a cut through a
+            cluster of *identical* points puts every one of them in *both*
+            children.  Each child is then an over-full leaf that splits
+            again on the next result, and the tree deepens without bound —
+            a live-lock that costs the rest of the evaluation budget.
+            (Measured: CMA-ES on MA-BBOB d5 with a diverged step size
+            projects most of a generation onto the same box corner and
+            stalls the run at 408 of 1000 evaluations.)
+            """
+            return self.depth < self.MAX_DEPTH and self._split_dim() is not None
 
         def __iadd__(self, result):
             """
@@ -411,9 +446,12 @@ class Splitter(Analyzer):
             """
             assert self.leaf, "only leaf boxes are allowed to be split"
             if dim is None:
-                # scaled_coords = np.vstack(map(lambda r:r.x, self.results)) / self.ranges
-                # dim = np.argmax(np.std(scaled_coords, axis=0))
-                dim = np.argmax(self.ranges)
+                # Split along the widest dimension in which the results
+                # actually differ; a cut through identical coordinates
+                # separates nothing (see :meth:`_can_split`).
+                dim = self._split_dim()
+                if dim is None:
+                    dim = int(np.argmax(self.ranges))
             # self.logger.debug("dim: %d" % dim)
             assert dim >= 0 and dim < self.dim, "dimension along where to split is %d" % dim
             b1 = Splitter.Box(self, self.splitter, self.box.copy())

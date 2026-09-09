@@ -301,6 +301,10 @@ class TestRunIOHHarness:
         strats = make_ioh_strategies()
         assert len(strats) >= 1
         names = [s.name for s in strats]
+        # The competition candidate, the pure-random floor and the
+        # portfolio control (see make_ioh_strategies).
+        assert "RoundRobin_CMAES" in names
+        assert "RoundRobin_Random" in names
         assert "Rewarding_Restart" in names
         battery = IOHBatterySpec(
             name="ioh-iohstrats",
@@ -673,3 +677,22 @@ class TestSyncEvalHarness:
         )
         result = run_ioh_harness(baselines, battery, base_seed=42, progress=False)
         assert result.sync_eval is False
+
+
+class TestCompetitionCandidate:
+    """The competition candidate is one population method with the whole budget."""
+
+    def test_candidate_is_a_single_population_method(self) -> None:
+        from panobbgo.harness_ioh import make_ioh_strategies
+        from panobbgo.heuristics import CMAES
+
+        spec = next(s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES")
+        assert [cls for cls, _ in spec.heuristics] == [CMAES]
+
+    def test_candidate_has_no_restart_analyzer(self) -> None:
+        """CMA-ES restarts itself; the external analyzer halved it (0.663 -> 0.301)."""
+        from panobbgo.analyzers import Restart
+        from panobbgo.harness_ioh import make_ioh_strategies
+
+        spec = next(s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES")
+        assert Restart not in [cls for cls, _ in spec.analyzers]

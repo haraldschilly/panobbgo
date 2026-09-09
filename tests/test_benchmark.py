@@ -354,3 +354,32 @@ class TestStrategySpecDimGate:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def test_create_strategy_accepts_a_factory_callable():
+    """``strategy_class`` may be any callable, not only a StrategyBase subclass.
+
+    Used to pre-bind arguments a spec cannot express (e.g. StrategyPhased's
+    phase list).  ``issubclass`` raises TypeError on a non-class, so the
+    check has to be guarded.
+    """
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.heuristics import Random
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRoundRobin
+
+    made = {}
+
+    def factory(problem, parse_args=False, seed=None, **kwargs):
+        made["seed"] = seed
+        return StrategyRoundRobin(problem, parse_args=parse_args, seed=seed, **kwargs)
+
+    spec = StrategySpec(
+        name="factory",
+        strategy_class=factory,
+        heuristics=[(Random, {})],
+        config_overrides={"max_eval": 13},
+    )
+    strategy = spec.create_strategy(Rosenbrock(dim=2), seed=5)
+    assert made["seed"] == 5
+    assert strategy.config.max_eval == 13

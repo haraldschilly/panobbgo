@@ -20,7 +20,7 @@ parallel — local threads by default, optionally a Dask cluster.
 
 ## Installation
 
-Panobbgo requires Python 3.11 or later. Core dependencies: NumPy, SciPy,
+Panobbgo requires Python 3.14 or later. Core dependencies: NumPy, SciPy,
 pandas, matplotlib, statsmodels, scikit-learn (see
 [pyproject.toml](pyproject.toml) for the exact list). Dask is an optional
 extra (`dask`) for distributed evaluation.
@@ -65,11 +65,11 @@ from panobbgo.heuristics import CMAES
 
 problem = Rosenbrock(dims=5)
 strategy = StrategyRoundRobin(problem, max_evaluations=500, seed=42)
-strategy.add(CMAES)           # self-adapting covariance, IPOP restarts
+strategy.add(CMAES)  # self-adapting covariance, IPOP restarts
 strategy.start()
 
-print(strategy.best)          # best result found
-df = strategy.results.results # pandas DataFrame of all evaluations
+print(strategy.best)  # best result found
+df = strategy.results.results  # pandas DataFrame of all evaluations
 ```
 
 Start with **one** strong population method rather than a portfolio: on the

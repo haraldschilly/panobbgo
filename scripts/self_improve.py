@@ -2054,7 +2054,7 @@ def _format_bound(value: Any, *, integer: bool) -> str:
     """Compact representation of one widening-bound numeric value."""
     try:
         f = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return repr(value)
     if integer:
         return str(int(round(f)))

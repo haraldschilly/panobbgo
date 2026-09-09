@@ -23,7 +23,7 @@ def get_dask_worker_processes():
             # Dask workers usually have 'dask' or 'worker' in their command line
             if any("worker" in arg for arg in cmdline) or any("dask" in arg for arg in cmdline):
                 dask_workers.append(p)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except psutil.NoSuchProcess, psutil.AccessDenied:
             pass
     return dask_workers
 

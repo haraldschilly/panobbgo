@@ -59,7 +59,7 @@ def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
                         raise StopIteration("Stop requested")
                     elif msg["type"] == "abort":
                         raise StopIteration("Optimization aborted")
-            except (EOFError, OSError):
+            except EOFError, OSError:
                 raise StopIteration("Pipe closed")
 
     while True:
@@ -87,7 +87,7 @@ def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
                             pipe.send({"type": "error", "message": str(e)})
                         except Exception:
                             pass
-        except (EOFError, OSError):
+        except EOFError, OSError:
             break
         except Exception:
             # unexpected error in worker loop
@@ -214,7 +214,7 @@ class LocalPenaltySearch(Heuristic):
                         self._optimization_active = False
                         self._waiting_for_eval = False
 
-            except (EOFError, OSError):
+            except EOFError, OSError:
                 self.logger.debug("Pipe closed, stopping heuristic loop")
                 break
             except Exception as e:

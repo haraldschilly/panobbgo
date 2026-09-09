@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 env:
-  PYTHON: "3.12"
+  PYTHON: "3.14"
 
 jobs:
   test:

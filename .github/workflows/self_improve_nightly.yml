@@ -55,7 +55,7 @@ permissions:
   contents: write
 
 env:
-  PYTHON: "3.12"
+  PYTHON: "3.14"
 
 jobs:
   self-improve:

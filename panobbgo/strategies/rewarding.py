@@ -65,7 +65,7 @@ class StrategyRewarding(StrategyBase):
     def _discount_factor(self):
         try:
             d = float(self.config.discount)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             d = 0.95
         return d if 0.0 < d < 1.0 else 0.95
 
@@ -93,7 +93,7 @@ class StrategyRewarding(StrategyBase):
         else:
             try:
                 d = float(val)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 # Handle cases where val cannot be converted to float
                 d = 0.95
 
@@ -236,7 +236,7 @@ class StrategyRewarding(StrategyBase):
         if len(self.evaluators.outstanding) < target:
             try:
                 s = float(self.config.smooth)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 s = 0.5
 
             def selector():

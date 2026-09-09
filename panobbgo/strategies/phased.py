@@ -369,7 +369,7 @@ class StrategyPhased(StrategyBase):
 
         try:
             s = float(self.config.smooth)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             s = 0.5
 
         discount_val = strat_kwargs.get("discount", None)
@@ -388,7 +388,7 @@ class StrategyPhased(StrategyBase):
                     val = discount_val if discount_val is not None else self.config.discount
                     try:
                         d = float(val)
-                    except (ValueError, TypeError):
+                    except ValueError, TypeError:
                         d = 0.95
                     h.performance *= d ** len(h_pts)
                     batch.extend(h_pts)

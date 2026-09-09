@@ -5523,7 +5523,7 @@ def _direction_key(proposal: Dict[str, Any]) -> Optional[str]:
     try:
         old_f = float(old_value) if old_value is not None else None
         new_f = float(new_value) if new_value is not None else None
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if old_f is None or new_f is None:
         return None
@@ -5893,7 +5893,7 @@ class CodifyCandidate:
             return None
         try:
             new_floats = [float(v) for v in self.new_values]
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         if not new_floats:
             return None
@@ -6167,14 +6167,14 @@ def _live_kwarg_values(
             for entry in getattr(spec, "heuristics", None) or []:
                 try:
                     cls, kwargs = entry
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     continue
                 if getattr(cls, "__name__", "") == class_name and param_name in kwargs:
                     values.append(kwargs[param_name])
             for entry in getattr(spec, "analyzers", None) or []:
                 try:
                     cls, kwargs = entry
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     continue
                 if getattr(cls, "__name__", "") == class_name and param_name in kwargs:
                     values.append(kwargs[param_name])
@@ -6229,13 +6229,13 @@ def _candidate_already_codified(
         return False
     try:
         new_floats = [float(v) for v in candidate.new_values]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
     if not new_floats:
         return False
     try:
         live_floats = [float(v) for v in live_values]
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
     if not live_floats:
         return False
@@ -6278,7 +6278,7 @@ def _live_class_membership(
             for entry in getattr(spec, "heuristics", None) or []:
                 try:
                     cls, _ = entry
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     continue
                 if getattr(cls, "__name__", "") == class_name:
                     in_heuristics = True
@@ -6289,7 +6289,7 @@ def _live_class_membership(
             for entry in getattr(spec, "analyzers", None) or []:
                 try:
                     cls, _ = entry
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     continue
                 if getattr(cls, "__name__", "") == class_name:
                     in_analyzers = True
@@ -6894,7 +6894,7 @@ def _safe_literal_eval(node: ast.AST) -> Tuple[bool, Any]:
     """
     try:
         return True, ast.literal_eval(node)
-    except (ValueError, SyntaxError, TypeError):
+    except ValueError, SyntaxError, TypeError:
         return False, None
 
 
@@ -6935,12 +6935,12 @@ def _should_apply_at_site(
     if direction == "up":
         try:
             return float(current_value) < float(new_value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return False
     if direction == "down":
         try:
             return float(current_value) > float(new_value)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return False
     return False
 
@@ -8491,12 +8491,12 @@ def detect_widening_candidates(
         for v in up_cand.new_values:
             try:
                 observed.append(float(v))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 pass
         for v in down_cand.new_values:
             try:
                 observed.append(float(v))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 pass
         if not observed:
             continue

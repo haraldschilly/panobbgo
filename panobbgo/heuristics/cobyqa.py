@@ -104,7 +104,7 @@ def _make_pipe_objective(pipe: Any):
         pipe.send(x)
         try:
             fx = pipe.recv()
-        except (EOFError, OSError):
+        except EOFError, OSError:
             raise SystemExit(0)
         if fx is None or not np.isfinite(fx):
             return float("inf")
@@ -333,7 +333,7 @@ class COBYQA(Heuristic):
                 if self.p1.poll(0.1):
                     x = self.p1.recv()
                     self.emit(x)
-            except (EOFError, OSError):
+            except EOFError, OSError:
                 break
             except Exception as e:
                 self.logger.error(f"Error in COBYQA loop: {e}")

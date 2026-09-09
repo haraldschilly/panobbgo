@@ -144,7 +144,7 @@ def _make_pipe_objective(pipe: Any):
         pipe.send(np.asarray(x, dtype=float))
         try:
             fx = pipe.recv()
-        except (EOFError, OSError):
+        except EOFError, OSError:
             raise SystemExit(0)
         if fx is None or not np.isfinite(fx):
             return float("inf")
@@ -374,7 +374,7 @@ class LBFGSB(Heuristic):
             pipe.send(_X0_REQUEST)
             try:
                 x0 = pipe.recv()
-            except (EOFError, OSError):
+            except EOFError, OSError:
                 raise SystemExit(0)
             return np.clip(np.asarray(x0, dtype=float), lb, ub)
 
@@ -432,7 +432,7 @@ class LBFGSB(Heuristic):
                             self.p1.send(self._warm_start_x0())
                     else:
                         self.emit(msg)
-            except (EOFError, OSError):
+            except EOFError, OSError:
                 break
             except Exception as e:
                 self.logger.error(f"Error in LBFGSB loop: {e}")

@@ -56,6 +56,7 @@ import pickle
 import subprocess
 import tempfile
 import inspect
+import logging
 import uuid
 from queue import Empty, Queue
 from threading import Condition, RLock, Thread
@@ -306,7 +307,11 @@ class Results:
 
     def info(self) -> None:
         self.logger.info("%d results in DB" % len(self))
-        if self.results is not None:
+        # ``self.results`` concatenates every pending frame, so only touch it
+        # when the line will actually be emitted.  ``logger.isEnabledFor`` is
+        # no help here: :func:`panobbgo.utils.create_logger` puts the level on
+        # the handler and leaves the logger itself at DEBUG.
+        if self.strategy.config.loglevel <= logging.DEBUG and self.results is not None:
             self.logger.debug("Dataframe Results:\n%s" % self.results.tail(3))
 
     def __iadd__(self, results: List["Result"]) -> "Results":
@@ -1908,6 +1913,18 @@ with open('{result_file.name}', 'wb') as f:
             extra_fields=extra_fields,
         )
 
+    def _can_still_produce(self) -> bool:
+        """``True`` if points may still arrive without a new result batch.
+
+        Heuristics are reactive: they refill their queues when results come
+        in, so once a full pass over them yields nothing, waiting is
+        pointless — *unless* something produces asynchronously, i.e. a
+        subprocess bridge's pump thread or an evaluation still in flight.
+        """
+        if self.pending:
+            return True
+        return any(t.is_alive() for h in self._heuristics.values() for t in h._threads)
+
     def _collect_points_safely(self, target, selector, until=None):
         """
         Safely collect points from heuristics with timeout protection.
@@ -1938,6 +1955,8 @@ with open('{result_file.name}', 'wb') as f:
 
             # Check progress
             if len(points) == initial_count:
+                if not self._can_still_produce():
+                    break  # nothing will arrive until the next result batch
                 attempts += 1
                 if attempts >= max_attempts:
                     self.logger.warning(f"{self.name}: Timed out waiting for points.")

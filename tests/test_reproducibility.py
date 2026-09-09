@@ -32,7 +32,7 @@ def _run(seed, max_eval=60, heuristics=None, strategy_cls=None):
     ):
         s.add_heuristic(factory(s))
     s.start()
-    df = s.results._results_df
+    df = s.results.results  # the public property materialises the frame
     assert df is not None and len(df) >= max_eval
     x = df["x"].to_numpy(dtype=float)
     fx = df["fx"].to_numpy(dtype=float).ravel()

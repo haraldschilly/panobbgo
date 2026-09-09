@@ -299,8 +299,6 @@ class CMAES(Heuristic):
         for r in results:
             if not r.who.startswith("CMAES:"):
                 continue
-            if r.fx is None or not np.isfinite(r.fx):
-                continue
 
             info = self._pending.pop(r.who, None)
             if info is None:
@@ -311,7 +309,17 @@ class CMAES(Heuristic):
             if gen_bucket is None:
                 continue
 
-            penalty = self.strategy.constraint_handler.get_penalty_value(r)
+            # A non-finite objective is information, not noise: the point is
+            # worse than any finite one, so rank it last rather than drop it.
+            # Dropping was also unsafe — the point still counts as *emitted*,
+            # so enough non-finite results in one generation would leave it
+            # permanently short of its quorum and the search would stop
+            # emitting for the rest of the run.  No measured case of that is
+            # on record; this is a guard, not a fix for an observed failure.
+            if r.fx is None or not np.isfinite(r.fx):
+                penalty = float("inf")
+            else:
+                penalty = self.strategy.constraint_handler.get_penalty_value(r)
             gen_bucket.append(
                 {
                     "penalty": penalty,

@@ -1,5 +1,117 @@
 # TODO
 
+## Next session — Phase A: make several optimizers individually strong
+
+**Why this order.** A selection policy can only choose among the arms it
+is given.  Measured oracle bound (standard battery, 3 seeds, 30
+instances, `planning/DISCOVERY_2026-09-09.md` §14):
+
+| | mean AOCC |
+|---|---|
+| best single arm (CMA-ES) | 0.5801 |
+| **oracle — best arm per instance** | **0.6523** |
+| headroom for a perfect bandit | **+0.0723** |
+
+Instances won, out of 30: CMA-ES 19, NLSHADE_LBC 8, PSO 3, **jSO 0,
+L-SHADE 0** — measured with each arm's *then*-current defaults, which the
+first sweep pass has since shown were badly chosen (below).  Tuning the
+bandit before the arms would be optimising a choice between one strong
+option and four under-tuned ones.
+
+### First pass — done, and it found one big thing
+
+The five sweeps ran (3 seeds, `planning/DISCOVERY_2026-09-09.md` §15).
+Every arm has a variant that beats its default on all three seeds with a
+CI excluding zero:
+
+| arm | best variant | Δ AOCC |
+|---|---|---|
+| cmaes | `ipop_factor=1.5` | **+0.0886** |
+| jso | `NP_init=30` | **+0.0997** |
+| lshade | `NP_init=30` | **+0.0791** |
+| pso | `v_max_frac=0.2` | **+0.0660** |
+| pso | `NP=10` | +0.0605 |
+| lbc | `NP_init=30` | **+0.0585** |
+
+**The dominant factor is population size.** All three DE arms default to
+`NP_init="auto"` = `min(18·dim, budget/12)` — 36 at *d* = 2, 83 at
+*d* ≥ 5 for a 1000-eval budget.  A fixed 30 beats that on every arm and
+every seed.  PSO says the same from the other side: `NP=10` +0.061,
+`NP=40` −0.048.  At 10³ total evaluations a population of 83 gets twelve
+generations, which is sampling, not evolution.
+
+This also means **§14's oracle bound was computed on under-tuned arms**.
+jSO reaches 0.5581 and L-SHADE 0.4923 with `NP_init=30`, against the
+0.4584 / 0.4132 that gave them 0-out-of-30 win counts.  Do not retire
+either arm until the oracle is recomputed on tuned versions.
+
+### The immediate task
+
+- [ ] **Locate the `NP_init` optimum, don't just bracket it.** 30 was
+      the only fixed value tested and it won everywhere; sweep
+      15 / 20 / 30 / 45 / 60 on `lbc`, `jso`, `lshade`.  If the optimum
+      really sits near `budget/30`, fix the divisor in
+      `_resolve_auto_np_init` (`panobbgo/heuristics/lshade.py`) — it is a
+      library default that every user gets, not a harness knob.
+- [ ] **Same for `ipop_factor`.** 1.5 beat 2.0 and 3.0 and sits at the
+      edge of the tested range; try 1.2 / 1.35 / 1.5.  CMA-ES is the
+      shipped default, so every point lands directly in the setup.
+- [ ] **Check whether the gains compose.** Each variant was measured
+      alone against the default; `NP_init=30` + `H=20` on lbc/jso may
+      overlap.  Combine the per-arm winners and re-measure.
+- [ ] **Promote to the 12-seed roster** before changing any default.
+      Three seeds screen an effect this size; they do not accept it.
+- [ ] **Recompute the oracle bound on the tuned arms** — that number
+      sizes Phase B and is currently stale.
+- [ ] Consider checking each implementation against its published
+      reference: these are hand-rolled and none has been compared to a
+      canonical implementation.
+
+Command form (niced, results written after every seed):
+
+```bash
+uv run python benchmarks/arm_sweep.py ARM OUT.json 42 7 1234
+```
+
+Add the new variants to `ARMS` in `benchmarks/arm_sweep.py`.
+
+### Then Phase B — the selection policy
+
+Only once the arms are strong.  It must allocate the budget in **blocks**:
+interleaving starves population methods (§9), and naive phasing already
+loses to a single arm (§12: CMA-ES→LBC −0.0118, LBC→CMA-ES −0.1321,
+Sobol→CMA-ES −0.3788).  Target a fraction of the oracle headroom, which
+itself moves as Phase A lands.
+
+### Carried over
+
+- [ ] **Re-run CMA-ES → warm-started L-BFGS-B polish.** The one phased
+      variant that could not be measured: `LBFGSB` spawns a subprocess
+      and the driver script lacked an `if __name__ == "__main__":` guard.
+- [ ] **Does a portfolio pay on other problem classes?** Constrained,
+      noisy and much higher dimensions are untested — no battery covers
+      constrained problems at all.
+- [ ] **Re-examine the composite registry.** All three of its CMA-ES
+      specs (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are
+      portfolios that also pair CMA-ES with the Restart analyzer, which
+      measured −0.067.  Untouched because the composite score is a
+      frozen contract; needs a decision.
+- [ ] **Document the multiprocessing spawn guard** for users: any script
+      building a strategy at module level with `LBFGSB` / `COBYQA` /
+      `LocalPenaltySearch` / `QuadraticWlsModel` needs
+      `if __name__ == "__main__":`.
+- [ ] **Adopt ruff 0.16's wider default rules** as its own change
+      (~2000 findings; the selection is pinned to E4/E7/E9/F for now).
+- [ ] `Config.__init__` runs `_create()` per strategy (~31 ms:
+      `git rev-parse`, YAML + INI parse, ArgumentParser). Cache the
+      process-constant parts.
+- [ ] 71 hand-rolled strategy doubles in tests do not implement
+      `spawn_rng`; `panobbgo.core._module_rng` keeps a documented
+      fallback for them.
+- [ ] The composite harness does not use `sync_evaluation`, so its
+      quick-mode runs are not reproducible (same seed varied
+      0.4326 … 0.4674).
+
 ## Session 2026-09-09 — discovery pass; quality push before optimizer work
 
 Program (set by Harald): (1) discover robustness / effectiveness gaps →

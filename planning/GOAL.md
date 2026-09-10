@@ -91,6 +91,27 @@ legacy contract — keep it green, don't optimize for it.
   objective has a flat optimum by construction; (b) higher-dim (5-D) rotated
   valleys (see `--extra-highdim` and the 2026-07-06..13 log entries).
 
+## 2c. Plan of record (set 2026-09-09)
+
+Two phases, in this order.  The sequencing is forced by the oracle bound
+in `planning/DISCOVERY_2026-09-09.md` §14: a selection policy can only
+choose among the arms it is given, and two of the five current arms
+(jSO, L-SHADE) never win a single instance.
+
+**Phase A — make several optimizers individually strong.**  Each arm is
+tuned and measured *alone* on the standard battery, paired over seeds,
+against its own current default.  Targets, in descending order of what
+they can contribute: CMA-ES (0.580, wins 19/30 instances), NLSHADE_LBC
+(0.537, 8/30), PSO (0.424, 3/30), jSO (0.459, 0/30), L-SHADE (0.417,
+0/30).  An arm that cannot be brought to win *some* instance is not
+worth carrying.
+
+**Phase B — then the selection policy.**  Only once the arms are strong
+is the bandit worth optimising, and it must allocate the budget in
+blocks (§12: interleaving starves population methods, and naive phasing
+already loses to a single arm).  The realistic target is a fraction of
+the +0.0723 oracle headroom, which itself moves as Phase A lands.
+
 ## 3. Operating loop (one agent session ≈ one iteration)
 
 Run this every session; it is deliberately mechanical. The nightly cron

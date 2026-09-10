@@ -89,7 +89,7 @@ problems, persistent storage and more examples.
 ## Repository layout
 
 * `panobbgo/` — the library (`core`, `strategies/`, `heuristics/`, `analyzers/`, `lib/` problems, benchmark harness)
-* `tests/` — pytest suite; `benchmarks/` — micro-benchmarks and comparison scripts
+* `tests/` — pytest suite; `benchmarks/` — micro-benchmarks and comparison scripts (`arm_sweep.py` tunes one optimizer alone)
 * `benchmark_harness.py`, `scripts/` — the composite-score and IOH/MA-BBOB benchmark CLIs
 * `doc/` — Sphinx documentation; `planning/` — goals, design notes and history
 * `sketchpad/` — unpolished scratch scripts, not maintained

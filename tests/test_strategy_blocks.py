@@ -66,6 +66,31 @@ class Restarting(Heuristic):
         self._generation()
 
 
+class SelfRefilling(Heuristic):
+    """A population arm as it really behaves while paused: it completes the
+    generation whose results come in and immediately emits the next one, so
+    its queue is *never* empty when it gets a block back."""
+
+    def __init__(self, strategy, name="Warm", batch=BATCH):
+        self.batch = int(batch)
+        self.warm_calls: list[tuple[int, int]] = []
+        Heuristic.__init__(self, strategy, name=name, cap=batch)
+
+    def _generation(self):
+        self.emit([self.problem.random_point(rng=self.rng) for _ in range(self.batch)])
+
+    def on_start(self):
+        self._generation()
+
+    def on_new_results(self, results):
+        self.clear_output()
+        self._generation()
+
+    def warm_start(self, results):
+        self.warm_calls.append((len(results), self._output.qsize()))
+        self._generation()
+
+
 def _strategy(cls=StrategyBlockBandit, seed=0, max_eval=420, arms=(), **kw):
     s = cls(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=seed, **kw)
     s.config.max_eval = max_eval
@@ -288,16 +313,82 @@ def test_warm_start_is_off_by_default():
     assert sum(1 for b in s._blocks if b["owner"] == "R") == 1
 
 
-def test_warm_start_once_per_reacquisition_and_never_on_a_full_queue():
+def test_warm_start_once_per_reacquisition():
     s, r = _warm_start_run(True)
     owned = sum(1 for b in s._blocks if b["owner"] == "R")
     assert owned >= 2, "the arm must have been re-acquired at least once"
-    # the first acquisition still holds the generation from ``on_start``;
-    # every later one arrives empty -> exactly one call per re-acquisition
+    # the first acquisition has just cold-started; every later one is a
+    # re-acquisition -> exactly one call each
     assert len(r.warm_calls) == owned - 1
     for n_results, qsize in r.warm_calls:
-        assert qsize == 0  # never with a non-empty queue
+        assert qsize == 0  # the stale queue is dropped before the hook runs
         assert 0 < n_results <= s.warm_start_k
+
+
+def test_warm_start_fires_for_a_self_refilling_arm():
+    """The bug: a population arm refills while paused, so gating the hook on
+    ``not has_points`` excluded exactly the arms it exists for."""
+    s = _strategy(
+        max_eval=210,
+        n_blocks=10,
+        policy="uniform",
+        warm_start_on_resume=True,
+        arms=(
+            lambda st: Generational(st, name="G"),
+            lambda st: SelfRefilling(st, name="W"),
+        ),
+    )
+    opens: list[tuple[str, bool]] = []
+    original = s._open_block
+
+    def spy(h):
+        opens.append((h.name, h.has_points))
+        return original(h)
+
+    s._open_block = spy
+    s.start()
+
+    w = s._heuristics["W"]
+    w_opens = [full for name, full in opens if name == "W"]
+    assert len(w_opens) >= 3
+    assert all(w_opens), "the stub must arrive at every block open with a full queue"
+    # ... and the hook fires anyway, on every re-acquisition but the first
+    assert len(w.warm_calls) == len(w_opens) - 1
+    assert all(qsize == 0 for _, qsize in w.warm_calls)
+    assert sum(1 for b in s._blocks if b["owner"] == "W" and b["warm_start"]) == len(w.warm_calls)
+
+
+def _foreign_probe(**kw):
+    s = _strategy(
+        arms=(lambda st: Generational(st, name="A"), lambda st: SelfRefilling(st, name="W")),
+        warm_start_on_resume=True,
+        **kw,
+    )
+    w = s._heuristics["W"]
+    s._acquired.add("W")  # pretend W has owned a block already
+    s._last_owner = "A"  # ... and that A owned the one in between
+    return s, w
+
+
+def test_warm_start_skipped_when_the_top_k_are_all_the_arms_own():
+    s, w = _foreign_probe()
+    assert s.warm_start_only_if_foreign is True
+    s.on_new_results([_result(2.0, "W"), _result(1.0, "W:g1:i3")])
+    s._open_block(w)
+    assert w.warm_calls == [], "re-seeding an arm from its own points is a no-op"
+
+    # one foreign point among the top-k is enough
+    s._last_owner = "A"
+    s.on_new_results([_result(0.5, "A")])
+    s._open_block(w)
+    assert len(w.warm_calls) == 1
+
+
+def test_warm_start_only_if_foreign_can_be_switched_off():
+    s, w = _foreign_probe(warm_start_only_if_foreign=False)
+    s.on_new_results([_result(2.0, "W"), _result(1.0, "W:g1:i3")])
+    s._open_block(w)
+    assert len(w.warm_calls) == 1
 
 
 # 8 --------------------------------------------------------------------

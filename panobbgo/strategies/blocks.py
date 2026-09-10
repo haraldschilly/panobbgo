@@ -104,15 +104,33 @@ function of the schedule, which under ``sync_evaluation`` is still a pure
 function of the seed.
 
 Optionally (``warm_start_on_resume=True``, **off by default**) an arm that
-is re-acquired with an *empty* queue is warm-started from the shared
-archive.  Two hooks are honoured: an arm that implements
-``warm_start(results)`` as a method is handed this strategy's own top-k,
-while an arm that opted in through its constructor (``warm_start="archive"``
-on the L-SHADE family and PSO) is triggered via
-:meth:`~panobbgo.core.Heuristic.warm_start_now` and fetches its own,
-richer selection from the :class:`~panobbgo.analyzers.archive.Archive`
-analyzer.  A foreign warm start can hurt, so this is a per-arm opt-in
-decided by its own A/B, never a default.
+is **re-acquired after a gap** is warm-started from the shared archive.
+Two hooks are honoured: an arm that implements ``warm_start(results)`` as a
+method is handed this strategy's own top-k, while an arm that opted in
+through its constructor (``warm_start="archive"`` on the L-SHADE family and
+PSO) is triggered via :meth:`~panobbgo.core.Heuristic.warm_start_now` and
+fetches its own, richer selection from the
+:class:`~panobbgo.analyzers.archive.Archive` analyzer.  A foreign warm
+start can hurt, so this is a per-arm opt-in decided by its own A/B, never a
+default.
+
+The trigger is the *gap*, not an empty queue.  A queued generation is stale
+by construction on re-acquisition: under ``sync_evaluation`` the last batch
+of a closing block is harvested during the *next* arm's block, so the
+paused arm completes its generation and emits the following one while
+paused — from its own old population, while the other arm went on
+improving the archive.  Gating the hook on ``not has_points`` (as this
+strategy did until 2026-09-11) therefore excluded exactly the
+self-refilling population arms the hook exists for: a d=5 probe with
+CMA-ES + L-SHADE saw ``has_points`` true at all 46 block opens and fired
+the hook zero times.  So the queue is *cleared* before the hook runs and
+the arm rebuilds it from the shared archive.
+
+One exception, ``warm_start_only_if_foreign`` (on by default): if the top-k
+of the archive are all the arm's own points, it was the one making the
+progress and re-seeding it from itself is a no-op that still throws away
+its adaptation state (``warm_start_now`` keeps the memory bins but not the
+in-flight generation).  Such a warm start is skipped.
 
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
@@ -150,11 +168,16 @@ class StrategyBlockBandit(StrategyBase):
     :param reward: ``"area"`` (anytime, default) or ``"endpoint"``.
     :param prior: ``"none"``; ``"dim"`` (per-dimension priors from the
         evaluation battery) is not implemented yet.
-    :param warm_start_on_resume: warm-start re-acquired, empty arms — via
-        their ``warm_start(results)`` method if they have one, else via
-        :meth:`~panobbgo.core.Heuristic.warm_start_now`.
+    :param warm_start_on_resume: warm-start an arm that is re-acquired after
+        a gap — via its ``warm_start(results)`` method if it has one, else
+        via :meth:`~panobbgo.core.Heuristic.warm_start_now`.  Its stale
+        queue is cleared first.
     :param warm_start_k: how many results a ``warm_start(results)`` offer
-        carries (``warm_start_now`` arms query the ``Archive`` themselves).
+        carries, and the depth of the ``warm_start_only_if_foreign`` test
+        (``warm_start_now`` arms query the ``Archive`` themselves).
+    :param warm_start_only_if_foreign: skip the warm start when every one of
+        the top-k results is the arm's own — re-seeding an arm from itself
+        buys nothing and costs its in-flight generation.
     :param hysteresis: a challenger must beat the incumbent by this factor.
     """
 
@@ -174,6 +197,7 @@ class StrategyBlockBandit(StrategyBase):
         prior: str = "none",
         warm_start_on_resume: bool = False,
         warm_start_k: int = 10,
+        warm_start_only_if_foreign: bool = True,
         hysteresis: float = 1.2,
         **kwargs: Any,
     ) -> None:
@@ -200,6 +224,7 @@ class StrategyBlockBandit(StrategyBase):
         self.prior: str = str(prior)
         self.warm_start_on_resume: bool = bool(warm_start_on_resume)
         self.warm_start_k: int = int(warm_start_k)
+        self.warm_start_only_if_foreign: bool = bool(warm_start_only_if_foreign)
         self.hysteresis: float = float(hysteresis)
 
         #: per-arm discounted statistics, keyed by heuristic name
@@ -215,12 +240,20 @@ class StrategyBlockBandit(StrategyBase):
         self._block_n: int = 0
         self._block_drained: bool = False
         self._block_is_prologue: bool = False
+        self._block_warm_started: bool = False
         self._phi0: Optional[float] = None
         self._trace: List[float] = []
         self._blocks: List[Dict[str, Any]] = []
         self._blocks_closed: int = 0
         self._prologue: Optional[List[str]] = None
         self._prologue_pick: bool = False
+
+        #: warm-start bookkeeping: arms that have owned a block at least
+        #: once (only those can be *re*-acquired), and per-arm counters of
+        #: how often the hook fired and how often it reported a seed used.
+        self._acquired: set[str] = set()
+        self._warm_started: Dict[str, int] = {}
+        self._warm_used: Dict[str, int] = {}
 
         #: run-local objective bookkeeping (penalty values, "phi")
         self._anchor: Optional[float] = None
@@ -364,6 +397,7 @@ class StrategyBlockBandit(StrategyBase):
                 "size": self._block_size,
                 "drained": self._block_drained,
                 "prologue": self._block_is_prologue,
+                "warm_start": self._block_warm_started,
                 "reward": reward,
             }
         )
@@ -383,21 +417,8 @@ class StrategyBlockBandit(StrategyBase):
         self._block_size = max(1, self.block_evals // 2) if self._prologue_pick else self.block_evals
         self._trace = []
         self._phi0 = self._best_phi if np.isfinite(self._best_phi) else None
-        if self._should_warm_start(h):
-            # contract: once per (re-)acquisition, before the first
-            # get_points of the block, and only on an empty queue.
-            hook = getattr(h, "warm_start", None)
-            if callable(hook):
-                self.logger.debug("warm start of %s with %d results" % (h.name, len(self._top)))
-                hook(self._top_results())
-            else:
-                # The arm sources its own seeds from the shared ``Archive``
-                # analyzer (which is bounded at K = 256 and supports box /
-                # diversity / per-leaf selectors), so it gets a better pool
-                # than this strategy's ``warm_start_k`` incumbents — see
-                # :meth:`panobbgo.core.Heuristic.archive_seed`.
-                used = h.warm_start_now()
-                self.logger.debug("warm start of %s from its own archive: %s" % (h.name, used))
+        self._block_warm_started = self._warm_start(h)
+        self._acquired.add(h.name)
 
     def _block_over(self, owner: Heuristic) -> bool:
         """Is the open block finished?
@@ -435,7 +456,76 @@ class StrategyBlockBandit(StrategyBase):
         return bool(getattr(h, "warm_start", None)) and type(h).warm_start_now is not Heuristic.warm_start_now
 
     def _should_warm_start(self, h: Heuristic) -> bool:
-        return self._can_warm_start(h) and not h.has_points
+        """Once per block open, and only on a **re-acquisition after a gap**.
+
+        Deliberately *not* gated on ``not h.has_points``.  A paused arm keeps
+        receiving ``on_new_results``, so a population arm completes the
+        generation whose results are harvested during the next arm's block
+        and immediately emits the following one — its queue is full again by
+        the time it gets a block back, and that queue was built from its own
+        pre-gap population.  Stale by construction, so it is replaced, not
+        deferred to.  (The 2026-09-11 screening run measured 0 hook calls in
+        46 block opens with the ``has_points`` gate in place.)
+        """
+        if not self._can_warm_start(h):
+            return False
+        if h.name not in self._acquired:
+            return False  # first acquisition: it has just cold-started
+        if h.name != self._last_owner:
+            return True  # re-acquisition after a gap: the queue is stale
+        # Consecutive blocks are no gap and need no re-seed -- unless the arm
+        # has nothing to give, in which case the hook is the only thing that
+        # can refill it and withholding it spins the main loop into the
+        # stall guard.
+        return not h.has_points
+
+    @staticmethod
+    def _is_own(h: Heuristic, r: Result) -> bool:
+        """Was ``r`` produced by ``h``?  ``who`` may carry a ``name:...`` suffix."""
+        who = str(getattr(r, "who", "") or "")
+        return who == h.name or who.startswith(h.name + ":")
+
+    def _warm_start(self, h: Heuristic) -> bool:
+        """Warm-start ``h`` for the block about to open.  ``True`` iff it fired.
+
+        The stale queue is dropped **before** either hook runs: the
+        ``warm_start(results)`` contract used to rely on an empty queue as a
+        precondition, and the mode-string arms clear their own output anyway
+        (:meth:`panobbgo.heuristics.lshade.LSHADE.warm_start_now`), so
+        clearing here is idempotent and makes both paths behave alike.  It
+        only happens once we know there is something to re-seed *from* — a
+        cleared queue with nothing to replace it would throw a generation
+        away for nothing.
+        """
+        if not self._should_warm_start(h):
+            return False
+        seeds = self._top_results()
+        if not seeds:
+            return False  # nothing in the archive yet: leave the arm alone
+        if self.warm_start_only_if_foreign and all(self._is_own(h, r) for r in seeds):
+            # The arm is the one making the progress; re-seeding it from its
+            # own points is a no-op that still discards its live generation.
+            self.logger.debug("warm start of %s skipped: top-%d are all its own" % (h.name, len(seeds)))
+            return False
+
+        h.clear_output()
+        hook = getattr(h, "warm_start", None)
+        if callable(hook):
+            self.logger.debug("warm start of %s with %d results" % (h.name, len(seeds)))
+            hook(seeds)
+            used = True
+        else:
+            # The arm sources its own seeds from the shared ``Archive``
+            # analyzer (which is bounded at K = 256 and supports box /
+            # diversity / per-leaf selectors), so it gets a better pool
+            # than this strategy's ``warm_start_k`` incumbents — see
+            # :meth:`panobbgo.core.Heuristic.archive_seed`.
+            used = bool(h.warm_start_now())
+            self.logger.debug("warm start of %s from its own archive: %s" % (h.name, used))
+        self._warm_started[h.name] = self._warm_started.get(h.name, 0) + 1
+        if used:
+            self._warm_used[h.name] = self._warm_used.get(h.name, 0) + 1
+        return used
 
     # -- selection ---------------------------------------------------------
 

@@ -26,6 +26,54 @@ Splitter
 Inside is its Box class.
 """
 
+#: Target *mean* number of results per leaf.  The tree's resolution is
+#: ``max_eval / LEAF_SIZE`` leaves, i.e. it grows with the budget instead of
+#: being pinned to the dimension (``planning/DESIGN_meta_level_2026-09-10.md``
+#: §1: the old ``limit = max(20, max_eval/dim**2)`` settles at ≈1.3·dim²
+#: leaves whatever the budget is — 5 leaves at *d* = 2, and the root cannot
+#: split before evaluation 250 of 1000).  25 is the smallest population for
+#: which a leaf's ``best`` is a statistic rather than a single draw, and it
+#: puts the *d* = 2 tree at ~40 leaves, the resolution the consumers
+#: (``Random``, ``RegionUCB``, ``Archive.per_leaf_best``) are written for.
+LEAF_SIZE = 25
+
+#: Hard cap on the number of leaves.  Everything in the analyzer that is not
+#: O(1) per result is O(#leaves) per *split* (``_new_box``'s scans,
+#: ``leafs.remove``), so the tree costs O(L²) over a run; 512 keeps that
+#: below a millisecond-scale contribution on the dispatcher thread at every
+#: (dim, budget) in the plan of record.
+MAX_LEAVES = 512
+
+#: Measured mean leaf population divided by the split threshold.  A leaf
+#: splits at ``limit`` points and each child inherits the parent's points it
+#: contains, so a leaf holds between ``limit/2`` and ``limit`` points.  The
+#: realised mean is ≈0.67·``limit`` — measured over uniform and contracting
+#: point clouds at (dim, budget) ∈ {(2,1000), (5,2500), (10,5000),
+#: (20,10000)}, where it stayed in 0.59 … 0.72 for both split rules and for
+#: the legacy threshold of 250.  Used to turn a target leaf *population*
+#: into the split threshold; a mis-calibration only scales the leaf count,
+#: it cannot break the tree.
+LEAF_FILL = 0.67
+
+#: How the split dimension is chosen.  ``"widest"`` is the historical rule
+#: (widest dimension the results differ in, function values ignored);
+#: ``"value"`` scores each candidate dimension by how strongly the objective
+#: separates across the prospective cut.  See :meth:`Splitter.Box._split_dim`.
+SPLIT_RULES = ("widest", "value")
+
+#: The default split rule.  ``"widest"``, deliberately: a paired 3-seed
+#: screen (42/7/1234, MA-BBOB standard battery, dims 2 and 5 at 500·d,
+#: instances 0-2, ``seed_name`` shared) put ``"value"`` minus ``"widest"``,
+#: *both* on the budget-scaled resolution, at +0.001 for ``Random``, +0.024
+#: for ``RegionUCB``, 0.000 for the reference portfolio and −0.000 for the
+#: ``archive_leaf`` portfolio — every one of them inside the ±0.03 null
+#: floor, every CI straddling zero, and it costs ~8% more analyzer time per
+#: result.  The whole measured gain of this change is the *resolution*
+#: (+0.048 / +0.014 / 0.000 / +0.042 against the legacy tree).  ``"value"``
+#: ships opt-in so a 12-seed roster can revisit ``RegionUCB``, which is the
+#: only consumer that reads more than one leaf per decision.
+DEFAULT_SPLIT_RULE = "widest"
+
 
 class Splitter(Analyzer):
     """
@@ -39,28 +87,107 @@ class Splitter(Analyzer):
 
     A heuristic can build upon this hierarchy
     to investigate interesting subregions.
+
+    Args:
+        strategy: the owning strategy.
+        split_rule: ``"widest"`` (default, see :data:`DEFAULT_SPLIT_RULE`)
+            or ``"value"``; see :data:`SPLIT_RULES`.
+        leaf_size: target mean number of results per leaf
+            (default :data:`LEAF_SIZE`).  The resolution of the tree is
+            ``max_eval / leaf_size`` leaves.
+        min_leaf_size: floor on the split threshold, so a leaf is never cut
+            before it holds enough points to say anything.  Default
+            ``2 * dim + 2`` — the number of points a linear trend in *dim*
+            variables needs, plus a margin.
+        max_leaves: cap on the number of leaves
+            (default :data:`MAX_LEAVES`); it raises the split threshold
+            rather than refusing splits, so the partition stays a proper
+            kd-tree.
+        legacy: ``True`` restores the pre-2026-09-10 analyzer exactly —
+            ``limit = max(20, max_eval / dim**2)`` and ``split_rule =
+            "widest"``.  Every other knob is ignored.  Kept so both trees
+            are runnable from one code base and a measurement can be paired.
     """
 
-    def __init__(self, strategy):
-        Analyzer.__init__(self, strategy)
+    def __init__(
+        self,
+        strategy,
+        split_rule=None,
+        leaf_size=None,
+        min_leaf_size=None,
+        max_leaves=None,
+        legacy=False,
+        name=None,
+    ):
+        Analyzer.__init__(self, strategy, name=name)
         # split, if there are more than this number of points in the box
         self.leafs = []
         self._id = 0  # block id
         self.logger = self.config.get_logger("SPLIT")  # , 10)
         self.max_eval = self.config.max_eval
+        self.legacy = bool(legacy)
+        if split_rule is None:
+            split_rule = "widest" if self.legacy else DEFAULT_SPLIT_RULE
+        if split_rule not in SPLIT_RULES:
+            raise ValueError("split_rule must be one of %s, got %r" % (SPLIT_RULES, split_rule))
+        self.split_rule = "widest" if self.legacy else split_rule
+        self.leaf_size = float(LEAF_SIZE if leaf_size is None else leaf_size)
+        self.min_leaf_size = None if min_leaf_size is None else int(min_leaf_size)
+        self.max_leaves = int(MAX_LEAVES if max_leaves is None else max_leaves)
         # _new_result used to signal get_leaf and others when there
         # are updates regarding box/split/leaf status
         from threading import Condition
 
         self._new_result = Condition()
 
+    def _resolve_limit(self):
+        """The number of points at which a leaf is cut.
+
+        Legacy: ``max(20, max_eval / dim**2)`` — independent of the budget
+        once ``dim`` is fixed, which is the defect this replaces.
+
+        Otherwise the rule is stated on the *leaf population* and inverted::
+
+            target_leaves = clip(max_eval / leaf_size, 1, max_leaves)
+            limit         = max_eval / (LEAF_FILL * target_leaves)
+                          = leaf_size / LEAF_FILL      (when no cap binds)
+            limit         = clip(round(limit), min_leaf_size, max_eval)
+
+        so the resolution scales with the budget and the two clips are the
+        only dimension-dependent terms: ``min_leaf_size = 2·dim + 2`` keeps
+        a leaf big enough to carry a local statistic at high *dim* (it is
+        what makes *d* = 20 coarser than *d* = 2 instead of finer), and
+        ``max_leaves`` is the cost guard.
+        """
+        if self.legacy:
+            return max(20, self.max_eval / self.dim**2)
+        min_leaf = 2 * self.dim + 2 if self.min_leaf_size is None else self.min_leaf_size
+        target = min(max(self.max_eval / max(self.leaf_size, 1.0), 1.0), float(max(self.max_leaves, 1)))
+        limit = self.max_eval / (LEAF_FILL * target)
+        return int(min(max(round(limit), min_leaf, 4), max(self.max_eval, 4)))
+
+    def target_leaves(self):
+        """Leaf count this configuration aims at — ``max_eval / leaf_size``,
+        clipped, and re-derived from the *realised* integer threshold so it
+        matches what a run actually builds."""
+        return max(1.0, self.max_eval / (LEAF_FILL * self.limit))
+
     def __start__(self):
         # root box is equal to problem's box
         self.dim = self.problem.dim
-        self.limit = max(20, self.max_eval / self.dim**2)
-        self.logger.debug("limit = %s" % self.limit)
+        self.limit = self._resolve_limit()
+        self.logger.debug(
+            "limit = %s (rule=%s, legacy=%s, target leafs ~ %.0f)"
+            % (self.limit, self.split_rule, self.legacy, self.target_leaves())
+        )
         self.root = Splitter.Box(None, self, self.problem.box.copy())
         self.leafs.append(self.root)
+        # leafs bucketed by depth — same insertion order as ``leafs``, so
+        # ``big_by_depth`` picks the identical box the O(#leafs) filter did.
+        from collections import defaultdict
+
+        self._leafs_by_depth = defaultdict(list)
+        self._leafs_by_depth[self.root.depth].append(self.root)
         # big boxes
         self.biggest_leaf = self.root
         self.big_by_depth = dict()
@@ -69,10 +196,19 @@ class Splitter(Analyzer):
         # best box (with best f(x))
         self.best_box = None
         # in which box (a list!) is each point?
-        from collections import defaultdict
-
         self.result2boxes = defaultdict(list)
         self.result2leaf = {}
+
+    def _replace_leaf(self, parent, children):
+        """``parent`` stopped being a leaf; ``children`` became ones."""
+        self.leafs.remove(parent)
+        try:
+            self._leafs_by_depth[parent.depth].remove(parent)
+        except ValueError:  # a hand-built box that never entered the buckets
+            pass
+        for c in children:
+            self.leafs.append(c)
+            self._leafs_by_depth[c.depth].append(c)
 
     def _new_box(self, new_box):
         """
@@ -83,7 +219,13 @@ class Splitter(Analyzer):
         self.max_depth = max(new_box.depth, self.max_depth)
 
         old_biggest_leaf = self.biggest_leaf
-        self.biggest_leaf = max(self.leafs, key=lambda l: l.log_volume)
+        # A child is contained in its parent, so it can never be larger than
+        # the incumbent; the only way the biggest leaf changes is that it was
+        # the box just split.  ``max`` keeps the first of equal volumes and
+        # children are appended at the end, so this is exactly what a full
+        # rescan returns — at O(1) instead of O(#leafs) per new box.
+        if not old_biggest_leaf.leaf:
+            self.biggest_leaf = max(self.leafs, key=lambda l: l.log_volume)
         if old_biggest_leaf is not self.biggest_leaf:
             self.eventbus.publish("new_biggest_leaf", box=new_box)
 
@@ -94,7 +236,7 @@ class Splitter(Analyzer):
             if old_big_by_depth is None:
                 self.big_by_depth[d] = new_box
             else:
-                leafs_at_depth = list([l for l in self.leafs if l.depth == d])
+                leafs_at_depth = self._leafs_by_depth.get(d, ())
                 if len(leafs_at_depth) > 0:
                     self.big_by_depth[d] = max(leafs_at_depth, key=lambda l: l.log_volume)
 
@@ -279,6 +421,14 @@ class Splitter(Analyzer):
             self.split_dim = None
             self.id = splitter._id
             splitter._id += 1
+            # Running component-wise min/max of the results in this box.
+            # ``_can_split`` runs on *every* result once the box is over-full
+            # (``add_result``), so the "do the points differ anywhere?"
+            # question has to be O(dim), not O(#results·dim) — otherwise a
+            # box that can never be split re-scans its whole point cloud on
+            # every arrival and the degenerate case costs O(n²).
+            self._xmin = None
+            self._xmax = None
 
         @property
         def leaf(self):
@@ -353,6 +503,15 @@ class Splitter(Analyzer):
             assert isinstance(result, Result)
             self.results.append(result)
 
+            x = np.asarray(result.x, dtype=float)
+            xmin, xmax = self._xmin, self._xmax
+            if xmin is None or xmax is None:
+                self._xmin = x.copy()
+                self._xmax = x.copy()
+            else:
+                np.minimum(xmin, x, out=xmin)
+                np.maximum(xmax, x, out=xmax)
+
             # new best result in box? (for best fx value, too)
             if self.best is not None:
                 is_better = False
@@ -399,20 +558,144 @@ class Splitter(Analyzer):
         #: end.
         MAX_DEPTH = 60
 
-        def _split_dim(self):
-            """Widest dimension along which the results actually differ.
+        def _usable(self):
+            """Per-dimension width where a cut can separate the results, ``-1``
+            elsewhere.
 
-            Returns ``None`` when no such dimension exists — every result
-            sits at the same coordinate everywhere the box still has width,
-            so no cut can separate them.
+            "Elsewhere" is the live-lock guard: a dimension in which every
+            result has the *same* coordinate cannot be cut, because
+            :meth:`contains` includes both boundaries and would put the whole
+            cluster into both children (see :meth:`_can_split`).
             """
-            if len(self.results) < 2:
+            if len(self.results) < 2 or self._xmin is None or self._xmax is None:
                 return None
-            xs = np.vstack([r.x for r in self.results])
-            spread = xs.max(axis=0) - xs.min(axis=0)
+            spread = self._xmax - self._xmin
             usable = np.where(spread > 0.0, self.ranges, -1.0)
+            return usable if bool((usable > 0.0).any()) else None
+
+        def _split_dim_widest(self, usable):
+            """The historical rule: widest dimension the results differ in.
+
+            Function values are ignored, so the partition is drawn purely by
+            where the search already looked.
+            """
             dim = int(np.argmax(usable))
             return dim if usable[dim] > 0.0 else None
+
+        def _penalties(self):
+            """Constraint-aware objective values of this box's results.
+
+            Non-finite values (``NaN``, ``+/-inf``) and missing ``fx`` map to
+            ``+inf``, i.e. "worst"; ranking them rather than using them
+            keeps the split rule scale-free and immune to a single blown-up
+            evaluation.
+            """
+            handler = getattr(self.splitter.strategy, "constraint_handler", None)
+            out = np.empty(len(self.results), dtype=float)
+            for i, r in enumerate(self.results):
+                v = None
+                if handler is not None:
+                    try:
+                        v = handler.get_penalty_value(r)
+                    except Exception:
+                        v = None
+                if v is None:
+                    v = r.fx
+                try:
+                    v = float(v)  # pyright: ignore[reportArgumentType]
+                except (TypeError, ValueError):
+                    v = np.inf
+                out[i] = v if np.isfinite(v) else np.inf
+            return out
+
+        @staticmethod
+        def _ranks(vals):
+            """Mid-ranks of ``vals`` in ``[0, n-1]``, ties sharing their mean rank.
+
+            Tie-awareness is not cosmetic: ``argsort(argsort(v))`` invents a
+            strict order out of equal values, so a box in which every result
+            has the same objective would be "ranked" by *arrival order* and
+            the split rule would cut on noise instead of falling back to
+            width.
+            """
+            n = len(vals)
+            order = np.argsort(vals, kind="stable")
+            srt = vals[order]
+            fresh = np.empty(n, dtype=bool)
+            fresh[0] = True
+            np.not_equal(srt[1:], srt[:-1], out=fresh[1:])
+            group = np.cumsum(fresh) - 1
+            counts = np.bincount(group)
+            starts = np.concatenate(([0], np.cumsum(counts)[:-1]))
+            mid = starts + (counts - 1) / 2.0
+            ranks = np.empty(n, dtype=float)
+            ranks[order] = mid[group]
+            return ranks
+
+        def _split_dim_value(self, usable):
+            """Dimension along which the objective separates most across the cut.
+
+            For every candidate dimension the prospective cut is the same one
+            :meth:`split` would make (the mean coordinate), and the two halves
+            are compared by the *rank* of their penalty values — scale-free,
+            so it survives an objective spanning many orders of magnitude and
+            a constraint handler whose penalty units are arbitrary::
+
+                score_j = |mean_rank(left) - mean_rank(right)|
+                          * sqrt(n_left * n_right / n)
+
+            That is the standardised two-sample rank-sum statistic: the first
+            factor is the separation, the second rewards a balanced cut, so a
+            dimension does not win by shaving off two outliers.  Ties (in
+            particular *every* score zero, i.e. a box in which the objective
+            is flat or all values are equal) fall back to the widest
+            dimension, so this rule degrades exactly into ``"widest"`` when
+            there is no value signal to use.
+
+            What it scores is the **cut**, not the dependence: a cloud that
+            mirrors exactly about the cut — a bowl sampled symmetrically
+            around its own centre — puts equally good and equally bad points
+            on both sides, scores zero, and width decides.  That is the
+            honest semantics for a rule about to make exactly this cut: a cut
+            that separates nothing gains nothing by being made on that axis.
+            In practice the mean of a finite sample is not the axis of
+            symmetry and the residual asymmetry is enough — a plain
+            ``x_j**2`` still wins its axis by a factor of three over the
+            noise on 200 uniform points.
+            """
+            n = len(self.results)
+            cand = np.flatnonzero(usable > 0.0)
+            xs = np.vstack([r.x for r in self.results])[:, cand]
+            ranks = self._ranks(self._penalties())
+            if n > 1:
+                ranks /= n - 1.0
+
+            cuts = xs.mean(axis=0)
+            left = xs <= cuts
+            n_l = left.sum(axis=0).astype(float)
+            n_r = n - n_l
+            sum_l = ranks @ left
+            with np.errstate(divide="ignore", invalid="ignore"):
+                mean_l = sum_l / n_l
+                mean_r = (ranks.sum() - sum_l) / n_r
+                score = np.abs(mean_l - mean_r) * np.sqrt(n_l * n_r / n)
+            # ``spread > 0`` puts min and max strictly on opposite sides of
+            # the mean, so both halves are non-empty; be defensive anyway.
+            score = np.where(np.isfinite(score), score, -1.0)
+
+            best = float(score.max())
+            tied = score >= best - 1e-12
+            widths = np.where(tied, usable[cand], -1.0)
+            return int(cand[int(np.argmax(widths))])
+
+        def _split_dim(self):
+            """Dimension to cut this box along, or ``None`` if no cut helps."""
+            usable = self._usable()
+            if usable is None:
+                return None
+            if self.splitter.split_rule == "value":
+                return self._split_dim_value(usable)
+            return self._split_dim_widest(usable)
 
         def _can_split(self):
             """``False`` when splitting cannot make progress.
@@ -425,8 +708,15 @@ class Splitter(Analyzer):
             (Measured: CMA-ES on MA-BBOB d5 with a diverged step size
             projects most of a generation onto the same box corner and
             stalls the run at 408 of 1000 evaluations.)
+
+            Asks :meth:`_usable` rather than :meth:`_split_dim`: the two
+            agree on *whether* a cut exists (both rules return a dimension
+            whenever one does), and this one is O(dim) from the running
+            min/max instead of O(#results · dim).  It runs on every result
+            of an over-full leaf, so the difference is the whole cost of the
+            degenerate case.
             """
-            return self.depth < self.MAX_DEPTH and self._split_dim() is not None
+            return self.depth < self.MAX_DEPTH and self._usable() is not None
 
         def __iadd__(self, result):
             """
@@ -462,8 +752,7 @@ class Splitter(Analyzer):
             b1.box[dim, 1] = split_point
             b2.box[dim, 0] = split_point
             self.children.extend([b1, b2])
-            self.splitter.leafs.remove(self)
-            list(map(self.splitter.leafs.append, self.children))
+            self.splitter._replace_leaf(self, self.children)
             for c in self.children:
                 self.splitter._new_box(c)
                 for r in self.results:

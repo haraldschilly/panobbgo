@@ -10,6 +10,7 @@ Available optimization strategies:
 - **StrategyThompsonSampling**: Probabilistic selection using Thompson Sampling (Beta-Bernoulli bandit)
 - **StrategyLinUCB**: Contextual bandit using disjoint linear UCB models over budget-progress / success-rate features
 - **StrategyPhased**: Budget-phased meta-strategy composing different sub-strategies and heuristic portfolios across phases
+- **StrategyBlockBandit**: Hands a whole *block* of evaluations to one arm and scores it by the AOCC area it bought (experimental)
 
 .. automodule:: panobbgo.strategies
    :members:

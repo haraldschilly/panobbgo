@@ -1,0 +1,17 @@
+0.012528 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.012641 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.074887 config:333      CONFG INFO      Evaluation method: threaded
+0.074938 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'2cf008c9689f8e2e43a808af006d49a07cffbe85'}
+seed 42 done (51s)
+seed 7 done (104s)
+seed 1234 done (154s)
+
+=== pso ===  (3 seeds)
+variant             mean   delta vs default
+vmax_0.2          0.4817   +0.0660 [+0.0364,+0.0955] 3/3  <-- CI excludes 0
+NP_10             0.4762   +0.0605 [+0.0360,+0.0850] 3/3  <-- CI excludes 0
+lbest             0.4283   +0.0126 [+0.0015,+0.0237] 3/3  <-- CI excludes 0
+w_decay           0.4236   +0.0079 [-0.0384,+0.0542] 2/3
+default           0.4157   (reference)
+c_2.0             0.3814   -0.0343 [-0.0712,+0.0026] 0/3
+NP_40             0.3675   -0.0482 [-0.0886,-0.0079] 0/3  <-- CI excludes 0

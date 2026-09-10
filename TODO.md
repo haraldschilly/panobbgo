@@ -1,79 +1,51 @@
 # TODO
 
-## Next session — Phase A: make several optimizers individually strong
+## Stand Ende 2026-09-10 — Phase A abgeschlossen, Phase B ausgemessen
 
-**Why this order.** A selection policy can only choose among the arms it
-is given.  Measured oracle bound (standard battery, 3 seeds, 30
-instances, `planning/DISCOVERY_2026-09-09.md` §14):
+Branch `claude/arm-sweep-pass2`, PR #319. Vollständiges Protokoll in
+`planning/DISCOVERY_2026-09-09.md` §15–§31, Zustand und Plan in
+`planning/GOAL.md` §2/§2c, Rohdaten in `planning/results/2026-09-10/`.
 
-| | mean AOCC |
-|---|---|
-| best single arm (CMA-ES) | 0.5801 |
-| **oracle — best arm per instance** | **0.6523** |
-| headroom for a perfect bandit | **+0.0723** |
+### Gelandet (alle Defaults 12-Seed-akzeptiert)
 
-Instances won, out of 30: CMA-ES 19, NLSHADE_LBC 8, PSO 3, **jSO 0,
-L-SHADE 0** — measured with each arm's *then*-current defaults, which the
-first sweep pass has since shown were badly chosen (below).  Tuning the
-bandit before the arms would be optimising a choice between one strong
-option and four under-tuned ones.
+- **`NP_init="auto"` = 3·dim·(budget/500·dim)^¼**, Konstruktor-Default;
+  LBC 4·dim. L-SHADE +0.230, jSO +0.204, LBC +0.064 (+0.052 bei 4·dim).
+- **CMA-ES σ-Divergenz-Restart** +0.026 (11/12). `ipop_factor` retracted.
+- **Harness-Fixes**: Budget vor Konstruktion; `seed_name`; Null-Floor
+  ±0.05/±0.03; Screen-Maximum ist Kandidat, nur Roster-CI zählt.
+- **Sharing-Infrastruktur**: `Archive`, `warm_start` auf CMA-ES / DE /
+  PSO, `StrategyBlockBandit`. Zweites Harness-Spec
+  `Blocks_warm_CMAES_JSO` (ersetzt `Rewarding_Restart`).
+- Doku, `AGENTS.md`-Messregeln, Werkzeuge (`arm_sweep`, `oracle`,
+  `np_accept`, `portfolio_screen`).
 
-### First pass — done, and it found one big thing
+### Verdikt (500·dim, MA-BBOB, d ∈ {2, 5})
 
-The five sweeps ran (3 seeds, `planning/DISCOVERY_2026-09-09.md` §15).
-Every arm has a variant that beats its default on all three seeds with a
-CI excluding zero:
+Ein Zwei-Arm-Portfolio, das Evaluationen teilt, ist **gleichauf** mit
+dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
+0). Sharing hat die Strukturstrafe (−0.08) beseitigt, keinen Vorsprung
+gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
+nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
 
-| arm | best variant | Δ AOCC |
-|---|---|---|
-| cmaes | `ipop_factor=1.5` | **+0.0886** |
-| jso | `NP_init=30` | **+0.0997** |
-| lshade | `NP_init=30` | **+0.0791** |
-| pso | `v_max_frac=0.2` | **+0.0660** |
-| pso | `NP=10` | +0.0605 |
-| lbc | `NP_init=30` | **+0.0585** |
+### Nächste Schritte (Plan of Record, `GOAL.md` §2c)
 
-**The dominant factor is population size.** All three DE arms default to
-`NP_init="auto"` = `min(18·dim, budget/12)` — 36 at *d* = 2, 83 at
-*d* ≥ 5 for a 1000-eval budget.  A fixed 30 beats that on every arm and
-every seed.  PSO says the same from the other side: `NP=10` +0.061,
-`NP=40` −0.048.  At 10³ total evaluations a population of 83 gets twelve
-generations, which is sampling, not evolution.
-
-This also means **§14's oracle bound was computed on under-tuned arms**.
-jSO reaches 0.5581 and L-SHADE 0.4923 with `NP_init=30`, against the
-0.4584 / 0.4132 that gave them 0-out-of-30 win counts.  Do not retire
-either arm until the oracle is recomputed on tuned versions.
-
-### The immediate task
-
-- [ ] **Locate the `NP_init` optimum, don't just bracket it.** 30 was
-      the only fixed value tested and it won everywhere; sweep
-      15 / 20 / 30 / 45 / 60 on `lbc`, `jso`, `lshade`.  If the optimum
-      really sits near `budget/30`, fix the divisor in
-      `_resolve_auto_np_init` (`panobbgo/heuristics/lshade.py`) — it is a
-      library default that every user gets, not a harness knob.
-- [ ] **Same for `ipop_factor`.** 1.5 beat 2.0 and 3.0 and sits at the
-      edge of the tested range; try 1.2 / 1.35 / 1.5.  CMA-ES is the
-      shipped default, so every point lands directly in the setup.
-- [ ] **Check whether the gains compose.** Each variant was measured
-      alone against the default; `NP_init=30` + `H=20` on lbc/jso may
-      overlap.  Combine the per-arm winners and re-measure.
-- [ ] **Promote to the 12-seed roster** before changing any default.
-      Three seeds screen an effect this size; they do not accept it.
-- [ ] **Recompute the oracle bound on the tuned arms** — that number
-      sizes Phase B and is currently stale.
-- [ ] Consider checking each implementation against its published
-      reference: these are hand-rolled and none has been compared to a
-      canonical implementation.
-
-Command form (niced, results written after every seed):
-
-```bash
-uv run python benchmarks/arm_sweep.py ARM OUT.json 42 7 1234
-```
-
-Add the new variants to `ARMS` in `benchmarks/arm_sweep.py`.
+- [ ] **Größere Budgets und *d* ≥ 10.** Die *d*=5-Tendenz sagt einen
+      realen Gewinn voraus; ein `dims=5,10 bm=2000`-Screen mit
+      `Blocks_warm_CMAES_JSO` vs. `RoundRobin_CMAES`, dann 12-Seed-Roster.
+      Billige Variante: dimensionsgebundenes Spec (Portfolio ab *d* ≥ 5,
+      `gate_min_dim`).
+- [ ] **Keine weitere Bandit-Tuning-Runde** ohne neuen Mechanismus.
+      Falls je gewünscht: `only_if_better` pro Arm relativ formulieren.
+- [ ] Constrained / verrauschte Probleme — keine Batterie deckt sie.
+- [ ] Composite-Registry: drei CMA-ES-Specs, frozen contract — Haralds
+      Entscheidung.
+- [ ] Nightly-Cron (`self_improve_nightly.yml`) ist seit 2026-08-13
+      deaktiviert; mit den neuen Specs wieder anschalten oder entfernen.
+- [ ] `ruff check`-Backlog (~190 Findings) als eigener Change.
+- [ ] `Result.__eq__` vergleicht nur `fx`, `__hash__` `(x, fx, who)`
+      (`lib/lib.py`) — Ticket, wichtiger seit Warm-Start.
+- [ ] `ioh_runner.py`/`scripts/ioh_smoke.py`: Budget-nach-Konstruktion
+      auch dort (Factory-Protokoll).
 
 ### Then Phase B — the selection policy
 

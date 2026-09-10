@@ -348,34 +348,37 @@ def make_full_battery() -> IOHBatterySpec:
 #
 # These specs are tuned for the *anytime* metric (AOCC), in contrast to
 # the strategy registry in :mod:`panobbgo.harness` which is tuned for
-# ``composite_score`` (find-and-stop).  The key differences:
+# ``composite_score`` (find-and-stop).  What that tuning arrived at:
 #
-# 1.  Always include the :class:`~panobbgo.analyzers.Restart` analyzer so
-#     stagnation triggers re-diversification rather than a flat tail
-#     (the strategy's ``stop_on_convergence`` is already disabled by the
-#     IOH runner — see :func:`_run_one` below — but Restart actively
-#     *uses* the budget by jumping to a fresh basin).
-# 2.  A larger Sobol initial design relative to the budget: spending the
-#     first 5-10% of budget on a low-discrepancy sweep pays off on the
-#     anytime metric, which weights early-budget exploration heavily on
-#     the log-precision target scale.
-# 3.  Heuristics that implement ``on_restart`` (Random, Nearby, NelderMead,
-#     Sobol, ...) participate; others degrade gracefully.
+# 1.  Few arms, each with a real share of the budget.  A population method
+#     needs the whole horizon to adapt, so the six-arm mix that won under
+#     composite_score scored 0.35 here against 0.67 for CMA-ES alone
+#     (§9-§10) and was retired.
+# 2.  No external :class:`~panobbgo.analyzers.Restart` analyzer and no
+#     Sobol initial design: both were measured off (Restart discards
+#     CMA-ES's adapted covariance, halving it).  ``stop_on_convergence``
+#     is disabled by the IOH runner instead — see :func:`_run_one` below
+#     — so a converged strategy still spends its budget.
+# 3.  Where a second arm helps at all it is *blocked and warm-started*,
+#     not interleaved per point: see ``Blocks_warm_CMAES_JSO`` below and
+#     ``planning/DISCOVERY_2026-09-09.md`` §27/§30.
 
 
 def make_ioh_strategies() -> List[StrategySpec]:
     """IOH-tuned strategy registry — primary entry point for AOCC runs.
 
-    Three specs: a pure-random floor, the competition candidate
-    (``RoundRobin_CMAES``) and the previous six-arm portfolio kept as a
-    control.  Returns a small list rather than the full panobbgo zoo so
-    each iteration of the harness stays cheap.  Add baselines via
+    Three specs: a pure-random floor (``RoundRobin_Random``), the
+    competition candidate (``RoundRobin_CMAES``) and the best portfolio
+    found so far (``Blocks_warm_CMAES_JSO``), kept as the control that the
+    flagship has to beat.  Returns a small list rather than the full
+    panobbgo zoo so each iteration of the harness stays cheap.  Add
+    baselines via
     :func:`panobbgo.harness_baselines.make_baseline_strategies` if you
     need an absolute reference.
     """
-    from panobbgo.analyzers import Sensitivity
-    from panobbgo.heuristics import CMAES, JSO, NLSHADE_LBC, Center, Nearby, NelderMead, Random
-    from panobbgo.strategies import StrategyRewarding, StrategyRoundRobin
+    from panobbgo.analyzers import Archive
+    from panobbgo.heuristics import CMAES, JSO, Random
+    from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
 
     return [
         # Pure-random reference inside the panobbgo strategy framework.
@@ -410,39 +413,43 @@ def make_ioh_strategies() -> List[StrategySpec]:
             strategy_class=StrategyRoundRobin,
             heuristics=[(CMAES, {})],
         ),
-        # Adaptive heuristic mix.  The competition candidate until
-        # 2026-09-09, now kept only as a control so the portfolio stays
-        # measured against the single-optimizer candidate on every
-        # battery run.  Roughly the same heuristics as
-        # ``Rewarding_Diverse`` from the composite-score harness.  The
-        # Restart analyzer it originally shipped with was dropped by the
-        # 2026-07-30 codify (18 confirmed drop_analyzer accepts across 17
-        # distinct nights on the aocc ledger, pooled CI95%
-        # [+0.0084, +0.0147]) — under the anytime AOCC metric the
-        # diverse-restart jumps cost more mid-budget precision than the
-        # basin-hopping recovers.  The spec name is kept for ledger /
-        # bandit-arm continuity.
+        # Best portfolio found so far, and the control the flagship is
+        # measured against on every battery run.  This is
+        # ``Blocks_uniform_cj_warm2`` from ``benchmarks/portfolio_screen.py``
+        # (§27/§30): CMA-ES + jSO, blocked, *no* learning rule
+        # (``policy="uniform"``), both arms re-seeded from the shared
+        # ``Archive`` on every re-acquisition.
+        #
+        # On the 12-seed roster it scores 0.685 vs 0.666 for CMA-ES alone
+        # (+0.019, better on 8/12 seeds, CI includes zero) — parity, not a
+        # win, so ``RoundRobin_CMAES`` stays the flagship and this is the
+        # thing to beat.  It replaced ``Rewarding_Restart`` (0.35), which
+        # was no longer a useful control at half the score of either.
+        #
+        # ``Archive`` must be listed: without it ``archive_seed`` silently
+        # falls back to the Splitter root.  ``Splitter`` is not listed —
+        # ``StrategyBase.initialize`` always installs it.  The strategy
+        # kwargs travel through ``config_overrides``, which
+        # ``StrategySpec.create_strategy`` passes to the constructor.
         StrategySpec(
-            name="Rewarding_Restart",
-            strategy_class=StrategyRewarding,
+            name="Blocks_warm_CMAES_JSO",
+            strategy_class=StrategyBlockBandit,
             heuristics=[
-                (Random, {}),
-                (Nearby, {"radius": 0.1, "axes": "all", "new": 3}),
-                (Center, {}),
-                (NelderMead, {}),
-                (JSO, {"NP_init": "auto"}),
-                # Dimension-gated arm (PR #298 / 2026-08-11 12-seed standard
-                # A/B): unconditional NLSHADE_LBC moved d2 by -0.0241
-                # [-0.0401, -0.0080] and d5 by +0.0080 [+0.0007, +0.0154] —
-                # both CIs exclude zero, in opposite directions.  The gate
-                # ships the measured d5 gain without paying the measured d2
-                # loss; kwargs match the structural-catalog candidate the
-                # A/B measured.
-                (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0, "gate_min_dim": 5}),
+                (CMAES, {"warm_start": "archive"}),
+                (JSO, {"NP_init": "auto", "warm_start": "archive"}),
             ],
-            analyzers=[
-                (Sensitivity, {"update_interval": 25}),
-            ],
+            analyzers=[(Archive, {})],
+            config_overrides={
+                "policy": "uniform",
+                "warm_start_on_resume": True,
+                # Re-seed on *every* re-acquisition (§21: the ``_any``
+                # variants beat the foreign-only default by +0.005).
+                "warm_start_only_if_foreign": False,
+                # Pinned rather than inherited: §30 measured this guard at
+                # -0.007, which made it the default's `False`, but the spec
+                # states what it ran.
+                "warm_start_only_if_better": False,
+            },
         ),
     ]
 
@@ -866,7 +873,14 @@ def _run_one(
 
         tracker = IOHTracker(wrapped, budget=budget)
         try:
-            strategy = strategy_spec.create_strategy(wrapped, seed=seed)
+            # The budget must reach the config *before* the heuristics are
+            # constructed — budget-adaptive arms (``NP_init="auto"``) size
+            # themselves from ``config.max_eval`` in their constructor, and
+            # would otherwise read Config's default (1000) instead of the
+            # battery's ``budget_multiplier * dim``.
+            strategy = strategy_spec.create_strategy(wrapped, seed=seed, max_eval=budget)
+            # Harmless belt-and-braces: keeps the invariant for factory-built
+            # strategies that rebuild their own config.
             strategy.config.max_eval = budget
             # Deterministic result batches for the threaded evaluator —
             # cuts adaptive-strategy measurement noise roughly in half
@@ -957,7 +971,10 @@ def run_ioh_harness(
             for spec in strategies:
                 for rep in range(battery.reps):
                     idx += 1
-                    seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.name, rep)
+                    # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
+                    # of one arm can opt into a shared RNG stream so an A/B
+                    # measures the parameter, not the run-to-run variance.
+                    seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep)
                     if progress:
                         print(
                             f"  [{idx:>3d}/{total:>3d}] {battery.problem_kind} "

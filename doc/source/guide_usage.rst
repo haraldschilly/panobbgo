@@ -757,6 +757,26 @@ Start here: one strong optimizer
    strategy.add(CMAES)          # self-adapting covariance, IPOP restarts
    strategy.start()
 
+.. note::
+
+   *Which* single arm is under re-evaluation.  The table below was measured
+   before the population-sizing fix of :ref:`population-sizing`, i.e. against
+   DE arms that were roughly five times over-populated.  Re-run on the
+   12-seed roster with the sizes the library now ships, jSO, NLSHADE_LBC,
+   L-SHADE and CMA-ES sit within 0.014 mean AOCC of each other — inside the
+   null floor (see :doc:`guide_benchmarking`) — and win *different* instances,
+   sorted by dimension (``planning/DISCOVERY_2026-09-09.md`` §28).  "CMA-ES
+   alone" is still a safe starting point, but it is no longer a measured
+   winner; benchmark the arms on your own problem before committing.
+
+   The same holds for the portfolio.  ``Blocks_warm_CMAES_JSO`` — CMA-ES +
+   jSO, both warm-started from the shared archive, rotating every block —
+   is now the second shipped harness spec, replacing ``Rewarding_Restart``
+   (0.35, no longer a useful control).  It measures **level with**
+   ``RoundRobin_CMAES``, not above it (§27, §30).  The plan of record is a
+   dimension-gated spec — portfolio for ``d ≥ 5``, single arm below — since
+   the portfolio's whole lean sits at ``d=5``; see ``planning/GOAL.md`` §2c.
+
 Measured on the MA-BBOB battery (mean AOCC, dims 2 and 5, budget 500·d,
 5 instances, seeds 42 / 7 / 1234, ``sync_evaluation=True``):
 
@@ -938,33 +958,28 @@ systematic escape from local optima while the full result history is retained.
 
 .. warning::
 
-   :class:`~panobbgo.heuristics.cma_es.CMAES` already implements IPOP and
-   BIPOP restarts internally (``restart_mode``), and it keeps its adapted
-   covariance across them.  Adding the external
-   :class:`~panobbgo.analyzers.restart.Restart` analyzer on top *halved*
-   its score on the MA-BBOB battery (0.663 → 0.301 mean AOCC, d2+d5,
-   seed 42): the analyzer's restart event discards what the search has
-   learned.  Prefer ``CMAES(restart_mode="ipop")`` on its own and measure
-   before adding the analyzer.
-
-For reference, the combination looks like this:
+   Do **not** pair :class:`~panobbgo.heuristics.cma_es.CMAES` with the
+   external :class:`~panobbgo.analyzers.restart.Restart` analyzer.  The
+   heuristic implements IPOP and BIPOP restarts internally
+   (``restart_mode``), keeps its adapted covariance across them, and since
+   2026-09 decides *when* to restart on its own (see
+   :ref:`cma-es-restarts`).  The analyzer on top *halved* its score on the
+   MA-BBOB battery (0.663 → 0.301 mean AOCC, d2+d5, seed 42): its restart
+   event discards what the search has learned.  ``CMAES(restart_mode="ipop")``
+   on its own is the configuration to use.
 
 .. code-block:: python
 
    from panobbgo.heuristics import CMAES, LatinHypercube, NelderMead
-   from panobbgo.analyzers import Restart
 
    strategy = StrategyRewarding(problem, max_evaluations=500)
    strategy.add(LatinHypercube, div=4)
    strategy.add(CMAES, sigma0=0.3, ipop_factor=2.0)
    strategy.add(NelderMead)
-   # Add Restart *before* calling start()
-   strategy.add_analyzer(Restart(strategy, patience=None,   # default: 5 * dim
-                                 restart_strategy="diverse",
-                                 max_restarts=5))
    strategy.start()
 
-Key parameters of :class:`~panobbgo.analyzers.restart.Restart`:
+The :class:`~panobbgo.analyzers.restart.Restart` analyzer remains available
+for heuristics that have no restart logic of their own.  Its key parameters:
 
 - ``patience`` (int | None): evaluations without improvement before restart.
   ``None`` uses ``5 * problem.dim`` (recommended).
@@ -996,9 +1011,6 @@ the state of the art for limited-budget multimodal black-box optimization.
    strategy.add(LatinHypercube, div=4)
    strategy.add(CMAES, sigma0=0.3, restart_mode="bipop")
    strategy.add(NelderMead)
-   strategy.add_analyzer(Restart(strategy, patience=None,
-                                 restart_strategy="diverse",
-                                 max_restarts=10))
    strategy.start()
 
 Inspect the BIPOP regime distribution after the run::
@@ -1032,6 +1044,252 @@ When to choose IPOP vs. BIPOP:
    strategy.add(Random)
    strategy.add(Nearby)
    # Avoid gradient-based methods (LBFGSB)
+
+Tuning the Population Methods
+-----------------------------
+
+The three subsections below cover the settings that were measured to matter
+most on the MA-BBOB battery.  Every parameter mentioned here is documented in
+full on its own class; this is the *why* and the numbers, not a second copy of
+the API reference.
+
+.. _population-sizing:
+
+Population Sizing (``NP_init="auto"``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The L-SHADE family — :class:`~panobbgo.heuristics.lshade.LSHADE`,
+:class:`~panobbgo.heuristics.jso.JSO`,
+:class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC` and the other SHADE
+derivatives — accepts ``NP_init="auto"``, which sizes the initial population
+from the run's evaluation budget and the problem dimension:
+
+.. code-block:: text
+
+   NP = clip( round( 3·dim · (budget / (500·dim))**0.25 ), max(NP_min, 6), 400 )
+
+This is the constructor default for the whole L-SHADE family; the
+literature value ``30`` is used only as a fallback when the budget is not
+known at construction.  The coefficient is a class attribute
+(``AUTO_DIM_COEF``): the base rule uses ``3``, and ``NLSHADE_LBC`` uses
+``4`` — its linear bias control wants a larger rank pool, measured at
++0.052 AOCC over the ``3·dim`` rule on the 12-seed roster (10/12 seeds).
+
+.. code-block:: python
+
+   from panobbgo.heuristics import JSO
+   from panobbgo.strategies import StrategyRoundRobin
+
+   strategy = StrategyRoundRobin(problem, max_evaluations=2500, seed=42)
+   strategy.add(JSO, NP_init="auto")     # d=5, B=2500  →  NP_init = 15
+   strategy.start()
+
+**Why.** Fixed-``NP_init`` grid sweeps of the three L-SHADE-lineage arms, run
+solo on the standard battery, put the AOCC optimum at 6–8 for ``d=2``, 10–20
+for ``d=5`` and 20–30 for ``d=10``: the optimum tracks the *dimension*, which
+fixes the coefficient at ``≈ 3·dim``.  Quadrupling the budget moves it up by
+only about 1.5×, hence the fourth-root budget term anchored at the reference
+``500`` evaluations per dimension.  The floor of 6 keeps
+``current-to-pbest/1`` working headroom — at ``NP_init=4`` the mutation
+collapses (−0.25 AOCC for ``NLSHADE_LBC``).  The rule this replaced,
+``min(18·dim, budget/12)``, took the CEC-2014 upper bound literally; at a few
+hundred evaluations per dimension its cap never binds, so it shipped
+populations roughly **five times too large** — most of the budget went into
+the initial random fill and the success-history adaptation never got enough
+generations to pay off.
+
+Accepted on the 12-seed decision roster, each arm solo and paired on one RNG
+stream (``planning/DISCOVERY_2026-09-09.md`` §17, §20):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 20 30 20
+
+   * - Arm
+     - Δ mean AOCC
+     - CI 95 %
+     - Seeds positive
+   * - ``LSHADE``
+     - **+0.230**
+     - [+0.215, +0.244]
+     - 12 / 12
+   * - ``JSO``
+     - **+0.204**
+     - [+0.175, +0.233]
+     - 12 / 12
+   * - ``NLSHADE_LBC``
+     - +0.064
+     - [+0.028, +0.099]
+     - 10 / 12
+
+.. important::
+
+   **The budget must be known when the heuristic is constructed.**
+   ``"auto"`` is resolved once, in ``__init__``, from
+   ``strategy.config.max_eval``.  Pass the budget to the strategy constructor
+   (``max_evaluations=``), or let a ``StrategySpec`` do it — its
+   ``create_strategy(max_eval=...)`` sets the budget *before* any heuristic is
+   built, and the harnesses now pass it.  Assigning
+   ``strategy.config.max_eval`` **after** ``strategy.add(...)`` is too late:
+   the heuristic has already fallen back to the fixed default of ``30``.
+
+.. _cma-es-restarts:
+
+CMA-ES Restarts
+~~~~~~~~~~~~~~~
+
+Solo :class:`~panobbgo.heuristics.cma_es.CMAES` used to have no termination
+criterion at all: one CMA-ES run for the whole budget, and once σ had
+collapsed it kept resampling the same point.  Diagnosed at ``d=5`` with a
+2500-evaluation budget, **52 % of the budget was spent after the last
+improvement of any size**, and on two of five instances σ *diverged* against
+its clamp and sampled the box boundary for 92 % of the run.
+
+Two mechanisms now fix this, both on by default (``self_restart=True``):
+
+* **Hansen's reference termination set** — ``tolx``, ``tolfun``,
+  ``tolfunhist``, ``stagnation``, ``conditioncov``, ``noeffectaxis``,
+  ``noeffectcoord``.  When one fires, the heuristic restarts through the
+  IPOP/BIPOP path, so ``ipop_factor`` finally has an effect in solo runs.
+  These tolerances are written for runs of many thousands of generations and
+  rarely fire inside a 500·dim budget; on their own they were worth
+  **+0.0001**.
+* **σ-divergence detection** (``sigma_divergence=True``, the panobbgo
+  analogue of pycma's ``tolupsigma``) — restart when the sampling spread
+  ``σ·sqrt(diag C)`` has sat at or above ``sigma_max_frac`` (default ``0.3``)
+  of the box range in *every* coordinate for ``sigma_divergence_gens``
+  generations.  This is the addition that paid: **+0.026 mean AOCC
+  [+0.008, +0.043] on the 12-seed roster, 11 of 12 seeds positive**, at 0.68
+  restarts per run.  The gain is heavy-tailed — a handful of cells gain
+  +0.18 … +0.44 and most are unchanged — because it only fires on the runs
+  that would otherwise diverge (``planning/DISCOVERY_2026-09-09.md`` §23).
+
+``restart_from`` chooses where a *self*-restart re-centres:  ``"random"``
+(default, the reference IPOP behaviour), ``"best"`` or ``"center"``.  A
+σ-divergence restart always re-centres on the best point seen regardless — a
+diverged run has no basin worth keeping.  ``stagnation_frac`` adds a
+*budget*-relative stagnation window; it is off by default because it measured
+harmful at the fractions where it fires often.
+
+.. code-block:: python
+
+   # The default — nothing to configure.
+   strategy.add(CMAES, sigma0=0.3, restart_mode="ipop")
+
+   # Restore the pre-2026-09 behaviour (one run for the whole budget).
+   strategy.add(CMAES, self_restart=False)
+
+.. note::
+
+   Because CMA-ES now terminates and restarts itself, the external
+   :class:`~panobbgo.analyzers.restart.Restart` analyzer is **not needed**
+   with it — and was measured to hurt badly (see the warning under
+   *Multimodal problems with IPOP-CMA-ES* above).
+
+.. _shared-archive-warm-start:
+
+Shared Archive and Warm Start
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A portfolio of independent solvers is only worth its switching costs if the
+arms *share* the evaluations they paid for.  The
+:class:`~panobbgo.analyzers.archive.Archive` analyzer is that sharing layer:
+a bounded top-K of the whole result stream, ranked by the constraint
+handler's penalty value and **not** filtered by ``who``, so an arm that asks
+for a seed gets the best points in the run whoever produced them.
+
+It is **opt-in** — :meth:`~panobbgo.core.StrategyBase.initialize` does not add
+it, so a run without warm-started arms keeps exactly the module construction
+order, and therefore the RNG streams, it had before:
+
+.. code-block:: python
+
+   from panobbgo.analyzers import Archive
+   from panobbgo.heuristics import LSHADE
+
+   strategy.add_analyzer(Archive, k=256)          # or StrategySpec(analyzers=[(Archive, {})])
+   strategy.add(LSHADE, NP_init="auto", warm_start="archive")
+
+Three selectors are shared by every arm (see
+:meth:`~panobbgo.core.Heuristic.archive_seed`):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - ``warm_start``
+     - Seeds with
+   * - ``"archive"``
+     - the ``k`` best results in the run
+   * - ``"archive_diverse"``
+     - ``k`` well-separated good results
+   * - ``"archive_leaf"``
+     - the best point of each of the ``k`` best ``Splitter`` leaves — ``k``
+       different basins
+
+What each arm does with them:
+
+- **The L-SHADE family** places the seeds into the initial population
+  *directly, as evaluated results*, and fills any shortfall from the cold
+  random path — so warm starting costs **zero evaluations**.
+- **PSO** takes positions and personal bests from the top-``NP`` results, also
+  at zero cost, and sets velocities to ``0.5·(x_π(i) − x_i)`` over a random
+  derangement, so the swarm starts *moving between* known good points instead
+  of from a standstill.
+- **CMA-ES** fits its initial distribution to the seed cloud.  It additionally
+  accepts ``warm_start="archive_cov"``, which also seeds the covariance
+  matrix ``C``.  Here the warm start saves no evaluations — CMA-ES has no
+  population to fill — the whole gain is starting in the right basin at the
+  right scale.
+
+In all cases an empty archive (``t = 0``) means the arm silently cold-starts.
+For a custom heuristic, call
+:meth:`~panobbgo.core.Heuristic.archive_seed` and treat ``[]`` as "use the
+cold path"; override :meth:`~panobbgo.core.Heuristic.warm_start_now` if a
+scheduler should be able to re-seed you mid-run.
+
+The recommended warm configuration, if you use one, is **both** arms on plain
+``warm_start="archive"`` with both guards off:
+
+.. code-block:: python
+
+   strategy = StrategyBlockBandit(problem, max_evaluations=2500, seed=42,
+                                  policy="uniform", block_evals=25,
+                                  warm_start_on_resume=True,
+                                  warm_start_only_if_foreign=False,
+                                  warm_start_only_if_better=False)
+   strategy.add_analyzer(Archive)
+   strategy.add(CMAES, warm_start="archive")
+   strategy.add(JSO, NP_init="auto", warm_start="archive")
+
+Three findings behind those settings
+(``planning/DISCOVERY_2026-09-09.md`` §25, §31):
+
+- **Both arms warm, not one.**  One-directional sharing scored 0.619 against
+  0.645 for the same pair with both arms warm — CMA-ES's warm start is worth
+  as much as the DE arm's.
+- **``"archive_cov"`` hurts** (−0.019, at both dimensions).  Seed the mean and
+  σ; leave ``C = I``.
+- **``warm_start_only_if_better`` hurts** (−0.073 on the 3-seed screen,
+  −0.007 on the roster).  It cuts warm starts lopsidedly: CMA-ES usually holds
+  the incumbent, so the guard starves the arm that most needs the relay.
+  ``warm_start_only_if_foreign`` is the shipped guard, but it too was measured
+  off in the specs that lead.
+
+.. warning::
+
+   **Experimental, off by default.**  Sharing is the one portfolio mechanism
+   on this codebase that measures: it removes the **−0.08** penalty a *cold*
+   two-arm portfolio pays against its own best arm (the one CI clear of zero
+   in the whole screen).  It does not buy a lead.  On the 12-seed roster the
+   best warm portfolio — ``Blocks_uniform_cj_warm2``, CMA-ES + jSO, both warm,
+   rotating every block — reaches **0.685 against CMA-ES alone at 0.666:
+   +0.019, 8 of 12 seeds, CI including zero.**  Level with the best single
+   arm, not above it.  The whole lean is at ``d=5`` (+0.03); at ``d=2`` a
+   single arm converges before a relay can matter
+   (``planning/DISCOVERY_2026-09-09.md`` §27, §30).  Treat ``warm_start`` as
+   a per-arm experiment to be settled by your own paired A/B, not as a setting
+   to switch on.
 
 Choosing a Strategy
 -------------------
@@ -1119,6 +1377,95 @@ Use when:
        max_evaluations=1000,
        linucb_alpha=2.0  # Exploration parameter
    )
+
+StrategyBlockBandit (experimental)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:class:`~panobbgo.strategies.blocks.StrategyBlockBandit` changes what a bandit
+*pull* is.  The other strategies treat one point as one pull and pay out only
+on a new best, so a population heuristic emitting λ points per generation has
+its estimated value bounded by ``1/λ`` by construction — a measurement
+problem, not a tuning problem.  Here a pull is a **block**: roughly
+``max_eval / n_blocks`` evaluations (default ``n_blocks=50``) handed to a
+single arm.  A block closes only when it has spent its evaluations *and* the
+owner's queue has run empty, so a generation is never cut in half.
+
+The reward is the AOCC area the arm bought with the block, per evaluation, in
+decades of log-precision against a run-local anchor.  It is *anytime* (the
+mean over the block, not its endpoint) and *scale-free* (invariant under
+``f → c·f + k``), so arms on different objective scales are comparable
+without any tuning.
+
+Two policies:
+
+- ``policy="uniform"`` — round-robin over blocks.  **Use this one.**
+- ``policy="ducb"`` (the constructor default) — discounted UCB, with a
+  one-block prologue per arm, an exploit-only tail, and hysteresis so a
+  challenger must beat the incumbent by a factor before the schedule
+  switches.
+
+``warm_start_on_resume=True`` (off by default) re-seeds an arm from the shared
+archive whenever the scheduler hands it a block back after a gap — see
+:ref:`shared-archive-warm-start`.  The trigger is the gap, not an empty queue:
+a paused arm's queued generation is stale by construction, so it is cleared
+first.
+
+.. code-block:: python
+
+   from panobbgo.strategies import StrategyBlockBandit
+   from panobbgo.analyzers import Archive
+   from panobbgo.heuristics import CMAES, JSO
+
+   strategy = StrategyBlockBandit(problem, max_evaluations=2500, seed=42,
+                                  policy="uniform", block_evals=25,
+                                  warm_start_on_resume=True,
+                                  warm_start_only_if_foreign=False)
+   strategy.add_analyzer(Archive)
+   strategy.add(CMAES, warm_start="archive")
+   strategy.add(JSO, NP_init="auto", warm_start="archive")
+   strategy.start()
+
+What was measured to matter, and what was not
+.............................................
+
+Screens #5–#7 took the policy apart on the standard battery
+(``planning/DISCOVERY_2026-09-09.md`` §26, §29, §31):
+
+- **The selection policy contributes nothing measurable.**  D-UCB at any
+  setting tried — ``ucb_c`` 1/2/4, ``gamma`` 0.5–0.9, ``hysteresis``,
+  ``tail_frac`` swept 0 → 0.6 — lands within 0.003 of plain rotation, and at
+  ``tail_frac=0`` it *is* rotation (identical in 23 of 30 cells; the mean gap
+  is one cell).  Once the arms share their evaluations, a switch stops being a
+  cost and becomes a relay, so there is nothing left for a bandit to
+  minimise.  ``policy="uniform"`` is therefore the setting to use — it is the
+  same behaviour with none of the knobs.
+- **Block length is absolute, not a fraction of the budget.**  The useful
+  range is **~25–50 evaluations**, flat-ish between them with per-cell
+  collapses either side and a hard collapse at 12.  Set it with
+  ``block_evals=`` — ``n_blocks=50`` is a budget *fraction*, so on the
+  ``500·dim`` battery it means 20 evaluations at ``d=2`` and 50 at ``d=5``,
+  two different experiments under one name.  ``block_evals="auto"`` sizes a
+  block as four reference generations, which is the mechanism behind the
+  range: every block boundary discards the arm's in-flight generation.
+- **More than two arms still dilute.**  2 → 3 → 4 arms: 0.685 → 0.648 →
+  0.604.  Only at ``d=5`` does a third arm pay (+0.037); at ``d=2`` it costs
+  −0.084.  A third arm, if ever, is dimension-gated.
+
+.. warning::
+
+   **Experimental**, and read screen results carefully.  A cold two-arm block
+   bandit loses **−0.08** to its best arm, and the interleaving control
+   (``StrategyRewarding`` on the same two arms) loses the same amount — so
+   that is the portfolio, not the scheduling shape.  The scheduler itself is
+   sound: every run spends its full budget and no generation is cut.  With
+   both arms warm the portfolio reaches parity but not a lead (§27, §30 and
+   the warning under :ref:`shared-archive-warm-start`).
+
+   Also: **the best spec of a three-seed screen is a candidate, not a
+   result.**  ``soft_be25`` came out of one screen at +0.050 with a CI
+   excluding zero and scored **−0.006** on the 12-seed roster — a CI computed
+   on a selected maximum is not the CI of a pre-registered spec
+   (``planning/DISCOVERY_2026-09-09.md`` §30).
 
 StrategyPhased
 ~~~~~~~~~~~~~~
@@ -1369,6 +1716,12 @@ and begin exploring around the new center. Heuristics without this handler conti
 The Restart analyzer pairs well with :class:`~panobbgo.analyzers.convergence.Convergence` —
 set ``patience`` lower than ``Convergence.window_size`` so restarts happen before convergence
 is declared.
+
+.. warning::
+
+   Do not use it with :class:`~panobbgo.heuristics.cma_es.CMAES`, which
+   restarts itself (:ref:`cma-es-restarts`); the analyzer's restart event
+   throws away its adapted covariance and halved its score in measurement.
 
 Sensitivity Analysis
 ~~~~~~~~~~~~~~~~~~~~

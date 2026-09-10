@@ -712,6 +712,97 @@ class Heuristic(Module):
         if free > 0:
             self.emit([draw() for _ in range(free)])
 
+    #: Selector names :meth:`archive_seed` understands.  ``None`` (the
+    #: default of every ``warm_start=`` constructor argument) means "cold
+    #: start", i.e. do not call :meth:`archive_seed` at all.
+    WARM_START_MODES: Tuple[str, ...] = ("archive", "archive_diverse", "archive_leaf")
+
+    def archive_seed(self, k: int, *, mode: Optional[str] = None, box: Any = None) -> List["Result"]:
+        """Up to ``k`` good points from the *shared* archive, best first.
+
+        The query layer of ``planning/DESIGN_warm_start_2026-09-10.md`` §2:
+        a heuristic that wants to start from points it did not pay for asks
+        here instead of reaching into another module's state.  Three
+        selectors, all of them unfiltered by ``who``:
+
+        * ``"archive"`` (default) — the ``k`` best results;
+        * ``"archive_diverse"`` — ``k`` well-separated good results;
+        * ``"archive_leaf"`` — the best point of each of the ``k`` best
+          :class:`~panobbgo.analyzers.splitter.Splitter` leaves, i.e. ``k``
+          *different basins*.
+
+        Source is the opt-in :class:`~panobbgo.analyzers.archive.Archive`
+        analyzer when the strategy has one; otherwise the ``Splitter``'s
+        root box, which holds every result in :class:`~panobbgo.lib.Result`
+        form, sorted by penalty value.  With neither analyzer — or with
+        nothing evaluated yet — the answer is ``[]``, which every caller has
+        to read as "use the cold path".
+
+        Never raises: a missing analyzer, an unstarted one or a broken
+        constraint handler all degrade to ``[]``.
+        """
+        if k <= 0:
+            return []
+        archive = self._archive_analyzer()
+        seeds: Any = []
+        if archive is not None:
+            try:
+                if mode == "archive_diverse":
+                    seeds = archive.diverse_k(k, box=box)
+                elif mode == "archive_leaf":
+                    seeds = archive.per_leaf_best(k)
+                else:
+                    seeds = archive.top_k(k, box=box)
+            except Exception:
+                seeds = []
+        if not seeds:
+            seeds = self._splitter_seed(k, box=box)
+        if not isinstance(seeds, (list, tuple)):
+            return []
+        return [r for r in seeds if isinstance(r, Result)][:k]
+
+    def _archive_analyzer(self) -> Any:
+        """The :class:`Archive` analyzer, or ``None`` if the strategy has none."""
+        try:
+            from panobbgo.analyzers.archive import Archive
+
+            analyzer = self._strategy.analyzer("Archive")
+        except Exception:
+            return None
+        return analyzer if isinstance(analyzer, Archive) else None
+
+    def _splitter_seed(self, k: int, *, box: Any = None) -> List["Result"]:
+        """Fallback for :meth:`archive_seed`: sort the ``Splitter``'s root box."""
+        try:
+            splitter = self._strategy.analyzer("Splitter")
+            region = box if box is not None else getattr(splitter, "root", None)
+            pool = list(getattr(region, "results", []))
+        except Exception:
+            return []
+        handler = getattr(self._strategy, "constraint_handler", None)
+
+        def penalty(r: "Result") -> float:
+            try:
+                if handler is None:
+                    return float("inf") if r.fx is None else float(r.fx)
+                return float(handler.get_penalty_value(r))
+            except (TypeError, ValueError):
+                return float("inf")
+
+        return sorted(pool, key=penalty)[:k]
+
+    def warm_start_now(self) -> bool:
+        """Re-seed this heuristic from the shared archive, right now.
+
+        Called by a scheduler that just handed this heuristic a fresh block
+        of evaluations (see
+        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`), by direct
+        method call — the event bus only broadcasts.  Returns ``True`` iff a
+        seed was actually used.  The default is ``False``: a heuristic that
+        does not opt in is left exactly as it was.
+        """
+        return False
+
     def emit(self, points: Union[np.ndarray, List[np.ndarray], "Point", List["Point"], List[Any]]) -> None:
         """
         This is used to send out new search points for evaluation.

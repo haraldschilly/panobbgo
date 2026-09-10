@@ -1,0 +1,19 @@
+0.010990 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.011122 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.075762 config:333      CONFG INFO      Evaluation method: threaded
+0.075815 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'515223220a4b6a70b33c323e484821abc3dc44e1'}
+seed 42 done (41s)
+seed 7 done (93s)
+seed 1234 done (143s)
+
+=== cmaes ===  (3 seeds, dims [2, 5], budget 500*d)
+variant                   mean               delta vs default        d=2        d=5
+ipop_1.5                0.7023   +0.0886 [+0.0435,+0.1336] 3/3 <--    -0.0001    +0.1772
+ipop_1.75               0.6742   +0.0605 [-0.0451,+0.1660] 3/3       +0.0089    +0.1120
+ipop_1.5_sig_0.2        0.6464   +0.0327 [+0.0025,+0.0630] 3/3 <--    -0.0395    +0.1050
+ipop_1.35               0.6320   +0.0183 [-0.1890,+0.2255] 2/3       -0.0689    +0.1054
+ipop_1.2                0.6310   +0.0173 [-0.0182,+0.0528] 3/3       -0.0032    +0.0378
+default                 0.6137                    (reference)     0.7333     0.4941
+
+Per-dimension columns are mean AOCC for `default`, mean delta for the rest.
+`<--` marks a 95% t-CI on the pooled delta that excludes zero.

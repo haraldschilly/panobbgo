@@ -1,0 +1,61 @@
+0.019897 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.020206 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.163522 config:333      CONFG INFO      Evaluation method: threaded
+0.163626 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'22326eb1189b32444d8ef431e1526ca2a705531d'}
+seed 42 done (97s)
+seed 7 done (273s)
+seed 1234 done (552s)
+
+=== portfolio screen ===  (3 seeds, dims [2, 5], budget 500*d)
+specs: CMAES_alone, LSHADE_alone, Blocks_uniform_2, Blocks_ducb_2, Blocks_uniform_2_warm, Blocks_ducb_2_warm, Blocks_ducb_2_warm_leaf, Blocks_ducb_2_warm_div, Blocks_uniform_2_warm_any, Blocks_ducb_2_warm_any   cells: 30
+
+spec                        mean        d=2       d=5
+CMAES_alone               0.6712     0.7379    0.6044
+Blocks_ducb_2_warm_any    0.6187     0.6768    0.5607
+LSHADE_alone              0.6171     0.6838    0.5503
+Blocks_ducb_2_warm        0.6142     0.6759    0.5525
+Blocks_uniform_2_warm     0.6068     0.6619    0.5517
+Blocks_uniform_2_warm_any  0.6066     0.6735    0.5397
+Blocks_ducb_2_warm_div    0.5980     0.6463    0.5496
+Blocks_ducb_2_warm_leaf   0.5875     0.6344    0.5406
+Blocks_uniform_2          0.5656     0.6188    0.5124
+Blocks_ducb_2             0.5636     0.6272    0.4999
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                        delta                95% CI   seeds        d=2       d=5
+Blocks_ducb_2_warm_any    -0.0524     [-0.1062,+0.0013]   0/3      -0.0611   -0.0437
+LSHADE_alone              -0.0541     [-0.0891,-0.0191]   0/3      -0.0541   -0.0541 <--
+Blocks_ducb_2_warm        -0.0569     [-0.0724,-0.0414]   0/3      -0.0620   -0.0518 <--
+Blocks_uniform_2_warm     -0.0644     [-0.1169,-0.0119]   0/3      -0.0761   -0.0527 <--
+Blocks_uniform_2_warm_any  -0.0646     [-0.1126,-0.0165]   0/3      -0.0644   -0.0647 <--
+Blocks_ducb_2_warm_div    -0.0732     [-0.1012,-0.0452]   0/3      -0.0916   -0.0547 <--
+Blocks_ducb_2_warm_leaf   -0.0836     [-0.1165,-0.0508]   0/3      -0.1036   -0.0637 <--
+Blocks_uniform_2          -0.1056     [-0.1397,-0.0715]   0/3      -0.1192   -0.0920 <--
+Blocks_ducb_2             -0.1076     [-0.1239,-0.0913]   0/3      -0.1108   -0.1044 <--
+
+delta vs LSHADE_alone (paired per cell, t-CI over per-seed means)
+spec                        delta                95% CI   seeds        d=2       d=5
+CMAES_alone               +0.0541     [+0.0191,+0.0891]   3/3      +0.0541   +0.0541 <--
+Blocks_ducb_2_warm_any    +0.0017     [-0.0181,+0.0215]   2/3      -0.0070   +0.0104
+Blocks_ducb_2_warm        -0.0028     [-0.0270,+0.0213]   1/3      -0.0079   +0.0022
+Blocks_uniform_2_warm     -0.0103     [-0.0495,+0.0290]   1/3      -0.0220   +0.0014
+Blocks_uniform_2_warm_any  -0.0105     [-0.0482,+0.0272]   0/3      -0.0103   -0.0106
+Blocks_ducb_2_warm_div    -0.0191     [-0.0491,+0.0109]   0/3      -0.0375   -0.0007
+Blocks_ducb_2_warm_leaf   -0.0295     [-0.0521,-0.0069]   0/3      -0.0494   -0.0097 <--
+Blocks_uniform_2          -0.0515     [-0.0737,-0.0292]   0/3      -0.0651   -0.0379 <--
+Blocks_ducb_2             -0.0535     [-0.0755,-0.0315]   0/3      -0.0566   -0.0504 <--
+
+--- screening gates (design §6) ---
+  G1 FAIL  Blocks_uniform_2 - max(CMAES_alone, LSHADE_alone) = CMAES_alone -0.1056  (need >= -0.020)
+  G2 FAIL  Blocks_ducb_2 - Blocks_uniform_2                     -0.0020  (need >= +0.005)
+  G3 FAIL  Blocks_ducb_2 - best single (CMAES_alone)            -0.1076  (need >= -0.010)
+  G4 PASS  Blocks_ducb_2_warm - Blocks_ducb_2                   +0.0507  (need >= +0.030)
+  G5 FAIL  best warm spec (Blocks_ducb_2_warm_any) - CMAES_alone -0.0524  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

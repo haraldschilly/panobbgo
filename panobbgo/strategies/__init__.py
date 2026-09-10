@@ -34,6 +34,7 @@ a new strategy.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+from .blocks import StrategyBlockBandit
 from .rewarding import StrategyRewarding
 from .round_robin import StrategyRoundRobin
 from .ucb import StrategyUCB
@@ -42,6 +43,7 @@ from .contextual import StrategyLinUCB
 from .phased import StrategyPhased
 
 __all__ = [
+    "StrategyBlockBandit",
     "StrategyRewarding",
     "StrategyRoundRobin",
     "StrategyUCB",

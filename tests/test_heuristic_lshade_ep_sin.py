@@ -61,7 +61,8 @@ class LSHADEEpSinConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         from panobbgo.heuristics.lshade_ep_sin import LSHADE_EpSin, _DEFAULT_MU_FREQ, _DEFAULT_PS
 
         h = LSHADE_EpSin(self.strategy)
-        assert h.NP_init == 30
+        # ``NP_init`` defaults to ``"auto"``: 3*dim = 6 at dim=2 / 1000 evals.
+        assert h.NP_init == 6
         assert h.NP_min == 4
         assert h.H == 6  # inherited L-SHADE default
         assert h.p_best == 0.11

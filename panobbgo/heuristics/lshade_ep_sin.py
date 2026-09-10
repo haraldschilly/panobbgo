@@ -152,7 +152,6 @@ import numpy as np
 from panobbgo.heuristics.lshade import (
     _DEFAULT_ARCHIVE_FACTOR,
     _DEFAULT_H,
-    _DEFAULT_NP_INIT,
     _DEFAULT_NP_MIN,
     _DEFAULT_P_BEST,
     _F_MAX_REDRAWS,
@@ -210,7 +209,8 @@ class LSHADE_EpSin(LSHADE):
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or ``"auto"`` for budget-adaptive
-            sizing.  Default ``30``.  See
+            sizing.  Default ``"auto"``; the literature default of ``30``
+            is the fallback when the budget is unknown.  See
             :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``"auto"``
             sizing formula and budget notes.
         NP_min: Minimum population size after LPSR shrinking.
@@ -229,6 +229,9 @@ class LSHADE_EpSin(LSHADE):
         mu_freq_init: Initial mean frequency for the variable-freq
             sinusoid (Sinusoid 2).  Default ``0.5``.  Must lie in
             ``(0, 1]``.
+        warm_start: Optional archive-seeding mode; see
+            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
+            (cold start).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -254,12 +257,13 @@ class LSHADE_EpSin(LSHADE):
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best: float = _DEFAULT_P_BEST,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         mu_freq_init: float = _DEFAULT_MU_FREQ,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -274,6 +278,7 @@ class LSHADE_EpSin(LSHADE):
             p_best=p_best,
             archive_factor=archive_factor,
             F_schedule=None,
+            warm_start=warm_start,
             seed=seed,
             name=name or "LSHADE_EpSin",
         )

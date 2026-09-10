@@ -122,7 +122,6 @@ import numpy as np
 from panobbgo.heuristics.jso import (
     _DEFAULT_ARCHIVE_FACTOR,
     _DEFAULT_H,
-    _DEFAULT_NP_INIT,
     _DEFAULT_NP_MIN,
     _DEFAULT_P_BEST_MAX,
     _DEFAULT_P_BEST_MIN,
@@ -140,7 +139,8 @@ class NLSHADE_RSP(JSO):
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or ``"auto"`` for budget-adaptive
             sizing (see :class:`~panobbgo.heuristics.lshade.LSHADE`).
-            Default ``30``.
+            Default ``"auto"``; the literature default of ``30`` is the
+            fallback when the budget is unknown.
         NP_min: Minimum population size after non-linear reduction.
             Default ``4``.
         H: History memory size.  Default ``5`` (inherits the jSO anchor
@@ -161,6 +161,9 @@ class NLSHADE_RSP(JSO):
         adaptive_archive: When ``True`` (default), resample the archive
             cap per generation (NL-SHADE-RSP).  When ``False``, use the
             fixed jSO / L-SHADE cap.
+        warm_start: Optional archive-seeding mode; see
+            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
+            (cold start).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -178,7 +181,7 @@ class NLSHADE_RSP(JSO):
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best_max: float = _DEFAULT_P_BEST_MAX,
@@ -186,6 +189,7 @@ class NLSHADE_RSP(JSO):
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         k_rank: float = _DEFAULT_K_RANK,
         adaptive_archive: bool = True,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -202,6 +206,7 @@ class NLSHADE_RSP(JSO):
             p_best_max=p_best_max,
             p_best_min=p_best_min,
             archive_factor=archive_factor,
+            warm_start=warm_start,
             seed=seed,
             name=name or "NLSHADE_RSP",
         )

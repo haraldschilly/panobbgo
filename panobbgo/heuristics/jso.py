@@ -120,7 +120,6 @@ from panobbgo.lib import Result
 
 
 # Default tuning constants — match Brest et al. (2017, jSO).
-_DEFAULT_NP_INIT: int = 30
 _DEFAULT_NP_MIN: int = 4
 _DEFAULT_H: int = 5
 _DEFAULT_P_BEST_MAX: float = 0.25
@@ -150,7 +149,8 @@ class JSO(LSHADE):
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or ``"auto"`` for budget-adaptive
-            sizing.  Default ``30``.  See
+            sizing.  Default ``"auto"``; the literature default of ``30``
+            is the fallback when the budget is unknown.  See
             :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``"auto"``
             sizing formula and budget notes.
         NP_min: Minimum population size after LPSR shrinking.  Default
@@ -165,6 +165,9 @@ class JSO(LSHADE):
             Default ``0.125``.  Must satisfy ``0 < p_best_min <= p_best_max``.
         archive_factor: Multiplier for the external archive size.
             Default ``1.0``.  Setting it to ``0`` disables the archive.
+        warm_start: Optional archive-seeding mode; see
+            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
+            (cold start).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -187,12 +190,13 @@ class JSO(LSHADE):
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best_max: float = _DEFAULT_P_BEST_MAX,
         p_best_min: float = _DEFAULT_P_BEST_MIN,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -215,6 +219,7 @@ class JSO(LSHADE):
             p_best=p_best_max,  # parent stores fixed greediness; we override per-call
             archive_factor=archive_factor,
             F_schedule="jso",  # jSO opts into the asymmetric F-cap by construction
+            warm_start=warm_start,
             seed=seed,
             name=name or "JSO",
         )
@@ -231,6 +236,22 @@ class JSO(LSHADE):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _init_memory(self) -> None:
+        """Plant the jSO initial memory and the frozen anchor bin.
+
+        Overrides :meth:`LSHADE._init_memory` so the values are in place
+        *before* the first trial is generated.  It matters on the
+        ``warm_start`` path only, where ``on_start`` seeds the population
+        and immediately generates a full generation of trials — the
+        post-``super()`` re-stamping in :meth:`on_start` would come too late
+        for those.
+        """
+        self._M_F[:] = _INIT_M_F
+        self._M_CR[:] = _INIT_M_CR
+        # Anchor bin is frozen at sample-time-only values.
+        self._M_F[-1] = _ANCHOR_M_F
+        self._M_CR[-1] = _ANCHOR_M_CR
 
     def _current_p_best(self) -> float:
         """Linear ``p_best`` schedule from ``p_best_max`` to ``p_best_min``.

@@ -6746,7 +6746,7 @@ def default_codify_apply_sources(
     * ``"aocc"`` — ``panobbgo/harness_ioh.py``'s
       ``make_ioh_strategies``, the registry every ``--metric aocc``
       iteration measures.  Without this routing, aocc evidence (which
-      names IOH specs like ``Rewarding_Restart``) can never land as a
+      names IOH specs like ``RoundRobin_CMAES``) can never land as a
       source edit — the ``--apply-top`` driver would scan
       ``harness.py``, find no matching spec, and silently no-op.
 

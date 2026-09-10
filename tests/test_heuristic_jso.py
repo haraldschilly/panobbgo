@@ -62,8 +62,9 @@ class JSOConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         )
 
         h = JSO(self.strategy)
-        # Defaults match Brest et al. 2017.
-        assert h.NP_init == 30
+        # Defaults match Brest et al. 2017, except NP_init, which defaults to
+        # ``"auto"`` — dim=2 at the mixin budget of 1000 evals gives 3*dim = 6.
+        assert h.NP_init == 6
         assert h.NP_min == 4
         assert h.H == 5  # vs L-SHADE's 6
         assert h.p_best_max == 0.25

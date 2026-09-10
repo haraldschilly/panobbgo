@@ -1,0 +1,14 @@
+0.051106 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.051299 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.423774 config:333      CONFG INFO      Evaluation method: threaded
+0.428525 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'c2e4b6f1f0e6e1e9a9e8bce7e2db23b09ff4f177'}
+
+=== null floor: lshade {'NP_init': 10} ===
+default    mean 0.6307  delta +0.0000  per-seed [0.0, 0.0, 0.0]  d2 +0.0000 d5 +0.0000
+null_1     mean 0.6322  delta +0.0015  per-seed [-0.0205, 0.0028, 0.0222]  d2 -0.0044 d5 +0.0075
+null_2     mean 0.6256  delta -0.0051  per-seed [-0.0343, -0.0006, 0.0197]  d2 +0.0017 d5 -0.0118
+null_3     mean 0.6061  delta -0.0246  per-seed [-0.1039, 0.0191, 0.0109]  d2 -0.0210 d5 -0.0282
+null_4     mean 0.6374  delta +0.0066  per-seed [-0.0359, 0.0253, 0.0305]  d2 -0.0053 d5 +0.0186
+null_5     mean 0.6132  delta -0.0175  per-seed [-0.0219, -0.0417, 0.011]  d2 -0.0132 d5 -0.0218
+spread of battery means across 6 streams: sd 0.0121, max-min 0.0312
+max 'gain' over default among 5 null variants: +0.0066

@@ -39,6 +39,75 @@ analyzer detects stagnation and fires a ``restart`` event, this heuristic:
 3. Resets σ to its initial fraction of the search-space range.
 4. Flushes the pending/stale generation results.
 
+**Self-restart** (the default, ``self_restart=True``): the heuristic also
+watches its *own* termination criteria and restarts itself when one fires,
+without needing the ``Restart`` analyzer.  Without this a solo CMA-ES has no
+termination criterion at all — it runs a single CMA-ES for the whole budget
+and, once σ has collapsed, keeps resampling the same point.  Measured on five
+MA-BBOB instances at d=5 with a 2500-evaluation budget (2026-09-10): on
+average **52 % of the budget was spent after the last improvement of any
+size**, 66 % after the last ≥1e-3 relative improvement, and 91 % after 99 %
+of the total improvement had been reached; on two of the five instances σ
+*diverged* to its clamp and 92 % of the budget bought nothing.
+
+The criteria are the standard ones (Hansen 2016, §4 "Discussion", and the
+``cma.CMAOptions`` defaults of pycma); each is a constructor kwarg:
+
+* ``tolx`` (1e-11, σ0-relative): all components of ``σ·sqrt(diag C)`` and
+  ``σ·p_c`` below ``tolx · σ0``.
+* ``tolfun`` (1e-11): the range of the best objective values of the last
+  ``10 + ⌈30n/λ⌉`` generations *and* all values of the current generation is
+  below ``tolfun``.
+* ``tolfunhist`` (1e-12): the range of the best objective values over that
+  same history alone is below ``tolfunhist``.
+* ``stagnation`` (window ``20 + ⌈120n/λ⌉`` generations): in *both* the
+  best-value and the median-value history, the median of the last 30 % of the
+  window is not better than the median of the first 30 %.
+* ``conditioncov`` (1e14): the condition number of C exceeds the bound.
+* ``noeffectaxis``: adding ``0.1·σ·d_i·b_i`` (one principal axis, cycled per
+  generation) does not change the mean m.
+* ``noeffectcoord``: adding ``0.2·σ·sqrt(C_ii)`` in any single coordinate does
+  not change m.
+
+Two further criteria are *not* in the reference.  They exist because the
+reference tolerances are written for runs of many thousands of generations and
+almost never fire inside a 500·dim budget (measured 2026-09-10: 5 firings in 10
+battery runs, all of them after the search had already reached 1e-10 precision,
+which is below the AOCC log floor — hence no measurable gain):
+
+* ``stagnation_frac`` (off by default): restart when the best value seen has not
+  improved by more than ``stagnation_rel_tol`` (1e-8, relative) over the last
+  ``max(10·λ, stagnation_frac · max_eval)`` evaluations.  This is the only
+  criterion that scales with the *budget* rather than with n and λ.  It is off
+  because it measured *harmful* at the fractions where it fires often: −0.021
+  AOCC at 0.05 and −0.001 at 0.15 on the standard battery, since CMA-ES
+  routinely spends 15–30 generations adapting C without improving its best
+  value, and interrupting that costs more than the wasted tail is worth.
+  Only 0.25 was neutral (+0.002), by which point it has converged onto the
+  reference criteria anyway.
+* ``sigma_divergence`` (**on** by default): restart when the sampling spread
+  ``σ·sqrt(diag C)`` has sat at or above ``sigma_max_frac · range`` in every
+  coordinate for ``sigma_divergence_gens`` consecutive generations — the
+  panobbgo analogue of pycma's ``tolupsigma``.
+  :meth:`CMAES._update` clamps σ at the mean box range, so a diverging run does
+  not blow up: it parks at the clamp and samples the whole box (in practice the
+  box *boundary*, since everything outside is projected back onto it) for the
+  rest of the budget.  Two of the five diagnosed d=5 instances did exactly
+  that.  The clamp keeps the run numerically alive at the price of keeping it
+  useless; detecting the state and restarting is the reference cure
+  (Hansen 2016 stops such a run outright), which is why the clamp itself is
+  left alone.  This is the one addition that paid: **+0.0330 AOCC on the
+  standard battery, 6 of 6 seeds positive** (+0.024 at d=2, +0.042 at d=5,
+  2026-09-10), concentrated entirely in the 11 of 60 cells where it fires.
+
+When a criterion fires, the heuristic restarts through the very same code
+path as the ``restart`` event, with a start point chosen by ``restart_from``
+(``"random"`` — a uniform draw in the box, the reference IPOP behaviour and
+the default; ``"best"`` — the best point this heuristic has evaluated;
+``"center"`` — the box centre, i.e. what :meth:`on_start` uses).  Because the
+restart path is the IPOP/BIPOP one, ``ipop_factor`` finally has an effect in
+solo runs, where it was previously dead code.
+
 **BIPOP restart** (Hansen, 2009): alternates between two restart regimes,
 balancing the cumulative evaluation budget spent in each:
 
@@ -66,7 +135,8 @@ The heuristic works asynchronously inside the panobbgo event loop:
 1. ``on_start()``  — initialise parameters and emit the first generation of λ candidates.
 2. ``on_new_results()``  — collect returned results tagged with our generation ID.
    When at least μ results from the oldest open generation have arrived, perform
-   one CMA-ES update step and emit the next generation.
+   one CMA-ES update step, check the termination criteria, and either restart
+   (if one fired and ``self_restart`` is on) or emit the next generation.
 3. ``on_restart(center, reason)``  — reset distribution to *center* with the
    restart regime selected by ``restart_mode`` (``"ipop"`` or ``"bipop"``).
 
@@ -119,7 +189,83 @@ class CMAES(Heuristic):
             BIPOP mode (which always doubles the large regime).
         restart_mode (str): Restart scheme selector — ``"ipop"`` (default) or
             ``"bipop"``.
+        self_restart (bool): Watch the internal termination criteria and
+            restart without waiting for a ``restart`` event.  Default ``True``.
+            ``False`` restores the pre-2026-09 behaviour: one CMA-ES run for
+            the whole budget unless the ``Restart`` analyzer intervenes.
+        restart_from (str): Where a *self*-restart re-centres the search —
+            ``"random"`` (default; uniform draw in the box, the reference IPOP
+            behaviour), ``"best"`` (the best point this heuristic evaluated) or
+            ``"center"`` (the box centre, as :meth:`on_start` uses).  Restarts
+            coming from the ``restart`` event always use the analyzer's centre.
+        tolx (float): Termination when all components of ``σ·sqrt(diag C)``
+            and ``σ·p_c`` fall below ``tolx · σ0``.  Default 1e-11
+            (pycma ``cma.CMAOptions['tolx']``).
+        tolfun (float): Termination when the range of the best objective
+            values over the last ``10 + ⌈30n/λ⌉`` generations together with all
+            values of the current generation is below this.  Default 1e-11.
+        tolfunhist (float): Same window, best values only.  Default 1e-12
+            (pycma ``tolfunhist``).
+        stagnation (int, optional): Window length in generations for the
+            median-based stagnation test of Hansen (2016).  ``None`` (default)
+            resolves to ``20 + ⌈120n/λ⌉``; ``0`` disables the test.
+        conditioncov (float): Termination when ``cond(C)`` exceeds this.
+            Default 1e14 (pycma ``tolconditioncov``).
+        noeffectaxis (bool): Enable the ``NoEffectAxis`` criterion (default
+            ``True``).
+        noeffectcoord (bool): Enable the ``NoEffectCoord`` criterion (default
+            ``True``).
+        stagnation_frac (float, optional): Budget-relative stagnation window as
+            a fraction of ``config.max_eval``.  ``None`` (default) disables it
+            and leaves only the reference criteria.  The window is
+            ``max(10·λ, stagnation_frac · max_eval)`` evaluations; the criterion
+            fires when the best value seen has not improved by more than
+            ``stagnation_rel_tol`` (relative) over that window.  ``max_eval`` is
+            read lazily on each check, never in ``__init__`` — the budget is not
+            always known when the heuristic is constructed.
+        stagnation_rel_tol (float): Relative improvement that counts as
+            progress for ``stagnation_frac``.  Default 1e-8.
+        sigma_divergence (bool): Enable the σ-divergence criterion (default
+            ``True``): fire when the sampling spread ``σ·sqrt(diag C)`` has
+            been at or above ``sigma_max_frac · range`` in *every* coordinate
+            for ``sigma_divergence_gens`` consecutive generations.  This is the
+            panobbgo analogue of pycma's ``tolupsigma`` "creeping behaviour"
+            stop.  A diverged run has no basin worth keeping, so its restart
+            always re-centres on the best point seen, whatever ``restart_from``
+            says.
+        sigma_max_frac (float): Divergence threshold as a fraction of each
+            coordinate's box range.  Default 0.3 — a cloud whose per-coordinate
+            standard deviation is a third of the box is sampling the box, not a
+            neighbourhood.  Measured over 60 standard-battery cells (6 seeds,
+            2026-09-10) the criterion fired on 11 of them, every firing gained
+            AOCC (mean +0.180, max +0.437), and those cells averaged 0.370
+            AOCC without it against 0.625 for the battery as a whole.
+        sigma_divergence_gens (int): Consecutive generations above the
+            threshold before the criterion fires.  Default 5.
+        warm_start (str, optional): Fit the *initial* search distribution to
+            the shared archive instead of starting from the box centre
+            (``planning/DESIGN_warm_start_2026-09-10.md`` §2).  One of the
+            three shared selectors — ``"archive"``, ``"archive_diverse"``,
+            ``"archive_leaf"``, see
+            :meth:`~panobbgo.core.Heuristic.archive_seed` — or the CMA-ES-only
+            ``"archive_cov"``, which additionally seeds ``C`` with the
+            covariance of the seed cloud.  ``None`` (default) is the cold
+            start, statement for statement the behaviour shipped before.
+            Unlike the DE family and PSO, a warm start here saves **no**
+            evaluations: CMA-ES has no population to fill, so the whole gain
+            is starting in the right basin with the right scale.  At
+            ``t = 0`` the archive is empty and the heuristic cold-starts.
     """
+
+    #: Accepted values for the ``restart_from`` constructor argument.
+    SUPPORTED_RESTART_FROM = ("random", "best", "center")
+
+    #: Accepted values for ``warm_start``: the shared selectors of
+    #: :attr:`~panobbgo.core.Heuristic.WARM_START_MODES` plus the CMA-ES-only
+    #: covariance seed.  ``"archive_cov"`` is kept separate from ``"archive"``
+    #: on purpose, so the covariance seed can be measured apart from the
+    #: mean/σ seed.
+    SUPPORTED_WARM_START = Heuristic.WARM_START_MODES + ("archive_cov",)
 
     def __init__(
         self,
@@ -129,6 +275,21 @@ class CMAES(Heuristic):
         min_results_fraction: float = 0.5,
         ipop_factor: float = 2.0,
         restart_mode: str = "ipop",
+        self_restart: bool = True,
+        restart_from: str = "random",
+        tolx: float = 1e-11,
+        tolfun: float = 1e-11,
+        tolfunhist: float = 1e-12,
+        stagnation: Optional[int] = None,
+        conditioncov: float = 1e14,
+        noeffectaxis: bool = True,
+        noeffectcoord: bool = True,
+        stagnation_frac: Optional[float] = None,
+        stagnation_rel_tol: float = 1e-8,
+        sigma_divergence: bool = True,
+        sigma_max_frac: float = 0.3,
+        sigma_divergence_gens: int = 5,
+        warm_start: Optional[str] = None,
     ):
         super().__init__(strategy, name="CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -139,6 +300,74 @@ class CMAES(Heuristic):
         if restart_mode not in ("ipop", "bipop"):
             raise ValueError(f"restart_mode must be 'ipop' or 'bipop', got {restart_mode!r}")
         self._restart_mode = restart_mode
+
+        # --- Self-restart: internal termination criteria (Hansen 2016 / pycma) ---
+        if restart_from not in self.SUPPORTED_RESTART_FROM:
+            raise ValueError(f"restart_from must be one of {self.SUPPORTED_RESTART_FROM!r}, got {restart_from!r}")
+        for _n, _v in (("tolx", tolx), ("tolfun", tolfun), ("tolfunhist", tolfunhist)):
+            if _v < 0.0:
+                raise ValueError(f"{_n} must be >= 0, got {_v!r}")
+        if conditioncov <= 1.0:
+            raise ValueError(f"conditioncov must be > 1, got {conditioncov!r}")
+        if stagnation is not None and int(stagnation) < 0:
+            raise ValueError(f"stagnation must be >= 0 or None, got {stagnation!r}")
+        self._self_restart = bool(self_restart)
+        self._restart_from = restart_from
+        self._tolx = float(tolx)
+        self._tolfun = float(tolfun)
+        self._tolfunhist = float(tolfunhist)
+        self._stagnation_cfg = None if stagnation is None else int(stagnation)
+        self._conditioncov = float(conditioncov)
+        self._noeffectaxis = bool(noeffectaxis)
+        self._noeffectcoord = bool(noeffectcoord)
+
+        # --- Budget-relative criteria (panobbgo additions, not in the reference) ---
+        if stagnation_frac is not None and not 0.0 < float(stagnation_frac) <= 1.0:
+            raise ValueError(f"stagnation_frac must be in (0, 1] or None, got {stagnation_frac!r}")
+        if stagnation_rel_tol < 0.0:
+            raise ValueError(f"stagnation_rel_tol must be >= 0, got {stagnation_rel_tol!r}")
+        if not 0.0 < float(sigma_max_frac) <= 1.0:
+            raise ValueError(f"sigma_max_frac must be in (0, 1], got {sigma_max_frac!r}")
+        if int(sigma_divergence_gens) < 1:
+            raise ValueError(f"sigma_divergence_gens must be >= 1, got {sigma_divergence_gens!r}")
+        if warm_start is not None and warm_start not in self.SUPPORTED_WARM_START:
+            raise ValueError(
+                f"CMAES: warm_start must be None or one of {self.SUPPORTED_WARM_START}, got {warm_start!r}"
+            )
+        #: Archive selector for :meth:`_warm_start_distribution`, or ``None``
+        #: for the cold start.  A *string*, deliberately not a callable: the
+        #: trigger is :meth:`warm_start_now`.
+        self.warm_start: Optional[str] = warm_start
+        self._stagnation_frac = None if stagnation_frac is None else float(stagnation_frac)
+        self._stagnation_rel_tol = float(stagnation_rel_tol)
+        self._sigma_divergence = bool(sigma_divergence)
+        self._sigma_max_frac = float(sigma_max_frac)
+        self._sigma_divergence_gens = int(sigma_divergence_gens)
+
+        # Budget-relative stagnation bookkeeping.  ``_total_evals`` counts the
+        # results this heuristic has consumed over the *whole* run (it survives
+        # restarts, unlike ``_counteval``); ``_stag_ref_fx`` is the best value
+        # that still counts as "the last real improvement".
+        self._total_evals: int = 0
+        self._stag_ref_fx: float = float("inf")
+        self._last_improve_evals: int = 0
+        self._sigma_high_gens: int = 0
+
+        # Per-run termination bookkeeping (reset by :meth:`_reset_run_state`)
+        self._sigma0: float = 1.0  # σ at the start of the *current* CMA-ES run
+        self._fx_hist: List[float] = []  # best penalty per generation
+        self._med_hist: List[float] = []  # median penalty per generation
+        self._gen_fx: List[float] = []  # all finite penalties of the last generation
+        self._hist_len: int = 0  # 10 + ⌈30n/λ⌉ — tolfun/tolfunhist window
+        self._stagnation_gens: int = 0  # 20 + ⌈120n/λ⌉ — stagnation window
+        self._hist_max: int = 0  # how much history to keep around
+        self._cond: float = 1.0  # cond(C) at the last eigendecomposition
+        self._self_restart_count: int = 0
+        self._last_stop_reason: str = ""
+
+        # Best point this heuristic has evaluated (for ``restart_from="best"``)
+        self._best_fx: float = float("inf")
+        self._best_x: Optional[np.ndarray] = None
 
         # IPOP restart tracking
         self._restart_count: int = 0
@@ -199,6 +428,21 @@ class CMAES(Heuristic):
     # Lifecycle
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _recombination_weights(mu: int) -> tuple[np.ndarray, float]:
+        """The log-linear positive weights for ``mu`` parents, and their ``mu_eff``.
+
+        ``w_i ∝ ln(μ + ½) − ln i``, normalised to sum 1 (Hansen 2016, eq. 49),
+        with the effective number of parents ``μ_eff = 1 / Σ w_i²``.  Every
+        place that needs weights derives them here — the initial set-up, a
+        restart's new λ, a generation that came back short, and the warm
+        start — so "fewer parents than μ" is re-normalised the same way
+        everywhere.
+        """
+        raw = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
+        w = raw / raw.sum()
+        return w, float(1.0 / (w**2).sum())
+
     def on_start(self) -> None:
         """Initialise CMA-ES state and emit the first generation."""
         n = self.problem.dim
@@ -207,12 +451,9 @@ class CMAES(Heuristic):
         lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
         mu = lam // 2
 
-        # Recombination weights (log-linear, positive)
-        raw_w = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
-        w = raw_w / raw_w.sum()
-
-        # Effective number of parents
-        mu_eff = 1.0 / (w**2).sum()
+        # Recombination weights (log-linear, positive) and the effective
+        # number of parents they imply
+        w, mu_eff = self._recombination_weights(mu)
 
         # Step-size control
         c_sigma = (mu_eff + 2.0) / (n + mu_eff + 5.0)
@@ -280,15 +521,181 @@ class CMAES(Heuristic):
         self._bipop_current_regime = "large"
         self._bipop_regime_eval_anchor = 0
 
+        # A warm start replaces m / σ / C — and nothing else.  λ, μ, the
+        # adaptation constants and the counters are the cold set-up above, and
+        # the generation at the end of this method is emitted exactly as in a
+        # cold run.  It runs before ``_reset_run_state`` so that ``_sigma0``
+        # (which the ``tolx`` criterion is relative to) is the σ this run
+        # actually starts from.
+        if self.warm_start:
+            self._warm_start_distribution()
+
+        self._reset_run_state()
+
         self.logger.info(
-            "CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f mode=%s",
+            "CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f mode=%s self_restart=%s from=%s",
             n,
             lam,
             mu,
             sigma,
             self._restart_mode,
+            self._self_restart,
+            self._restart_from,
         )
         self._emit_generation()
+
+    # ------------------------------------------------------------------
+    # Warm start from the shared archive
+    # ------------------------------------------------------------------
+
+    def _warm_start_seeds(self) -> List[np.ndarray]:
+        """Positions of the archive points this warm start is fitted to.
+
+        ``k = max(λ, 4 + ⌊3 ln n⌋)`` — a full generation's worth, never fewer
+        than the default λ.  ``"archive_cov"`` asks for ``2n`` as well: a
+        sample covariance of ``k ≤ n`` points is rank-deficient by
+        construction, and would always fall back to the identity.
+        """
+        n = self.problem.dim
+        k = max(self._lam, 4 + int(3 * np.log(max(n, 2))))
+        if self.warm_start == "archive_cov":
+            k = max(k, 2 * n)
+        seeds = self.archive_seed(k, mode=self.warm_start)
+        return [np.asarray(r.x, dtype=float) for r in seeds]
+
+    def _warm_start_distribution(self) -> bool:
+        """Fit ``m`` / ``σ`` / ``C`` to the shared archive.  ``True`` iff seeded.
+
+        The recipe of the design's §2 "Per-arm recipes":
+
+        * **m** — the μ-weighted recombination of the best μ seeds, using the
+          very weights :meth:`_update` recombines with (re-normalised when
+          fewer than μ seeds exist, exactly as :meth:`_update` does).
+        * **σ** — the mean per-coordinate standard deviation of the seed
+          cloud, clipped into ``[1e-6·range, σ0_cold]``.  Never *wider* than a
+          cold start: a warm start may only narrow the search.
+        * **C** — the identity, or (``"archive_cov"``) the seed covariance
+          normalised to unit determinant, so it carries the *shape* of the
+          cloud while σ alone carries its scale.
+        * evolution paths zeroed, ``_counteval`` untouched.
+
+        Returns ``False`` — **without touching any state** — when the archive
+        has nothing to give, so a caller can fall back to the cold path (or,
+        for :meth:`warm_start_now`, leave a running search alone).
+        """
+        if not self.warm_start:
+            return False
+        if self._ranges is None or self._w is None:
+            return False  # on_start has not run yet
+        seeds = self._warm_start_seeds()
+        if not seeds:
+            return False
+
+        n = self.problem.dim
+        X = np.vstack(seeds)
+
+        # --- mean: μ-weighted recombination of the best seeds ---
+        mu = max(1, min(self._mu, len(X)))
+        w = self._w if mu == len(self._w) else self._recombination_weights(mu)[0]
+        self._m = self.problem.project(w[:mu] @ X[:mu])
+
+        # --- σ: the spread of the seed cloud, never wider than cold ---
+        spread = float(np.mean(np.std(X, axis=0))) if len(X) > 1 else 0.0
+        floor = 1e-6 * float(np.mean(self._ranges))
+        self._sigma = float(np.clip(spread, floor, self._sigma0_default()))
+
+        # --- C, B, D and the evolution paths ---
+        self._p_c = np.zeros(n)
+        self._p_sigma = np.zeros(n)
+        if self.warm_start == "archive_cov" and len(X) >= n + 2:
+            self._seed_covariance(X)
+        else:
+            self._reset_covariance(n)
+            self._cond = 1.0
+        # B and D were just made consistent with C, so the lazy
+        # eigendecomposition schedule restarts from here.  ``_counteval``
+        # itself is deliberately left alone.
+        self._eigeneval = self._counteval
+
+        self.logger.info(
+            "CMA-ES warm start (%s): %d seeds, σ=%.4g, cond(C)=%.3g",
+            self.warm_start,
+            len(X),
+            self._sigma,
+            self._cond,
+        )
+        return True
+
+    def _seed_covariance(self, X: np.ndarray) -> None:
+        """Set ``C`` to the seed covariance, normalised to unit determinant.
+
+        Eigendecomposed exactly the way :meth:`_update` does — symmetrise,
+        ``eigh``, the same ``1e-20`` eigenvalue floor, the same ``1e7``
+        condition guard that falls back to the identity.  The unit-determinant
+        normalisation is what keeps the *scale* of the search in σ alone,
+        where CMA-ES's step-size control can adapt it; without it the seed
+        cloud's scale would be counted twice.
+        """
+        n = self.problem.dim
+        cov = np.atleast_2d(np.asarray(np.cov(X, rowvar=False), dtype=float))
+        if cov.shape != (n, n) or not np.all(np.isfinite(cov)):
+            self._reset_covariance(n)
+            self._cond = 1.0
+            return
+
+        C_sym = (cov + cov.T) / 2.0
+        try:
+            eigvals, B_new = np.linalg.eigh(C_sym)
+        except np.linalg.LinAlgError:
+            self.logger.warning("CMA-ES warm start: eigendecomposition of the seed covariance failed")
+            self._reset_covariance(n)
+            self._cond = 1.0
+            return
+
+        eigvals = np.maximum(eigvals, 1e-20)
+        # det(C) = Π eigvals = 1  ⇔  the eigenvalues have geometric mean 1.
+        eigvals = eigvals / float(np.exp(np.mean(np.log(eigvals))))
+        D_new = np.sqrt(eigvals)
+        self._B = B_new
+        self._D = D_new
+        self._C = (B_new * eigvals) @ B_new.T
+        self._cond = float(D_new.max() / D_new.min()) ** 2
+
+        if D_new.max() / D_new.min() > 1e7:
+            # A degenerate seed cloud (duplicates, or fewer independent
+            # directions than dimensions) — the identity is the honest prior.
+            self.logger.info("CMA-ES warm start: seed covariance too ill-conditioned — using I")
+            self._reset_covariance(n)
+            self._cond = 1.0
+
+    def warm_start_now(self) -> bool:
+        """Re-fit the search distribution to the shared archive, right now.
+
+        The direct-call hook of
+        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`; see
+        :meth:`panobbgo.core.Heuristic.warm_start_now`.  Unlike a restart this
+        keeps λ, the regime bookkeeping and ``_counteval`` — only the
+        distribution moves — but it does drop the stale generation in flight,
+        exactly as :meth:`_apply_restart` does, and starts a fresh
+        termination-criteria window.
+
+        Nothing is dropped when the archive is empty: the method returns
+        ``False`` and the running search is left untouched.
+        """
+        if self._stopped or not self.warm_start:
+            return False
+        if self._m is None or self._w is None or self._ranges is None:
+            return False  # not started yet — on_start will do the seeding
+        if not self._warm_start_distribution():
+            return False
+
+        self._pending.clear()
+        self._gen_results.clear()
+        self._gen_emitted.clear()
+        self.clear_output()
+        self._reset_run_state()
+        self._emit_generation()
+        return True
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -340,15 +747,24 @@ class CMAES(Heuristic):
                 self._update(bucket)
                 del self._gen_results[gen]
                 self._gen_emitted.pop(gen, None)
-                self._emit_generation()
+                # A fired termination criterion replaces the next generation
+                # with a restart — ``_apply_restart`` emits from the fresh
+                # distribution, so exactly one generation goes out either way.
+                reason = self._check_termination() if self._self_restart else None
+                if reason is not None:
+                    self._self_restart_now(reason)
+                else:
+                    self._emit_generation()
                 break
 
     def on_restart(self, center: np.ndarray, reason: str = "") -> None:
         """Reset CMA-ES to *center* using the configured restart scheme.
 
         Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer
-        when stagnation is detected.  Dispatches to the IPOP or BIPOP
-        sub-routine according to ``restart_mode``.  Both schemes:
+        when stagnation is detected, and by :meth:`_self_restart_now` when one
+        of the heuristic's own termination criteria fires (then *center* comes
+        from ``restart_from`` instead of the analyzer).  Dispatches to the IPOP
+        or BIPOP sub-routine according to ``restart_mode``.  Both schemes:
 
         - Move the search mean to *center* (a fresh region of the search space).
         - Recompute μ and all adaptation parameters for the new λ.
@@ -471,9 +887,7 @@ class CMAES(Heuristic):
         new_mu = max(new_lam // 2, 1)
 
         # Recombination weights (log-linear, positive)
-        raw_w = np.log(new_mu + 0.5) - np.log(np.arange(1, new_mu + 1, dtype=float))
-        new_w = raw_w / raw_w.sum()
-        new_mu_eff = 1.0 / (new_w**2).sum()
+        new_w, new_mu_eff = self._recombination_weights(new_mu)
 
         n = self.problem.dim
 
@@ -509,6 +923,8 @@ class CMAES(Heuristic):
         self._eigeneval = 0
         self._counteval = 0
 
+        self._reset_run_state()
+
         # Flush stale generation tracking and stale queued points — results for
         # pre-restart points are ignored anyway, and clearing frees queue
         # capacity for the (typically larger) new generation.
@@ -542,6 +958,218 @@ class CMAES(Heuristic):
     def bipop_evals_small(self) -> int:
         """Cumulative evaluations spent in the BIPOP small regime."""
         return self._bipop_evals_small
+
+    # ------------------------------------------------------------------
+    # Termination criteria and self-restart
+    # ------------------------------------------------------------------
+
+    def _reset_run_state(self) -> None:
+        """Reset the per-run bookkeeping the termination criteria read.
+
+        Called once per CMA-ES *run*, i.e. from :meth:`on_start` and from
+        :meth:`_apply_restart` after λ and σ of the new run are in place —
+        the two window lengths both depend on λ, so they must be resolved
+        here rather than in the constructor.
+        """
+        n = self.problem.dim
+        lam = max(self._lam, 1)
+        self._sigma0 = self._sigma
+        self._fx_hist = []
+        self._med_hist = []
+        self._gen_fx = []
+        self._cond = 1.0
+        # Hansen (2016): TolFun looks at the last 10 + ⌈30n/λ⌉ generations,
+        # Stagnation at the last 20 + ⌈120n/λ⌉.
+        self._hist_len = int(10 + np.ceil(30.0 * n / lam))
+        if self._stagnation_cfg is None:
+            self._stagnation_gens = int(20 + np.ceil(120.0 * n / lam))
+        else:
+            self._stagnation_gens = self._stagnation_cfg
+        self._hist_max = max(self._hist_len, self._stagnation_gens) + 1
+        self._sigma_high_gens = 0
+        # A fresh run gets a fresh budget-relative window to prove itself; the
+        # *value* it has to beat (``_stag_ref_fx``) stays global, so a restart
+        # that only rediscovers the old optimum still counts as stagnation.
+        self._last_improve_evals = self._total_evals
+
+    def _record_generation(self, collected: List[dict]) -> None:
+        """Fold one finished generation into the termination histories.
+
+        ``collected`` is already sorted ascending by penalty, so its first
+        element is the generation's best.  Non-finite penalties (the rank-last
+        marker for a failed evaluation) are excluded from the ranges the
+        criteria test, but still counted in the median.
+        """
+        penalties = [float(d["penalty"]) for d in collected]
+        best = penalties[0]
+        self._fx_hist.append(best)
+        self._med_hist.append(float(np.median(penalties)))
+        self._gen_fx = [p for p in penalties if np.isfinite(p)]
+        if len(self._fx_hist) > self._hist_max:
+            del self._fx_hist[: -self._hist_max]
+            del self._med_hist[: -self._hist_max]
+
+        if np.isfinite(best) and best < self._best_fx:
+            self._best_fx = best
+            self._best_x = np.asarray(collected[0]["x"], dtype=float).copy()
+
+        # Budget-relative stagnation clock.  ``_total_evals`` is the run-long
+        # evaluation count (``_counteval`` restarts at 0 on every restart).
+        self._total_evals += len(penalties)
+        if np.isfinite(best) and best < self._stag_ref_fx - self._stagnation_rel_tol * abs(self._stag_ref_fx):
+            self._stag_ref_fx = best
+            self._last_improve_evals = self._total_evals
+        elif not np.isfinite(self._stag_ref_fx) and np.isfinite(best):
+            # First finite value: start the clock rather than count it as stagnation.
+            self._stag_ref_fx = best
+            self._last_improve_evals = self._total_evals
+
+    def _check_termination(self) -> Optional[str]:
+        """Return the name of the first termination criterion that fires, else ``None``.
+
+        The criteria and their reference defaults follow Hansen (2016),
+        "The CMA Evolution Strategy: A Tutorial", §"Discussion" (termination
+        criteria), and the ``cma.CMAOptions`` defaults of pycma.
+        """
+        m, C, p_c, B, D = self._m, self._C, self._p_c, self._B, self._D
+        if m is None or C is None or p_c is None or B is None or D is None:
+            return None
+        if not self._fx_hist:
+            return None
+
+        n = self.problem.dim
+        sigma = self._sigma
+        sqrt_diag_C = np.sqrt(np.maximum(np.diag(C), 0.0))
+
+        # --- σ divergence: the sampling cloud has grown to box scale ---
+        # Counted first so the streak is maintained no matter which criterion
+        # ends up firing.  ``_update`` clamps σ at ``mean(ranges)``, so a
+        # diverging run parks *at* the clamp instead of terminating — this is
+        # the panobbgo stand-in for pycma's ``tolupsigma``.
+        #
+        # The test is on the *sampling spread* σ·sqrt(diag C), not on σ alone:
+        # σ and C share one scale degree of freedom, so a perfectly healthy,
+        # converging run can carry a large σ against a small C.  Testing σ on
+        # its own produced exactly that false positive twice in 30 battery runs
+        # (2026-09-10) and cost 0.04 and 0.20 AOCC on those two cells.  All
+        # coordinates must be box-scale — one long axis is a ridge search, not
+        # a divergence.
+        if self._ranges is not None:
+            if np.all(sigma * sqrt_diag_C >= self._sigma_max_frac * self._ranges):
+                self._sigma_high_gens += 1
+            else:
+                self._sigma_high_gens = 0
+        if self._sigma_divergence and self._sigma_high_gens >= self._sigma_divergence_gens:
+            return "sigma_divergence"
+
+        # --- TolX: the distribution has shrunk below a σ0-relative threshold ---
+        tolx = self._tolx * self._sigma0
+        if np.all(sigma * sqrt_diag_C < tolx) and np.all(sigma * np.abs(p_c) < tolx):
+            return "tolx"
+
+        # --- TolFun / TolFunHist: the objective range has flattened out ---
+        if len(self._fx_hist) >= self._hist_len:
+            window = [f for f in self._fx_hist[-self._hist_len :] if np.isfinite(f)]
+            if window:
+                spread = max(window) - min(window)
+                combined = window + self._gen_fx
+                if max(combined) - min(combined) < self._tolfun:
+                    return "tolfun"
+                if spread < self._tolfunhist:
+                    return "tolfunhist"
+
+        # --- Stagnation: neither the best nor the median history improves ---
+        w = self._stagnation_gens
+        if w > 0 and len(self._fx_hist) >= w:
+            k = max(1, int(0.3 * w))
+            improved = False
+            for hist in (self._fx_hist[-w:], self._med_hist[-w:]):
+                if float(np.median(hist[-k:])) < float(np.median(hist[:k])):
+                    improved = True
+                    break
+            if not improved:
+                return "stagnation"
+
+        # --- Budget-relative stagnation: no real progress for a slice of the budget ---
+        window = self._stagnation_eval_window()
+        if window > 0 and self._total_evals - self._last_improve_evals >= window:
+            return "stagnation_evals"
+
+        # --- Condition number of C ---
+        if self._cond > self._conditioncov:
+            return "conditioncov"
+
+        # --- NoEffectAxis: one principal axis per generation, cycled ---
+        if self._noeffectaxis:
+            i = (self._gen - 1) % n
+            if np.all(m == m + 0.1 * sigma * D[i] * B[:, i]):
+                return "noeffectaxis"
+
+        # --- NoEffectCoord: any single coordinate ---
+        if self._noeffectcoord and np.any(m == m + 0.2 * sigma * sqrt_diag_C):
+            return "noeffectcoord"
+
+        return None
+
+    def _stagnation_eval_window(self) -> int:
+        """Budget-relative stagnation window in evaluations (0 = disabled).
+
+        ``config.max_eval`` is read here rather than in ``__init__`` because
+        the budget is only guaranteed to be set on the config *after* the
+        heuristic is constructed.  The ``10·λ`` floor also makes the criterion
+        self-limiting across IPOP restarts: λ doubles each time, so the window
+        grows past the remaining budget after a few restarts instead of
+        thrashing.
+        """
+        if self._stagnation_frac is None:
+            return 0
+        max_eval = getattr(self.config, "max_eval", 0) or 0
+        return int(max(10 * max(self._lam, 1), self._stagnation_frac * float(max_eval)))
+
+    def _restart_center(self, mode: Optional[str] = None) -> np.ndarray:
+        """Start point for a *self*-restart, per ``restart_from`` or *mode*.
+
+        ``"random"`` draws from :attr:`rng` — the heuristic's own generator —
+        so a seeded run stays reproducible.
+        """
+        mode = mode or self._restart_from
+        if mode == "random":
+            return self.problem.random_point(rng=self.rng)
+        if mode == "best" and self._best_x is not None:
+            return self._best_x.copy()
+        # ``"center"``, and ``"best"`` before anything has been evaluated
+        assert self._lo is not None and self._hi is not None
+        return 0.5 * (self._lo + self._hi)
+
+    def _self_restart_now(self, reason: str) -> None:
+        """Restart because *our own* criterion ``reason`` fired.
+
+        Goes through :meth:`on_restart`, so the IPOP/BIPOP logic, the
+        population growth and the bookkeeping are shared with the
+        analyzer-driven path — only the start point differs.  A σ-divergence
+        restart overrides ``restart_from``: the distribution has spread over
+        the whole box, so there is no basin left to keep and no reason to
+        throw the best point seen away.
+        """
+        self._self_restart_count += 1
+        self._last_stop_reason = reason
+        mode = "best" if reason == "sigma_divergence" else None
+        self.on_restart(self._restart_center(mode), f"self-restart: {reason}")
+
+    @property
+    def n_restarts(self) -> int:
+        """Total restarts in this run — event-driven plus self-triggered."""
+        return self._restart_count
+
+    @property
+    def n_self_restarts(self) -> int:
+        """Restarts triggered by the internal termination criteria."""
+        return self._self_restart_count
+
+    @property
+    def last_stop_reason(self) -> str:
+        """Name of the termination criterion that fired last (``""`` if none)."""
+        return self._last_stop_reason
 
     # ------------------------------------------------------------------
     # Core CMA-ES update
@@ -610,15 +1238,14 @@ class CMAES(Heuristic):
 
         # Sort by penalty (ascending = minimise)
         collected.sort(key=lambda d: d["penalty"])
+        self._record_generation(collected)
         selected = collected[: self._mu]
 
         # Recombination weights (may use fewer than μ if fewer arrived)
         actual_mu = len(selected)
         if actual_mu < len(w_full):
             # Re-normalise weights for the actual number of survivors
-            raw = np.log(actual_mu + 0.5) - np.log(np.arange(1, actual_mu + 1, dtype=float))
-            w = raw / raw.sum()
-            mu_eff = 1.0 / (w**2).sum()
+            w, mu_eff = self._recombination_weights(actual_mu)
         else:
             w = w_full
             mu_eff = self._mu_eff
@@ -690,6 +1317,10 @@ class CMAES(Heuristic):
             self._B = B_new
             self._D = D_new
             self._C = C_sym
+
+            # cond(C) = (max D / min D)², recorded *before* the guard below
+            # resets C, so the ``conditioncov`` criterion still sees it.
+            self._cond = float(D_new.max() / D_new.min()) ** 2
 
             # Condition-number guard
             if D_new.max() / D_new.min() > 1e7:

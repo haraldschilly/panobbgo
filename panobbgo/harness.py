@@ -2491,7 +2491,10 @@ class BenchmarkHarness:
                 )
 
                 for rep in range(reps):
-                    seed = self._derive_seed(config.seed, prob_spec.name, strat_spec.name, rep)
+                    # ``rng_identity`` is ``seed_name or name`` — variants of one
+                    # arm can share an RNG stream so their A/B measures the
+                    # parameter rather than the run-to-run variance.
+                    seed = self._derive_seed(config.seed, prob_spec.name, strat_spec.rng_identity, rep)
                     if verbose:
                         run_counter += 1
                         print(
@@ -2598,7 +2601,11 @@ class BenchmarkHarness:
                 problem = prob_spec.create_problem_for_rep(rep)
             else:
                 problem = prob_spec.create_problem()
-            strategy = strat_spec.create_strategy(problem, seed=seed)
+            # The budget goes in through the constructor: heuristics are built
+            # inside create_strategy() and budget-adaptive ones
+            # (``NP_init="auto"``) size themselves from ``config.max_eval``
+            # at construction time.
+            strategy = strat_spec.create_strategy(problem, seed=seed, max_eval=budget)
 
             # Configure evaluation budget and method
             strategy.config.max_eval = budget

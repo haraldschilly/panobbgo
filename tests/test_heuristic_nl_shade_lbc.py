@@ -68,7 +68,9 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         )
 
         h = NLSHADE_LBC(self.strategy)
-        assert h.NP_init == 30
+        # ``NP_init`` defaults to ``"auto"``, and LBC carries its own
+        # ``AUTO_DIM_COEF = 4``: 4*dim = 8 at dim=2 / 1000 evals.
+        assert h.NP_init == 8
         assert h.NP_min == 4
         assert h.H == 5
         assert h.p_best_max == 0.25

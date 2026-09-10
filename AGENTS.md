@@ -177,9 +177,24 @@ Per-pair metrics: `success_rate`, `ert` (BBOB standard),
     have the same rep count — the `--randomize` case. Force with
     `--paired` / `--unpaired`; use `--unpaired` when reps are not
     instance-aligned (different `base_seed`s).
-*   Known measurement-fidelity limit: identical seeded runs are not yet
-    bit-reproducible (thread pool, per-heuristic RNGs); see
-    `planning/GOAL.md` and `TODO.md` before interpreting deltas below ~0.05.
+*   Seeded runs are bit-reproducible under `sync_eval` (since 2026-09-09).
+    But each run's RNG stream is derived from `StrategySpec.seed_name`
+    (default: the spec's `name`), so **variants of one arm must share a
+    `seed_name`** or the A/B carries full run-to-run variance — a parameter
+    that is never read then still shows a delta (this passed a CI once;
+    DISCOVERY §18).  `benchmarks/arm_sweep.py` / `oracle.py` /
+    `np_accept.py` / `portfolio_screen.py` do this.
+*   Measured null floor on a 3-seed standard-battery mean: **±0.05** for a
+    CMA-ES-containing spec, **±0.03** for a DE arm.  Anything smaller is a
+    direction, not an effect.  A positive result also needs a *mechanism*
+    (which code path reads the parameter?) before it is called located.
+*   **The best spec of a multi-spec screen is a candidate, nothing more.**
+    Its screen CI is the CI of a *selected maximum* and carries no weight
+    (DISCOVERY §30: +0.050 with a CI clear of zero on 3 seeds → −0.006 on
+    the roster).  Only a roster CI on a pre-registered spec counts.
+*   **A default changes only after the 12-seed decision roster**
+    (`DEFAULT_DECISION_SEEDS` in `harness_ioh.py`): paired CI excluding
+    zero on the positive side, ≥ 9/12 seeds, no dimension negative.
 
 ### IOH / MA-BBOB anytime track (AOCC)
 

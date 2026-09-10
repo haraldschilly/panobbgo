@@ -195,6 +195,11 @@ _DEFAULT_C2: float = 1.49618  # χ · 2.05
 # _TOPOLOGIES``).
 _TOPOLOGIES: tuple = ("gbest", "lbest", "vonneumann", "random")
 
+# Rejection-sampling budget for the warm-start derangement.  A random
+# permutation is a derangement with probability → 1/e, so three draws
+# succeed ~95% of the time; the bound only exists so the loop terminates.
+_DERANGEMENT_MAX_DRAWS: int = 32
+
 
 class PSO(Heuristic):
     """Asynchronous Particle Swarm Optimization heuristic.
@@ -275,6 +280,18 @@ class PSO(Heuristic):
             for ``topology in {"gbest", "lbest", "vonneumann"}`` — the
             three geometric topologies are deterministic functions of
             ``NP`` and have no stochastic graph to rebuild.
+        warm_start: Optional seeding of the initial swarm from the *shared*
+            archive instead of uniform random positions
+            (``planning/DESIGN_warm_start_2026-09-10.md`` §2).  One of
+            ``"archive"``, ``"archive_diverse"`` or ``"archive_leaf"`` — see
+            :meth:`~panobbgo.core.Heuristic.archive_seed`; ``None`` (default)
+            is the cold start, statement for statement the behaviour shipped
+            before.  Positions and personal bests come from the top-``NP``
+            results at zero evaluation cost; velocities are
+            ``0.5·(x_π(i) − x_i)`` over a random derangement ``π``, clipped
+            to ``v_max``, so the swarm starts *moving between* known good
+            points instead of from a standstill.  At ``t = 0`` the archive is
+            empty and the heuristic silently cold-starts.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             uses the module's strategy-derived ``self.rng`` stream.
         name: Override the heuristic's display name.
@@ -304,6 +321,7 @@ class PSO(Heuristic):
         k_neighbors: int = 2,
         w_end: Optional[float] = None,
         stagnation_threshold: Optional[int] = None,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -334,6 +352,8 @@ class PSO(Heuristic):
                 )
             if stagnation_threshold < 1:
                 raise ValueError(f"PSO: stagnation_threshold must be >= 1 when set, got {stagnation_threshold}")
+        if warm_start is not None and warm_start not in Heuristic.WARM_START_MODES:
+            raise ValueError(f"PSO: warm_start must be None or one of {Heuristic.WARM_START_MODES}, got {warm_start!r}")
 
         super().__init__(strategy, name=name or "PSO")
         self.NP: int = NP
@@ -345,6 +365,10 @@ class PSO(Heuristic):
         self.k_neighbors: int = int(k_neighbors)
         self.w_end: Optional[float] = None if w_end is None else float(w_end)
         self.stagnation_threshold: Optional[int] = None if stagnation_threshold is None else int(stagnation_threshold)
+        #: Archive selector for :meth:`_warm_start_swarm`, or ``None`` for the
+        #: cold start.  A *string*, deliberately not a callable: the trigger
+        #: is :meth:`warm_start_now`.
+        self.warm_start: Optional[str] = warm_start
         self._rng: np.random.Generator = self.derive_rng(seed)
 
         # Per-particle state.  Sized once on_start() runs (we need
@@ -666,8 +690,80 @@ class PSO(Heuristic):
     # Heuristic interface
     # ------------------------------------------------------------------
 
+    def _derangement(self, n: int) -> np.ndarray:
+        """A permutation of ``range(n)`` without fixed points.
+
+        Rejection sampling (a random permutation is a derangement with
+        probability ≈ 1/e, so this takes about three draws) with a cyclic
+        shift as the bounded fallback.  ``n < 2`` has no derangement; the
+        identity is returned and the corresponding velocities come out zero.
+        """
+        if n < 2:
+            return np.arange(n)
+        idx = np.arange(n)
+        for _ in range(_DERANGEMENT_MAX_DRAWS):
+            perm = self._rng.permutation(n)
+            if not np.any(perm == idx):
+                return perm
+        return np.roll(idx, 1)
+
+    def _warm_start_swarm(self) -> bool:
+        """Seed positions, personal bests and velocities from the shared archive.
+
+        ``True`` iff at least one particle was seeded.  The seed points cost
+        **zero evaluations** — they are already-evaluated
+        :class:`~panobbgo.lib.Result` objects, so they go straight into
+        ``_pbest_result``.  Each particle then gets one ordinary move
+        (:meth:`_generate_next`), which is the first thing it would have done
+        anyway; the difference is that the move starts from a good point with
+        a velocity pointing at *another* good point.
+        """
+        if not self.warm_start:
+            return False
+        assert self._positions is not None and self._velocities is not None and self._pbest_x is not None
+        seeds = self.archive_seed(self.NP, mode=self.warm_start)
+        if not seeds:
+            return False  # empty archive: the caller falls back to the cold path
+
+        dim = self.problem.dim
+        v_max = self._v_max()
+        n = min(len(seeds), self.NP)
+        for i in range(n):
+            x = np.asarray(seeds[i].x, dtype=float)
+            self._positions[i] = x
+            self._pbest_x[i] = x
+            self._pbest_result[i] = seeds[i]
+
+        # Shortfall: the cold path, unchanged — a random position with a
+        # random velocity, evaluated as a fresh particle.
+        for i in range(n, self.NP):
+            self._velocities[i] = self._rng.uniform(-v_max, v_max, size=dim)
+            x = self.problem.random_point(rng=self._rng)
+            self._positions[i] = x
+            self._emit_trial(x, i)
+
+        # Velocities of the seeded particles: half the way towards another
+        # seed.  A derangement, so no particle is handed a zero velocity and
+        # the swarm spans the archive instead of collapsing onto its best
+        # point.
+        perm = self._derangement(n)
+        for i in range(n):
+            v = 0.5 * (self._positions[perm[i]] - self._positions[i])
+            self._velocities[i] = np.clip(v, -v_max, v_max)
+
+        self._update_global_best()
+        for i in range(n):
+            self._generate_next(i)
+        return True
+
     def on_start(self) -> None:
-        """Allocate state and emit the initial swarm of random positions."""
+        """Allocate state and emit the initial swarm of random positions.
+
+        With ``warm_start`` set and a non-empty archive the random swarm is
+        replaced by seeds taken straight from the shared archive; with
+        ``warm_start=None`` — or an archive that has nothing to give — this
+        is the cold start, statement for statement as before.
+        """
         dim = self.problem.dim
         self._positions = np.zeros((self.NP, dim), dtype=float)
         self._velocities = np.zeros((self.NP, dim), dtype=float)
@@ -679,6 +775,9 @@ class PSO(Heuristic):
         if self.topology == "random":
             self._init_random_adjacency()
 
+        if self.warm_start and self._warm_start_swarm():
+            return
+
         # Initial velocities are drawn uniformly inside the velocity
         # clamp.  This avoids the "stalled at zero velocity for the
         # first iteration" pathology of pure-zero-init PSO.
@@ -689,6 +788,24 @@ class PSO(Heuristic):
             x = self.problem.random_point(rng=self._rng)
             self._positions[i] = x
             self._emit_trial(x, i)
+
+    def warm_start_now(self) -> bool:
+        """Re-seed the swarm from the shared archive on re-acquisition.
+
+        The direct-call hook of
+        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`; see
+        :meth:`panobbgo.core.Heuristic.warm_start_now`.  Drops the stale
+        in-flight trials and rebuilds the swarm around the portfolio's best
+        points, at zero evaluation cost.  The informer graph and the inertia
+        schedule are left alone — this is a re-seeding, not a restart.
+        """
+        if self._stopped or not self.warm_start:
+            return False
+        if self._positions is None or self._velocities is None or self._pbest_x is None:
+            return False  # not started yet — on_start will do the seeding
+        self.clear_output()
+        self._pending.clear()
+        return self._warm_start_swarm()
 
     def on_new_results(self, results) -> None:
         """Process incoming evaluation results and emit follow-up trials."""

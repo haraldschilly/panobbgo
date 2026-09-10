@@ -15,11 +15,13 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Iterator
+from types import SimpleNamespace
+from typing import ClassVar, Iterator, List
 
 import numpy as np
 import pytest
 
+from panobbgo.benchmark import StrategySpec
 from panobbgo.harness_baselines import make_baseline_strategies
 from panobbgo.harness_ioh import (
     DEFAULT_DECISION_SEEDS,
@@ -36,7 +38,10 @@ from panobbgo.harness_ioh import (
     run_ioh_harness,
     run_ioh_harness_multi_seed,
 )
+from panobbgo.heuristics import LSHADE
+from panobbgo.heuristics.lshade import _resolve_auto_np_init
 from panobbgo.ioh_runner import IOHTracker, _BudgetExhausted, aocc
+from panobbgo.strategies import StrategyRoundRobin
 from panobbgo.lib.ioh_wrapper import IOHProblem, worker_available
 
 
@@ -305,7 +310,7 @@ class TestRunIOHHarness:
         # portfolio control (see make_ioh_strategies).
         assert "RoundRobin_CMAES" in names
         assert "RoundRobin_Random" in names
-        assert "Rewarding_Restart" in names
+        assert "Blocks_warm_CMAES_JSO" in names
         battery = IOHBatterySpec(
             name="ioh-iohstrats",
             problem_kind="MA-BBOB",
@@ -658,8 +663,8 @@ class TestSyncEvalHarness:
     def test_sync_eval_run_completes_and_tags_result(self) -> None:
         from panobbgo.harness_ioh import make_ioh_strategies
 
-        specs = [s for s in make_ioh_strategies() if s.name == "Rewarding_Restart"]
-        assert specs, "expected the Rewarding_Restart spec"
+        specs = [s for s in make_ioh_strategies() if s.name == "Blocks_warm_CMAES_JSO"]
+        assert specs, "expected the Blocks_warm_CMAES_JSO spec"
         battery = IOHBatterySpec(
             name="ioh-sync-tiny", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
         )
@@ -696,3 +701,128 @@ class TestCompetitionCandidate:
 
         spec = next(s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES")
         assert Restart not in [cls for cls, _ in spec.analyzers]
+
+
+# ---------------------------------------------------------------------------
+# The evaluation budget must reach heuristic constructors
+# ---------------------------------------------------------------------------
+
+
+class _RecordingRoundRobin(StrategyRoundRobin):
+    """Round-robin strategy that keeps every instance built, for inspection."""
+
+    built: ClassVar[List["_RecordingRoundRobin"]] = []
+
+    def __init__(self, problem, **kwargs) -> None:
+        super().__init__(problem, **kwargs)
+        type(self).built.append(self)
+
+
+def _np_init_for(budget: float, dim: int, NP_min: int) -> int:
+    """``_resolve_auto_np_init`` for a (budget, dim) pair, via a stub strategy."""
+    stub = SimpleNamespace(config=SimpleNamespace(max_eval=budget), problem=SimpleNamespace(dim=dim))
+    return _resolve_auto_np_init(stub, NP_min)
+
+
+@requires_worker
+class TestBudgetReachesHeuristicConstructors:
+    """``NP_init="auto"`` must size itself from the battery budget, not the default.
+
+    Regression test: ``_run_one`` used to build the strategy first and assign
+    ``config.max_eval = budget`` afterwards, so ``_resolve_auto_np_init`` —
+    which runs inside ``LSHADE.__init__`` — read ``Config``'s default 1000
+    instead of ``budget_multiplier * dim``.
+    """
+
+    def test_auto_np_init_sizes_from_the_battery_budget(self) -> None:
+        battery = IOHBatterySpec(
+            name="ioh-auto-np",
+            problem_kind="MA-BBOB",
+            dims=(5,),
+            instances=(0,),
+            reps=1,
+            # budget = 250 evals, half the reference 500*dim; ``dim=5`` keeps
+            # the auto size above its floor of 6 at both budgets, so the
+            # "expected != stale" check below is not vacuous.
+            budget_multiplier=50,
+        )
+        dim = battery.dims[0]
+        budget = battery.budget_for(dim)
+        spec = StrategySpec(
+            name="RoundRobin_LSHADE_auto",
+            strategy_class=_RecordingRoundRobin,
+            heuristics=[(LSHADE, {"NP_init": "auto"})],
+        )
+
+        _RecordingRoundRobin.built.clear()
+        try:
+            result = run_ioh_harness([spec], battery, base_seed=42, progress=False, sync_eval=True)
+            assert [r.error for r in result.runs] == [None]
+            assert len(_RecordingRoundRobin.built) == 1
+            strategy = _RecordingRoundRobin.built[0]
+        finally:
+            _RecordingRoundRobin.built.clear()
+
+        assert strategy.config.max_eval == budget
+        lshade = next(h for h in strategy._hs if isinstance(h, LSHADE))
+
+        expected = _np_init_for(budget, dim, lshade.NP_min)
+        stale = _np_init_for(1000, dim, lshade.NP_min)  # what the default max_eval gives
+        assert expected != stale, "test is vacuous unless the two budgets disagree"
+        assert lshade.NP_init == expected
+
+
+# ---------------------------------------------------------------------------
+# seed_name: variants of one arm can share the RNG stream
+# ---------------------------------------------------------------------------
+
+
+def _tiny_battery(name: str) -> IOHBatterySpec:
+    return IOHBatterySpec(name=name, problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50)
+
+
+def _solo_lshade(name: str, seed_name: str | None = None) -> StrategySpec:
+    return StrategySpec(
+        name=name,
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(LSHADE, {"NP_init": 8})],
+        seed_name=seed_name,
+    )
+
+
+def _outcome(rec: IOHRunRecord) -> tuple:
+    return (rec.aocc, tuple(rec.trace_evals), tuple(rec.trace_fx))
+
+
+class TestSeedName:
+    def test_rng_identity_defaults_to_the_display_name(self) -> None:
+        spec = _solo_lshade("Variant_A")
+        assert spec.seed_name is None
+        assert spec.rng_identity == "Variant_A"
+        assert _solo_lshade("Variant_A", seed_name="arm").rng_identity == "arm"
+
+    def test_harness_seed_is_unchanged_without_seed_name(self) -> None:
+        """Default behaviour must stay byte-identical to hashing ``spec.name``."""
+        spec = _solo_lshade("Variant_A")
+        assert _derive_seed(42, "MA-BBOB", 2, 0, spec.rng_identity, 0) == _derive_seed(
+            42, "MA-BBOB", 2, 0, "Variant_A", 0
+        )
+
+    @requires_worker
+    def test_same_seed_name_gives_identical_runs(self) -> None:
+        specs = [_solo_lshade("Variant_A", seed_name="arm"), _solo_lshade("Variant_B", seed_name="arm")]
+        result = run_ioh_harness(specs, _tiny_battery("ioh-seedname-same"), base_seed=7, progress=False, sync_eval=True)
+        by_name = {r.strategy_name: r for r in result.runs}
+        assert set(by_name) == {"Variant_A", "Variant_B"}
+        assert [r.error for r in result.runs] == [None, None]
+        assert by_name["Variant_A"].seed == by_name["Variant_B"].seed
+        assert _outcome(by_name["Variant_A"]) == _outcome(by_name["Variant_B"])
+
+    @requires_worker
+    def test_different_seed_name_gives_different_runs(self) -> None:
+        specs = [_solo_lshade("Variant_A", seed_name="arm_a"), _solo_lshade("Variant_B", seed_name="arm_b")]
+        result = run_ioh_harness(specs, _tiny_battery("ioh-seedname-diff"), base_seed=7, progress=False, sync_eval=True)
+        by_name = {r.strategy_name: r for r in result.runs}
+        assert [r.error for r in result.runs] == [None, None]
+        assert by_name["Variant_A"].seed != by_name["Variant_B"].seed
+        assert _outcome(by_name["Variant_A"]) != _outcome(by_name["Variant_B"])

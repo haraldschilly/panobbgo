@@ -867,3 +867,22 @@ heavy-tailed as in §20 — three cells +0.18…+0.44, most cells unchanged
 is marginally better and mechanistically the right choice after a
 divergence (the divergence path already forces it); the shipped
 default keeps `"random"` for the ordinary criteria, per the reference.
+
+## 24. NLSHADE_LBC wants 4·dim — accepted as a per-class coefficient
+
+§17 and §20 put LBC's per-dimension optimum at 8 / 20 / 30 against
+6 / 15 / 20–30 for jSO and L-SHADE.  12-seed roster, LBC alone, one RNG
+stream, `NP_init = 4·dim` vs the shipped `auto` (3·dim rule):
+
+| | mean | *d*=2 | *d*=5 |
+|---|---|---|---|
+| auto (3·dim) | 0.5946 | 0.6575 | 0.5317 |
+| **4·dim** | **0.6469** | 0.7311 | 0.5627 |
+| Δ | **+0.0523 [+0.0098, +0.0948]**, 10/12 | +0.074 [−0.007, +0.154] 9/12 | +0.031 [−0.001, +0.063] 8/12 |
+
+Accept rule met.  LBC moves from the weakest real arm (0.595) to
+0.647, level with jSO / L-SHADE / CMA-ES (0.642–0.656, §22).  The
+mechanism is plausible: LBC's linear bias-control needs a larger rank
+pool than plain L-SHADE's success-history adaptation.  Shipped as a
+class attribute (`AUTO_DIM_COEF = 4.0` on `NLSHADE_LBC`); the base rule
+stays 3·dim.

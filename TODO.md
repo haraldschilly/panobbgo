@@ -52,8 +52,8 @@ die Läufe enden — `HARVEST.txt` erscheint dann).
 - [x] `p5_jso` (bm=2000): Optimum 20 bei d=5, Regel gibt 21; `NP=6` dort −0.34 — Budget-Term bestätigt.
 - [ ] `benchmarks/portfolio_screen.py` hat uncommittete `_warm_any`-Specs
       — committen.
-- [ ] LBC will eher 4·dim als 3·dim (§20) — per-Klasse-Koeffizient,
-      12-Seed-Check, niedrige Priorität.
+- [x] **LBC 4·dim** (§24): +0.052 [+0.010, +0.095], 10/12 → akzeptiert;
+      wird Klassen-Koeffizient `AUTO_DIM_COEF = 4.0` auf `NLSHADE_LBC`.
 - [ ] Doku: Guide-Abschnitte für `NP_init="auto"`, `warm_start`,
       `StrategyBlockBandit`, `Archive`; `make_ioh_strategies` und die
       Composite-Registry auf die neuen Defaults prüfen.

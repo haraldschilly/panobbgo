@@ -1,0 +1,35 @@
+0.016347 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.016560 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.147087 config:333      CONFG INFO      Evaluation method: threaded
+0.147192 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'252726fb5af3d4f00af0c8bf7a40e60dee2b5b50'}
+seed 42 done (50s)
+seed 7 done (110s)
+seed 1234 done (152s)
+seed 2025 done (200s)
+seed 3 done (240s)
+seed 11 done (281s)
+seed 99 done (314s)
+seed 123 done (353s)
+seed 777 done (392s)
+seed 2024 done (426s)
+seed 31337 done (464s)
+seed 555 done (506s)
+
+=== lbc ===  (12 seeds, dims [2, 5], budget 500*d)
+NP_init: auto_old={2: 36, 5: 90}  fixed_4d={2: 8, 5: 20}
+variant         mean        d=2        d=5
+fixed_4d      0.6469     0.7311     0.5627
+auto_new      0.5946     0.6575     0.5317
+auto_old      0.5311     0.6309     0.4313
+
+auto_new vs auto_old:  +0.0635 [+0.0282,+0.0987]  10/12 seeds positive <--
+    d=2   +0.0266 [-0.0427,+0.0958]  7/12
+    d=5   +0.1004 [+0.0715,+0.1293]  12/12 <--
+    per seed: 3:+0.0340  7:+0.0032  11:+0.0757  42:+0.0924  99:+0.1168  123:+0.1512  555:+0.0789  777:-0.0399  1234:-0.0021  2024:+0.0538  2025:+0.0980  31337:+0.0999
+
+fixed_4d vs auto_new:  +0.0523 [+0.0098,+0.0948]  10/12 seeds positive <--
+    d=2   +0.0736 [-0.0066,+0.1538]  9/12
+    d=5   +0.0310 [-0.0009,+0.0628]  8/12
+    per seed: 3:+0.0263  7:+0.0918  11:+0.0612  42:+0.0719  99:-0.0172  123:-0.0775  555:+0.0394  777:+0.1512  1234:+0.1690  2024:+0.0197  2025:+0.0390  31337:+0.0524
+
+`<--` marks a 95% t-CI on the paired delta that excludes zero.

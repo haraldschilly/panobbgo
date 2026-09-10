@@ -356,6 +356,20 @@ SPECS = {
     "Blocks_ducb_cj_warm2_soft_g09": (StrategyBlockBandit, CJ, {**SOFT, "gamma": 0.9, **WARM_ON}, ARCHIVE),
     # The two findings crossed: soft learning on an absolute block length.
     "Blocks_ducb_cj_warm2_soft_be25": (StrategyBlockBandit, CJ, {**SOFT, "block_evals": 25, **WARM_ON}, ARCHIVE),
+    # The two warm-start guards are now defaults (c13748d); pin both variants so
+    # the measured configuration (no only_if_better) stays reproducible.
+    "Blocks_ducb_cj_warm2_soft_be25_nob": (
+        StrategyBlockBandit,
+        CJ,
+        {**SOFT, "block_evals": 25, **WARM_ON, "warm_start_only_if_better": False},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_cj_warm2_soft_be25_oib": (
+        StrategyBlockBandit,
+        CJ,
+        {**SOFT, "block_evals": 25, **WARM_ON, "warm_start_only_if_better": True},
+        ARCHIVE,
+    ),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The

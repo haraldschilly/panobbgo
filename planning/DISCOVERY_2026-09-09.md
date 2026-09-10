@@ -1080,3 +1080,34 @@ the ±0.05 floor's edge.  On the 12-seed roster now, in both
 the grid (0…0.6, with 0 as the control that tests whether "soft" is
 anything but the tail), block length under the tail, the
 `only_if_better` guard, and the CMA-ES + LBC pair from §28.
+
+## 30. 12-seed roster on `soft_be25`: the winner's curse, with a CI as its fig leaf
+
+| spec | mean | vs CMA-ES alone | seeds | *d*=2 | *d*=5 |
+|---|---|---|---|---|---|
+| CMAES_alone | 0.6662 | — | | 0.7205 | 0.6119 |
+| soft_be25 (no `only_if_better`) | 0.6604 | **−0.0058** [−0.0387, +0.0271] | 6/12 | −0.017 | +0.005 |
+| soft_be25 (`only_if_better`) | 0.6532 | −0.0130 [−0.0440, +0.0181] | 5/12 | −0.024 | −0.002 |
+| JSO_alone | 0.6490 | | | | |
+
+§29's +0.0499 [+0.0058, +0.0940] on 3 seeds was the **maximum of
+fourteen specs** in one screen.  A CI computed on a selected maximum is
+not the CI of a pre-registered spec; the roster returns it to zero.
+§18 named this mechanism for `ipop_factor`; this is the same mechanism
+passing through a CI instead of a point estimate.  Rule sharpened: the
+best spec of a screen is a *candidate*, its screen CI carries no
+weight, and only its roster CI does.
+
+Standing after the roster: `Blocks_uniform_cj_warm2` (plain rotation,
+§27) remains the best portfolio on 12 seeds — 0.6854, +0.019 over
+CMA-ES, 8/12, CI including zero.  `only_if_better` costs ~0.007 and is
+switched off by default again.
+
+**Verdict for 500·dim, MA-BBOB, d ∈ {2, 5}: a two-arm portfolio that
+shares its evaluations is level with the best single arm, not above
+it.**  Sharing removed the portfolio's structural penalty (−0.08 →
++0.02); it did not buy a lead.  The lean is at *d* = 5 (+0.03 on every
+roster), nothing at *d* = 2, where 1000 evaluations end before a relay
+can matter.  `RoundRobin_CMAES` stays the flagship; the warm portfolio
+becomes the second harness spec so the nightly keeps measuring it, in
+place of `Rewarding_Restart` (0.35, no longer a useful control).

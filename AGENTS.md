@@ -188,6 +188,10 @@ Per-pair metrics: `success_rate`, `ert` (BBOB standard),
     CMA-ES-containing spec, **±0.03** for a DE arm.  Anything smaller is a
     direction, not an effect.  A positive result also needs a *mechanism*
     (which code path reads the parameter?) before it is called located.
+*   **The best spec of a multi-spec screen is a candidate, nothing more.**
+    Its screen CI is the CI of a *selected maximum* and carries no weight
+    (DISCOVERY §30: +0.050 with a CI clear of zero on 3 seeds → −0.006 on
+    the roster).  Only a roster CI on a pre-registered spec counts.
 *   **A default changes only after the 12-seed decision roster**
     (`DEFAULT_DECISION_SEEDS` in `harness_ioh.py`): paired CI excluding
     zero on the positive side, ≥ 9/12 seeds, no dimension negative.

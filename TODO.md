@@ -42,8 +42,11 @@ die Läufe enden — `HARVEST.txt` erscheint dann).
       −0.052 unter `CMAES_alone` (G5 FAIL, CI streift 0). Nur L-SHADE
       war warm → **nächster Hebel: CMA-ES-Warm-Start fertigstellen**,
       dann Screen wiederholen, dann 12-Seed-Roster.
-- [ ] **12-Seed-Oracle** auswerten: `oracle12.log` (Arme auf
-      Shipped-Defaults, gepaart). Headroom sizing für Phase B.
+- [x] **12-Seed-Oracle** (§22): kein Champion mehr — jSO 0.656, L-SHADE
+      0.642, CMA-ES 0.642 (innerhalb des Floors), gewinnen verschiedene
+      Zellen. Headroom **+0.076 [+0.048, +0.104], 12/12**. Bestes Paar
+      **CMA-ES + jSO** (62 %). PSO raus (2/120). → Screen künftig mit
+      CMA-ES + jSO; Flagship-Spec (`RoundRobin_CMAES`) neu entscheiden.
 - [ ] **CMA-ES 12-Seed-Akzeptanz**: Lauf mit dem Agenten-Stopp bei 8/12
       Seeds abgebrochen (Seeds 777 2024 31337 555 fehlen). Teilverdikt auf
       8 Seeds: **+0.0288 [+0.0024, +0.0552], 7/8 positiv**, keine Dimension
@@ -52,7 +55,7 @@ die Läufe enden — `HARVEST.txt` erscheint dann).
       regeneriert den Report. Für das volle Roster die 4 Seeds nachfahren
       (prüfen, ob das Skript anhängt statt überschreibt) — oder
       `benchmarks/np_accept.py`-Muster für CMA-ES übernehmen.
-- [ ] `p5_jso` (bm=2000) auswerten — nur Robustheitscheck.
+- [x] `p5_jso` (bm=2000): Optimum 20 bei d=5, Regel gibt 21; `NP=6` dort −0.34 — Budget-Term bestätigt.
 - [ ] `benchmarks/portfolio_screen.py` hat uncommittete `_warm_any`-Specs
       — committen.
 - [ ] LBC will eher 4·dim als 3·dim (§20) — per-Klasse-Koeffizient,

@@ -815,3 +815,36 @@ incumbent; (2) then the 12-seed roster on the best warm spec vs
 CMA-ES alone.  If a fully warm two-arm portfolio still cannot clear the
 single arm, the answer for this budget class is one arm plus the
 σ-divergence restart, and the portfolio is a higher-budget story.
+
+## 22. Oracle on the shipped defaults, 12 seeds, paired (2026-09-10, late)
+
+`benchmarks/oracle.py`, arms at the defaults this branch ships
+(`NP_init="auto"`, CMA-ES with σ-divergence restart, PSO `NP=6`),
+one RNG stream per arm, 12-seed roster, 120 cells:
+
+| arm | mean | *d*=2 | *d*=5 | regret | seed-cell wins |
+|---|---|---|---|---|---|
+| **jSO** | **0.6558** | 0.7328 | 0.5788 | 0.076 | **40** |
+| L-SHADE | 0.6423 | 0.7270 | 0.5577 | 0.089 | 11 |
+| CMA-ES | 0.6419 | 0.7029 | **0.5808** | 0.090 | 32 |
+| NLSHADE_LBC | 0.5949 | 0.6575 | 0.5323 | 0.137 | 35 |
+| PSO | 0.4972 | | | 0.235 | 2 |
+| **oracle** | **0.7317** | 0.8010 | 0.6624 | | 120 |
+
+Headroom over the best single arm: **+0.0760 [+0.0483, +0.1037],
+12/12 seeds**.  Best pair **CMA-ES + jSO = 0.7026**, 62 % of the
+headroom; CMA-ES + L-SHADE 53 %; CMA-ES + LBC 43 %.
+
+What changed against §19: with the arms properly sized and properly
+paired, there is **no champion**.  jSO, L-SHADE and CMA-ES sit within
+0.014 — inside the floor — and win *different* cells: LBC owns the
+*d* = 2 instances 2–4, CMA-ES the *d* = 5 instances 2–3, jSO the rest.
+"CMA-ES alone is the default" (§9, §20) was an artefact of comparing a
+tuned CMA-ES with over-populated DE arms.  The portfolio headroom is
+now a 12/12 result, not a 3-seed direction.
+
+Consequences for the plan: the two-arm screen should pair **CMA-ES
+with jSO**, not L-SHADE; PSO leaves the candidate set; and the honest
+single-arm default is a toss-up between jSO and CMA-ES that the
+*shipped* flagship spec (`RoundRobin_CMAES`) should be re-decided on
+once the CMA-ES warm start and the second warm screen are in.

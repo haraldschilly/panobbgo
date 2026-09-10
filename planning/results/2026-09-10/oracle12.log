@@ -1,0 +1,56 @@
+0.404700 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.404878 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+4.774167 config:333      CONFG INFO      Evaluation method: threaded
+4.774220 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'22326eb1189b32444d8ef431e1526ca2a705531d'}
+seed 42 done (62s)
+seed 7 done (116s)
+seed 1234 done (233s)
+seed 2025 done (371s)
+seed 3 done (530s)
+seed 11 done (652s)
+seed 99 done (758s)
+seed 123 done (910s)
+seed 777 done (1070s)
+seed 2024 done (1193s)
+seed 31337 done (1330s)
+seed 555 done (1443s)
+
+=== oracle ===  (12 seeds, dims [2, 5], budget 500*d, tuned kwargs)
+arms: cmaes, lbc, jso, lshade, pso   cells: 120 complete
+
+arm           mean        d=2       d=5   regret   wins
+jso         0.6558     0.7328    0.5788   0.0760     40 <-- best single
+lshade      0.6423     0.7270    0.5577   0.0894     11
+cmaes       0.6419     0.7029    0.5808   0.0899     32
+lbc         0.5949     0.6575    0.5323   0.1368     35
+pso         0.4972     0.6417    0.3528   0.2345      2
+ORACLE      0.7317     0.8010    0.6624   0.0000    120
+
+headroom (oracle - jso): +0.0760   paired per seed +0.0760 [+0.0483,+0.1037] 12/12 <--   = 11.6% of jso
+  d=2: oracle 0.8010  best jso 0.7328  headroom +0.0683 (vs jso)
+  d=5: oracle 0.6624  best cmaes 0.5808  headroom +0.0836 (vs jso)
+
+win counts over 10 (dim, inst) cells
+arm         majority  seed-wins   per-cell majorities
+jso                4         40   d2i0 d5i0 d5i1 d5i4
+lbc                3         35   d2i2 d2i3 d2i4
+cmaes              2         32   d5i2 d5i3
+lshade             1         11   d2i1
+pso                0          2   
+
+top-2 oracle (best of two arms only)
+  lbc+jso                 0.7063   +0.0505 over jso    66.6% of the headroom
+  cmaes+jso               0.7026   +0.0469 over jso    61.7% of the headroom
+  cmaes+lshade            0.6958   +0.0400 over jso    52.7% of the headroom
+  jso+lshade              0.6939   +0.0382 over jso    50.3% of the headroom
+  cmaes+lbc               0.6886   +0.0328 over jso    43.2% of the headroom
+  lbc+lshade              0.6826   +0.0268 over jso    35.3% of the headroom
+  jso+pso                 0.6746   +0.0188 over jso    24.7% of the headroom
+  cmaes+pso               0.6618   +0.0060 over jso     8.0% of the headroom
+  lshade+pso              0.6549   -0.0009 over jso    -1.1% of the headroom
+  lbc+pso                 0.6383   -0.0174 over jso   -22.9% of the headroom
+
+The oracle picks the per-cell winner for free and after the fact, so it is an
+UPPER bound: a real policy spends part of the same budget discovering which arm
+wins and cannot switch per instance, so it lands below — the top-2 row is the
+more realistic target.  `regret` is what you lose by always picking that one arm.

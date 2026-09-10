@@ -1,0 +1,55 @@
+0.020990 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.021275 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.185551 config:333      CONFG INFO      Evaluation method: threaded
+0.185711 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'4648f5915ec6d506a577097d616e7aea679e2990'}
+seed 42 done (128s)
+seed 7 done (253s)
+seed 1234 done (374s)
+
+=== portfolio screen ===  (3 seeds, dims [2, 5], budget 500*d)
+specs: CMAES_alone, LSHADE_alone, Blocks_uniform_2, Blocks_ducb_2, Blocks_uniform_2_warm, Blocks_ducb_2_warm, Blocks_ducb_2_warm_leaf, Blocks_ducb_2_warm_div   cells: 30
+
+spec                        mean        d=2       d=5
+CMAES_alone               0.6526     0.7420    0.5633
+LSHADE_alone              0.6171     0.6838    0.5503
+Blocks_uniform_2          0.5661     0.6183    0.5139
+Blocks_uniform_2_warm     0.5661     0.6183    0.5139
+Blocks_ducb_2             0.5627     0.6264    0.4991
+Blocks_ducb_2_warm        0.5627     0.6264    0.4991
+Blocks_ducb_2_warm_leaf   0.5627     0.6264    0.4991
+Blocks_ducb_2_warm_div    0.5627     0.6264    0.4991
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                        delta                95% CI   seeds        d=2       d=5
+LSHADE_alone              -0.0356     [-0.0710,-0.0001]   0/3      -0.0582   -0.0130 <--
+Blocks_uniform_2          -0.0865     [-0.1484,-0.0247]   0/3      -0.1237   -0.0493 <--
+Blocks_uniform_2_warm     -0.0865     [-0.1484,-0.0247]   0/3      -0.1237   -0.0493 <--
+Blocks_ducb_2             -0.0899     [-0.1465,-0.0332]   0/3      -0.1156   -0.0642 <--
+Blocks_ducb_2_warm        -0.0899     [-0.1465,-0.0332]   0/3      -0.1156   -0.0642 <--
+Blocks_ducb_2_warm_leaf   -0.0899     [-0.1465,-0.0332]   0/3      -0.1156   -0.0642 <--
+Blocks_ducb_2_warm_div    -0.0899     [-0.1465,-0.0332]   0/3      -0.1156   -0.0642 <--
+
+delta vs LSHADE_alone (paired per cell, t-CI over per-seed means)
+spec                        delta                95% CI   seeds        d=2       d=5
+CMAES_alone               +0.0356     [+0.0001,+0.0710]   3/3      +0.0582   +0.0130 <--
+Blocks_uniform_2          -0.0510     [-0.0811,-0.0209]   0/3      -0.0656   -0.0364 <--
+Blocks_uniform_2_warm     -0.0510     [-0.0811,-0.0209]   0/3      -0.0656   -0.0364 <--
+Blocks_ducb_2             -0.0543     [-0.0773,-0.0313]   0/3      -0.0574   -0.0512 <--
+Blocks_ducb_2_warm        -0.0543     [-0.0773,-0.0313]   0/3      -0.0574   -0.0512 <--
+Blocks_ducb_2_warm_leaf   -0.0543     [-0.0773,-0.0313]   0/3      -0.0574   -0.0512 <--
+Blocks_ducb_2_warm_div    -0.0543     [-0.0773,-0.0313]   0/3      -0.0574   -0.0512 <--
+
+--- screening gates (design §6) ---
+  G1 FAIL  Blocks_uniform_2 - max(CMAES_alone, LSHADE_alone) = CMAES_alone -0.0865  (need >= -0.020)
+  G2 FAIL  Blocks_ducb_2 - Blocks_uniform_2                     -0.0033  (need >= +0.005)
+  G3 FAIL  Blocks_ducb_2 - best single (CMAES_alone)            -0.0899  (need >= -0.010)
+  G4 FAIL  Blocks_ducb_2_warm - Blocks_ducb_2                   +0.0000  (need >= +0.030)
+  G5 FAIL  best warm spec (Blocks_uniform_2_warm) - CMAES_alone -0.0865  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

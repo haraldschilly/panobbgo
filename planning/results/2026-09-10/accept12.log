@@ -1,0 +1,12 @@
+0.014580 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.014750 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.280818 config:333      CONFG INFO      Evaluation method: threaded
+0.280893 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'22326eb1189b32444d8ef431e1526ca2a705531d'}
+seed 42 done (29s)
+seed 7 done (55s)
+seed 1234 done (112s)
+seed 2025 done (172s)
+seed 3 done (254s)
+seed 11 done (318s)
+seed 99 done (399s)
+seed 123 done (483s)

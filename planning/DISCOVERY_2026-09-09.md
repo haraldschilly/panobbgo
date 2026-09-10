@@ -637,3 +637,45 @@ which code path the parameter changes — before it is called located.
 The `NP_init` results survive all three tests: the parameter is read
 in `__init__`, the effect (+0.2) is far above the spread, and the
 collapse at 4 is a mechanism.
+
+## 19. Oracle on the tuned arms (provisional)
+
+`benchmarks/oracle.py`, standard battery, seeds 42 / 7 / 1234, arms at
+their pass-3 optima (lbc `NP_init=15`, jso 15, lshade 10, pso `NP=6`,
+CMA-ES default — its "tuning" was retracted in §16).
+
+| arm | mean | *d*=2 | *d*=5 | regret | seed-cell wins |
+|---|---|---|---|---|---|
+| lshade | **0.6342** | 0.6851 | 0.5832 | 0.062 | 7 |
+| jso | 0.6232 | 0.6841 | 0.5623 | 0.073 | 5 |
+| lbc | 0.6094 | 0.7103 | 0.5085 | 0.087 | 7 |
+| cmaes | 0.5664 | 0.6543 | 0.4786 | 0.130 | **11** |
+| pso | 0.5245 | 0.6799 | 0.3690 | 0.172 | 0 |
+| **oracle** | **0.6963** | 0.7500 | 0.6425 | — | 30 |
+
+Headroom over the best single arm: **+0.0621** [+0.029, +0.095], 3/3
+seeds.  Best two-arm oracle: **CMA-ES + L-SHADE = 0.6781**, capturing
+71 % of the headroom (+0.044 over L-SHADE alone).  PSO wins nothing and
+every pair containing it is worse than L-SHADE alone.
+
+Two readings, and a caveat that outranks both.
+
+* **CMA-ES is the complement, not the champion.** It has the worst
+  regret of the four real arms yet wins the most cells (11 of 30).
+  It is the arm that is either right or badly wrong — exactly what a
+  selector can exploit, and what a single-arm default cannot.
+* **The DE arms are interchangeable.** Three variants of one algorithm
+  within 0.025 of each other; a portfolio wants *one* of them plus
+  CMA-ES.
+
+**Caveat — this table has a noise floor of about ±0.05 on a battery
+mean, and the spread between arms is of the same size.** The CMA-ES row
+is the same configuration that scored 0.6137 in the arm sweeps; it
+scores 0.5664 here because its spec is named `cmaes` instead of
+`default` and the harness seeds runs from the name (§18).  A 0.047
+swing from a *label* means "which DE arm is best" and "L-SHADE beats
+CMA-ES" are not resolved by this run.  The oracle is a max over five
+such draws per cell and is therefore biased upward as well.  The
+headroom's sign and rough size — a few hundredths, most of it capturable
+by two arms — is what survives; the ranking does not.  Rerun after the
+`seed_name` fix on the 12-seed roster before any of this sizes Phase B.

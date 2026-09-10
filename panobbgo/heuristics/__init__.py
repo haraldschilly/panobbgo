@@ -51,6 +51,7 @@ from .cma_es import CMAES
 from .pso import PSO
 from .cobyqa import COBYQA
 from .region_ucb import RegionUCB
+from .meta import MetaAnalyst, budget_fraction, never, stagnation
 
 __all__ = [
     "Center",
@@ -80,4 +81,8 @@ __all__ = [
     "PSO",
     "COBYQA",
     "RegionUCB",
+    "MetaAnalyst",
+    "budget_fraction",
+    "never",
+    "stagnation",
 ]

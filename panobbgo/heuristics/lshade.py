@@ -144,7 +144,7 @@ References
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -484,6 +484,17 @@ class LSHADE(Heuristic):
         #: for the cold start.  A *string*, deliberately not a callable: the
         #: trigger is :meth:`warm_start_now`.
         self.warm_start: Optional[str] = warm_start
+        #: Region the next warm start is restricted to, or ``None`` for the
+        #: whole archive.  Written by
+        #: :meth:`panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region`
+        #: on the main thread just before a block opens, and cleared again
+        #: right after — a *one-shot* hand-off from
+        #: :class:`~panobbgo.heuristics.meta.MetaAnalyst`
+        #: (``planning/DESIGN_meta_level_2026-09-10.md`` §2).  Anything
+        #: :meth:`~panobbgo.core.Heuristic.archive_seed` accepts as ``box``:
+        #: a :class:`~panobbgo.analyzers.splitter.Splitter.Box` or a
+        #: ``(dim, 2)`` bounds array.
+        self.warm_start_box: Any = None
         self._rng: np.random.Generator = self.derive_rng(seed)
         # Ranking-key memo, see :meth:`_fx_of`.
         self._fx_cache: Dict[int, float] = {}
@@ -926,7 +937,7 @@ class LSHADE(Heuristic):
 
         slots = [i for i, slot in enumerate(self._population) if not isinstance(slot, _Dropped)]
         cap = self._archive_cap()
-        pool = self.archive_seed(len(slots) + cap, mode=self.warm_start)
+        pool = self.archive_seed(len(slots) + cap, mode=self.warm_start, box=self.warm_start_box)
         if not pool:
             return False  # empty archive: the caller falls back to the cold path
 

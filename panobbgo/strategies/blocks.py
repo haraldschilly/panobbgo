@@ -164,6 +164,18 @@ compose (both must pass):
 
 Set either to ``False`` to measure the unguarded behaviour.
 
+Region hand-offs
+----------------
+
+:class:`~panobbgo.heuristics.meta.MetaAnalyst` may publish
+``meta_region(arm=…, box=…)`` — "re-seed this arm from *that* part of the
+box".  :meth:`~StrategyBlockBandit.on_meta_region` only *records* the
+request; it is applied at the next :meth:`~StrategyBlockBandit._open_block`
+for that arm, which sets the arm's ``warm_start_box`` and forces the warm
+start.  Nothing is mutated from the bus thread: ``warm_start_now`` clears
+the arm's output queue, which ``execute()`` may be draining at that moment
+(``planning/DESIGN_meta_level_2026-09-10.md`` §2).
+
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
 
@@ -288,6 +300,7 @@ class StrategyBlockBandit(StrategyBase):
         self._block_drained: bool = False
         self._block_is_prologue: bool = False
         self._block_warm_started: bool = False
+        self._block_region: bool = False
         self._phi0: Optional[float] = None
         self._trace: List[float] = []
         self._blocks: List[Dict[str, Any]] = []
@@ -303,6 +316,15 @@ class StrategyBlockBandit(StrategyBase):
         self._warm_used: Dict[str, int] = {}
         #: best penalty value each arm has produced *itself*, by ``who`` prefix
         self._arm_best: Dict[str, float] = {}
+
+        #: pending region hand-offs, ``arm name -> box`` (see
+        #: :meth:`on_meta_region`).  Recorded on the bus thread, *applied* on
+        #: the main thread at the next :meth:`_open_block` for that arm.
+        self._pending_region: Dict[str, Any] = {}
+        #: the arm whose block open is currently carrying a region request
+        self._region_forced: Optional[str] = None
+        #: per-arm count of region hand-offs actually applied
+        self._regions_applied: Dict[str, int] = {}
 
         #: run-local objective bookkeeping (penalty values, "phi")
         self._anchor: Optional[float] = None
@@ -489,6 +511,7 @@ class StrategyBlockBandit(StrategyBase):
                 "drained": self._block_drained,
                 "prologue": self._block_is_prologue,
                 "warm_start": self._block_warm_started,
+                "region": self._block_region,
                 "reward": reward,
             }
         )
@@ -508,7 +531,12 @@ class StrategyBlockBandit(StrategyBase):
         self._block_size = max(1, self.block_evals // 2) if self._prologue_pick else self.block_evals
         self._trace = []
         self._phi0 = self._best_phi if np.isfinite(self._best_phi) else None
+        self._block_region = self._apply_pending_region(h)
         self._block_warm_started = self._warm_start(h)
+        # The box is a *one-shot* hand-off: whatever the warm start made of
+        # it, the arm goes back to querying the whole archive afterwards.
+        setattr(h, "warm_start_box", None)
+        self._region_forced = None
         self._acquired.add(h.name)
 
     def _block_over(self, owner: Heuristic) -> bool:
@@ -526,6 +554,52 @@ class StrategyBlockBandit(StrategyBase):
         if self._block_n >= 2 * self._block_size:
             return True  # hard cap
         return self._block_n >= self._block_size and self._block_drained
+
+    # -- the meta level's region hand-off ----------------------------------
+
+    def on_meta_region(self, arm: Any = None, box: Any = None, **_: Any) -> None:
+        """Record a region request from
+        :class:`~panobbgo.heuristics.meta.MetaAnalyst`; do **not** act on it.
+
+        ``planning/DESIGN_meta_level_2026-09-10.md`` §2: this runs on the
+        event-bus dispatcher thread while :meth:`execute` runs on the main
+        loop's.  ``warm_start_now`` clears the arm's output queue, which
+        ``execute`` may be draining at that instant, so the mutation is
+        deferred to :meth:`_open_block` — where it also reuses the
+        scheduler's existing, tested warm-start path verbatim.
+
+        A second request for the same arm before the first was applied
+        simply replaces it: the newer analysis is the better one.
+        """
+        if box is None or arm is None:
+            return
+        name = str(arm)
+        if name not in self._heuristics:
+            self.logger.debug("meta_region for unknown arm %r ignored" % name)
+            return
+        self._pending_region[name] = box
+
+    def _apply_pending_region(self, h: Heuristic) -> bool:
+        """Hand ``h`` the box it was assigned, if any.  Main thread only.
+
+        Sets the arm's ``warm_start_box`` — consulted by ``CMAES``'s and the
+        L-SHADE family's ``archive_seed`` calls — and forces
+        :meth:`_should_warm_start`, so the arm is actually re-seeded rather
+        than left to the gap rule.  The two ``warm_start_only_if_*`` guards
+        still apply: a hand-off is a *suggestion*, not an override of the
+        policy the spec chose.
+        """
+        box = self._pending_region.pop(h.name, None)
+        if box is None:
+            return False
+        if not self._can_warm_start(h):
+            self.logger.debug("meta_region for %s dropped: the arm takes no warm start" % h.name)
+            return False
+        setattr(h, "warm_start_box", box)
+        self._region_forced = h.name
+        self._regions_applied[h.name] = self._regions_applied.get(h.name, 0) + 1
+        self.logger.debug("meta_region applied to %s" % h.name)
+        return True
 
     def _can_warm_start(self, h: Heuristic) -> bool:
         """Does this arm accept a warm start?
@@ -560,6 +634,8 @@ class StrategyBlockBandit(StrategyBase):
         """
         if not self._can_warm_start(h):
             return False
+        if self._region_forced == h.name:
+            return True  # a region hand-off is exactly a reason to re-seed
         if h.name not in self._acquired:
             return False  # first acquisition: it has just cold-started
         if h.name != self._last_owner:

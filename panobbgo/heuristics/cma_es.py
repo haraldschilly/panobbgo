@@ -145,7 +145,7 @@ The heuristic works asynchronously inside the panobbgo event loop:
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -338,6 +338,17 @@ class CMAES(Heuristic):
         #: for the cold start.  A *string*, deliberately not a callable: the
         #: trigger is :meth:`warm_start_now`.
         self.warm_start: Optional[str] = warm_start
+        #: Region the next warm start is restricted to, or ``None`` for the
+        #: whole archive.  Written by
+        #: :meth:`panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region`
+        #: on the main thread just before a block opens, and cleared again
+        #: right after — a *one-shot* hand-off from
+        #: :class:`~panobbgo.heuristics.meta.MetaAnalyst`
+        #: (``planning/DESIGN_meta_level_2026-09-10.md`` §2).  Anything
+        #: :meth:`~panobbgo.core.Heuristic.archive_seed` accepts as ``box``:
+        #: a :class:`~panobbgo.analyzers.splitter.Splitter.Box` or a
+        #: ``(dim, 2)`` bounds array.
+        self.warm_start_box: Any = None
         self._stagnation_frac = None if stagnation_frac is None else float(stagnation_frac)
         self._stagnation_rel_tol = float(stagnation_rel_tol)
         self._sigma_divergence = bool(sigma_divergence)
@@ -560,7 +571,7 @@ class CMAES(Heuristic):
         k = max(self._lam, 4 + int(3 * np.log(max(n, 2))))
         if self.warm_start == "archive_cov":
             k = max(k, 2 * n)
-        seeds = self.archive_seed(k, mode=self.warm_start)
+        seeds = self.archive_seed(k, mode=self.warm_start, box=self.warm_start_box)
         return [np.asarray(r.x, dtype=float) for r in seeds]
 
     def _warm_start_distribution(self) -> bool:

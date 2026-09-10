@@ -679,3 +679,34 @@ such draws per cell and is therefore biased upward as well.  The
 headroom's sign and rough size — a few hundredths, most of it capturable
 by two arms — is what survives; the ranking does not.  Rerun after the
 `seed_name` fix on the 12-seed roster before any of this sizes Phase B.
+
+### 18a. The null floor, measured
+
+Same configuration under six spec names (six RNG streams), standard
+battery, seeds 42 / 7 / 1234, paired per seed exactly as the sweeps are:
+
+| config | sd of battery mean | max − min | largest spurious "gain" vs `default` |
+|---|---|---|---|
+| CMA-ES (default) | 0.0204 | **0.0500** | **+0.0500** (3/3 seeds!) |
+| L-SHADE `NP_init=10` | 0.0121 | 0.0312 | +0.0066 |
+
+So a 3-seed sweep can hand CMA-ES a +0.05 "improvement" with all three
+seeds agreeing, from a label change.  The `ipop_factor` retraction in
+§16 (+0.089, the max of six draws with one of them doubling as the
+reference) is right at the edge of this distribution.
+
+Two things the null runs show beyond the floor:
+
+* **The `default` stream was CMA-ES's unluckiest at *d* = 5.** All five
+  null streams beat it there, by +0.057 … +0.100.  CMA-ES's *d* = 5
+  standing in §9, §16, §17 and §19 is therefore biased low by roughly
+  0.05, and "L-SHADE beats CMA-ES" is unresolved.
+* **CMA-ES's variance is bimodal, L-SHADE's is not.** A stream either
+  finds the basin at *d* = 5 or it does not; that is the same "right or
+  badly wrong" shape the oracle's regret/win table shows, and it is
+  what a restart criterion exists to fix.
+
+Rule adopted: a 3-seed result below ~0.05 for CMA-ES or ~0.03 for a DE
+arm is not reported as an effect.  This retires pass 1's secondary knobs
+(`H`, `k_rank`, `archive_factor`, `F_schedule`, `lbest`) as *unproven*,
+not as wrong.  `NP_init` (+0.1 … +0.2, monotone, three arms) stands.

@@ -106,6 +106,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.add_heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.block_evals"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.block_evals</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.execute"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.execute()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.on_meta_region"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.on_meta_region()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.on_new_results"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.on_new_results()</span></code></a></li>
 </ul>
 </li>
@@ -301,6 +302,21 @@ once they have handled <code class="docutils literal notranslate"><span class="p
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.execute">
 <span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/strategies/blocks.html#StrategyBlockBandit.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.execute" title="Link to this definition">#</a></dt>
 <dd><p>Overwrite this method when you extend this base strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.on_meta_region">
+<span class="sig-name descname"><span class="pre">on_meta_region</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">arm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">_</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/strategies/blocks.html#StrategyBlockBandit.on_meta_region"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.on_meta_region" title="Link to this definition">#</a></dt>
+<dd><p>Record a region request from
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.MetaAnalyst" title="panobbgo.heuristics.meta.MetaAnalyst"><code class="xref py py-class docutils literal notranslate"><span class="pre">MetaAnalyst</span></code></a>; do <strong>not</strong> act on it.</p>
+<p><code class="docutils literal notranslate"><span class="pre">planning/DESIGN_meta_level_2026-09-10.md</span></code> §2: this runs on the
+event-bus dispatcher thread while <a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.execute" title="panobbgo.strategies.StrategyBlockBandit.execute"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute()</span></code></a> runs on the main
+loop’s.  <code class="docutils literal notranslate"><span class="pre">warm_start_now</span></code> clears the arm’s output queue, which
+<code class="docutils literal notranslate"><span class="pre">execute</span></code> may be draining at that instant, so the mutation is
+deferred to <code class="xref py py-meth docutils literal notranslate"><span class="pre">_open_block()</span></code> — where it also reuses the
+scheduler’s existing, tested warm-start path verbatim.</p>
+<p>A second request for the same arm before the first was applied
+simply replaces it: the newer analysis is the better one.</p>
 </dd></dl>
 
 <dl class="py method">

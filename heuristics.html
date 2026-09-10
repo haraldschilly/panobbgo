@@ -114,6 +114,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_start"><code class="docutils literal notranslate"><span class="pre">CMAES.on_start()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.restart_count"><code class="docutils literal notranslate"><span class="pre">CMAES.restart_count</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.warm_start"><code class="docutils literal notranslate"><span class="pre">CMAES.warm_start</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.warm_start_box"><code class="docutils literal notranslate"><span class="pre">CMAES.warm_start_box</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.warm_start_now"><code class="docutils literal notranslate"><span class="pre">CMAES.warm_start_now()</span></code></a></li>
 </ul>
 </li>
@@ -192,6 +193,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.on_restart"><code class="docutils literal notranslate"><span class="pre">LSHADE.on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.on_start"><code class="docutils literal notranslate"><span class="pre">LSHADE.on_start()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.warm_start"><code class="docutils literal notranslate"><span class="pre">LSHADE.warm_start</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.warm_start_box"><code class="docutils literal notranslate"><span class="pre">LSHADE.warm_start_box</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LSHADE.warm_start_now"><code class="docutils literal notranslate"><span class="pre">LSHADE.warm_start_now()</span></code></a></li>
 </ul>
 </li>
@@ -211,6 +213,16 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_restart"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_start"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_start()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.DEFAULT_NAME"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.DEFAULT_NAME</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.context"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.context()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.firings"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.firings</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.on_new_results"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.refractory"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.refractory()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.refusals"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.refusals</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst.scan"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst.scan()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.NLSHADE_LBC"><code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code></a><ul>
@@ -281,6 +293,9 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.Zero.on_start"><code class="docutils literal notranslate"><span class="pre">Zero.on_start()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.heuristics.budget_fraction"><code class="docutils literal notranslate"><span class="pre">budget_fraction()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.never"><code class="docutils literal notranslate"><span class="pre">never()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.stagnation"><code class="docutils literal notranslate"><span class="pre">stagnation()</span></code></a></li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
   </aside>
@@ -571,6 +586,21 @@ population) and a small regime (small λ + random small σ).</p>
 <dd><p>Archive selector for <code class="xref py py-meth docutils literal notranslate"><span class="pre">_warm_start_distribution()</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>
 for the cold start.  A <em>string</em>, deliberately not a callable: the
 trigger is <a class="reference internal" href="#panobbgo.heuristics.CMAES.warm_start_now" title="panobbgo.heuristics.CMAES.warm_start_now"><code class="xref py py-meth docutils literal notranslate"><span class="pre">warm_start_now()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.warm_start_box">
+<span class="sig-name descname"><span class="pre">warm_start_box</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.warm_start_box" title="Link to this definition">#</a></dt>
+<dd><p>Region the next warm start is restricted to, or <code class="docutils literal notranslate"><span class="pre">None</span></code> for the
+whole archive.  Written by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region()</span></code>
+on the main thread just before a block opens, and cleared again
+right after — a <em>one-shot</em> hand-off from
+<a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst" title="panobbgo.heuristics.meta.MetaAnalyst"><code class="xref py py-class docutils literal notranslate"><span class="pre">MetaAnalyst</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_meta_level_2026-09-10.md</span></code> §2).  Anything
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> accepts as <code class="docutils literal notranslate"><span class="pre">box</span></code>:
+a <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a> or a
+<code class="docutils literal notranslate"><span class="pre">(dim,</span> <span class="pre">2)</span></code> bounds array.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1389,6 +1419,21 @@ for the cold start.  A <em>string</em>, deliberately not a callable: the
 trigger is <a class="reference internal" href="#panobbgo.heuristics.LSHADE.warm_start_now" title="panobbgo.heuristics.LSHADE.warm_start_now"><code class="xref py py-meth docutils literal notranslate"><span class="pre">warm_start_now()</span></code></a>.</p>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LSHADE.warm_start_box">
+<span class="sig-name descname"><span class="pre">warm_start_box</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><a class="headerlink" href="#panobbgo.heuristics.LSHADE.warm_start_box" title="Link to this definition">#</a></dt>
+<dd><p>Region the next warm start is restricted to, or <code class="docutils literal notranslate"><span class="pre">None</span></code> for the
+whole archive.  Written by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region()</span></code>
+on the main thread just before a block opens, and cleared again
+right after — a <em>one-shot</em> hand-off from
+<a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst" title="panobbgo.heuristics.meta.MetaAnalyst"><code class="xref py py-class docutils literal notranslate"><span class="pre">MetaAnalyst</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_meta_level_2026-09-10.md</span></code> §2).  Anything
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> accepts as <code class="docutils literal notranslate"><span class="pre">box</span></code>:
+a <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a> or a
+<code class="docutils literal notranslate"><span class="pre">(dim,</span> <span class="pre">2)</span></code> bounds array.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LSHADE.warm_start_now">
 <span class="sig-name descname"><span class="pre">warm_start_now</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/lshade.html#LSHADE.warm_start_now"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LSHADE.warm_start_now" title="Link to this definition">#</a></dt>
@@ -1570,6 +1615,104 @@ The heuristic thread acts as a bridge:
 is never blocked by it.  Emissions from a subprocess bridge are
 inherently timing-dependent; such heuristics are excluded from the
 reproducible synchronous mode’s guarantees.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">MetaAnalyst</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">trigger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'never'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'scan'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">region_arm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.02</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">meta_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refractory</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">refractory_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_leaves</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quality_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_leafs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_region_points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tail_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#MetaAnalyst"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>Analyse the shared store <em>once</em>, at a chosen moment, and turn the
+analysis into points or into a region hand-off.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – the owning strategy.</p></li>
+<li><p><strong>trigger</strong> – a <code class="xref py py-class docutils literal notranslate"><span class="pre">Trigger</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;never&quot;</span></code> (default — the null
+control), or a float read as <a class="reference internal" href="#panobbgo.heuristics.budget_fraction" title="panobbgo.heuristics.budget_fraction"><code class="xref py py-func docutils literal notranslate"><span class="pre">budget_fraction()</span></code></a>.</p></li>
+<li><p><strong>mode</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;scan&quot;</span></code> (points from the leaf scan), <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code> (the
+falsifier: uniform points over the whole box at the same moments) or
+<code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code> (emit nothing; for the pure region hand-off).</p></li>
+<li><p><strong>region</strong> – publish <code class="docutils literal notranslate"><span class="pre">meta_region</span></code> so the block scheduler moves an
+adapted arm into the chosen leaf at its next block open.</p></li>
+<li><p><strong>region_arm</strong> – name of the arm to hand the region to; <code class="docutils literal notranslate"><span class="pre">None</span></code>
+picks the arm that is furthest behind on its own best (the leader is
+left alone).</p></li>
+<li><p><strong>k</strong> – points per firing; <code class="docutils literal notranslate"><span class="pre">None</span></code> resolves <code class="docutils literal notranslate"><span class="pre">k_frac</span> <span class="pre">*</span> <span class="pre">max_eval</span></code>,
+floored at <code class="docutils literal notranslate"><span class="pre">dim</span></code>.</p></li>
+<li><p><strong>k_frac</strong> – the fraction behind <code class="docutils literal notranslate"><span class="pre">k=None</span></code> (design §4: <code class="docutils literal notranslate"><span class="pre">0.02</span></code>).</p></li>
+<li><p><strong>meta_frac</strong> – hard cap on the share of the budget this module may
+ever emit (design §5).</p></li>
+<li><p><strong>refractory</strong> – evaluations between two firings; <code class="docutils literal notranslate"><span class="pre">None</span></code> resolves
+<code class="docutils literal notranslate"><span class="pre">max(block_evals,</span> <span class="pre">refractory_frac</span> <span class="pre">*</span> <span class="pre">max_eval)</span></code>.</p></li>
+<li><p><strong>n_leaves</strong> – how many top-scoring leaves the <code class="docutils literal notranslate"><span class="pre">k</span></code> points are spread
+over — concentrated enough to establish a basin, spread enough not
+to feed the <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> live-lock of §13.</p></li>
+<li><p><strong>quality_weight</strong> – <code class="docutils literal notranslate"><span class="pre">w</span></code> in the score; <code class="docutils literal notranslate"><span class="pre">0</span></code> is the pure
+volume-vs-count scan, <code class="docutils literal notranslate"><span class="pre">1</span></code> pure leaf quality.</p></li>
+<li><p><strong>min_leafs</strong> – refuse to fire with fewer leaves than this — on a
+handful of boxes volume-per-point is noise (design §5).</p></li>
+<li><p><strong>min_region_points</strong> – refuse a region hand-off unless the archive
+holds at least this many points inside the box, so the receiving arm
+is not handed an empty query after its queue was cleared.</p></li>
+<li><p><strong>tail_frac</strong> – refuse to fire in the last fraction of the budget.</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.DEFAULT_NAME">
+<span class="sig-name descname"><span class="pre">DEFAULT_NAME</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Meta'</span></span><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.DEFAULT_NAME" title="Link to this definition">#</a></dt>
+<dd><p>default name; sorts after <code class="docutils literal notranslate"><span class="pre">CMAES</span></code> / <code class="docutils literal notranslate"><span class="pre">JSO</span></code> / <code class="docutils literal notranslate"><span class="pre">LSHADE</span></code>, which is
+what keeps the arms’ registration order untouched (module docstring).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.context">
+<span class="sig-name descname"><span class="pre">context</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">MetaContext</span></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#MetaAnalyst.context"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.context" title="Link to this definition">#</a></dt>
+<dd><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">MetaContext</span></code> the trigger is evaluated against.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.firings">
+<span class="sig-name descname"><span class="pre">firings</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.firings" title="Link to this definition">#</a></dt>
+<dd><p>one record per firing, for the screen’s health block</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#MetaAnalyst.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Advance the trace, ask the trigger, fire at most once per batch.</p>
+<p>The very first statement is the null short-circuit: with
+<code class="docutils literal notranslate"><span class="pre">trigger=&quot;never&quot;</span></code> this module reads nothing, writes nothing and
+draws nothing, so the run is bit-identical to one without it.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.refractory">
+<span class="sig-name descname"><span class="pre">refractory</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#MetaAnalyst.refractory"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.refractory" title="Link to this definition">#</a></dt>
+<dd><p>Evaluations that must pass between two firings.</p>
+<p><code class="docutils literal notranslate"><span class="pre">max(block_evals,</span> <span class="pre">refractory_frac*max_eval)</span></code>: never more often
+than the scheduler makes a decision, and never more often than
+5 % of the budget.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.refusals">
+<span class="sig-name descname"><span class="pre">refusals</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.refusals" title="Link to this definition">#</a></dt>
+<dd><p>firings refused by a precondition, by cause</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.MetaAnalyst.scan">
+<span class="sig-name descname"><span class="pre">scan</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#MetaAnalyst.scan"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.MetaAnalyst.scan" title="Link to this definition">#</a></dt>
+<dd><p>Score every <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> leaf, best first.</p>
+<p><code class="docutils literal notranslate"><span class="pre">O(#leaves)</span></code> floats plus one <code class="docutils literal notranslate"><span class="pre">get_penalty_value</span></code> per leaf — the
+whole point of a meta level is that this runs <em>per firing</em>, not per
+result batch.</p>
 </dd></dl>
 
 </dd></dl>
@@ -2379,6 +2522,24 @@ and heuristics.</p>
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/zero.html#Zero.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.Zero.on_start" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.heuristics.budget_fraction">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">budget_fraction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Trigger</span></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#budget_fraction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.budget_fraction" title="Link to this definition">#</a></dt>
+<dd><p>Fire once, at <code class="docutils literal notranslate"><span class="pre">f</span></code> of the budget (see <code class="xref py py-class docutils literal notranslate"><span class="pre">BudgetFraction</span></code>).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.heuristics.never">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">never</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Trigger</span></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#never"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.never" title="Link to this definition">#</a></dt>
+<dd><p>The null trigger (see <code class="xref py py-class docutils literal notranslate"><span class="pre">Never</span></code>).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.heuristics.stagnation">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">stagnation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">window_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-08</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Trigger</span></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/meta.html#stagnation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.stagnation" title="Link to this definition">#</a></dt>
+<dd><p>Fire on a flat run best over a budget-relative window (<code class="xref py py-class docutils literal notranslate"><span class="pre">Stagnation</span></code>).</p>
 </dd></dl>
 
 </section>

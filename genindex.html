@@ -158,6 +158,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.Heuristic.active">active (panobbgo.core.Heuristic property)</a>
 </li>
+      <li><a href="heuristics.html#panobbgo.heuristics.NLSHADE_RSP.adaptive_archive">adaptive_archive (panobbgo.heuristics.NLSHADE_RSP attribute)</a>
+</li>
       <li><a href="core.html#panobbgo.core.StrategyBase.add">add() (panobbgo.core.StrategyBase method)</a>
 </li>
       <li><a href="core.html#panobbgo.core.StrategyBase.add_analyzer">add_analyzer() (panobbgo.core.StrategyBase method)</a>
@@ -165,6 +167,8 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="core.html#panobbgo.core.StrategyBase.add_heuristic">add_heuristic() (panobbgo.core.StrategyBase method)</a>
 
       <ul>
+        <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.add_heuristic">(panobbgo.strategies.StrategyBlockBandit method)</a>
+</li>
         <li><a href="strategies.html#panobbgo.strategies.StrategyLinUCB.add_heuristic">(panobbgo.strategies.StrategyLinUCB method)</a>
 </li>
         <li><a href="strategies.html#panobbgo.strategies.StrategyPhased.add_heuristic">(panobbgo.strategies.StrategyPhased method)</a>
@@ -192,8 +196,22 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.StrategyBase.analyzers">analyzers (panobbgo.core.StrategyBase property)</a>
 </li>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive">Archive (class in panobbgo.analyzers)</a>
+
+      <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive">(class in panobbgo.analyzers.archive)</a>
+</li>
+      </ul></li>
+      <li><a href="core.html#panobbgo.core.Heuristic.archive_seed">archive_seed() (panobbgo.core.Heuristic method)</a>
+</li>
       <li><a href="classic.html#panobbgo.lib.classic.Arwhead">Arwhead (class in panobbgo.lib.classic)</a>
 </li>
+      <li><a href="heuristics.html#panobbgo.heuristics.LSHADE.AUTO_DIM_COEF">AUTO_DIM_COEF (panobbgo.heuristics.LSHADE attribute)</a>
+
+      <ul>
+        <li><a href="heuristics.html#panobbgo.heuristics.NLSHADE_LBC.AUTO_DIM_COEF">(panobbgo.heuristics.NLSHADE_LBC attribute)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#panobbgo.core.StrategyBase.avg_time_per_task">avg_time_per_task (panobbgo.core.StrategyBase property)</a>
 </li>
   </ul></td>
@@ -220,13 +238,15 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="core.html#panobbgo.core.StrategyBase.best">(panobbgo.core.StrategyBase property)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.bipop_evals_large">bipop_evals_large (panobbgo.heuristics.CMAES property)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.bipop_evals_small">bipop_evals_small (panobbgo.heuristics.CMAES property)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.bipop_regime">bipop_regime (panobbgo.heuristics.CMAES property)</a>
+</li>
+      <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.block_evals">block_evals (panobbgo.strategies.StrategyBlockBandit property)</a>
 </li>
       <li><a href="_autosummary/panobbgo.lib.lib.BoundingBox.html#panobbgo.lib.BoundingBox">BoundingBox (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.BoundingBox">[1]</a>
 </li>
@@ -328,12 +348,14 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer">(class in panobbgo.analyzers.dedensifyer)</a>
 </li>
       </ul></li>
+      <li><a href="analyzers.html#panobbgo.analyzers.archive.DEFAULT_K">DEFAULT_K (in module panobbgo.analyzers.archive)</a>
+</li>
       <li><a href="classic.html#panobbgo.lib.classic.DeJong">DeJong (class in panobbgo.lib.classic)</a>
+</li>
+      <li><a href="core.html#panobbgo.core.Module.derive_rng">derive_rng() (panobbgo.core.Module method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#panobbgo.core.Module.derive_rng">derive_rng() (panobbgo.core.Module method)</a>
-</li>
       <li><a href="core.html#panobbgo.core.Module.derive_seed">derive_seed() (panobbgo.core.Module method)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.DifferentialEvolution">DifferentialEvolution (class in panobbgo.heuristics)</a>
@@ -342,6 +364,12 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="strategies.html#panobbgo.strategies.StrategyRewarding.discount">discount() (panobbgo.strategies.StrategyRewarding method)</a>
 </li>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive.diverse_k">diverse_k() (panobbgo.analyzers.Archive method)</a>
+
+      <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.diverse_k">(panobbgo.analyzers.archive.Archive method)</a>
+</li>
+      </ul></li>
       <li><a href="classic.html#panobbgo.lib.classic.DixonPrice">DixonPrice (class in panobbgo.lib.classic)</a>
 </li>
   </ul></td>
@@ -497,6 +525,8 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="core.html#panobbgo.core.StrategyBase.execute">execute() (panobbgo.core.StrategyBase method)</a>
 
       <ul>
+        <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.execute">(panobbgo.strategies.StrategyBlockBandit method)</a>
+</li>
         <li><a href="strategies.html#panobbgo.strategies.StrategyLinUCB.execute">(panobbgo.strategies.StrategyLinUCB method)</a>
 </li>
         <li><a href="strategies.html#panobbgo.strategies.StrategyPhased.execute">(panobbgo.strategies.StrategyPhased method)</a>
@@ -541,6 +571,8 @@ data-aria-dark="Switch to auto color mode">
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic">GaussianProcessHeuristic (class in panobbgo.heuristics)</a>
+</li>
+      <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.GENERATION_ATTRS">GENERATION_ATTRS (panobbgo.strategies.StrategyBlockBandit attribute)</a>
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.Splitter.get_all_boxes">get_all_boxes() (panobbgo.analyzers.Splitter method)</a>
 
@@ -670,10 +702,14 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="K">K</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic.kappa">kappa (panobbgo.heuristics.GaussianProcessHeuristic attribute)</a>
+      <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.K">K (panobbgo.analyzers.archive.Archive attribute)</a>
+</li>
+      <li><a href="heuristics.html#panobbgo.heuristics.NLSHADE_RSP.k_rank">k_rank (panobbgo.heuristics.NLSHADE_RSP attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic.kappa">kappa (panobbgo.heuristics.GaussianProcessHeuristic attribute)</a>
+</li>
       <li><a href="core.html#panobbgo.core.EventBus.keys">keys (panobbgo.core.EventBus property)</a>
 </li>
   </ul></td>
@@ -682,6 +718,10 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.LAMBDA_REF_DEFAULT">LAMBDA_REF_DEFAULT (panobbgo.strategies.StrategyBlockBandit attribute)</a>
+</li>
+      <li><a href="heuristics.html#panobbgo.heuristics.CMAES.last_stop_reason">last_stop_reason (panobbgo.heuristics.CMAES property)</a>
+</li>
       <li><a href="heuristics.html#panobbgo.heuristics.LatinHypercube">LatinHypercube (class in panobbgo.heuristics)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.LBFGSB">LBFGSB (class in panobbgo.heuristics)</a>
@@ -694,10 +734,10 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
       <li><a href="core.html#panobbgo.core.Results.load_from_storage">load_from_storage() (panobbgo.core.Results method)</a>
 </li>
-      <li><a href="heuristics.html#panobbgo.heuristics.LocalPenaltySearch">LocalPenaltySearch (class in panobbgo.heuristics)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="heuristics.html#panobbgo.heuristics.LocalPenaltySearch">LocalPenaltySearch (class in panobbgo.heuristics)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.Splitter.Box.log_volume">log_volume (panobbgo.analyzers.Splitter.Box property)</a>
 
       <ul>
@@ -740,6 +780,8 @@ data-aria-dark="Switch to auto color mode">
       <ul>
         <li><a href="analyzers.html#module-panobbgo.analyzers">panobbgo.analyzers</a>
 </li>
+        <li><a href="analyzers.html#module-panobbgo.analyzers.archive">panobbgo.analyzers.archive</a>
+</li>
         <li><a href="analyzers.html#module-panobbgo.analyzers.best">panobbgo.analyzers.best</a>
 </li>
         <li><a href="analyzers.html#module-panobbgo.analyzers.convergence">panobbgo.analyzers.convergence</a>
@@ -775,7 +817,13 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="N">N</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic.n_restarts">n_restarts (panobbgo.heuristics.GaussianProcessHeuristic attribute)</a>
+      <li><a href="heuristics.html#panobbgo.heuristics.CMAES.n_restarts">n_restarts (panobbgo.heuristics.CMAES property)</a>
+
+      <ul>
+        <li><a href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic.n_restarts">(panobbgo.heuristics.GaussianProcessHeuristic attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="heuristics.html#panobbgo.heuristics.CMAES.n_self_restarts">n_self_restarts (panobbgo.heuristics.CMAES property)</a>
 </li>
       <li><a href="core.html#panobbgo.core.Module.name">name (panobbgo.core.Module property)</a>
 
@@ -795,14 +843,14 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.NelderMead.nelder_mead_sample">nelder_mead_sample() (panobbgo.heuristics.NelderMead method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.NelderMead">NelderMead (class in panobbgo.heuristics)</a>
 
       <ul>
         <li><a href="_autosummary/panobbgo.heuristics.nelder_mead.NelderMead.html#panobbgo.heuristics.nelder_mead.NelderMead">(class in panobbgo.heuristics.nelder_mead)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="classic.html#panobbgo.lib.classic.NesterovQuadratic">NesterovQuadratic (class in panobbgo.lib.classic)</a>
 </li>
       <li><a href="core.html#panobbgo.core.Heuristic.new_who">new_who() (panobbgo.core.Heuristic method)</a>
@@ -901,9 +949,13 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.best.Best.on_new_pareto_front">(panobbgo.analyzers.best.Best method)</a>
 </li>
       </ul></li>
-      <li><a href="analyzers.html#panobbgo.analyzers.Best.on_new_results">on_new_results() (panobbgo.analyzers.Best method)</a>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive.on_new_results">on_new_results() (panobbgo.analyzers.Archive method)</a>
 
       <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.on_new_results">(panobbgo.analyzers.archive.Archive method)</a>
+</li>
+        <li><a href="analyzers.html#panobbgo.analyzers.Best.on_new_results">(panobbgo.analyzers.Best method)</a>
+</li>
         <li><a href="analyzers.html#panobbgo.analyzers.best.Best.on_new_results">(panobbgo.analyzers.best.Best method)</a>
 </li>
         <li><a href="analyzers.html#panobbgo.analyzers.Convergence.on_new_results">(panobbgo.analyzers.Convergence method)</a>
@@ -959,6 +1011,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="heuristics.html#panobbgo.heuristics.Random.on_new_results">(panobbgo.heuristics.Random method)</a>
 </li>
         <li><a href="heuristics.html#panobbgo.heuristics.RegionUCB.on_new_results">(panobbgo.heuristics.RegionUCB method)</a>
+</li>
+        <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.on_new_results">(panobbgo.strategies.StrategyBlockBandit method)</a>
 </li>
         <li><a href="strategies.html#panobbgo.strategies.StrategyLinUCB.on_new_results">(panobbgo.strategies.StrategyLinUCB method)</a>
 </li>
@@ -1071,6 +1125,13 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li>
+    panobbgo.analyzers.archive
+
+      <ul>
+        <li><a href="analyzers.html#module-panobbgo.analyzers.archive">module</a>
+</li>
+      </ul></li>
+      <li>
     panobbgo.analyzers.best
 
       <ul>
@@ -1172,6 +1233,18 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.best.Best.pareto_front">(panobbgo.analyzers.best.Best property)</a>
 </li>
       </ul></li>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive.penalty_of">penalty_of() (panobbgo.analyzers.Archive method)</a>
+
+      <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.penalty_of">(panobbgo.analyzers.archive.Archive method)</a>
+</li>
+      </ul></li>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive.per_leaf_best">per_leaf_best() (panobbgo.analyzers.Archive method)</a>
+
+      <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.per_leaf_best">(panobbgo.analyzers.archive.Archive method)</a>
+</li>
+      </ul></li>
       <li><a href="core.html#panobbgo.core.Heuristic.performance">performance (panobbgo.core.Heuristic attribute)</a>
 </li>
       <li><a href="_autosummary/panobbgo.lib.lib.Point.html#panobbgo.lib.Point">Point (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.Point">[1]</a>
@@ -1268,14 +1341,18 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.Results">Results (class in panobbgo.core)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#panobbgo.core.Module.results">results (panobbgo.core.Module property)</a>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive.results">results (panobbgo.analyzers.Archive property)</a>
 
       <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.results">(panobbgo.analyzers.archive.Archive property)</a>
+</li>
+        <li><a href="core.html#panobbgo.core.Module.results">(panobbgo.core.Module property)</a>
+</li>
         <li><a href="core.html#panobbgo.core.Results.results">(panobbgo.core.Results property)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="strategies.html#panobbgo.strategies.StrategyLinUCB.reward">reward() (panobbgo.strategies.StrategyLinUCB method)</a>
 
       <ul>
@@ -1368,14 +1445,14 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.splitter.Splitter.Box">(class in panobbgo.analyzers.splitter)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.StrategyBase.start">start() (panobbgo.core.StrategyBase method)</a>
 
       <ul>
         <li><a href="strategies.html#panobbgo.strategies.StrategyPhased.start">(panobbgo.strategies.StrategyPhased method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="classic.html#panobbgo.lib.classic.Step">Step (class in panobbgo.lib.classic)</a>
 </li>
       <li><a href="core.html#panobbgo.core.StopHeuristic">StopHeuristic</a>
@@ -1387,6 +1464,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li><a href="_autosummary/panobbgo.core.StrategyBase.html#panobbgo.core.StrategyBase">StrategyBase (class in panobbgo.core)</a>, <a href="core.html#panobbgo.core.StrategyBase">[1]</a>
+</li>
+      <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit">StrategyBlockBandit (class in panobbgo.strategies)</a>
 </li>
       <li><a href="strategies.html#panobbgo.strategies.StrategyLinUCB">StrategyLinUCB (class in panobbgo.strategies)</a>
 </li>
@@ -1424,7 +1503,11 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="classic.html#panobbgo.lib.classic.SumDifferentPower">SumDifferentPower (class in panobbgo.lib.classic)</a>
 </li>
+      <li><a href="heuristics.html#panobbgo.heuristics.CMAES.SUPPORTED_RESTART_FROM">SUPPORTED_RESTART_FROM (panobbgo.heuristics.CMAES attribute)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES">SUPPORTED_RESTART_STRATEGIES (panobbgo.analyzers.Restart attribute)</a>
+</li>
+      <li><a href="heuristics.html#panobbgo.heuristics.CMAES.SUPPORTED_WARM_START">SUPPORTED_WARM_START (panobbgo.heuristics.CMAES attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1436,12 +1519,18 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.StrategyBase.time_cpu">time_cpu (panobbgo.core.StrategyBase property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.StrategyBase.time_start_str">time_start_str (panobbgo.core.StrategyBase property)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.StrategyBase.time_wall">time_wall (panobbgo.core.StrategyBase property)</a>
 </li>
+      <li><a href="analyzers.html#panobbgo.analyzers.Archive.top_k">top_k() (panobbgo.analyzers.Archive method)</a>
+
+      <ul>
+        <li><a href="analyzers.html#panobbgo.analyzers.archive.Archive.top_k">(panobbgo.analyzers.archive.Archive method)</a>
+</li>
+      </ul></li>
       <li><a href="classic.html#panobbgo.lib.classic.Trigonometric">Trigonometric (class in panobbgo.lib.classic)</a>
 </li>
   </ul></td>
@@ -1476,6 +1565,28 @@ data-aria-dark="Switch to auto color mode">
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.EventBus.wait_idle">wait_idle() (panobbgo.core.EventBus method)</a>
 </li>
+      <li><a href="heuristics.html#panobbgo.heuristics.CMAES.warm_start">warm_start (panobbgo.heuristics.CMAES attribute)</a>
+
+      <ul>
+        <li><a href="heuristics.html#panobbgo.heuristics.LSHADE.warm_start">(panobbgo.heuristics.LSHADE attribute)</a>
+</li>
+        <li><a href="heuristics.html#panobbgo.heuristics.PSO.warm_start">(panobbgo.heuristics.PSO attribute)</a>
+</li>
+      </ul></li>
+      <li><a href="core.html#panobbgo.core.Heuristic.WARM_START_MODES">WARM_START_MODES (panobbgo.core.Heuristic attribute)</a>
+</li>
+      <li><a href="core.html#panobbgo.core.Heuristic.warm_start_now">warm_start_now() (panobbgo.core.Heuristic method)</a>
+
+      <ul>
+        <li><a href="heuristics.html#panobbgo.heuristics.CMAES.warm_start_now">(panobbgo.heuristics.CMAES method)</a>
+</li>
+        <li><a href="heuristics.html#panobbgo.heuristics.LSHADE.warm_start_now">(panobbgo.heuristics.LSHADE method)</a>
+</li>
+        <li><a href="heuristics.html#panobbgo.heuristics.PSO.warm_start_now">(panobbgo.heuristics.PSO method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.WeightedAverage">WeightedAverage (class in panobbgo.heuristics)</a>
 </li>
       <li><a href="lib.html#panobbgo.lib.Point.who">who (panobbgo.lib.Point property)</a>
@@ -1484,8 +1595,6 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="lib.html#panobbgo.lib.Result.who">(panobbgo.lib.Result property)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="classic.html#panobbgo.lib.classic.Wood">Wood (class in panobbgo.lib.classic)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.COBYQA.worker">worker() (panobbgo.heuristics.COBYQA static method)</a>

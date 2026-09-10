@@ -100,6 +100,18 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#analyzers">Analyzers</a><ul>
+<li><a class="reference internal" href="#archive">Archive</a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive"><code class="docutils literal notranslate"><span class="pre">Archive</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.K"><code class="docutils literal notranslate"><span class="pre">Archive.K</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.diverse_k"><code class="docutils literal notranslate"><span class="pre">Archive.diverse_k()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.on_new_results"><code class="docutils literal notranslate"><span class="pre">Archive.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.penalty_of"><code class="docutils literal notranslate"><span class="pre">Archive.penalty_of()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.per_leaf_best"><code class="docutils literal notranslate"><span class="pre">Archive.per_leaf_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.results"><code class="docutils literal notranslate"><span class="pre">Archive.results</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.Archive.top_k"><code class="docutils literal notranslate"><span class="pre">Archive.top_k()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.analyzers.archive.DEFAULT_K"><code class="docutils literal notranslate"><span class="pre">DEFAULT_K</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.best"><code class="docutils literal notranslate"><span class="pre">Best.best</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.cv"><code class="docutils literal notranslate"><span class="pre">Best.cv</span></code></a></li>
@@ -158,6 +170,15 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Splitter.on_refresh_best()</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive"><code class="docutils literal notranslate"><span class="pre">Archive</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive.diverse_k"><code class="docutils literal notranslate"><span class="pre">Archive.diverse_k()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive.on_new_results"><code class="docutils literal notranslate"><span class="pre">Archive.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive.penalty_of"><code class="docutils literal notranslate"><span class="pre">Archive.penalty_of()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive.per_leaf_best"><code class="docutils literal notranslate"><span class="pre">Archive.per_leaf_best()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive.results"><code class="docutils literal notranslate"><span class="pre">Archive.results</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Archive.top_k"><code class="docutils literal notranslate"><span class="pre">Archive.top_k()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Best"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a><ul>
@@ -267,6 +288,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Grid</strong>: Simple spatial grid grouping of nearby points</p></li>
 <li><p><strong>Dedensifyer</strong>: Hierarchical grid that avoids point clustering by keeping only min/max representatives per region</p></li>
 <li><p><strong>Splitter</strong>: Adaptive hierarchical box-decomposition of the search space; publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> and identifies the best leaf box</p></li>
+<li><p><strong>Archive</strong>: Opt-in bounded top-K of the <em>shared</em> result stream, ranked by penalty and unfiltered by <code class="docutils literal notranslate"><span class="pre">who</span></code>; the query layer heuristics warm-start from</p></li>
 </ul>
 <section id="analyzers">
 <span id="module-panobbgo.analyzers"></span><h2>Analyzers<a class="headerlink" href="#analyzers" title="Link to this heading">#</a></h2>
@@ -276,6 +298,116 @@ global data. They can emit <a class="reference internal" href="core.html#panobbg
 on their own and they are accessible via the
 <a class="reference internal" href="core.html#panobbgo.core.StrategyBase.analyzer" title="panobbgo.core.StrategyBase.analyzer"><code class="xref py py-meth docutils literal notranslate"><span class="pre">analyzer()</span></code></a> method of
 the strategy.</p>
+<section id="archive">
+<span id="module-panobbgo.analyzers.archive"></span><h3>Archive<a class="headerlink" href="#archive" title="Link to this heading">#</a></h3>
+<p>A bounded, <em>shared</em> top-K of the whole result stream — the query layer the
+population heuristics need in order to warm-start from points somebody else
+paid for (<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_warm_start_2026-09-10.md</span></code> §2).</p>
+<p>What the store offers today is either too little or too much: <code class="docutils literal notranslate"><span class="pre">Results</span></code>
+only replays the last <em>n</em> rows as floats, <code class="docutils literal notranslate"><span class="pre">Best</span></code> collapses to a single
+incumbent, and <code class="docutils literal notranslate"><span class="pre">Splitter.root.results</span></code> is a complete but unsorted,
+unbounded <code class="docutils literal notranslate"><span class="pre">list[Result]</span></code>.  This analyzer keeps the <em>K</em> best results seen so
+far, ranked by the constraint handler’s penalty value and <strong>not filtered by
+``who``</strong> — an arm that asks for a seed gets the best points in the run,
+whoever produced them.</p>
+<p>Cost: one heap operation per result, <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code>.  Queries are <code class="docutils literal notranslate"><span class="pre">O(K</span> <span class="pre">log</span> <span class="pre">K)</span></code>
+and are made a handful of times per run, so they are deliberately simple.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This analyzer is <strong>opt-in</strong>: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a>
+does not add it.  Ship it via <code class="docutils literal notranslate"><span class="pre">StrategySpec.analyzers</span></code> (or
+<code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code>) so a run without warm-started arms keeps the exact
+module construction order — and therefore the exact RNG streams — it had
+before.</p>
+</div>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.archive.</span></span><span class="sig-name descname"><span class="pre">Archive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
+<p>Bounded top-K of the shared result stream, ranked by penalty value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – the owning strategy.</p></li>
+<li><p><strong>k</strong> – how many results to retain (default <a class="reference internal" href="#panobbgo.analyzers.archive.DEFAULT_K" title="panobbgo.analyzers.archive.DEFAULT_K"><code class="xref py py-data docutils literal notranslate"><span class="pre">DEFAULT_K</span></code></a>).</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – optional module name; defaults to <code class="docutils literal notranslate"><span class="pre">&quot;Archive&quot;</span></code>.</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong></p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.K">
+<span class="sig-name descname"><span class="pre">K</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.K" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.diverse_k">
+<span class="sig-name descname"><span class="pre">diverse_k</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.diverse_k"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.diverse_k" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">k</span></code> well-separated good results: greedy max–min over the top <code class="docutils literal notranslate"><span class="pre">pool*k</span></code>.</p>
+<p>The incumbent is always the first pick; each further pick maximises
+the minimum distance to everything picked so far, measured in
+box-normalised coordinates so the selection does not depend on the
+units of a dimension.  This is the selector that hands a second arm a
+<em>spread</em> rather than a cluster around one basin.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Fold every result into the bounded top-K.  <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code> per result.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.penalty_of">
+<span class="sig-name descname"><span class="pre">penalty_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.penalty_of"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.penalty_of" title="Link to this definition">#</a></dt>
+<dd><p>Penalty value of <code class="docutils literal notranslate"><span class="pre">r</span></code>, <code class="docutils literal notranslate"><span class="pre">inf</span></code> when it cannot be evaluated.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.per_leaf_best">
+<span class="sig-name descname"><span class="pre">per_leaf_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.per_leaf_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.per_leaf_best" title="Link to this definition">#</a></dt>
+<dd><p>Best point of each of the <code class="docutils literal notranslate"><span class="pre">k</span></code> best <code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code> leaves.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">[]</span></code> when no <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> is registered — the only selector
+that depends on a second analyzer, and the only one that can hand out
+points from <em>different</em> basins by construction.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.results">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">results</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.results" title="Link to this definition">#</a></dt>
+<dd><p>Every retained result, best first.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.top_k">
+<span class="sig-name descname"><span class="pre">top_k</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_who</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.top_k"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.top_k" title="Link to this definition">#</a></dt>
+<dd><p>The <code class="docutils literal notranslate"><span class="pre">k</span></code> best retained results, best first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> – restrict to results inside this region — either a
+<a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a> (anything with a
+<code class="docutils literal notranslate"><span class="pre">contains</span></code> method) or a <code class="docutils literal notranslate"><span class="pre">(dim,</span> <span class="pre">2)</span></code> array of bounds.</p></li>
+<li><p><strong>exclude_who</strong> – a <code class="docutils literal notranslate"><span class="pre">who</span></code> tag, or an iterable of them, to skip.
+Matching is by heuristic name, so <code class="docutils literal notranslate"><span class="pre">&quot;PSO&quot;</span></code> also drops
+<code class="docutils literal notranslate"><span class="pre">&quot;PSO:1a2b…&quot;</span></code>.</p></li>
+<li><p><strong>fx_max</strong> – keep only results whose penalty is <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">fx_max</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.analyzers.archive.DEFAULT_K">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.archive.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_K</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">256</span></span><a class="headerlink" href="#panobbgo.analyzers.archive.DEFAULT_K" title="Link to this definition">#</a></dt>
+<dd><p>Default number of results retained.</p>
+</dd></dl>
+
 <dl class="py class" id="module-panobbgo.analyzers.best">
 <dt class="sig sig-object py" id="panobbgo.analyzers.best.Best">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.best.</span></span><span class="sig-name descname"><span class="pre">Best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.best.Best" title="Link to this definition">#</a></dt>
@@ -668,6 +800,82 @@ We need to re-evaluate the local best for all leaf boxes and update the global b
 </dd></dl>
 
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Archive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
+<p>Bounded top-K of the shared result stream, ranked by penalty value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – the owning strategy.</p></li>
+<li><p><strong>k</strong> – how many results to retain (default <code class="xref py py-data docutils literal notranslate"><span class="pre">DEFAULT_K</span></code>).</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – optional module name; defaults to <code class="docutils literal notranslate"><span class="pre">&quot;Archive&quot;</span></code>.</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong></p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive.diverse_k">
+<span class="sig-name descname"><span class="pre">diverse_k</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.diverse_k"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.diverse_k" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">k</span></code> well-separated good results: greedy max–min over the top <code class="docutils literal notranslate"><span class="pre">pool*k</span></code>.</p>
+<p>The incumbent is always the first pick; each further pick maximises
+the minimum distance to everything picked so far, measured in
+box-normalised coordinates so the selection does not depend on the
+units of a dimension.  This is the selector that hands a second arm a
+<em>spread</em> rather than a cluster around one basin.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Fold every result into the bounded top-K.  <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code> per result.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive.penalty_of">
+<span class="sig-name descname"><span class="pre">penalty_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.penalty_of"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.penalty_of" title="Link to this definition">#</a></dt>
+<dd><p>Penalty value of <code class="docutils literal notranslate"><span class="pre">r</span></code>, <code class="docutils literal notranslate"><span class="pre">inf</span></code> when it cannot be evaluated.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive.per_leaf_best">
+<span class="sig-name descname"><span class="pre">per_leaf_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.per_leaf_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.per_leaf_best" title="Link to this definition">#</a></dt>
+<dd><p>Best point of each of the <code class="docutils literal notranslate"><span class="pre">k</span></code> best <a class="reference internal" href="#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> leaves.</p>
+<p>Returns <code class="docutils literal notranslate"><span class="pre">[]</span></code> when no <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> is registered — the only selector
+that depends on a second analyzer, and the only one that can hand out
+points from <em>different</em> basins by construction.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive.results">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">results</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.analyzers.Archive.results" title="Link to this definition">#</a></dt>
+<dd><p>Every retained result, best first.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Archive.top_k">
+<span class="sig-name descname"><span class="pre">top_k</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_who</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fx_max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.top_k"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.top_k" title="Link to this definition">#</a></dt>
+<dd><p>The <code class="docutils literal notranslate"><span class="pre">k</span></code> best retained results, best first.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>box</strong> – restrict to results inside this region — either a
+<a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a> (anything with a
+<code class="docutils literal notranslate"><span class="pre">contains</span></code> method) or a <code class="docutils literal notranslate"><span class="pre">(dim,</span> <span class="pre">2)</span></code> array of bounds.</p></li>
+<li><p><strong>exclude_who</strong> – a <code class="docutils literal notranslate"><span class="pre">who</span></code> tag, or an iterable of them, to skip.
+Matching is by heuristic name, so <code class="docutils literal notranslate"><span class="pre">&quot;PSO&quot;</span></code> also drops
+<code class="docutils literal notranslate"><span class="pre">&quot;PSO:1a2b…&quot;</span></code>.</p></li>
+<li><p><strong>fx_max</strong> – keep only results whose penalty is <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">fx_max</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Best">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/best.html#Best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Best" title="Link to this definition">#</a></dt>

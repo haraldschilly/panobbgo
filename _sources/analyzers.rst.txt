@@ -11,6 +11,7 @@ Result analysis and monitoring components:
 - **Grid**: Simple spatial grid grouping of nearby points
 - **Dedensifyer**: Hierarchical grid that avoids point clustering by keeping only min/max representatives per region
 - **Splitter**: Adaptive hierarchical box-decomposition of the search space; publishes ``new_split`` and identifies the best leaf box
+- **Archive**: Opt-in bounded top-K of the *shared* result stream, ranked by penalty and unfiltered by ``who``; the query layer heuristics warm-start from
 
 .. automodule:: panobbgo.analyzers
    :members:

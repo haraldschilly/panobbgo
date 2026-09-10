@@ -130,6 +130,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#cma-es-as-a-baseline">CMA-ES as a baseline</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol">Per-arm sweeps and the decision protocol</a><ul>
+<li><a class="reference internal" href="#pair-the-variants-seed-name">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></li>
+<li><a class="reference internal" href="#the-null-floor">The null floor</a></li>
+<li><a class="reference internal" href="#the-sweep-tools">The sweep tools</a></li>
+<li><a class="reference internal" href="#when-a-default-may-change">When a default may change</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#extending-the-harness">Extending the harness</a><ul>
 <li><a class="reference internal" href="#adding-a-problem">Adding a problem</a></li>
 <li><a class="reference internal" href="#adding-a-strategy">Adding a strategy</a></li>
@@ -216,14 +223,22 @@ in <code class="docutils literal notranslate"><span class="pre">planning/LOOP_RE
 <li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id22">CMA-ES as a baseline</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id23">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol" id="id23">Per-arm sweeps and the decision protocol</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id24">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id25">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id26">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#pair-the-variants-seed-name" id="id24">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></p></li>
+<li><p><a class="reference internal" href="#the-null-floor" id="id25">The null floor</a></p></li>
+<li><p><a class="reference internal" href="#the-sweep-tools" id="id26">The sweep tools</a></p></li>
+<li><p><a class="reference internal" href="#when-a-default-may-change" id="id27">When a default may change</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id27">See also</a></p></li>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id28">Extending the harness</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id29">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id30">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id31">Adding a metric</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#see-also" id="id32">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -785,10 +800,154 @@ upstream reference becomes valuable.</p>
 <code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> for the guarantees.</p>
 </section>
 </section>
+<section id="per-arm-sweeps-and-the-decision-protocol">
+<h2><a class="toc-backref" href="#id23" role="doc-backlink">Per-arm sweeps and the decision protocol</a><a class="headerlink" href="#per-arm-sweeps-and-the-decision-protocol" title="Link to this heading">#</a></h2>
+<p>The composite score and the AOCC batteries answer “is the framework better”.
+A different question — “is <em>this parameter</em> of <em>that arm</em> better” — needs a
+tighter protocol, because at three seeds the effect being hunted is usually
+the same size as the noise.  Three rules and four tools make up that protocol.</p>
+<section id="pair-the-variants-seed-name">
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a><a class="headerlink" href="#pair-the-variants-seed-name" title="Link to this heading">#</a></h3>
+<p>The harnesses derive every run’s seed by hashing a strategy label.  By
+default that label is the spec’s <code class="docutils literal notranslate"><span class="pre">name</span></code> — so two specs that differ <em>only</em>
+in their display name run on <strong>different RNG streams</strong>, and an A/B between
+them carries the full run-to-run variance.  A parameter that is never read
+still shows a nonzero delta.</p>
+<p>That is not hypothetical: an “interior optimum” for CMA-ES’s <code class="docutils literal notranslate"><span class="pre">ipop_factor</span></code>
+was reported with a CI excluding zero, replicated, and split by dimension,
+before it turned out the parameter was dead code in solo runs
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §18).  The sweep reports the <em>maximum</em>
+over six such draws, and the winner of a null tournament is biased upward by
+roughly the spread between draws; re-running the identical <code class="docutils literal notranslate"><span class="pre">(name,</span> <span class="pre">seed)</span></code>
+pairs reproduces the identical numbers, so determinism was mistaken for
+confirmation.</p>
+<p><code class="docutils literal notranslate"><span class="pre">StrategySpec.seed_name</span></code> fixes it.  Set it to one constant across all
+variants of an arm and they share the RNG stream per cell, so a dead
+parameter yields <strong>exactly zero</strong> and a live one shows only its own effect:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">StrategySpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"jso_np_15"</span><span class="p">,</span>  <span class="n">seed_name</span><span class="o">=</span><span class="s2">"jso"</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span><span data-line="2"><span class="n">StrategySpec</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"jso_np_30"</span><span class="p">,</span>  <span class="n">seed_name</span><span class="o">=</span><span class="s2">"jso"</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">None</span></code> (the default) keeps seeding from <code class="docutils literal notranslate"><span class="pre">name</span></code>.  The label the harness
+actually hashes is <code class="docutils literal notranslate"><span class="pre">StrategySpec.rng_identity</span></code> = <code class="docutils literal notranslate"><span class="pre">seed_name</span> <span class="pre">or</span> <span class="pre">name</span></code>.</p>
+</section>
+<section id="the-null-floor">
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">The null floor</a><a class="headerlink" href="#the-null-floor" title="Link to this heading">#</a></h3>
+<p>How large is “the same size as the noise”?  Measured directly: one
+configuration run under six different spec names — six RNG streams, nothing
+else changed — on the standard battery, seeds 42 / 7 / 1234, paired per seed
+exactly as a sweep is (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §18a).</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 34.0%" />
+<col style="width: 22.0%" />
+<col style="width: 22.0%" />
+<col style="width: 22.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Configuration</p></th>
+<th class="head"><p>sd of battery mean</p></th>
+<th class="head"><p>max − min</p></th>
+<th class="head"><p>Largest spurious “gain”</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>CMA-ES (default)</p></td>
+<td><p>0.0204</p></td>
+<td><p><strong>0.0500</strong></p></td>
+<td><p><strong>+0.0500</strong>, on 3 of 3 seeds</p></td>
+</tr>
+<tr class="row-odd"><td><p>L-SHADE <code class="docutils literal notranslate"><span class="pre">NP_init=10</span></code></p></td>
+<td><p>0.0121</p></td>
+<td><p>0.0312</p></td>
+<td><p>+0.0066</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A three-seed sweep can therefore hand CMA-ES a <code class="docutils literal notranslate"><span class="pre">+0.05</span></code> “improvement” with
+all three seeds agreeing, purely from a label change.</p>
+<p><strong>Rule adopted:</strong> on a three-seed battery mean, anything below <strong>±0.05 for
+CMA-ES</strong> or <strong>±0.03 for a DE arm</strong> is not an effect and is not reported as
+one.  Note also that CMA-ES’s variance is bimodal — a stream either finds the
+basin at <code class="docutils literal notranslate"><span class="pre">d=5</span></code> or it does not — so its floor is genuinely wider than a DE
+arm’s, and a result that is “positive on every seed” is not by itself
+evidence.</p>
+</section>
+<section id="the-sweep-tools">
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">The sweep tools</a><a class="headerlink" href="#the-sweep-tools" title="Link to this heading">#</a></h3>
+<p>Four scripts under <code class="docutils literal notranslate"><span class="pre">benchmarks/</span></code>, all of them running arms <strong>solo</strong> via
+<code class="docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code>, all paired per seed on one RNG stream, all flushing
+their rows after every seed so an interrupted run loses nothing:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 28.0%" />
+<col style="width: 72.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Tool</p></th>
+<th class="head"><p>The question it answers</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">arm_sweep.py</span></code></p></td>
+<td><p>Which value of one hyper-parameter is best for one arm run alone —
+reported per dimension, since the battery’s <code class="docutils literal notranslate"><span class="pre">500·dim</span></code> budget makes
+<code class="docutils literal notranslate"><span class="pre">NP</span> <span class="pre">=</span> <span class="pre">c·dim</span></code> and <code class="docutils literal notranslate"><span class="pre">NP</span> <span class="pre">=</span> <span class="pre">budget/k</span></code> indistinguishable in the pooled mean.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">oracle.py</span></code></p></td>
+<td><p>How much there is to gain from <em>choosing</em> an arm at all: the per-cell
+max over arms (the oracle) minus the best single arm is the headroom
+any selection policy could ever win.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">np_accept.py</span></code></p></td>
+<td><p>Whether the new <code class="docutils literal notranslate"><span class="pre">NP_init=&quot;auto&quot;</span></code> rule may become a library default —
+old rule vs. new vs. plain <code class="docutils literal notranslate"><span class="pre">3·dim</span></code>, on the decision roster.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">portfolio_screen.py</span></code></p></td>
+<td><p>Whether a <em>portfolio</em> under <code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code> beats one arm, and
+what warm starting from the shared archive is worth against the same
+portfolio cold.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Typical invocation (<code class="docutils literal notranslate"><span class="pre">nice</span></code> it; progress is counted in evaluations, not
+wall-clock):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmarks/arm_sweep.py<span class="w"> </span>jso<span class="w"> </span>out.json<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="m">1234</span><span class="w"> </span><span class="nv">dims</span><span class="o">=</span><span class="m">2</span>,5<span class="w"> </span><span class="nv">bm</span><span class="o">=</span><span class="m">500</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmarks/oracle.py<span class="w"> </span>oracle.json<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="m">1234</span><span class="w"> </span>--defaults
+</span></pre></div>
+</div>
+</section>
+<section id="when-a-default-may-change">
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
+<p>A three-seed sweep <em>locates</em> a candidate; it never ships one.  A library
+default changes only after the candidate is accepted on the <strong>12-seed
+roster</strong>, paired, as a library default rather than as a harness spec — CI
+excluding zero on the positive side, a clear majority of seeds positive, and
+no dimension excluding zero on the negative side.  On top of that, a positive
+result needs a <strong>mechanism</strong>: a claim about which code path the parameter
+changes.  <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> passed all three tests (read in <code class="docutils literal notranslate"><span class="pre">__init__</span></code>, effect
+of +0.1 … +0.2 far above the floor, and a visible collapse at <code class="docutils literal notranslate"><span class="pre">NP_init=4</span></code>);
+the secondary knobs of the first sweep pass (<code class="docutils literal notranslate"><span class="pre">H</span></code>, <code class="docutils literal notranslate"><span class="pre">k_rank</span></code>,
+<code class="docutils literal notranslate"><span class="pre">archive_factor</span></code>, <code class="docutils literal notranslate"><span class="pre">F_schedule</span></code>, <code class="docutils literal notranslate"><span class="pre">lbest</span></code>) did not, and are recorded as
+<em>unproven</em> rather than as wrong.</p>
+<p>One sharpening of that rule, learned the expensive way: <strong>a screen
+maximum’s own CI carries no weight.</strong>  A screen reports the best of many
+specs, and a confidence interval computed on a selected winner is not the
+interval of a pre-registered spec.  <code class="docutils literal notranslate"><span class="pre">soft_be25</span></code> led a fourteen-spec screen
+at +0.050 with a three-seed CI excluding zero, and returned <strong>−0.006</strong> on the
+roster (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §30).  This is the same
+mechanism as the dead-parameter story above, passing through a CI instead of
+a point estimate.  Only the roster CI decides.</p>
+</section>
+</section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id28" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id24" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -798,7 +957,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -808,7 +967,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -817,7 +976,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id27" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id32" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

@@ -582,6 +582,140 @@ See ``panobbgo/harness_baselines.py`` for the full interface and
 ``tests/test_harness_baselines.py`` for the guarantees.
 
 
+Per-arm sweeps and the decision protocol
+----------------------------------------
+
+The composite score and the AOCC batteries answer "is the framework better".
+A different question — "is *this parameter* of *that arm* better" — needs a
+tighter protocol, because at three seeds the effect being hunted is usually
+the same size as the noise.  Three rules and four tools make up that protocol.
+
+Pair the variants: ``seed_name``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The harnesses derive every run's seed by hashing a strategy label.  By
+default that label is the spec's ``name`` — so two specs that differ *only*
+in their display name run on **different RNG streams**, and an A/B between
+them carries the full run-to-run variance.  A parameter that is never read
+still shows a nonzero delta.
+
+That is not hypothetical: an "interior optimum" for CMA-ES's ``ipop_factor``
+was reported with a CI excluding zero, replicated, and split by dimension,
+before it turned out the parameter was dead code in solo runs
+(``planning/DISCOVERY_2026-09-09.md`` §18).  The sweep reports the *maximum*
+over six such draws, and the winner of a null tournament is biased upward by
+roughly the spread between draws; re-running the identical ``(name, seed)``
+pairs reproduces the identical numbers, so determinism was mistaken for
+confirmation.
+
+``StrategySpec.seed_name`` fixes it.  Set it to one constant across all
+variants of an arm and they share the RNG stream per cell, so a dead
+parameter yields **exactly zero** and a live one shows only its own effect:
+
+.. code-block:: python
+
+   StrategySpec(name="jso_np_15",  seed_name="jso", ...)
+   StrategySpec(name="jso_np_30",  seed_name="jso", ...)
+
+``None`` (the default) keeps seeding from ``name``.  The label the harness
+actually hashes is ``StrategySpec.rng_identity`` = ``seed_name or name``.
+
+The null floor
+~~~~~~~~~~~~~~
+
+How large is "the same size as the noise"?  Measured directly: one
+configuration run under six different spec names — six RNG streams, nothing
+else changed — on the standard battery, seeds 42 / 7 / 1234, paired per seed
+exactly as a sweep is (``planning/DISCOVERY_2026-09-09.md`` §18a).
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 22 22 22
+
+   * - Configuration
+     - sd of battery mean
+     - max − min
+     - Largest spurious "gain"
+   * - CMA-ES (default)
+     - 0.0204
+     - **0.0500**
+     - **+0.0500**, on 3 of 3 seeds
+   * - L-SHADE ``NP_init=10``
+     - 0.0121
+     - 0.0312
+     - +0.0066
+
+A three-seed sweep can therefore hand CMA-ES a ``+0.05`` "improvement" with
+all three seeds agreeing, purely from a label change.
+
+**Rule adopted:** on a three-seed battery mean, anything below **±0.05 for
+CMA-ES** or **±0.03 for a DE arm** is not an effect and is not reported as
+one.  Note also that CMA-ES's variance is bimodal — a stream either finds the
+basin at ``d=5`` or it does not — so its floor is genuinely wider than a DE
+arm's, and a result that is "positive on every seed" is not by itself
+evidence.
+
+The sweep tools
+~~~~~~~~~~~~~~~
+
+Four scripts under ``benchmarks/``, all of them running arms **solo** via
+``StrategyRoundRobin``, all paired per seed on one RNG stream, all flushing
+their rows after every seed so an interrupted run loses nothing:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Tool
+     - The question it answers
+   * - ``arm_sweep.py``
+     - Which value of one hyper-parameter is best for one arm run alone —
+       reported per dimension, since the battery's ``500·dim`` budget makes
+       ``NP = c·dim`` and ``NP = budget/k`` indistinguishable in the pooled mean.
+   * - ``oracle.py``
+     - How much there is to gain from *choosing* an arm at all: the per-cell
+       max over arms (the oracle) minus the best single arm is the headroom
+       any selection policy could ever win.
+   * - ``np_accept.py``
+     - Whether the new ``NP_init="auto"`` rule may become a library default —
+       old rule vs. new vs. plain ``3·dim``, on the decision roster.
+   * - ``portfolio_screen.py``
+     - Whether a *portfolio* under ``StrategyBlockBandit`` beats one arm, and
+       what warm starting from the shared archive is worth against the same
+       portfolio cold.
+
+Typical invocation (``nice`` it; progress is counted in evaluations, not
+wall-clock):
+
+.. code-block:: bash
+
+   uv run python benchmarks/arm_sweep.py jso out.json 42 7 1234 dims=2,5 bm=500
+   uv run python benchmarks/oracle.py oracle.json 42 7 1234 --defaults
+
+When a default may change
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A three-seed sweep *locates* a candidate; it never ships one.  A library
+default changes only after the candidate is accepted on the **12-seed
+roster**, paired, as a library default rather than as a harness spec — CI
+excluding zero on the positive side, a clear majority of seeds positive, and
+no dimension excluding zero on the negative side.  On top of that, a positive
+result needs a **mechanism**: a claim about which code path the parameter
+changes.  ``NP_init`` passed all three tests (read in ``__init__``, effect
+of +0.1 … +0.2 far above the floor, and a visible collapse at ``NP_init=4``);
+the secondary knobs of the first sweep pass (``H``, ``k_rank``,
+``archive_factor``, ``F_schedule``, ``lbest``) did not, and are recorded as
+*unproven* rather than as wrong.
+
+One sharpening of that rule, learned the expensive way: **a screen
+maximum's own CI carries no weight.**  A screen reports the best of many
+specs, and a confidence interval computed on a selected winner is not the
+interval of a pre-registered spec.  ``soft_be25`` led a fourteen-spec screen
+at +0.050 with a three-seed CI excluding zero, and returned **−0.006** on the
+roster (``planning/DISCOVERY_2026-09-09.md`` §30).  This is the same
+mechanism as the dead-parameter story above, passing through a CI instead of
+a point estimate.  Only the roster CI decides.
+
 Extending the harness
 ---------------------
 

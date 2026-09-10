@@ -117,7 +117,9 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic"><code class="docutils literal notranslate"><span class="pre">Heuristic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.WARM_START_MODES"><code class="docutils literal notranslate"><span class="pre">Heuristic.WARM_START_MODES</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.active"><code class="docutils literal notranslate"><span class="pre">Heuristic.active</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.archive_seed"><code class="docutils literal notranslate"><span class="pre">Heuristic.archive_seed()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.cap"><code class="docutils literal notranslate"><span class="pre">Heuristic.cap</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.clear_output"><code class="docutils literal notranslate"><span class="pre">Heuristic.clear_output()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.emit"><code class="docutils literal notranslate"><span class="pre">Heuristic.emit()</span></code></a></li>
@@ -127,6 +129,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.has_points"><code class="docutils literal notranslate"><span class="pre">Heuristic.has_points</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.new_who"><code class="docutils literal notranslate"><span class="pre">Heuristic.new_who()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.performance"><code class="docutils literal notranslate"><span class="pre">Heuristic.performance</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.warm_start_now"><code class="docutils literal notranslate"><span class="pre">Heuristic.warm_start_now()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.HeuristicSubprocess"><code class="docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a><ul>
@@ -442,6 +445,14 @@ or to queue up tasks for itself.</p></li>
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.WARM_START_MODES">
+<span class="sig-name descname"><span class="pre">WARM_START_MODES</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('archive',</span> <span class="pre">'archive_diverse',</span> <span class="pre">'archive_leaf')</span></span><a class="headerlink" href="#panobbgo.core.Heuristic.WARM_START_MODES" title="Link to this definition">#</a></dt>
+<dd><p>Selector names <a class="reference internal" href="#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> understands.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (the
+default of every <code class="docutils literal notranslate"><span class="pre">warm_start=</span></code> constructor argument) means “cold
+start”, i.e. do not call <a class="reference internal" href="#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> at all.</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.active">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">active</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.active" title="Link to this definition">#</a></dt>
@@ -449,6 +460,31 @@ or to queue up tasks for itself.</p></li>
 This is the case, iff there is still something in its output queue
 or if there is a chance that there will be something in the future
 (it still listens to at least one event).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.archive_seed">
+<span class="sig-name descname"><span class="pre">archive_seed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.archive_seed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.archive_seed" title="Link to this definition">#</a></dt>
+<dd><p>Up to <code class="docutils literal notranslate"><span class="pre">k</span></code> good points from the <em>shared</em> archive, best first.</p>
+<p>The query layer of <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_warm_start_2026-09-10.md</span></code> §2:
+a heuristic that wants to start from points it did not pay for asks
+here instead of reaching into another module’s state.  Three
+selectors, all of them unfiltered by <code class="docutils literal notranslate"><span class="pre">who</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;archive&quot;</span></code> (default) — the <code class="docutils literal notranslate"><span class="pre">k</span></code> best results;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;archive_diverse&quot;</span></code> — <code class="docutils literal notranslate"><span class="pre">k</span></code> well-separated good results;</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;archive_leaf&quot;</span></code> — the best point of each of the <code class="docutils literal notranslate"><span class="pre">k</span></code> best
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> leaves, i.e. <code class="docutils literal notranslate"><span class="pre">k</span></code>
+<em>different basins</em>.</p></li>
+</ul>
+<p>Source is the opt-in <a class="reference internal" href="analyzers.html#panobbgo.analyzers.archive.Archive" title="panobbgo.analyzers.archive.Archive"><code class="xref py py-class docutils literal notranslate"><span class="pre">Archive</span></code></a>
+analyzer when the strategy has one; otherwise the <code class="docutils literal notranslate"><span class="pre">Splitter</span></code>’s
+root box, which holds every result in <a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a>
+form, sorted by penalty value.  With neither analyzer — or with
+nothing evaluated yet — the answer is <code class="docutils literal notranslate"><span class="pre">[]</span></code>, which every caller has
+to read as “use the cold path”.</p>
+<p>Never raises: a missing analyzer, an unstarted one or a broken
+constraint handler all degrade to <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -527,6 +563,18 @@ stream.</p>
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.performance">
 <span class="sig-name descname"><span class="pre">performance</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.performance" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.warm_start_now">
+<span class="sig-name descname"><span class="pre">warm_start_now</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.warm_start_now"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.warm_start_now" title="Link to this definition">#</a></dt>
+<dd><p>Re-seed this heuristic from the shared archive, right now.</p>
+<p>Called by a scheduler that just handed this heuristic a fresh block
+of evaluations (see
+<a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyBlockBandit" title="panobbgo.strategies.blocks.StrategyBlockBandit"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code></a>), by direct
+method call — the event bus only broadcasts.  Returns <code class="docutils literal notranslate"><span class="pre">True</span></code> iff a
+seed was actually used.  The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>: a heuristic that
+does not opt in is left exactly as it was.</p>
+</dd></dl>
 
 </dd></dl>
 

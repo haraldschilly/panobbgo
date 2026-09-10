@@ -135,12 +135,22 @@ data-aria-dark="Switch to auto color mode">
 </li>
 </ul>
 </li>
+<li><a class="reference internal" href="#tuning-the-population-methods">Tuning the Population Methods</a><ul>
+<li><a class="reference internal" href="#population-sizing-np-init-auto">Population Sizing (<code class="docutils literal notranslate"><span class="pre">NP_init="auto"</span></code>)</a></li>
+<li><a class="reference internal" href="#cma-es-restarts">CMA-ES Restarts</a></li>
+<li><a class="reference internal" href="#shared-archive-and-warm-start">Shared Archive and Warm Start</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#choosing-a-strategy">Choosing a Strategy</a><ul>
 <li><a class="reference internal" href="#strategyroundrobin">StrategyRoundRobin</a></li>
 <li><a class="reference internal" href="#strategyrewarding">StrategyRewarding</a></li>
 <li><a class="reference internal" href="#strategythompsonsampling">StrategyThompsonSampling</a></li>
 <li><a class="reference internal" href="#strategyucb">StrategyUCB</a></li>
 <li><a class="reference internal" href="#strategylinucb">StrategyLinUCB</a></li>
+<li><a class="reference internal" href="#strategyblockbandit-experimental">StrategyBlockBandit (experimental)</a><ul>
+<li><a class="reference internal" href="#what-was-measured-to-matter-and-what-was-not">What was measured to matter, and what was not</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#strategyphased">StrategyPhased</a></li>
 </ul>
 </li>
@@ -923,6 +933,25 @@ A/B on your own problem shows they earn their evaluations.</p>
 </span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></pre></div>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><em>Which</em> single arm is under re-evaluation.  The table below was measured
+before the population-sizing fix of <a class="reference internal" href="#population-sizing"><span class="std std-ref">Population Sizing (NP_init=&quot;auto&quot;)</span></a>, i.e. against
+DE arms that were roughly five times over-populated.  Re-run on the
+12-seed roster with the sizes the library now ships, jSO, NLSHADE_LBC,
+L-SHADE and CMA-ES sit within 0.014 mean AOCC of each other — inside the
+null floor (see <a class="reference internal" href="guide_benchmarking.html"><span class="doc">Benchmarking and the Composite Score</span></a>) — and win <em>different</em> instances,
+sorted by dimension (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §28).  “CMA-ES
+alone” is still a safe starting point, but it is no longer a measured
+winner; benchmark the arms on your own problem before committing.</p>
+<p>The same holds for the portfolio.  <code class="docutils literal notranslate"><span class="pre">Blocks_warm_CMAES_JSO</span></code> — CMA-ES +
+jSO, both warm-started from the shared archive, rotating every block —
+is now the second shipped harness spec, replacing <code class="docutils literal notranslate"><span class="pre">Rewarding_Restart</span></code>
+(0.35, no longer a useful control).  It measures <strong>level with</strong>
+<code class="docutils literal notranslate"><span class="pre">RoundRobin_CMAES</span></code>, not above it (§27, §30).  The plan of record is a
+dimension-gated spec — portfolio for <code class="docutils literal notranslate"><span class="pre">d</span> <span class="pre">≥</span> <span class="pre">5</span></code>, single arm below — since
+the portfolio’s whole lean sits at <code class="docutils literal notranslate"><span class="pre">d=5</span></code>; see <code class="docutils literal notranslate"><span class="pre">planning/GOAL.md</span></code> §2c.</p>
+</div>
 <p>Measured on the MA-BBOB battery (mean AOCC, dims 2 and 5, budget 500·d,
 5 instances, seeds 42 / 7 / 1234, <code class="docutils literal notranslate"><span class="pre">sync_evaluation=True</span></code>):</p>
 <div class="table-wrapper colwidths-given docutils container">
@@ -1113,31 +1142,27 @@ the population doubles (λ → 2λ) and the search restarts from a diverse new c
 systematic escape from local optima while the full result history is retained.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> already implements IPOP and
-BIPOP restarts internally (<code class="docutils literal notranslate"><span class="pre">restart_mode</span></code>), and it keeps its adapted
-covariance across them.  Adding the external
-<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer on top <em>halved</em>
-its score on the MA-BBOB battery (0.663 → 0.301 mean AOCC, d2+d5,
-seed 42): the analyzer’s restart event discards what the search has
-learned.  Prefer <code class="docutils literal notranslate"><span class="pre">CMAES(restart_mode=&quot;ipop&quot;)</span></code> on its own and measure
-before adding the analyzer.</p>
+<p>Do <strong>not</strong> pair <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> with the
+external <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer.  The
+heuristic implements IPOP and BIPOP restarts internally
+(<code class="docutils literal notranslate"><span class="pre">restart_mode</span></code>), keeps its adapted covariance across them, and since
+2026-09 decides <em>when</em> to restart on its own (see
+<a class="reference internal" href="#cma-es-restarts"><span class="std std-ref">CMA-ES Restarts</span></a>).  The analyzer on top <em>halved</em> its score on the
+MA-BBOB battery (0.663 → 0.301 mean AOCC, d2+d5, seed 42): its restart
+event discards what the search has learned.  <code class="docutils literal notranslate"><span class="pre">CMAES(restart_mode=&quot;ipop&quot;)</span></code>
+on its own is the configuration to use.</p>
 </div>
-<p>For reference, the combination looks like this:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMAES</span><span class="p">,</span> <span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">NelderMead</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Restart</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
-</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">sigma0</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">ipop_factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
-</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
-</span><span data-line="8"><span class="c1"># Add Restart *before* calling start()</span>
-</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Restart</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>   <span class="c1"># default: 5 * dim</span>
-</span><span data-line="10">                              <span class="n">restart_strategy</span><span class="o">=</span><span class="s2">"diverse"</span><span class="p">,</span>
-</span><span data-line="11">                              <span class="n">max_restarts</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
-</span><span data-line="12"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">sigma0</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">ipop_factor</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
+</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></pre></div>
 </div>
-<p>Key parameters of <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>:</p>
+<p>The <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer remains available
+for heuristics that have no restart logic of their own.  Its key parameters:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">patience</span></code> (int | None): evaluations without improvement before restart.
 <code class="docutils literal notranslate"><span class="pre">None</span></code> uses <code class="docutils literal notranslate"><span class="pre">5</span> <span class="pre">*</span> <span class="pre">problem.dim</span></code> (recommended).</p></li>
@@ -1167,10 +1192,7 @@ the state of the art for limited-budget multimodal black-box optimization.</p>
 </span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LatinHypercube</span><span class="p">,</span> <span class="n">div</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 </span><span data-line="3"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">sigma0</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">restart_mode</span><span class="o">=</span><span class="s2">"bipop"</span><span class="p">)</span>
 </span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">NelderMead</span><span class="p">)</span>
-</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Restart</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-</span><span data-line="6">                              <span class="n">restart_strategy</span><span class="o">=</span><span class="s2">"diverse"</span><span class="p">,</span>
-</span><span data-line="7">                              <span class="n">max_restarts</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
-</span><span data-line="8"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></pre></div>
 </div>
 <p>Inspect the BIPOP regime distribution after the run:</p>
@@ -1202,6 +1224,253 @@ larger evaluation budget (≥ 200 evals).</p></li>
 </span></pre></div>
 </div>
 </section>
+</section>
+</section>
+<section id="tuning-the-population-methods">
+<h2>Tuning the Population Methods<a class="headerlink" href="#tuning-the-population-methods" title="Link to this heading">#</a></h2>
+<p>The three subsections below cover the settings that were measured to matter
+most on the MA-BBOB battery.  Every parameter mentioned here is documented in
+full on its own class; this is the <em>why</em> and the numbers, not a second copy of
+the API reference.</p>
+<section id="population-sizing-np-init-auto">
+<span id="population-sizing"></span><h3>Population Sizing (<code class="docutils literal notranslate"><span class="pre">NP_init=&quot;auto&quot;</span></code>)<a class="headerlink" href="#population-sizing-np-init-auto" title="Link to this heading">#</a></h3>
+<p>The L-SHADE family — <a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a>,
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.JSO" title="panobbgo.heuristics.jso.JSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">JSO</span></code></a>,
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.NLSHADE_LBC" title="panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC"><code class="xref py py-class docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code></a> and the other SHADE
+derivatives — accepts <code class="docutils literal notranslate"><span class="pre">NP_init=&quot;auto&quot;</span></code>, which sizes the initial population
+from the run’s evaluation budget and the problem dimension:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">NP = clip( round( 3·dim · (budget / (500·dim))**0.25 ), max(NP_min, 6), 400 )
+</span></pre></div>
+</div>
+<p>This is the constructor default for the whole L-SHADE family; the
+literature value <code class="docutils literal notranslate"><span class="pre">30</span></code> is used only as a fallback when the budget is not
+known at construction.  The coefficient is a class attribute
+(<code class="docutils literal notranslate"><span class="pre">AUTO_DIM_COEF</span></code>): the base rule uses <code class="docutils literal notranslate"><span class="pre">3</span></code>, and <code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code> uses
+<code class="docutils literal notranslate"><span class="pre">4</span></code> — its linear bias control wants a larger rank pool, measured at
++0.052 AOCC over the <code class="docutils literal notranslate"><span class="pre">3·dim</span></code> rule on the 12-seed roster (10/12 seeds).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSO</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRoundRobin</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRoundRobin</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">2500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">JSO</span><span class="p">,</span> <span class="n">NP_init</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">)</span>     <span class="c1"># d=5, B=2500  →  NP_init = 15</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p><strong>Why.</strong> Fixed-<code class="docutils literal notranslate"><span class="pre">NP_init</span></code> grid sweeps of the three L-SHADE-lineage arms, run
+solo on the standard battery, put the AOCC optimum at 6–8 for <code class="docutils literal notranslate"><span class="pre">d=2</span></code>, 10–20
+for <code class="docutils literal notranslate"><span class="pre">d=5</span></code> and 20–30 for <code class="docutils literal notranslate"><span class="pre">d=10</span></code>: the optimum tracks the <em>dimension</em>, which
+fixes the coefficient at <code class="docutils literal notranslate"><span class="pre">≈</span> <span class="pre">3·dim</span></code>.  Quadrupling the budget moves it up by
+only about 1.5×, hence the fourth-root budget term anchored at the reference
+<code class="docutils literal notranslate"><span class="pre">500</span></code> evaluations per dimension.  The floor of 6 keeps
+<code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> working headroom — at <code class="docutils literal notranslate"><span class="pre">NP_init=4</span></code> the mutation
+collapses (−0.25 AOCC for <code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code>).  The rule this replaced,
+<code class="docutils literal notranslate"><span class="pre">min(18·dim,</span> <span class="pre">budget/12)</span></code>, took the CEC-2014 upper bound literally; at a few
+hundred evaluations per dimension its cap never binds, so it shipped
+populations roughly <strong>five times too large</strong> — most of the budget went into
+the initial random fill and the success-history adaptation never got enough
+generations to pay off.</p>
+<p>Accepted on the 12-seed decision roster, each arm solo and paired on one RNG
+stream (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §17, §20):</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Arm</p></th>
+<th class="head"><p>Δ mean AOCC</p></th>
+<th class="head"><p>CI 95 %</p></th>
+<th class="head"><p>Seeds positive</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LSHADE</span></code></p></td>
+<td><p><strong>+0.230</strong></p></td>
+<td><p>[+0.215, +0.244]</p></td>
+<td><p>12 / 12</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">JSO</span></code></p></td>
+<td><p><strong>+0.204</strong></p></td>
+<td><p>[+0.175, +0.233]</p></td>
+<td><p>12 / 12</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">NLSHADE_LBC</span></code></p></td>
+<td><p>+0.064</p></td>
+<td><p>[+0.028, +0.099]</p></td>
+<td><p>10 / 12</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p><strong>The budget must be known when the heuristic is constructed.</strong>
+<code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> is resolved once, in <code class="docutils literal notranslate"><span class="pre">__init__</span></code>, from
+<code class="docutils literal notranslate"><span class="pre">strategy.config.max_eval</span></code>.  Pass the budget to the strategy constructor
+(<code class="docutils literal notranslate"><span class="pre">max_evaluations=</span></code>), or let a <code class="docutils literal notranslate"><span class="pre">StrategySpec</span></code> do it — its
+<code class="docutils literal notranslate"><span class="pre">create_strategy(max_eval=...)</span></code> sets the budget <em>before</em> any heuristic is
+built, and the harnesses now pass it.  Assigning
+<code class="docutils literal notranslate"><span class="pre">strategy.config.max_eval</span></code> <strong>after</strong> <code class="docutils literal notranslate"><span class="pre">strategy.add(...)</span></code> is too late:
+the heuristic has already fallen back to the fixed default of <code class="docutils literal notranslate"><span class="pre">30</span></code>.</p>
+</div>
+</section>
+<section id="cma-es-restarts">
+<span id="id1"></span><h3>CMA-ES Restarts<a class="headerlink" href="#cma-es-restarts" title="Link to this heading">#</a></h3>
+<p>Solo <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> used to have no termination
+criterion at all: one CMA-ES run for the whole budget, and once σ had
+collapsed it kept resampling the same point.  Diagnosed at <code class="docutils literal notranslate"><span class="pre">d=5</span></code> with a
+2500-evaluation budget, <strong>52 % of the budget was spent after the last
+improvement of any size</strong>, and on two of five instances σ <em>diverged</em> against
+its clamp and sampled the box boundary for 92 % of the run.</p>
+<p>Two mechanisms now fix this, both on by default (<code class="docutils literal notranslate"><span class="pre">self_restart=True</span></code>):</p>
+<ul class="simple">
+<li><p><strong>Hansen’s reference termination set</strong> — <code class="docutils literal notranslate"><span class="pre">tolx</span></code>, <code class="docutils literal notranslate"><span class="pre">tolfun</span></code>,
+<code class="docutils literal notranslate"><span class="pre">tolfunhist</span></code>, <code class="docutils literal notranslate"><span class="pre">stagnation</span></code>, <code class="docutils literal notranslate"><span class="pre">conditioncov</span></code>, <code class="docutils literal notranslate"><span class="pre">noeffectaxis</span></code>,
+<code class="docutils literal notranslate"><span class="pre">noeffectcoord</span></code>.  When one fires, the heuristic restarts through the
+IPOP/BIPOP path, so <code class="docutils literal notranslate"><span class="pre">ipop_factor</span></code> finally has an effect in solo runs.
+These tolerances are written for runs of many thousands of generations and
+rarely fire inside a 500·dim budget; on their own they were worth
+<strong>+0.0001</strong>.</p></li>
+<li><p><strong>σ-divergence detection</strong> (<code class="docutils literal notranslate"><span class="pre">sigma_divergence=True</span></code>, the panobbgo
+analogue of pycma’s <code class="docutils literal notranslate"><span class="pre">tolupsigma</span></code>) — restart when the sampling spread
+<code class="docutils literal notranslate"><span class="pre">σ·sqrt(diag</span> <span class="pre">C)</span></code> has sat at or above <code class="docutils literal notranslate"><span class="pre">sigma_max_frac</span></code> (default <code class="docutils literal notranslate"><span class="pre">0.3</span></code>)
+of the box range in <em>every</em> coordinate for <code class="docutils literal notranslate"><span class="pre">sigma_divergence_gens</span></code>
+generations.  This is the addition that paid: <strong>+0.026 mean AOCC
+[+0.008, +0.043] on the 12-seed roster, 11 of 12 seeds positive</strong>, at 0.68
+restarts per run.  The gain is heavy-tailed — a handful of cells gain
++0.18 … +0.44 and most are unchanged — because it only fires on the runs
+that would otherwise diverge (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §23).</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">restart_from</span></code> chooses where a <em>self</em>-restart re-centres:  <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code>
+(default, the reference IPOP behaviour), <code class="docutils literal notranslate"><span class="pre">&quot;best&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;center&quot;</span></code>.  A
+σ-divergence restart always re-centres on the best point seen regardless — a
+diverged run has no basin worth keeping.  <code class="docutils literal notranslate"><span class="pre">stagnation_frac</span></code> adds a
+<em>budget</em>-relative stagnation window; it is off by default because it measured
+harmful at the fractions where it fires often.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># The default — nothing to configure.</span>
+</span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">sigma0</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">restart_mode</span><span class="o">=</span><span class="s2">"ipop"</span><span class="p">)</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Restore the pre-2026-09 behaviour (one run for the whole budget).</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">self_restart</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Because CMA-ES now terminates and restarts itself, the external
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer is <strong>not needed</strong>
+with it — and was measured to hurt badly (see the warning under
+<em>Multimodal problems with IPOP-CMA-ES</em> above).</p>
+</div>
+</section>
+<section id="shared-archive-and-warm-start">
+<span id="shared-archive-warm-start"></span><h3>Shared Archive and Warm Start<a class="headerlink" href="#shared-archive-and-warm-start" title="Link to this heading">#</a></h3>
+<p>A portfolio of independent solvers is only worth its switching costs if the
+arms <em>share</em> the evaluations they paid for.  The
+<a class="reference internal" href="analyzers.html#panobbgo.analyzers.archive.Archive" title="panobbgo.analyzers.archive.Archive"><code class="xref py py-class docutils literal notranslate"><span class="pre">Archive</span></code></a> analyzer is that sharing layer:
+a bounded top-K of the whole result stream, ranked by the constraint
+handler’s penalty value and <strong>not</strong> filtered by <code class="docutils literal notranslate"><span class="pre">who</span></code>, so an arm that asks
+for a seed gets the best points in the run whoever produced them.</p>
+<p>It is <strong>opt-in</strong> — <a class="reference internal" href="core.html#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a> does not add
+it, so a run without warm-started arms keeps exactly the module construction
+order, and therefore the RNG streams, it had before:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">LSHADE</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Archive</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>          <span class="c1"># or StrategySpec(analyzers=[(Archive, {})])</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LSHADE</span><span class="p">,</span> <span class="n">NP_init</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span> <span class="n">warm_start</span><span class="o">=</span><span class="s2">"archive"</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Three selectors are shared by every arm (see
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a>):</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">warm_start</span></code></p></th>
+<th class="head"><p>Seeds with</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;archive&quot;</span></code></p></td>
+<td><p>the <code class="docutils literal notranslate"><span class="pre">k</span></code> best results in the run</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;archive_diverse&quot;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">k</span></code> well-separated good results</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;archive_leaf&quot;</span></code></p></td>
+<td><p>the best point of each of the <code class="docutils literal notranslate"><span class="pre">k</span></code> best <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> leaves — <code class="docutils literal notranslate"><span class="pre">k</span></code>
+different basins</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>What each arm does with them:</p>
+<ul class="simple">
+<li><p><strong>The L-SHADE family</strong> places the seeds into the initial population
+<em>directly, as evaluated results</em>, and fills any shortfall from the cold
+random path — so warm starting costs <strong>zero evaluations</strong>.</p></li>
+<li><p><strong>PSO</strong> takes positions and personal bests from the top-<code class="docutils literal notranslate"><span class="pre">NP</span></code> results, also
+at zero cost, and sets velocities to <code class="docutils literal notranslate"><span class="pre">0.5·(x_π(i)</span> <span class="pre">−</span> <span class="pre">x_i)</span></code> over a random
+derangement, so the swarm starts <em>moving between</em> known good points instead
+of from a standstill.</p></li>
+<li><p><strong>CMA-ES</strong> fits its initial distribution to the seed cloud.  It additionally
+accepts <code class="docutils literal notranslate"><span class="pre">warm_start=&quot;archive_cov&quot;</span></code>, which also seeds the covariance
+matrix <code class="docutils literal notranslate"><span class="pre">C</span></code>.  Here the warm start saves no evaluations — CMA-ES has no
+population to fill — the whole gain is starting in the right basin at the
+right scale.</p></li>
+</ul>
+<p>In all cases an empty archive (<code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">=</span> <span class="pre">0</span></code>) means the arm silently cold-starts.
+For a custom heuristic, call
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> and treat <code class="docutils literal notranslate"><span class="pre">[]</span></code> as “use the
+cold path”; override <a class="reference internal" href="core.html#panobbgo.core.Heuristic.warm_start_now" title="panobbgo.core.Heuristic.warm_start_now"><code class="xref py py-meth docutils literal notranslate"><span class="pre">warm_start_now()</span></code></a> if a
+scheduler should be able to re-seed you mid-run.</p>
+<p>The recommended warm configuration, if you use one, is <strong>both</strong> arms on plain
+<code class="docutils literal notranslate"><span class="pre">warm_start=&quot;archive&quot;</span></code> with both guards off:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBlockBandit</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">2500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+</span><span data-line="2">                               <span class="n">policy</span><span class="o">=</span><span class="s2">"uniform"</span><span class="p">,</span> <span class="n">block_evals</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+</span><span data-line="3">                               <span class="n">warm_start_on_resume</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="4">                               <span class="n">warm_start_only_if_foreign</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span data-line="5">                               <span class="n">warm_start_only_if_better</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Archive</span><span class="p">)</span>
+</span><span data-line="7"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">warm_start</span><span class="o">=</span><span class="s2">"archive"</span><span class="p">)</span>
+</span><span data-line="8"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">JSO</span><span class="p">,</span> <span class="n">NP_init</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span> <span class="n">warm_start</span><span class="o">=</span><span class="s2">"archive"</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Three findings behind those settings
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §25, §31):</p>
+<ul class="simple">
+<li><p><strong>Both arms warm, not one.</strong>  One-directional sharing scored 0.619 against
+0.645 for the same pair with both arms warm — CMA-ES’s warm start is worth
+as much as the DE arm’s.</p></li>
+<li><p><strong>``”archive_cov”`` hurts</strong> (−0.019, at both dimensions).  Seed the mean and
+σ; leave <code class="docutils literal notranslate"><span class="pre">C</span> <span class="pre">=</span> <span class="pre">I</span></code>.</p></li>
+<li><p><strong>``warm_start_only_if_better`` hurts</strong> (−0.073 on the 3-seed screen,
+−0.007 on the roster).  It cuts warm starts lopsidedly: CMA-ES usually holds
+the incumbent, so the guard starves the arm that most needs the relay.
+<code class="docutils literal notranslate"><span class="pre">warm_start_only_if_foreign</span></code> is the shipped guard, but it too was measured
+off in the specs that lead.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental, off by default.</strong>  Sharing is the one portfolio mechanism
+on this codebase that measures: it removes the <strong>−0.08</strong> penalty a <em>cold</em>
+two-arm portfolio pays against its own best arm (the one CI clear of zero
+in the whole screen).  It does not buy a lead.  On the 12-seed roster the
+best warm portfolio — <code class="docutils literal notranslate"><span class="pre">Blocks_uniform_cj_warm2</span></code>, CMA-ES + jSO, both warm,
+rotating every block — reaches <strong>0.685 against CMA-ES alone at 0.666:
++0.019, 8 of 12 seeds, CI including zero.</strong>  Level with the best single
+arm, not above it.  The whole lean is at <code class="docutils literal notranslate"><span class="pre">d=5</span></code> (+0.03); at <code class="docutils literal notranslate"><span class="pre">d=2</span></code> a
+single arm converges before a relay can matter
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §27, §30).  Treat <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> as
+a per-arm experiment to be settled by your own paired A/B, not as a setting
+to switch on.</p>
+</div>
 </section>
 </section>
 <section id="choosing-a-strategy">
@@ -1284,6 +1553,90 @@ larger evaluation budget (≥ 200 evals).</p></li>
 </span><span data-line="6"><span class="p">)</span>
 </span></pre></div>
 </div>
+</section>
+<section id="strategyblockbandit-experimental">
+<h3>StrategyBlockBandit (experimental)<a class="headerlink" href="#strategyblockbandit-experimental" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="strategies.html#panobbgo.strategies.StrategyBlockBandit" title="panobbgo.strategies.blocks.StrategyBlockBandit"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code></a> changes what a bandit
+<em>pull</em> is.  The other strategies treat one point as one pull and pay out only
+on a new best, so a population heuristic emitting λ points per generation has
+its estimated value bounded by <code class="docutils literal notranslate"><span class="pre">1/λ</span></code> by construction — a measurement
+problem, not a tuning problem.  Here a pull is a <strong>block</strong>: roughly
+<code class="docutils literal notranslate"><span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">n_blocks</span></code> evaluations (default <code class="docutils literal notranslate"><span class="pre">n_blocks=50</span></code>) handed to a
+single arm.  A block closes only when it has spent its evaluations <em>and</em> the
+owner’s queue has run empty, so a generation is never cut in half.</p>
+<p>The reward is the AOCC area the arm bought with the block, per evaluation, in
+decades of log-precision against a run-local anchor.  It is <em>anytime</em> (the
+mean over the block, not its endpoint) and <em>scale-free</em> (invariant under
+<code class="docutils literal notranslate"><span class="pre">f</span> <span class="pre">→</span> <span class="pre">c·f</span> <span class="pre">+</span> <span class="pre">k</span></code>), so arms on different objective scales are comparable
+without any tuning.</p>
+<p>Two policies:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">policy=&quot;uniform&quot;</span></code> — round-robin over blocks.  <strong>Use this one.</strong></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">policy=&quot;ducb&quot;</span></code> (the constructor default) — discounted UCB, with a
+one-block prologue per arm, an exploit-only tail, and hysteresis so a
+challenger must beat the incumbent by a factor before the schedule
+switches.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">warm_start_on_resume=True</span></code> (off by default) re-seeds an arm from the shared
+archive whenever the scheduler hands it a block back after a gap — see
+<a class="reference internal" href="#shared-archive-warm-start"><span class="std std-ref">Shared Archive and Warm Start</span></a>.  The trigger is the gap, not an empty queue:
+a paused arm’s queued generation is stale by construction, so it is cleared
+first.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyBlockBandit</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">CMAES</span><span class="p">,</span> <span class="n">JSO</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyBlockBandit</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">2500</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+</span><span data-line="6">                               <span class="n">policy</span><span class="o">=</span><span class="s2">"uniform"</span><span class="p">,</span> <span class="n">block_evals</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span>
+</span><span data-line="7">                               <span class="n">warm_start_on_resume</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="8">                               <span class="n">warm_start_only_if_foreign</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Archive</span><span class="p">)</span>
+</span><span data-line="10"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">warm_start</span><span class="o">=</span><span class="s2">"archive"</span><span class="p">)</span>
+</span><span data-line="11"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">JSO</span><span class="p">,</span> <span class="n">NP_init</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span> <span class="n">warm_start</span><span class="o">=</span><span class="s2">"archive"</span><span class="p">)</span>
+</span><span data-line="12"><span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<section id="what-was-measured-to-matter-and-what-was-not">
+<h4>What was measured to matter, and what was not<a class="headerlink" href="#what-was-measured-to-matter-and-what-was-not" title="Link to this heading">#</a></h4>
+<p>Screens #5–#7 took the policy apart on the standard battery
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §26, §29, §31):</p>
+<ul class="simple">
+<li><p><strong>The selection policy contributes nothing measurable.</strong>  D-UCB at any
+setting tried — <code class="docutils literal notranslate"><span class="pre">ucb_c</span></code> 1/2/4, <code class="docutils literal notranslate"><span class="pre">gamma</span></code> 0.5–0.9, <code class="docutils literal notranslate"><span class="pre">hysteresis</span></code>,
+<code class="docutils literal notranslate"><span class="pre">tail_frac</span></code> swept 0 → 0.6 — lands within 0.003 of plain rotation, and at
+<code class="docutils literal notranslate"><span class="pre">tail_frac=0</span></code> it <em>is</em> rotation (identical in 23 of 30 cells; the mean gap
+is one cell).  Once the arms share their evaluations, a switch stops being a
+cost and becomes a relay, so there is nothing left for a bandit to
+minimise.  <code class="docutils literal notranslate"><span class="pre">policy=&quot;uniform&quot;</span></code> is therefore the setting to use — it is the
+same behaviour with none of the knobs.</p></li>
+<li><p><strong>Block length is absolute, not a fraction of the budget.</strong>  The useful
+range is <strong>~25–50 evaluations</strong>, flat-ish between them with per-cell
+collapses either side and a hard collapse at 12.  Set it with
+<code class="docutils literal notranslate"><span class="pre">block_evals=</span></code> — <code class="docutils literal notranslate"><span class="pre">n_blocks=50</span></code> is a budget <em>fraction</em>, so on the
+<code class="docutils literal notranslate"><span class="pre">500·dim</span></code> battery it means 20 evaluations at <code class="docutils literal notranslate"><span class="pre">d=2</span></code> and 50 at <code class="docutils literal notranslate"><span class="pre">d=5</span></code>,
+two different experiments under one name.  <code class="docutils literal notranslate"><span class="pre">block_evals=&quot;auto&quot;</span></code> sizes a
+block as four reference generations, which is the mechanism behind the
+range: every block boundary discards the arm’s in-flight generation.</p></li>
+<li><p><strong>More than two arms still dilute.</strong>  2 → 3 → 4 arms: 0.685 → 0.648 →
+0.604.  Only at <code class="docutils literal notranslate"><span class="pre">d=5</span></code> does a third arm pay (+0.037); at <code class="docutils literal notranslate"><span class="pre">d=2</span></code> it costs
+−0.084.  A third arm, if ever, is dimension-gated.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><strong>Experimental</strong>, and read screen results carefully.  A cold two-arm block
+bandit loses <strong>−0.08</strong> to its best arm, and the interleaving control
+(<code class="docutils literal notranslate"><span class="pre">StrategyRewarding</span></code> on the same two arms) loses the same amount — so
+that is the portfolio, not the scheduling shape.  The scheduler itself is
+sound: every run spends its full budget and no generation is cut.  With
+both arms warm the portfolio reaches parity but not a lead (§27, §30 and
+the warning under <a class="reference internal" href="#shared-archive-warm-start"><span class="std std-ref">Shared Archive and Warm Start</span></a>).</p>
+<p>Also: <strong>the best spec of a three-seed screen is a candidate, not a
+result.</strong>  <code class="docutils literal notranslate"><span class="pre">soft_be25</span></code> came out of one screen at +0.050 with a CI
+excluding zero and scored <strong>−0.006</strong> on the 12-seed roster — a CI computed
+on a selected maximum is not the CI of a pre-registered spec
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §30).</p>
+</div>
+</section>
 </section>
 <section id="strategyphased">
 <h3>StrategyPhased<a class="headerlink" href="#strategyphased" title="Link to this heading">#</a></h3>
@@ -1514,6 +1867,12 @@ and begin exploring around the new center. Heuristics without this handler conti
 <p>The Restart analyzer pairs well with <a class="reference internal" href="analyzers.html#panobbgo.analyzers.convergence.Convergence" title="panobbgo.analyzers.convergence.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> —
 set <code class="docutils literal notranslate"><span class="pre">patience</span></code> lower than <code class="docutils literal notranslate"><span class="pre">Convergence.window_size</span></code> so restarts happen before convergence
 is declared.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Do not use it with <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>, which
+restarts itself (<a class="reference internal" href="#cma-es-restarts"><span class="std std-ref">CMA-ES Restarts</span></a>); the analyzer’s restart event
+throws away its adapted covariance and halved its score in measurement.</p>
+</div>
 </section>
 <section id="sensitivity-analysis">
 <h3>Sensitivity Analysis<a class="headerlink" href="#sensitivity-analysis" title="Link to this heading">#</a></h3>

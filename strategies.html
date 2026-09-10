@@ -100,6 +100,15 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#strategies">Strategies</a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.GENERATION_ATTRS"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.GENERATION_ATTRS</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.LAMBDA_REF_DEFAULT"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.LAMBDA_REF_DEFAULT</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.add_heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.add_heuristic()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.block_evals"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.block_evals</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.execute"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.execute()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.on_new_results"><code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit.on_new_results()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.add_heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.add_heuristic()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.execute"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.execute()</span></code></a></li>
@@ -184,6 +193,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>StrategyThompsonSampling</strong>: Probabilistic selection using Thompson Sampling (Beta-Bernoulli bandit)</p></li>
 <li><p><strong>StrategyLinUCB</strong>: Contextual bandit using disjoint linear UCB models over budget-progress / success-rate features</p></li>
 <li><p><strong>StrategyPhased</strong>: Budget-phased meta-strategy composing different sub-strategies and heuristic portfolios across phases</p></li>
+<li><p><strong>StrategyBlockBandit</strong>: Hands a whole <em>block</em> of evaluations to one arm and scores it by the AOCC area it bought (experimental)</p></li>
 </ul>
 <section id="strategies">
 <span id="module-panobbgo.strategies"></span><h2>Strategies<a class="headerlink" href="#strategies" title="Link to this heading">#</a></h2>
@@ -195,6 +205,117 @@ and another one consumes them and dispatches tasks.
 Subclass the <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a> class to implement
 a new strategy.</p>
 </section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyBlockBandit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_blocks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">block_evals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'ducb'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tail_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">decades</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'area'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'none'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warm_start_on_resume</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warm_start_k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warm_start_only_if_foreign</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warm_start_only_if_better</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hysteresis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/blocks.html#StrategyBlockBandit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p>
+<p>Hand a whole <em>block</em> of evaluations to one heuristic, then score that
+block by the AOCC area it bought and let a discounted UCB rule pick
+the owner of the next one.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_blocks</strong> – number of blocks the budget is cut into (the number of
+<em>decisions</em>, held constant across dimension and budget).</p></li>
+<li><p><strong>block_evals</strong> – explicit block size, or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> for
+<code class="docutils literal notranslate"><span class="pre">max(2*dim,</span> <span class="pre">4*lambda_ref)</span></code> — four reference generations, the
+parametrisation <code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §26 points at.
+Either form overrides <code class="docutils literal notranslate"><span class="pre">n_blocks</span></code>.</p></li>
+<li><p><strong>size</strong> – points requested per main-loop pass, exactly
+<a class="reference internal" href="_autosummary/panobbgo.strategies.round_robin.StrategyRoundRobin.html#panobbgo.strategies.round_robin.StrategyRoundRobin" title="panobbgo.strategies.round_robin.StrategyRoundRobin"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code></a>’s
+<code class="docutils literal notranslate"><span class="pre">size</span></code>.  With a single arm this makes the two strategies emit the
+identical evaluation sequence.</p></li>
+<li><p><strong>policy</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;ducb&quot;</span></code> (discounted UCB) or <code class="docutils literal notranslate"><span class="pre">&quot;uniform&quot;</span></code>
+(round-robin over blocks, no learning).</p></li>
+<li><p><strong>gamma</strong> – discount of the per-arm statistics at each block close.</p></li>
+<li><p><strong>ucb_c</strong> – exploration weight; <code class="docutils literal notranslate"><span class="pre">0</span></code> in the tail.</p></li>
+<li><p><strong>tail_frac</strong> – fraction of the budget that is exploit-only.</p></li>
+<li><p><strong>decades</strong> – log-precision decades that earn the full reward.</p></li>
+<li><p><strong>reward</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;area&quot;</span></code> (anytime, default) or <code class="docutils literal notranslate"><span class="pre">&quot;endpoint&quot;</span></code>.</p></li>
+<li><p><strong>prior</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code>; <code class="docutils literal notranslate"><span class="pre">&quot;dim&quot;</span></code> (per-dimension priors from the
+evaluation battery) is not implemented yet.</p></li>
+<li><p><strong>warm_start_on_resume</strong> – warm-start an arm that is re-acquired after
+a gap — via its <code class="docutils literal notranslate"><span class="pre">warm_start(results)</span></code> method if it has one, else
+via <a class="reference internal" href="core.html#panobbgo.core.Heuristic.warm_start_now" title="panobbgo.core.Heuristic.warm_start_now"><code class="xref py py-meth docutils literal notranslate"><span class="pre">warm_start_now()</span></code></a>.  Its stale
+queue is cleared first.</p></li>
+<li><p><strong>warm_start_k</strong> – how many results a <code class="docutils literal notranslate"><span class="pre">warm_start(results)</span></code> offer
+carries, and the depth of the <code class="docutils literal notranslate"><span class="pre">warm_start_only_if_foreign</span></code> test
+(<code class="docutils literal notranslate"><span class="pre">warm_start_now</span></code> arms query the <code class="docutils literal notranslate"><span class="pre">Archive</span></code> themselves).</p></li>
+<li><p><strong>warm_start_only_if_foreign</strong> – skip the warm start when every one of
+the top-k results is the arm’s own — re-seeding an arm from itself
+buys nothing and costs its in-flight generation.</p></li>
+<li><p><strong>warm_start_only_if_better</strong> – skip the warm start unless the
+archive’s best penalty value beats the arm’s own best.  The sharper
+of the two guards on paper, but it measured slightly negative on the
+12-seed roster (-0.007, §30), so it is <strong>off by default</strong>; available
+as an opt-in, and it composes with the foreign guard.</p></li>
+<li><p><strong>hysteresis</strong> – a challenger must beat the incumbent by this factor.</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type problem: panobbgo.lib.Problem
+&#64;param problem:
+&#64;param parse_args:
+&#64;param testing_mode:
+&#64;param kwargs: Additional configuration parameters (e.g. max_eval, max_evaluations)</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.GENERATION_ATTRS">
+<span class="sig-name descname"><span class="pre">GENERATION_ATTRS</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('_lam',</span> <span class="pre">'_NP_current',</span> <span class="pre">'NP_init',</span> <span class="pre">'NP')</span></span><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.GENERATION_ATTRS" title="Link to this definition">#</a></dt>
+<dd><p>Attributes an arm may expose to report its generation size, best
+first.  CMA-ES sets <code class="docutils literal notranslate"><span class="pre">_lam</span></code> in <code class="docutils literal notranslate"><span class="pre">on_start</span></code> (and again after every
+IPOP restart); the L-SHADE family carries the LPSR-shrunk
+<code class="docutils literal notranslate"><span class="pre">_NP_current</span></code> alongside the constructor’s <code class="docutils literal notranslate"><span class="pre">NP_init</span></code>; PSO and the
+plain DE use <code class="docutils literal notranslate"><span class="pre">NP</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.LAMBDA_REF_DEFAULT">
+<span class="sig-name descname"><span class="pre">LAMBDA_REF_DEFAULT</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></span><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.LAMBDA_REF_DEFAULT" title="Link to this definition">#</a></dt>
+<dd><p>Fallback generation size when no arm reports one — the ~20-evaluation
+block <code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §26 measured, over 4.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.add_heuristic">
+<span class="sig-name descname"><span class="pre">add_heuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><span class="pre">Heuristic</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/strategies/blocks.html#StrategyBlockBandit.add_heuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.add_heuristic" title="Link to this definition">#</a></dt>
+<dd><p>Add a heuristic to the strategy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>h</strong> (<a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><em>Heuristic</em></a>) – The heuristic instance to add</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.block_evals">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">block_evals</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.block_evals" title="Link to this definition">#</a></dt>
+<dd><p>Evaluations per block, resolved lazily on first use.</p>
+<p>Both forms need state that does not exist at construction time: the
+budget is regularly assigned afterwards (<code class="docutils literal notranslate"><span class="pre">s.config.max_eval</span> <span class="pre">=</span> <span class="pre">...</span></code>)
+and <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> needs the arms, whose generation sizes are only known
+once they have handled <code class="docutils literal notranslate"><span class="pre">on_start</span></code>.  First access is from
+<a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.execute" title="panobbgo.strategies.StrategyBlockBandit.execute"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute()</span></code></a>, by which time both hold.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/strategies/blocks.html#StrategyBlockBandit.execute"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.execute" title="Link to this definition">#</a></dt>
+<dd><p>Overwrite this method when you extend this base strategy.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyBlockBandit.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/strategies/blocks.html#StrategyBlockBandit.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyBlockBandit.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Accumulate the running best of the <em>open</em> block, one entry per result.</p>
+<p>Results arrive in batches and, under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code>, a batch is
+fully handled before the next <a class="reference internal" href="#panobbgo.strategies.StrategyBlockBandit.execute" title="panobbgo.strategies.StrategyBlockBandit.execute"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute()</span></code></a>, so the trace is a
+deterministic function of the schedule.  The log terms themselves
+are only formed at <code class="xref py py-meth docutils literal notranslate"><span class="pre">_close_block()</span></code>: the anchor they need does
+not exist until the first block ends.</p>
+</dd></dl>
+
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyLinUCB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB" title="Link to this definition">#</a></dt>

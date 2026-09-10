@@ -886,3 +886,50 @@ mechanism is plausible: LBC's linear bias-control needs a larger rank
 pool than plain L-SHADE's success-history adaptation.  Shipped as a
 class attribute (`AUTO_DIM_COEF = 4.0` on `NLSHADE_LBC`); the base rule
 stays 3·dim.
+
+## 25. Both arms warm: the portfolio reaches parity — and rotation beats the bandit
+
+Screen #4, standard battery, 3 seeds, one RNG stream, all arms on
+shipped defaults, `warm_start_only_if_foreign=False`:
+
+| spec | AOCC | *d*=2 | *d*=5 | vs best single (jSO) |
+|---|---|---|---|---|
+| **Blocks_uniform_cj_warm2** (CMA-ES + jSO, both warm, rotate every block) | **0.6845** | 0.7354 | 0.6336 | **+0.011** [−0.135, +0.157] |
+| JSO_alone | 0.6735 | 0.7467 | 0.6003 | — |
+| CMAES_alone | 0.6712 | 0.7379 | 0.6044 | −0.002 |
+| LSHADE_alone | 0.6496 | | | −0.024 |
+| Blocks_ducb_cj_warm2 (both warm, D-UCB) | 0.6454 | | | −0.028 |
+| Blocks_ducb_cl_warm2 (CMA-ES + L-SHADE, both warm) | 0.6454 | | | −0.028 |
+| Blocks_ducb_cj_warm2cov (CMA-ES seeds C too) | 0.6269 | | | −0.047 |
+| Blocks_ducb_cj_warmJ (jSO warm only) | 0.6191 | | | −0.054 |
+| Blocks_ducb_cj (cold) | 0.5911 | | | −0.083 [−0.209, +0.044]; vs CMA-ES −0.080 [−0.100, −0.060] |
+
+Gates: G1 PASS, G4 PASS (+0.094 warm vs cold), **G5 PASS** (+0.011)
+— the first portfolio to clear the best single arm.  Parity, not a
+win: the margin is inside the ±0.05 floor and the CI spans zero.  The
+12-seed roster is running.
+
+What is large enough to believe:
+
+1. **Sharing is the whole effect.** Cold −0.080 (the one CI excluding
+   zero); warm start on the same arms +0.054 (D-UCB) and +0.094
+   (uniform).  Warm start is worth what blocking costs, and more.
+2. **Bidirectional beats unidirectional.** jSO-only warm 0.619 → both
+   warm 0.645; CMA-ES's warm start adds as much as jSO's.
+3. **`archive_cov` hurts** (−0.019, both dims).  Seed mean and σ,
+   leave C = I.
+4. **With sharing on, rotation beats the bandit — reversing §21's G2.**
+   Uniform beats D-UCB by +0.039 on identical arms.  The counters say
+   why: D-UCB commits and warm-starts 5 times in 40 blocks; uniform
+   switches every block and warm-starts 39 times in 41.  Once an arm's
+   evaluations feed the shared archive, a switch is not a cost — it is
+   a relay, each arm continuing from wherever the other got to.  The
+   bandit was minimising a cost that sharing removed.  This is the
+   thesis in its strongest form: not "pick the right arm", but "make
+   every arm pick up where the others left off".
+
+Two hypotheses this implies, being tested now: finer blocks (more
+relays) should help monotonically up to the point where a block is
+shorter than a generation; and a third arm should now *help*, since
+dilution was the cost sharing removed.  Also whether a bandit with much
+weaker commitment can beat plain rotation.

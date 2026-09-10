@@ -1060,10 +1060,12 @@ from the run's evaluation budget and the problem dimension:
 
    NP = clip( round( 3·dim · (budget / (500·dim))**0.25 ), max(NP_min, 6), 400 )
 
-This is the setting every strategy spec in the benchmark battery now passes,
-and the one to use unless you have your own sweep saying otherwise.  (The
-constructor default is still the literature value ``30``, kept so existing
-code does not change behaviour silently.)
+This is the constructor default for the whole L-SHADE family; the
+literature value ``30`` is used only as a fallback when the budget is not
+known at construction.  The coefficient is a class attribute
+(``AUTO_DIM_COEF``): the base rule uses ``3``, and ``NLSHADE_LBC`` uses
+``4`` — its linear bias control wants a larger rank pool, measured at
++0.052 AOCC over the ``3·dim`` rule on the 12-seed roster (10/12 seeds).
 
 .. code-block:: python
 

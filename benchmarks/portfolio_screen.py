@@ -20,6 +20,13 @@ The screen separates the two things a bandit portfolio does:
 * ``Rewarding_ema_2`` is the interleaving control: the same two arms under
   the existing probability-matching strategy, which hands every ready arm
   points on every pass instead of giving one arm a contiguous block.
+* The ``*_warm`` specs turn the shared :class:`~panobbgo.analyzers.Archive`
+  on and let L-SHADE re-seed from it whenever the scheduler hands it a
+  block back (``warm_start_on_resume=True``).  Their delta to the cold
+  specs is the direct test of the thesis a portfolio stands on: arms are
+  only worth their switching transients if they *share* the evaluations
+  they paid for.  CMA-ES has no warm-start hook yet, so the sharing is
+  one-directional — CMA-ES simply resumes its own paused state.
 
 Every spec shares ``seed_name="screen"``, so all of them run the identical
 RNG stream on each (dim, instance, rep) cell and a delta carries only the
@@ -54,6 +61,7 @@ import sys
 import time
 from collections import defaultdict
 
+from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyBlockBandit, StrategyRewarding, StrategyRoundRobin
@@ -77,23 +85,79 @@ def arms(*keys):
     return [ARM[k] for k in keys]
 
 
-#: name -> (strategy_class, heuristics, strategy kwargs).  Strategy kwargs
-#: travel through ``config_overrides``: ``create_strategy`` passes them to
-#: the constructor for a ``StrategyBase`` subclass (benchmark.py:204).
+def warm_lshade(mode):
+    """The L-SHADE arm, re-seeding from the shared ``Archive`` on re-acquisition."""
+    cls, kw = ARM["lshade"]
+    return (cls, {**kw, "warm_start": mode})
+
+
+#: Analyzer list of every warm spec.  ``Splitter`` is **not** listed: it is
+#: one of the four analyzers ``StrategyBase.initialize`` always installs
+#: (``core.py:1327``), so ``archive_leaf`` finds it without help.  ``Archive``
+#: is the opt-in one, and it must be present or ``archive_seed`` silently
+#: falls back to the Splitter root.
+ARCHIVE = [(Archive, {})]
+
+#: name -> (strategy_class, heuristics, strategy kwargs, analyzers).  Strategy
+#: kwargs travel through ``config_overrides``: ``create_strategy`` passes them
+#: to the constructor for a ``StrategyBase`` subclass (benchmark.py:204).
 SPECS = {
     # -- references ------------------------------------------------------
-    "CMAES_alone": (StrategyRoundRobin, arms("cmaes"), {}),
-    "LSHADE_alone": (StrategyRoundRobin, arms("lshade"), {}),
+    "CMAES_alone": (StrategyRoundRobin, arms("cmaes"), {}, []),
+    "LSHADE_alone": (StrategyRoundRobin, arms("lshade"), {}, []),
     # -- blocking, with and without learning ------------------------------
-    "Blocks_uniform_2": (StrategyBlockBandit, arms("cmaes", "lshade"), {"policy": "uniform"}),
-    "Blocks_ducb_2": (StrategyBlockBandit, arms("cmaes", "lshade"), {"policy": "ducb"}),
-    "Blocks_ducb_4": (StrategyBlockBandit, arms("cmaes", "lshade", "jso", "lbc"), {"policy": "ducb"}),
-    "Blocks_ducb_5": (StrategyBlockBandit, arms("cmaes", "lshade", "jso", "lbc", "pso"), {"policy": "ducb"}),
+    "Blocks_uniform_2": (StrategyBlockBandit, arms("cmaes", "lshade"), {"policy": "uniform"}, []),
+    "Blocks_ducb_2": (StrategyBlockBandit, arms("cmaes", "lshade"), {"policy": "ducb"}, []),
+    "Blocks_ducb_4": (StrategyBlockBandit, arms("cmaes", "lshade", "jso", "lbc"), {"policy": "ducb"}, []),
+    "Blocks_ducb_5": (StrategyBlockBandit, arms("cmaes", "lshade", "jso", "lbc", "pso"), {"policy": "ducb"}, []),
     # -- the interleaving control -----------------------------------------
-    "Rewarding_ema_2": (StrategyRewarding, arms("cmaes", "lshade"), {}),
+    "Rewarding_ema_2": (StrategyRewarding, arms("cmaes", "lshade"), {}, []),
+    # -- the same portfolios, but the arms now SHARE their evaluations ----
+    #
+    # The thesis a portfolio stands or falls on: an arm that resumes from
+    # the best points the *other* arm paid for does not re-buy them.  Only
+    # L-SHADE warm-starts here — CMA-ES has no ``warm_start`` hook yet, so
+    # it simply resumes its own paused state (its covariance, step size and
+    # mean survive the pause untouched).  The asymmetry is the honest
+    # measurement of what exists today, not a handicap: the point is whether
+    # sharing in *one* direction already moves the number.
+    "Blocks_uniform_2_warm": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm_lshade("archive")],
+        {"policy": "uniform", "warm_start_on_resume": True},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_2_warm": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm_lshade("archive")],
+        {"policy": "ducb", "warm_start_on_resume": True},
+        ARCHIVE,
+    ),
+    # ``archive_leaf`` takes the best point of each of the k best Splitter
+    # leaves: k *different basins* rather than k neighbours of one incumbent.
+    "Blocks_ducb_2_warm_leaf": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm_lshade("archive_leaf")],
+        {"policy": "ducb", "warm_start_on_resume": True},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_2_warm_div": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm_lshade("archive_diverse")],
+        {"policy": "ducb", "warm_start_on_resume": True},
+        ARCHIVE,
+    ),
+    # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
+    # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
+    # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
+    # spec would therefore be a *cold* hand-off wearing a warm label, which
+    # is worse than not measuring it.  Adding the boundary call means editing
+    # ``phased.py``, which this screen does not own.
 }
 
 REFS = ("CMAES_alone", "LSHADE_alone")
+#: Specs whose arms share evaluations, in the order the gates prefer them.
+WARM = [n for n in SPECS if n.endswith(("_warm", "_warm_leaf", "_warm_div"))]
 
 # --- argv: `key=value` options, then positionals ---------------------------
 opts, pos = {}, []
@@ -120,7 +184,7 @@ if "dims" in opts or "bm" in opts:
 
 
 def spec(name):
-    cls, heuristics, kw = SPECS[name]
+    cls, heuristics, kw, analyzers = SPECS[name]
     return dataclasses.replace(
         BASE,
         name=name,
@@ -128,8 +192,8 @@ def spec(name):
         # (dim, inst, rep) seeds, so the comparison is paired on the stream.
         seed_name="screen",
         strategy_class=cls,
-        heuristics=list(heuristics),
-        analyzers=[],
+        heuristics=[(c, dict(k)) for c, k in heuristics],
+        analyzers=[(c, dict(k)) for c, k in analyzers],
         config_overrides=dict(kw),
     )
 
@@ -220,13 +284,13 @@ print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
 # (a) means, overall and per dimension.
-print(f"\n{'spec':20s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
+print(f"\n{'spec':24s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
 order = sorted(names, key=lambda s: -mean_of(s))
 for s in order:
     per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
     tail = f"  errors={len(errs[s])}" if errs[s] else ""
     tail += f"  short={len(short[s])}" if short[s] else ""
-    print(f"{s:20s} {mean_of(s):7.4f} " + per + tail)
+    print(f"{s:24s} {mean_of(s):7.4f} " + per + tail)
 
 # (b) paired deltas against each reference, overall CI + per-dimension means.
 for ref in REFS:
@@ -234,7 +298,7 @@ for ref in REFS:
         continue
     print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
     print(
-        f"{'spec':20s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
+        f"{'spec':24s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
     )
     for s in order:
         if s == ref:
@@ -246,7 +310,7 @@ for ref in REFS:
         band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
         flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
         per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-        print(f"{s:20s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        print(f"{s:24s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
 
 # (c) the §6 screening gates.
 best_ref = max((r for r in REFS if r in names), key=mean_of, default=None)
@@ -259,6 +323,17 @@ if "Blocks_ducb_2" in names and "Blocks_uniform_2" in names:
     gates.append(("G2", "Blocks_ducb_2 - Blocks_uniform_2", delta("Blocks_ducb_2", "Blocks_uniform_2"), 0.005, ">="))
 if "Blocks_ducb_2" in names and best_ref:
     gates.append(("G3", f"Blocks_ducb_2 - best single ({best_ref})", delta("Blocks_ducb_2", best_ref), -0.01, ">="))
+# G4/G5 test the sharing thesis: a portfolio is only worth its transients if
+# the arms hand each other the evaluations they already paid for.  G4 asks
+# whether sharing moves the number *at all* beyond the +-0.05 null floor;
+# G5 asks the only question that decides the phase — does it rescue the
+# portfolio past the bar.
+if "Blocks_ducb_2_warm" in names and "Blocks_ducb_2" in names:
+    gates.append(("G4", "Blocks_ducb_2_warm - Blocks_ducb_2", delta("Blocks_ducb_2_warm", "Blocks_ducb_2"), 0.03, ">="))
+warm_here = [s for s in WARM if s in names]
+if warm_here and "CMAES_alone" in names:
+    best_warm = max(warm_here, key=mean_of)
+    gates.append(("G5", f"best warm spec ({best_warm}) - CMAES_alone", delta(best_warm, "CMAES_alone"), 0.0, ">="))
 if not gates:
     print("  (no gate is computable from the selected specs)")
 for tag, what, val, thr, _ in gates:

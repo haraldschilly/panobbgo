@@ -112,6 +112,11 @@ CJ = [warm("cmaes", "archive"), warm("jso", "archive")]
 #: hysteresis 1.2, gamma 0.9 and relays 8x less often.
 SOFT = {"policy": "ducb", "ucb_c": 2.0, "hysteresis": 1.0, "gamma": 0.7}
 
+#: ``warm_start_only_if_better`` became a default (True) in c13748d, *after*
+#: screen #6 was measured.  Every spec added since pins it explicitly, so
+#: ``False`` reproduces what #6 actually ran and ``True`` is the new guard.
+NOB = {**WARM_ON, "warm_start_only_if_better": False}
+
 
 #: Analyzer list of every warm spec.  ``Splitter`` is **not** listed: it is
 #: one of the four analyzers ``StrategyBase.initialize`` always installs
@@ -370,6 +375,70 @@ SPECS = {
         {**SOFT, "block_evals": 25, **WARM_ON, "warm_start_only_if_better": True},
         ARCHIVE,
     ),
+    # -- §28 (1): is the tail the whole of "soft"? -------------------------
+    #
+    # §27 found ucb_c and gamma inert (ucb_c 4 was bit-identical to 2 in
+    # 30/30 cells) and read the leader as "round-robin plus a greedy tail":
+    # with hysteresis 1.0 and ucb_c >= 2 the exploration bonus swamps the
+    # value estimate, so the policy alternates until ``_exploration_c``
+    # switches the bonus off in the last ``tail_frac`` of the budget and the
+    # incumbent then keeps every remaining block.  ``tail_frac=0`` is the
+    # falsifying control: if it lands on ``Blocks_uniform_cj_warm2_be25``,
+    # "soft d-UCB" is nothing but the tail and the bandit can be deleted.
+    "Blocks_ducb_cj_warm2_soft_be25_t0": (
+        StrategyBlockBandit,
+        CJ,
+        {**SOFT, "block_evals": 25, "tail_frac": 0.0, **NOB},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_cj_warm2_soft_be25_t10": (
+        StrategyBlockBandit,
+        CJ,
+        {**SOFT, "block_evals": 25, "tail_frac": 0.10, **NOB},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_cj_warm2_soft_be25_t40": (
+        StrategyBlockBandit,
+        CJ,
+        {**SOFT, "block_evals": 25, "tail_frac": 0.40, **NOB},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_cj_warm2_soft_be25_t60": (
+        StrategyBlockBandit,
+        CJ,
+        {**SOFT, "block_evals": 25, "tail_frac": 0.60, **NOB},
+        ARCHIVE,
+    ),
+    # -- §28 (2): block length *under* the tail ----------------------------
+    #
+    # Uniform peaked at ~50 absolute evaluations, the soft policy at ~25.
+    # If what matters is evaluations between relays rather than block length
+    # as such, that is exactly the interaction to expect — soft switches less
+    # often per block — and this row of the grid measures it at fixed
+    # tail_frac = 0.25.
+    "Blocks_ducb_cj_warm2_soft_be20": (StrategyBlockBandit, CJ, {**SOFT, "block_evals": 20, **NOB}, ARCHIVE),
+    "Blocks_ducb_cj_warm2_soft_be35": (StrategyBlockBandit, CJ, {**SOFT, "block_evals": 35, **NOB}, ARCHIVE),
+    "Blocks_ducb_cj_warm2_soft_be50": (StrategyBlockBandit, CJ, {**SOFT, "block_evals": 50, **NOB}, ARCHIVE),
+    # The uniform-at-25 reference the ``tail_frac=0`` control has to be read
+    # against: same arms, same block length, no bandit at all.
+    "Blocks_uniform_cj_warm2_be25": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 25, **NOB},
+        ARCHIVE,
+    ),
+    # -- §28 (4): the other pair the oracle likes --------------------------
+    #
+    # ``cl`` here is CMA-ES + **NLSHADE_LBC** (not L-SHADE, unlike the older
+    # ``Blocks_ducb_cl_warm2``), now that ``NP_init="auto"`` gives it the
+    # 4*dim coefficient.  Same winning configuration as the cj pair, so the
+    # only difference is the second arm.
+    "Blocks_ducb_cl_warm2_soft_be25": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("lbc", "archive")],
+        {**SOFT, "block_evals": 25, **NOB},
+        ARCHIVE,
+    ),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
@@ -510,13 +579,13 @@ print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
 # (a) means, overall and per dimension.
-print(f"\n{'spec':32s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
+print(f"\n{'spec':36s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
 order = sorted(names, key=lambda s: -mean_of(s))
 for s in order:
     per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
     tail = f"  errors={len(errs[s])}" if errs[s] else ""
     tail += f"  short={len(short[s])}" if short[s] else ""
-    print(f"{s:32s} {mean_of(s):7.4f} " + per + tail)
+    print(f"{s:36s} {mean_of(s):7.4f} " + per + tail)
 
 # (b) paired deltas against each reference, overall CI + per-dimension means.
 for ref in REFS:
@@ -524,7 +593,7 @@ for ref in REFS:
         continue
     print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
     print(
-        f"{'spec':32s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
+        f"{'spec':36s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
     )
     for s in order:
         if s == ref:
@@ -536,7 +605,7 @@ for ref in REFS:
         band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
         flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
         per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-        print(f"{s:32s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        print(f"{s:36s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
 
 # (c) the §6 screening gates.
 #

@@ -1206,3 +1206,74 @@ Preconditions before this is measured again: the Splitter rework (§32
 — 13 leaves at *d* = 5 after 626 evaluations is not a map), and a
 model (design step 5, gated off by this screen).  Then `Meta_stag`
 with its own random-points control, the only rows with a structure.
+
+## 34. Off MA-BBOB: parametrised families and the first constrained battery
+
+`panobbgo/lib/families.py` builds instances `f(x) = f_base(Λ·R·(x − x_opt)) + f_opt`
+from classics with a known minimiser (sphere, rosenbrock, rastrigin,
+ackley, griewank, schwefel + BBOB ellipsoid / discus / sharp_ridge),
+exact `f(x_opt) == f_opt`; constrained families add linear or ball
+constraints built around `x_opt` with the first one **active at the
+optimum**.  AOCC on a constrained instance is scored on the penalty
+value `f + 100·cv`, the same scalar `Best` and the block scheduler use.
+3 seeds, one stream, 500·dim:
+
+| battery | cells | CMA-ES | jSO | L-SHADE | **portfolio** (warm2) | portfolio vs best single |
+|---|---|---|---|---|---|---|
+| free, d 2/5/10, 5 families | 135 | **0.3947** | 0.3770 | 0.3599 | 0.3484 | −0.046 [−0.135, +0.042], 0/3 |
+| constrained, d 2/5, 4 families | 72 | 0.4318 | **0.4649** | 0.4609 | 0.4219 | −0.043 [−0.104, +0.018], 0/3 |
+
+* **The MA-BBOB parity does not travel.** The portfolio is last on both
+  batteries, negative on all three dimensions and all five free
+  families — inside the floor, but the same sign in eight of nine
+  slices, which the MA-BBOB roster never showed.
+* **The bar is a property of the regime.** CMA-ES wins the free battery
+  at *d* ≥ 5 (+0.06/+0.08) and loses *d* = 2 badly (0.554 vs jSO 0.646);
+  on the constrained battery both DE arms beat it (+0.033/+0.029, 3/3).
+  `LSHADE − CMAES` on the free battery is the only marked CI
+  (−0.035 [−0.069, −0.001]) — a reference-vs-reference result.
+* **Constraints work and carry the loudest class structure**: no arm
+  errored, mean AOCC is *higher* than on the free battery, and the
+  portfolio is −0.21 on `ellipsoid_ball`, −0.10 on `rosenbrock_lin`,
+  **+0.09 on `rastrigin_ball`, +0.06 on `sphere_lin`** — it pays where a
+  relay past a multimodal landscape helps and loses where a valley
+  needs sustained adaptation.
+* **Caveat that outranks the tables: DE arms are not bit-reproducible
+  across processes.** Same code, seed, `sync_eval`: 3 of 48 cells
+  differ (max |Δ| 0.095), all in jSO/L-SHADE-containing specs; CMA-ES
+  is identical everywhere; in-process repeats agree.  Being hunted
+  (prime suspect: hash-seed-dependent iteration over `who` ids).  Until
+  fixed, every DE A/B in this file carries that term.
+
+## 35. Splitter rework: resolution scales with budget
+
+See commit 8a35927.  Leaves at (d, budget): 38 / 105 / 204 / 351 against
+6 / 33 / 142 / 602 legacy; the root now splits at evaluation 37, not
+250.  Consumers, 3 seeds vs legacy: Random +0.049, RegionUCB +0.038,
+`archive_leaf` warm start +0.042 (3/3 seeds each; roster running); the
+reference portfolio 0.0000 in every cell.  The value-aware split rule
+is +0.006 and ships opt-in.  Next: median cut (the mean cut turns a
+contracting cloud into a chain, depth 60), and `RegionUCB` gets an
+`on_start` (it cannot start a run alone — a pre-existing defect).
+
+## 36. Invariant tests: nine findings
+
+`tests/test_invariants.py` (320 tests, 30 s) and
+`planning/results/2026-09-10/invariants_findings.md`.  HIGH: (F1)
+`StrategyRoundRobin` divides by the number of *active* arms — a run
+whose last arm goes inactive raises `ZeroDivisionError` and leaks
+threads; (F2) `warm_start=` on NLSHADE_RSP/LBC draws from the RNG in
+`_archive_cap()` *before* the empty-archive bail-out, so setting the
+kwarg alone changes the stream (the contract test covered only
+JSO/PSO/CMAES); (F3) L-BFGS-B / COBYQA contribute zero points beside
+any competitor (their pump thread never has a point queued when polled);
+(F4) the wall-clock stall guard truncates slow arms, so a seeded run is
+machine-dependent.  MEDIUM: (F5) `PSO(stagnation_threshold=)` is inert
+under the default topology — the `ipop_factor` shape; (F6) six arms
+lose to Random (DE without auto sizing, NelderMead, WeightedAverage,
+RegionUCB, Extremal, LHS).  The `sigma_divergence` flag in F9 is a
+false alarm of the detector — divergence is rare on DeJong at 300
+evaluations; on the battery it fired 17 times in 60 runs (§23).
+Clean and now guarded: the §5 queue contract for all population arms,
+constructor RNG order, all 91 handler signatures, no NaN/out-of-box
+points.

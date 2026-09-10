@@ -55,6 +55,13 @@ gebaut ist.
       springen, analysieren, wo noch etwas zu holen ist / wo nicht
       gesucht wurde, Modell rechnen, Kandidatenpunkte an die Solver.
       Trigger-Regel ist Experimentsache.
+- [ ] **Fixes aus der Fundliste** (§36, nach dem Nondeterminismus-Fix, da
+      Datei-Überlappung): F1 RoundRobin-Division, F2 `_archive_cap()`-Draw
+      vor dem Bail-out (RSP/LBC), F5 PSO-Knopf inert, RegionUCB `on_start`;
+      F3 (L-BFGS-B/COBYQA liefern neben Konkurrenten nichts) und F4
+      (Stall-Guard macht Läufe maschinenabhängig) brauchen ein Design.
+- [ ] **DE-Arme zwischen Prozessen nicht reproduzierbar** (§34) — Agent
+      sucht; Verdacht `PYTHONHASHSEED`-abhängige Iteration.
 - [ ] Zoo kompaktieren: **zurückgestellt**, bis die neuen Batterien
       zeigen, was gut ist.
 

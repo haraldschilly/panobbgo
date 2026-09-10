@@ -145,14 +145,18 @@ A warm start is never free — ``warm_start_now`` drops the arm's in-flight
 generation — so two guards decide whether it is worth paying, and they
 compose (both must pass):
 
-``warm_start_only_if_better`` (on by default, **the one to prefer**)
+``warm_start_only_if_better`` (**off** by default; available, opt-in)
     Fire only if the archive's best penalty value is *strictly better* than
     the best this arm has produced itself.  If the arm is the one that made
     the latest progress there is nothing to import: re-seeding it can only
-    destroy its adaptation state.  This is the sharper of the two — it
-    catches the case where a foreign point exists but is worse.
+    destroy its adaptation state.  It is the sharper of the two on paper —
+    it catches the case where a foreign point exists but is worse — but it
+    measured **slightly negative** on the 12-seed roster (−0.007,
+    ``planning/DISCOVERY_2026-09-09.md`` §30), so it is off by default:
+    apparently the cases it suppresses are worth re-seeding anyway.  Prefer
+    ``warm_start_only_if_foreign`` as the shipped guard.
 
-``warm_start_only_if_foreign`` (on by default, subsumed by the above)
+``warm_start_only_if_foreign`` (on by default, the shipped guard)
     Fire only if at least one of the top-k results was produced by another
     arm.  Cheaper and coarser; kept because it is the criterion §5 of the
     design names, and because it still guards the callable
@@ -211,7 +215,9 @@ class StrategyBlockBandit(StrategyBase):
         buys nothing and costs its in-flight generation.
     :param warm_start_only_if_better: skip the warm start unless the
         archive's best penalty value beats the arm's own best.  The sharper
-        of the two guards, and the one to prefer; they compose.
+        of the two guards on paper, but it measured slightly negative on the
+        12-seed roster (-0.007, §30), so it is **off by default**; available
+        as an opt-in, and it composes with the foreign guard.
     :param hysteresis: a challenger must beat the incumbent by this factor.
     """
 
@@ -232,7 +238,7 @@ class StrategyBlockBandit(StrategyBase):
         warm_start_on_resume: bool = False,
         warm_start_k: int = 10,
         warm_start_only_if_foreign: bool = True,
-        warm_start_only_if_better: bool = True,
+        warm_start_only_if_better: bool = False,
         hysteresis: float = 1.2,
         **kwargs: Any,
     ) -> None:

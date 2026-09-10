@@ -410,10 +410,19 @@ def test_warm_start_only_if_foreign_can_be_switched_off():
     assert len(w.warm_calls) == 1
 
 
+def test_warm_start_only_if_better_is_off_by_default():
+    """§30: the sharper guard measured -0.007 on the 12-seed roster, so it ships off."""
+    s, _ = _foreign_probe()
+    assert s.warm_start_only_if_better is False
+
+
 def test_warm_start_skipped_when_the_arm_itself_holds_the_best_point():
     """The sharper guard: a foreign point that is *worse* is not worth a
-    generation either — every warm start discards one (DISCOVERY §26)."""
-    s, w = _foreign_probe(warm_start_only_if_foreign=False)
+    generation either — every warm start discards one (DISCOVERY §26).
+
+    Opt-in since §30 measured it slightly negative, so the probe asks for it.
+    """
+    s, w = _foreign_probe(warm_start_only_if_foreign=False, warm_start_only_if_better=True)
     assert s.warm_start_only_if_better is True
 
     s.on_new_results([_result(1.0, "W:g1:i3"), _result(5.0, "A")])
@@ -429,6 +438,7 @@ def test_warm_start_skipped_when_the_arm_itself_holds_the_best_point():
 
 
 def test_warm_start_only_if_better_can_be_switched_off():
+    """Also the default since §30 — the arm re-seeds even from a worse archive."""
     s, w = _foreign_probe(warm_start_only_if_foreign=False, warm_start_only_if_better=False)
     s.on_new_results([_result(1.0, "W:g1:i3"), _result(5.0, "A")])
     s._open_block(w)
@@ -437,7 +447,7 @@ def test_warm_start_only_if_better_can_be_switched_off():
 
 def test_warm_start_guards_compose():
     """Foreign AND better: a leading point from the arm itself is not enough."""
-    s, w = _foreign_probe()  # both guards on
+    s, w = _foreign_probe(warm_start_only_if_better=True)  # both guards on
     s.on_new_results([_result(0.1, "W:g1:i3"), _result(5.0, "A")])
     s._open_block(w)
     assert w.warm_calls == []  # foreign passes, better does not

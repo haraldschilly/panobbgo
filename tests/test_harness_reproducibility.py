@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(not worker_available(), reason="IOH worker venv 
 def _run():
     from panobbgo.harness_ioh import make_ioh_strategies, make_quick_battery, run_ioh_harness
 
-    specs = [s for s in make_ioh_strategies() if s.name == "Rewarding_Restart"]
+    specs = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"]
     battery = dataclasses.replace(make_quick_battery(), instances=(1,))
     res = run_ioh_harness(specs, battery, base_seed=42, progress=False, sync_eval=True)
     return [(r.aocc, r.n_evals, tuple(r.trace_fx)) for r in res.runs]

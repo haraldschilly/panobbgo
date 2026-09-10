@@ -310,7 +310,7 @@ class TestRunIOHHarness:
         # portfolio control (see make_ioh_strategies).
         assert "RoundRobin_CMAES" in names
         assert "RoundRobin_Random" in names
-        assert "Rewarding_Restart" in names
+        assert "Blocks_warm_CMAES_JSO" in names
         battery = IOHBatterySpec(
             name="ioh-iohstrats",
             problem_kind="MA-BBOB",
@@ -663,8 +663,8 @@ class TestSyncEvalHarness:
     def test_sync_eval_run_completes_and_tags_result(self) -> None:
         from panobbgo.harness_ioh import make_ioh_strategies
 
-        specs = [s for s in make_ioh_strategies() if s.name == "Rewarding_Restart"]
-        assert specs, "expected the Rewarding_Restart spec"
+        specs = [s for s in make_ioh_strategies() if s.name == "Blocks_warm_CMAES_JSO"]
+        assert specs, "expected the Blocks_warm_CMAES_JSO spec"
         battery = IOHBatterySpec(
             name="ioh-sync-tiny", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
         )

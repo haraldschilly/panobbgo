@@ -59,10 +59,10 @@ BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
 # The currently tuned per-arm settings (Phase A sweeps).  One dict, so
 # that "which arms, with which knobs" is a single obvious edit.
 ARMS = {
-    "cmaes": (CMAES, {"ipop_factor": 1.5}),
-    "lbc": (NLSHADE_LBC, {"NP_init": 15, "k_rank": 3.0}),
-    "jso": (JSO, {"NP_init": 15}),
-    "lshade": (LSHADE, {"NP_init": 10}),
+    "cmaes": (CMAES, {}),  # sigma-divergence restart is the default now
+    "lbc": (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),  # auto = 3*dim*(budget/500dim)^0.25
+    "jso": (JSO, {"NP_init": "auto"}),
+    "lshade": (LSHADE, {"NP_init": "auto"}),
     "pso": (PSO, {"NP": 6}),
 }
 

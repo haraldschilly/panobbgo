@@ -956,11 +956,13 @@ unless stated, `warm_start_only_if_foreign=False`:
    generation (`warm_start_now` clears output and pending), so past a
    point the scheduler throws away more work than the seed is worth,
    and neither arm gets enough consecutive evaluations to adapt.  The
-   per-dimension split locates it: at *d* = 2 the best block was 20
-   evaluations (nb50), at *d* = 5 it was 25 (nb100, +0.069 there vs
-   +0.029 for 50).  **~20–25 evaluations ≈ 3–4 generations**, at both
-   dimensions.  `n_blocks=50` is the wrong parametrisation; the rule
-   should be a block length in evaluations or generations.
+   per-dimension split seemed to locate it at ~20–25 evaluations.
+   **Corrected in §29:** that reading was an artefact — `n_blocks=50`
+   *is* 20 evaluations at *d* = 2 and 50 at *d* = 5, so one spec's two
+   columns were being read as one number.  An absolute grid puts the
+   optimum at **~50** under rotation, agreeing at both dimensions.
+   `n_blocks` is still the wrong parametrisation; a block length in
+   evaluations is right, but the value is 50, not 20.
 2. **More arms still dilute.** 2 → 3 → 4 arms: 0.685 → 0.648 → 0.604,
    a gentler slope than cold (§20) but the same sign.  Only at *d* = 5
    does the third arm pay (+0.037); at *d* = 2 it costs −0.084.  If a
@@ -1036,3 +1038,45 @@ the five *d* = 2 instances, CMA-ES the hard *d* = 5 ones, jSO the rest.
 That is a context signal a selector could use (dimension is known
 before the first evaluation), and it argues for testing CMA-ES + LBC
 as the relay pair alongside CMA-ES + jSO.
+
+## 29. Absolute block length is ~50 under rotation; the "soft bandit" is round-robin plus a greedy tail; first CI clear of zero
+
+Screen #6, 3 seeds, one stream, CMA-ES + jSO both warm, no
+`only_if_better` (predates c13748d):
+
+| spec | AOCC | *d*=2 | *d*=5 | vs CMA-ES alone |
+|---|---|---|---|---|
+| **soft_be25** (soft knobs, `block_evals=25`, tail 0.25) | **0.7211** | 0.7814 | 0.6607 | **+0.0499 [+0.0058, +0.0940]**, 3/3, both dims |
+| soft (nb50), and every `ucb_c`/`gamma` variant | 0.6905–0.6930 | | | +0.019…+0.022 |
+| uniform be50 | 0.6852 | 0.7369 | 0.6336 | +0.014 |
+| uniform nb50 (= be20 at *d*=2, be50 at *d*=5) | 0.6845 | 0.7354 | 0.6336 | +0.013 |
+| uniform be80 | 0.6841 | 0.7367 | 0.6315 | +0.013 |
+| JSO_alone / CMAES_alone | 0.6735 / 0.6712 | | | |
+| uniform be30 / be20 | 0.6596 / 0.6583 | | | −0.012 / −0.013 |
+| uniform be12 | 0.5939 | 0.6373 | 0.5505 | −0.077 |
+
+**(A) Block length under rotation: monotone up to ~50, flat beyond.**
+The absolute grid is a superset of the old one — `be20` reproduces
+nb50's *d* = 2 column exactly and `be50` its *d* = 5 column — which is
+how §26's "20–25" is exposed as a reading error.  Realised lengths
+(`size=10` draws cannot stop mid-draw): nominal 20 → 24, 50 → 54/56.
+
+**(B) The soft knobs do nothing.** `ucb_c=4` is bit-identical to 2 in
+30/30 cells; `ucb_c=1`, `gamma=0.5`, `gamma=0.9` differ by ≤ 0.002.
+With `hysteresis=1` and `ucb_c ≥ 2` the exploration bonus swamps the
+value estimate, so selection is alternation — and the only thing that
+distinguishes "soft D-UCB" from uniform is the **exploit-only tail**
+(`tail_frac=0.25`, `c=0` in the last quarter): 30 switches in 40
+blocks instead of 40 in 41, ownership 25/15 instead of 20/20.  So the
+policy that leads is *relay often, then stop relaying and let the
+leader run*.  `block_evals=25` under that policy is worth +0.029 more —
+an interaction: with a greedy ending, shorter blocks during the relay
+phase pay, where under pure rotation they cost.
+
+**(C) `soft_be25` is the first spec whose CI excludes zero** against the
+best single arm, on 3 seeds, positive at both dimensions, sitting at
+the ±0.05 floor's edge.  On the 12-seed roster now, in both
+`only_if_better` variants.  The next screen puts `tail_frac` itself on
+the grid (0…0.6, with 0 as the control that tests whether "soft" is
+anything but the tail), block length under the tail, the
+`only_if_better` guard, and the CMA-ES + LBC pair from §28.

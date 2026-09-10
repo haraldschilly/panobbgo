@@ -285,6 +285,9 @@ class NLSHADE_LBC(NLSHADE_RSP):
             :data:`_LBC_REGIMES` for the regime-to-tuple mapping.
             Default ``None`` (no preset; the individual float kwargs
             apply, all at their byte-identical CEC 2022 defaults).
+        warm_start: Optional archive-seeding mode; see
+            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
+            (cold start).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -317,6 +320,7 @@ class NLSHADE_LBC(NLSHADE_RSP):
         p_CR_final: float = _UNSET,
         m_lbc: float = _UNSET,
         lbc_regime: Optional[str] = None,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -374,6 +378,7 @@ class NLSHADE_LBC(NLSHADE_RSP):
             archive_factor=archive_factor,
             k_rank=k_rank,
             adaptive_archive=adaptive_archive,
+            warm_start=warm_start,
             seed=seed,
             name=name or "NLSHADE_LBC",
         )

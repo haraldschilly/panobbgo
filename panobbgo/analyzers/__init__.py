@@ -27,6 +27,11 @@ the strategy.
 .. inheritance-diagram:: panobbgo.analyzers
     :parts: 1
 
+.. automodule:: panobbgo.analyzers.archive
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: panobbgo.analyzers.best
    :members:
    :undoc-members:
@@ -58,6 +63,7 @@ the strategy.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
+from .archive import Archive
 from .best import Best
 from .convergence import Convergence
 from .splitter import Splitter
@@ -66,4 +72,4 @@ from .dedensifyer import Dedensifyer
 from .sensitivity import Sensitivity
 from .restart import Restart
 
-__all__ = ["Best", "Convergence", "Splitter", "Grid", "Dedensifyer", "Sensitivity", "Restart"]
+__all__ = ["Archive", "Best", "Convergence", "Splitter", "Grid", "Dedensifyer", "Sensitivity", "Restart"]

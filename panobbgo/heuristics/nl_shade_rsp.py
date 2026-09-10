@@ -161,6 +161,9 @@ class NLSHADE_RSP(JSO):
         adaptive_archive: When ``True`` (default), resample the archive
             cap per generation (NL-SHADE-RSP).  When ``False``, use the
             fixed jSO / L-SHADE cap.
+        warm_start: Optional archive-seeding mode; see
+            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
+            (cold start).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -186,6 +189,7 @@ class NLSHADE_RSP(JSO):
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         k_rank: float = _DEFAULT_K_RANK,
         adaptive_archive: bool = True,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -202,6 +206,7 @@ class NLSHADE_RSP(JSO):
             p_best_max=p_best_max,
             p_best_min=p_best_min,
             archive_factor=archive_factor,
+            warm_start=warm_start,
             seed=seed,
             name=name or "NLSHADE_RSP",
         )

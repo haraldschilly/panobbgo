@@ -104,10 +104,15 @@ function of the schedule, which under ``sync_evaluation`` is still a pure
 function of the seed.
 
 Optionally (``warm_start_on_resume=True``, **off by default**) an arm that
-is re-acquired with an *empty* queue is offered the best results from the
-shared archive through a ``warm_start(results)`` hook, if it implements
-one.  A foreign warm start can hurt, so this is a per-arm opt-in decided
-by its own A/B, never a default.
+is re-acquired with an *empty* queue is warm-started from the shared
+archive.  Two hooks are honoured: an arm that implements
+``warm_start(results)`` as a method is handed this strategy's own top-k,
+while an arm that opted in through its constructor (``warm_start="archive"``
+on the L-SHADE family and PSO) is triggered via
+:meth:`~panobbgo.core.Heuristic.warm_start_now` and fetches its own,
+richer selection from the :class:`~panobbgo.analyzers.archive.Archive`
+analyzer.  A foreign warm start can hurt, so this is a per-arm opt-in
+decided by its own A/B, never a default.
 
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
@@ -145,9 +150,11 @@ class StrategyBlockBandit(StrategyBase):
     :param reward: ``"area"`` (anytime, default) or ``"endpoint"``.
     :param prior: ``"none"``; ``"dim"`` (per-dimension priors from the
         evaluation battery) is not implemented yet.
-    :param warm_start_on_resume: offer re-acquired, empty arms the best
-        results so far via their optional ``warm_start`` hook.
-    :param warm_start_k: how many results such an offer carries.
+    :param warm_start_on_resume: warm-start re-acquired, empty arms — via
+        their ``warm_start(results)`` method if they have one, else via
+        :meth:`~panobbgo.core.Heuristic.warm_start_now`.
+    :param warm_start_k: how many results a ``warm_start(results)`` offer
+        carries (``warm_start_now`` arms query the ``Archive`` themselves).
     :param hysteresis: a challenger must beat the incumbent by this factor.
     """
 
@@ -379,8 +386,18 @@ class StrategyBlockBandit(StrategyBase):
         if self._should_warm_start(h):
             # contract: once per (re-)acquisition, before the first
             # get_points of the block, and only on an empty queue.
-            self.logger.debug("warm start of %s with %d results" % (h.name, len(self._top)))
-            h.warm_start(self._top_results())  # pyright: ignore[reportAttributeAccessIssue]
+            hook = getattr(h, "warm_start", None)
+            if callable(hook):
+                self.logger.debug("warm start of %s with %d results" % (h.name, len(self._top)))
+                hook(self._top_results())
+            else:
+                # The arm sources its own seeds from the shared ``Archive``
+                # analyzer (which is bounded at K = 256 and supports box /
+                # diversity / per-leaf selectors), so it gets a better pool
+                # than this strategy's ``warm_start_k`` incumbents — see
+                # :meth:`panobbgo.core.Heuristic.archive_seed`.
+                used = h.warm_start_now()
+                self.logger.debug("warm start of %s from its own archive: %s" % (h.name, used))
 
     def _block_over(self, owner: Heuristic) -> bool:
         """Is the open block finished?
@@ -399,7 +416,23 @@ class StrategyBlockBandit(StrategyBase):
         return self._block_n >= self._block_size and self._block_drained
 
     def _can_warm_start(self, h: Heuristic) -> bool:
-        return self.warm_start_on_resume and callable(getattr(h, "warm_start", None))
+        """Does this arm accept a warm start?
+
+        Two hooks are recognised.  An arm may implement ``warm_start(results)``
+        as a *method*, in which case it is handed this strategy's own top-k.
+        Or — the route the DE family and PSO take — it exposes ``warm_start``
+        as a *mode string* set in its constructor and overrides
+        :meth:`~panobbgo.core.Heuristic.warm_start_now`, which pulls its own
+        seeds from the shared :class:`~panobbgo.analyzers.archive.Archive`.
+        The base-class ``warm_start_now`` returns ``False`` for everything
+        else, so the override check is what keeps an un-opted-in arm out of
+        the ``ready`` list.
+        """
+        if not self.warm_start_on_resume:
+            return False
+        if callable(getattr(h, "warm_start", None)):
+            return True
+        return bool(getattr(h, "warm_start", None)) and type(h).warm_start_now is not Heuristic.warm_start_now
 
     def _should_warm_start(self, h: Heuristic) -> bool:
         return self._can_warm_start(h) and not h.has_points

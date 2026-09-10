@@ -738,10 +738,13 @@ class TestBudgetReachesHeuristicConstructors:
         battery = IOHBatterySpec(
             name="ioh-auto-np",
             problem_kind="MA-BBOB",
-            dims=(2,),
+            dims=(5,),
             instances=(0,),
             reps=1,
-            budget_multiplier=50,  # budget = 100 evals
+            # budget = 250 evals, half the reference 500*dim; ``dim=5`` keeps
+            # the auto size above its floor of 6 at both budgets, so the
+            # "expected != stale" check below is not vacuous.
+            budget_multiplier=50,
         )
         dim = battery.dims[0]
         budget = battery.budget_for(dim)

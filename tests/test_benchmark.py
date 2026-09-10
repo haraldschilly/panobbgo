@@ -400,7 +400,10 @@ def test_create_strategy_max_eval_is_visible_to_heuristic_constructors():
     from panobbgo.strategies import StrategyRoundRobin
 
     budget = 100
-    dim = 2
+    # ``dim=5`` keeps the auto size above its floor of 6 at both the run's
+    # budget and the config default, so the "they must disagree" check below
+    # stays meaningful under the ``3*dim*(budget/(500*dim))**0.25`` rule.
+    dim = 5
 
     def np_init_for(max_eval, NP_min):
         stub = SimpleNamespace(config=SimpleNamespace(max_eval=max_eval), problem=SimpleNamespace(dim=dim))

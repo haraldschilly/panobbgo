@@ -158,31 +158,38 @@ _DEFAULT_NP_INIT: int = 30
 _DEFAULT_NP_MIN: int = 4
 
 # Budget-adaptive ("auto") NP_init sizing.  A single fixed ``NP_init`` is
-# mistuned across budgets: too large a population at a tight evaluation
-# budget spends most of the budget on the initial random fill and never
-# runs enough generations for the SHADE success-history adaptation to pay
-# off.  Measured on Panobbgo's own battery: at budget 200 (standard),
-# ``NP_init=15`` scores ~2× ``NP_init=30`` on Rosenbrock (0.61 vs 0.30);
-# at budget 75 (quick — the nightly loop budget) the optimum drops to ~6.
-# ``NP_init="auto"`` sizes the population from the strategy budget and
-# problem dimension::
+# mistuned across budgets and dimensions: too large a population at a tight
+# evaluation budget spends most of the budget on the initial random fill and
+# never runs enough generations for the SHADE success-history adaptation to
+# pay off, while too small a population collapses ``current-to-pbest/1`` into
+# a near-degenerate local search.  ``NP_init="auto"`` sizes the population
+# from the strategy budget and the problem dimension::
 #
-#     NP = clip( round( min(_AUTO_DIM_COEF · dim, budget / _AUTO_GEN_TARGET) ),
+#     NP = clip( round( _AUTO_DIM_COEF · dim
+#                       · (budget / (_AUTO_REF_BUDGET_PER_DIM · dim)) ** _AUTO_BUDGET_EXP ),
 #                max(NP_min, _AUTO_MIN_NP), _AUTO_MAX_NP )
 #
-# The ``_AUTO_DIM_COEF · dim`` term is the CEC-2014 upper bound (``18·d``,
-# Tanabe-Fukunaga); the ``budget / _AUTO_GEN_TARGET`` term is meant to keep
-# ~``_AUTO_GEN_TARGET`` generations available for parameter adaptation at
-# tight budgets.  NOTE: on the IOH batteries the budget is ``500·dim`` or
-# more, so ``budget/12 = 41.7·dim`` never binds and ``18·dim`` alone decides.
-# Measured (``planning/DISCOVERY_2026-09-09.md`` §15): a fixed ``NP_init=30``
-# beats ``"auto"`` on every L-SHADE-lineage arm and every seed, by +0.10 AOCC
-# on jSO at ``d=5``, so ``18`` is very likely too steep for these budgets.  ``_AUTO_MIN_NP`` floors
-# the size at 6 so ``current-to-pbest/1`` (which needs ≥ 4 distinct
-# individuals) has working headroom — the degenerate ``NP=4`` init measured
-# a flat 0.0 on the same battery.
-_AUTO_DIM_COEF: int = 18
-_AUTO_GEN_TARGET: float = 12.0
+# Both the coefficient and the shape are measured, not inherited from the
+# literature (``planning/DISCOVERY_2026-09-09.md`` §17).  Fixed-``NP_init``
+# grid sweeps of the three L-SHADE-lineage arms (L-SHADE, jSO, NLSHADE_LBC)
+# on the MA-BBOB standard battery (budget ``500·dim``, three seeds) put the
+# AOCC-optimal size at 6-8 for ``d=2``, 10-20 for ``d=5`` and 20-30 for
+# ``d=10``: the optimum tracks ``dim`` — the ``d=5 : d=2`` ratio is the
+# dimension ratio — which fixes ``_AUTO_DIM_COEF ≈ 3``.  The same sweep at
+# four times the budget (``2000·dim``) moves the optimum only from 6-8 to 10
+# at ``d=2`` and from 15 to 15-20 at ``d=5``, i.e. roughly the fourth root of
+# the budget ratio, hence ``_AUTO_BUDGET_EXP = 0.25`` anchored at the
+# reference ``_AUTO_REF_BUDGET_PER_DIM = 500`` evaluations per dimension.
+# Getting this right is worth +0.10 to +0.22 AOCC on those arms — by far the
+# largest single effect measured on this codebase.  (The previous rule used
+# the CEC-2014 upper bound ``18·d`` capped by ``budget/12``; on the IOH
+# batteries the cap never binds, so it shipped populations ~5× too large.)
+# ``_AUTO_MIN_NP`` floors the size at 6 so ``current-to-pbest/1`` (which needs
+# ≥ 4 distinct individuals) keeps working headroom — ``NP_init=4`` collapses
+# on the same battery (−0.25 AOCC for NLSHADE_LBC).
+_AUTO_DIM_COEF: float = 3.0
+_AUTO_REF_BUDGET_PER_DIM: float = 500.0
+_AUTO_BUDGET_EXP: float = 0.25
 _AUTO_MIN_NP: int = 6
 _AUTO_MAX_NP: int = 400
 _DEFAULT_H: int = 6
@@ -239,7 +246,7 @@ def _resolve_auto_np_init(strategy, NP_min: int) -> int:
     :data:`_DEFAULT_NP_INIT` fallback when the budget is unknown (no
     ``max_eval``, zero, or non-numeric) or the dimension is unavailable, so the
     caller degrades to the literature default rather than guessing a horizon.
-    See the :data:`_AUTO_DIM_COEF` / :data:`_AUTO_GEN_TARGET` comment for the
+    See the :data:`_AUTO_DIM_COEF` / :data:`_AUTO_BUDGET_EXP` comment for the
     sizing formula and the measured motivation.
     """
     try:
@@ -256,7 +263,8 @@ def _resolve_auto_np_init(strategy, NP_min: int) -> int:
         np_min_i = int(NP_min)
     except Exception:
         np_min_i = _DEFAULT_NP_MIN
-    raw = min(float(_AUTO_DIM_COEF * dim), budget / _AUTO_GEN_TARGET)
+    ref = _AUTO_REF_BUDGET_PER_DIM * dim
+    raw = _AUTO_DIM_COEF * dim * (budget / ref) ** _AUTO_BUDGET_EXP
     lo = max(np_min_i, _AUTO_MIN_NP)
     hi = max(lo, _AUTO_MAX_NP)
     return int(np.clip(int(round(raw)), lo, hi))
@@ -300,16 +308,19 @@ class LSHADE(Heuristic):
         NP_init: Initial population size, or the string ``"auto"`` for
             budget-adaptive sizing.  Default ``30`` — the standard
             literature setting.  The CEC-2014 paper used ``18 · d``,
-            which is a heavier swarm than Panobbgo's typical budget can
-            support; ``30`` is a good middle ground for the 2-10 D
+            which is a far heavier swarm than Panobbgo's typical budget
+            can support; ``30`` is a middle ground for the 2-10 D
             problems in our benchmark battery.  Pass ``"auto"`` to size
             the population from the strategy's evaluation budget and the
             problem dimension via
-            ``clip(round(min(18·dim, budget / 12)), max(NP_min, 6), 400)``
-            — this tracks the measured optimum across budgets (≈ 15 at
-            budget 200, ≈ 6 at budget 75) instead of a fixed constant
-            that is too large for tight budgets.  Falls back to ``30``
-            when the budget is unknown.  See :func:`_resolve_auto_np_init`.
+            ``clip(round(3·dim · (budget / (500·dim))**0.25), max(NP_min, 6), 400)``
+            — the measured AOCC optimum on the MA-BBOB battery is
+            ``≈ 3·dim`` at the reference budget of ``500·dim``
+            evaluations, with a mild (fourth-root) budget dependence
+            (``planning/DISCOVERY_2026-09-09.md`` §17): 6 at ``d=2``,
+            15 at ``d=5``, 30 at ``d=10``, rising to 21 for ``d=5`` at
+            four times the budget.  Falls back to ``30`` when the budget
+            is unknown.  See :func:`_resolve_auto_np_init`.
         NP_min: Minimum population size after LPSR shrinking.  Default
             ``4`` — required by ``current-to-pbest/1`` (mutation needs
             at least four distinct individuals).  Must satisfy
@@ -353,6 +364,19 @@ class LSHADE(Heuristic):
             a string regime name otherwise.  Falls back to the
             unclamped behaviour when the strategy budget is unknown.
             jSO opts into ``"jso"`` by construction.
+        warm_start: Optional seeding of the initial population from the
+            *shared* archive instead of uniform random points
+            (``planning/DESIGN_warm_start_2026-09-10.md`` §2).  One of
+            ``"archive"`` (the k best results in the run), ``"archive_diverse"``
+            (k well-separated good results) or ``"archive_leaf"`` (the best
+            point of each of the k best Splitter leaves — k different
+            basins); ``None`` (default) is the cold start, statement for
+            statement the behaviour shipped before.  Seeds are placed into
+            the population **directly, as evaluated results**, so warm
+            starting costs zero evaluations; any shortfall is filled by the
+            cold random path, and the next good points seed the external
+            archive.  Needs points to exist: at ``t = 0`` the archive is
+            empty and the heuristic silently cold-starts.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             uses the module's strategy-derived ``self.rng`` stream.
         name: Override the heuristic's display name.
@@ -380,6 +404,7 @@ class LSHADE(Heuristic):
         p_best_end: Optional[float] = None,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         F_schedule: Optional[Union[bool, str]] = None,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -412,6 +437,10 @@ class LSHADE(Heuristic):
             raise ValueError(f"LSHADE: p_best_end must be in (0, 1] when set, got {p_best_end}")
         if not np.isfinite(archive_factor) or archive_factor < 0.0:
             raise ValueError(f"LSHADE: archive_factor must be a non-negative finite float, got {archive_factor}")
+        if warm_start is not None and warm_start not in Heuristic.WARM_START_MODES:
+            raise ValueError(
+                f"LSHADE: warm_start must be None or one of {Heuristic.WARM_START_MODES}, got {warm_start!r}"
+            )
         # ``_normalize_F_schedule`` validates and maps the input onto a
         # regime name; backward-compat bool inputs collapse onto the
         # canonical string regimes.
@@ -425,6 +454,10 @@ class LSHADE(Heuristic):
         self.p_best_end: Optional[float] = None if p_best_end is None else float(p_best_end)
         self.archive_factor: float = float(archive_factor)
         self.F_schedule: Optional[str] = normalized_F_schedule
+        #: Archive selector for :meth:`_warm_start_population`, or ``None``
+        #: for the cold start.  A *string*, deliberately not a callable: the
+        #: trigger is :meth:`warm_start_now`.
+        self.warm_start: Optional[str] = warm_start
         self._rng: np.random.Generator = self.derive_rng(seed)
         # Ranking-key memo, see :meth:`_fx_of`.
         self._fx_cache: Dict[int, float] = {}
@@ -835,27 +868,114 @@ class LSHADE(Heuristic):
         for slot_idx in sorted(live - active):
             self._generate_trial(slot_idx)
 
+    def _init_memory(self) -> None:
+        """(Re-)plant the initial success-history memory.
+
+        A hook rather than two assignments so that a subclass with its own
+        initial values (jSO) has them in place *before* the first trial is
+        generated — which, on the warm-start path, happens inside
+        :meth:`on_start` itself rather than after the first batch of results.
+        """
+        self._M_F[:] = 0.5
+        self._M_CR[:] = 0.5
+
+    def _warm_start_population(self) -> bool:
+        """Fill open population slots from the shared archive.  ``True`` iff seeded.
+
+        The seeds are inserted as :class:`~panobbgo.lib.Result` objects —
+        the slot type is ``Optional[Result]`` either way — so a warm start
+        costs **zero evaluations**: the points were already paid for by
+        whoever produced them.  Slots the archive cannot cover keep the cold
+        path (a uniform random trial for an empty slot, the incumbent for a
+        live one), the *next* good points seed the external archive of
+        replaced parents (preferring points from *other* heuristics, which is
+        the whole point of a shared archive), and :meth:`_wake_idle_slots`
+        starts the first generation of real trials.
+        """
+        if not self.warm_start:
+            return False
+        if not self._population:
+            self._population = [None] * self.NP_init
+            self._NP_current = self.NP_init
+
+        slots = [i for i, slot in enumerate(self._population) if not isinstance(slot, _Dropped)]
+        cap = self._archive_cap()
+        pool = self.archive_seed(len(slots) + cap, mode=self.warm_start)
+        if not pool:
+            return False  # empty archive: the caller falls back to the cold path
+
+        seeds = pool[: len(slots)]
+        for i, r in zip(slots, seeds):
+            self._population[i] = r
+        for i in slots[len(seeds) :]:
+            if self._population[i] is None:
+                # shortfall: the existing random path, unchanged
+                x = self.problem.random_point(rng=self._rng)
+                self._emit_trial(x, i, F=float("nan"), CR=float("nan"))
+
+        self._seed_archive(pool[len(seeds) :], cap)
+        self._wake_idle_slots()
+        return True
+
+    def _seed_archive(self, rest: List[Result], cap: int) -> None:
+        """Prime the external archive with good points, foreign ones first."""
+        if cap <= 0 or not rest:
+            return
+        prefix = f"{self.name}:"
+        foreign = [r for r in rest if not (getattr(r, "who", "") or "").startswith(prefix)]
+        own = [r for r in rest if (getattr(r, "who", "") or "").startswith(prefix)]
+        for r in (foreign + own)[:cap]:
+            self._archive.append(np.asarray(r.x, dtype=float))
+        # ``on_start`` cleared the archive first, but a mid-run re-seed
+        # (:meth:`warm_start_now`) appends on top of a live one.
+        self._trim_archive()
+
     # ------------------------------------------------------------------
     # Heuristic interface
     # ------------------------------------------------------------------
 
     def on_start(self) -> None:
-        """Allocate state and emit ``NP_init`` random initial trials."""
+        """Allocate state and emit ``NP_init`` random initial trials.
+
+        With ``warm_start`` set and a non-empty archive the initial trials
+        are replaced by seeds taken straight from the shared archive; with
+        ``warm_start=None`` — or an archive that has nothing to give — this
+        is the cold start, statement for statement as before.
+        """
         self._population = [None] * self.NP_init
         self._NP_current = self.NP_init
         self._archive.clear()
         self._pending.clear()
-        self._M_F[:] = 0.5
-        self._M_CR[:] = 0.5
+        self._init_memory()
         self._mem_ptr = 0
         self._gen_completed = 0
         self._success_F.clear()
         self._success_CR.clear()
         self._success_delta.clear()
 
+        if self.warm_start and self._warm_start_population():
+            return
+
         for i in range(self.NP_init):
             x = self.problem.random_point(rng=self._rng)
             self._emit_trial(x, i, F=float("nan"), CR=float("nan"))
+
+    def warm_start_now(self) -> bool:
+        """Re-seed the population from the shared archive on re-acquisition.
+
+        The direct-call hook of
+        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`: an arm that
+        is handed a fresh block with an empty queue drops its stale in-flight
+        trials and restarts from the best points the *portfolio* has found,
+        without spending an evaluation on any of them.  Adapted state (the
+        success-history memory, the LPSR population size) is deliberately
+        kept — this is a re-seeding, not a restart.
+        """
+        if self._stopped or not self.warm_start:
+            return False
+        self.clear_output()
+        self._pending.clear()
+        return self._warm_start_population()
 
     def on_new_results(self, results) -> None:
         """Process incoming evaluations and dispatch follow-up trials."""
@@ -929,8 +1049,7 @@ class LSHADE(Heuristic):
             return  # not started yet — nothing to reset
 
         self._archive.clear()
-        self._M_F[:] = 0.5
-        self._M_CR[:] = 0.5
+        self._init_memory()
         self._mem_ptr = 0
         self._gen_completed = 0
         self._success_F.clear()
@@ -939,6 +1058,13 @@ class LSHADE(Heuristic):
         # Restore full-size population; LPSR will shrink it again from scratch.
         self._population = [None] * self.NP_init
         self._NP_current = self.NP_init
+
+        # A warm-started arm re-seeds from the shared archive instead of
+        # re-evaluating ``NP_init`` fresh points — the restart's ``center``
+        # is the incumbent, and the archive's best points are around it
+        # anyway.  Design §2: the random re-emission below is pure waste.
+        if self.warm_start and self._warm_start_population():
+            return
 
         ranges = self.problem.box[:, 1] - self.problem.box[:, 0]
         ball = 0.1 * ranges  # small reseed ball; conservative

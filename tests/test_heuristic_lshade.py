@@ -140,20 +140,23 @@ class LSHADEConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         """``NP_init="auto"`` sizes the population from budget and dimension."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        # dim=2 (Rosenbrock(2)).  budget/12 dominates when it is below 18*dim=36.
+        # dim=2 (Rosenbrock(2)): NP = 3*dim * (budget / (500*dim))**0.25,
+        # i.e. 6 at the reference budget of 1000, floored at 6 below it.
         self.strategy.config.max_eval = 75
-        assert LSHADE(self.strategy, NP_init="auto").NP_init == 6  # round(75/12)=6
-        self.strategy.config.max_eval = 240
-        assert LSHADE(self.strategy, NP_init="auto").NP_init == 20  # round(240/12)=20
-        # Large budget: the 18*dim=36 CEC upper bound caps the size.
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 6  # 6*0.075**.25=3.1 -> floor
+        self.strategy.config.max_eval = 1000
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 6  # reference budget: 3*dim
+        self.strategy.config.max_eval = 4000
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 8  # 6*4**0.25=8.49
+        # Large budget: the fourth-root term keeps growth slow.
         self.strategy.config.max_eval = 100000
-        assert LSHADE(self.strategy, NP_init="auto").NP_init == 36
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 19  # 6*100**0.25=19.0
 
     def test_np_init_auto_floors_at_six(self):
         """Auto never resolves below 6 even at tiny budgets (avoids NP=4 degeneracy)."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        self.strategy.config.max_eval = 12  # round(12/12)=1 → floored to 6
+        self.strategy.config.max_eval = 12  # 6*0.012**0.25=1.98 → floored to 6
         h = LSHADE(self.strategy, NP_init="auto")
         assert h.NP_init == 6
         assert h.NP_init >= h.NP_min
@@ -162,7 +165,7 @@ class LSHADEConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         """A larger ``NP_min`` raises the auto floor so ``NP_min <= NP_init`` holds."""
         from panobbgo.heuristics.lshade import LSHADE
 
-        self.strategy.config.max_eval = 60  # round(60/12)=5, below NP_min=10
+        self.strategy.config.max_eval = 60  # 6*0.06**0.25=2.97, below NP_min=10
         h = LSHADE(self.strategy, NP_init="auto", NP_min=10)
         assert h.NP_init == 10
         assert h.NP_min <= h.NP_init

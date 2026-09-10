@@ -229,6 +229,9 @@ class LSHADE_EpSin(LSHADE):
         mu_freq_init: Initial mean frequency for the variable-freq
             sinusoid (Sinusoid 2).  Default ``0.5``.  Must lie in
             ``(0, 1]``.
+        warm_start: Optional archive-seeding mode; see
+            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
+            (cold start).
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -260,6 +263,7 @@ class LSHADE_EpSin(LSHADE):
         p_best: float = _DEFAULT_P_BEST,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         mu_freq_init: float = _DEFAULT_MU_FREQ,
+        warm_start: Optional[str] = None,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -274,6 +278,7 @@ class LSHADE_EpSin(LSHADE):
             p_best=p_best,
             archive_factor=archive_factor,
             F_schedule=None,
+            warm_start=warm_start,
             seed=seed,
             name=name or "LSHADE_EpSin",
         )

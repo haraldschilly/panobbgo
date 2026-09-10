@@ -44,8 +44,14 @@ die Läufe enden — `HARVEST.txt` erscheint dann).
       dann Screen wiederholen, dann 12-Seed-Roster.
 - [ ] **12-Seed-Oracle** auswerten: `oracle12.log` (Arme auf
       Shipped-Defaults, gepaart). Headroom sizing für Phase B.
-- [ ] **CMA-ES 12-Seed-Akzeptanz** auswerten: `accept12.log` — Verdikt
-      steht am Ende; bei REJECT `sigma_divergence=False` als Default.
+- [ ] **CMA-ES 12-Seed-Akzeptanz**: Lauf mit dem Agenten-Stopp bei 8/12
+      Seeds abgebrochen (Seeds 777 2024 31337 555 fehlen). Teilverdikt auf
+      8 Seeds: **+0.0288 [+0.0024, +0.0552], 7/8 positiv**, keine Dimension
+      negativ → auf Kurs zu ACCEPT. Skript + JSON in
+      `planning/results/2026-09-10/accept12.{py,json}`; `--report-only`
+      regeneriert den Report. Für das volle Roster die 4 Seeds nachfahren
+      (prüfen, ob das Skript anhängt statt überschreibt) — oder
+      `benchmarks/np_accept.py`-Muster für CMA-ES übernehmen.
 - [ ] `p5_jso` (bm=2000) auswerten — nur Robustheitscheck.
 - [ ] `benchmarks/portfolio_screen.py` hat uncommittete `_warm_any`-Specs
       — committen.

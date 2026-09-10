@@ -72,8 +72,10 @@ BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
 #: single obvious edit and every spec below quotes the same settings.
 ARM = {
     "cmaes": (CMAES, {}),
-    "lshade": (LSHADE, {"NP_init": 10}),
-    "jso": (JSO, {"NP_init": 15}),
+    # ``NP_init="auto"`` is now the accepted rule (12/12), so every DE arm
+    # runs on the shipped default rather than a hand-picked constant.
+    "lshade": (LSHADE, {"NP_init": "auto"}),
+    "jso": (JSO, {"NP_init": "auto"}),
     "lbc": (NLSHADE_LBC, {"NP_init": 15, "k_rank": 3.0}),
     # PSO won zero cells in the provisional oracle, so it only appears in
     # the deliberately over-armed five-arm spec.
@@ -85,10 +87,22 @@ def arms(*keys):
     return [ARM[k] for k in keys]
 
 
-def warm_lshade(mode):
-    """The L-SHADE arm, re-seeding from the shared ``Archive`` on re-acquisition."""
-    cls, kw = ARM["lshade"]
+def warm(key, mode):
+    """The tuned arm ``key``, re-seeding from the shared ``Archive`` on re-acquisition."""
+    cls, kw = ARM[key]
     return (cls, {**kw, "warm_start": mode})
+
+
+def warm_lshade(mode):
+    """``warm("lshade", mode)`` — kept because the §21 specs below read better with it."""
+    return warm("lshade", mode)
+
+
+#: ``warm_start_only_if_foreign=False``: re-seed on *every* re-acquisition.
+#: §21 measured the ``_any`` variants above the foreign-only default
+#: (``Blocks_ducb_2_warm_any`` +0.005 over ``Blocks_ducb_2_warm``), so every
+#: spec added afterwards uses it.
+WARM_ON = {"warm_start_on_resume": True, "warm_start_only_if_foreign": False}
 
 
 #: Analyzer list of every warm spec.  ``Splitter`` is **not** listed: it is
@@ -164,6 +178,53 @@ SPECS = {
         {"policy": "ducb", "warm_start_on_resume": True, "warm_start_only_if_foreign": False},
         ARCHIVE,
     ),
+    # -- §22: the pair the 12-seed oracle actually points at ---------------
+    #
+    # No arm is a champion any more (jSO 0.656, L-SHADE 0.642, CMA-ES 0.642,
+    # winning different cells) and the best two-arm oracle is CMA-ES + jSO,
+    # capturing 62% of a +0.076 headroom.  So the portfolio worth screening
+    # is that pair — and now that CMA-ES has a ``warm_start`` of its own
+    # (4ef8b35) the sharing can finally run in *both* directions.
+    "JSO_alone": (StrategyRoundRobin, arms("jso"), {}, []),
+    "Blocks_ducb_cj": (StrategyBlockBandit, arms("cmaes", "jso"), {"policy": "ducb"}, []),
+    # One-directional: only jSO re-seeds, CMA-ES resumes its own paused
+    # distribution.  The control that isolates what CMA-ES's own warm start
+    # adds in ``Blocks_ducb_cj_warm2``.
+    "Blocks_ducb_cj_warmJ": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm("jso", "archive")],
+        {"policy": "ducb", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_cj_warm2": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive")],
+        {"policy": "ducb", **WARM_ON},
+        ARCHIVE,
+    ),
+    # ``archive_cov`` additionally seeds C with the covariance of the seed
+    # cloud; ``archive`` only moves the mean and sigma and leaves C = I.
+    "Blocks_ducb_cj_warm2cov": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive_cov"), warm("jso", "archive")],
+        {"policy": "ducb", **WARM_ON},
+        ARCHIVE,
+    ),
+    # Blocking without learning, on the fully warm pair: separates what the
+    # d-UCB rule contributes from what sharing contributes.
+    "Blocks_uniform_cj_warm2": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive")],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    # The §21 pair, both arms warm, for continuity across the two screens.
+    "Blocks_ducb_cl_warm2": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("lshade", "archive")],
+        {"policy": "ducb", **WARM_ON},
+        ARCHIVE,
+    ),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
@@ -172,7 +233,10 @@ SPECS = {
     # ``phased.py``, which this screen does not own.
 }
 
-REFS = ("CMAES_alone", "LSHADE_alone")
+#: Every single-arm reference.  §22 killed the idea of one champion — jSO,
+#: L-SHADE and CMA-ES sit within 0.014 of each other and win different cells —
+#: so "the bar" is the best of the three, computed per run rather than named.
+REFS = tuple(n for n in SPECS if n.endswith("_alone"))
 #: Specs whose arms share evaluations, in the order the gates prefer them.
 WARM = [n for n in SPECS if "_warm" in n]
 
@@ -301,13 +365,13 @@ print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
 # (a) means, overall and per dimension.
-print(f"\n{'spec':24s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
+print(f"\n{'spec':26s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
 order = sorted(names, key=lambda s: -mean_of(s))
 for s in order:
     per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
     tail = f"  errors={len(errs[s])}" if errs[s] else ""
     tail += f"  short={len(short[s])}" if short[s] else ""
-    print(f"{s:24s} {mean_of(s):7.4f} " + per + tail)
+    print(f"{s:26s} {mean_of(s):7.4f} " + per + tail)
 
 # (b) paired deltas against each reference, overall CI + per-dimension means.
 for ref in REFS:
@@ -315,7 +379,7 @@ for ref in REFS:
         continue
     print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
     print(
-        f"{'spec':24s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
+        f"{'spec':26s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
     )
     for s in order:
         if s == ref:
@@ -327,35 +391,54 @@ for ref in REFS:
         band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
         flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
         per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-        print(f"{s:24s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        print(f"{s:26s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
 
 # (c) the §6 screening gates.
+#
+# The gates are stated over roles, not over spec names, so the same three
+# questions survive a change of arm pair (§21 screened CMA-ES + L-SHADE,
+# §22 moved to CMA-ES + jSO).  ``best single`` is the best of the ``_alone``
+# specs *in this run*, which after §22 is a measured question rather than a
+# constant.
 best_ref = max((r for r in REFS if r in names), key=mean_of, default=None)
+#: (uniform, ducb) pairs on the same arms, most-preferred first.
+PAIRS = [
+    ("Blocks_uniform_cj", "Blocks_ducb_cj"),
+    ("Blocks_uniform_cj_warm2", "Blocks_ducb_cj_warm2"),
+    ("Blocks_uniform_2", "Blocks_ducb_2"),
+    ("Blocks_uniform_2_warm_any", "Blocks_ducb_2_warm_any"),
+]
+pair = next(((u, d) for u, d in PAIRS if u in names and d in names), (None, None))
+uni, duc = pair
+duc = duc or next((d for _, d in PAIRS if d in names), None)
+warm_here = [s for s in WARM if s in names]
+best_warm = max(warm_here, key=mean_of) if warm_here else None
+#: The cold counterpart G4 measures the warm spec against.
+cold_ref = next((d for _, d in PAIRS if d in names and "_warm" not in d), None)
+
 print("\n--- screening gates (design §6) ---")
 gates = []
-if "Blocks_uniform_2" in names and best_ref:
-    d1 = delta("Blocks_uniform_2", best_ref)
-    gates.append(("G1", f"Blocks_uniform_2 - max({', '.join(REFS)}) = {best_ref}", d1, -0.02, ">="))
-if "Blocks_ducb_2" in names and "Blocks_uniform_2" in names:
-    gates.append(("G2", "Blocks_ducb_2 - Blocks_uniform_2", delta("Blocks_ducb_2", "Blocks_uniform_2"), 0.005, ">="))
-if "Blocks_ducb_2" in names and best_ref:
-    gates.append(("G3", f"Blocks_ducb_2 - best single ({best_ref})", delta("Blocks_ducb_2", best_ref), -0.01, ">="))
+if uni and best_ref:
+    gates.append(("G1", f"{uni} - best single ({best_ref})", delta(uni, best_ref), -0.02, ">="))
+if uni and duc:
+    gates.append(("G2", f"{duc} - {uni}", delta(duc, uni), 0.005, ">="))
+g3 = cold_ref or duc  # G3 is about the *cold* bandit: no sharing, just learning
+if g3 and best_ref:
+    gates.append(("G3", f"{g3} - best single ({best_ref})", delta(g3, best_ref), -0.01, ">="))
 # G4/G5 test the sharing thesis: a portfolio is only worth its transients if
 # the arms hand each other the evaluations they already paid for.  G4 asks
 # whether sharing moves the number *at all* beyond the +-0.05 null floor;
 # G5 asks the only question that decides the phase — does it rescue the
-# portfolio past the bar.
-if "Blocks_ducb_2_warm" in names and "Blocks_ducb_2" in names:
-    gates.append(("G4", "Blocks_ducb_2_warm - Blocks_ducb_2", delta("Blocks_ducb_2_warm", "Blocks_ducb_2"), 0.03, ">="))
-warm_here = [s for s in WARM if s in names]
-if warm_here and "CMAES_alone" in names:
-    best_warm = max(warm_here, key=mean_of)
-    gates.append(("G5", f"best warm spec ({best_warm}) - CMAES_alone", delta(best_warm, "CMAES_alone"), 0.0, ">="))
+# portfolio past the best single arm.
+if best_warm and cold_ref:
+    gates.append(("G4", f"{best_warm} - {cold_ref} (cold)", delta(best_warm, cold_ref), 0.03, ">="))
+if best_warm and best_ref:
+    gates.append(("G5", f"best warm ({best_warm}) - best single ({best_ref})", delta(best_warm, best_ref), 0.0, ">="))
 if not gates:
     print("  (no gate is computable from the selected specs)")
 for tag, what, val, thr, _ in gates:
     ok = val == val and val >= thr
-    print(f"  {tag} {'PASS' if ok else 'FAIL'}  {what:52s} {val:+.4f}  (need >= {thr:+.3f})")
+    print(f"  {tag} {'PASS' if ok else 'FAIL'}  {what:58s} {val:+.4f}  (need >= {thr:+.3f})")
 
 # (d) what the harness itself reported about the runs.
 print("\n--- run health ---")

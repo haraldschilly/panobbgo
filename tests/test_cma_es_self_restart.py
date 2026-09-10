@@ -21,6 +21,7 @@ d) ``restart_from="random"`` draws from the heuristic's own generator, so a
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from panobbgo.heuristics import CMAES
 from panobbgo.lib.classic import DeJong
@@ -78,8 +79,8 @@ def test_self_restart_off_reproduces_the_pre_change_trajectory():
     h, fx = _run(self_restart=False)
     assert h.n_restarts == 0
     assert len(fx) == 406
-    assert float(np.min(fx)) == 5.523971143576693e-09
-    assert float(np.sum(fx)) == 701.12430982615172
+    assert float(np.min(fx)) == pytest.approx(5.523971143576693e-09, rel=1e-6)  # BLAS order differs across CPUs
+    assert float(np.sum(fx)) == pytest.approx(701.12430982615172, rel=1e-9)
 
 
 def test_restart_event_still_restarts():

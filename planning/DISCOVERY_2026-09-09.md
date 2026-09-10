@@ -1169,3 +1169,40 @@ the meta heuristic of `DESIGN_meta_level`) reads this tree, and it is
 force-injected into every strategy.  Owner's verdict: improve the
 Splitter — budget-scaled resolution and a value-aware split rule, in
 progress on an isolated worktree, measured through its consumers.
+
+## 33. Meta level, smallest version: exact null, and a structural blind spot in the shared archive
+
+`benchmarks/meta_screen.py`, *d* = 5 only, 3 seeds, one stream,
+reference `Blocks_uniform_cj_warm2` (0.6336):
+
+| spec | Δ vs reference | per instance |
+|---|---|---|
+| Meta_never | **+0.0000** in 15/15 cells (exact null) | |
+| Meta_b25 (leaf scan, 50 points at ¼ budget) | +0.0020 | +.007 +.007 +.008 −.004 −.009 |
+| Meta_random_b25 (same trigger, uniform points) | **+0.0020, identical in every cell** | same |
+| Meta_stag | +0.0044 | 0 / +.006 / +.016 / 0 / 0 (fired on 2 of 5) |
+| RegionUCB_arm (stream at the same cost) | −0.0008 | |
+| Meta_region_b25 (hand a leaf to CMA-ES) | **−0.0131**, negative in 4/5 | |
+
+Probe of the identical rows: both fire once at evaluation 626 into a
+13-leaf tree, both emit 50 points, **zero of those points improve the
+best** in either mode, so both runs end at the same value; the +0.002
+is the block schedule shifting by 50 diverted evaluations.  The design's
+falsifier R1 fires exactly: as a point emitter, the analysis is
+decoration.  R3 fails directionally: restricting an arm's warm start to
+one leaf is worse than the whole archive — the same sign as
+`only_if_better` (§30); narrowing what an arm may re-seed from keeps
+measuring negative.
+
+**The structural finding.**  The shared archive is top-K *by value*.
+Exploration points are, by construction, worse than the incumbent, so
+they never enter it — and the population arms see foreign results
+only through it.  Information of the form "this region is empty or
+unknown" has no channel into the solvers except the region hand-off,
+which is negative.  Whatever a meta level is to contribute, it cannot
+be points into the current archive.
+
+Preconditions before this is measured again: the Splitter rework (§32
+— 13 leaves at *d* = 5 after 626 evaluations is not a map), and a
+model (design step 5, gated off by this screen).  Then `Meta_stag`
+with its own random-points control, the only rows with a structure.

@@ -76,7 +76,7 @@ ARM = {
     # runs on the shipped default rather than a hand-picked constant.
     "lshade": (LSHADE, {"NP_init": "auto"}),
     "jso": (JSO, {"NP_init": "auto"}),
-    "lbc": (NLSHADE_LBC, {"NP_init": 15, "k_rank": 3.0}),
+    "lbc": (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),
     # PSO won zero cells in the provisional oracle, so it only appears in
     # the deliberately over-armed five-arm spec.
     "pso": (PSO, {"NP": 6}),
@@ -225,6 +225,73 @@ SPECS = {
         {"policy": "ducb", **WARM_ON},
         ARCHIVE,
     ),
+    # -- §24: is the mechanism "switch often, relay often"? ----------------
+    #
+    # §22 measured 5 warm starts in 40 blocks under d-UCB against 39 in 41
+    # under uniform, and the uniform spec won.  If the relay is what pays,
+    # then (a) finer blocks should keep paying — every block boundary is one
+    # hand-off — and (b) a third and fourth arm should now *help* rather than
+    # dilute, because an arm that is not running still feeds the archive the
+    # others start from.  Both are falsifiable here.
+    #
+    # Block size is ``max(round(max_eval / n_blocks), 2 * dim)`` and a draw
+    # asks for ``size = 10`` points, so the grid bottoms out:
+    #   d=2 (1000 evals): nb25 -> 40, nb50 -> 20, nb100 -> 10, nb200 -> 5
+    #   d=5 (2500 evals): nb25 -> 100, nb50 -> 50, nb100 -> 25, nb200 -> 12
+    # At nb200/d=2 the block is 5 evaluations while one draw asks for 10, so
+    # the hard cap (``2 * block_size`` = 10) closes the block after a *single*
+    # draw: nb200 is not really "200 blocks of 5", it is "one generation per
+    # block", the finest granularity the scheduler can express.  That is a
+    # meaningful end of the grid — it is the relay taken to its limit — but
+    # it is not the nominal number, so read it as such.
+    "Blocks_uniform_cj_warm2_nb25": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive")],
+        {"policy": "uniform", "n_blocks": 25, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_uniform_cj_warm2_nb100": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive")],
+        {"policy": "uniform", "n_blocks": 100, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_uniform_cj_warm2_nb200": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive")],
+        {"policy": "uniform", "n_blocks": 200, **WARM_ON},
+        ARCHIVE,
+    ),
+    # Three and four arms, all warm.  Cold portfolios lost monotonically with
+    # every added arm (§21: 2 arms -0.090, 4 arms -0.187, 5 arms -0.210).
+    # If sharing is what makes a portfolio work, that ordering should break.
+    "Blocks_uniform_cjl_warm3": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive"), warm("lbc", "archive")],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_uniform_cjls_warm4": (
+        StrategyBlockBandit,
+        [
+            warm("cmaes", "archive"),
+            warm("jso", "archive"),
+            warm("lbc", "archive"),
+            warm("lshade", "archive"),
+        ],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    # Can learning be made to beat rotation once sharing is on?  The d-UCB
+    # default commits hard (ucb_c 0.5, hysteresis 1.2, gamma 0.9) and so
+    # relays rarely.  This is the same rule with the commitment taken out:
+    # heavy exploration, no incumbent bonus, a short memory.
+    "Blocks_ducb_cj_warm2_soft": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm("jso", "archive")],
+        {"policy": "ducb", "ucb_c": 2.0, "hysteresis": 1.0, "gamma": 0.7, **WARM_ON},
+        ARCHIVE,
+    ),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
@@ -365,13 +432,13 @@ print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
 # (a) means, overall and per dimension.
-print(f"\n{'spec':26s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
+print(f"\n{'spec':30s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
 order = sorted(names, key=lambda s: -mean_of(s))
 for s in order:
     per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
     tail = f"  errors={len(errs[s])}" if errs[s] else ""
     tail += f"  short={len(short[s])}" if short[s] else ""
-    print(f"{s:26s} {mean_of(s):7.4f} " + per + tail)
+    print(f"{s:30s} {mean_of(s):7.4f} " + per + tail)
 
 # (b) paired deltas against each reference, overall CI + per-dimension means.
 for ref in REFS:
@@ -379,7 +446,7 @@ for ref in REFS:
         continue
     print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
     print(
-        f"{'spec':26s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
+        f"{'spec':30s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
     )
     for s in order:
         if s == ref:
@@ -391,7 +458,7 @@ for ref in REFS:
         band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
         flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
         per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-        print(f"{s:26s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        print(f"{s:30s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
 
 # (c) the §6 screening gates.
 #

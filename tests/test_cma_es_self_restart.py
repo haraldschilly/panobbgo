@@ -57,6 +57,8 @@ def test_self_restart_fires_on_a_sphere():
         "tolfun",
         "tolfunhist",
         "stagnation",
+        "stagnation_evals",
+        "sigma_divergence",
         "conditioncov",
         "noeffectaxis",
         "noeffectcoord",
@@ -106,6 +108,9 @@ def test_restart_from_is_reproducible_and_respected():
     # The spy needs the heuristic instance, so the run is built inline here
     # rather than through ``_run``.
     def run_and_record(seed=42, **kw):
+        # σ divergence is off here: it overrides ``restart_from`` on purpose,
+        # and this test is about ``restart_from`` alone.
+        kw.setdefault("sigma_divergence", False)
         problem = DeJong(3, box=list(BOX))
         np.random.seed(seed)
         s = StrategyRoundRobin(problem, max_evaluations=1200, seed=seed, parse_args=False, testing_mode=True)
@@ -115,8 +120,8 @@ def test_restart_from_is_reproducible_and_respected():
         recorded: list[np.ndarray] = []
         orig = h._restart_center
 
-        def wrapped():
-            c = orig()
+        def wrapped(mode=None):
+            c = orig(mode)
             recorded.append(np.asarray(c, dtype=float).copy())
             return c
 
@@ -149,6 +154,108 @@ def test_restart_from_is_reproducible_and_respected():
     assert h_best.n_restarts == len(d)
 
 
+def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not():
+    """``stagnation_frac`` restarts on a budget slice, not on n and λ.
+
+    Rastrigin at d=5 is multimodal enough that a 1500-evaluation run settles
+    into a local basin long before ``tolfun`` (window 10 + ⌈30n/λ⌉ generations
+    at a 1e-11 range) has anything to say — that gap is the whole reason the
+    criterion exists.
+    """
+    from panobbgo.lib.classic import Rastrigin
+
+    def run(**kw):
+        problem = Rastrigin(dims=5)
+        np.random.seed(7)
+        s = StrategyRoundRobin(problem, max_evaluations=1500, seed=7, parse_args=False, testing_mode=True)
+        s.config.sync_evaluation = True
+        s.config.stop_on_convergence = False
+        h = CMAES(s, **kw)
+        s.add_heuristic(h)
+        s.start()
+        return h
+
+    ref = run(restart_from="best")
+    budget = run(restart_from="best", stagnation_frac=0.05)
+    assert budget.n_self_restarts > ref.n_self_restarts
+    assert budget.last_stop_reason == "stagnation_evals"
+    # The window is max(10λ, frac·max_eval) = max(80, 75) = 80 evaluations at
+    # the base λ=8, and doubles with λ on every IPOP restart.
+    assert budget._stagnation_eval_window() >= 10 * budget._lam
+
+    # ``max_eval`` is read lazily, so a budget set *after* construction counts.
+    problem = Rastrigin(dims=5)
+    s = StrategyRoundRobin(problem, max_evaluations=100, seed=7, parse_args=False, testing_mode=True)
+    h = CMAES(s, stagnation_frac=0.5)
+    s.config.max_eval = 4000
+    h._lam = 8
+    assert h._stagnation_eval_window() == 2000
+
+
+def test_sigma_divergence_fires_and_restarts_from_the_best_point():
+    """σ parked at the clamp is a failure state, not a search state."""
+    problem = DeJong(3, box=list(BOX))
+    s = StrategyRoundRobin(problem, max_evaluations=300, seed=3, parse_args=False, testing_mode=True)
+    s.config.sync_evaluation = True
+    s.config.stop_on_convergence = False
+    h = CMAES(s, sigma_divergence=True, sigma_divergence_gens=3, restart_from="random")
+    s.add_heuristic(h)
+    s.start()
+
+    # Drive the sampling spread to box scale by hand: ``_update`` clamps σ at
+    # mean(range) = 10, and the criterion reads σ·sqrt(diag C).
+    h._sigma = 10.0
+    h._C = np.eye(3)
+    h._best_fx = 0.5
+    h._best_x = np.array([0.25, -0.25, 0.5])
+    h._sigma_high_gens = 0
+    for expected in (None, None, "sigma_divergence"):
+        assert h._check_termination() == expected
+
+    before = h.n_restarts
+    h._self_restart_now("sigma_divergence")
+    assert h.n_restarts == before + 1
+    assert h.last_stop_reason == "sigma_divergence"
+    # ``restart_from="random"`` is overridden: a diverged run keeps its best point.
+    np.testing.assert_allclose(h._m, np.array([0.25, -0.25, 0.5]))
+    # ... and σ is back to its initial value, well below the threshold.
+    assert h._sigma == h._sigma0_default()
+    assert h._sigma_high_gens == 0
+
+    # Below the threshold the streak resets instead of accumulating.
+    h._sigma = 0.1 * float(np.mean(h._ranges))
+    h._C = np.eye(3)
+    for _ in range(5):
+        assert h._check_termination() != "sigma_divergence"
+    assert h._sigma_high_gens == 0
+
+    # A large σ against a small C is a healthy anisotropic search, not a
+    # divergence — the criterion reads the spread, not σ.
+    h._sigma = 10.0
+    h._C = np.eye(3) * 1e-8
+    for _ in range(5):
+        assert h._check_termination() != "sigma_divergence"
+    assert h._sigma_high_gens == 0
+
+
+def test_defaults_are_the_measured_configuration():
+    """Ship what was measured: σ-divergence on at 0.3, budget stagnation off.
+
+    σ divergence measured +0.0330 AOCC on the standard battery, 6/6 seeds
+    (2026-09-10).  ``stagnation_frac`` measured −0.021 at 0.05 and is off.
+    """
+    problem = DeJong(3, box=list(BOX))
+    s = StrategyRoundRobin(problem, max_evaluations=100, seed=1, parse_args=False, testing_mode=True)
+    h = CMAES(s)
+    assert h._stagnation_frac is None
+    assert h._stagnation_eval_window() == 0
+    assert h._sigma_divergence is True
+    assert h._sigma_max_frac == 0.3
+    assert h._sigma_divergence_gens == 5
+    # ... and every new criterion is still inert when self-restart is off.
+    assert CMAES(s, self_restart=False)._self_restart is False
+
+
 def test_invalid_kwargs_are_rejected():
     """Constructor validation matches the file's existing style."""
     import pytest
@@ -162,6 +269,12 @@ def test_invalid_kwargs_are_rejected():
         {"tolfunhist": -1.0},
         {"conditioncov": 0.5},
         {"stagnation": -5},
+        {"stagnation_frac": 0.0},
+        {"stagnation_frac": 1.5},
+        {"stagnation_rel_tol": -1e-9},
+        {"sigma_max_frac": 0.0},
+        {"sigma_max_frac": 2.0},
+        {"sigma_divergence_gens": 0},
     ):
         with pytest.raises(ValueError):
             CMAES(s, **kw)

@@ -69,6 +69,37 @@ The criteria are the standard ones (Hansen 2016, §4 "Discussion", and the
 * ``noeffectcoord``: adding ``0.2·σ·sqrt(C_ii)`` in any single coordinate does
   not change m.
 
+Two further criteria are *not* in the reference.  They exist because the
+reference tolerances are written for runs of many thousands of generations and
+almost never fire inside a 500·dim budget (measured 2026-09-10: 5 firings in 10
+battery runs, all of them after the search had already reached 1e-10 precision,
+which is below the AOCC log floor — hence no measurable gain):
+
+* ``stagnation_frac`` (off by default): restart when the best value seen has not
+  improved by more than ``stagnation_rel_tol`` (1e-8, relative) over the last
+  ``max(10·λ, stagnation_frac · max_eval)`` evaluations.  This is the only
+  criterion that scales with the *budget* rather than with n and λ.  It is off
+  because it measured *harmful* at the fractions where it fires often: −0.021
+  AOCC at 0.05 and −0.001 at 0.15 on the standard battery, since CMA-ES
+  routinely spends 15–30 generations adapting C without improving its best
+  value, and interrupting that costs more than the wasted tail is worth.
+  Only 0.25 was neutral (+0.002), by which point it has converged onto the
+  reference criteria anyway.
+* ``sigma_divergence`` (**on** by default): restart when the sampling spread
+  ``σ·sqrt(diag C)`` has sat at or above ``sigma_max_frac · range`` in every
+  coordinate for ``sigma_divergence_gens`` consecutive generations — the
+  panobbgo analogue of pycma's ``tolupsigma``.
+  :meth:`CMAES._update` clamps σ at the mean box range, so a diverging run does
+  not blow up: it parks at the clamp and samples the whole box (in practice the
+  box *boundary*, since everything outside is projected back onto it) for the
+  rest of the budget.  Two of the five diagnosed d=5 instances did exactly
+  that.  The clamp keeps the run numerically alive at the price of keeping it
+  useless; detecting the state and restarting is the reference cure
+  (Hansen 2016 stops such a run outright), which is why the clamp itself is
+  left alone.  This is the one addition that paid: **+0.0330 AOCC on the
+  standard battery, 6 of 6 seeds positive** (+0.024 at d=2, +0.042 at d=5,
+  2026-09-10), concentrated entirely in the 11 of 60 cells where it fires.
+
 When a criterion fires, the heuristic restarts through the very same code
 path as the ``restart`` event, with a start point chosen by ``restart_from``
 (``"random"`` — a uniform draw in the box, the reference IPOP behaviour and
@@ -184,6 +215,33 @@ class CMAES(Heuristic):
             ``True``).
         noeffectcoord (bool): Enable the ``NoEffectCoord`` criterion (default
             ``True``).
+        stagnation_frac (float, optional): Budget-relative stagnation window as
+            a fraction of ``config.max_eval``.  ``None`` (default) disables it
+            and leaves only the reference criteria.  The window is
+            ``max(10·λ, stagnation_frac · max_eval)`` evaluations; the criterion
+            fires when the best value seen has not improved by more than
+            ``stagnation_rel_tol`` (relative) over that window.  ``max_eval`` is
+            read lazily on each check, never in ``__init__`` — the budget is not
+            always known when the heuristic is constructed.
+        stagnation_rel_tol (float): Relative improvement that counts as
+            progress for ``stagnation_frac``.  Default 1e-8.
+        sigma_divergence (bool): Enable the σ-divergence criterion (default
+            ``True``): fire when the sampling spread ``σ·sqrt(diag C)`` has
+            been at or above ``sigma_max_frac · range`` in *every* coordinate
+            for ``sigma_divergence_gens`` consecutive generations.  This is the
+            panobbgo analogue of pycma's ``tolupsigma`` "creeping behaviour"
+            stop.  A diverged run has no basin worth keeping, so its restart
+            always re-centres on the best point seen, whatever ``restart_from``
+            says.
+        sigma_max_frac (float): Divergence threshold as a fraction of each
+            coordinate's box range.  Default 0.3 — a cloud whose per-coordinate
+            standard deviation is a third of the box is sampling the box, not a
+            neighbourhood.  Measured over 60 standard-battery cells (6 seeds,
+            2026-09-10) the criterion fired on 11 of them, every firing gained
+            AOCC (mean +0.180, max +0.437), and those cells averaged 0.370
+            AOCC without it against 0.625 for the battery as a whole.
+        sigma_divergence_gens (int): Consecutive generations above the
+            threshold before the criterion fires.  Default 5.
     """
 
     #: Accepted values for the ``restart_from`` constructor argument.
@@ -206,6 +264,11 @@ class CMAES(Heuristic):
         conditioncov: float = 1e14,
         noeffectaxis: bool = True,
         noeffectcoord: bool = True,
+        stagnation_frac: Optional[float] = None,
+        stagnation_rel_tol: float = 1e-8,
+        sigma_divergence: bool = True,
+        sigma_max_frac: float = 0.3,
+        sigma_divergence_gens: int = 5,
     ):
         super().__init__(strategy, name="CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -236,6 +299,30 @@ class CMAES(Heuristic):
         self._conditioncov = float(conditioncov)
         self._noeffectaxis = bool(noeffectaxis)
         self._noeffectcoord = bool(noeffectcoord)
+
+        # --- Budget-relative criteria (panobbgo additions, not in the reference) ---
+        if stagnation_frac is not None and not 0.0 < float(stagnation_frac) <= 1.0:
+            raise ValueError(f"stagnation_frac must be in (0, 1] or None, got {stagnation_frac!r}")
+        if stagnation_rel_tol < 0.0:
+            raise ValueError(f"stagnation_rel_tol must be >= 0, got {stagnation_rel_tol!r}")
+        if not 0.0 < float(sigma_max_frac) <= 1.0:
+            raise ValueError(f"sigma_max_frac must be in (0, 1], got {sigma_max_frac!r}")
+        if int(sigma_divergence_gens) < 1:
+            raise ValueError(f"sigma_divergence_gens must be >= 1, got {sigma_divergence_gens!r}")
+        self._stagnation_frac = None if stagnation_frac is None else float(stagnation_frac)
+        self._stagnation_rel_tol = float(stagnation_rel_tol)
+        self._sigma_divergence = bool(sigma_divergence)
+        self._sigma_max_frac = float(sigma_max_frac)
+        self._sigma_divergence_gens = int(sigma_divergence_gens)
+
+        # Budget-relative stagnation bookkeeping.  ``_total_evals`` counts the
+        # results this heuristic has consumed over the *whole* run (it survives
+        # restarts, unlike ``_counteval``); ``_stag_ref_fx`` is the best value
+        # that still counts as "the last real improvement".
+        self._total_evals: int = 0
+        self._stag_ref_fx: float = float("inf")
+        self._last_improve_evals: int = 0
+        self._sigma_high_gens: int = 0
 
         # Per-run termination bookkeeping (reset by :meth:`_reset_run_state`)
         self._sigma0: float = 1.0  # σ at the start of the *current* CMA-ES run
@@ -698,6 +785,11 @@ class CMAES(Heuristic):
         else:
             self._stagnation_gens = self._stagnation_cfg
         self._hist_max = max(self._hist_len, self._stagnation_gens) + 1
+        self._sigma_high_gens = 0
+        # A fresh run gets a fresh budget-relative window to prove itself; the
+        # *value* it has to beat (``_stag_ref_fx``) stays global, so a restart
+        # that only rediscovers the old optimum still counts as stagnation.
+        self._last_improve_evals = self._total_evals
 
     def _record_generation(self, collected: List[dict]) -> None:
         """Fold one finished generation into the termination histories.
@@ -720,6 +812,17 @@ class CMAES(Heuristic):
             self._best_fx = best
             self._best_x = np.asarray(collected[0]["x"], dtype=float).copy()
 
+        # Budget-relative stagnation clock.  ``_total_evals`` is the run-long
+        # evaluation count (``_counteval`` restarts at 0 on every restart).
+        self._total_evals += len(penalties)
+        if np.isfinite(best) and best < self._stag_ref_fx - self._stagnation_rel_tol * abs(self._stag_ref_fx):
+            self._stag_ref_fx = best
+            self._last_improve_evals = self._total_evals
+        elif not np.isfinite(self._stag_ref_fx) and np.isfinite(best):
+            # First finite value: start the clock rather than count it as stagnation.
+            self._stag_ref_fx = best
+            self._last_improve_evals = self._total_evals
+
     def _check_termination(self) -> Optional[str]:
         """Return the name of the first termination criterion that fires, else ``None``.
 
@@ -736,6 +839,27 @@ class CMAES(Heuristic):
         n = self.problem.dim
         sigma = self._sigma
         sqrt_diag_C = np.sqrt(np.maximum(np.diag(C), 0.0))
+
+        # --- σ divergence: the sampling cloud has grown to box scale ---
+        # Counted first so the streak is maintained no matter which criterion
+        # ends up firing.  ``_update`` clamps σ at ``mean(ranges)``, so a
+        # diverging run parks *at* the clamp instead of terminating — this is
+        # the panobbgo stand-in for pycma's ``tolupsigma``.
+        #
+        # The test is on the *sampling spread* σ·sqrt(diag C), not on σ alone:
+        # σ and C share one scale degree of freedom, so a perfectly healthy,
+        # converging run can carry a large σ against a small C.  Testing σ on
+        # its own produced exactly that false positive twice in 30 battery runs
+        # (2026-09-10) and cost 0.04 and 0.20 AOCC on those two cells.  All
+        # coordinates must be box-scale — one long axis is a ridge search, not
+        # a divergence.
+        if self._ranges is not None:
+            if np.all(sigma * sqrt_diag_C >= self._sigma_max_frac * self._ranges):
+                self._sigma_high_gens += 1
+            else:
+                self._sigma_high_gens = 0
+        if self._sigma_divergence and self._sigma_high_gens >= self._sigma_divergence_gens:
+            return "sigma_divergence"
 
         # --- TolX: the distribution has shrunk below a σ0-relative threshold ---
         tolx = self._tolx * self._sigma0
@@ -765,6 +889,11 @@ class CMAES(Heuristic):
             if not improved:
                 return "stagnation"
 
+        # --- Budget-relative stagnation: no real progress for a slice of the budget ---
+        window = self._stagnation_eval_window()
+        if window > 0 and self._total_evals - self._last_improve_evals >= window:
+            return "stagnation_evals"
+
         # --- Condition number of C ---
         if self._cond > self._conditioncov:
             return "conditioncov"
@@ -781,15 +910,31 @@ class CMAES(Heuristic):
 
         return None
 
-    def _restart_center(self) -> np.ndarray:
-        """Start point for a *self*-restart, per ``restart_from``.
+    def _stagnation_eval_window(self) -> int:
+        """Budget-relative stagnation window in evaluations (0 = disabled).
+
+        ``config.max_eval`` is read here rather than in ``__init__`` because
+        the budget is only guaranteed to be set on the config *after* the
+        heuristic is constructed.  The ``10·λ`` floor also makes the criterion
+        self-limiting across IPOP restarts: λ doubles each time, so the window
+        grows past the remaining budget after a few restarts instead of
+        thrashing.
+        """
+        if self._stagnation_frac is None:
+            return 0
+        max_eval = getattr(self.config, "max_eval", 0) or 0
+        return int(max(10 * max(self._lam, 1), self._stagnation_frac * float(max_eval)))
+
+    def _restart_center(self, mode: Optional[str] = None) -> np.ndarray:
+        """Start point for a *self*-restart, per ``restart_from`` or *mode*.
 
         ``"random"`` draws from :attr:`rng` — the heuristic's own generator —
         so a seeded run stays reproducible.
         """
-        if self._restart_from == "random":
+        mode = mode or self._restart_from
+        if mode == "random":
             return self.problem.random_point(rng=self.rng)
-        if self._restart_from == "best" and self._best_x is not None:
+        if mode == "best" and self._best_x is not None:
             return self._best_x.copy()
         # ``"center"``, and ``"best"`` before anything has been evaluated
         assert self._lo is not None and self._hi is not None
@@ -800,11 +945,15 @@ class CMAES(Heuristic):
 
         Goes through :meth:`on_restart`, so the IPOP/BIPOP logic, the
         population growth and the bookkeeping are shared with the
-        analyzer-driven path — only the start point differs.
+        analyzer-driven path — only the start point differs.  A σ-divergence
+        restart overrides ``restart_from``: the distribution has spread over
+        the whole box, so there is no basin left to keep and no reason to
+        throw the best point seen away.
         """
         self._self_restart_count += 1
         self._last_stop_reason = reason
-        self.on_restart(self._restart_center(), f"self-restart: {reason}")
+        mode = "best" if reason == "sigma_divergence" else None
+        self.on_restart(self._restart_center(mode), f"self-restart: {reason}")
 
     @property
     def n_restarts(self) -> int:

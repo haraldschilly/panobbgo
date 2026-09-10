@@ -933,3 +933,47 @@ relays) should help monotonically up to the point where a block is
 shorter than a generation; and a third arm should now *help*, since
 dilution was the cost sharing removed.  Also whether a bandit with much
 weaker commitment can beat plain rotation.
+
+## 26. Mechanism test: block length has an interior optimum; more arms still dilute; a soft bandit leads
+
+Screen #5, 3 seeds, one stream, CMA-ES + jSO both `warm_start="archive"`
+unless stated, `warm_start_only_if_foreign=False`:
+
+| spec | AOCC | *d*=2 | *d*=5 | warm starts / blocks (*d*=5 probe) |
+|---|---|---|---|---|
+| **Blocks_ducb_cj_warm2_soft** (`ucb_c=2, hysteresis=1, gamma=0.7`) | **0.6921** | 0.7515 | 0.6326 | 29 / 40 |
+| Blocks_uniform_cj_warm2 (nb50, 50 evals) | 0.6845 | 0.7354 | 0.6336 | 39 / 41 |
+| JSO_alone | 0.6735 | 0.7467 | 0.6003 | |
+| CMAES_alone | 0.6712 | 0.7379 | 0.6044 | |
+| Blocks_uniform_cj_warm2_nb25 (100 evals) | 0.6552 | 0.7317 | 0.5788 | 20 / 22 |
+| Blocks_uniform_cj_warm2_nb100 (25 evals) | 0.6539 | **0.6340** | **0.6737** | 72 / 74 |
+| Blocks_uniform_cjl_warm3 (+ LBC) | 0.6477 | 0.6537 | 0.6417 | 38 / 41 |
+| Blocks_uniform_cjls_warm4 (+ L-SHADE) | 0.6039 | 0.6567 | 0.5511 | 37 / 41 |
+| Blocks_uniform_cj_warm2_nb200 (12 evals; ~6 at *d*=2) | 0.5589 | 0.5674 | 0.5505 | 137 / 139 |
+
+1. **Block length: an interior optimum, and it is absolute, not a
+   fraction of budget.** Every warm start discards the arm's in-flight
+   generation (`warm_start_now` clears output and pending), so past a
+   point the scheduler throws away more work than the seed is worth,
+   and neither arm gets enough consecutive evaluations to adapt.  The
+   per-dimension split locates it: at *d* = 2 the best block was 20
+   evaluations (nb50), at *d* = 5 it was 25 (nb100, +0.069 there vs
+   +0.029 for 50).  **~20–25 evaluations ≈ 3–4 generations**, at both
+   dimensions.  `n_blocks=50` is the wrong parametrisation; the rule
+   should be a block length in evaluations or generations.
+2. **More arms still dilute.** 2 → 3 → 4 arms: 0.685 → 0.648 → 0.604,
+   a gentler slope than cold (§20) but the same sign.  Only at *d* = 5
+   does the third arm pay (+0.037); at *d* = 2 it costs −0.084.  If a
+   third arm ever ships it is dimension-gated.
+3. **A soft bandit beats rotation.** With commitment removed
+   (`hysteresis=1`, high `ucb_c`, fast forgetting), D-UCB lands in the
+   middle band of switching — 29 warm starts against 5 (default D-UCB,
+   §25) and 39 (rotation) — and leads the table, positive at both
+   dimensions.  What matters is not maximising relays but landing in
+   that band, and a soft bandit finds it adaptively where a fixed
+   `n_blocks` has to be tuned per dimension.
+
+All 3-seed rankings inside the floor except the nb200 collapse and the
+four-arm loss.  Next: block length in absolute evaluations (12–80) and
+a small grid over the soft knobs, then the 12-seed roster on the
+winner.

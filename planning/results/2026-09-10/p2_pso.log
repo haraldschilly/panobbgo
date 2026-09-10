@@ -1,0 +1,22 @@
+0.010874 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.011026 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.074537 config:333      CONFG INFO      Evaluation method: threaded
+0.074597 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'515223220a4b6a70b33c323e484821abc3dc44e1'}
+seed 42 done (56s)
+seed 7 done (123s)
+seed 1234 done (181s)
+
+=== pso ===  (3 seeds, dims [2, 5], budget 500*d)
+variant                   mean               delta vs default        d=2        d=5
+NP_6                    0.5588   +0.1431 [+0.0908,+0.1954] 3/3 <--    +0.1557    +0.1305
+NP_10_vmax_0.2_lbest    0.5422   +0.1265 [+0.1071,+0.1459] 3/3 <--    +0.1227    +0.1303
+NP_10_vmax_0.2          0.5326   +0.1169 [+0.0990,+0.1347] 3/3 <--    +0.1232    +0.1105
+vmax_0.1                0.4835   +0.0678 [+0.0521,+0.0835] 3/3 <--    +0.0385    +0.0971
+vmax_0.2                0.4817   +0.0660 [+0.0364,+0.0955] 3/3 <--    +0.0434    +0.0885
+NP_10                   0.4762   +0.0605 [+0.0360,+0.0850] 3/3 <--    +0.0784    +0.0426
+NP_14                   0.4624   +0.0467 [+0.0076,+0.0857] 3/3 <--    +0.0592    +0.0341
+vmax_0.3                0.4451   +0.0294 [-0.0402,+0.0990] 3/3       +0.0064    +0.0524
+default                 0.4157                    (reference)     0.4833     0.3481
+
+Per-dimension columns are mean AOCC for `default`, mean delta for the rest.
+`<--` marks a 95% t-CI on the pooled delta that excludes zero.

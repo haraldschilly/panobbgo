@@ -1,80 +1,69 @@
 # TODO
 
-## Next session — Phase A: make several optimizers individually strong
+## Stand 2026-09-10 abends — Fortsetzung
 
-**Why this order.** A selection policy can only choose among the arms it
-is given.  Measured oracle bound (standard battery, 3 seeds, 30
-instances, `planning/DISCOVERY_2026-09-09.md` §14):
+Branch `claude/arm-sweep-pass2` (PR offen). Alles Wesentliche ist
+committed; Details in `planning/DISCOVERY_2026-09-09.md` §15–§20,
+`planning/DESIGN_block_bandit_2026-09-10.md`,
+`planning/DESIGN_warm_start_2026-09-10.md`. Rohdaten aller Läufe
+liegen in `planning/results/2026-09-10/` (Nachzügler werden von einem
+`harvest.sh` im Session-Scratchpad automatisch dorthin kopiert, sobald
+die Läufe enden — `HARVEST.txt` erscheint dann).
 
-| | mean AOCC |
-|---|---|
-| best single arm (CMA-ES) | 0.5801 |
-| **oracle — best arm per instance** | **0.6523** |
-| headroom for a perfect bandit | **+0.0723** |
+### Was heute gelandet ist (committed)
 
-Instances won, out of 30: CMA-ES 19, NLSHADE_LBC 8, PSO 3, **jSO 0,
-L-SHADE 0** — measured with each arm's *then*-current defaults, which the
-first sweep pass has since shown were badly chosen (below).  Tuning the
-bandit before the arms would be optimising a choice between one strong
-option and four under-tuned ones.
+- **`NP_init="auto"` = `3·dim·(budget/500·dim)^¼`, floor 6** — auf dem
+  12-Seed-Roster akzeptiert: L-SHADE +0.230, jSO +0.204, LBC +0.064.
+  Der größte gemessene Effekt überhaupt.
+- **CMA-ES σ-Divergenz-Restart** (default an): +0.033 auf 6 Seeds, 6/6;
+  feuert auf ~18 % der Zellen, dort +0.18. 12-Seed-Bestätigung läuft
+  (`accept12.log`/`.json`).
+- **Harness-Fixes**: Budget erreicht jetzt die Heuristik-Konstruktoren;
+  `StrategySpec.seed_name` koppelt den RNG-Stream vom Anzeigenamen ab.
+  Ohne das war jede Variante-vs-Default-Messung Rauschen ±0.05.
+- **`StrategyBlockBandit`** (Block-Allokation, AOCC-förmiger Reward,
+  D-UCB) + **`Archive`-Analyzer + Warm-Start** für die DE-Familie und
+  PSO; Warm-Start-Gate im Scheduler gefixt (feuerte vorher nie).
+- Werkzeuge: `benchmarks/arm_sweep.py`, `oracle.py`, `np_accept.py`,
+  `portfolio_screen.py`.
+- **Zurückgezogen**: CMA-ES `ipop_factor`-"Optimum" (Parameter wurde nie
+  gelesen; §16/§18).
 
-### First pass — done, and it found one big thing
+### Offen / unterbrochen (Token-Limit)
 
-The five sweeps ran (3 seeds, `planning/DISCOVERY_2026-09-09.md` §15).
-Every arm has a variant that beats its default on all three seeds with a
-CI excluding zero:
+- [ ] **CMA-ES Warm-Start** — Agent war mitten in
+      `panobbgo/heuristics/cma_es.py` + `tests/test_warm_start.py`
+      (Design §2: mean = μ-gewichtete Rekombination der Top-k, σ nie
+      breiter als kalt, C=I; `"archive_cov"` als separater Modus).
+      Working Tree prüfen: `git diff panobbgo/heuristics/cma_es.py`.
+      Fertigstellen oder verwerfen (`git checkout` der zwei Dateien).
+- [ ] **Thesen-Test auswerten**: `screen_p3.log` — Portfolio mit
+      Warm-Start (nur L-SHADE warm) gegen `CMAES_alone`. Gates G4/G5.
+      Erster Lauf ohne Sharing: jedes Portfolio verliert (−0.087, CI
+      schließt 0 aus). *Wenn Warm-Start das nicht rettet → ein Arm ist
+      die Antwort, Aufwand geht in CMA-ES.*
+- [ ] **12-Seed-Oracle** auswerten: `oracle12.log` (Arme auf
+      Shipped-Defaults, gepaart). Headroom sizing für Phase B.
+- [ ] **CMA-ES 12-Seed-Akzeptanz** auswerten: `accept12.log` — Verdikt
+      steht am Ende; bei REJECT `sigma_divergence=False` als Default.
+- [ ] `p5_jso` (bm=2000) auswerten — nur Robustheitscheck.
+- [ ] `benchmarks/portfolio_screen.py` hat uncommittete `_warm_any`-Specs
+      — committen.
+- [ ] LBC will eher 4·dim als 3·dim (§20) — per-Klasse-Koeffizient,
+      12-Seed-Check, niedrige Priorität.
+- [ ] Doku: Guide-Abschnitte für `NP_init="auto"`, `warm_start`,
+      `StrategyBlockBandit`, `Archive`; `make_ioh_strategies` und die
+      Composite-Registry auf die neuen Defaults prüfen.
+- [ ] Nach Merge: `RoundRobin_CMAES` ist weiter der Flagship-Kandidat;
+      Rewarding_Restart ist Kontrolle.
 
-| arm | best variant | Δ AOCC |
-|---|---|---|
-| cmaes | ~~`ipop_factor=1.5`~~ | *retracted: never read in solo runs (§16)* |
-| jso | `NP_init=30` | **+0.0997** |
-| lshade | `NP_init=30` | **+0.0791** |
-| pso | `v_max_frac=0.2` | **+0.0660** |
-| pso | `NP=10` | +0.0605 |
-| lbc | `NP_init=30` | **+0.0585** |
+### Methodik-Regeln (§18, gelten ab jetzt)
 
-**The dominant factor is population size.** All three DE arms default to
-`NP_init="auto"` = `min(18·dim, budget/12)` — 36 at *d* = 2, 83 at
-*d* ≥ 5 for a 1000-eval budget.  A fixed 30 beats that on every arm and
-every seed.  PSO says the same from the other side: `NP=10` +0.061,
-`NP=40` −0.048.  At 10³ total evaluations a population of 83 gets twelve
-generations, which is sampling, not evolution.
-
-This also means **§14's oracle bound was computed on under-tuned arms**.
-jSO reaches 0.5581 and L-SHADE 0.4923 with `NP_init=30`, against the
-0.4584 / 0.4132 that gave them 0-out-of-30 win counts.  Do not retire
-either arm until the oracle is recomputed on tuned versions.
-
-### The immediate task
-
-- [ ] **Locate the `NP_init` optimum, don't just bracket it.** 30 was
-      the only fixed value tested and it won everywhere; sweep
-      15 / 20 / 30 / 45 / 60 on `lbc`, `jso`, `lshade`.  If the optimum
-      really sits near `budget/30`, fix the divisor in
-      `_resolve_auto_np_init` (`panobbgo/heuristics/lshade.py`) — it is a
-      library default that every user gets, not a harness knob.
-- [x] ~~**Same for `ipop_factor`.**~~ Retracted: `ipop_factor` is only
-      read on an `on_restart` event, which no solo run ever receives.
-      Solo CMA-ES has **no restart criterion at all** — self-restart on
-      Hansen's termination criteria is being implemented instead.
-- [ ] **Check whether the gains compose.** Each variant was measured
-      alone against the default; `NP_init=30` + `H=20` on lbc/jso may
-      overlap.  Combine the per-arm winners and re-measure.
-- [ ] **Promote to the 12-seed roster** before changing any default.
-      Three seeds screen an effect this size; they do not accept it.
-- [ ] **Recompute the oracle bound on the tuned arms** — that number
-      sizes Phase B and is currently stale.
-- [ ] Consider checking each implementation against its published
-      reference: these are hand-rolled and none has been compared to a
-      canonical implementation.
-
-Command form (niced, results written after every seed):
-
-```bash
-uv run python benchmarks/arm_sweep.py ARM OUT.json 42 7 1234
-```
-
-Add the new variants to `ARMS` in `benchmarks/arm_sweep.py`.
+1. Varianten eines Arms teilen `seed_name` → toter Parameter = exakt 0.
+2. Null-Floor: 3 Seeds ±0.05 (CMA-ES), ±0.03 (DE). Kleineres ist kein Effekt.
+3. Ein positives Ergebnis braucht einen *Mechanismus* (welcher Codepfad
+   liest den Parameter?), bevor es "lokalisiert" heißt.
+4. Defaults ändern nur nach 12-Seed-Roster.
 
 ### Then Phase B — the selection policy
 

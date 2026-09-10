@@ -152,7 +152,6 @@ import numpy as np
 from panobbgo.heuristics.lshade import (
     _DEFAULT_ARCHIVE_FACTOR,
     _DEFAULT_H,
-    _DEFAULT_NP_INIT,
     _DEFAULT_NP_MIN,
     _DEFAULT_P_BEST,
     _F_MAX_REDRAWS,
@@ -210,7 +209,8 @@ class LSHADE_EpSin(LSHADE):
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or ``"auto"`` for budget-adaptive
-            sizing.  Default ``30``.  See
+            sizing.  Default ``"auto"``; the literature default of ``30``
+            is the fallback when the budget is unknown.  See
             :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``"auto"``
             sizing formula and budget notes.
         NP_min: Minimum population size after LPSR shrinking.
@@ -257,7 +257,7 @@ class LSHADE_EpSin(LSHADE):
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best: float = _DEFAULT_P_BEST,

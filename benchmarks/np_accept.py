@@ -10,8 +10,10 @@ paired on the same RNG stream and reports the paired per-seed deltas.
                passed as an explicit int (that is what ``"auto"`` used to give)
     auto_new   ``NP_init="auto"`` — i.e. whatever the rule in
                :mod:`panobbgo.heuristics.lshade` currently resolves to
-    fixed_3d   ``NP_init = 3·dim``, the plain dimensional rule with no budget
-               term — at ``bm=500`` this is ``auto_new`` by construction, so a
+    fixed_cd   ``NP_init = c·dim`` with ``c`` the arm class's
+               ``AUTO_DIM_COEF`` (3 for L-SHADE/jSO, 4 for NLSHADE_LBC — see
+               DISCOVERY §24): the plain dimensional rule with no budget term.
+               At ``bm=500`` this is ``auto_new`` by construction, so a
                non-zero delta here would mean the harness is not pairing
 
 Because ``NP_init`` must be a concrete ``int`` per spec and the two explicit
@@ -91,12 +93,17 @@ def solo(name, kw):
     )
 
 
+def fixed_cd(dim: int) -> int:
+    """``c·dim`` with the arm class's own per-dimension coefficient."""
+    return max(6, round(cls.AUTO_DIM_COEF * dim))
+
+
 def specs_for(dim: int):
     budget = battery.budget_for(dim)
     return [
         solo("auto_old", {"NP_init": old_auto(dim, budget)}),
         solo("auto_new", {"NP_init": "auto"}),
-        solo("fixed_3d", {"NP_init": max(6, round(3 * dim))}),
+        solo("fixed_cd", {"NP_init": fixed_cd(dim)}),
     ]
 
 
@@ -167,8 +174,8 @@ def report(name, ref):
 
 print(f"\n=== {arm} ===  ({n} seeds, dims {dims}, budget {battery.budget_multiplier}*d)")
 old_np = {d: old_auto(d, battery.budget_for(d)) for d in dims}
-new_np = {d: max(6, 3 * d) for d in dims}
-print(f"NP_init: auto_old={old_np}  fixed_3d={new_np}")
+new_np = {d: fixed_cd(d) for d in dims}
+print(f"NP_init: auto_old={old_np}  fixed_cd={new_np} (coef {cls.AUTO_DIM_COEF})")
 head = f"{'variant':12s} {'mean':>7s}"
 print(head + "".join(f"   {'d=' + str(d):>8s}" for d in dims))
 for s in sorted(tot, key=lambda k: -st.mean(tot[k])):
@@ -177,5 +184,5 @@ for s in sorted(tot, key=lambda k: -st.mean(tot[k])):
     print(f"{s:12s} {st.mean(tot[s]):7.4f}" + per + err)
 
 report("auto_new", "auto_old")
-report("fixed_3d", "auto_new")
+report("fixed_cd", "auto_new")
 print("\n`<--` marks a 95% t-CI on the paired delta that excludes zero.")

@@ -62,7 +62,8 @@ class NLSHADERSPConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP, _DEFAULT_K_RANK
 
         h = NLSHADE_RSP(self.strategy)
-        assert h.NP_init == 30
+        # ``NP_init`` defaults to ``"auto"``: 3*dim = 6 at dim=2 / 1000 evals.
+        assert h.NP_init == 6
         assert h.NP_min == 4
         assert h.H == 5
         assert h.p_best_max == 0.25

@@ -156,7 +156,6 @@ import numpy as np
 from panobbgo.heuristics.jso import (
     _DEFAULT_ARCHIVE_FACTOR,
     _DEFAULT_H,
-    _DEFAULT_NP_INIT,
     _DEFAULT_NP_MIN,
     _DEFAULT_P_BEST_MAX,
     _DEFAULT_P_BEST_MIN,
@@ -241,7 +240,8 @@ class NLSHADE_LBC(NLSHADE_RSP):
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or ``"auto"`` for budget-adaptive
             sizing (see :class:`~panobbgo.heuristics.lshade.LSHADE`).
-            Default ``30``.
+            Default ``"auto"``; the literature default of ``30`` is the
+            fallback when the budget is unknown.
         NP_min: Minimum population size after non-linear reduction.
             Default ``4``.
         H: History memory size.  Default ``5`` (inherits the jSO
@@ -303,10 +303,18 @@ class NLSHADE_LBC(NLSHADE_RSP):
           regime as a single discrete bandit arm.
     """
 
+    #: NL-SHADE-LBC wants a bigger swarm than the rest of the L-SHADE
+    #: lineage: its measured AOCC optimum is 8 / 20 / 30 at ``d`` = 2 / 5 / 10
+    #: against jSO's and L-SHADE's 6 / 15 / 20-30, i.e. ``4·dim`` rather than
+    #: ``3·dim`` (``planning/DISCOVERY_2026-09-09.md`` §17, §20, §24).  A
+    #: 12-seed paired A/B of ``4·dim`` against the shipped ``3·dim`` ``"auto"``
+    #: rule gives +0.0523 AOCC [+0.0098, +0.0948], 10/12 seeds positive.
+    AUTO_DIM_COEF: float = 4.0
+
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best_max: float = _DEFAULT_P_BEST_MAX,

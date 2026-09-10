@@ -64,7 +64,9 @@ class LSHADEConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         from panobbgo.heuristics.lshade import LSHADE
 
         h = LSHADE(self.strategy)
-        assert h.NP_init == 30
+        # The default is now ``"auto"``: dim=2 at the mixin budget of 1000 evals
+        # resolves to 3*dim = 6 (the literature 30 is only the unknown-budget fallback).
+        assert h.NP_init == 6
         assert h.NP_min == 4
         assert h.H == 6
         assert 0.0 < h.p_best <= 1.0
@@ -207,6 +209,34 @@ class LSHADEConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         self.strategy.config.max_eval = 75
         for cls in (JSO, NLSHADE_RSP, NLSHADE_LBC, LSHADE_EpSin):
             assert cls(self.strategy, NP_init="auto").NP_init == 6, cls.__name__
+
+    def test_np_init_auto_coefficient_is_per_class(self):
+        """``NLSHADE_LBC`` sizes at ``4*dim`` where the rest of the lineage uses ``3*dim``.
+
+        Measured (``planning/DISCOVERY_2026-09-09.md`` §17/§20/§24): LBC's AOCC
+        optimum is 8 / 20 at ``d`` = 2 / 5 against 6 / 15 for jSO and L-SHADE.
+        """
+        from types import SimpleNamespace
+
+        from panobbgo.heuristics import JSO, NLSHADE_LBC
+        from panobbgo.heuristics.lshade import LSHADE, _resolve_auto_np_init
+
+        assert LSHADE.AUTO_DIM_COEF == 3.0
+        assert JSO.AUTO_DIM_COEF == 3.0
+        assert NLSHADE_LBC.AUTO_DIM_COEF == 4.0
+
+        # dim=2 (Rosenbrock(2)) at the reference budget of 500*dim.
+        self.strategy.config.max_eval = 1000
+        assert LSHADE(self.strategy, NP_init="auto").NP_init == 6
+        assert JSO(self.strategy, NP_init="auto").NP_init == 6
+        assert NLSHADE_LBC(self.strategy, NP_init="auto").NP_init == 8
+
+        # dim=5 needs a stub strategy — the mock problem is two-dimensional.
+        stub = SimpleNamespace(config=SimpleNamespace(max_eval=2500), problem=SimpleNamespace(dim=5))
+        assert _resolve_auto_np_init(stub, 4, LSHADE.AUTO_DIM_COEF) == 15
+        assert _resolve_auto_np_init(stub, 4, NLSHADE_LBC.AUTO_DIM_COEF) == 20
+        # The coefficient is optional: omitting it keeps the module default.
+        assert _resolve_auto_np_init(stub, 4) == 15
 
     def test_invalid_NP_min_above_NP_init(self):
         from panobbgo.heuristics.lshade import LSHADE

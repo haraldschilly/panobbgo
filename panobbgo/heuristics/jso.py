@@ -120,7 +120,6 @@ from panobbgo.lib import Result
 
 
 # Default tuning constants — match Brest et al. (2017, jSO).
-_DEFAULT_NP_INIT: int = 30
 _DEFAULT_NP_MIN: int = 4
 _DEFAULT_H: int = 5
 _DEFAULT_P_BEST_MAX: float = 0.25
@@ -150,7 +149,8 @@ class JSO(LSHADE):
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or ``"auto"`` for budget-adaptive
-            sizing.  Default ``30``.  See
+            sizing.  Default ``"auto"``; the literature default of ``30``
+            is the fallback when the budget is unknown.  See
             :class:`~panobbgo.heuristics.lshade.LSHADE` for the ``"auto"``
             sizing formula and budget notes.
         NP_min: Minimum population size after LPSR shrinking.  Default
@@ -190,7 +190,7 @@ class JSO(LSHADE):
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best_max: float = _DEFAULT_P_BEST_MAX,

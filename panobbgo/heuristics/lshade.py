@@ -153,7 +153,10 @@ from panobbgo.lib import Point, Result
 
 
 # Default tuning constants — match the values from Tanabe & Fukunaga
-# (2014, Algorithm 1).
+# (2014, Algorithm 1).  ``_DEFAULT_NP_INIT`` is no longer the constructor
+# default (that is ``"auto"`` since the §17 measurement); it is the fallback
+# :func:`_resolve_auto_np_init` returns when the evaluation budget is unknown
+# and no dimensional rule can be evaluated.
 _DEFAULT_NP_INIT: int = 30
 _DEFAULT_NP_MIN: int = 4
 
@@ -238,7 +241,7 @@ _F_SCHEDULE_PHASE1_CAP: float = _F_SCHEDULE_REGIMES["jso"][2]
 _F_SCHEDULE_PHASE2_CAP: float = _F_SCHEDULE_REGIMES["jso"][3]
 
 
-def _resolve_auto_np_init(strategy, NP_min: int) -> int:
+def _resolve_auto_np_init(strategy, NP_min: int, dim_coef: Optional[float] = None) -> int:
     """Resolve ``NP_init="auto"`` to a concrete budget-adaptive population size.
 
     Uses the owning strategy's evaluation budget (``strategy.config.max_eval``)
@@ -248,6 +251,11 @@ def _resolve_auto_np_init(strategy, NP_min: int) -> int:
     caller degrades to the literature default rather than guessing a horizon.
     See the :data:`_AUTO_DIM_COEF` / :data:`_AUTO_BUDGET_EXP` comment for the
     sizing formula and the measured motivation.
+
+    ``dim_coef`` overrides the per-dimension coefficient; the constructors pass
+    their class's :attr:`LSHADE.AUTO_DIM_COEF`, which a subclass may raise when
+    the measured optimum for that variant is a bigger swarm (NL-SHADE-LBC).
+    ``None`` uses the module default :data:`_AUTO_DIM_COEF`.
     """
     try:
         budget = float(strategy.config.max_eval)
@@ -263,8 +271,14 @@ def _resolve_auto_np_init(strategy, NP_min: int) -> int:
         np_min_i = int(NP_min)
     except Exception:
         np_min_i = _DEFAULT_NP_MIN
+    try:
+        coef = _AUTO_DIM_COEF if dim_coef is None else float(dim_coef)
+    except Exception:
+        coef = _AUTO_DIM_COEF
+    if not np.isfinite(coef) or coef <= 0.0:
+        coef = _AUTO_DIM_COEF
     ref = _AUTO_REF_BUDGET_PER_DIM * dim
-    raw = _AUTO_DIM_COEF * dim * (budget / ref) ** _AUTO_BUDGET_EXP
+    raw = coef * dim * (budget / ref) ** _AUTO_BUDGET_EXP
     lo = max(np_min_i, _AUTO_MIN_NP)
     hi = max(lo, _AUTO_MAX_NP)
     return int(np.clip(int(round(raw)), lo, hi))
@@ -306,21 +320,27 @@ class LSHADE(Heuristic):
     Args:
         strategy: The owning :class:`~panobbgo.core.StrategyBase`.
         NP_init: Initial population size, or the string ``"auto"`` for
-            budget-adaptive sizing.  Default ``30`` — the standard
-            literature setting.  The CEC-2014 paper used ``18 · d``,
-            which is a far heavier swarm than Panobbgo's typical budget
-            can support; ``30`` is a middle ground for the 2-10 D
-            problems in our benchmark battery.  Pass ``"auto"`` to size
-            the population from the strategy's evaluation budget and the
-            problem dimension via
+            budget-adaptive sizing.  Default ``"auto"``; the literature
+            default of ``30`` is the fallback when the budget is unknown.
+            A fixed population is mistuned by construction — the CEC-2014
+            paper's ``18 · d`` is far heavier than Panobbgo's typical
+            budget can support, and even the milder constant ``30`` costs
+            ~0.10 AOCC at ``d=2`` and ~0.05 at ``d=5`` against the
+            measured rule (``planning/DISCOVERY_2026-09-09.md`` §17), so
+            the default sizes itself from the strategy's evaluation budget
+            and the problem dimension via
             ``clip(round(3·dim · (budget / (500·dim))**0.25), max(NP_min, 6), 400)``
             — the measured AOCC optimum on the MA-BBOB battery is
             ``≈ 3·dim`` at the reference budget of ``500·dim``
             evaluations, with a mild (fourth-root) budget dependence
             (``planning/DISCOVERY_2026-09-09.md`` §17): 6 at ``d=2``,
             15 at ``d=5``, 30 at ``d=10``, rising to 21 for ``d=5`` at
-            four times the budget.  Falls back to ``30`` when the budget
-            is unknown.  See :func:`_resolve_auto_np_init`.
+            four times the budget.  The coefficient ``3`` is the class
+            attribute :attr:`AUTO_DIM_COEF`, so a subclass whose measured
+            optimum is a bigger swarm can raise it —
+            :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC` uses
+            ``4``.  Pass an explicit ``int`` to pin a fixed population.
+            See :func:`_resolve_auto_np_init`.
         NP_min: Minimum population size after LPSR shrinking.  Default
             ``4`` — required by ``current-to-pbest/1`` (mutation needs
             at least four distinct individuals).  Must satisfy
@@ -394,10 +414,16 @@ class LSHADE(Heuristic):
           ``NP_init``.
     """
 
+    #: Per-dimension coefficient of the ``NP_init="auto"`` rule, overridable
+    #: per subclass: the measured optimum is not the same swarm size for every
+    #: variant of the algorithm (see :data:`_AUTO_DIM_COEF` and
+    #: :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`).
+    AUTO_DIM_COEF: float = _AUTO_DIM_COEF
+
     def __init__(
         self,
         strategy,
-        NP_init: Union[int, str] = _DEFAULT_NP_INIT,
+        NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
         H: int = _DEFAULT_H,
         p_best: float = _DEFAULT_P_BEST,
@@ -414,7 +440,7 @@ class LSHADE(Heuristic):
         if isinstance(NP_init, str):
             if NP_init != "auto":
                 raise ValueError(f"LSHADE: NP_init string must be 'auto', got {NP_init!r}")
-            NP_init = _resolve_auto_np_init(strategy, NP_min)
+            NP_init = _resolve_auto_np_init(strategy, NP_min, type(self).AUTO_DIM_COEF)
         # A bool is an ``int`` subclass — reject it explicitly so ``True`` / ``False``
         # don't silently become populations of size 1 / 0.
         if isinstance(NP_init, bool) or not isinstance(NP_init, int):

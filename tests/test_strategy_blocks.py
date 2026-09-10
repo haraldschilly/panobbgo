@@ -91,8 +91,21 @@ class SelfRefilling(Heuristic):
         self._generation()
 
 
-def _strategy(cls=StrategyBlockBandit, seed=0, max_eval=420, arms=(), **kw):
-    s = cls(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=seed, **kw)
+def _sized_arm(name, attr=None, value=0, batch=BATCH):
+    """A :class:`Generational` stub that reports ``value`` as its generation
+    size through ``attr`` (``_lam`` on CMA-ES, ``NP`` on PSO, ...)."""
+
+    def factory(strategy):
+        h = Generational(strategy, name=name, batch=batch)
+        if attr is not None:
+            setattr(h, attr, value)
+        return h
+
+    return factory
+
+
+def _strategy(cls=StrategyBlockBandit, seed=0, max_eval=420, dim=2, arms=(), **kw):
+    s = cls(Rosenbrock(dim=dim), parse_args=False, testing_mode=True, seed=seed, **kw)
     s.config.max_eval = max_eval
     s.config.sync_evaluation = True
     s.config.stop_on_convergence = False
@@ -296,6 +309,10 @@ def _warm_start_run(flag):
         # warm-start contract and not the bandit's choices
         policy="uniform",
         warm_start_on_resume=flag,
+        # the two value guards have their own tests below; switch them off
+        # here so this one pins the *gap* contract on its own
+        warm_start_only_if_foreign=False,
+        warm_start_only_if_better=False,
         arms=(
             lambda st: Generational(st, name="G"),
             lambda st: Restarting(st, name="R"),
@@ -333,6 +350,8 @@ def test_warm_start_fires_for_a_self_refilling_arm():
         n_blocks=10,
         policy="uniform",
         warm_start_on_resume=True,
+        warm_start_only_if_foreign=False,  # the gap contract in isolation
+        warm_start_only_if_better=False,
         arms=(
             lambda st: Generational(st, name="G"),
             lambda st: SelfRefilling(st, name="W"),
@@ -385,10 +404,77 @@ def test_warm_start_skipped_when_the_top_k_are_all_the_arms_own():
 
 
 def test_warm_start_only_if_foreign_can_be_switched_off():
-    s, w = _foreign_probe(warm_start_only_if_foreign=False)
+    s, w = _foreign_probe(warm_start_only_if_foreign=False, warm_start_only_if_better=False)
     s.on_new_results([_result(2.0, "W"), _result(1.0, "W:g1:i3")])
     s._open_block(w)
     assert len(w.warm_calls) == 1
+
+
+def test_warm_start_skipped_when_the_arm_itself_holds_the_best_point():
+    """The sharper guard: a foreign point that is *worse* is not worth a
+    generation either — every warm start discards one (DISCOVERY §26)."""
+    s, w = _foreign_probe(warm_start_only_if_foreign=False)
+    assert s.warm_start_only_if_better is True
+
+    s.on_new_results([_result(1.0, "W:g1:i3"), _result(5.0, "A")])
+    assert s._arm_best == {"W": 1.0, "A": 5.0}  # tracked by ``who`` prefix
+    s._open_block(w)
+    assert w.warm_calls == [], "the arm is the one making the progress"
+
+    # a foreign point that actually leads changes the answer
+    s._last_owner = "A"
+    s.on_new_results([_result(0.4, "A")])
+    s._open_block(w)
+    assert len(w.warm_calls) == 1
+
+
+def test_warm_start_only_if_better_can_be_switched_off():
+    s, w = _foreign_probe(warm_start_only_if_foreign=False, warm_start_only_if_better=False)
+    s.on_new_results([_result(1.0, "W:g1:i3"), _result(5.0, "A")])
+    s._open_block(w)
+    assert len(w.warm_calls) == 1
+
+
+def test_warm_start_guards_compose():
+    """Foreign AND better: a leading point from the arm itself is not enough."""
+    s, w = _foreign_probe()  # both guards on
+    s.on_new_results([_result(0.1, "W:g1:i3"), _result(5.0, "A")])
+    s._open_block(w)
+    assert w.warm_calls == []  # foreign passes, better does not
+
+
+# block sizing ---------------------------------------------------------
+
+
+def test_block_evals_auto_is_four_reference_generations():
+    # the largest generation any arm reports wins: CMA-ES's ``_lam`` here
+    s = _strategy(max_eval=1000, block_evals="auto", arms=(_sized_arm("A", "_lam", 12), _sized_arm("B", "NP", 8)))
+    assert s.block_evals == 48
+
+    # ... across the whole family of attributes
+    for attr, value in (("_lam", 9), ("_NP_current", 9), ("NP_init", 9), ("NP", 9)):
+        probe = _strategy(max_eval=1000, block_evals="auto", arms=(_sized_arm("A", attr, value),))
+        assert probe.block_evals == 36, attr
+
+    # 2*dim is the floor
+    tall = _strategy(max_eval=1000, dim=20, block_evals="auto", arms=(_sized_arm("A", "_lam", 5),))
+    assert tall.block_evals == 40
+
+    # an arm that reports nothing (or a not-yet-started CMA-ES, ``_lam = 0``)
+    # falls back to the ~20-evaluation block DISCOVERY §26 measured
+    blank = _strategy(max_eval=1000, block_evals="auto", arms=(_sized_arm("A"), _sized_arm("B", "_lam", 0)))
+    assert blank.block_evals == 4 * StrategyBlockBandit.LAMBDA_REF_DEFAULT == 20
+
+
+def test_block_evals_forms_do_not_interfere():
+    # n_blocks stays the default parametrisation ...
+    assert _strategy(max_eval=1000, arms=(_sized_arm("A", "_lam", 12),)).block_evals == 20
+    # ... an explicit size still wins over it ...
+    assert _strategy(max_eval=1000, block_evals=33, n_blocks=10, arms=()).block_evals == 33
+    # ... and so does "auto"
+    assert (
+        _strategy(max_eval=1000, block_evals="auto", n_blocks=10, arms=(_sized_arm("A", "_lam", 12),)).block_evals == 48
+    )
 
 
 # 8 --------------------------------------------------------------------
@@ -435,3 +521,5 @@ def test_argument_validation():
         _strategy(prior="dim")
     with pytest.raises(ValueError, match="prior"):
         _strategy(prior="bogus")
+    with pytest.raises(ValueError, match="block_evals"):
+        _strategy(block_evals="bogus")

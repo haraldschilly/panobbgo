@@ -33,7 +33,8 @@ is the AOCC area that arm bought with them.
 Blocks
 ------
 
-    block_evals = max(round(max_eval / n_blocks), 2 * dim)
+    block_evals = max(round(max_eval / n_blocks), 2 * dim)        # n_blocks=…
+    block_evals = max(2 * dim, 4 * lambda_ref)                    # block_evals="auto"
 
 A block closes when it has spent ``block_evals`` evaluations **and** the
 owner's output queue ran empty on the last draw (``has_points`` is
@@ -43,6 +44,20 @@ what keeps a generation from ever being cut in half — the defect
 = 50`` keeps the number of *decisions* constant across dimension and
 budget and coincides with the synchronous main-loop batch
 ``max_eval / 50`` (``core.py:1616``).
+
+The budget form is not the *right* parametrisation, though.  The
+block-length screen (``planning/DISCOVERY_2026-09-09.md`` §26) found an
+interior optimum at an **absolute ~20–25 evaluations**, the same figure at
+every dimension on the 500·dim battery — i.e. a *generation count*, not a
+budget fraction.  The reason is the warm start: ``warm_start_now`` clears
+the arm's output queue and its in-flight trials, so every block boundary
+throws away up to one generation of work.  Blocks shorter than a few
+generations pay that toll too often; much longer ones stop being decisions.
+``block_evals="auto"`` therefore sizes a block as **four reference
+generations**, ``max(2*dim, 4*lambda_ref)``, where ``lambda_ref`` is the
+largest generation size the arms report (``_lam`` on CMA-ES, ``NP_init`` /
+the current NP on the DE family, ``NP`` on PSO) and 20 when none of them
+does.  ``n_blocks`` remains the default until the screen says otherwise.
 
 Reward: AOCC area per evaluation, in decades
 --------------------------------------------
@@ -126,11 +141,24 @@ CMA-ES + L-SHADE saw ``has_points`` true at all 46 block opens and fired
 the hook zero times.  So the queue is *cleared* before the hook runs and
 the arm rebuilds it from the shared archive.
 
-One exception, ``warm_start_only_if_foreign`` (on by default): if the top-k
-of the archive are all the arm's own points, it was the one making the
-progress and re-seeding it from itself is a no-op that still throws away
-its adaptation state (``warm_start_now`` keeps the memory bins but not the
-in-flight generation).  Such a warm start is skipped.
+A warm start is never free — ``warm_start_now`` drops the arm's in-flight
+generation — so two guards decide whether it is worth paying, and they
+compose (both must pass):
+
+``warm_start_only_if_better`` (on by default, **the one to prefer**)
+    Fire only if the archive's best penalty value is *strictly better* than
+    the best this arm has produced itself.  If the arm is the one that made
+    the latest progress there is nothing to import: re-seeding it can only
+    destroy its adaptation state.  This is the sharper of the two — it
+    catches the case where a foreign point exists but is worse.
+
+``warm_start_only_if_foreign`` (on by default, subsumed by the above)
+    Fire only if at least one of the top-k results was produced by another
+    arm.  Cheaper and coarser; kept because it is the criterion §5 of the
+    design names, and because it still guards the callable
+    ``warm_start(results)`` path, which is handed exactly those top-k.
+
+Set either to ``False`` to measure the unguarded behaviour.
 
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
@@ -154,7 +182,10 @@ class StrategyBlockBandit(StrategyBase):
 
     :param n_blocks: number of blocks the budget is cut into (the number of
         *decisions*, held constant across dimension and budget).
-    :param block_evals: explicit block size; overrides ``n_blocks``.
+    :param block_evals: explicit block size, or ``"auto"`` for
+        ``max(2*dim, 4*lambda_ref)`` — four reference generations, the
+        parametrisation ``planning/DISCOVERY_2026-09-09.md`` §26 points at.
+        Either form overrides ``n_blocks``.
     :param size: points requested per main-loop pass, exactly
         :class:`~panobbgo.strategies.round_robin.StrategyRoundRobin`'s
         ``size``.  With a single arm this makes the two strategies emit the
@@ -178,6 +209,9 @@ class StrategyBlockBandit(StrategyBase):
     :param warm_start_only_if_foreign: skip the warm start when every one of
         the top-k results is the arm's own — re-seeding an arm from itself
         buys nothing and costs its in-flight generation.
+    :param warm_start_only_if_better: skip the warm start unless the
+        archive's best penalty value beats the arm's own best.  The sharper
+        of the two guards, and the one to prefer; they compose.
     :param hysteresis: a challenger must beat the incumbent by this factor.
     """
 
@@ -186,7 +220,7 @@ class StrategyBlockBandit(StrategyBase):
         problem,
         *,
         n_blocks: int = 50,
-        block_evals: Optional[int] = None,
+        block_evals: Optional[int | str] = None,
         size: int = 10,
         policy: str = "ducb",
         gamma: float = 0.9,
@@ -198,6 +232,7 @@ class StrategyBlockBandit(StrategyBase):
         warm_start_on_resume: bool = False,
         warm_start_k: int = 10,
         warm_start_only_if_foreign: bool = True,
+        warm_start_only_if_better: bool = True,
         hysteresis: float = 1.2,
         **kwargs: Any,
     ) -> None:
@@ -225,6 +260,7 @@ class StrategyBlockBandit(StrategyBase):
         self.warm_start_on_resume: bool = bool(warm_start_on_resume)
         self.warm_start_k: int = int(warm_start_k)
         self.warm_start_only_if_foreign: bool = bool(warm_start_only_if_foreign)
+        self.warm_start_only_if_better: bool = bool(warm_start_only_if_better)
         self.hysteresis: float = float(hysteresis)
 
         #: per-arm discounted statistics, keyed by heuristic name
@@ -233,7 +269,12 @@ class StrategyBlockBandit(StrategyBase):
         self._N: float = 0.0
 
         #: block state
-        self._block_evals: Optional[int] = int(block_evals) if block_evals else None
+        if isinstance(block_evals, str) and block_evals != "auto":
+            raise ValueError("block_evals must be an int, None or 'auto', got %r" % block_evals)
+        #: ``"auto"`` until the arms exist; then an int (see :attr:`block_evals`)
+        self._block_evals: Optional[int | str] = block_evals if block_evals else None
+        if isinstance(self._block_evals, int):
+            self._block_evals = int(self._block_evals)
         self._owner: Optional[str] = None
         self._last_owner: Optional[str] = None
         self._block_size: int = 0
@@ -254,6 +295,8 @@ class StrategyBlockBandit(StrategyBase):
         self._acquired: set[str] = set()
         self._warm_started: Dict[str, int] = {}
         self._warm_used: Dict[str, int] = {}
+        #: best penalty value each arm has produced *itself*, by ``who`` prefix
+        self._arm_best: Dict[str, float] = {}
 
         #: run-local objective bookkeeping (penalty values, "phi")
         self._anchor: Optional[float] = None
@@ -268,15 +311,41 @@ class StrategyBlockBandit(StrategyBase):
 
     @property
     def block_evals(self) -> int:
-        """Evaluations per block, resolved lazily against ``config.max_eval``.
+        """Evaluations per block, resolved lazily on first use.
 
-        The budget is regularly assigned *after* construction
-        (``s.config.max_eval = ...``), so this cannot be computed in
-        :meth:`__init__`.
+        Both forms need state that does not exist at construction time: the
+        budget is regularly assigned afterwards (``s.config.max_eval = ...``)
+        and ``"auto"`` needs the arms, whose generation sizes are only known
+        once they have handled ``on_start``.  First access is from
+        :meth:`execute`, by which time both hold.
         """
-        if self._block_evals is None:
+        if self._block_evals == "auto":
+            self._block_evals = max(2 * self.problem.dim, 4 * self._lambda_ref())
+        elif self._block_evals is None:
             self._block_evals = max(int(round(self._max_eval() / max(1, self.n_blocks))), 2 * self.problem.dim)
-        return self._block_evals
+        return int(self._block_evals)
+
+    #: Attributes an arm may expose to report its generation size, best
+    #: first.  CMA-ES sets ``_lam`` in ``on_start`` (and again after every
+    #: IPOP restart); the L-SHADE family carries the LPSR-shrunk
+    #: ``_NP_current`` alongside the constructor's ``NP_init``; PSO and the
+    #: plain DE use ``NP``.
+    GENERATION_ATTRS: Tuple[str, ...] = ("_lam", "_NP_current", "NP_init", "NP")
+
+    #: Fallback generation size when no arm reports one — the ~20-evaluation
+    #: block ``planning/DISCOVERY_2026-09-09.md`` §26 measured, over 4.
+    LAMBDA_REF_DEFAULT: int = 5
+
+    def _lambda_ref(self) -> int:
+        """Largest generation size the arms report, else :attr:`LAMBDA_REF_DEFAULT`."""
+        best = 0
+        for h in self._heuristics.values():
+            for attr in self.GENERATION_ATTRS:
+                value = getattr(h, attr, None)
+                if isinstance(value, (int, np.integer)) and not isinstance(value, bool) and value > 0:
+                    best = max(best, int(value))
+                    break  # first attribute that answers wins, per arm
+        return best if best > 0 else self.LAMBDA_REF_DEFAULT
 
     def _max_eval(self) -> int:
         try:
@@ -311,6 +380,7 @@ class StrategyBlockBandit(StrategyBase):
             self._phis.append(phi)
             if phi < self._best_phi:
                 self._best_phi = phi
+            self._credit_arm_best(phi, r)
             self._remember_top(phi, r)
             self._reanchor_if_needed()
             if self._owner is not None:
@@ -343,6 +413,21 @@ class StrategyBlockBandit(StrategyBase):
     def _reanchor_if_needed(self) -> None:
         if self._anchor is not None and self._best_phi <= self._anchor:
             self._anchor = self._spread_anchor()
+
+    def _credit_arm_best(self, phi: float, r: Result) -> None:
+        """Track the best penalty value each arm produced *itself*.
+
+        Keyed by the arm name, which is the ``who`` prefix before the first
+        ``":"`` — population arms tag their points ``"CMAES:g3:i0"``.  A
+        ``who`` that matches no registered arm is ignored rather than
+        creating a phantom entry.
+        """
+        who = str(getattr(r, "who", "") or "")
+        name = who.split(":")[0]
+        if name not in self._heuristics:
+            return
+        if phi < self._arm_best.get(name, float("inf")):
+            self._arm_best[name] = phi
 
     def _remember_top(self, phi: float, r: Result) -> None:
         """Keep the ``warm_start_k`` best results of the shared archive."""
@@ -479,6 +564,19 @@ class StrategyBlockBandit(StrategyBase):
         # stall guard.
         return not h.has_points
 
+    def _archive_beats(self, h: Heuristic) -> bool:
+        """Does the shared archive hold a point better than ``h``'s own best?
+
+        ``self._best_phi`` is the run-wide minimum, i.e. exactly the best the
+        archive can offer; ``self._arm_best[h.name]`` is what this arm paid
+        for itself.  An arm that has produced nothing yet has everything to
+        gain, so the answer is ``True``.
+        """
+        own = self._arm_best.get(h.name)
+        if own is None:
+            return True
+        return self._best_phi < own
+
     @staticmethod
     def _is_own(h: Heuristic, r: Result) -> bool:
         """Was ``r`` produced by ``h``?  ``who`` may carry a ``name:...`` suffix."""
@@ -506,6 +604,12 @@ class StrategyBlockBandit(StrategyBase):
             # The arm is the one making the progress; re-seeding it from its
             # own points is a no-op that still discards its live generation.
             self.logger.debug("warm start of %s skipped: top-%d are all its own" % (h.name, len(seeds)))
+            return False
+        if self.warm_start_only_if_better and not self._archive_beats(h):
+            # Sharper than the foreignness test: a foreign point that is
+            # *worse* than what this arm already has is not worth a
+            # generation either (§26 — every warm start costs one).
+            self.logger.debug("warm start of %s skipped: it already holds the best point" % h.name)
             return False
 
         h.clear_output()

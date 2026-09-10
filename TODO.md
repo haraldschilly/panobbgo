@@ -1,74 +1,51 @@
 # TODO
 
-## Stand 2026-09-10 abends — Fortsetzung
+## Stand Ende 2026-09-10 — Phase A abgeschlossen, Phase B ausgemessen
 
-Branch `claude/arm-sweep-pass2` (PR offen). Alles Wesentliche ist
-committed; Details in `planning/DISCOVERY_2026-09-09.md` §15–§20,
-`planning/DESIGN_block_bandit_2026-09-10.md`,
-`planning/DESIGN_warm_start_2026-09-10.md`. Rohdaten aller Läufe
-liegen in `planning/results/2026-09-10/` (Nachzügler werden von einem
-`harvest.sh` im Session-Scratchpad automatisch dorthin kopiert, sobald
-die Läufe enden — `HARVEST.txt` erscheint dann).
+Branch `claude/arm-sweep-pass2`, PR #319. Vollständiges Protokoll in
+`planning/DISCOVERY_2026-09-09.md` §15–§31, Zustand und Plan in
+`planning/GOAL.md` §2/§2c, Rohdaten in `planning/results/2026-09-10/`.
 
-### Was heute gelandet ist (committed)
+### Gelandet (alle Defaults 12-Seed-akzeptiert)
 
-- **`NP_init="auto"` = `3·dim·(budget/500·dim)^¼`, floor 6** — auf dem
-  12-Seed-Roster akzeptiert: L-SHADE +0.230, jSO +0.204, LBC +0.064.
-  Der größte gemessene Effekt überhaupt.
-- **CMA-ES σ-Divergenz-Restart** (default an): +0.033 auf 6 Seeds, 6/6;
-  feuert auf ~18 % der Zellen, dort +0.18. 12-Seed-Bestätigung läuft
-  (`accept12.log`/`.json`).
-- **Harness-Fixes**: Budget erreicht jetzt die Heuristik-Konstruktoren;
-  `StrategySpec.seed_name` koppelt den RNG-Stream vom Anzeigenamen ab.
-  Ohne das war jede Variante-vs-Default-Messung Rauschen ±0.05.
-- **`StrategyBlockBandit`** (Block-Allokation, AOCC-förmiger Reward,
-  D-UCB) + **`Archive`-Analyzer + Warm-Start** für die DE-Familie und
-  PSO; Warm-Start-Gate im Scheduler gefixt (feuerte vorher nie).
-- Werkzeuge: `benchmarks/arm_sweep.py`, `oracle.py`, `np_accept.py`,
-  `portfolio_screen.py`.
-- **Zurückgezogen**: CMA-ES `ipop_factor`-"Optimum" (Parameter wurde nie
-  gelesen; §16/§18).
+- **`NP_init="auto"` = 3·dim·(budget/500·dim)^¼**, Konstruktor-Default;
+  LBC 4·dim. L-SHADE +0.230, jSO +0.204, LBC +0.064 (+0.052 bei 4·dim).
+- **CMA-ES σ-Divergenz-Restart** +0.026 (11/12). `ipop_factor` retracted.
+- **Harness-Fixes**: Budget vor Konstruktion; `seed_name`; Null-Floor
+  ±0.05/±0.03; Screen-Maximum ist Kandidat, nur Roster-CI zählt.
+- **Sharing-Infrastruktur**: `Archive`, `warm_start` auf CMA-ES / DE /
+  PSO, `StrategyBlockBandit`. Zweites Harness-Spec
+  `Blocks_warm_CMAES_JSO` (ersetzt `Rewarding_Restart`).
+- Doku, `AGENTS.md`-Messregeln, Werkzeuge (`arm_sweep`, `oracle`,
+  `np_accept`, `portfolio_screen`).
 
-### Offen / unterbrochen (Token-Limit)
+### Verdikt (500·dim, MA-BBOB, d ∈ {2, 5})
 
-- [ ] **CMA-ES Warm-Start** — Agent war mitten in
-      `panobbgo/heuristics/cma_es.py` + `tests/test_warm_start.py`
-      (Design §2: mean = μ-gewichtete Rekombination der Top-k, σ nie
-      breiter als kalt, C=I; `"archive_cov"` als separater Modus).
-      Working Tree prüfen: `git diff panobbgo/heuristics/cma_es.py`.
-      Fertigstellen oder verwerfen (`git checkout` der zwei Dateien).
-- [x] **Thesen-Test** (§21, §25, §27): Sharing macht das Portfolio
-      erstmals zum besten Spec — 12 Seeds: `Blocks_uniform_cj_warm2` 0.685
-      vs. CMA-ES 0.666 (+0.019 [−0.016, +0.054], 8/12; *d*=5 +0.032).
-      **Nicht** akzeptiert (CI enthält 0). Nächste Hebel laufen (§26):
-      Soft-Bandit, absolute Blocklänge ~20–25, `warm_start_only_if_better`.
-      Falls das nicht über die Schwelle trägt: dimensionsgebundenes Spec
-      (Portfolio ab *d* ≥ 5), Einzelarm sonst.
-- [x] **12-Seed-Oracle** (§22): kein Champion mehr — jSO 0.656, L-SHADE
-      0.642, CMA-ES 0.642 (innerhalb des Floors), gewinnen verschiedene
-      Zellen. Headroom **+0.076 [+0.048, +0.104], 12/12**. Bestes Paar
-      **CMA-ES + jSO** (62 %). PSO raus (2/120). → Screen künftig mit
-      CMA-ES + jSO; Flagship-Spec (`RoundRobin_CMAES`) neu entscheiden.
-- [x] **CMA-ES 12-Seed-Akzeptanz** (§23): **+0.0258 [+0.0083, +0.0433],
-      11/12 Seeds** → akzeptiert. Default bleibt wie geshippt.
-- [x] `p5_jso` (bm=2000): Optimum 20 bei d=5, Regel gibt 21; `NP=6` dort −0.34 — Budget-Term bestätigt.
-- [ ] `benchmarks/portfolio_screen.py` hat uncommittete `_warm_any`-Specs
-      — committen.
-- [x] **LBC 4·dim** (§24): +0.052 [+0.010, +0.095], 10/12 → akzeptiert;
-      wird Klassen-Koeffizient `AUTO_DIM_COEF = 4.0` auf `NLSHADE_LBC`.
-- [ ] Doku: Guide-Abschnitte für `NP_init="auto"`, `warm_start`,
-      `StrategyBlockBandit`, `Archive`; `make_ioh_strategies` und die
-      Composite-Registry auf die neuen Defaults prüfen.
-- [ ] Nach Merge: `RoundRobin_CMAES` ist weiter der Flagship-Kandidat;
-      Rewarding_Restart ist Kontrolle.
+Ein Zwei-Arm-Portfolio, das Evaluationen teilt, ist **gleichauf** mit
+dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
+0). Sharing hat die Strukturstrafe (−0.08) beseitigt, keinen Vorsprung
+gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
+nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
 
-### Methodik-Regeln (§18, gelten ab jetzt)
+### Nächste Schritte (Plan of Record, `GOAL.md` §2c)
 
-1. Varianten eines Arms teilen `seed_name` → toter Parameter = exakt 0.
-2. Null-Floor: 3 Seeds ±0.05 (CMA-ES), ±0.03 (DE). Kleineres ist kein Effekt.
-3. Ein positives Ergebnis braucht einen *Mechanismus* (welcher Codepfad
-   liest den Parameter?), bevor es "lokalisiert" heißt.
-4. Defaults ändern nur nach 12-Seed-Roster.
+- [ ] **Größere Budgets und *d* ≥ 10.** Die *d*=5-Tendenz sagt einen
+      realen Gewinn voraus; ein `dims=5,10 bm=2000`-Screen mit
+      `Blocks_warm_CMAES_JSO` vs. `RoundRobin_CMAES`, dann 12-Seed-Roster.
+      Billige Variante: dimensionsgebundenes Spec (Portfolio ab *d* ≥ 5,
+      `gate_min_dim`).
+- [ ] **Keine weitere Bandit-Tuning-Runde** ohne neuen Mechanismus.
+      Falls je gewünscht: `only_if_better` pro Arm relativ formulieren.
+- [ ] Constrained / verrauschte Probleme — keine Batterie deckt sie.
+- [ ] Composite-Registry: drei CMA-ES-Specs, frozen contract — Haralds
+      Entscheidung.
+- [ ] Nightly-Cron (`self_improve_nightly.yml`) ist seit 2026-08-13
+      deaktiviert; mit den neuen Specs wieder anschalten oder entfernen.
+- [ ] `ruff check`-Backlog (~190 Findings) als eigener Change.
+- [ ] `Result.__eq__` vergleicht nur `fx`, `__hash__` `(x, fx, who)`
+      (`lib/lib.py`) — Ticket, wichtiger seit Warm-Start.
+- [ ] `ioh_runner.py`/`scripts/ioh_smoke.py`: Budget-nach-Konstruktion
+      auch dort (Factory-Protokoll).
 
 ### Then Phase B — the selection policy
 

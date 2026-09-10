@@ -1155,3 +1155,17 @@ worth nothing, the sharing is worth everything.  The remaining
 questions are not about the bandit: larger budgets and *d* ≥ 10 (where
 the *d* = 5 lean predicts a gain), and a per-arm-relative
 `only_if_better` if the guard is ever wanted.
+
+## 32. The Splitter cannot resolve where the search has not looked (found while designing the meta level)
+
+`splitter.py`: `limit = max(20, max_eval/dim²)` and children inherit
+the parent's points, so the tree settles at **≈ 1.3·dim² leaves
+regardless of budget** — ~5 at *d* = 2 (the root cannot split before
+evaluation 250 of 1000), ~35 at *d* = 5, ~530 at *d* = 20 (1.4 cuts
+per axis).  The split axis is the widest dimension whose coordinates
+differ; function values play no part.  Every "where is something left
+to gain" mechanism (Random-in-best-box, RegionUCB, `per_leaf_best`,
+the meta heuristic of `DESIGN_meta_level`) reads this tree, and it is
+force-injected into every strategy.  Owner's verdict: improve the
+Splitter — budget-scaled resolution and a value-aware split rule, in
+progress on an isolated worktree, measured through its consumers.

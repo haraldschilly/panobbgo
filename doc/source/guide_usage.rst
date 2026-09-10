@@ -762,12 +762,20 @@ Start here: one strong optimizer
    *Which* single arm is under re-evaluation.  The table below was measured
    before the population-sizing fix of :ref:`population-sizing`, i.e. against
    DE arms that were roughly five times over-populated.  Re-run on the
-   12-seed roster with the sizes the library now ships, jSO, L-SHADE and
-   CMA-ES sit within 0.014 mean AOCC of each other — inside the null floor
-   (see :doc:`guide_benchmarking`) — and win *different* instances
-   (``planning/DISCOVERY_2026-09-09.md`` §22).  "CMA-ES alone" is still a
-   safe starting point, but it is no longer a measured winner; benchmark
-   the three on your own problem before committing.
+   12-seed roster with the sizes the library now ships, jSO, NLSHADE_LBC,
+   L-SHADE and CMA-ES sit within 0.014 mean AOCC of each other — inside the
+   null floor (see :doc:`guide_benchmarking`) — and win *different* instances,
+   sorted by dimension (``planning/DISCOVERY_2026-09-09.md`` §28).  "CMA-ES
+   alone" is still a safe starting point, but it is no longer a measured
+   winner; benchmark the arms on your own problem before committing.
+
+   The same holds for the portfolio.  ``Blocks_warm_CMAES_JSO`` — CMA-ES +
+   jSO, both warm-started from the shared archive, rotating every block —
+   is now the second shipped harness spec, replacing ``Rewarding_Restart``
+   (0.35, no longer a useful control).  It measures **level with**
+   ``RoundRobin_CMAES``, not above it (§27, §30).  The plan of record is a
+   dimension-gated spec — portfolio for ``d ≥ 5``, single arm below — since
+   the portfolio's whole lean sits at ``d=5``; see ``planning/GOAL.md`` §2c.
 
 Measured on the MA-BBOB battery (mean AOCC, dims 2 and 5, budget 500·d,
 5 instances, seeds 42 / 7 / 1234, ``sync_evaluation=True``):
@@ -1240,16 +1248,47 @@ For a custom heuristic, call
 cold path"; override :meth:`~panobbgo.core.Heuristic.warm_start_now` if a
 scheduler should be able to re-seed you mid-run.
 
+The recommended warm configuration, if you use one, is **both** arms on plain
+``warm_start="archive"`` with both guards off:
+
+.. code-block:: python
+
+   strategy = StrategyBlockBandit(problem, max_evaluations=2500, seed=42,
+                                  policy="uniform", block_evals=25,
+                                  warm_start_on_resume=True,
+                                  warm_start_only_if_foreign=False,
+                                  warm_start_only_if_better=False)
+   strategy.add_analyzer(Archive)
+   strategy.add(CMAES, warm_start="archive")
+   strategy.add(JSO, NP_init="auto", warm_start="archive")
+
+Three findings behind those settings
+(``planning/DISCOVERY_2026-09-09.md`` §25, §31):
+
+- **Both arms warm, not one.**  One-directional sharing scored 0.619 against
+  0.645 for the same pair with both arms warm — CMA-ES's warm start is worth
+  as much as the DE arm's.
+- **``"archive_cov"`` hurts** (−0.019, at both dimensions).  Seed the mean and
+  σ; leave ``C = I``.
+- **``warm_start_only_if_better`` hurts** (−0.073 on the 3-seed screen,
+  −0.007 on the roster).  It cuts warm starts lopsidedly: CMA-ES usually holds
+  the incumbent, so the guard starves the arm that most needs the relay.
+  ``warm_start_only_if_foreign`` is the shipped guard, but it too was measured
+  off in the specs that lead.
+
 .. warning::
 
-   **Experimental, off by default.**  Warm starting is the first portfolio
-   mechanism on this codebase to measure positive at all: a warm two-arm
-   portfolio scored **+0.05 mean AOCC over the same portfolio cold**, above
-   the null floor.  But the best warm portfolio was still **−0.05 below
-   CMA-ES run alone**, CI grazing zero — sharing closed about half the gap, it
-   did not close it (``planning/DISCOVERY_2026-09-09.md`` §21, three seeds,
-   with only one of the two arms warm-starting).  Treat ``warm_start`` as a
-   per-arm experiment to be settled by your own paired A/B, not as a setting
+   **Experimental, off by default.**  Sharing is the one portfolio mechanism
+   on this codebase that measures: it removes the **−0.08** penalty a *cold*
+   two-arm portfolio pays against its own best arm (the one CI clear of zero
+   in the whole screen).  It does not buy a lead.  On the 12-seed roster the
+   best warm portfolio — ``Blocks_uniform_cj_warm2``, CMA-ES + jSO, both warm,
+   rotating every block — reaches **0.685 against CMA-ES alone at 0.666:
+   +0.019, 8 of 12 seeds, CI including zero.**  Level with the best single
+   arm, not above it.  The whole lean is at ``d=5`` (+0.03); at ``d=2`` a
+   single arm converges before a relay can matter
+   (``planning/DISCOVERY_2026-09-09.md`` §27, §30).  Treat ``warm_start`` as
+   a per-arm experiment to be settled by your own paired A/B, not as a setting
    to switch on.
 
 Choosing a Strategy
@@ -1359,18 +1398,17 @@ without any tuning.
 
 Two policies:
 
-- ``policy="ducb"`` (default) — discounted UCB, with a one-block prologue per
-  arm, an exploit-only tail, and hysteresis so a challenger must beat the
-  incumbent by a factor before the schedule switches.
-- ``policy="uniform"`` — round-robin over blocks; it learns nothing and
-  exists to separate the effect of *blocking* from the effect of *learning*.
+- ``policy="uniform"`` — round-robin over blocks.  **Use this one.**
+- ``policy="ducb"`` (the constructor default) — discounted UCB, with a
+  one-block prologue per arm, an exploit-only tail, and hysteresis so a
+  challenger must beat the incumbent by a factor before the schedule
+  switches.
 
 ``warm_start_on_resume=True`` (off by default) re-seeds an arm from the shared
 archive whenever the scheduler hands it a block back after a gap — see
 :ref:`shared-archive-warm-start`.  The trigger is the gap, not an empty queue:
 a paused arm's queued generation is stale by construction, so it is cleared
-first.  ``warm_start_only_if_foreign`` (on) skips the re-seed when the top of
-the archive is all the arm's own points.
+first.
 
 .. code-block:: python
 
@@ -1379,26 +1417,55 @@ the archive is all the arm's own points.
    from panobbgo.heuristics import CMAES, JSO
 
    strategy = StrategyBlockBandit(problem, max_evaluations=2500, seed=42,
-                                  n_blocks=50, policy="ducb",
-                                  warm_start_on_resume=True)
+                                  policy="uniform", block_evals=25,
+                                  warm_start_on_resume=True,
+                                  warm_start_only_if_foreign=False)
    strategy.add_analyzer(Archive)
-   strategy.add(CMAES)
+   strategy.add(CMAES, warm_start="archive")
    strategy.add(JSO, NP_init="auto", warm_start="archive")
    strategy.start()
 
+What was measured to matter, and what was not
+.............................................
+
+Screens #5–#7 took the policy apart on the standard battery
+(``planning/DISCOVERY_2026-09-09.md`` §26, §29, §31):
+
+- **The selection policy contributes nothing measurable.**  D-UCB at any
+  setting tried — ``ucb_c`` 1/2/4, ``gamma`` 0.5–0.9, ``hysteresis``,
+  ``tail_frac`` swept 0 → 0.6 — lands within 0.003 of plain rotation, and at
+  ``tail_frac=0`` it *is* rotation (identical in 23 of 30 cells; the mean gap
+  is one cell).  Once the arms share their evaluations, a switch stops being a
+  cost and becomes a relay, so there is nothing left for a bandit to
+  minimise.  ``policy="uniform"`` is therefore the setting to use — it is the
+  same behaviour with none of the knobs.
+- **Block length is absolute, not a fraction of the budget.**  The useful
+  range is **~25–50 evaluations**, flat-ish between them with per-cell
+  collapses either side and a hard collapse at 12.  Set it with
+  ``block_evals=`` — ``n_blocks=50`` is a budget *fraction*, so on the
+  ``500·dim`` battery it means 20 evaluations at ``d=2`` and 50 at ``d=5``,
+  two different experiments under one name.  ``block_evals="auto"`` sizes a
+  block as four reference generations, which is the mechanism behind the
+  range: every block boundary discards the arm's in-flight generation.
+- **More than two arms still dilute.**  2 → 3 → 4 arms: 0.685 → 0.648 →
+  0.604.  Only at ``d=5`` does a third arm pay (+0.037); at ``d=2`` it costs
+  −0.084.  A third arm, if ever, is dimension-gated.
+
 .. warning::
 
-   **Experimental.**  On the MA-BBOB battery every blocked portfolio so far
-   loses to its own best arm: a cold two-arm block bandit scored −0.09 mean
-   AOCC against CMA-ES alone, and the interleaving control
-   (``StrategyRewarding`` on the same two arms) lost the same amount — so
-   this is the portfolio, not the scheduling shape.  Turning the shared
-   archive on recovers about half of that gap but not all of it
-   (``planning/DISCOVERY_2026-09-09.md`` §20, §21).  The scheduler itself is
-   sound — every run spent its full budget, no generation was cut, and D-UCB
-   learned and gave the stronger arm 35 of 45 blocks — but *a portfolio of
-   arms that do not share information cannot beat its best member; it can
-   only dilute it.*
+   **Experimental**, and read screen results carefully.  A cold two-arm block
+   bandit loses **−0.08** to its best arm, and the interleaving control
+   (``StrategyRewarding`` on the same two arms) loses the same amount — so
+   that is the portfolio, not the scheduling shape.  The scheduler itself is
+   sound: every run spends its full budget and no generation is cut.  With
+   both arms warm the portfolio reaches parity but not a lead (§27, §30 and
+   the warning under :ref:`shared-archive-warm-start`).
+
+   Also: **the best spec of a three-seed screen is a candidate, not a
+   result.**  ``soft_be25`` came out of one screen at +0.050 with a CI
+   excluding zero and scored **−0.006** on the 12-seed roster — a CI computed
+   on a selected maximum is not the CI of a pre-registered spec
+   (``planning/DISCOVERY_2026-09-09.md`` §30).
 
 StrategyPhased
 ~~~~~~~~~~~~~~

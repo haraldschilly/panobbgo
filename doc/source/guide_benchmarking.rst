@@ -707,6 +707,15 @@ the secondary knobs of the first sweep pass (``H``, ``k_rank``,
 ``archive_factor``, ``F_schedule``, ``lbest``) did not, and are recorded as
 *unproven* rather than as wrong.
 
+One sharpening of that rule, learned the expensive way: **a screen
+maximum's own CI carries no weight.**  A screen reports the best of many
+specs, and a confidence interval computed on a selected winner is not the
+interval of a pre-registered spec.  ``soft_be25`` led a fourteen-spec screen
+at +0.050 with a three-seed CI excluding zero, and returned **−0.006** on the
+roster (``planning/DISCOVERY_2026-09-09.md`` §30).  This is the same
+mechanism as the dead-parameter story above, passing through a CI instead of
+a point estimate.  Only the roster CI decides.
+
 Extending the harness
 ---------------------
 

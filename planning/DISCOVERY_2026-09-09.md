@@ -1111,3 +1111,47 @@ roster), nothing at *d* = 2, where 1000 evaluations end before a relay
 can matter.  `RoundRobin_CMAES` stays the flagship; the warm portfolio
 becomes the second harness spec so the nightly keeps measuring it, in
 place of `Rewarding_Restart` (0.35, no longer a useful control).
+
+## 31. Screen #7: the tail carries nothing, the bandit carries nothing; what is live is warm start + rotation + block length
+
+3 seeds, one stream, CMA-ES + jSO both warm:
+
+| spec | AOCC | *d*=2 | *d*=5 |
+|---|---|---|---|
+| soft_be25, `tail_frac` 0 / 0.1 / 0.25 / 0.4 / 0.6 | 0.7217 / 0.7217 / 0.7211 / 0.7197 / 0.7190 | 0.781 | 0.662 → 0.658 |
+| **uniform_be25** | 0.7068 | 0.7400 | **0.6737** |
+| soft_be50 / uniform nb50 | 0.6838 / 0.6783 | | |
+| JSO_alone / CMAES_alone | 0.6735 / 0.6712 | | |
+| soft_be20 / soft_be35 | 0.6709 / 0.6625 | | |
+| CMA-ES + LBC soft_be25 | 0.6627 | **+0.034** | **−0.050** |
+| soft_be25 with `only_if_better` | 0.6479 | −0.033 | −0.014 |
+
+* **`tail_frac` is flat** — 0.003 across 0 → 0.6, monotonically down;
+  the optimum is no tail.  That retires §29's mechanism claim.
+* **At `tail_frac=0` the soft D-UCB *is* round-robin**: the *d* = 5
+  probe gives 74 blocks / 73 switches / 37–37 ownership and the same
+  AOCC as `uniform_be25`, byte for byte, at both dimensions.  The two
+  specs are identical in 23 of 30 cells; the +0.015 mean gap is
+  **one cell** (seed 1234, *d* = 2, inst 4: 0.86 vs 0.27), without
+  which uniform leads by 0.005.  The bandit — value estimate, bonus,
+  discount, hysteresis, tail — contributes nothing measurable at any
+  setting tried.
+* **Block length is flat-ish from 20 to 50 with per-cell collapses**
+  (be20 and be35 each have one collapsed cell that be25 dodged;
+  medians 0.82 / 0.83 / 0.76 / 0.80).  "25 mildly preferred, 25–50
+  supported" is all the data says.  On the roster (§30) be25 sat at
+  −0.006 and nb50 at +0.019 — within noise of each other.
+* **`only_if_better` hurts, −0.073**: it cuts warm starts from 72 to
+  43, lopsidedly — CMA-ES usually holds the incumbent, so the guard
+  starves jSO (12 warm starts instead of 36), the arm that most needs
+  the relay.  Default off.
+* **CMA-ES + LBC is not the pair**: +0.034 at *d* = 2, −0.050 at
+  *d* = 5 — LBC's 4·dim population does not fit a 25-eval block at
+  *d* = 5.  jSO stays.
+
+Standing for 500·dim, *d* ∈ {2, 5}: **parity** (§30), and the design
+space around the selection policy is measured out — the policy is
+worth nothing, the sharing is worth everything.  The remaining
+questions are not about the bandit: larger budgets and *d* ≥ 10 (where
+the *d* = 5 lean predicts a gain), and a per-arm-relative
+`only_if_better` if the guard is ever wanted.

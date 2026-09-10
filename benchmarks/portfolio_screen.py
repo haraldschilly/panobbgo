@@ -147,6 +147,23 @@ SPECS = {
         {"policy": "ducb", "warm_start_on_resume": True},
         ARCHIVE,
     ),
+    # ``warm_start_only_if_foreign=False``: re-seed on *every* re-acquisition,
+    # even when the top-k are all the arm's own points.  The default skips
+    # that case because re-seeding an arm from itself is a no-op that still
+    # throws away its live generation; these two specs measure whether the
+    # skip is worth its condition or is just suppressing warm starts.
+    "Blocks_uniform_2_warm_any": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm_lshade("archive")],
+        {"policy": "uniform", "warm_start_on_resume": True, "warm_start_only_if_foreign": False},
+        ARCHIVE,
+    ),
+    "Blocks_ducb_2_warm_any": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm_lshade("archive")],
+        {"policy": "ducb", "warm_start_on_resume": True, "warm_start_only_if_foreign": False},
+        ARCHIVE,
+    ),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
@@ -157,7 +174,7 @@ SPECS = {
 
 REFS = ("CMAES_alone", "LSHADE_alone")
 #: Specs whose arms share evaluations, in the order the gates prefer them.
-WARM = [n for n in SPECS if n.endswith(("_warm", "_warm_leaf", "_warm_div"))]
+WARM = [n for n in SPECS if "_warm" in n]
 
 # --- argv: `key=value` options, then positionals ---------------------------
 opts, pos = {}, []

@@ -371,31 +371,57 @@ arm's own current default.  `<--` marks a 95% t-CI that excludes zero.
 ### The single dominant factor is population size
 
 All three L-SHADE-lineage arms default to `NP_init="auto"`, which
-resolves to `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)` —
-36 at *d* = 2 and 83 at *d* ≥ 5 for a 1000-evaluation budget.  A **fixed
-`NP_init=30` beats that on every arm and every seed**, by +0.059
-(NLSHADE_LBC), +0.079 (L-SHADE) and +0.100 (jSO).  PSO tells the same
-story from its own default of 20: `NP=10` gains +0.061 and `NP=40` loses
-−0.048, monotonically.
+resolves to `clip(round(min(18·dim, budget/12)), max(NP_min, 6), 400)`.
+A **fixed `NP_init=30` beats that on every arm and every seed**, by
++0.059 (NLSHADE_LBC), +0.079 (L-SHADE) and +0.100 (jSO).  PSO tells the
+same story from its own default of 20: `NP=10` gains +0.061 and `NP=40`
+loses −0.048, monotonically.
+
+**Which term of `"auto"` is at fault (corrected).** The standard
+battery's budget is `500·dim`, so `budget/12` = `41.7·dim` and the
+`18·dim` term binds at *every* dimension — the budget term never
+participates.  `"auto"` is therefore 36 at *d* = 2 and **90** at
+*d* = 5, and the per-dimension split says exactly that:
+
+| arm | Δ from `NP_init=30` at *d* = 2 (auto = 36) | at *d* = 5 (auto = 90) |
+|---|---|---|
+| jSO | +0.0177 | **+0.1817** |
+| L-SHADE | +0.0155 | **+0.1427** |
+| NLSHADE_LBC | +0.0148 | **+0.1023** |
+
+The gain is an order of magnitude larger where `"auto"` is further from
+30.  So the culprit is `_AUTO_DIM_COEF = 18`, not the
+`_AUTO_GEN_TARGET = 12` divisor — and the code comment above those
+constants, which claims "the `budget / _AUTO_GEN_TARGET` term dominates
+at the tight budgets Panobbgo actually runs", is wrong for every battery
+we run.
 
 This is what §9 was measuring without naming it.  The canonical DE
-population sizes come from papers whose budget is 10⁴·*d* evaluations;
-at 10³ *total* a population of 83 gets about twelve generations, which
-is not enough for differential evolution to do anything but sample.
-`"auto"` already tries to correct for the budget, but its divisor of 12
-is far too generous — 30 corresponds to roughly `budget/33`.
+population sizes come from papers whose budget is 10⁴·*d* evaluations.
+Here *d* = 5 gets 2500, so `"auto"`'s 90 members buy about 28
+generations against 83 for a population of 30 — not enough for
+differential evolution to do much but sample.
+`"auto"` already tries to correct for the budget, but on these batteries
+its budget term is never the binding one.
 
-Two consequences worth stating plainly:
+Three consequences worth stating plainly:
 
 * **jSO and L-SHADE were not beaten fairly in §14.** With `NP_init=30`
   jSO reaches 0.5581 and L-SHADE 0.4923, against the 0.4584 / 0.4132 that
   produced their 0-out-of-30 win counts.  The oracle bound must be
   recomputed on the tuned arms before concluding that either belongs out
   of the portfolio.
-* **The `"auto"` divisor is a library default, not a benchmark knob.**
-  If a re-sweep confirms the optimum sits near `budget/30`, the fix
-  belongs in `_resolve_auto_np_init`, where it helps every user, not in
-  the harness specs.
+* **`"auto"`'s sizing is a library default, not a benchmark knob.** The
+  fix belongs in `_resolve_auto_np_init`, where every user gets it, not
+  in the harness specs.
+
+* **Dimension and budget are confounded here.** The battery's budget is
+  `500·dim`, so `NP = c·dim` and `NP = budget/k` are the same curve and
+  the pooled mean cannot tell them apart.  A fixed-value grid read
+  *separately at each dimension* does separate them: if the best fixed
+  `NP` is the same at *d* = 2 and *d* = 5 the law is a constant, and if
+  it scales by ~2.5× the law is dimensional.  That is what pass 2
+  measures.
 
 ### What this pass does *not* settle
 
@@ -404,5 +430,7 @@ not known to compose — `NP_init=30` and `H=20` may well overlap.  The
 sweep also brackets rather than locates: `NP_init` was tested only at
 `auto` and 30, `ipop_factor` only at 1.5 / 2 / 3, and both winners sit
 at the edge of their tested range, so the optimum is plausibly beyond
-it.  Three seeds is enough to see an effect this large and not enough to
+it.  And the battery is only *d* = 2 and *d* = 5, so nothing here
+constrains what a good population is at *d* = 10 or 20.  Three seeds is
+enough to see an effect this large and not enough to
 accept a default; the 12-seed roster decides.

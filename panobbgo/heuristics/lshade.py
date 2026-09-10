@@ -171,9 +171,13 @@ _DEFAULT_NP_MIN: int = 4
 #                max(NP_min, _AUTO_MIN_NP), _AUTO_MAX_NP )
 #
 # The ``_AUTO_DIM_COEF · dim`` term is the CEC-2014 upper bound (``18·d``,
-# Tanabe-Fukunaga); the ``budget / _AUTO_GEN_TARGET`` term dominates at the
-# tight budgets Panobbgo actually runs, keeping ~``_AUTO_GEN_TARGET``
-# generations available for parameter adaptation.  ``_AUTO_MIN_NP`` floors
+# Tanabe-Fukunaga); the ``budget / _AUTO_GEN_TARGET`` term is meant to keep
+# ~``_AUTO_GEN_TARGET`` generations available for parameter adaptation at
+# tight budgets.  NOTE: on the IOH batteries the budget is ``500·dim`` or
+# more, so ``budget/12 = 41.7·dim`` never binds and ``18·dim`` alone decides.
+# Measured (``planning/DISCOVERY_2026-09-09.md`` §15): a fixed ``NP_init=30``
+# beats ``"auto"`` on every L-SHADE-lineage arm and every seed, by +0.10 AOCC
+# on jSO at ``d=5``, so ``18`` is very likely too steep for these budgets.  ``_AUTO_MIN_NP`` floors
 # the size at 6 so ``current-to-pbest/1`` (which needs ≥ 4 distinct
 # individuals) has working headroom — the degenerate ``NP=4`` init measured
 # a flat 0.0 on the same battery.

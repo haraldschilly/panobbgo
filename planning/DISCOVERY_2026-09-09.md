@@ -434,3 +434,175 @@ it.  And the battery is only *d* = 2 and *d* = 5, so nothing here
 constrains what a good population is at *d* = 10 or 20.  Three seeds is
 enough to see an effect this large and not enough to
 accept a default; the 12-seed roster decides.
+
+## 16. Phase A, pass 2: CMA-ES located, the DE arms still off-grid
+
+Same protocol as §15 (standard battery, seeds 42 / 7 / 1234, paired per
+seed against each arm's own default), with the grids widened and every
+delta broken out per dimension.
+
+### CMA-ES: `ipop_factor = 1.5` is an interior optimum
+
+| `ipop_factor` | Δ vs 2.0 default | *d* = 2 | *d* = 5 |
+|---|---|---|---|
+| 1.2 | +0.0173 | −0.0032 | +0.0378 |
+| 1.35 | +0.0183 | −0.0689 | +0.1054 |
+| **1.5** | **+0.0886** | −0.0001 | **+0.1772** |
+| 1.75 | +0.0605 | +0.0089 | +0.1120 |
+| 2.0 (default) | — | 0.7333 | 0.4941 |
+
+The curve rises to 1.5 and falls on both sides, so unlike everything
+else in §15 this one is *located*, not bracketed.  Pairing it with
+`sigma0=0.2` costs more than half the gain (+0.0327), so the 0.3 default
+stays.
+
+The per-dimension split explains the mechanism: at *d* = 2 the factor is
+worth nothing at all (−0.0001), and the entire +0.0886 comes from
+*d* = 5.  A restart schedule can only pay where the budget outlasts the
+first convergence, and at *d* = 2 with 1000 evaluations it does not.
+**This is a warning about the battery, not just about CMA-ES** — a knob
+that only acts at *d* ≥ 5 is being averaged over a battery that is half
+*d* = 2, so its measured effect is roughly half its real one wherever it
+applies.
+
+### The DE arms: still walking down the grid
+
+| arm | best variant | Δ vs default | *d* = 2 | *d* = 5 |
+|---|---|---|---|---|
+| lshade | `NP_init=10` | **+0.2186** | +0.1829 | +0.2543 |
+| jso | `NP_init=15` | **+0.1859** | +0.1323 | +0.2395 |
+| lbc | `NP_init=15` | **+0.1024** | +0.1068 | +0.0981 |
+| pso | `NP=6` | **+0.1431** | +0.1557 | +0.1305 |
+
+Every one of these is the *smallest or near-smallest* value tested, and
+the gains roughly doubled against pass 1 — `NP_init=30` gave L-SHADE
++0.084, `NP_init=10` gives +0.219.  The population question is not a
+tuning detail; it is worth more than every other knob measured so far
+combined.  Pass 3 extends the grid down to 4.
+
+**The combinations do not compose.** `NP_init=30` + `H=20` on jSO gives
++0.1336 where `NP_init=15` alone gives +0.1859, and the same holds for
+lbc and for PSO's `NP=10 + v_max_frac=0.2` (+0.1169) against `NP=6`
+alone (+0.1431).  The secondary knobs of §15 were mostly measuring the
+population effect through a different door: once `NP` is right they add
+little, and picking one is not free.
+
+### The optimum moves with dimension
+
+Reading each arm's argmax separately at each dimension — the split the
+pooled mean cannot show:
+
+| arm | best `NP_init` at *d* = 2 | at *d* = 5 |
+|---|---|---|
+| lbc | ≤ 10 | ~20 |
+| jso | ≤ 10 | ~15 |
+| lshade | ≤ 10 | ≤ 10 |
+| pso | ≤ 6 | ≤ 6 |
+
+For the two strongest DE arms the optimum roughly doubles from *d* = 2
+to *d* = 5, which is the signature of a rule linear in dimension rather
+than a constant.  The implied coefficient is **3–4·dim**, against the
+`_AUTO_DIM_COEF = 18` in the code — off by a factor of five.  L-SHADE
+and PSO want small populations at both dimensions and have not yet been
+bracketed at all.
+
+### Two things checked before believing any of this
+
+* **The output-queue truncation of §5 is genuinely gone.** It would have
+  invalidated the whole grid by clamping every `NP_init > 20` to 20.
+  `Module._put` and `Module.emit` both call `ensure_output_capacity`
+  (`core.py:679–690`), so a 60-member population really runs 60.
+* **Two dimensions cannot fit a line with confidence.** *d* = 2 and
+  *d* = 5 give two points, and the battery's budget is `500·dim`, so a
+  dimensional rule and a budget rule remain observationally equivalent
+  even here.  A *d* = 10 run (`dims=2,5,10`) is what separates them.
+
+### Caveat: the winner's curse is now material
+
+Three seeds and seven variants per arm means the reported maximum is the
+maximum of seven noisy estimates, biased upward by roughly the spread
+between neighbouring grid points.  These numbers locate a broad optimum;
+they do not size the gain.  Nothing here becomes a default until the
+12-seed roster confirms it against the *current* default.
+
+## 17. Phase A, pass 3: the population law is `NP ≈ 3–4·dim`
+
+Grid extended down to `NP_init = 4`.  Same protocol as §15/§16.  Per-
+dimension deltas against each arm's `"auto"` default (36 at *d* = 2, 90
+at *d* = 5):
+
+| `NP_init` | lbc *d*=2 | lbc *d*=5 | jso *d*=2 | jso *d*=5 | lshade *d*=2 | lshade *d*=5 |
+|---|---|---|---|---|---|---|
+| 4 | −0.209 | −0.285 | +0.023 | −0.160 | +0.241 | +0.042 |
+| 6 | +0.110 | −0.169 | **+0.200** | −0.106 | **+0.274** | +0.128 |
+| 8 | **+0.143** | −0.148 | +0.189 | +0.113 | +0.211 | +0.184 |
+| 10 | +0.135 | −0.061 | +0.174 | +0.067 | +0.183 | **+0.254** |
+| 12 | +0.092 | +0.024 | +0.155 | +0.189 | +0.182 | +0.241 |
+| 15 | +0.107 | +0.098 | +0.132 | **+0.240** | +0.136 | +0.232 |
+| 20 | +0.063 | **+0.130** | +0.086 | +0.204 | +0.094 | +0.221 |
+| 30 | −0.000 | +0.108 | +0.019 | +0.185 | +0.032 | +0.136 |
+| 45 | −0.034 | +0.067 | −0.052 | +0.097 | −0.021 | +0.069 |
+| 60 | −0.074 | +0.042 | −0.069 | +0.059 | −0.058 | +0.036 |
+
+(Rows 30–60 from §16, same seeds.)  Every column now has an interior
+maximum with a collapse below it — `NP_init = 4` is catastrophic for
+NLSHADE_LBC at both dimensions — so these are located, not bracketed.
+
+| arm | argmax *d* = 2 | argmax *d* = 5 | ratio | implied rule |
+|---|---|---|---|---|
+| NLSHADE_LBC | 8 | 20 | 2.5 | **4·dim** |
+| jSO | 6 | 15 | 2.5 | **3·dim** |
+| L-SHADE | 6 | 10–12 | ~2 | **2.5·dim** |
+| PSO | 5 | 6 | ~1 | ≈ 6, constant |
+
+The ratio *d* = 5 : *d* = 2 is 2.5 for the two strongest DE arms —
+exactly the dimension ratio — which is the signature of a rule linear in
+dimension.  The library's `_AUTO_DIM_COEF` is **18**; the data says
+**3–4**.  PSO does not scale with dimension in this range and simply
+wants a swarm of about six.
+
+Absolute scores at the per-arm optimum (pooled, 3 seeds):
+
+| arm | default | tuned | Δ |
+|---|---|---|---|
+| CMA-ES (`ipop_factor=1.5`) | 0.6137 | **0.7023** | +0.089 |
+| jSO (`NP_init=15`) | 0.4584 | **0.6443** | +0.186 |
+| NLSHADE_LBC (`NP_init=15`) | 0.5385 | **0.6410** | +0.102 |
+| L-SHADE (`NP_init=10`) | 0.4132 | **0.6318** | +0.219 |
+| PSO (`NP=6`) | 0.4157 | **0.5588** | +0.143 |
+
+The arms have gone from a spread of 0.20 to a spread of 0.14, and the
+three DE arms are now within 0.013 of each other — they are, after all,
+three versions of the same algorithm.  This changes the portfolio
+question in two ways: the oracle of §14 is void (it was computed on arms
+that were 5× over-populated), and "which DE variant" now matters far
+less than "DE or CMA-ES on this instance".
+
+### What a population of six means
+
+With `NP_min = 4` and linear population-size reduction, an arm that
+starts at 6 spends most of its budget as a 4-member population.  That is
+barely differential evolution; it is closer to a randomised (1+λ) local
+search with a memory of successful step directions.  Two readings:
+
+* The honest one: at 500·*d* evaluations on MA-BBOB, AOCC rewards early
+  progress, and early progress comes from exploiting the first good
+  region hard.  A large population is a bet on multimodality that this
+  budget cannot afford.
+* The cautionary one: the optimum will move with budget.  At 2000·*d*
+  (the competition budget) or on the more deceptive instances, a bigger
+  population may pay.  The rule should therefore stay a function of the
+  budget as well as of dimension, and the coefficient must be validated
+  at the full budget before it ships.
+
+### What is still open before the default changes
+
+* **A third dimension.** Two dimensions fix a line's slope but not its
+  form, and budget = 500·dim makes `c·dim` and `budget/k`
+  indistinguishable here.  A *d* = 10 run (`dims=10 grid=20,30,45,60`,
+  where `"auto"` currently gives 180) is in progress.
+* **The 12-seed roster.** Everything above is 3 seeds and a grid of 7–10
+  — the reported optimum is biased upward.  The new `"auto"` must be
+  accepted against the old one on 12 seeds, as a library default, not as
+  a harness spec.
+* **The full budget.** One run at `bm=2000` on the standard dims.

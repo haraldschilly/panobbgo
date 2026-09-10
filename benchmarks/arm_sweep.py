@@ -15,6 +15,7 @@ Usage::
     SEED  base seeds; three is enough to see a large effect, twelve is
           the canonical decision roster
     dims  battery dimensions (default 2,5 — the standard battery)
+    grid  NP_init grid for the DE arms (default 4,6,8,10,12,15,20)
     bm    budget multiplier; the budget per run is ``bm * dim``
 
 The report breaks every delta down **per dimension** as well as overall.
@@ -42,20 +43,20 @@ from panobbgo.strategies import StrategyRoundRobin
 BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
 AUTO = {"NP_init": "auto"}
 
-NP_GRID = {f"np_{n}": {"NP_init": n} for n in (10, 15, 20, 30, 45, 60)}
+_opts = {k: v for k, _, v in (a.partition("=") for a in sys.argv[3:] if "=" in a)}
+# ``grid=20,30,45`` overrides the NP_init grid, e.g. to probe a higher dimension.
+NP_GRID = {f"np_{n}": {"NP_init": int(n)} for n in _opts.get("grid", "4,6,8,10,12,15,20").split(",")}
 
 ARMS = {
     "cmaes": (
         CMAES,
         {},
         {
-            # ipop_factor=1.5 beat the 2.0 default by +0.089 and sat at the
-            # edge of the tested range (§15) — bracket it from below.
-            "ipop_1.2": {"ipop_factor": 1.2},
-            "ipop_1.35": {"ipop_factor": 1.35},
+            # 1.5 is an INTERIOR optimum: 1.2 +0.017, 1.35 +0.018, 1.5 +0.089,
+            # 1.75 +0.061, 2.0 (default) 0.  Kept here only to re-confirm it
+            # on the 12-seed roster before it becomes the default.
             "ipop_1.5": {"ipop_factor": 1.5},
             "ipop_1.75": {"ipop_factor": 1.75},
-            "ipop_1.5_sig_0.2": {"ipop_factor": 1.5, "sigma0": 0.2},
         },
     ),
     "lbc": (
@@ -81,20 +82,19 @@ ARMS = {
         PSO,
         {},
         {
+            "NP_3": {"NP": 3},
+            "NP_4": {"NP": 4},
+            "NP_5": {"NP": 5},
             "NP_6": {"NP": 6},
-            "NP_10": {"NP": 10},
-            "NP_14": {"NP": 14},
-            "vmax_0.1": {"v_max_frac": 0.1},
-            "vmax_0.2": {"v_max_frac": 0.2},
-            "vmax_0.3": {"v_max_frac": 0.3},
-            "NP_10_vmax_0.2": {"NP": 10, "v_max_frac": 0.2},
-            "NP_10_vmax_0.2_lbest": {"NP": 10, "v_max_frac": 0.2, "topology": "lbest"},
+            "NP_8": {"NP": 8},
+            "NP_6_vmax_0.2": {"NP": 6, "v_max_frac": 0.2},
+            "NP_6_vmax_0.1_lbest": {"NP": 6, "v_max_frac": 0.1, "topology": "lbest"},
         },
     ),
 }
 
 arm, out = sys.argv[1], sys.argv[2]
-opts = {k: v for k, _, v in (a.partition("=") for a in sys.argv[3:] if "=" in a)}
+opts = _opts
 seeds = [int(x) for x in sys.argv[3:] if "=" not in x]
 cls, base_kw, variants = ARMS[arm]
 

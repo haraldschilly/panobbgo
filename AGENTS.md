@@ -210,6 +210,14 @@ uv run python scripts/ioh_benchmark.py run --standard --baselines --output ioh_b
 uv run python scripts/ioh_benchmark.py compare ioh_before.json ioh_after.json
 ```
 
+Same CLI, same AOCC, same JSON — but on generated problem *families*
+(`panobbgo/harness_families.py`, no worker venv needed): `--families`
+(5 families × dims 2/5/10 × 3 instances, shifted/rotated, known optimum),
+`--families-constrained` (4 families × dims 2/5, k = 1..3 constraints
+*active at the optimum*, AOCC scored on the penalty value `f + 100·cv`)
+and `--families-quick` (a two-run smoke test).  Multi-seed screens go
+through `benchmarks/family_screen.py`.
+
 `composite_score` and AOCC do not interconvert; a change can improve one and
 regress the other — track both. AOCC is the metric of record in
 `planning/GOAL.md`.

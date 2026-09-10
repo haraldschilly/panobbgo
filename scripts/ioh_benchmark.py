@@ -33,6 +33,13 @@ Examples::
 
     # Standard battery with 5 replicates per (dim, instance) pair
     uv run python scripts/ioh_benchmark.py run --standard --reps 5 --output before.json
+
+    # Generated problem families instead of MA-BBOB — many cheap classes,
+    # including constrained ones, which no IOH battery covers.  Same AOCC,
+    # same records, same --output format (panobbgo.harness_families).
+    uv run python scripts/ioh_benchmark.py run --families --sync-eval
+    uv run python scripts/ioh_benchmark.py run --families-constrained --sync-eval
+    uv run python scripts/ioh_benchmark.py run --families-quick --sync-eval   # smoke test
 """
 
 from __future__ import annotations
@@ -42,12 +49,18 @@ import dataclasses
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from panobbgo.benchmark import StrategySpec
 from panobbgo import local_run
 from panobbgo.harness import _make_quick_strategies, _make_standard_strategies
 from panobbgo.harness_baselines import make_baseline_strategies
+from panobbgo.harness_families import (
+    FamilyInstances,
+    make_constrained_battery,
+    make_families_battery,
+    run_family_harness,
+)
 from panobbgo.harness_ioh import (
     DEFAULT_DECISION_SEEDS,
     IOHBatterySpec,
@@ -75,6 +88,35 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
             raise SystemExit("--reps must be >= 1")
         battery = dataclasses.replace(battery, reps=args.reps)
     return battery
+
+
+#: Budget multiplier of the family batteries — ``budget = FAMILY_BUDGET_MULTIPLIER * dim``,
+#: matching the standard IOH battery so the two tracks' budgets are comparable.
+FAMILY_BUDGET_MULTIPLIER: int = 500
+
+
+def _resolve_family_battery(args: argparse.Namespace) -> Optional[Tuple[str, FamilyInstances, int]]:
+    """``(battery name, instances, budget multiplier)`` for the family track, else ``None``.
+
+    The family track (:mod:`panobbgo.harness_families`) scores generated
+    problem *families* — including constrained ones, which no IOH battery
+    covers — with the same AOCC machinery.  ``None`` means no family flag
+    was given and the caller should take the MA-BBOB path.
+    """
+    if args.families_quick:
+        # Two instances at dim 2, 100 evaluations each: a smoke test, not a
+        # measurement.  One unconstrained (Rosenbrock) and one constrained
+        # (sphere, one active linear constraint) so the run exercises both
+        # the plain and the penalty-tracker path.  Deliberately not a preset
+        # in ``harness_families`` — the presets there are contracts.
+        quick = make_families_battery(dims=(2,), n_instances=1)[1:2]
+        quick += make_constrained_battery(dims=(2,), n_instances=1)[:1]
+        return "families-quick", quick, 50
+    if args.families_constrained:
+        return "families-constrained", make_constrained_battery(), FAMILY_BUDGET_MULTIPLIER
+    if args.families:
+        return "families", make_families_battery(), FAMILY_BUDGET_MULTIPLIER
+    return None
 
 
 def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
@@ -106,27 +148,59 @@ def _resolve_seeds(args: argparse.Namespace) -> Optional[List[int]]:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    battery = _resolve_battery(args)
     strategies = _resolve_strategies(args)
     if not strategies:
         print("No strategies selected.", file=sys.stderr)
         return 2
-    seeds = _resolve_seeds(args)
-    print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
-    print(f"Strategies: {[s.name for s in strategies]}")
-    print(f"Per-run budget: {[battery.budget_for(d) for d in battery.dims]} (dim={battery.dims})")
-    if args.sync_eval:
-        print("Eval mode: sync (deterministic result batches; ~2x lower run-to-run noise)")
     result: Any
-    if seeds is not None:
-        print(f"Seeds ({len(seeds)}): {seeds}")
-        result = run_ioh_harness_multi_seed(
-            strategies, battery, seeds, progress=not args.quiet, sync_eval=args.sync_eval
+    family = _resolve_family_battery(args)
+    if family is not None:
+        name, instances, budget_multiplier = family
+        dims = sorted({p.dim for _n, p in instances})
+        print(
+            f"Battery: {name}  instances={len(instances)}  dims={dims}  families={len({p.family for _n, p in instances})}"
+        )
+        print(f"Strategies: {[s.name for s in strategies]}")
+        print(f"Per-run budget: {[budget_multiplier * d for d in dims]} (dim={dims})")
+        if args.sync_eval:
+            print("Eval mode: sync (deterministic result batches; ~2x lower run-to-run noise)")
+        if _resolve_seeds(args) is not None:
+            # The multi-seed roster is an IOHBatterySpec construction;
+            # ``benchmarks/family_screen.py`` is the multi-seed instrument
+            # for this track.  Say so rather than silently running one seed.
+            print(
+                "warning: --seeds/--decision-seeds are not wired for the family track; "
+                f"running the single --seed {args.seed}.  Use benchmarks/family_screen.py "
+                "for a paired multi-seed screen.",
+                file=sys.stderr,
+            )
+        result = run_family_harness(
+            strategies,
+            instances,
+            budget_multiplier=budget_multiplier,
+            base_seed=args.seed,
+            sync_eval=args.sync_eval,
+            reps=args.reps or 1,
+            progress=not args.quiet,
+            battery_name=name,
         )
     else:
-        result = run_ioh_harness(
-            strategies, battery, base_seed=args.seed, progress=not args.quiet, sync_eval=args.sync_eval
-        )
+        battery = _resolve_battery(args)
+        seeds = _resolve_seeds(args)
+        print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
+        print(f"Strategies: {[s.name for s in strategies]}")
+        print(f"Per-run budget: {[battery.budget_for(d) for d in battery.dims]} (dim={battery.dims})")
+        if args.sync_eval:
+            print("Eval mode: sync (deterministic result batches; ~2x lower run-to-run noise)")
+        if seeds is not None:
+            print(f"Seeds ({len(seeds)}): {seeds}")
+            result = run_ioh_harness_multi_seed(
+                strategies, battery, seeds, progress=not args.quiet, sync_eval=args.sync_eval
+            )
+        else:
+            result = run_ioh_harness(
+                strategies, battery, base_seed=args.seed, progress=not args.quiet, sync_eval=args.sync_eval
+            )
     result.print_summary()
     if args.output:
         Path(args.output).write_text(result.to_json())
@@ -236,6 +310,24 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     grp.add_argument("--quick", action="store_true", help="Small battery (default).")
     grp.add_argument("--standard", action="store_true", help="Mid-sized battery.")
     grp.add_argument("--full", action="store_true", help="Competition-budget battery.")
+    grp.add_argument(
+        "--families",
+        action="store_true",
+        help="Generated problem families instead of MA-BBOB: 5 families x dims (2, 5, 10) x 3 instances, "
+        "shifted/rotated, known optimum (panobbgo.harness_families).",
+    )
+    grp.add_argument(
+        "--families-constrained",
+        action="store_true",
+        help="Constrained family battery: 4 families x dims (2, 5) x 3 instances, k=1..3 constraints "
+        "active at the optimum.  AOCC is scored on the penalty value f + 100*cv.",
+    )
+    grp.add_argument(
+        "--families-quick",
+        action="store_true",
+        help="Smoke test of the family track: 2 instances at dim 2 (one unconstrained, one "
+        "constrained), 100 evaluations each. Not a measurement.",
+    )
     run_p.add_argument("--baselines", action="store_true", help="Include external baselines (Random, scipy DE, ...).")
     run_p.add_argument(
         "--legacy",

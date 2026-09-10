@@ -658,7 +658,7 @@ evidence.
 The sweep tools
 ~~~~~~~~~~~~~~~
 
-Four scripts under ``benchmarks/``, all of them running arms **solo** via
+Five scripts under ``benchmarks/``, most of them running arms **solo** via
 ``StrategyRoundRobin``, all paired per seed on one RNG stream, all flushing
 their rows after every seed so an interrupted run loses nothing:
 
@@ -683,6 +683,15 @@ their rows after every seed so an interrupted run loses nothing:
      - Whether a *portfolio* under ``StrategyBlockBandit`` beats one arm, and
        what warm starting from the shared archive is worth against the same
        portfolio cold.
+   * - ``family_screen.py``
+     - Whether that verdict survives *outside* MA-BBOB: the same specs on the
+       generated problem families of :mod:`panobbgo.harness_families` —
+       ``preset=free`` (5 families × dims 2/5/10) and ``preset=constrained``
+       (4 families × dims 2/5, ``k`` = 1..3 constraints active at the
+       optimum, the first AOCC measurement of the constraint handling).
+       Single runs of the same batteries are also reachable from the IOH CLI
+       as ``ioh_benchmark.py run --families`` / ``--families-constrained``
+       (and ``--families-quick`` for a smoke test).
 
 Typical invocation (``nice`` it; progress is counted in evaluations, not
 wall-clock):

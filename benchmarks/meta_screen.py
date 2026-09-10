@@ -302,7 +302,9 @@ for ref in (REF, SINGLE):
     if ref not in names:
         continue
     print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
-    print(f"{'spec':28s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
+    print(
+        f"{'spec':28s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
+    )
     for s in order:
         if s == ref:
             continue

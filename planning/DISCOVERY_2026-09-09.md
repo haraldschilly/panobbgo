@@ -1017,3 +1017,22 @@ the latest progress (§26.1's mechanism).  If those land the portfolio
 at +0.03 with a CI clear of zero, it becomes the flagship; if not, the
 honest default for 500·dim is one arm, and the portfolio is the answer
 for *d* ≥ 5 or larger budgets — a dimension-gated spec.
+
+## 28. Oracle on the final defaults (LBC at 4·dim), 12 seeds
+
+| arm | mean | *d*=2 | *d*=5 | regret | seed-cell wins | majority cells |
+|---|---|---|---|---|---|---|
+| jSO | **0.6558** | 0.7328 | 0.5788 | 0.074 | 39 | d2i0 d5i0 d5i1 d5i4 |
+| NLSHADE_LBC (4·dim) | 0.6469 | 0.7311 | 0.5627 | 0.083 | 34 | **d2i1 d2i2 d2i3 d2i4** |
+| L-SHADE | 0.6423 | 0.7270 | 0.5577 | 0.087 | 12 | — |
+| CMA-ES | 0.6419 | 0.7029 | **0.5808** | 0.088 | 35 | **d5i2 d5i3** |
+| oracle | **0.7295** | 0.8022 | 0.6568 | | 120 | |
+
+Headroom **+0.0737 [+0.0477, +0.0998], 12/12**.  Best pairs: CMA-ES +
+jSO 0.7026 (63.6 %) ≈ CMA-ES + LBC 0.7023 (63.1 %).
+
+Four arms within 0.014.  The cells sort by dimension: LBC owns four of
+the five *d* = 2 instances, CMA-ES the hard *d* = 5 ones, jSO the rest.
+That is a context signal a selector could use (dimension is known
+before the first evaluation), and it argues for testing CMA-ES + LBC
+as the relay pair alongside CMA-ES + jSO.

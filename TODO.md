@@ -27,7 +27,38 @@ dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
 gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
 nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
 
-### Nächste Schritte (Plan of Record, `GOAL.md` §2c)
+### In Arbeit (2026-09-10 abends, vier Agenten, disjunkte Branches)
+
+Haralds Einschätzung: die Idee (mehrere Strategien und Bausteine unter
+einem Hut) bleibt richtig; Parität bei 500·dim/*d* ≤ 5 ist ein Befund
+über das *Regime*, nicht über die Idee. Die Batterie misst nur
+rauschfrei, unrestringiert, *d* ≤ 5 — nichts von dem, wofür panobbgo
+gebaut ist.
+
+- [ ] **`claude/battery-noise-highdim`** — `lib/noise.py` (deterministische
+      Rauschmodelle gauss/unif/cauchy, AOCC auf dem wahren Wert),
+      `make_noisy_battery`, `make_highdim_battery` (d 10/20, bm 2000);
+      Screen der Harness-Specs darauf.
+- [ ] **`claude/battery-families`** — `lib/families.py` (parametrisierte
+      Instanzen aus Klassikern: shift/rotation/conditioning, bekanntes
+      Optimum; **constrained** Familien mit aktiver Nebenbedingung am
+      Optimum), `harness_families.py` (AOCC-Track in-process),
+      `benchmarks/family_screen.py`; Screen darauf. Registrierung in
+      `harness_ioh.py` folgt (Zeilen kommen vom Agenten).
+- [ ] **`claude/invariants`** — `tests/test_invariants.py`: Dead-Parameter-
+      Detektor (jeder Konstruktor-Kwarg muss die Trajektorie ändern),
+      jede Heuristik allein schlägt Random, Budget voll, keine NaNs,
+      Queue-Vertrag, kein RNG im Konstruktor, Handler-Signaturen.
+      Deliverable ist die **Fundliste**.
+- [ ] **`planning/DESIGN_meta_level_2026-09-10.md`** — Haralds Idee:
+      nach Budget-Anteil (¼? 1/10?) oder Stagnation auf die Meta-Ebene
+      springen, analysieren, wo noch etwas zu holen ist / wo nicht
+      gesucht wurde, Modell rechnen, Kandidatenpunkte an die Solver.
+      Trigger-Regel ist Experimentsache.
+- [ ] Zoo kompaktieren: **zurückgestellt**, bis die neuen Batterien
+      zeigen, was gut ist.
+
+### Danach (Plan of Record, `GOAL.md` §2c)
 
 - [ ] **Größere Budgets und *d* ≥ 10.** Die *d*=5-Tendenz sagt einen
       realen Gewinn voraus; ein `dims=5,10 bm=2000`-Screen mit

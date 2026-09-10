@@ -1,0 +1,45 @@
+0.087914 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.088252 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+1.196763 config:333      CONFG INFO      Evaluation method: threaded
+1.196922 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'252726fb5af3d4f00af0c8bf7a40e60dee2b5b50'}
+seed 777 done (43s)
+seed 2024 done (77s)
+seed 31337 done (116s)
+seed 555 done (162s)
+
+=== 12-seed acceptance: CMA-ES σ-divergence default ===  (4 seeds, dims [2, 5])
+variant    mean AOCC       paired delta vs old [95% t-CI]   +seeds  restarts/run
+old           0.6235                          (reference)           0.00 (max 0)
+new           0.6433   +0.0199 [-0.0115, +0.0513]               4/4  0.60 (max 2)
+new_best      0.6482   +0.0247 [-0.0067, +0.0561]               4/4  0.50 (max 1)
+
+per dimension (paired delta vs old, 95% t-CI over seeds):
+  old        d=2  mean AOCC 0.7164
+  old        d=5  mean AOCC 0.5305
+  new        d=2  +0.0000 [+0.0000, +0.0000]  0/4 seeds positive
+  new        d=5  +0.0397 [-0.0231, +0.1025]  4/4 seeds positive
+  new_best   d=2  +0.0000 [+0.0000, +0.0000]  0/4 seeds positive
+  new_best   d=5  +0.0494 [-0.0134, +0.1122]  4/4 seeds positive
+
+restart reasons (count over all runs):
+  old        (none)
+  new        tolfun=10  sigma_divergence=7  tolx=6  stagnation=1
+  new_best   tolfun=10  tolx=6  sigma_divergence=3  stagnation=1
+
+cells where sigma_divergence fired:
+  new        7/40 cells   mean delta +0.1134 [min +0.0000, max +0.4300]   4/7 positive   mean 'old' AOCC on those cells 0.5075 (battery 0.6235)
+      seed 555    d=5 inst=4  0.1890 -> 0.3321  +0.1431
+      seed 777    d=5 inst=0  0.3364 -> 0.5162  +0.1798
+      seed 777    d=5 inst=4  0.8128 -> 0.8128  +0.0000
+      seed 2024   d=2 inst=4  0.8162 -> 0.8162  +0.0000
+      seed 2024   d=5 inst=1  0.3869 -> 0.4280  +0.0412
+      seed 2024   d=5 inst=4  0.1870 -> 0.6169  +0.4300
+      seed 31337  d=2 inst=4  0.8242 -> 0.8242  +0.0000
+  new_best   3/40 cells   mean delta +0.2170 [min +0.0412, max +0.4300]   3/3 positive   mean 'old' AOCC on those cells 0.3034 (battery 0.6235)
+      seed 777    d=5 inst=0  0.3364 -> 0.5162  +0.1798
+      seed 2024   d=5 inst=1  0.3869 -> 0.4280  +0.0412
+      seed 2024   d=5 inst=4  0.1870 -> 0.6169  +0.4300
+
+acceptance rule: CI excludes zero, >=9/12 seeds positive, no dimension negative-excluding
+  new        CI>0: False   seeds 4/12 >= 9: False   no dim negative-excluding: False   ->  REJECT
+  new_best   CI>0: False   seeds 4/12 >= 9: False   no dim negative-excluding: False   ->  REJECT

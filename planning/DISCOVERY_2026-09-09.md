@@ -848,3 +848,22 @@ with jSO**, not L-SHADE; PSO leaves the candidate set; and the honest
 single-arm default is a toss-up between jSO and CMA-ES that the
 *shipped* flagship spec (`RoundRobin_CMAES`) should be re-decided on
 once the CMA-ES warm start and the second warm screen are in.
+
+## 23. CMA-ES σ-divergence restart: accepted on the 12-seed roster
+
+Solo CMA-ES, standard battery, one RNG stream, 12 seeds (8 in the
+first run, 4 after the interruption, merged):
+
+| variant | mean | Δ vs `self_restart=False` | seeds | *d*=2 | *d*=5 |
+|---|---|---|---|---|---|
+| old (no restart) | 0.6285 | — | | 0.6868 | 0.5702 |
+| **new (shipped default)** | 0.6543 | **+0.0258 [+0.0083, +0.0433]** | **11/12** | +0.015 [−0.002, +0.033] | **+0.036 [+0.007, +0.066]** |
+| new, `restart_from="best"` | 0.6561 | +0.0276 [+0.0103, +0.0448] | 11/12 | +0.016 | +0.040 |
+
+Accept rule met: CI excludes zero on the positive side, 11/12 seeds,
+no dimension negative-excluding.  0.68 restarts per run.  The gain is
+heavy-tailed as in §20 — three cells +0.18…+0.44, most cells unchanged
+— which is why the *d*=2 CI only grazes zero.  `restart_from="best"`
+is marginally better and mechanistically the right choice after a
+divergence (the divergence path already forces it); the shipped
+default keeps `"random"` for the ordinary criteria, per the reference.

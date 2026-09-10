@@ -343,7 +343,7 @@ arm's own current default.  `<--` marks a 95% t-CI that excludes zero.
 
 | arm | variant | mean AOCC | Δ vs default | CI | seeds won |
 |---|---|---|---|---|---|
-| **cmaes** | `ipop_factor=1.5` | 0.7023 | **+0.0886** | [+0.0435, +0.1336] | 3/3 `<--` |
+| **cmaes** | `ipop_factor=1.5` | 0.7023 | ~~+0.0886~~ | *retracted — parameter never read, see §16* | |
 | | `ipop_factor=3` | 0.6193 | +0.0056 | [−0.0506, +0.0619] | 2/3 |
 | | *default* | 0.6137 | — | | |
 | | `sigma0=0.2` | 0.6100 | −0.0037 | [−0.4033, +0.3958] | 2/3 |
@@ -380,21 +380,27 @@ loses −0.048, monotonically.
 **Which term of `"auto"` is at fault (corrected).** The standard
 battery's budget is `500·dim`, so `budget/12` = `41.7·dim` and the
 `18·dim` term binds at *every* dimension — the budget term never
-participates.  `"auto"` is therefore 36 at *d* = 2 and **90** at
-*d* = 5, and the per-dimension split says exactly that:
+participates.  `"auto"` is therefore 36 at *d* = 2 and 83 at
+*d* = 5 (see the second correction below), and the per-dimension split
+says exactly that:
 
-| arm | Δ from `NP_init=30` at *d* = 2 (auto = 36) | at *d* = 5 (auto = 90) |
+| arm | Δ from `NP_init=30` at *d* = 2 (auto = 36) | at *d* = 5 (auto = 83) |
 |---|---|---|
 | jSO | +0.0177 | **+0.1817** |
 | L-SHADE | +0.0155 | **+0.1427** |
 | NLSHADE_LBC | +0.0148 | **+0.1023** |
 
 The gain is an order of magnitude larger where `"auto"` is further from
-30.  So the culprit is `_AUTO_DIM_COEF = 18`, not the
-`_AUTO_GEN_TARGET = 12` divisor — and the code comment above those
-constants, which claims "the `budget / _AUTO_GEN_TARGET` term dominates
-at the tight budgets Panobbgo actually runs", is wrong for every battery
-we run.
+30.
+
+**Second correction (2026-09-10).** The harness sets `max_eval` *after*
+constructing the strategy (`harness_ioh.py:869-870`), so
+`_resolve_auto_np_init` always saw the default 1000, never the battery
+budget: `"auto"` was `min(18·dim, 83)` = 36 at *d* = 2 and **83** at
+*d* = 5 and at *d* = 10 — not 90 and 180.  The direction of every
+conclusion survives; the numbers 90/180 do not.  The harness bug is
+fixed separately, and with the real budget in hand `"auto"` would have
+been 90 / 180, i.e. even further from the optimum.
 
 This is what §9 was measuring without naming it.  The canonical DE
 population sizes come from papers whose budget is 10⁴·*d* evaluations.
@@ -441,29 +447,23 @@ Same protocol as §15 (standard battery, seeds 42 / 7 / 1234, paired per
 seed against each arm's own default), with the grids widened and every
 delta broken out per dimension.
 
-### CMA-ES: `ipop_factor = 1.5` is an interior optimum
+### CMA-ES: `ipop_factor` — RETRACTED
 
-| `ipop_factor` | Δ vs 2.0 default | *d* = 2 | *d* = 5 |
-|---|---|---|---|
-| 1.2 | +0.0173 | −0.0032 | +0.0378 |
-| 1.35 | +0.0183 | −0.0689 | +0.1054 |
-| **1.5** | **+0.0886** | −0.0001 | **+0.1772** |
-| 1.75 | +0.0605 | +0.0089 | +0.1120 |
-| 2.0 (default) | — | 0.7333 | 0.4941 |
+The table that stood here reported `ipop_factor = 1.5` as an interior
+optimum worth +0.0886.  **It measured nothing.** `ipop_factor` is read
+only in `_restart_ipop`, reached only from `on_restart`, published only
+by the `Restart` analyzer — which every solo spec omits.  Verified by a
+direct probe (same spec name, so the same seed): `ipop_factor` 1.5 /
+2.0 / 3.0 give **bit-identical** AOCC.  The "effect" was the maximum of
+six RNG-noise draws, because the harness derives each run's seed from
+the spec *name* (`harness_ioh.py:790`) and every variant therefore ran
+on a different stream.  A tight CI and a clean-looking interior optimum
+came out of pure noise; the lesson is recorded in §18.
 
-The curve rises to 1.5 and falls on both sides, so unlike everything
-else in §15 this one is *located*, not bracketed.  Pairing it with
-`sigma0=0.2` costs more than half the gain (+0.0327), so the 0.3 default
-stays.
-
-The per-dimension split explains the mechanism: at *d* = 2 the factor is
-worth nothing at all (−0.0001), and the entire +0.0886 comes from
-*d* = 5.  A restart schedule can only pay where the budget outlasts the
-first convergence, and at *d* = 2 with 1000 evaluations it does not.
-**This is a warning about the battery, not just about CMA-ES** — a knob
-that only acts at *d* ≥ 5 is being averaged over a battery that is half
-*d* = 2, so its measured effect is roughly half its real one wherever it
-applies.
+What is true about solo CMA-ES: it has **no termination or restart
+criterion at all** — one CMA-ES runs to the end of the budget and keeps
+sampling after σ collapses.  Adding self-restart on Hansen's criteria is
+in progress.
 
 ### The DE arms: still walking down the grid
 
@@ -558,14 +558,15 @@ NLSHADE_LBC at both dimensions — so these are located, not bracketed.
 The ratio *d* = 5 : *d* = 2 is 2.5 for the two strongest DE arms —
 exactly the dimension ratio — which is the signature of a rule linear in
 dimension.  The library's `_AUTO_DIM_COEF` is **18**; the data says
-**3–4**.  PSO does not scale with dimension in this range and simply
+**3–4**.  (Per-dimension deltas above are against `"auto"` = 36 / 83, per
+the §16 correction.)  PSO does not scale with dimension in this range and simply
 wants a swarm of about six.
 
 Absolute scores at the per-arm optimum (pooled, 3 seeds):
 
 | arm | default | tuned | Δ |
 |---|---|---|---|
-| CMA-ES (`ipop_factor=1.5`) | 0.6137 | **0.7023** | +0.089 |
+| CMA-ES | 0.6137 | *(untuned — see §16 retraction)* | — |
 | jSO (`NP_init=15`) | 0.4584 | **0.6443** | +0.186 |
 | NLSHADE_LBC (`NP_init=15`) | 0.5385 | **0.6410** | +0.102 |
 | L-SHADE (`NP_init=10`) | 0.4132 | **0.6318** | +0.219 |
@@ -606,3 +607,33 @@ search with a memory of successful step directions.  Two readings:
   accepted against the old one on 12 seeds, as a library default, not as
   a harness spec.
 * **The full budget.** One run at `bm=2000` on the standard dims.
+
+## 18. Methodology lesson: a dead parameter passed the sweep's CI
+
+Record of how §15–§17 reported a clean, replicated, CI-excluding-zero
+"interior optimum" for a parameter that is never read.
+
+1. The harness derived every run's seed from the spec **name**
+   (`harness_ioh.py:790`).  "Variant vs default" therefore always
+   compared two different RNG streams, so the paired delta of a
+   *no-op* variant is not zero — it is one draw of run-to-run noise.
+2. The sweep reports the **maximum** over six such draws.  The winner
+   of a null tournament is biased upward by roughly the spread between
+   draws.
+3. "Replication" in pass 2 re-ran the identical (name, seed) pairs and
+   reproduced the identical numbers — determinism mistaken for
+   confirmation.
+4. The per-dimension split *did* carry the signal — `ipop_1.5` showed
+   −0.0001 at *d* = 2, which for a real knob would have been odd — and
+   it was read as "the mechanism only acts at *d* = 5" instead of "this
+   is noise".
+
+Fixes, all in progress or done: `StrategySpec.seed_name` so variants of
+one arm share a stream (a dead parameter then yields exactly 0); a
+measured **null floor** (same config, six names, three seeds) recorded
+alongside every sweep, so an "effect" below it is not reported as one;
+and the rule that a positive result needs a *mechanism* — a claim about
+which code path the parameter changes — before it is called located.
+The `NP_init` results survive all three tests: the parameter is read
+in `__init__`, the effect (+0.2) is far above the spread, and the
+collapse at 4 is a mechanism.

@@ -26,7 +26,7 @@ CI excluding zero:
 
 | arm | best variant | Δ AOCC |
 |---|---|---|
-| cmaes | `ipop_factor=1.5` | **+0.0886** |
+| cmaes | ~~`ipop_factor=1.5`~~ | *retracted: never read in solo runs (§16)* |
 | jso | `NP_init=30` | **+0.0997** |
 | lshade | `NP_init=30` | **+0.0791** |
 | pso | `v_max_frac=0.2` | **+0.0660** |
@@ -53,9 +53,10 @@ either arm until the oracle is recomputed on tuned versions.
       really sits near `budget/30`, fix the divisor in
       `_resolve_auto_np_init` (`panobbgo/heuristics/lshade.py`) — it is a
       library default that every user gets, not a harness knob.
-- [ ] **Same for `ipop_factor`.** 1.5 beat 2.0 and 3.0 and sits at the
-      edge of the tested range; try 1.2 / 1.35 / 1.5.  CMA-ES is the
-      shipped default, so every point lands directly in the setup.
+- [x] ~~**Same for `ipop_factor`.**~~ Retracted: `ipop_factor` is only
+      read on an `on_restart` event, which no solo run ever receives.
+      Solo CMA-ES has **no restart criterion at all** — self-restart on
+      Hansen's termination criteria is being implemented instead.
 - [ ] **Check whether the gains compose.** Each variant was measured
       alone against the default; `NP_init=30` + `H=20` on lbc/jso may
       overlap.  Combine the per-arm winners and re-measure.

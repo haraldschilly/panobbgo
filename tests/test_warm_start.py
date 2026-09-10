@@ -16,6 +16,8 @@ The properties pinned here:
   :class:`~panobbgo.lib.Result` objects **themselves** — no evaluation is
   requested for a point that was already paid for;
 * a warm-started PSO takes its personal bests from the seeds;
+* a warm-started CMA-ES fits ``m`` / ``σ`` / ``C`` to the seed cloud — saving
+  no evaluations, but starting in the right basin at the right scale;
 * and the reproducibility contract: ``warm_start=None`` — explicit or
   omitted — and an *empty* archive both reproduce the cold trajectory
   exactly.
@@ -24,6 +26,7 @@ The properties pinned here:
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from panobbgo.analyzers import Archive, Splitter
 from panobbgo.lib import Point, Result
@@ -232,8 +235,6 @@ def test_lshade_warm_start_now_reseeds_a_running_population():
 
 
 def test_lshade_warm_start_validates_its_mode():
-    import pytest
-
     from panobbgo.heuristics import JSO, LSHADE, NLSHADE_LBC, NLSHADE_RSP, LSHADE_EpSin
 
     s = _strategy()
@@ -283,8 +284,6 @@ def test_pso_warm_start_takes_its_swarm_from_the_seeds():
 
 
 def test_pso_warm_start_validates_its_mode():
-    import pytest
-
     from panobbgo.heuristics import PSO
 
     s = _strategy()
@@ -294,13 +293,180 @@ def test_pso_warm_start_validates_its_mode():
 
 
 # ----------------------------------------------------------------------
+# CMA-ES: m / sigma / C fitted to the seed cloud
+# ----------------------------------------------------------------------
+
+
+def _cmaes_seeds(h, archive):
+    """The seed positions ``h`` would have used, as an ``(k, dim)`` array."""
+    return np.vstack([r.x for r in archive.top_k(len(h._warm_start_seeds()))])
+
+
+def test_cmaes_warm_start_mean_is_the_weighted_recombination():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 40))
+
+    h = CMAES(s, warm_start="archive")
+    h.on_start()
+
+    X = _cmaes_seeds(h, a)
+    assert len(X) == max(h._lam, 4 + int(3 * np.log(2)))
+    np.testing.assert_allclose(h._m, h._w @ X[: h._mu])
+    # exactly one generation went out, from the fitted distribution
+    assert len(h.get_points()) == h._lam
+
+
+def test_cmaes_warm_start_sigma_is_the_seed_spread_and_never_wider_than_cold():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 40))
+
+    h = CMAES(s, warm_start="archive")
+    h.on_start()
+    X = _cmaes_seeds(h, a)
+
+    sigma0_cold = h._sigma0_default()
+    np.testing.assert_allclose(h._sigma, float(np.mean(np.std(X, axis=0))))
+    assert h._sigma <= sigma0_cold
+    # ``_sigma0`` — what ``tolx`` is relative to — follows the warm sigma
+    assert h._sigma0 == h._sigma
+
+    # a cloud wider than the cold sigma0 is clipped, never widened
+    wide = _strategy(seed=2)
+    _archive_of(wide, _results(wide.problem, 40, seed=11))
+    g = CMAES(wide, warm_start="archive", sigma0=0.01)
+    g.on_start()
+    assert g._sigma == g._sigma0_default()
+
+    # a collapsed cloud is floored, not zeroed
+    tight = _strategy(seed=3)
+    x0 = np.zeros(tight.problem.dim)
+    same = [Result(Point(x0 + 1e-18 * i, "T"), float(i)) for i in range(8)]
+    _archive_of(tight, same)
+    t = CMAES(tight, warm_start="archive")
+    t.on_start()
+    assert t._sigma == 1e-6 * float(np.mean(t._ranges))
+
+
+def test_cmaes_warm_start_leaves_c_and_the_paths_at_their_cold_values():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    _archive_of(s, _results(s.problem, 40))
+    n = s.problem.dim
+
+    h = CMAES(s, warm_start="archive")
+    h.on_start()
+    np.testing.assert_array_equal(h._C, np.eye(n))
+    np.testing.assert_array_equal(h._B, np.eye(n))
+    np.testing.assert_array_equal(h._D, np.ones(n))
+    np.testing.assert_array_equal(h._p_c, np.zeros(n))
+    np.testing.assert_array_equal(h._p_sigma, np.zeros(n))
+    assert h._counteval == 0
+
+
+def test_cmaes_archive_cov_seeds_a_unit_determinant_covariance():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    # a deliberately anisotropic cloud: wide in x0, narrow in x1
+    rng = np.random.default_rng(5)
+    cloud = [
+        Result(Point(s.problem.project(np.array([rng.normal(0.0, 0.8), rng.normal(0.0, 0.02)])), "T"), float(i))
+        for i in range(20)
+    ]
+    a = _archive_of(s, cloud)
+
+    h = CMAES(s, warm_start="archive_cov")
+    h.on_start()
+    X = _cmaes_seeds(h, a)
+
+    # unit determinant: the *scale* of the cloud lives in sigma alone
+    assert np.linalg.det(h._C) == pytest.approx(1.0)
+    # ... and the shape is the cloud's, decomposed the way ``_update`` does
+    cov = np.cov(X, rowvar=False)
+    eig = np.linalg.eigvalsh((cov + cov.T) / 2.0)
+    eig = np.maximum(eig, 1e-20)
+    eig = eig / float(np.exp(np.mean(np.log(eig))))
+    np.testing.assert_allclose(np.sort(h._D), np.sqrt(np.sort(eig)))
+    np.testing.assert_allclose(h._C, (h._B * (h._D**2)) @ h._B.T, atol=1e-12)
+    assert h._D.max() / h._D.min() > 2.0, "the anisotropy must survive"
+
+    # "archive" alone must NOT pick the shape up — that is the whole point of
+    # keeping the covariance seed a separate mode.
+    plain = CMAES(s, warm_start="archive")
+    plain.on_start()
+    np.testing.assert_array_equal(plain._C, np.eye(s.problem.dim))
+
+
+def test_cmaes_archive_cov_degrades_to_identity_on_a_degenerate_cloud():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    # every seed on one line -> the sample covariance is rank 1
+    base = np.array([0.1, 0.1])
+    line = [Result(Point(s.problem.project(base * (1 + i)), "T"), float(i)) for i in range(12)]
+    _archive_of(s, line)
+
+    h = CMAES(s, warm_start="archive_cov")
+    h.on_start()
+    np.testing.assert_array_equal(h._C, np.eye(s.problem.dim))
+    np.testing.assert_array_equal(h._D, np.ones(s.problem.dim))
+
+
+def test_cmaes_warm_start_now_only_fires_with_seeds_and_reloads_the_queue():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    a = Archive(s, k=64)
+    s.add_analyzer(a)
+
+    h = CMAES(s, warm_start="archive")
+    h.on_start()  # empty archive -> cold start
+    cold_m = h._m.copy()
+    stale = h.get_points()
+    assert len(stale) == h._lam
+    assert h._pending  # the cold generation is in flight
+
+    # empty archive: nothing to seed with, and nothing is thrown away
+    assert h.warm_start_now() is False
+    assert h._pending
+    np.testing.assert_array_equal(h._m, cold_m)
+
+    a.on_new_results(_results(s.problem, 40))
+    assert h.warm_start_now() is True
+    assert not np.array_equal(h._m, cold_m)
+    # the stale generation is gone and a fresh one is queued
+    assert all(who.startswith("CMAES:g2:") for who in h._pending)
+    assert len(h.get_points()) == h._lam
+    assert h._counteval == 0  # a re-seed is not a restart
+    assert h.restart_count == 0
+
+    # not opted in -> the base-class hook
+    assert CMAES(s, warm_start=None).warm_start_now() is False
+
+
+def test_cmaes_warm_start_validates_its_mode():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    with pytest.raises(ValueError, match="warm_start must be None or one of"):
+        CMAES(s, warm_start="archive_covariance")
+    assert CMAES(s).warm_start is None
+    assert "archive_cov" in CMAES.SUPPORTED_WARM_START
+
+
+# ----------------------------------------------------------------------
 # (c) + (e) the reproducibility contract
 # ----------------------------------------------------------------------
 
 
 def _run(seed=1234, max_eval=60, warm_start="__omitted__", with_archive=False):
     """A small seeded round-robin run; returns its ``(x, fx, who)`` trajectory."""
-    from panobbgo.heuristics import JSO, PSO, Random
+    from panobbgo.heuristics import CMAES, JSO, PSO, Random
     from panobbgo.strategies import StrategyRoundRobin
 
     problem = Rosenbrock(dim=2)
@@ -313,6 +479,7 @@ def _run(seed=1234, max_eval=60, warm_start="__omitted__", with_archive=False):
     s.add_heuristic(Random(s))
     s.add_heuristic(JSO(s, NP_init=8, **kw))
     s.add_heuristic(PSO(s, NP=6, **kw))
+    s.add_heuristic(CMAES(s, **kw))
     if with_archive:
         s.add_analyzer(Archive(s))
     s.start()
@@ -333,7 +500,11 @@ def _assert_same(a, b):
 
 
 def test_explicit_none_is_the_same_run_as_omitting_the_argument():
-    """The new keyword must not perturb the RNG streams (design §2)."""
+    """The new keyword must not perturb the RNG streams (design §2).
+
+    Covers all three warm-startable families at once — the run carries a
+    JSO, a PSO and a CMAES.
+    """
     _assert_same(_run(warm_start="__omitted__"), _run(warm_start=None))
 
 

@@ -242,10 +242,30 @@ class CMAES(Heuristic):
             AOCC without it against 0.625 for the battery as a whole.
         sigma_divergence_gens (int): Consecutive generations above the
             threshold before the criterion fires.  Default 5.
+        warm_start (str, optional): Fit the *initial* search distribution to
+            the shared archive instead of starting from the box centre
+            (``planning/DESIGN_warm_start_2026-09-10.md`` §2).  One of the
+            three shared selectors — ``"archive"``, ``"archive_diverse"``,
+            ``"archive_leaf"``, see
+            :meth:`~panobbgo.core.Heuristic.archive_seed` — or the CMA-ES-only
+            ``"archive_cov"``, which additionally seeds ``C`` with the
+            covariance of the seed cloud.  ``None`` (default) is the cold
+            start, statement for statement the behaviour shipped before.
+            Unlike the DE family and PSO, a warm start here saves **no**
+            evaluations: CMA-ES has no population to fill, so the whole gain
+            is starting in the right basin with the right scale.  At
+            ``t = 0`` the archive is empty and the heuristic cold-starts.
     """
 
     #: Accepted values for the ``restart_from`` constructor argument.
     SUPPORTED_RESTART_FROM = ("random", "best", "center")
+
+    #: Accepted values for ``warm_start``: the shared selectors of
+    #: :attr:`~panobbgo.core.Heuristic.WARM_START_MODES` plus the CMA-ES-only
+    #: covariance seed.  ``"archive_cov"`` is kept separate from ``"archive"``
+    #: on purpose, so the covariance seed can be measured apart from the
+    #: mean/σ seed.
+    SUPPORTED_WARM_START = Heuristic.WARM_START_MODES + ("archive_cov",)
 
     def __init__(
         self,
@@ -269,6 +289,7 @@ class CMAES(Heuristic):
         sigma_divergence: bool = True,
         sigma_max_frac: float = 0.3,
         sigma_divergence_gens: int = 5,
+        warm_start: Optional[str] = None,
     ):
         super().__init__(strategy, name="CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -309,6 +330,14 @@ class CMAES(Heuristic):
             raise ValueError(f"sigma_max_frac must be in (0, 1], got {sigma_max_frac!r}")
         if int(sigma_divergence_gens) < 1:
             raise ValueError(f"sigma_divergence_gens must be >= 1, got {sigma_divergence_gens!r}")
+        if warm_start is not None and warm_start not in self.SUPPORTED_WARM_START:
+            raise ValueError(
+                f"CMAES: warm_start must be None or one of {self.SUPPORTED_WARM_START}, got {warm_start!r}"
+            )
+        #: Archive selector for :meth:`_warm_start_distribution`, or ``None``
+        #: for the cold start.  A *string*, deliberately not a callable: the
+        #: trigger is :meth:`warm_start_now`.
+        self.warm_start: Optional[str] = warm_start
         self._stagnation_frac = None if stagnation_frac is None else float(stagnation_frac)
         self._stagnation_rel_tol = float(stagnation_rel_tol)
         self._sigma_divergence = bool(sigma_divergence)
@@ -480,6 +509,15 @@ class CMAES(Heuristic):
         self._bipop_current_regime = "large"
         self._bipop_regime_eval_anchor = 0
 
+        # A warm start replaces m / σ / C — and nothing else.  λ, μ, the
+        # adaptation constants and the counters are the cold set-up above, and
+        # the generation at the end of this method is emitted exactly as in a
+        # cold run.  It runs before ``_reset_run_state`` so that ``_sigma0``
+        # (which the ``tolx`` criterion is relative to) is the σ this run
+        # actually starts from.
+        if self.warm_start:
+            self._warm_start_distribution()
+
         self._reset_run_state()
 
         self.logger.info(
@@ -493,6 +531,163 @@ class CMAES(Heuristic):
             self._restart_from,
         )
         self._emit_generation()
+
+    # ------------------------------------------------------------------
+    # Warm start from the shared archive
+    # ------------------------------------------------------------------
+
+    def _warm_start_seeds(self) -> List[np.ndarray]:
+        """Positions of the archive points this warm start is fitted to.
+
+        ``k = max(λ, 4 + ⌊3 ln n⌋)`` — a full generation's worth, never fewer
+        than the default λ.  ``"archive_cov"`` asks for ``2n`` as well: a
+        sample covariance of ``k ≤ n`` points is rank-deficient by
+        construction, and would always fall back to the identity.
+        """
+        n = self.problem.dim
+        k = max(self._lam, 4 + int(3 * np.log(max(n, 2))))
+        if self.warm_start == "archive_cov":
+            k = max(k, 2 * n)
+        seeds = self.archive_seed(k, mode=self.warm_start)
+        return [np.asarray(r.x, dtype=float) for r in seeds]
+
+    def _warm_start_distribution(self) -> bool:
+        """Fit ``m`` / ``σ`` / ``C`` to the shared archive.  ``True`` iff seeded.
+
+        The recipe of the design's §2 "Per-arm recipes":
+
+        * **m** — the μ-weighted recombination of the best μ seeds, using the
+          very weights :meth:`_update` recombines with (re-normalised when
+          fewer than μ seeds exist, exactly as :meth:`_update` does).
+        * **σ** — the mean per-coordinate standard deviation of the seed
+          cloud, clipped into ``[1e-6·range, σ0_cold]``.  Never *wider* than a
+          cold start: a warm start may only narrow the search.
+        * **C** — the identity, or (``"archive_cov"``) the seed covariance
+          normalised to unit determinant, so it carries the *shape* of the
+          cloud while σ alone carries its scale.
+        * evolution paths zeroed, ``_counteval`` untouched.
+
+        Returns ``False`` — **without touching any state** — when the archive
+        has nothing to give, so a caller can fall back to the cold path (or,
+        for :meth:`warm_start_now`, leave a running search alone).
+        """
+        if not self.warm_start:
+            return False
+        if self._ranges is None or self._w is None:
+            return False  # on_start has not run yet
+        seeds = self._warm_start_seeds()
+        if not seeds:
+            return False
+
+        n = self.problem.dim
+        X = np.vstack(seeds)
+
+        # --- mean: μ-weighted recombination of the best seeds ---
+        mu = max(1, min(self._mu, len(X)))
+        if mu == len(self._w):
+            w = self._w
+        else:
+            raw = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
+            w = raw / raw.sum()
+        self._m = self.problem.project(w[:mu] @ X[:mu])
+
+        # --- σ: the spread of the seed cloud, never wider than cold ---
+        spread = float(np.mean(np.std(X, axis=0))) if len(X) > 1 else 0.0
+        floor = 1e-6 * float(np.mean(self._ranges))
+        self._sigma = float(np.clip(spread, floor, self._sigma0_default()))
+
+        # --- C, B, D and the evolution paths ---
+        self._p_c = np.zeros(n)
+        self._p_sigma = np.zeros(n)
+        if self.warm_start == "archive_cov" and len(X) >= n + 2:
+            self._seed_covariance(X)
+        else:
+            self._reset_covariance(n)
+            self._cond = 1.0
+        # B and D were just made consistent with C, so the lazy
+        # eigendecomposition schedule restarts from here.  ``_counteval``
+        # itself is deliberately left alone.
+        self._eigeneval = self._counteval
+
+        self.logger.info(
+            "CMA-ES warm start (%s): %d seeds, σ=%.4g, cond(C)=%.3g",
+            self.warm_start,
+            len(X),
+            self._sigma,
+            self._cond,
+        )
+        return True
+
+    def _seed_covariance(self, X: np.ndarray) -> None:
+        """Set ``C`` to the seed covariance, normalised to unit determinant.
+
+        Eigendecomposed exactly the way :meth:`_update` does — symmetrise,
+        ``eigh``, the same ``1e-20`` eigenvalue floor, the same ``1e7``
+        condition guard that falls back to the identity.  The unit-determinant
+        normalisation is what keeps the *scale* of the search in σ alone,
+        where CMA-ES's step-size control can adapt it; without it the seed
+        cloud's scale would be counted twice.
+        """
+        n = self.problem.dim
+        cov = np.atleast_2d(np.asarray(np.cov(X, rowvar=False), dtype=float))
+        if cov.shape != (n, n) or not np.all(np.isfinite(cov)):
+            self._reset_covariance(n)
+            self._cond = 1.0
+            return
+
+        C_sym = (cov + cov.T) / 2.0
+        try:
+            eigvals, B_new = np.linalg.eigh(C_sym)
+        except np.linalg.LinAlgError:
+            self.logger.warning("CMA-ES warm start: eigendecomposition of the seed covariance failed")
+            self._reset_covariance(n)
+            self._cond = 1.0
+            return
+
+        eigvals = np.maximum(eigvals, 1e-20)
+        # det(C) = Π eigvals = 1  ⇔  the eigenvalues have geometric mean 1.
+        eigvals = eigvals / float(np.exp(np.mean(np.log(eigvals))))
+        D_new = np.sqrt(eigvals)
+        self._B = B_new
+        self._D = D_new
+        self._C = (B_new * eigvals) @ B_new.T
+        self._cond = float(D_new.max() / D_new.min()) ** 2
+
+        if D_new.max() / D_new.min() > 1e7:
+            # A degenerate seed cloud (duplicates, or fewer independent
+            # directions than dimensions) — the identity is the honest prior.
+            self.logger.info("CMA-ES warm start: seed covariance too ill-conditioned — using I")
+            self._reset_covariance(n)
+            self._cond = 1.0
+
+    def warm_start_now(self) -> bool:
+        """Re-fit the search distribution to the shared archive, right now.
+
+        The direct-call hook of
+        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`; see
+        :meth:`panobbgo.core.Heuristic.warm_start_now`.  Unlike a restart this
+        keeps λ, the regime bookkeeping and ``_counteval`` — only the
+        distribution moves — but it does drop the stale generation in flight,
+        exactly as :meth:`_apply_restart` does, and starts a fresh
+        termination-criteria window.
+
+        Nothing is dropped when the archive is empty: the method returns
+        ``False`` and the running search is left untouched.
+        """
+        if self._stopped or not self.warm_start:
+            return False
+        if self._m is None or self._w is None or self._ranges is None:
+            return False  # not started yet — on_start will do the seeding
+        if not self._warm_start_distribution():
+            return False
+
+        self._pending.clear()
+        self._gen_results.clear()
+        self._gen_emitted.clear()
+        self.clear_output()
+        self._reset_run_state()
+        self._emit_generation()
+        return True
 
     # ------------------------------------------------------------------
     # Event handlers

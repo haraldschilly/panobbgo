@@ -39,6 +39,44 @@ analyzer detects stagnation and fires a ``restart`` event, this heuristic:
 3. Resets σ to its initial fraction of the search-space range.
 4. Flushes the pending/stale generation results.
 
+**Self-restart** (the default, ``self_restart=True``): the heuristic also
+watches its *own* termination criteria and restarts itself when one fires,
+without needing the ``Restart`` analyzer.  Without this a solo CMA-ES has no
+termination criterion at all — it runs a single CMA-ES for the whole budget
+and, once σ has collapsed, keeps resampling the same point.  Measured on five
+MA-BBOB instances at d=5 with a 2500-evaluation budget (2026-09-10): on
+average **52 % of the budget was spent after the last improvement of any
+size**, 66 % after the last ≥1e-3 relative improvement, and 91 % after 99 %
+of the total improvement had been reached; on two of the five instances σ
+*diverged* to its clamp and 92 % of the budget bought nothing.
+
+The criteria are the standard ones (Hansen 2016, §4 "Discussion", and the
+``cma.CMAOptions`` defaults of pycma); each is a constructor kwarg:
+
+* ``tolx`` (1e-11, σ0-relative): all components of ``σ·sqrt(diag C)`` and
+  ``σ·p_c`` below ``tolx · σ0``.
+* ``tolfun`` (1e-11): the range of the best objective values of the last
+  ``10 + ⌈30n/λ⌉`` generations *and* all values of the current generation is
+  below ``tolfun``.
+* ``tolfunhist`` (1e-12): the range of the best objective values over that
+  same history alone is below ``tolfunhist``.
+* ``stagnation`` (window ``20 + ⌈120n/λ⌉`` generations): in *both* the
+  best-value and the median-value history, the median of the last 30 % of the
+  window is not better than the median of the first 30 %.
+* ``conditioncov`` (1e14): the condition number of C exceeds the bound.
+* ``noeffectaxis``: adding ``0.1·σ·d_i·b_i`` (one principal axis, cycled per
+  generation) does not change the mean m.
+* ``noeffectcoord``: adding ``0.2·σ·sqrt(C_ii)`` in any single coordinate does
+  not change m.
+
+When a criterion fires, the heuristic restarts through the very same code
+path as the ``restart`` event, with a start point chosen by ``restart_from``
+(``"random"`` — a uniform draw in the box, the reference IPOP behaviour and
+the default; ``"best"`` — the best point this heuristic has evaluated;
+``"center"`` — the box centre, i.e. what :meth:`on_start` uses).  Because the
+restart path is the IPOP/BIPOP one, ``ipop_factor`` finally has an effect in
+solo runs, where it was previously dead code.
+
 **BIPOP restart** (Hansen, 2009): alternates between two restart regimes,
 balancing the cumulative evaluation budget spent in each:
 
@@ -66,7 +104,8 @@ The heuristic works asynchronously inside the panobbgo event loop:
 1. ``on_start()``  — initialise parameters and emit the first generation of λ candidates.
 2. ``on_new_results()``  — collect returned results tagged with our generation ID.
    When at least μ results from the oldest open generation have arrived, perform
-   one CMA-ES update step and emit the next generation.
+   one CMA-ES update step, check the termination criteria, and either restart
+   (if one fired and ``self_restart`` is on) or emit the next generation.
 3. ``on_restart(center, reason)``  — reset distribution to *center* with the
    restart regime selected by ``restart_mode`` (``"ipop"`` or ``"bipop"``).
 
@@ -119,7 +158,36 @@ class CMAES(Heuristic):
             BIPOP mode (which always doubles the large regime).
         restart_mode (str): Restart scheme selector — ``"ipop"`` (default) or
             ``"bipop"``.
+        self_restart (bool): Watch the internal termination criteria and
+            restart without waiting for a ``restart`` event.  Default ``True``.
+            ``False`` restores the pre-2026-09 behaviour: one CMA-ES run for
+            the whole budget unless the ``Restart`` analyzer intervenes.
+        restart_from (str): Where a *self*-restart re-centres the search —
+            ``"random"`` (default; uniform draw in the box, the reference IPOP
+            behaviour), ``"best"`` (the best point this heuristic evaluated) or
+            ``"center"`` (the box centre, as :meth:`on_start` uses).  Restarts
+            coming from the ``restart`` event always use the analyzer's centre.
+        tolx (float): Termination when all components of ``σ·sqrt(diag C)``
+            and ``σ·p_c`` fall below ``tolx · σ0``.  Default 1e-11
+            (pycma ``cma.CMAOptions['tolx']``).
+        tolfun (float): Termination when the range of the best objective
+            values over the last ``10 + ⌈30n/λ⌉`` generations together with all
+            values of the current generation is below this.  Default 1e-11.
+        tolfunhist (float): Same window, best values only.  Default 1e-12
+            (pycma ``tolfunhist``).
+        stagnation (int, optional): Window length in generations for the
+            median-based stagnation test of Hansen (2016).  ``None`` (default)
+            resolves to ``20 + ⌈120n/λ⌉``; ``0`` disables the test.
+        conditioncov (float): Termination when ``cond(C)`` exceeds this.
+            Default 1e14 (pycma ``tolconditioncov``).
+        noeffectaxis (bool): Enable the ``NoEffectAxis`` criterion (default
+            ``True``).
+        noeffectcoord (bool): Enable the ``NoEffectCoord`` criterion (default
+            ``True``).
     """
+
+    #: Accepted values for the ``restart_from`` constructor argument.
+    SUPPORTED_RESTART_FROM = ("random", "best", "center")
 
     def __init__(
         self,
@@ -129,6 +197,15 @@ class CMAES(Heuristic):
         min_results_fraction: float = 0.5,
         ipop_factor: float = 2.0,
         restart_mode: str = "ipop",
+        self_restart: bool = True,
+        restart_from: str = "random",
+        tolx: float = 1e-11,
+        tolfun: float = 1e-11,
+        tolfunhist: float = 1e-12,
+        stagnation: Optional[int] = None,
+        conditioncov: float = 1e14,
+        noeffectaxis: bool = True,
+        noeffectcoord: bool = True,
     ):
         super().__init__(strategy, name="CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -139,6 +216,42 @@ class CMAES(Heuristic):
         if restart_mode not in ("ipop", "bipop"):
             raise ValueError(f"restart_mode must be 'ipop' or 'bipop', got {restart_mode!r}")
         self._restart_mode = restart_mode
+
+        # --- Self-restart: internal termination criteria (Hansen 2016 / pycma) ---
+        if restart_from not in self.SUPPORTED_RESTART_FROM:
+            raise ValueError(f"restart_from must be one of {self.SUPPORTED_RESTART_FROM!r}, got {restart_from!r}")
+        for _n, _v in (("tolx", tolx), ("tolfun", tolfun), ("tolfunhist", tolfunhist)):
+            if _v < 0.0:
+                raise ValueError(f"{_n} must be >= 0, got {_v!r}")
+        if conditioncov <= 1.0:
+            raise ValueError(f"conditioncov must be > 1, got {conditioncov!r}")
+        if stagnation is not None and int(stagnation) < 0:
+            raise ValueError(f"stagnation must be >= 0 or None, got {stagnation!r}")
+        self._self_restart = bool(self_restart)
+        self._restart_from = restart_from
+        self._tolx = float(tolx)
+        self._tolfun = float(tolfun)
+        self._tolfunhist = float(tolfunhist)
+        self._stagnation_cfg = None if stagnation is None else int(stagnation)
+        self._conditioncov = float(conditioncov)
+        self._noeffectaxis = bool(noeffectaxis)
+        self._noeffectcoord = bool(noeffectcoord)
+
+        # Per-run termination bookkeeping (reset by :meth:`_reset_run_state`)
+        self._sigma0: float = 1.0  # σ at the start of the *current* CMA-ES run
+        self._fx_hist: List[float] = []  # best penalty per generation
+        self._med_hist: List[float] = []  # median penalty per generation
+        self._gen_fx: List[float] = []  # all finite penalties of the last generation
+        self._hist_len: int = 0  # 10 + ⌈30n/λ⌉ — tolfun/tolfunhist window
+        self._stagnation_gens: int = 0  # 20 + ⌈120n/λ⌉ — stagnation window
+        self._hist_max: int = 0  # how much history to keep around
+        self._cond: float = 1.0  # cond(C) at the last eigendecomposition
+        self._self_restart_count: int = 0
+        self._last_stop_reason: str = ""
+
+        # Best point this heuristic has evaluated (for ``restart_from="best"``)
+        self._best_fx: float = float("inf")
+        self._best_x: Optional[np.ndarray] = None
 
         # IPOP restart tracking
         self._restart_count: int = 0
@@ -280,13 +393,17 @@ class CMAES(Heuristic):
         self._bipop_current_regime = "large"
         self._bipop_regime_eval_anchor = 0
 
+        self._reset_run_state()
+
         self.logger.info(
-            "CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f mode=%s",
+            "CMA-ES started: n=%d λ=%d μ=%d σ0=%.4f mode=%s self_restart=%s from=%s",
             n,
             lam,
             mu,
             sigma,
             self._restart_mode,
+            self._self_restart,
+            self._restart_from,
         )
         self._emit_generation()
 
@@ -340,15 +457,24 @@ class CMAES(Heuristic):
                 self._update(bucket)
                 del self._gen_results[gen]
                 self._gen_emitted.pop(gen, None)
-                self._emit_generation()
+                # A fired termination criterion replaces the next generation
+                # with a restart — ``_apply_restart`` emits from the fresh
+                # distribution, so exactly one generation goes out either way.
+                reason = self._check_termination() if self._self_restart else None
+                if reason is not None:
+                    self._self_restart_now(reason)
+                else:
+                    self._emit_generation()
                 break
 
     def on_restart(self, center: np.ndarray, reason: str = "") -> None:
         """Reset CMA-ES to *center* using the configured restart scheme.
 
         Called by the :class:`~panobbgo.analyzers.restart.Restart` analyzer
-        when stagnation is detected.  Dispatches to the IPOP or BIPOP
-        sub-routine according to ``restart_mode``.  Both schemes:
+        when stagnation is detected, and by :meth:`_self_restart_now` when one
+        of the heuristic's own termination criteria fires (then *center* comes
+        from ``restart_from`` instead of the analyzer).  Dispatches to the IPOP
+        or BIPOP sub-routine according to ``restart_mode``.  Both schemes:
 
         - Move the search mean to *center* (a fresh region of the search space).
         - Recompute μ and all adaptation parameters for the new λ.
@@ -509,6 +635,8 @@ class CMAES(Heuristic):
         self._eigeneval = 0
         self._counteval = 0
 
+        self._reset_run_state()
+
         # Flush stale generation tracking and stale queued points — results for
         # pre-restart points are ignored anyway, and clearing frees queue
         # capacity for the (typically larger) new generation.
@@ -542,6 +670,156 @@ class CMAES(Heuristic):
     def bipop_evals_small(self) -> int:
         """Cumulative evaluations spent in the BIPOP small regime."""
         return self._bipop_evals_small
+
+    # ------------------------------------------------------------------
+    # Termination criteria and self-restart
+    # ------------------------------------------------------------------
+
+    def _reset_run_state(self) -> None:
+        """Reset the per-run bookkeeping the termination criteria read.
+
+        Called once per CMA-ES *run*, i.e. from :meth:`on_start` and from
+        :meth:`_apply_restart` after λ and σ of the new run are in place —
+        the two window lengths both depend on λ, so they must be resolved
+        here rather than in the constructor.
+        """
+        n = self.problem.dim
+        lam = max(self._lam, 1)
+        self._sigma0 = self._sigma
+        self._fx_hist = []
+        self._med_hist = []
+        self._gen_fx = []
+        self._cond = 1.0
+        # Hansen (2016): TolFun looks at the last 10 + ⌈30n/λ⌉ generations,
+        # Stagnation at the last 20 + ⌈120n/λ⌉.
+        self._hist_len = int(10 + np.ceil(30.0 * n / lam))
+        if self._stagnation_cfg is None:
+            self._stagnation_gens = int(20 + np.ceil(120.0 * n / lam))
+        else:
+            self._stagnation_gens = self._stagnation_cfg
+        self._hist_max = max(self._hist_len, self._stagnation_gens) + 1
+
+    def _record_generation(self, collected: List[dict]) -> None:
+        """Fold one finished generation into the termination histories.
+
+        ``collected`` is already sorted ascending by penalty, so its first
+        element is the generation's best.  Non-finite penalties (the rank-last
+        marker for a failed evaluation) are excluded from the ranges the
+        criteria test, but still counted in the median.
+        """
+        penalties = [float(d["penalty"]) for d in collected]
+        best = penalties[0]
+        self._fx_hist.append(best)
+        self._med_hist.append(float(np.median(penalties)))
+        self._gen_fx = [p for p in penalties if np.isfinite(p)]
+        if len(self._fx_hist) > self._hist_max:
+            del self._fx_hist[: -self._hist_max]
+            del self._med_hist[: -self._hist_max]
+
+        if np.isfinite(best) and best < self._best_fx:
+            self._best_fx = best
+            self._best_x = np.asarray(collected[0]["x"], dtype=float).copy()
+
+    def _check_termination(self) -> Optional[str]:
+        """Return the name of the first termination criterion that fires, else ``None``.
+
+        The criteria and their reference defaults follow Hansen (2016),
+        "The CMA Evolution Strategy: A Tutorial", §"Discussion" (termination
+        criteria), and the ``cma.CMAOptions`` defaults of pycma.
+        """
+        m, C, p_c, B, D = self._m, self._C, self._p_c, self._B, self._D
+        if m is None or C is None or p_c is None or B is None or D is None:
+            return None
+        if not self._fx_hist:
+            return None
+
+        n = self.problem.dim
+        sigma = self._sigma
+        sqrt_diag_C = np.sqrt(np.maximum(np.diag(C), 0.0))
+
+        # --- TolX: the distribution has shrunk below a σ0-relative threshold ---
+        tolx = self._tolx * self._sigma0
+        if np.all(sigma * sqrt_diag_C < tolx) and np.all(sigma * np.abs(p_c) < tolx):
+            return "tolx"
+
+        # --- TolFun / TolFunHist: the objective range has flattened out ---
+        if len(self._fx_hist) >= self._hist_len:
+            window = [f for f in self._fx_hist[-self._hist_len :] if np.isfinite(f)]
+            if window:
+                spread = max(window) - min(window)
+                combined = window + self._gen_fx
+                if max(combined) - min(combined) < self._tolfun:
+                    return "tolfun"
+                if spread < self._tolfunhist:
+                    return "tolfunhist"
+
+        # --- Stagnation: neither the best nor the median history improves ---
+        w = self._stagnation_gens
+        if w > 0 and len(self._fx_hist) >= w:
+            k = max(1, int(0.3 * w))
+            improved = False
+            for hist in (self._fx_hist[-w:], self._med_hist[-w:]):
+                if float(np.median(hist[-k:])) < float(np.median(hist[:k])):
+                    improved = True
+                    break
+            if not improved:
+                return "stagnation"
+
+        # --- Condition number of C ---
+        if self._cond > self._conditioncov:
+            return "conditioncov"
+
+        # --- NoEffectAxis: one principal axis per generation, cycled ---
+        if self._noeffectaxis:
+            i = (self._gen - 1) % n
+            if np.all(m == m + 0.1 * sigma * D[i] * B[:, i]):
+                return "noeffectaxis"
+
+        # --- NoEffectCoord: any single coordinate ---
+        if self._noeffectcoord and np.any(m == m + 0.2 * sigma * sqrt_diag_C):
+            return "noeffectcoord"
+
+        return None
+
+    def _restart_center(self) -> np.ndarray:
+        """Start point for a *self*-restart, per ``restart_from``.
+
+        ``"random"`` draws from :attr:`rng` — the heuristic's own generator —
+        so a seeded run stays reproducible.
+        """
+        if self._restart_from == "random":
+            return self.problem.random_point(rng=self.rng)
+        if self._restart_from == "best" and self._best_x is not None:
+            return self._best_x.copy()
+        # ``"center"``, and ``"best"`` before anything has been evaluated
+        assert self._lo is not None and self._hi is not None
+        return 0.5 * (self._lo + self._hi)
+
+    def _self_restart_now(self, reason: str) -> None:
+        """Restart because *our own* criterion ``reason`` fired.
+
+        Goes through :meth:`on_restart`, so the IPOP/BIPOP logic, the
+        population growth and the bookkeeping are shared with the
+        analyzer-driven path — only the start point differs.
+        """
+        self._self_restart_count += 1
+        self._last_stop_reason = reason
+        self.on_restart(self._restart_center(), f"self-restart: {reason}")
+
+    @property
+    def n_restarts(self) -> int:
+        """Total restarts in this run — event-driven plus self-triggered."""
+        return self._restart_count
+
+    @property
+    def n_self_restarts(self) -> int:
+        """Restarts triggered by the internal termination criteria."""
+        return self._self_restart_count
+
+    @property
+    def last_stop_reason(self) -> str:
+        """Name of the termination criterion that fired last (``""`` if none)."""
+        return self._last_stop_reason
 
     # ------------------------------------------------------------------
     # Core CMA-ES update
@@ -610,6 +888,7 @@ class CMAES(Heuristic):
 
         # Sort by penalty (ascending = minimise)
         collected.sort(key=lambda d: d["penalty"])
+        self._record_generation(collected)
         selected = collected[: self._mu]
 
         # Recombination weights (may use fewer than μ if fewer arrived)
@@ -690,6 +969,10 @@ class CMAES(Heuristic):
             self._B = B_new
             self._D = D_new
             self._C = C_sym
+
+            # cond(C) = (max D / min D)², recorded *before* the guard below
+            # resets C, so the ``conditioncov`` criterion still sees it.
+            self._cond = float(D_new.max() / D_new.min()) ** 2
 
             # Condition-number guard
             if D_new.max() / D_new.min() > 1e7:

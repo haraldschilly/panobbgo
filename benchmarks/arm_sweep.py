@@ -108,7 +108,20 @@ if "dims" in opts or "bm" in opts:
 
 
 def solo(name, kw):
-    return dataclasses.replace(BASE, name=name, strategy_class=StrategyRoundRobin, heuristics=[(cls, kw)], analyzers=[])
+    # ``seed_name`` is the *arm*, constant across "default" and every variant,
+    # so all of them run the identical RNG stream on each (dim, inst, rep) cell.
+    # Without it the seed is hashed from the display name and a variant that
+    # changes nothing still shows a nonzero delta (proved on CMA-ES's
+    # ``ipop_factor``): the paired delta would carry the full run-to-run
+    # variance rather than the parameter's own effect.
+    return dataclasses.replace(
+        BASE,
+        name=name,
+        seed_name=arm,
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(cls, kw)],
+        analyzers=[],
+    )
 
 
 specs = [solo("default", dict(base_kw))] + [solo(n, {**base_kw, **kw}) for n, kw in variants.items()]

@@ -140,6 +140,17 @@ class StrategySpec:
             added automatically by the strategy; only supply *extra* analyzers here.
         config_overrides: Key/value pairs applied to ``strategy.config`` before the
             run starts.
+        seed_name: Optional RNG identity for the harnesses' per-run seed
+            derivation.  The harnesses hash a strategy label into every run's
+            seed; by default that label is :attr:`name`, so two specs that
+            differ *only* in their display name run on different RNG streams
+            and an A/B between them carries the full run-to-run variance —
+            a parameter that is never read still shows a nonzero delta.
+            Setting ``seed_name`` to one constant across all variants of an
+            arm makes them share the RNG stream per cell, so a dead parameter
+            yields *exactly* zero delta and a live one shows only its own
+            effect.  ``None`` (the default) keeps the historical behaviour of
+            seeding from :attr:`name`.
     """
 
     name: str
@@ -147,28 +158,54 @@ class StrategySpec:
     heuristics: List[Tuple[type, Dict[str, Any]]]  # List of (HeuristicClass, kwargs) tuples
     analyzers: List[Tuple[type, Dict[str, Any]]] = field(default_factory=list)
     config_overrides: Dict[str, Any] = field(default_factory=dict)
+    seed_name: Optional[str] = None
 
-    def create_strategy(self, problem: Problem, seed: Optional[int] = None) -> StrategyBase:
+    @property
+    def rng_identity(self) -> str:
+        """Label the harnesses hash into each run's seed — ``seed_name or name``."""
+        return self.seed_name or self.name
+
+    def create_strategy(
+        self,
+        problem: Problem,
+        seed: Optional[int] = None,
+        max_eval: Optional[int] = None,
+    ) -> StrategyBase:
         """Create and configure a strategy instance.
 
         ``seed`` pins the strategy's master RNG (see
         :attr:`panobbgo.core.StrategyBase.seed`); ``None`` lets the strategy
         draw one from numpy's global state.
+
+        ``max_eval`` is the run's evaluation budget.  It must be passed here
+        rather than assigned to ``strategy.config`` afterwards: heuristics are
+        constructed inside this method, and constructor-time logic that sizes
+        itself from the horizon — notably
+        :func:`panobbgo.heuristics.lshade._resolve_auto_np_init` for
+        ``NP_init="auto"`` — would otherwise read the *default* ``max_eval``
+        from :class:`panobbgo.config.Config` instead of the battery's budget.
+        ``None`` leaves the budget to ``config_overrides`` / the config default.
         """
         # Config overrides go in through the constructor so they are in
         # effect *before* the evaluation backend is set up (e.g.
-        # ``evaluation_method``, ``dask_n_workers``).  Only StrategyBase
+        # ``evaluation_method``, ``dask_n_workers``) and before any heuristic
+        # is constructed (e.g. ``max_eval``).  Only StrategyBase
         # accepts them; the external baselines in
         # :mod:`panobbgo.harness_baselines` take no config kwargs, so their
         # overrides are written onto the config afterwards.  ``strategy_class``
         # may also be a plain factory callable (used to pre-bind arguments a
         # spec cannot express, e.g. ``StrategyPhased``'s phase list), which
         # takes the same path as a baseline.
+        overrides = dict(self.config_overrides)
+        if max_eval is not None:
+            # The caller's budget wins over a spec-level override, matching the
+            # harnesses' historical ``strategy.config.max_eval = budget``.
+            overrides["max_eval"] = int(max_eval)
         if isinstance(self.strategy_class, type) and issubclass(self.strategy_class, StrategyBase):
-            strategy = self.strategy_class(problem, parse_args=False, seed=seed, **self.config_overrides)
+            strategy = self.strategy_class(problem, parse_args=False, seed=seed, **overrides)
         else:
             strategy = self.strategy_class(problem, parse_args=False, seed=seed)
-            for key, value in self.config_overrides.items():
+            for key, value in overrides.items():
                 setattr(strategy.config, key, value)
 
         # Add heuristics (dimension-gated arms are skipped outside their regime)
@@ -251,13 +288,12 @@ class BenchmarkSuite:
         try:
             # Create problem and strategy
             problem = problem_spec.create_problem()
-            strategy = strategy_spec.create_strategy(problem)
 
-            # Override max evaluations if specified
-            if max_evaluations is not None:
-                strategy.config.max_eval = max_evaluations
-            elif problem_spec.max_evaluations:
-                strategy.config.max_eval = problem_spec.max_evaluations
+            # Resolve the budget *before* constructing the strategy: heuristics
+            # are built inside create_strategy() and budget-adaptive ones (e.g.
+            # ``NP_init="auto"``) read ``config.max_eval`` in their constructor.
+            budget = max_evaluations if max_evaluations is not None else (problem_spec.max_evaluations or None)
+            strategy = strategy_spec.create_strategy(problem, max_eval=budget)
 
             # Configure for benchmarking (use threaded evaluation)
             strategy.config.evaluation_method = "threaded"

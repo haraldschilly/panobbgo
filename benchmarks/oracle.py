@@ -93,8 +93,19 @@ if "dims" in opts or "bm" in opts:
     )
 
 
-def solo(name, cls, kw):
-    return dataclasses.replace(BASE, name=name, strategy_class=StrategyRoundRobin, heuristics=[(cls, kw)], analyzers=[])
+def solo(name, cls, kw, seed_name=None):
+    # ``seed_name`` pins the RNG stream to the *arm key*, not the display name,
+    # so a tuned run and its ``--defaults`` counterpart (and any future run that
+    # relabels an arm) share the stream per (dim, inst, rep) cell and their
+    # difference is the settings, not the run-to-run variance.
+    return dataclasses.replace(
+        BASE,
+        name=name,
+        seed_name=seed_name or name,
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(cls, kw)],
+        analyzers=[],
+    )
 
 
 if src:

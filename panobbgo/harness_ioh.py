@@ -866,7 +866,14 @@ def _run_one(
 
         tracker = IOHTracker(wrapped, budget=budget)
         try:
-            strategy = strategy_spec.create_strategy(wrapped, seed=seed)
+            # The budget must reach the config *before* the heuristics are
+            # constructed — budget-adaptive arms (``NP_init="auto"``) size
+            # themselves from ``config.max_eval`` in their constructor, and
+            # would otherwise read Config's default (1000) instead of the
+            # battery's ``budget_multiplier * dim``.
+            strategy = strategy_spec.create_strategy(wrapped, seed=seed, max_eval=budget)
+            # Harmless belt-and-braces: keeps the invariant for factory-built
+            # strategies that rebuild their own config.
             strategy.config.max_eval = budget
             # Deterministic result batches for the threaded evaluator —
             # cuts adaptive-strategy measurement noise roughly in half
@@ -957,7 +964,10 @@ def run_ioh_harness(
             for spec in strategies:
                 for rep in range(battery.reps):
                     idx += 1
-                    seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.name, rep)
+                    # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
+                    # of one arm can opt into a shared RNG stream so an A/B
+                    # measures the parameter, not the run-to-run variance.
+                    seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep)
                     if progress:
                         print(
                             f"  [{idx:>3d}/{total:>3d}] {battery.problem_kind} "

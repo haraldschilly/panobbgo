@@ -383,3 +383,65 @@ def test_create_strategy_accepts_a_factory_callable():
     strategy = spec.create_strategy(Rosenbrock(dim=2), seed=5)
     assert made["seed"] == 5
     assert strategy.config.max_eval == 13
+
+
+def test_create_strategy_max_eval_is_visible_to_heuristic_constructors():
+    """``create_strategy(max_eval=...)`` must land on the config *before* ``add``.
+
+    Regression test for the harnesses' old ordering (build the strategy, then
+    assign ``strategy.config.max_eval = budget``): a heuristic that sizes
+    itself from the horizon in its constructor — ``LSHADE(NP_init="auto")`` —
+    read ``Config``'s default 1000 instead of the run's budget.
+    """
+    from types import SimpleNamespace
+
+    from panobbgo.heuristics import LSHADE
+    from panobbgo.heuristics.lshade import _resolve_auto_np_init
+    from panobbgo.strategies import StrategyRoundRobin
+
+    budget = 100
+    dim = 2
+
+    def np_init_for(max_eval, NP_min):
+        stub = SimpleNamespace(config=SimpleNamespace(max_eval=max_eval), problem=SimpleNamespace(dim=dim))
+        return _resolve_auto_np_init(stub, NP_min)
+
+    spec = StrategySpec(
+        name="auto_np",
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(LSHADE, {"NP_init": "auto"})],
+    )
+    strategy = spec.create_strategy(Rosenbrock(dim=dim), seed=1, max_eval=budget)
+
+    assert strategy.config.max_eval == budget
+    lshade = next(h for h in strategy._hs if isinstance(h, LSHADE))
+    assert np_init_for(budget, lshade.NP_min) != np_init_for(1000, lshade.NP_min)
+    assert lshade.NP_init == np_init_for(budget, lshade.NP_min)
+
+
+def test_create_strategy_max_eval_overrides_the_spec_level_override():
+    """The caller's budget wins, matching the harnesses' old post-assignment."""
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    spec = StrategySpec(
+        name="override",
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(Random, {})],
+        config_overrides={"max_eval": 13},
+    )
+    assert spec.create_strategy(Rosenbrock(dim=2)).config.max_eval == 13
+    assert spec.create_strategy(Rosenbrock(dim=2), max_eval=77).config.max_eval == 77
+
+
+def test_strategy_spec_rng_identity_defaults_to_name():
+    """``seed_name`` is opt-in; default behaviour is unchanged."""
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    spec = StrategySpec(name="Display", strategy_class=StrategyRoundRobin, heuristics=[(Random, {})])
+    assert spec.seed_name is None
+    assert spec.rng_identity == "Display"
+    import dataclasses
+
+    assert dataclasses.replace(spec, seed_name="arm").rng_identity == "arm"

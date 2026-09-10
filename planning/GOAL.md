@@ -36,26 +36,87 @@ Concretely, in priority order:
 `--metric aocc` self-improvement runs. `composite_score` is the frozen
 legacy contract — keep it green, don't optimize for it.
 
-## 2. State snapshot (2026-09-09 — update when it materially changes)
+## 2. State snapshot (2026-09-10 — update when it materially changes)
 
-* **The portfolio was the problem.**  Every arm of the previous
-  competition candidate scores higher run *alone* than the six-arm
-  portfolio does; CMA-ES alone beats it by **+0.228 mean AOCC** on the
-  standard battery, and five contenders (CMA-ES, NLSHADE_LBC, jSO, PSO,
-  L-SHADE) already beat `Baseline_SciPyDE`, the §1.2 target.  The
-  competition candidate is now `RoundRobin_CMAES`.  Full measurements:
-  `planning/DISCOVERY_2026-09-09.md` §9–§10 and the 2026-09-09 entry in
-  `SELF_IMPROVEMENT_LOG.md`.
-* **§5.2 is retracted.**  It concluded from a flat A/B that the CMA-ES
-  arm did not pay.  The A/B *added* CMA-ES as a seventh arm to the same
-  budget; adding a seventh mouth cannot pay.  Nobody had run it alone.
-* **The measurement instrument was repaired first** (PRs #307–#315):
-  seeded runs are now bit-identical (they varied by up to 0.09 AOCC),
-  a default-config run spends its whole budget (it used to stop after
-  ~4 %), `Config` no longer leaks between specs, population heuristics
-  no longer lose emitted points, and the standard battery is ~2× faster.
-  Credit assignment now rewards improvement per evaluation spent
-  (+0.0135 [+0.0032, +0.0238], 12 seeds).
+All section references are to `planning/DISCOVERY_2026-09-09.md`.
+
+* **Population size was the single largest effect on this codebase.**
+  The L-SHADE family shipped `18·dim` populations — roughly five times
+  too large for a few hundred evaluations per dimension, so most of the
+  budget went into the initial fill and the success-history adaptation
+  never got its generations.  The constructor default is now
+  `NP_init="auto"` = `3·dim·(budget/(500·dim))^¼`, floored at 6, with a
+  per-class coefficient of `4·dim` for NLSHADE_LBC.  Accepted on the
+  12-seed roster, each arm solo and paired on one RNG stream: **L-SHADE
+  +0.230, jSO +0.204, NLSHADE_LBC +0.064** and a further **+0.052** at
+  `4·dim` (§17, §20, §24).
+* **CMA-ES restarts itself.**  Solo CMA-ES had no termination criterion:
+  52 % of the budget was spent after the last improvement, and on two of
+  five *d* = 5 instances σ diverged against its clamp for 92 % of the
+  run.  Hansen's reference criteria are in (worth +0.0001 on their own —
+  they are written for 10⁴·d budgets), and the σ-divergence detector is
+  on by default: **+0.026 [+0.008, +0.043], 11/12 seeds** (§23).  The
+  earlier `ipop_factor` result is **retracted** (§16).
+* **The measurement instrument was repaired a second time.**  The
+  harness set the budget *after* constructing the heuristics, so
+  budget-adaptive arms sized themselves from the config default; and
+  run seeds were hashed from the **spec name**, so any two variants of
+  an arm ran on different RNG streams and a dead parameter still showed
+  a nonzero delta.  Fixed by `StrategySpec.seed_name` (one stream per
+  arm).  The **null floor is now measured**: ±0.05 for CMA-ES, ±0.03 for
+  a DE arm, on a 3-seed battery mean.  And the CI of a *screen maximum*
+  carries no weight — it is the CI of a selected winner, not of a
+  pre-registered spec (§18, §18a, §30).
+* **The arms are level, and they win different instances.**  Oracle on
+  the final defaults, 12 seeds, 120 cells: jSO 0.656, NLSHADE_LBC 0.647,
+  L-SHADE 0.642, CMA-ES 0.642 — four arms inside 0.014, i.e. inside the
+  floor.  Headroom over the best single arm **+0.074 [+0.048, +0.100],
+  12/12**; best *oracle* pairs CMA-ES + jSO ≈ CMA-ES + LBC — though as
+  an actual relay pair only CMA-ES + jSO works (§31).  The cells sort by
+  *dimension*: LBC owns four of the five *d* = 2 instances, CMA-ES the
+  hard *d* = 5 ones, jSO the rest — a context signal available before
+  the first evaluation.  PSO drops out of the candidate set (§28).
+* **Sharing removes the portfolio's structural penalty; it does not buy
+  a lead.**  `StrategyBlockBandit` (one arm owns a block of evaluations,
+  scored by the AOCC area it bought) plus the opt-in `Archive` analyzer
+  and `warm_start` on CMA-ES, the DE family and PSO.  A **cold** two-arm
+  portfolio loses **−0.08** to its best arm with the CI clear of zero;
+  with **both** arms warm it reaches parity — `Blocks_uniform_cj_warm2`
+  0.685 vs CMA-ES alone 0.666, **+0.019, 8/12, CI including zero**.  The
+  lean is entirely at *d* = 5 (+0.03); at *d* = 2 a single arm converges
+  before a relay could help (§20, §25, §27).
+* **Once sharing is on, rotation beats the bandit.**  D-UCB's job was to
+  minimise switching cost, and sharing removes that cost: a switch
+  becomes a relay.  `soft_be25`'s +0.050 on three seeds was the winner's
+  curse — **−0.006** on the roster (§26, §29, §30).
+* **The selection policy is measured out, and it is worth nothing.**
+  Screen #7 closed the design space around it: `tail_frac` is flat
+  across 0 → 0.6 (retiring §29's "relay then let the leader run"
+  mechanism), and at `tail_frac=0` the soft D-UCB *is* round-robin —
+  identical in 23 of 30 cells, the mean gap being one cell.  Value
+  estimate, bonus, discount, hysteresis and tail contribute nothing
+  measurable at any setting tried.  Block length is flat from 20 to 50
+  evaluations absolute (with per-cell collapses either side),
+  `only_if_better` **hurts** (−0.073 — it starves the arm that most
+  needs the relay) and is off by default, a third arm still dilutes at
+  *d* = 2, and **CMA-ES + LBC is not the relay pair** (+0.034 at
+  *d* = 2, −0.050 at *d* = 5: LBC's `4·dim` population does not fit a
+  25-evaluation block).  jSO stays.  **The policy is worth nothing; the
+  sharing is worth everything** (§31).
+* **Verdict for 500·dim MA-BBOB, *d* ∈ {2, 5}: a two-arm sharing
+  portfolio is level with the best single arm, not above it.**
+  `RoundRobin_CMAES` stays the flagship.  `Blocks_warm_CMAES_JSO`
+  replaces `Rewarding_Restart` as the second harness spec so the nightly
+  keeps measuring the portfolio (an agent is making that change now);
+  `Rewarding_Restart` at 0.35 is no longer a useful control.
+* **§5.2 is retracted** (2026-09-09).  It concluded from a flat A/B that
+  the CMA-ES arm did not pay — but the A/B *added* CMA-ES as a seventh
+  arm to the same budget.  Nobody had run it alone.
+* The first instrument repair (PRs #307–#315) still stands: seeded runs
+  are bit-identical (they varied by up to 0.09 AOCC), a default-config
+  run spends its whole budget (it used to stop after ~4 %), `Config` no
+  longer leaks between specs, population heuristics no longer lose
+  emitted points, and the standard battery is ~2× faster.
 * Nightly cron is **disabled on GitHub** since 2026-08-13; the ledger
   below is historical.
 
@@ -91,26 +152,37 @@ legacy contract — keep it green, don't optimize for it.
   objective has a flat optimum by construction; (b) higher-dim (5-D) rotated
   valleys (see `--extra-highdim` and the 2026-07-06..13 log entries).
 
-## 2c. Plan of record (set 2026-09-09)
+## 2c. Plan of record (set 2026-09-10)
 
-Two phases, in this order.  The sequencing is forced by the oracle bound
-in `planning/DISCOVERY_2026-09-09.md` §14: a selection policy can only
-choose among the arms it is given, and two of the five current arms
-(jSO, L-SHADE) never win a single instance.
+Phase A (strong individual arms) and Phase B (the selection policy) are
+both closed on this battery: the arms are level and the sharing
+portfolio is level with them.  What is left is the regime where the
+measured lean says the gain is real, and the regimes nobody has
+measured at all.  In order:
 
-**Phase A — make several optimizers individually strong.**  Each arm is
-tuned and measured *alone* on the standard battery, paired over seeds,
-against its own current default.  Targets, in descending order of what
-they can contribute: CMA-ES (0.580, wins 19/30 instances), NLSHADE_LBC
-(0.537, 8/30), PSO (0.424, 3/30), jSO (0.459, 0/30), L-SHADE (0.417,
-0/30).  An arm that cannot be brought to win *some* instance is not
-worth carrying.
-
-**Phase B — then the selection policy.**  Only once the arms are strong
-is the bandit worth optimising, and it must allocate the budget in
-blocks (§12: interleaving starves population methods, and naive phasing
-already loses to a single arm).  The realistic target is a fraction of
-the +0.0723 oracle headroom, which itself moves as Phase A lands.
+1. **Larger budgets and *d* ≥ 10.**  The portfolio's whole advantage
+   sits at *d* = 5 (+0.03 on every roster) and vanishes at *d* = 2,
+   where 1000 evaluations end before a relay can matter (§27, §30).
+   That gradient predicts a *real* gain where a single arm cannot
+   converge inside the budget.  The cheap version, available today, is a
+   **dimension-gated spec** — portfolio for *d* ≥ 5, single arm below
+   (`gate_min_dim` already exists).  Ship the gate, then measure at
+   *d* = 10 / 20 and at `2000·d`.
+2. **Do not spend more on the selection policy.**  The `tail_frac` /
+   block-length / pair screen is done and came back empty (§31): tune
+   nothing there without a new mechanism to point at.  The standing rule
+   it leaves behind applies to everything below — the best spec of a
+   screen is a **candidate only**, its screen CI carries no weight, and
+   only its 12-seed roster CI does.  §30 is what happens when that rule
+   is skipped.
+3. **Constrained and noisy problems remain unmeasured.**  Every number
+   in §2 is continuous, box-constrained MA-BBOB.  Panobbgo's constraint
+   machinery, the noisy-objective path and the plain-BBOB suite (§5.4)
+   have no battery at all, and a portfolio may well pay where a single
+   arm's assumptions break.
+4. **The composite registry's three CMA-ES specs remain a frozen
+   contract**, pending Harald's decision.  Do not touch them to chase an
+   AOCC number.
 
 ## 3. Operating loop (one agent session ≈ one iteration)
 
@@ -210,6 +282,15 @@ Ordered by expected value; each item should enter through the loop above.
    NLSHADE_LBC gated to d≥5 in `Rewarding_Restart`, pooled d5 evidence
    +0.0070 [+0.0027, +0.0112]); budget-gating and the CMA-ES arm at d5
    remain open.
+
+   **Answered in part 2026-09-10 (§27, §28, §30).**  The regime split is
+   now measured on the arms themselves, not just on the accept rule: the
+   four level arms win *different cells sorted by dimension* (LBC four of
+   five *d* = 2 instances, CMA-ES the hard *d* = 5 ones), and the sharing
+   portfolio's entire advantage is at *d* = 5.  Dimension is known before
+   the first evaluation, so this is directly actionable — a
+   dimension-gated portfolio spec is item 1 of the plan of record (§2c).
+   Deliverables (b), (c) and budget-gating remain open.
 2. **CMA-ES arm** — ~~*shipped 2026-08-06*~~ **retracted 2026-09-09.**  The
    original item recorded that adding the `CMAES` heuristic to
    `Rewarding_Restart` was flat on a 12-seed paired quick-2-D A/B
@@ -234,6 +315,19 @@ Ordered by expected value; each item should enter through the loop above.
 5. **Anytime-aware strategy scheduling** — AOCC rewards early descent;
    panobbgo's rewarding strategy re-weights on "new best" events only.
    Explore time-decayed rewards / explicit budget-phase schedules.
+
+   **Answered 2026-09-10 (§25, §26, §29, §30)** — this shipped as
+   `StrategyBlockBandit`: a pull is a *block* of ~50 evaluations rather
+   than one point (so a λ-point generation is no longer capped at `1/λ`
+   estimated value), and the reward is the AOCC area the block bought,
+   anytime and scale-free.  The measured lesson is not the one this item
+   expected: once the arms **share** their evaluations through the
+   `Archive`, plain rotation beats the D-UCB rule, because a switch stops
+   being a cost and becomes a relay — and screen #7 then found the
+   bandit contributes **nothing** at any setting tried, `tail_frac`
+   included (§31).  What is live is warm start + rotation + a block
+   length somewhere in 20–50 evaluations absolute.  Time-decayed rewards
+   specifically are still unexplored, but the prior on them is now poor.
 6. **Behavior-space diagnostics** (LLaMEA-SAGE direction) — log per-run
    trajectory features (dispersion, basin-jump counts) into the ledger so
    codify-scan can correlate *why* an arm wins, not just that it does.
@@ -270,9 +364,18 @@ Ordered by expected value; each item should enter through the loop above.
    NGOpt is a hand-crafted (non-learned) version of the same switching
    idea.
 
-8. **Does a portfolio ever pay?** — *new 2026-09-09.*  The measured
-   answer so far is "no on this battery", at any budget from 25 to 500
-   evaluations per dimension and at dims 2, 5, 10 and 20.
+8. **Does a portfolio ever pay?** — *new 2026-09-09.*  **Answered
+   2026-09-10 (§20, §25, §27, §30): "only if the arms share what they
+   paid for, and then it is level, not ahead."**  A cold two-arm
+   portfolio loses −0.08 to its best arm with the CI clear of zero — a
+   portfolio of independent solvers cannot beat its best member, it can
+   only dilute it.  Turning on the shared `Archive` and warm-starting
+   **both** arms removes exactly that penalty: `Blocks_uniform_cj_warm2`
+   0.685 vs CMA-ES alone 0.666, +0.019, 8/12 seeds, CI including zero.
+   Sharing is the mechanism; the bandit is not (rotation beats D-UCB
+   once sharing is on, §25.4).  The remaining lean is at *d* = 5, which
+   is what item 1 of the plan of record now chases.  The historical
+   record of the *cold* result follows.
 
    *Block allocation was tested and does not rescue it.*  The hypothesis
    was that a mix loses only because interleaving starves the population

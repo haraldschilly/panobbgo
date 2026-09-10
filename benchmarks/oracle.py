@@ -75,8 +75,8 @@ for a in _args:
     elif a.startswith("--"):
         flags.add(a[2:])
     elif "=" in a:
-        k, _, v = a.partition("=")
-        opts[k] = v
+        k, _, val = a.partition("=")
+        opts[k] = val
     else:
         pos.append(a)
 

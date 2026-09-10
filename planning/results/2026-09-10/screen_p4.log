@@ -1,0 +1,69 @@
+0.017456 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.017677 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.158420 config:333      CONFG INFO      Evaluation method: threaded
+0.158546 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'4ef8b35f7ac032b2e14ad3025c906ddee0d8639a'}
+seed 42 done (102s)
+seed 7 done (199s)
+seed 1234 done (309s)
+
+=== portfolio screen ===  (3 seeds, dims [2, 5], budget 500*d)
+specs: CMAES_alone, JSO_alone, LSHADE_alone, Blocks_ducb_cj, Blocks_ducb_cj_warmJ, Blocks_ducb_cj_warm2, Blocks_ducb_cj_warm2cov, Blocks_uniform_cj_warm2, Blocks_ducb_cl_warm2   cells: 30
+
+spec                          mean        d=2       d=5
+Blocks_uniform_cj_warm2     0.6845     0.7354    0.6336
+JSO_alone                   0.6735     0.7467    0.6003
+CMAES_alone                 0.6712     0.7379    0.6044
+LSHADE_alone                0.6496     0.7348    0.5644
+Blocks_ducb_cj_warm2        0.6454     0.7019    0.5890
+Blocks_ducb_cl_warm2        0.6454     0.7173    0.5735
+Blocks_ducb_cj_warm2cov     0.6269     0.6819    0.5720
+Blocks_ducb_cj_warmJ        0.6191     0.6910    0.5471
+Blocks_ducb_cj              0.5911     0.6671    0.5150
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                          delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2     +0.0133     [-0.1370,+0.1637]   2/3      -0.0026   +0.0293
+JSO_alone                   +0.0024     [-0.1428,+0.1475]   2/3      +0.0088   -0.0040
+LSHADE_alone                -0.0216     [-0.0607,+0.0176]   0/3      -0.0031   -0.0400
+Blocks_ducb_cj_warm2        -0.0257     [-0.1745,+0.1230]   1/3      -0.0361   -0.0154
+Blocks_ducb_cl_warm2        -0.0258     [-0.0939,+0.0423]   1/3      -0.0206   -0.0309
+Blocks_ducb_cj_warm2cov     -0.0442     [-0.1630,+0.0745]   1/3      -0.0561   -0.0324
+Blocks_ducb_cj_warmJ        -0.0521     [-0.1137,+0.0095]   0/3      -0.0469   -0.0573
+Blocks_ducb_cj              -0.0801     [-0.0999,-0.0603]   0/3      -0.0708   -0.0894 <--
+
+delta vs LSHADE_alone (paired per cell, t-CI over per-seed means)
+spec                          delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2     +0.0349     [-0.1303,+0.2001]   2/3      +0.0005   +0.0693
+JSO_alone                   +0.0239     [-0.0976,+0.1455]   2/3      +0.0119   +0.0360
+CMAES_alone                 +0.0216     [-0.0176,+0.0607]   3/3      +0.0031   +0.0400
+Blocks_ducb_cj_warm2        -0.0042     [-0.1138,+0.1055]   1/3      -0.0330   +0.0246
+Blocks_ducb_cl_warm2        -0.0042     [-0.0338,+0.0254]   1/3      -0.0175   +0.0091
+Blocks_ducb_cj_warm2cov     -0.0227     [-0.1024,+0.0570]   1/3      -0.0530   +0.0076
+Blocks_ducb_cj_warmJ        -0.0305     [-0.0646,+0.0035]   0/3      -0.0438   -0.0173
+Blocks_ducb_cj              -0.0586     [-0.0829,-0.0342]   0/3      -0.0677   -0.0494 <--
+
+delta vs JSO_alone (paired per cell, t-CI over per-seed means)
+spec                          delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2     +0.0110     [-0.1349,+0.1568]   2/3      -0.0113   +0.0333
+CMAES_alone                 -0.0024     [-0.1475,+0.1428]   1/3      -0.0088   +0.0040
+LSHADE_alone                -0.0239     [-0.1455,+0.0976]   1/3      -0.0119   -0.0360
+Blocks_ducb_cj_warm2        -0.0281     [-0.1487,+0.0925]   1/3      -0.0449   -0.0114
+Blocks_ducb_cl_warm2        -0.0281     [-0.1457,+0.0894]   1/3      -0.0294   -0.0269
+Blocks_ducb_cj_warm2cov     -0.0466     [-0.1476,+0.0544]   0/3      -0.0648   -0.0284
+Blocks_ducb_cj_warmJ        -0.0545     [-0.1422,+0.0333]   0/3      -0.0557   -0.0532
+Blocks_ducb_cj              -0.0825     [-0.2087,+0.0437]   0/3      -0.0796   -0.0854
+
+--- screening gates (design §6) ---
+  G1 PASS  Blocks_uniform_cj_warm2 - best single (JSO_alone)          +0.0110  (need >= -0.020)
+  G2 FAIL  Blocks_ducb_cj_warm2 - Blocks_uniform_cj_warm2             -0.0391  (need >= +0.005)
+  G3 FAIL  Blocks_ducb_cj - best single (JSO_alone)                   -0.0825  (need >= -0.010)
+  G4 PASS  Blocks_uniform_cj_warm2 - Blocks_ducb_cj (cold)            +0.0935  (need >= +0.030)
+  G5 PASS  best warm (Blocks_uniform_cj_warm2) - best single (JSO_alone) +0.0110  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

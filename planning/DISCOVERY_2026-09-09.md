@@ -977,3 +977,43 @@ All 3-seed rankings inside the floor except the nb200 collapse and the
 four-arm loss.  Next: block length in absolute evaluations (12–80) and
 a small grid over the soft knobs, then the 12-seed roster on the
 winner.
+
+## 27. 12-seed roster: the warm portfolio leads, but does not clear the acceptance bar
+
+`Blocks_uniform_cj_warm2` (CMA-ES + jSO, both `warm_start="archive"`,
+rotate every 50-eval block) against the single arms, 12-seed roster,
+one RNG stream, standard battery:
+
+| spec | mean | *d*=2 | *d*=5 |
+|---|---|---|---|
+| **Blocks_uniform_cj_warm2** | **0.6854** | 0.7272 | **0.6436** |
+| CMAES_alone | 0.6662 | 0.7205 | 0.6119 |
+| Blocks_ducb_cj_warm2 (default D-UCB) | 0.6643 | 0.7118 | 0.6167 |
+| JSO_alone | 0.6490 | 0.7241 | 0.5739 |
+| LSHADE_alone | 0.6460 | 0.7326 | 0.5593 |
+
+| paired delta | Δ | 95 % CI | seeds | *d*=2 | *d*=5 |
+|---|---|---|---|---|---|
+| uniform-warm vs CMA-ES alone | +0.0192 | [−0.0156, +0.0541] | 8/12 | +0.007 | +0.032 |
+| uniform-warm vs jSO alone | +0.0364 | [−0.0112, +0.0841] | 9/12 | +0.003 | +0.070 |
+
+The portfolio is the best spec on the roster and ahead of every single
+arm on a majority of seeds, with no dimension negative — but the CI
+against the best single arm includes zero, so **by the rule it is not
+accepted as the default**.  Parity with an upward lean, carried by
+*d* = 5, where sharing is worth +0.03…+0.07.  At *d* = 2 (1000
+evaluations) there is nothing to gain: a single arm converges before a
+relay could help.
+
+Also settled: on 12 seeds the best single arm is CMA-ES (0.666), not
+jSO as on 3 seeds (§22, §25).  The three arms are level, and which one
+"wins" is a property of the seed set.  `RoundRobin_CMAES` stays the
+flagship for now.
+
+What could move this above the bar, all measured on 3 seeds in §26 and
+being confirmed: the soft bandit (+0.008 over rotation), a block length
+in absolute evaluations (~20–25), and not re-seeding the arm that made
+the latest progress (§26.1's mechanism).  If those land the portfolio
+at +0.03 with a CI clear of zero, it becomes the flagship; if not, the
+honest default for 500·dim is one arm, and the portfolio is the answer
+for *d* ≥ 5 or larger budgets — a dimension-gated spec.

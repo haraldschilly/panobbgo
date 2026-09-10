@@ -37,11 +37,13 @@ die Läufe enden — `HARVEST.txt` erscheint dann).
       breiter als kalt, C=I; `"archive_cov"` als separater Modus).
       Working Tree prüfen: `git diff panobbgo/heuristics/cma_es.py`.
       Fertigstellen oder verwerfen (`git checkout` der zwei Dateien).
-- [x] **Thesen-Test** (§21): Warm-Start +0.051 gegenüber kalt (G4 PASS,
-      erstes positives Portfolio-Signal), aber bestes Warm-Portfolio noch
-      −0.052 unter `CMAES_alone` (G5 FAIL, CI streift 0). Nur L-SHADE
-      war warm → **nächster Hebel: CMA-ES-Warm-Start fertigstellen**,
-      dann Screen wiederholen, dann 12-Seed-Roster.
+- [x] **Thesen-Test** (§21, §25, §27): Sharing macht das Portfolio
+      erstmals zum besten Spec — 12 Seeds: `Blocks_uniform_cj_warm2` 0.685
+      vs. CMA-ES 0.666 (+0.019 [−0.016, +0.054], 8/12; *d*=5 +0.032).
+      **Nicht** akzeptiert (CI enthält 0). Nächste Hebel laufen (§26):
+      Soft-Bandit, absolute Blocklänge ~20–25, `warm_start_only_if_better`.
+      Falls das nicht über die Schwelle trägt: dimensionsgebundenes Spec
+      (Portfolio ab *d* ≥ 5), Einzelarm sonst.
 - [x] **12-Seed-Oracle** (§22): kein Champion mehr — jSO 0.656, L-SHADE
       0.642, CMA-ES 0.642 (innerhalb des Floors), gewinnen verschiedene
       Zellen. Headroom **+0.076 [+0.048, +0.104], 12/12**. Bestes Paar

@@ -428,6 +428,21 @@ class CMAES(Heuristic):
     # Lifecycle
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _recombination_weights(mu: int) -> tuple[np.ndarray, float]:
+        """The log-linear positive weights for ``mu`` parents, and their ``mu_eff``.
+
+        ``w_i ∝ ln(μ + ½) − ln i``, normalised to sum 1 (Hansen 2016, eq. 49),
+        with the effective number of parents ``μ_eff = 1 / Σ w_i²``.  Every
+        place that needs weights derives them here — the initial set-up, a
+        restart's new λ, a generation that came back short, and the warm
+        start — so "fewer parents than μ" is re-normalised the same way
+        everywhere.
+        """
+        raw = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
+        w = raw / raw.sum()
+        return w, float(1.0 / (w**2).sum())
+
     def on_start(self) -> None:
         """Initialise CMA-ES state and emit the first generation."""
         n = self.problem.dim
@@ -436,12 +451,9 @@ class CMAES(Heuristic):
         lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
         mu = lam // 2
 
-        # Recombination weights (log-linear, positive)
-        raw_w = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
-        w = raw_w / raw_w.sum()
-
-        # Effective number of parents
-        mu_eff = 1.0 / (w**2).sum()
+        # Recombination weights (log-linear, positive) and the effective
+        # number of parents they imply
+        w, mu_eff = self._recombination_weights(mu)
 
         # Step-size control
         c_sigma = (mu_eff + 2.0) / (n + mu_eff + 5.0)
@@ -584,11 +596,7 @@ class CMAES(Heuristic):
 
         # --- mean: μ-weighted recombination of the best seeds ---
         mu = max(1, min(self._mu, len(X)))
-        if mu == len(self._w):
-            w = self._w
-        else:
-            raw = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1, dtype=float))
-            w = raw / raw.sum()
+        w = self._w if mu == len(self._w) else self._recombination_weights(mu)[0]
         self._m = self.problem.project(w[:mu] @ X[:mu])
 
         # --- σ: the spread of the seed cloud, never wider than cold ---
@@ -879,9 +887,7 @@ class CMAES(Heuristic):
         new_mu = max(new_lam // 2, 1)
 
         # Recombination weights (log-linear, positive)
-        raw_w = np.log(new_mu + 0.5) - np.log(np.arange(1, new_mu + 1, dtype=float))
-        new_w = raw_w / raw_w.sum()
-        new_mu_eff = 1.0 / (new_w**2).sum()
+        new_w, new_mu_eff = self._recombination_weights(new_mu)
 
         n = self.problem.dim
 
@@ -1239,9 +1245,7 @@ class CMAES(Heuristic):
         actual_mu = len(selected)
         if actual_mu < len(w_full):
             # Re-normalise weights for the actual number of survivors
-            raw = np.log(actual_mu + 0.5) - np.log(np.arange(1, actual_mu + 1, dtype=float))
-            w = raw / raw.sum()
-            mu_eff = 1.0 / (w**2).sum()
+            w, mu_eff = self._recombination_weights(actual_mu)
         else:
             w = w_full
             mu_eff = self._mu_eff

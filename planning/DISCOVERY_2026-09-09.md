@@ -710,3 +710,75 @@ Rule adopted: a 3-seed result below ~0.05 for CMA-ES or ~0.03 for a DE
 arm is not reported as an effect.  This retires pass 1's secondary knobs
 (`H`, `k_rank`, `archive_factor`, `F_schedule`, `lbest`) as *unproven*,
 not as wrong.  `NP_init` (+0.1 … +0.2, monotone, three arms) stands.
+
+## 20. Phase A closes; Phase B's first screen fails for the reason the thesis predicts
+
+### The population law holds at *d* = 10 and at 4× budget
+
+Grid at *d* = 10 (budget 5000, `"auto"` still resolving to 83 — these
+runs predate the harness fix) and L-SHADE at 2000·dim:
+
+| arm | argmax *d*=2 | *d*=5 | **d = 10** | *d*=2 @ 4× | *d*=5 @ 4× |
+|---|---|---|---|---|---|
+| NLSHADE_LBC | 8 | 20 | **30** (+0.081) | | |
+| jSO | 6 | 15 | **20–30** (+0.12) | | |
+| L-SHADE | 6 | 10–12 | **20–30** (+0.13) | 10 | 15–20 |
+
+`NP ≈ 3·dim` fits 6 / 15 / 30.  Quadrupling the budget moves the
+optimum up by ~1.5× — a fourth-root dependence, mild but real.  The
+library rule becomes `3·dim·(budget/(500·dim))^0.25`, floored at 6;
+acceptance on the 12-seed roster is running.  At *d* = 10 the `H=20`
+combination that looked good at *d* ≤ 5 turns negative (LBC −0.034),
+one more reason the secondary knobs stay unproven.
+
+### CMA-ES self-restart: correct, and worth +0.0001
+
+Diagnosis at *d* = 5 / 2500: 52 % of the budget is spent after the
+last improvement, 66 % after the last 10⁻³ relative one; on two of five
+instances σ *diverges* against its clamp for 92 % of the run.  Hansen's
+reference criteria were added and reuse the restart path (so
+`ipop_factor` finally does something).  Same-stream paired gain:
+**+0.0001**.  The criteria are tuned for 10⁴·d budgets; at *d* = 5 the
+stagnation window alone is 95 generations ≈ 30 % of our budget, so they
+fire after the run has already reached AOCC's log floor.  The
+mechanism works when it fires (inst 4: 0.987 → 2.3e-8); a
+budget-relative criterion and σ-divergence detection are in progress.
+
+### The screen: every portfolio loses to its best arm
+
+`benchmarks/portfolio_screen.py`, standard battery, 3 seeds, all specs
+on one RNG stream, tuned arms:
+
+| spec | AOCC | *d*=2 | *d*=5 | vs CMA-ES alone |
+|---|---|---|---|---|
+| CMAES_alone | **0.6526** | 0.7420 | 0.5633 | — |
+| LSHADE_alone | 0.6171 | 0.6838 | 0.5503 | −0.036 [−0.071, −0.000] |
+| Blocks_uniform_2 | 0.5661 | 0.6183 | 0.5139 | **−0.087** [−0.148, −0.025] |
+| Blocks_ducb_2 | 0.5627 | 0.6264 | 0.4991 | −0.090 [−0.147, −0.033] |
+| Rewarding_ema_2 | 0.5546 | 0.5933 | 0.5160 | −0.098 [−0.140, −0.056] |
+| Blocks_ducb_4 | 0.4655 | | | −0.187 |
+| Blocks_ducb_5 | 0.4424 | | | −0.210 |
+
+Gates G1, G2, G3 all fail; G1 and G3 by more than the null floor with
+CIs excluding zero.  The scheduler is not at fault: every run spent its
+full budget, no generation was cut, D-UCB learned and gave CMA-ES 35 of
+45 blocks.  Two arms that do not share information each see half the
+budget, and on a log-precision anytime metric halving an arm's budget
+shifts its whole curve right.  **A portfolio of independent solvers
+cannot beat its best member; it can only dilute it.**  The interleaving
+control loses the same amount, so this is the portfolio, not the
+scheduling shape.
+
+That is the pre-registered "one strong arm" verdict — with one clause
+outstanding.  Every arm in this screen discards results it did not
+request (`DESIGN_warm_start` §0); the shared archive, the thing that
+distinguishes panobbgo from a bag of solvers, is switched off in all of
+them.  The next screen turns it on.  If the warm-started portfolio still
+loses, the answer is one arm and the effort goes into CMA-ES's
+single-arm path; if it clears CMA-ES alone, sharing is the mechanism
+and the policy is worth tuning.
+
+One implementation note for later: `_close_block` discounts only the
+owner's statistics, so an unplayed arm's estimate freezes rather than
+decays; re-exploration comes only from the `log N / n` bonus.  Not
+canonical D-UCB.  Irrelevant to this verdict.

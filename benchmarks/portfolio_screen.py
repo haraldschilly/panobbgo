@@ -104,6 +104,14 @@ def warm_lshade(mode):
 #: spec added afterwards uses it.
 WARM_ON = {"warm_start_on_resume": True, "warm_start_only_if_foreign": False}
 
+#: The §22 pair, both arms warm — the arms every §24/§27 spec is built on.
+CJ = [warm("cmaes", "archive"), warm("jso", "archive")]
+
+#: D-UCB with the commitment taken out (§26's leader): heavy exploration, no
+#: incumbent bonus, a short memory.  The hard default is ucb_c 0.5,
+#: hysteresis 1.2, gamma 0.9 and relays 8x less often.
+SOFT = {"policy": "ducb", "ucb_c": 2.0, "hysteresis": 1.0, "gamma": 0.7}
+
 
 #: Analyzer list of every warm spec.  ``Splitter`` is **not** listed: it is
 #: one of the four analyzers ``StrategyBase.initialize`` always installs
@@ -286,12 +294,68 @@ SPECS = {
     # default commits hard (ucb_c 0.5, hysteresis 1.2, gamma 0.9) and so
     # relays rarely.  This is the same rule with the commitment taken out:
     # heavy exploration, no incumbent bonus, a short memory.
-    "Blocks_ducb_cj_warm2_soft": (
+    "Blocks_ducb_cj_warm2_soft": (StrategyBlockBandit, CJ, {**SOFT, **WARM_ON}, ARCHIVE),
+    # -- §27 A: block length in ABSOLUTE evaluations ----------------------
+    #
+    # §26 read an interior optimum in ``n_blocks`` (nb50 best, nb25 and
+    # nb100 worse) and noted that the d=2 and d=5 optima disagreed at nb100,
+    # which is exactly what a *relative* knob looks like when the truth is
+    # absolute: ``n_blocks`` fixes the number of decisions, so the block
+    # length it implies scales with ``500 * dim``.  ``block_evals`` sets the
+    # length directly and identically at every dimension, so if ~20-25
+    # evaluations really is the crossing point between "enough consecutive
+    # budget to adapt" and "relay often", these five specs should peak in
+    # the middle at *both* dimensions.
+    #
+    # ``block_evals`` bypasses the ``2 * dim`` floor (``__init__`` stores it
+    # verbatim), but the draw granularity still rounds up: a block closes on
+    # ``block_n >= block_size and drained``, and a draw asks for ``size = 10``
+    # points, so a nominal 12 cannot be realised as 12.  The probe reports
+    # the realised median per dimension.
+    "Blocks_uniform_cj_warm2_be12": (
         StrategyBlockBandit,
-        [warm("cmaes", "archive"), warm("jso", "archive")],
-        {"policy": "ducb", "ucb_c": 2.0, "hysteresis": 1.0, "gamma": 0.7, **WARM_ON},
+        CJ,
+        {"policy": "uniform", "block_evals": 12, **WARM_ON},
         ARCHIVE,
     ),
+    "Blocks_uniform_cj_warm2_be20": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 20, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_uniform_cj_warm2_be30": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 30, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_uniform_cj_warm2_be50": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 50, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_uniform_cj_warm2_be80": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 80, **WARM_ON},
+        ARCHIVE,
+    ),
+    # -- §27 B: which soft-D-UCB knob carries the gain? -------------------
+    #
+    # ``_soft`` (ucb_c 2.0, hysteresis 1.0, gamma 0.7) led §26 at 0.6921 by
+    # relaying 29 times in 40 blocks — between the hard default's 5 and plain
+    # rotation's 39.  One knob at a time from that point: ``ucb_c`` sets how
+    # much exploration outweighs the estimate, ``gamma`` how fast the arm
+    # statistics forget.  ``hysteresis`` is already 1.0 (off) and has nowhere
+    # softer to go, so it is not on the grid.
+    "Blocks_ducb_cj_warm2_soft_c1": (StrategyBlockBandit, CJ, {**SOFT, "ucb_c": 1.0, **WARM_ON}, ARCHIVE),
+    "Blocks_ducb_cj_warm2_soft_c4": (StrategyBlockBandit, CJ, {**SOFT, "ucb_c": 4.0, **WARM_ON}, ARCHIVE),
+    "Blocks_ducb_cj_warm2_soft_g05": (StrategyBlockBandit, CJ, {**SOFT, "gamma": 0.5, **WARM_ON}, ARCHIVE),
+    "Blocks_ducb_cj_warm2_soft_g09": (StrategyBlockBandit, CJ, {**SOFT, "gamma": 0.9, **WARM_ON}, ARCHIVE),
+    # The two findings crossed: soft learning on an absolute block length.
+    "Blocks_ducb_cj_warm2_soft_be25": (StrategyBlockBandit, CJ, {**SOFT, "block_evals": 25, **WARM_ON}, ARCHIVE),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
@@ -432,13 +496,13 @@ print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
 # (a) means, overall and per dimension.
-print(f"\n{'spec':30s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
+print(f"\n{'spec':32s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
 order = sorted(names, key=lambda s: -mean_of(s))
 for s in order:
     per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
     tail = f"  errors={len(errs[s])}" if errs[s] else ""
     tail += f"  short={len(short[s])}" if short[s] else ""
-    print(f"{s:30s} {mean_of(s):7.4f} " + per + tail)
+    print(f"{s:32s} {mean_of(s):7.4f} " + per + tail)
 
 # (b) paired deltas against each reference, overall CI + per-dimension means.
 for ref in REFS:
@@ -446,7 +510,7 @@ for ref in REFS:
         continue
     print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
     print(
-        f"{'spec':30s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
+        f"{'spec':32s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
     )
     for s in order:
         if s == ref:
@@ -458,7 +522,7 @@ for ref in REFS:
         band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
         flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
         per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-        print(f"{s:30s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        print(f"{s:32s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
 
 # (c) the §6 screening gates.
 #

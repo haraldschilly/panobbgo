@@ -37,11 +37,11 @@ die Läufe enden — `HARVEST.txt` erscheint dann).
       breiter als kalt, C=I; `"archive_cov"` als separater Modus).
       Working Tree prüfen: `git diff panobbgo/heuristics/cma_es.py`.
       Fertigstellen oder verwerfen (`git checkout` der zwei Dateien).
-- [ ] **Thesen-Test auswerten**: `screen_p3.log` — Portfolio mit
-      Warm-Start (nur L-SHADE warm) gegen `CMAES_alone`. Gates G4/G5.
-      Erster Lauf ohne Sharing: jedes Portfolio verliert (−0.087, CI
-      schließt 0 aus). *Wenn Warm-Start das nicht rettet → ein Arm ist
-      die Antwort, Aufwand geht in CMA-ES.*
+- [x] **Thesen-Test** (§21): Warm-Start +0.051 gegenüber kalt (G4 PASS,
+      erstes positives Portfolio-Signal), aber bestes Warm-Portfolio noch
+      −0.052 unter `CMAES_alone` (G5 FAIL, CI streift 0). Nur L-SHADE
+      war warm → **nächster Hebel: CMA-ES-Warm-Start fertigstellen**,
+      dann Screen wiederholen, dann 12-Seed-Roster.
 - [ ] **12-Seed-Oracle** auswerten: `oracle12.log` (Arme auf
       Shipped-Defaults, gepaart). Headroom sizing für Phase B.
 - [ ] **CMA-ES 12-Seed-Akzeptanz** auswerten: `accept12.log` — Verdikt

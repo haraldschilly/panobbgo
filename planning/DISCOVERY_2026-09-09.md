@@ -782,3 +782,36 @@ One implementation note for later: `_close_block` discounts only the
 owner's statistics, so an unplayed arm's estimate freezes rather than
 decays; re-exploration comes only from the `log N / n` bonus.  Not
 canonical D-UCB.  Irrelevant to this verdict.
+
+## 21. The thesis test: sharing closes half the gap (2026-09-10, late)
+
+Same screen as §20, warm start now actually firing (gate fix 30585b5),
+only the L-SHADE arm warm-starts (CMA-ES warm start unfinished), 3
+seeds, one RNG stream:
+
+| spec | AOCC | vs CMA-ES alone |
+|---|---|---|
+| CMAES_alone | **0.6712** | — |
+| Blocks_ducb_2_warm_any (no foreign rule) | 0.6187 | −0.052 [−0.106, +0.001] |
+| LSHADE_alone | 0.6171 | |
+| Blocks_ducb_2_warm | 0.6142 | |
+| Blocks_uniform_2_warm | 0.6068 | |
+| Blocks_ducb_2_warm_div / _leaf | 0.5980 / 0.5875 | |
+| Blocks_uniform_2 (cold) | 0.5656 | −0.106 |
+| Blocks_ducb_2 (cold) | 0.5636 | −0.108 |
+
+**G4 PASS: warm − cold = +0.051**, above the null floor — sharing
+evaluations across arms is a real mechanism, the first positive
+portfolio result on this codebase.  **G5 FAIL: the best warm portfolio
+is still −0.052 below CMA-ES alone**, CI grazing zero.  Sharing closed
+half of the −0.108 gap with only one of the two arms warm.
+
+Readings: the foreign-only rule costs a little (`warm_any` > `warm`);
+the diverse/leaf selectors are worse than plain top-k here — at this
+budget the value is "continue from the incumbent", not "try another
+basin".  Next lever, in order: (1) CMA-ES warm start (patch in
+`planning/results/2026-09-10/`), so both arms continue from the shared
+incumbent; (2) then the 12-seed roster on the best warm spec vs
+CMA-ES alone.  If a fully warm two-arm portfolio still cannot clear the
+single arm, the answer for this budget class is one arm plus the
+σ-divergence restart, and the portfolio is a higher-budget story.

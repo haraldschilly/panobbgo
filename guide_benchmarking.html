@@ -877,7 +877,7 @@ evidence.</p>
 </section>
 <section id="the-sweep-tools">
 <h3><a class="toc-backref" href="#id26" role="doc-backlink">The sweep tools</a><a class="headerlink" href="#the-sweep-tools" title="Link to this heading">#</a></h3>
-<p>Four scripts under <code class="docutils literal notranslate"><span class="pre">benchmarks/</span></code>, all of them running arms <strong>solo</strong> via
+<p>Five scripts under <code class="docutils literal notranslate"><span class="pre">benchmarks/</span></code>, most of them running arms <strong>solo</strong> via
 <code class="docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code>, all paired per seed on one RNG stream, all flushing
 their rows after every seed so an interrupted run loses nothing:</p>
 <div class="table-wrapper colwidths-given docutils container">
@@ -910,6 +910,16 @@ old rule vs. new vs. plain <code class="docutils literal notranslate"><span clas
 <td><p>Whether a <em>portfolio</em> under <code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code> beats one arm, and
 what warm starting from the shared archive is worth against the same
 portfolio cold.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">family_screen.py</span></code></p></td>
+<td><p>Whether that verdict survives <em>outside</em> MA-BBOB: the same specs on the
+generated problem families of <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_families</span></code> —
+<code class="docutils literal notranslate"><span class="pre">preset=free</span></code> (5 families × dims 2/5/10) and <code class="docutils literal notranslate"><span class="pre">preset=constrained</span></code>
+(4 families × dims 2/5, <code class="docutils literal notranslate"><span class="pre">k</span></code> = 1..3 constraints active at the
+optimum, the first AOCC measurement of the constraint handling).
+Single runs of the same batteries are also reachable from the IOH CLI
+as <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--families</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-constrained</span></code>
+(and <code class="docutils literal notranslate"><span class="pre">--families-quick</span></code> for a smoke test).</p></td>
 </tr>
 </tbody>
 </table>

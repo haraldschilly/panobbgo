@@ -46,56 +46,35 @@ class LocalPenaltySearchTest(PanobbgoTestCase):
         assert not h.process.is_alive()
 
     def test_optimization_flow(self):
+        """One full round trip against the real subprocess, pull-style.
+
+        ``produce`` drives the whole protocol on this thread: it sends the
+        queued ``start``, receives the first ``eval`` request and emits the
+        point.  ``on_new_results`` stores the value; the next ``produce`` hands
+        it over and receives the next request.
+        """
         from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
-        import threading
 
         h = LocalPenaltySearch(self.strategy)
         h.__start__()
+        try:
+            h.on_start()  # queues the first descent; sends nothing yet
+            assert h._pending_start is not None
 
-        # Start the on_start loop in a thread
-        t = threading.Thread(target=h.on_start)
-        t.daemon = True
-        t.start()
+            points = h.produce(1, timeout=20.0)
+            assert len(points) > 0, "Heuristic did not emit initial point"
+            p1 = points[0]
+            assert h._outstanding
 
-        # Wait for initial point
-        start_time = time.time()
-        points = []
-        while time.time() - start_time < 10.0:
-            new_pts = h.get_points()
-            if new_pts:
-                points.extend(new_pts)
-                break
-            time.sleep(0.1)
+            # Simple objective: x^2
+            r1 = Result(p1, float(np.sum(p1.x**2)), cv_vec=None)
+            h.on_new_results([r1])
+            assert not h._fx_inbox.empty(), "the penalty value was not stored"
 
-        assert len(points) > 0, "Heuristic did not emit initial point"
-        p1 = points[0]
-
-        # Provide result for p1
-        # Simple objective: x^2
-        fx1 = np.sum(p1.x**2)
-        r1 = Result(p1, fx1, cv_vec=None)
-
-        # Feed result back. This should run in a thread or be called directly.
-        # Since on_new_results uses a lock and writes to pipe, it should be safe to call directly
-        # from main thread while on_start is blocked/polling in another thread.
-        h.on_new_results([r1])
-
-        # Expect another point (optimization step)
-        start_time = time.time()
-        points2 = []
-        while time.time() - start_time < 10.0:
-            new_pts = h.get_points()
-            if new_pts:
-                points2.extend(new_pts)
-                break
-            time.sleep(0.1)
-
-        assert len(points2) > 0, "Heuristic did not emit next point after result"
-
-        # Cleanup
-        h._stopped = True
-        h.__stop__()
-        t.join(timeout=2.0)
+            points2 = h.produce(1, timeout=20.0)
+            assert len(points2) > 0, "Heuristic did not emit next point after result"
+        finally:
+            h.__stop__()
 
 
 # ---------------------------------------------------------------------------
@@ -219,23 +198,13 @@ class LocalPenaltySearchBranchTest(PanobbgoTestCase):
         h.parent_conn = self.mock.MagicMock()
         return h
 
-    def test_emit_reliable_returns_false_when_stopped(self):
+    def make_running(self):
+        """A heuristic with a live worker and an active descent."""
         h = self.make_heuristic()
-        h._stopped = True
-        assert h.emit_reliable(np.array([0.0, 0.0])) is False
-
-    def test_emit_reliable_retries_on_full_queue(self):
-        import queue
-        import threading
-
-        h = self.make_heuristic()
-        h._output = queue.Queue(1)
-        h._output.put("blocker")
-
-        # Free the queue only after emit_reliable's first 1.0s put() timed
-        # out, so the `except Full: continue` retry path actually executes.
-        threading.Timer(1.2, lambda: h._output.get()).start()
-        assert h.emit_reliable(np.array([0.0, 0.0])) is True
+        h.process = self.mock.MagicMock()
+        h.process.is_alive.return_value = True
+        h._optimization_active = True
+        return h
 
     def test_start_optimization_send_failure_logged(self):
         h = self.make_heuristic()
@@ -243,82 +212,129 @@ class LocalPenaltySearchBranchTest(PanobbgoTestCase):
         h._start_optimization(np.array([0.0, 0.0]))
         assert h._optimization_active is False
 
-    def test_on_restart_aborts_and_restarts(self):
-        h = self.make_heuristic()
-        h._optimization_active = True
+    # -- deferred control --------------------------------------------------
+    #
+    # ``on_restart`` / ``on_new_best`` / ``on_start`` run on the event-bus
+    # dispatcher thread, which may not write to the pipe (the main loop's
+    # thread does the ``send``/``recv`` of the round trip) nor touch the
+    # output queue (the strategy may be draining it).  They record; ``produce``
+    # applies.  See panobbgo/heuristics/local_penalty_search.py.
+
+    def test_on_restart_defers_the_abort_and_restart(self):
+        h = self.make_running()
         h.on_restart(np.array([0.1, 0.2]), "test restart")
 
+        # Nothing has reached the pipe yet.
+        h.parent_conn.send.assert_not_called()
+        assert h._pending_abort and h._pending_clear
+        assert h._pending_start is not None
+
+        h._apply_pending_control()
         types = [c.args[0]["type"] for c in h.parent_conn.send.call_args_list]
         assert types == ["abort", "start"]
         assert h._optimization_active is True
 
     def test_on_restart_survives_abort_send_failure(self):
-        h = self.make_heuristic()
+        h = self.make_running()
         h.parent_conn.send.side_effect = [OSError("gone"), None]
         h.on_restart(np.array([0.1, 0.2]), "test restart")
+        h._apply_pending_control()
         assert h._optimization_active is True
 
     def test_on_new_best_restarts_when_idle(self):
         h = self.make_heuristic()
         best = Result(Point(np.array([0.5, 0.5]), "test"), 1.0)
         h.on_new_best(best)
+        assert h._pending_start is not None
+        h.parent_conn.send.assert_not_called()
+
+        h._apply_pending_control()
         assert h._optimization_active is True
         assert h.parent_conn.send.call_args[0][0]["type"] == "start"
+
+    def test_on_new_best_leaves_a_running_search_alone(self):
+        h = self.make_running()
+        h.on_new_best(Result(Point(np.array([0.5, 0.5]), "test"), 1.0))
+        assert h._pending_start is None
+
+    def test_on_start_queues_the_first_search(self):
+        h = self.make_heuristic()
+        h.on_start()
+        assert h._pending_start is not None
+        h.parent_conn.send.assert_not_called()
+
+    # -- the f(x) hand-off -------------------------------------------------
 
     def test_on_new_results_ignored_when_not_waiting(self):
         h = self.make_heuristic()
         r = Result(Point(np.array([0.5, 0.5]), h.name), 1.0)
         h.on_new_results([r])
-        h.parent_conn.send.assert_not_called()
+        assert h._fx_inbox.empty()
 
     def test_on_new_results_ignores_foreign_results(self):
         h = self.make_heuristic()
+        h._outstanding = True
         h._waiting_for_eval = True
         r = Result(Point(np.array([0.5, 0.5]), "SomeoneElse"), 1.0)
         h.on_new_results([r])
-        h.parent_conn.send.assert_not_called()
+        assert h._fx_inbox.empty()
         assert h._waiting_for_eval is True
 
-    def test_on_new_results_sends_penalty_value(self):
+    def test_on_new_results_stores_the_penalty_value(self):
+        """Stored, not sent: the bus thread must not do I/O."""
         h = self.make_heuristic()
+        h._outstanding = True
         h._waiting_for_eval = True
         r = Result(Point(np.array([0.5, 0.5]), h.name), 2.5)
         h.on_new_results([r])
 
-        msg = h.parent_conn.send.call_args[0][0]
-        assert msg["type"] == "result"
-        assert msg["value"] == 2.5
+        h.parent_conn.send.assert_not_called()
+        assert h._fx_inbox.get_nowait() == 2.5
         assert h._waiting_for_eval is False
 
-    def test_on_new_results_send_failure_logged(self):
-        h = self.make_heuristic()
-        h._waiting_for_eval = True
-        h.parent_conn.send.side_effect = OSError("pipe broke")
-        r = Result(Point(np.array([0.5, 0.5]), h.name), 2.5)
-        h.on_new_results([r])  # must not raise
+    def test_produce_sends_the_stored_value_and_takes_the_next_point(self):
+        h = self.make_running()
+        h._outstanding = True
+        h._fx_inbox.put(2.5)
+        h.parent_conn.poll.return_value = True
+        h.parent_conn.recv.return_value = {"type": "eval", "x": np.array([0.3, 0.3])}
 
-    def test_on_start_loop_handles_messages(self):
-        # Script: eval -> done -> error -> EOF (breaks the loop).
-        h = self.make_heuristic()
-        msgs = [
-            {"type": "eval", "x": np.array([0.3, 0.3])},
-            {"type": "done", "message": "converged"},
-            {"type": "error", "message": "boom"},
-        ]
+        points = h.produce(1)
+        assert h.parent_conn.send.call_args_list[0].args[0] == {"type": "result", "value": 2.5}
+        assert len(points) == 1
+        np.testing.assert_allclose(points[0].x, [0.3, 0.3])
+        assert h._outstanding and h._waiting_for_eval
 
-        def poll(timeout=None):
-            if msgs:
-                return True
-            raise EOFError
+    def test_produce_returns_nothing_while_the_worker_idles(self):
+        """The worker is a server: between descents it sends nothing at all.
 
-        h.parent_conn.poll.side_effect = poll
-        h.parent_conn.recv.side_effect = lambda: msgs.pop(0)
+        ``_bridge_pending_request`` says so, which is what keeps ``produce``
+        from sitting on the pipe until the deadlock backstop.
+        """
+        h = self.make_heuristic()  # no descent, no pending start
+        h.process = self.mock.MagicMock()
+        h.process.is_alive.return_value = True
+        assert h.can_produce is False
+        assert h.produce(1) == []
+        h.parent_conn.poll.assert_not_called()
 
-        h._pump()  # returns via the EOF branch
+    def test_produce_handles_done_and_error(self):
+        for kind in ("done", "error"):
+            h = self.make_running()
+            h.parent_conn.poll.return_value = True
+            h.parent_conn.recv.return_value = {"type": kind, "message": "whatever"}
+            assert h.produce(1) == []
+            assert h._optimization_active is False
+            assert h._waiting_for_eval is False
+            assert h._outstanding is False
 
-        # The eval message must have produced an emitted point.
-        assert len(h.get_points()) == 1
-        assert h._optimization_active is False
+    def test_produce_emits_the_point_of_an_eval_request(self):
+        h = self.make_running()
+        h.parent_conn.poll.return_value = True
+        h.parent_conn.recv.return_value = {"type": "eval", "x": np.array([0.3, 0.3])}
+        points = h.produce(1)
+        assert len(points) == 1
+        assert h._optimization_active is True
 
 
 def test_worker_eval_send_failure_aborts_optimization():

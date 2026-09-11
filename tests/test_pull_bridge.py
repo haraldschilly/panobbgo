@@ -27,7 +27,8 @@ import numpy as np
 import pytest
 
 from panobbgo.heuristics import COBYQA, LBFGSB, Nearby, Random
-from panobbgo.lib.classic import DeJong, Rosenbrock
+from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
+from panobbgo.lib.classic import DeJong, Rosenbrock, RosenbrockConstraint
 from panobbgo.strategies import StrategyRoundRobin
 
 #: One :class:`~panobbgo.strategies.round_robin.StrategyRoundRobin` request.
@@ -101,6 +102,52 @@ def test_bridge_arm_and_random_alternate_at_size_one():
     assert c["Random"] == pytest.approx(30, abs=2), c
 
 
+def test_local_penalty_search_contributes_on_a_constrained_problem():
+    """The last pump-thread arm, on the problem class it exists for.
+
+    ``LocalPenaltySearch`` descends on the *penalized* objective, so a
+    constrained problem is where it has something to do — and where F7
+    measured it emitting 0 of 150 points beside ``Random``.  Its worker is a
+    server that idles between descents, so this also exercises
+    ``_bridge_pending_request``: ``produce`` must return empty-handed rather
+    than sit on the pipe whenever no descent is running.
+    """
+    _, who, s = run(
+        [lambda st: Random(st), lambda st: LocalPenaltySearch(st)],
+        problem=RosenbrockConstraint(3),
+        max_eval=150,
+    )
+    c = counts(who)
+    assert c["LocalPenaltySearch"] > 0, f"the constrained arm was starved again: {c}"
+    assert c["LocalPenaltySearch"] >= s.loops // 2 - 1, (c, s.loops)
+
+
+def test_local_penalty_search_spends_the_budget_alone():
+    """Solo it drives the whole run: one evaluation per descent step."""
+    fx, who, _ = run(
+        [lambda st: LocalPenaltySearch(st)],
+        problem=RosenbrockConstraint(3),
+        max_eval=120,
+    )
+    assert len(fx) >= 120
+    assert set(counts(who)) == {"LocalPenaltySearch"}
+
+
+def test_local_penalty_search_run_is_reproducible():
+    fa, wa, _ = run(
+        [lambda st: Random(st), lambda st: LocalPenaltySearch(st)],
+        problem=RosenbrockConstraint(3),
+        max_eval=90,
+    )
+    fb, wb, _ = run(
+        [lambda st: Random(st), lambda st: LocalPenaltySearch(st)],
+        problem=RosenbrockConstraint(3),
+        max_eval=90,
+    )
+    np.testing.assert_array_equal(fa, fb)
+    assert list(wa) == list(wb)
+
+
 def test_bridge_arm_contributes_under_the_block_scheduler():
     """``StrategyBlockBandit`` gated readiness on ``has_points`` too.
 
@@ -159,6 +206,18 @@ def test_cobyqa_ends_the_run_cleanly_when_it_converges():
 # ---------------------------------------------------------------------------
 # The liveness predicate
 # ---------------------------------------------------------------------------
+
+
+def test_no_pump_threads_are_left_anywhere():
+    """Every solver bridge is now pull-based; nothing emits from a thread.
+
+    ``StrategyBase._can_still_produce`` used to count live module threads, so
+    any strategy carrying one of these arms got an unconditional "yes" — the
+    blind spot that made the liveness predicate a constant.
+    """
+    for cls in (LBFGSB, COBYQA, LocalPenaltySearch):
+        assert cls.on_demand is True, cls.__name__
+        assert not hasattr(cls, "_pump"), f"{cls.__name__} still has a pump thread"
 
 
 def test_liveness_is_true_while_a_bridge_arm_owes_us_nothing():

@@ -96,7 +96,6 @@ CONSTRAINT_ONLY: Set[str] = {
     "FeasibleSearch",
     "ConstraintGradient",
     "ConstraintRepair",
-    "LocalPenaltySearch",
 }
 
 #: Heuristics excluded from the run-based probes because a single 300-eval
@@ -104,7 +103,11 @@ CONSTRAINT_ONLY: Set[str] = {
 #: -- see :func:`test_slow_heuristic_still_spends_its_budget`.
 TOO_SLOW: Dict[str, str] = {
     "GaussianProcessHeuristic": "≈0.4 s per evaluation; a 300-eval solo run takes ~60 s",
-    "COBYQA": "the subprocess bridge emits so slowly that the stall guard ends the run first",
+    "COBYQA": "converges and stops (~25 of 300 evaluations) — no restart by design (dd8b096)",
+    "LocalPenaltySearch": (
+        "converges in ~12 evaluations and stops; contributes beside other arms since the pull "
+        "bridge (its earlier 0 points was the F3 starvation artefact, F7 retracted for it)"
+    ),
 }
 
 #: Heuristics that are not search arms and therefore emit nothing alone.
@@ -156,6 +159,13 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     ("Nearby", "quadratic_weight_sigma"): "only read when quadratic=True",
     ("Nearby", "quadratic_hessian_rank"): "only read when quadratic=True",
     ("GaussianProcessHeuristic", "enable_eic"): "constraint-aware acquisition; no effect on an unconstrained problem",
+    ("RegionUCB", "ucb_c"): (
+        "flipped by the Splitter resolution change 8a35927; being made trajectory-robust — "
+        "see planning/results/2026-09-10/invariants_findings.md.  (The budget-scaled tree holds "
+        "only 7 leaves at the 150-evaluation probe, so the +inf score of an unvisited leaf "
+        "dominates every decision and doubling ucb_c never flips one; it is under-probed, not "
+        "dead — at 600 evaluations / 31 leaves every perturbation changes the run.)"
+    ),
     # --- swallowed by integer quantisation at the probe's problem size -----
     ("LSHADE", "p_best_end"): (
         "p_count = ceil(p_eff * NP) (lshade.py:773); at the budget-adaptive NP of a 3-d probe both "
@@ -245,9 +255,6 @@ POPULATION_SIZE_ARG: Dict[str, str] = {
     "Sobol": "n",
 }
 
-#: ``max_stall_seconds`` for the probe runs.  The default 30 s turns every
-#: starved run into a half-minute wait.
-STALL = 3.0
 
 #: ``heuristic -> (problem kind, evaluations)`` for the dead-parameter probe.
 #: The default is a cheap, easy problem; a heuristic whose interesting code
@@ -290,7 +297,6 @@ def _strategy(problem: Any, seed: int, max_eval: int, capacity: int | None = Non
     cfg.stop_on_convergence = False
     cfg.ui_show = False
     cfg.evaluation_method = "threaded"
-    cfg.max_stall_seconds = STALL
     if capacity is not None:
         cfg.capacity = capacity
     return strategy
@@ -476,18 +482,18 @@ def test_warm_start_none_equals_omitted(name: str) -> None:
     assert who_omitted == who_explicit
 
 
-#: The classes whose cold path an *empty* archive does not restore.
-COLD_PATH_XFAIL: Dict[str, str] = {
-    "NLSHADE_RSP": (
-        "LSHADE._warm_start_population calls self._archive_cap() at lshade.py:939 — one line "
-        "*before* the `if not pool: return False` bail-out at lshade.py:942.  In NLSHADE_RSP that "
-        "override draws from self._rng (nl_shade_rsp.py:231, adaptive_archive=True by default), so "
-        "merely setting warm_start= consumes an RNG draw even when the warm start is abandoned and "
-        "shifts the entire initial population.  Every paired 'warm vs cold' A/B on these two arms "
-        "therefore compares two different RNG streams — the DISCOVERY §18 failure mode"
-    ),
-    "NLSHADE_LBC": "same as NLSHADE_RSP, which it subclasses",
-}
+#: Classes whose cold path an *empty* archive does not restore.
+#:
+#: ``NLSHADE_RSP`` and ``NLSHADE_LBC`` lived here until commit ``4d58531``:
+#: ``LSHADE._warm_start_population`` called ``self._archive_cap()`` one line
+#: *before* the ``if not pool: return False`` bail-out, and the RSP override
+#: of that method draws from ``self._rng`` (``adaptive_archive=True`` by
+#: default), so merely setting ``warm_start=`` consumed an RNG draw even when
+#: the warm start was abandoned and shifted the entire initial population --
+#: which made every paired "warm vs cold" A/B on those two arms a comparison
+#: of two different RNG streams (the ``DISCOVERY`` §18 failure mode).
+#: **Fixed**; the entries are gone and the two cases now run and pass.
+COLD_PATH_XFAIL: Dict[str, str] = {}
 
 
 @pytest.mark.parametrize("name", WARM_START_CLASSES)
@@ -584,6 +590,25 @@ BEATS_RANDOM_XFAIL: Dict[str, str] = {
     "WeightedAverage": "convex combinations of existing results cannot leave their convex hull",
     "NelderMead": "the simplex restarts from scratch too often to accumulate progress in 300 evaluations",
     "RegionUCB": "the region bandit spends its budget exploring boxes instead of refining the incumbent",
+    # --- temporary: flipped by an analyzer change, not by the arm ---------
+    # These three passed at 4/6 cells and now sit at 3/6.  The cause is the
+    # baseline: `Random` samples inside the Splitter's best leaf, so the
+    # budget-scaled resolution of 8a35927 made the *baseline* stronger while
+    # the arms did not move.  A six-cell win count is a knife-edge statistic
+    # to begin with.  Being replaced by a uniform null and a median effect
+    # size over 36 cells.
+    "PSO": (
+        "flipped by the Splitter resolution change 8a35927; being made trajectory-robust — "
+        "see planning/results/2026-09-10/invariants_findings.md"
+    ),
+    "Nearby": (
+        "flipped by the Splitter resolution change 8a35927; being made trajectory-robust — "
+        "see planning/results/2026-09-10/invariants_findings.md"
+    ),
+    "ClaudeHeuristic": (
+        "flipped by the Splitter resolution change 8a35927; being made trajectory-robust — "
+        "see planning/results/2026-09-10/invariants_findings.md"
+    ),
 }
 
 
@@ -759,59 +784,38 @@ def test_event_handler_signature_matches_publisher(cls: type, attr: str) -> None
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        pytest.param(
-            "Center",
-            marks=pytest.mark.xfail(
-                raises=ZeroDivisionError,
-                strict=True,
-                reason=(
-                    "StrategyRoundRobin.execute does `% len(hs)` on the *active* heuristics; when the "
-                    "last arm goes inactive the run dies with ZeroDivisionError instead of stopping, "
-                    "and StrategyBase.start() skips _cleanup() so the threads leak "
-                    "(panobbgo/strategies/round_robin.py:41)"
-                ),
-            ),
-        ),
-        pytest.param("Zero", marks=pytest.mark.xfail(raises=ZeroDivisionError, strict=True, reason="see Center")),
-        pytest.param("Sobol", marks=pytest.mark.xfail(raises=ZeroDivisionError, strict=True, reason="see Center")),
-    ],
-)
+@pytest.mark.parametrize("name", ["Center", "Zero", "Sobol"])
 def test_exhausted_heuristic_ends_the_run_cleanly(name: str) -> None:
-    """A run whose only heuristic is finished must terminate, not crash."""
+    """A run whose only heuristic is finished must terminate, not crash.
+
+    Was ``xfail(raises=ZeroDivisionError, strict=True)``: ``StrategyRoundRobin.execute``
+    did ``% len(hs)`` on the *active* heuristics, so the run died the moment
+    its last arm went inactive, and ``StrategyBase.start()`` skipped
+    ``_cleanup()`` so the threads leaked.  **Fixed on master** — the strict
+    xfail turned into an XPASS, which is how we found out; it is now a plain
+    assertion guarding the fix.
+    """
     _, fx, _ = solo(name, probe_problem(), max_eval=BUDGET)
     assert len(fx) == ONE_SHOT[name]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "subprocess-bridge heuristics (LBFGSB, COBYQA) emit from a pump thread, so they never have "
-        "a point ready when StrategyRoundRobin polls them; any competitor that does starves them "
-        "completely (panobbgo/heuristics/lbfgsb.py:419)"
-    ),
-)
 def test_subprocess_bridge_contributes_next_to_a_competitor() -> None:
-    """``LBFGSB`` alone spends the whole budget; next to ``Random`` it emits nothing."""
+    """A pump-thread heuristic must still get points in next to a competitor.
+
+    Was ``xfail(strict=True)``: ``LBFGSB`` and ``COBYQA`` emit from a pump
+    thread, so they never had a point queued when ``StrategyRoundRobin``
+    polled them and any competitor that did starved them completely --
+    ``Random`` + ``LBFGSB`` produced 150 Random points and zero LBFGSB ones.
+    **Fixed on master**; kept as a plain assertion.
+    """
     _, _, who = run([_make("Random"), _make("LBFGSB")], probe_problem(), max_eval=150)
     assert sum(1 for w in who if w.startswith("LBFGSB")) > 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "COBYQA's subprocess bridge emits so slowly that the wall-clock stall guard "
-        "(panobbgo/core.py:1739) ends the run before the budget is spent — which also makes a "
-        "seeded, sync_evaluation=True run depend on machine speed, breaking the reproducibility "
-        "contract of tests/test_reproducibility.py.  GaussianProcessHeuristic shows the same "
-        "shape at ~0.4 s/evaluation but is too slow to pin here; see the findings report."
-    ),
-)
 def test_slow_heuristic_still_spends_its_budget() -> None:
-    """Pinned: a slow arm loses part of its budget to the wall-clock stall guard."""
-    _, fx, _ = solo("COBYQA", probe_problem(), max_eval=BUDGET)
+    """A subprocess-bridge arm alone spends its whole budget (was xfail: the wall-clock
+    stall guard used to end the run first, making it machine-dependent — fixed dd8b096)."""
+    _, fx, _ = solo("LBFGSB", probe_problem(), max_eval=BUDGET)
     assert len(fx) >= BUDGET
 
 

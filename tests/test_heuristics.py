@@ -478,7 +478,13 @@ class HeuristicTests(PanobbgoTestCase):
 
         center = np.array([0.5, 0.5])
         lps.on_restart(center, "test_reason")
+        # The handler runs on the event-bus thread and only records; the main
+        # loop applies it in produce().  See the pull bridge in
+        # panobbgo/heuristics/local_penalty_search.py.
+        lps.clear_output.assert_not_called()
+        lps.parent_conn.send.assert_not_called()
 
+        lps._apply_pending_control()
         lps.clear_output.assert_called_once()
         lps.parent_conn.send.assert_called_with({"type": "abort"})
         lps._start_optimization.assert_called_with(center)

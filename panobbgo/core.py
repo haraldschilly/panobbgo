@@ -1048,6 +1048,36 @@ class PipeBridgeHeuristic(Heuristic):
         """
         return False
 
+    def _bridge_point(self, msg: Any) -> Any:
+        """The search point carried by ``msg``.
+
+        The default is the message itself — L-BFGS-B and COBYQA send a bare
+        ``ndarray``.  A worker with a richer protocol (a tagged dict, say)
+        unwraps it here.
+        """
+        return msg
+
+    def _bridge_send_fx(self, fx: float) -> None:
+        """Hand the value of our outstanding point back to the worker.
+
+        The default is a bare float, which is what
+        :func:`panobbgo.heuristics.lbfgsb._make_pipe_objective` expects.  A
+        worker with a tagged protocol wraps it here.
+        """
+        self.p1.send(fx)
+
+    def _bridge_pending_request(self) -> bool:
+        """``True`` while the worker is expected to send a point.
+
+        The default is "always, as long as it lives": L-BFGS-B and COBYQA run
+        one long solve and ask for an evaluation whenever they are not waiting
+        on us.  A worker that *idles between searches* — accepting a "start"
+        command, running a descent, reporting "done" and then waiting —
+        overrides this, otherwise :meth:`produce` would sit on the pipe until
+        the deadlock backstop every time the search is between runs.
+        """
+        return True
+
     def _bridge_alive(self) -> bool:
         proc = self._bridge_process()
         return proc is not None and proc.is_alive()
@@ -1075,7 +1105,7 @@ class PipeBridgeHeuristic(Heuristic):
         if self._outstanding:
             # We owe the worker a value; it can only move once we have one.
             return not self._fx_inbox.empty()
-        return True
+        return self._bridge_pending_request()
 
     def produce(self, limit: Optional[int] = None, timeout: Optional[float] = None) -> List["Point"]:
         if self.has_points:
@@ -1092,7 +1122,7 @@ class PipeBridgeHeuristic(Heuristic):
             except Empty:
                 return []  # the evaluation of our last point has not landed yet
             try:
-                self.p1.send(fx)
+                self._bridge_send_fx(fx)
             except (EOFError, OSError):
                 self._bridge_finished("pipe closed while answering f(x)")
                 return []
@@ -1120,6 +1150,8 @@ class PipeBridgeHeuristic(Heuristic):
         slice_ = self._bridge_poll_slice
         while True:
             self._bridge_drain_status()
+            if not self._bridge_pending_request():
+                return []  # the worker is idle; there is nothing to wait for
             try:
                 ready = self.p1.poll(slice_)
             except (EOFError, OSError):
@@ -1156,7 +1188,7 @@ class PipeBridgeHeuristic(Heuristic):
                 return []
             if self._bridge_control(msg):
                 continue
-            self.emit(msg)
+            self.emit(self._bridge_point(msg))
             self._outstanding = True
             return self.get_points(limit)
 

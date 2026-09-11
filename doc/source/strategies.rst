@@ -39,8 +39,10 @@ place, the ``ready`` list of block selection, plus a filtered prologue —
 ``regime_gate=None`` is byte-identical to a run without the feature, and a
 gate that enables every arm is byte-identical to ``None``.  And a disabled
 arm is a *paused* arm: it keeps receiving results and topping its queue
-up, so "CMA-ES alone via the gate" is deterministic but not byte-identical
-to ``StrategyRoundRobin`` with CMA-ES.  The alternative — a gate that
+up, so "CMA-ES alone via the gate" is deterministic but not *guaranteed*
+byte-identical to ``StrategyRoundRobin`` with CMA-ES (measured, it was:
+all 276 runs the gate reduced to CMA-ES on the 12-seed cauchy, standard
+and d = 10 batteries matched ``CMAES_alone`` bit for bit).  The alternative — a gate that
 picks between two pre-built strategies — is not implementable: one
 strategy owns the run (the event bus, the analyzers and the evaluator are
 built once and ``start`` is published once), so it is not re-proposed.

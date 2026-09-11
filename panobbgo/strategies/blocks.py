@@ -189,9 +189,19 @@ without the feature, and a gate that enables every arm is byte-identical to
 
 A disabled arm is a paused arm (see above): it keeps receiving
 ``on_new_results`` and keeps topping its queue up, so its own stream
-advances and "CMA-ES alone via the gate" is *not* byte-identical to
-``StrategyRoundRobin`` with CMA-ES — a different, measurably
-equal-or-better (§42) thing.  Deterministic under ``sync_evaluation``.
+advances, and the analyzers' streams are spawned one slot later than in a
+one-arm strategy.  "CMA-ES alone via the gate" is therefore not
+*guaranteed* byte-identical to ``StrategyRoundRobin`` with CMA-ES — a
+warm start on a consecutive block (``not h.has_points`` at block open) or
+an analyzer that feeds the arm could in principle differ.  Measured, it
+*is*: on the §4 batteries (cauchy, standard 500·dim, d = 10; 12 seeds)
+every one of the 276 runs the gate reduced to CMA-ES was bit-identical to
+``CMAES_alone``, and every one of the 360 runs it left both arms on
+(unif, gauss, 200·dim) was bit-identical to the ungated portfolio —
+because the enabled arm is the first RNG spawn in both specs, the masked
+arm never touches the run, and the warm start never fired on a
+self-refilling CMA-ES (``planning/results/2026-09-11/rg_*.json``).  Deterministic under
+``sync_evaluation`` either way.
 
 The alternative — "the gate picks between two pre-built strategies" — is
 **not implementable** and is not to be re-proposed: one strategy owns the

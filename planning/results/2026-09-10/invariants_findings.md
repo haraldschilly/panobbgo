@@ -361,3 +361,113 @@ a `skip` carrying the mechanism, so the suite stays green while the fact stays p
 - `uv run pytest -q -n 4 tests/` (full suite) — **2546 passed, 35 skipped, 13 xfailed** in 133 s,
   exit 0. The new file adds no failures anywhere else.
 - Only `tests/test_invariants.py` was created; no existing file was touched.
+
+---
+
+# Addendum, 2026-09-11 — trajectory-robustness pass
+
+Four cases flipped after commit `8a35927` (budget-scaled Splitter resolution)
+without any heuristic changing.  Both causes were defects in *this test file*,
+not in the code under test.
+
+## R1 — the baseline was not a null
+
+`panobbgo.heuristics.Random` samples inside the Splitter's **best leaf**
+(`panobbgo/heuristics/random.py:19-24`), so it is a splitter-aware local
+sampler.  `8a35927` made it ~0.05 AOCC stronger, and `test_beats_random`
+[`PSO`], [`Nearby`], [`ClaudeHeuristic`] flipped from 4/6 to exactly 3/6 —
+the *baseline* moved, the arms did not.  A baseline that tracks an analyzer
+measures the analyzer.
+
+**Fix:** a local `Uniform` heuristic (uniform over the whole box, reads
+nothing but its own generator) is now both the null and the seeder for the
+reactive arms.  `Random` is measured as an ordinary arm, which pins the fact
+that it beats the uniform null (median −0.33 / −0.62).
+
+## R2 — a win count over six cells is a knife-edge statistic
+
+All three flips landed on exactly 3/6 against a 4/6 bar.  Measured over two
+independent 12-seed blocks (seeds 0-11 and 100-111), the mid-field arms'
+**win count moved by 3-5 cells out of 36** while their **median per-cell
+log-ratio moved by 0.02-0.11 log10 units**.  The arms form a continuum in win
+rate with no gap in it, so no `wins >= k of n` bar can be stable.
+
+**Fix:** the verdict is the median of `log10(best_arm / best_uniform)` over
+3 problems × 12 seeds, against two data-driven bars, with both blocks
+recorded in `BEATS_UNIFORM_MEASURED` (value + commit + date) so a legitimate
+move is a one-line edit with a paper trail.
+
+## R3 — `RegionUCB.ucb_c` was under-probed, not dead
+
+Not a defect in the heuristic.  `RegionUCB` scores Splitter leaves, and the
+budget-scaled tree holds only **7 leaves at the 150-evaluation probe**, where
+the `+inf` score of an unvisited leaf dominates every decision — so doubling
+`ucb_c` never flips one.  Measured: 7 leaves at 150 evaluations, 16 at 300,
+31 at 600; `ucb_c=2` first changes the run at 300, `ucb_c=0` at 600.
+
+**Fix:** `PROBE_SETTINGS["RegionUCB"] = ("dejong", 600)`.  All four of its
+knobs move the run at that resolution; the temporary allowlist entry is gone.
+
+## Measured table (commit `6dc506d`, 36 cells, dim 3, 300 evaluations)
+
+Median `log10(arm/uniform)`, block A (seeds 0-11) / block B (seeds 100-111):
+
+| arm | A | B | tier |
+|---|---|---|---|
+| LBFGSB | −11.909 | −11.730 | strong |
+| LSHADE | −2.871 | −1.791 | strong |
+| LSHADE_EpSin | −1.633 | −2.872 | strong |
+| NLSHADE_LBC | −1.567 | −1.245 | strong |
+| CMAES | −1.475 | −1.453 | strong |
+| NLSHADE_RSP | −1.472 | −0.981 | strong |
+| JSO | −2.047 | −1.218 | strong |
+| RegionUCB | −0.868 | −0.754 | strong |
+| PSO | −0.677 | −0.590 | strong |
+| ClaudeHeuristic | −0.549 | −0.490 | strong |
+| *STRONG_CLASSIFY = −0.45* | | | |
+| Random | −0.331 | −0.623 | no-harm only |
+| DifferentialEvolution | −0.224 | −0.116 | no-harm only |
+| LatinHypercube | −0.167 | −0.104 | no-harm only |
+| WeightedAverage | −0.143 | −0.128 | no-harm only |
+| Nearby | −0.000 | −0.007 | no effect |
+| NelderMead | −0.000 | +0.000 | no effect |
+| QuadraticWlsModel | +0.000 | +0.000 | no effect |
+| *NO_HARM_BAR = +0.10* | | | |
+| Extremal | +0.414 | +0.350 | **xfail** |
+
+Bars: `NO_HARM_BAR = +0.10` for every arm; `STRONG_BAR = −0.30` additionally
+for arms whose *worse* block is ≤ `STRONG_CLASSIFY = −0.45`.  Tightest
+headroom: ClaudeHeuristic 0.19 against the strong bar (its block-to-block
+move is 0.06); NelderMead / QuadraticWlsModel 0.10 against the no-harm bar
+(their move is ≤ 0.007).
+
+## Verdict changes vs. the original F6
+
+**F6 is superseded and partly retracted.**  It said six arms "lose to Random"
+— but the comparison was against the splitter-aware `Random` over six cells.
+Against a uniform null over 36:
+
+- `DifferentialEvolution`, `WeightedAverage`, `LatinHypercube` are **better**
+  than uniform (medians −0.22/−0.12, −0.14/−0.13, −0.17/−0.10); "loses to
+  uniform sampling" was wrong.  They are weak, not harmful.
+- `NelderMead` and `Nearby` have **no measurable effect** either way, rather
+  than being worse.  (`Nearby` contributes ~6 of 300 evaluations at its
+  default `radius=0.01/new=1/axes='one'` — a refinement operator, not an arm.)
+- `QuadraticWlsModel` has median +0.000 but lower quartile −11.5: it solves
+  DeJong exactly (12/12 cells) and is inert elsewhere.  The *median* cell
+  gains nothing; the mean would be wildly misleading.
+- Only **`Extremal`** is genuinely worse than uniform (+0.41/+0.35), and it
+  stays xfailed.
+- `RegionUCB` was listed as losing; running solo with its new `on_start`
+  initial design (`ebb8290`) it is now a **strong** arm (−0.87/−0.75).
+
+## Findings fixed on master since the original report
+
+`F1` (RoundRobin `ZeroDivisionError`), `F2` (`warm_start` RNG shift in
+NL-SHADE-RSP/LBC), `F3` (subprocess-bridge starvation) and `F4` (wall-clock
+stall guard) are all fixed.  Each was caught turning into an `XPASS(strict)`,
+which is exactly what strict xfails are for; they are now plain assertions
+guarding the fixes.  `F7` is retracted for `LocalPenaltySearch` (its zero
+contribution was an F3 artefact).
+
+**The file now has one xfail left (`Extremal`), down from thirteen.**

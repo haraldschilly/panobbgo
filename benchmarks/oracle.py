@@ -93,6 +93,14 @@ if "dims" in opts or "bm" in opts:
     )
 
 
+#: One RNG stream for EVERY arm.  The oracle compares arms per cell, so the
+#: arms must be paired on the same stream — pinning the stream per arm (the
+#: arm_sweep convention, right for variants of one arm) makes the per-cell
+#: max a max over unpaired draws (REGIME_TABLE_2026-09-11.md §2: one cell
+#: differed by 0.52 between the per-arm and the shared stream).
+ORACLE_SEED_NAME = "oracle"
+
+
 def solo(name, cls, kw, seed_name=None):
     # ``seed_name`` pins the RNG stream to the *arm key*, not the display name,
     # so a tuned run and its ``--defaults`` counterpart (and any future run that
@@ -101,7 +109,7 @@ def solo(name, cls, kw, seed_name=None):
     return dataclasses.replace(
         BASE,
         name=name,
-        seed_name=seed_name or name,
+        seed_name=seed_name or ORACLE_SEED_NAME,
         strategy_class=StrategyRoundRobin,
         heuristics=[(cls, kw)],
         analyzers=[],

@@ -1,0 +1,46 @@
+0.038927 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.039023 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.114655 config:343      CONFG INFO      Evaluation method: threaded
+0.114698 config:346      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'd10886c7733c39aff10afb15fac5209f6b9aa602'}
+seed 42 done (23s)
+seed 7 done (46s)
+seed 1234 done (69s)
+seed 2025 done (92s)
+seed 3 done (115s)
+seed 11 done (138s)
+seed 99 done (161s)
+seed 123 done (184s)
+seed 777 done (208s)
+seed 2024 done (230s)
+seed 31337 done (253s)
+seed 555 done (276s)
+
+=== portfolio screen ===  (12 seeds, dims [2, 5], ioh-standard, budget 200*d, insts [0, 1, 2, 3, 4])
+specs: CMAES_alone, Blocks_uniform_cj_warm2_auto, Blocks_cj_cold_auto, Blocks_cj_inject_cold_auto, RoundRobin_cj_cold, RoundRobin_cj_seams   cells: 120
+
+spec                                    mean        d=2       d=5
+Blocks_uniform_cj_warm2_auto          0.5297     0.5721    0.4872
+CMAES_alone                           0.4874     0.5410    0.4337
+RoundRobin_cj_seams                   0.4235     0.4696    0.3775
+Blocks_cj_inject_cold_auto            0.4024     0.4497    0.3550
+Blocks_cj_cold_auto                   0.3918     0.4437    0.3399
+RoundRobin_cj_cold                    0.3904     0.4422    0.3386
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2_auto          +0.0423     [+0.0168,+0.0679]  11/12     +0.0311   +0.0536 <--
+RoundRobin_cj_seams                   -0.0638     [-0.0823,-0.0453]   0/12     -0.0715   -0.0562 <--
+Blocks_cj_inject_cold_auto            -0.0850     [-0.1025,-0.0675]   0/12     -0.0913   -0.0786 <--
+Blocks_cj_cold_auto                   -0.0956     [-0.1177,-0.0734]   0/12     -0.0974   -0.0937 <--
+RoundRobin_cj_cold                    -0.0969     [-0.1186,-0.0753]   0/12     -0.0988   -0.0951 <--
+
+--- screening gates (design §6) ---
+  G5 PASS  best warm (Blocks_uniform_cj_warm2_auto) - best single (CMAES_alone) +0.0423  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

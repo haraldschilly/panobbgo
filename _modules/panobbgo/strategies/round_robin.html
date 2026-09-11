@@ -172,20 +172,26 @@ data-aria-dark="Switch to auto color mode">
 <div class="viewcode-block" id="StrategyRoundRobin.execute">
 <a class="viewcode-back" href="../../../strategies.html#panobbgo.strategies.round_robin.StrategyRoundRobin.execute">[docs]</a>
 </span><span data-line="33">    <span class="k">def</span><span class="w"> </span><span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="34">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="35">
-</span><span data-line="36">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="37">        <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="38">        <span class="n">max_attempts</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Prevent infinite loop</span>
-</span><span data-line="39">        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="n">max_attempts</span><span class="p">:</span>
-</span><span data-line="40">            <span class="n">hs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
-</span><span data-line="41">            <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">hs</span><span class="p">)</span>
-</span><span data-line="42">            <span class="n">new_points</span> <span class="o">=</span> <span class="n">hs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">]</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
-</span><span data-line="43">            <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
-</span><span data-line="44">            <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="45">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="46">                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">)</span>  <span class="c1"># Only sleep if no points generated</span>
-</span><span data-line="47">        <span class="k">return</span> <span class="n">points</span></div>
+</span><span data-line="34">        <span class="n">points</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="35">        <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="36">        <span class="n">max_attempts</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Prevent infinite loop</span>
+</span><span data-line="37">        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="n">max_attempts</span><span class="p">:</span>
+</span><span data-line="38">            <span class="n">hs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">heuristics</span>
+</span><span data-line="39">            <span class="k">if</span> <span class="ow">not</span> <span class="n">hs</span><span class="p">:</span>
+</span><span data-line="40">                <span class="c1"># Every arm went inactive (emitted everything it will ever</span>
+</span><span data-line="41">                <span class="c1"># emit and unsubscribed).  There is nothing left to rotate</span>
+</span><span data-line="42">                <span class="c1"># over, and ``% len(hs)`` used to raise ZeroDivisionError</span>
+</span><span data-line="43">                <span class="c1"># here — which escaped ``start()`` and leaked the event bus,</span>
+</span><span data-line="44">                <span class="c1"># the evaluator pool and every subprocess.  Returning ``[]``</span>
+</span><span data-line="45">                <span class="c1"># lets ``StrategyBase._alive`` end the run cleanly.</span>
+</span><span data-line="46">                <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="47">            <span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">hs</span><span class="p">)</span>
+</span><span data-line="48">            <span class="c1"># ``produce``, not ``get_points``: an on-demand arm (a solver</span>
+</span><span data-line="49">            <span class="c1"># bridge) has an empty queue between round trips and would be</span>
+</span><span data-line="50">            <span class="c1"># skipped forever beside any arm that keeps one stocked.</span>
+</span><span data-line="51">            <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">hs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">]</span><span class="o">.</span><span class="n">produce</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+</span><span data-line="52">            <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="53">        <span class="k">return</span> <span class="n">points</span></div>
 </div>
 
 </span></pre></div>

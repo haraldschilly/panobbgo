@@ -309,7 +309,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="162">
 </span><span data-line="163">                <span class="k">for</span> <span class="n">theta</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">:</span>
 </span><span data-line="164">                    <span class="c1"># Request points from the selected heuristic</span>
-</span><span data-line="165">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="165">                    <span class="n">new_points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">produce</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="166">                    <span class="k">if</span> <span class="n">new_points</span><span class="p">:</span>
 </span><span data-line="167">                        <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_points</span><span class="p">)</span>
 </span><span data-line="168">                        <span class="c1"># Update selection stats (attempts)</span>

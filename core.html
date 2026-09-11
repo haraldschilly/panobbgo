@@ -106,6 +106,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus"><code class="docutils literal notranslate"><span class="pre">EventBus</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.core.EventBus.inflight"><code class="docutils literal notranslate"><span class="pre">EventBus.inflight</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.is_subscribed"><code class="docutils literal notranslate"><span class="pre">EventBus.is_subscribed()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.keys"><code class="docutils literal notranslate"><span class="pre">EventBus.keys</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.EventBus.publish"><code class="docutils literal notranslate"><span class="pre">EventBus.publish()</span></code></a></li>
@@ -120,6 +121,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.WARM_START_MODES"><code class="docutils literal notranslate"><span class="pre">Heuristic.WARM_START_MODES</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.active"><code class="docutils literal notranslate"><span class="pre">Heuristic.active</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.archive_seed"><code class="docutils literal notranslate"><span class="pre">Heuristic.archive_seed()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.can_produce"><code class="docutils literal notranslate"><span class="pre">Heuristic.can_produce</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.cap"><code class="docutils literal notranslate"><span class="pre">Heuristic.cap</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.clear_output"><code class="docutils literal notranslate"><span class="pre">Heuristic.clear_output()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.emit"><code class="docutils literal notranslate"><span class="pre">Heuristic.emit()</span></code></a></li>
@@ -128,7 +130,9 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.get_points"><code class="docutils literal notranslate"><span class="pre">Heuristic.get_points()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.has_points"><code class="docutils literal notranslate"><span class="pre">Heuristic.has_points</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.new_who"><code class="docutils literal notranslate"><span class="pre">Heuristic.new_who()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.on_demand"><code class="docutils literal notranslate"><span class="pre">Heuristic.on_demand</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.performance"><code class="docutils literal notranslate"><span class="pre">Heuristic.performance</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.produce"><code class="docutils literal notranslate"><span class="pre">Heuristic.produce()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.warm_start_now"><code class="docutils literal notranslate"><span class="pre">Heuristic.warm_start_now()</span></code></a></li>
 </ul>
 </li>
@@ -147,6 +151,16 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Module.rng"><code class="docutils literal notranslate"><span class="pre">Module.rng</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.spawn_thread"><code class="docutils literal notranslate"><span class="pre">Module.spawn_thread()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.strategy"><code class="docutils literal notranslate"><span class="pre">Module.strategy</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.bridge_timeout"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.bridge_timeout</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.can_produce"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.can_produce</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.on_demand"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.on_demand</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.on_new_results"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.out1"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.out1</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.p1"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.p1</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.produce()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.Results"><code class="docutils literal notranslate"><span class="pre">Results</span></code></a><ul>
@@ -273,6 +287,8 @@ size=&quot;8.0, 12.0&quot;;
   &quot;panobbgo.core.HeuristicSubprocess&quot; [URL=&quot;#panobbgo.core.HeuristicSubprocess&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting&quot;];
   &quot;panobbgo.core.Heuristic&quot; -&gt; &quot;panobbgo.core.HeuristicSubprocess&quot; [arrowsize=0.5,style=&quot;setlinewidth(0.5)&quot;];
   &quot;panobbgo.core.Module&quot; [URL=&quot;#panobbgo.core.Module&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;\&quot;Abstract\&quot; parent class for various panobbgo modules, e.g.&quot;];
+  &quot;panobbgo.core.PipeBridgeHeuristic&quot; [URL=&quot;#panobbgo.core.PipeBridgeHeuristic&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;A sequential solver in a subprocess, **pulled** from the caller's thread.&quot;];
+  &quot;panobbgo.core.Heuristic&quot; -&gt; &quot;panobbgo.core.PipeBridgeHeuristic&quot; [arrowsize=0.5,style=&quot;setlinewidth(0.5)&quot;];
   &quot;panobbgo.core.Results&quot; [URL=&quot;#panobbgo.core.Results&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;A very simple database of results with a notification for new results.&quot;];
   &quot;panobbgo.core.StopHeuristic&quot; [URL=&quot;#panobbgo.core.StopHeuristic&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;Indicates the heuristic has finished and should be ignored/removed.&quot;];
   &quot;panobbgo.core.StrategyBase&quot; [URL=&quot;#panobbgo.core.StrategyBase&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This abstract BaseStrategy is the parent class of all Strategies.&quot;];
@@ -326,6 +342,17 @@ runs rely on (see <a class="reference internal" href="#panobbgo.core.EventBus.wa
 <li><p>handlers must return promptly.  A module <em>reacts</em> to events; it never
 sleeps, polls or waits for other events inside a handler.</p></li>
 </ul>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.core.EventBus.inflight">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">inflight</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.core.EventBus.inflight" title="Link to this definition">#</a></dt>
+<dd><p>Events queued plus the one currently being dispatched.</p>
+<p>A non-zero value means a handler is about to run (or is running),
+i.e. a heuristic may still refill its queue without any new
+evaluation.  <code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase._alive()</span></code> needs exactly this: the
+difference between “every queue is empty” and “nothing can ever
+produce again”.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.EventBus.is_subscribed">
 <span class="sig-name descname"><span class="pre">is_subscribed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#EventBus.is_subscribed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.EventBus.is_subscribed" title="Link to this definition">#</a></dt>
@@ -487,6 +514,17 @@ to read as “use the cold path”.</p>
 constraint handler all degrade to <code class="docutils literal notranslate"><span class="pre">[]</span></code>.</p>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.can_produce">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">can_produce</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.can_produce" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff <a class="reference internal" href="#panobbgo.core.Heuristic.produce" title="panobbgo.core.Heuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> would hand out a point right now.</p>
+<p>The same question as <a class="reference internal" href="#panobbgo.core.Heuristic.has_points" title="panobbgo.core.Heuristic.has_points"><code class="xref py py-attr docutils literal notranslate"><span class="pre">has_points</span></code></a> for a reactive heuristic,
+and the <em>correct</em> one for an <a class="reference internal" href="#panobbgo.core.Heuristic.on_demand" title="panobbgo.core.Heuristic.on_demand"><code class="xref py py-attr docutils literal notranslate"><span class="pre">on_demand</span></code></a> one, whose queue is
+empty by construction between round trips.  This is the predicate
+schedulers gate on and the one
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase._alive()</span></code> sums over.</p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.cap">
 <span class="sig-name descname"><span class="pre">cap</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.cap" title="Link to this definition">#</a></dt>
@@ -560,9 +598,38 @@ stream.</p>
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.on_demand">
+<span class="sig-name descname"><span class="pre">on_demand</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></span><a class="headerlink" href="#panobbgo.core.Heuristic.on_demand" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff this heuristic produces points <strong>on demand</strong>, on the
+caller’s thread, rather than reactively topping its queue up from
+event handlers.  The solver bridges
+(<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>,
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>) set it: a sequential
+SciPy optimizer cannot queue a point ahead, because its next iterate
+is a function of <code class="docutils literal notranslate"><span class="pre">f</span></code> at the current one.  A scheduler must call
+<a class="reference internal" href="#panobbgo.core.Heuristic.produce" title="panobbgo.core.Heuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> — never <a class="reference internal" href="#panobbgo.core.Heuristic.get_points" title="panobbgo.core.Heuristic.get_points"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code></a> — or such an arm is
+starved by any competitor that keeps a stocked queue
+(<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §1).</p>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.performance">
 <span class="sig-name descname"><span class="pre">performance</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#panobbgo.core.Heuristic.performance" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.produce">
+<span class="sig-name descname"><span class="pre">produce</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Point" title="panobbgo.lib.lib.Point"><span class="pre">Point</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.produce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.produce" title="Link to this definition">#</a></dt>
+<dd><p>The scheduler’s point-acquisition call.</p>
+<p>For a reactive heuristic this is exactly <a class="reference internal" href="#panobbgo.core.Heuristic.get_points" title="panobbgo.core.Heuristic.get_points"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code></a> — the
+queue is whatever its event handlers put there.  An
+<a class="reference internal" href="#panobbgo.core.Heuristic.on_demand" title="panobbgo.core.Heuristic.on_demand"><code class="xref py py-attr docutils literal notranslate"><span class="pre">on_demand</span></code></a> heuristic overrides it and <em>produces</em> the next
+point synchronously, on the calling thread.</p>
+<p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> is a deadlock backstop for the on-demand case, never a
+scheduling parameter: a healthy producer answers immediately, so
+the value cannot influence <em>which</em> points a run evaluates — only
+whether the run reports a wedged worker.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.warm_start_now">
@@ -692,6 +759,126 @@ a handler.  Threads registered here are joined by <code class="xref py py-meth d
 <dt class="sig sig-object py" id="panobbgo.core.Module.strategy">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">strategy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span><a class="headerlink" href="#panobbgo.core.Module.strategy" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">PipeBridgeHeuristic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#PipeBridgeHeuristic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<p>A sequential solver in a subprocess, <strong>pulled</strong> from the caller’s thread.</p>
+<p>SciPy’s local optimizers (<code class="docutils literal notranslate"><span class="pre">fmin_l_bfgs_b</span></code>, <code class="docutils literal notranslate"><span class="pre">minimize(method=&quot;COBYQA&quot;)</span></code>)
+are synchronous: they call <code class="docutils literal notranslate"><span class="pre">f(x)</span></code> and block for the return value, and
+they cannot be suspended mid-step to yield an evaluation request.  So the
+solver runs in its own subprocess and each <code class="docutils literal notranslate"><span class="pre">f(x)</span></code> is a round trip over a
+pipe.  The protocol is strictly one outstanding evaluation:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span><span data-line="1">worker: f(x) -&gt; pipe.send(x), blocks on recv
+</span><span data-line="2">parent: produce()  -&gt; recv(x), emit -&gt; the strategy evaluates it
+</span><span data-line="3">parent: on_new_results -&gt; stores the penalty value
+</span><span data-line="4">parent: produce()  -&gt; sends the value, recv's the next x
+</span></pre></div>
+</div>
+<p><strong>Every pipe operation happens on the thread that calls</strong> <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>,
+i.e. the strategy’s main loop.  Until 2026-09 a daemon “pump” thread did
+the <code class="docutils literal notranslate"><span class="pre">recv</span></code>/<code class="docutils literal notranslate"><span class="pre">emit</span></code> half and the event-bus thread did the <code class="docutils literal notranslate"><span class="pre">send</span></code> half.
+That had three consequences, all removed here:</p>
+<ol class="arabic simple">
+<li><p>the arm’s output queue was empty whenever the scheduler looked, so any
+competitor with a stocked queue starved it completely — under
+<a class="reference internal" href="_autosummary/panobbgo.strategies.round_robin.StrategyRoundRobin.html#panobbgo.strategies.round_robin.StrategyRoundRobin" title="panobbgo.strategies.round_robin.StrategyRoundRobin"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code></a> such an arm
+contributed <strong>0</strong> points beside <code class="docutils literal notranslate"><span class="pre">Random</span></code>;</p></li>
+<li><p><a class="reference internal" href="#panobbgo.core.Heuristic.active" title="panobbgo.core.Heuristic.active"><code class="xref py py-attr docutils literal notranslate"><span class="pre">Heuristic.active</span></code></a> and
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase._can_still_produce()</span></code> answered “yes” from the pump
+thread’s liveness, which never ended, so they were constants;</p></li>
+<li><p>emissions were timing-dependent, which excluded these heuristics from
+the reproducible <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> mode.</p></li>
+</ol>
+<p>Now a bridge arm’s contribution is a pure function of the seed: the point
+it hands out depends only on the values it was given and its worker’s
+seed.  See <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §1.</p>
+<p>Subclasses provide the subprocess and the pipes (<code class="docutils literal notranslate"><span class="pre">p1</span></code> = parent end of
+the request pipe, <code class="docutils literal notranslate"><span class="pre">out1</span></code> = parent end of the status pipe), and may
+intercept control messages by overriding <code class="xref py py-meth docutils literal notranslate"><span class="pre">_bridge_control()</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.bridge_timeout">
+<span class="sig-name descname"><span class="pre">bridge_timeout</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60.0</span></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.bridge_timeout" title="Link to this definition">#</a></dt>
+<dd><p>Deadlock backstop for <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>, in seconds.  <strong>Not</strong> a
+scheduling parameter: a live worker is waited for however long it
+needs, and this can only expire when the worker is wedged — an error,
+logged as one.  It therefore never influences <em>which</em> points a run
+evaluates.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.can_produce">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">can_produce</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.can_produce" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> would hand out a point right now.</p>
+<p>The same question as <code class="xref py py-attr docutils literal notranslate"><span class="pre">has_points</span></code> for a reactive heuristic,
+and the <em>correct</em> one for an <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.on_demand" title="panobbgo.core.PipeBridgeHeuristic.on_demand"><code class="xref py py-attr docutils literal notranslate"><span class="pre">on_demand</span></code></a> one, whose queue is
+empty by construction between round trips.  This is the predicate
+schedulers gate on and the one
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase._alive()</span></code> sums over.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.on_demand">
+<span class="sig-name descname"><span class="pre">on_demand</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.on_demand" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> iff this heuristic produces points <strong>on demand</strong>, on the
+caller’s thread, rather than reactively topping its queue up from
+event handlers.  The solver bridges
+(<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>,
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>) set it: a sequential
+SciPy optimizer cannot queue a point ahead, because its next iterate
+is a function of <code class="docutils literal notranslate"><span class="pre">f</span></code> at the current one.  A scheduler must call
+<a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> — never <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code> — or such an arm is
+starved by any competitor that keeps a stocked queue
+(<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §1).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#PipeBridgeHeuristic.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Store the penalty value of <em>our</em> point; never touch the pipe here.</p>
+<p>This runs on the event-bus dispatcher thread, which
+<a class="reference internal" href="#panobbgo.core.EventBus" title="panobbgo.core.EventBus"><code class="xref py py-class docutils literal notranslate"><span class="pre">EventBus</span></code></a> delivers serially — so it must return promptly and
+must not do I/O.  <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> sends the value on, from the main
+thread.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.out1">
+<span class="sig-name descname"><span class="pre">out1</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.out1" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.p1">
+<span class="sig-name descname"><span class="pre">p1</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.p1" title="Link to this definition">#</a></dt>
+<dd><p>Parent end of the request pipe (<code class="docutils literal notranslate"><span class="pre">x</span></code> in, <code class="docutils literal notranslate"><span class="pre">f(x)</span></code> out) and of the
+worker’s status pipe.  Created by the subclass when it spawns.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.produce">
+<span class="sig-name descname"><span class="pre">produce</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Point" title="panobbgo.lib.lib.Point"><span class="pre">Point</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#PipeBridgeHeuristic.produce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="Link to this definition">#</a></dt>
+<dd><p>The scheduler’s point-acquisition call.</p>
+<p>For a reactive heuristic this is exactly <code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code> — the
+queue is whatever its event handlers put there.  An
+<a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.on_demand" title="panobbgo.core.PipeBridgeHeuristic.on_demand"><code class="xref py py-attr docutils literal notranslate"><span class="pre">on_demand</span></code></a> heuristic overrides it and <em>produces</em> the next
+point synchronously, on the calling thread.</p>
+<p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> is a deadlock backstop for the on-demand case, never a
+scheduling parameter: a healthy producer answers immediately, so
+the value cannot influence <em>which</em> points a run evaluates — only
+whether the run reports a wedged worker.</p>
+</dd></dl>
 
 </dd></dl>
 

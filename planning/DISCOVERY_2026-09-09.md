@@ -1412,3 +1412,34 @@ see it because they all ran within one process.
 
 The runs that decide (12 seeds, launched): standard at 2000·dim
 (d 2/5), cauchy / gauss / unif, and d=10 at 500·dim.
+
+## 42. 12-seed regime runs, first four: the portfolio wins under uniform noise; outliers belong to CMA-ES
+
+Standard MA-BBOB cube (d 2/5, 500·dim) under the BBOB noise models, and
+d = 10 at 500·dim, 12-seed roster, one stream per cell
+(`planning/results/2026-09-11/r12_*`):
+
+| regime | CMA-ES | jSO | L-SHADE | portfolio | portfolio vs best single arm |
+|---|---|---|---|---|---|
+| **cauchy** | **0.640** | 0.505 | 0.506 | 0.539 | −0.101 [−0.124, −0.078], 0/12; DE arms −0.135 (0/12) |
+| gauss | 0.643 | **0.660** | 0.641 | 0.666 | +0.005 vs jSO (5/12); +0.022 vs CMA-ES [−0.003, +0.048] 9/12 |
+| **unif** | 0.635 | 0.643 | **0.645** | **0.672** | **+0.026 [+0.003, +0.050], 9/12** vs L-SHADE; +0.037 [+0.012, +0.061], 10/12 vs CMA-ES; both dims positive |
+| d = 10, 500·dim | **0.422** | 0.367 | 0.353 | 0.400 | −0.023 [−0.070, +0.024] 6/12; DE arms −0.056 / −0.069 (CI clear) |
+
+* **Uniform noise is the first regime where the sharing portfolio
+  clears every single arm on the roster by the acceptance rule.**  The
+  lean is at *d* = 5 (+0.055 vs CMA-ES) with *d* = 2 also positive.
+* **Outliers belong to CMA-ES**, by a margin no other result in this
+  file approaches (DE arms −0.135 with 0/12 seeds).  Mechanism as in
+  §38; now a 12-seed fact.
+* Gaussian noise: the portfolio leads but not by the rule; jSO is level
+  with it.
+* *d* = 10 at 500·dim: CMA-ES, clearly; the portfolio is level, the DE
+  arms lose.
+
+Regime gating now has two branches with 12-seed evidence — outliers →
+CMA-ES alone; gaussian/uniform noise at *d* ≤ 5 → the sharing portfolio
+— and the noise class is the one regime feature not known a priori: it
+needs a probe (re-evaluate a few points; outliers show as a heavy tail
+in the differences).  Pending: 2000·dim and 200·dim at *d* 2/5 (does
+budget move the noiseless verdict), constrained, and the paired oracle.

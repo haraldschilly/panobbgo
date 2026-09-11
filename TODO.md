@@ -69,6 +69,11 @@ gebaut ist.
 - [ ] **Invarianten-Tests robust machen** — vier trajektorienabhängige Fälle
       kippten mit dem Splitter-Umbau; master-CI rot bis der grüne Stand
       landet.
+- [ ] **Regime-Gating** (§41/§42): zwei Zweige mit 12-Seed-Evidenz —
+      Ausreißer → CMA-ES allein; uniformes Rauschen bei *d* ≤ 5 →
+      Sharing-Portfolio (erster Roster-Sieg des Portfolios). Design des
+      Regime-Detektors (Rausch-Probe) läuft; Tabelle wird mit bm2000/bm200/
+      constrained vervollständigt.
 - [ ] Zoo kompaktieren: **zurückgestellt**, bis die neuen Batterien
       zeigen, was gut ist.
 

@@ -147,6 +147,27 @@ class RegionUCB(Heuristic):
 
     # -- event handlers ----------------------------------------------------
 
+    def on_start(self):
+        """Emit an initial design, so the bandit has something to react to.
+
+        Every other line of this class is driven by ``on_new_results``, and
+        the :class:`~panobbgo.analyzers.splitter.Splitter` tree it allocates
+        over does not exist until results arrive.  Without a producer of its
+        own the heuristic therefore emits nothing, *ever*: run alone it
+        stalls the strategy at **0 evaluations** and the run dies on the
+        no-progress guard (measured: 0 of 200 on Rosenbrock *d* = 3, and 0
+        of 200 through the IOH harness — under the legacy Splitter as well,
+        so this is the heuristic's own defect, not the tree's).  Until now it
+        was only ever benchmarked next to another arm, which hid it.
+
+        A uniform draw over the problem box is the cheapest opening that
+        presupposes no tree, and it is the same one
+        :class:`~panobbgo.heuristics.Random` opens with.  It uses this
+        module's own :attr:`rng`, so the master stream is untouched and the
+        RNG-order contract (``__init__`` draws nothing) still holds.
+        """
+        self.fill_queue(lambda: self.problem.random_point(rng=self.rng))
+
     def on_new_results(self, results):
         """Re-select a region and refill the output queue on every batch."""
         try:

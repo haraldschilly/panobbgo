@@ -74,6 +74,41 @@ SPLIT_RULES = ("widest", "value")
 #: only consumer that reads more than one leaf per decision.
 DEFAULT_SPLIT_RULE = "widest"
 
+#: Where along the chosen dimension the cut goes.  ``"mean"`` is the
+#: historical point; ``"median"`` cuts through the middle *order statistic*.
+#: See :meth:`Splitter.Box._split_point`.
+CUT_RULES = ("mean", "median")
+
+#: The default cut.  ``"mean"``, and the reasoning that said otherwise was
+#: **wrong**, so it is written down here rather than repeated.
+#:
+#: The observation was real: ``Random`` at *d* = 5 (Rosenbrock, 2500
+#: evaluations) builds a tree of depth 60 — the :attr:`Box.MAX_DEPTH` cap —
+#: holding 61 leaves against a target of 101, with a single leaf of ~1300
+#: points.  The *diagnosis* — "the mean is dragged towards the stragglers of
+#: a contracting cloud, so each cut only peels a few points off" — was not:
+#: a median cut produces the identical depth 60 / 61 leaves / 1301-point leaf
+#: on the same spec.  The chain is :class:`~panobbgo.heuristics.Random`'s
+#: own doing: it samples *only inside the current best leaf*, so every point
+#: lands in one leaf, that leaf splits, the child holding the best point
+#: becomes the next target and the sibling is never visited again.  Depth
+#: then grows once per split whatever the cut rule is.  Fixing it means
+#: changing the heuristic or the depth cap, not the geometry.
+#:
+#: What the median *does* change was then measured, paired, 3 seeds
+#: (42/7/1234, MA-BBOB standard battery, dims 2 and 5 at 500·d, instances
+#: 0-2): ``Random`` **−0.0145** (1/3 seeds), ``RegionUCB`` **+0.0327**
+#: (3/3) — one inside the ±0.03 null floor and negative, the other barely
+#: outside it, mean +0.009.  No mandate.  And it carries one concrete
+#: structural regression: on ``Blocks_uniform_cj_warm2`` at *d* = 5 the
+#: median cut reaches ``MAX_DEPTH`` with a 423-point leaf where the mean
+#: stays at depth 52 with no leaf above 36.
+#:
+#: So ``"median"`` ships opt-in — it is genuinely the better *geometry* (see
+#: :meth:`Splitter.Box._split_point`) and ``RegionUCB``, the one consumer
+#: that reads every leaf, is the case worth revisiting on a 12-seed roster.
+DEFAULT_CUT_RULE = "mean"
+
 
 class Splitter(Analyzer):
     """
@@ -103,16 +138,20 @@ class Splitter(Analyzer):
             (default :data:`MAX_LEAVES`); it raises the split threshold
             rather than refusing splits, so the partition stays a proper
             kd-tree.
+        cut_rule: ``"median"`` (default, see :data:`DEFAULT_CUT_RULE`) or
+            ``"mean"`` — where along the chosen dimension the cut falls.
         legacy: ``True`` restores the pre-2026-09-10 analyzer exactly —
-            ``limit = max(20, max_eval / dim**2)`` and ``split_rule =
-            "widest"``.  Every other knob is ignored.  Kept so both trees
-            are runnable from one code base and a measurement can be paired.
+            ``limit = max(20, max_eval / dim**2)``, ``split_rule =
+            "widest"`` and ``cut_rule = "mean"``.  Every other knob is
+            ignored.  Kept so both trees are runnable from one code base
+            and a measurement can be paired.
     """
 
     def __init__(
         self,
         strategy,
         split_rule=None,
+        cut_rule=None,
         leaf_size=None,
         min_leaf_size=None,
         max_leaves=None,
@@ -131,6 +170,11 @@ class Splitter(Analyzer):
         if split_rule not in SPLIT_RULES:
             raise ValueError("split_rule must be one of %s, got %r" % (SPLIT_RULES, split_rule))
         self.split_rule = "widest" if self.legacy else split_rule
+        if cut_rule is None:
+            cut_rule = "mean" if self.legacy else DEFAULT_CUT_RULE
+        if cut_rule not in CUT_RULES:
+            raise ValueError("cut_rule must be one of %s, got %r" % (CUT_RULES, cut_rule))
+        self.cut_rule = "mean" if self.legacy else cut_rule
         self.leaf_size = float(LEAF_SIZE if leaf_size is None else leaf_size)
         self.min_leaf_size = None if min_leaf_size is None else int(min_leaf_size)
         self.max_leaves = int(MAX_LEAVES if max_leaves is None else max_leaves)
@@ -728,6 +772,75 @@ class Splitter(Analyzer):
         def __len__(self):
             return len(self.results)
 
+        def _split_point(self, dim):
+            """Where to cut along ``dim``.
+
+            **The invariant, and the only thing that keeps the tree finite.**
+            :meth:`contains` includes both boundaries, so a point sitting
+            exactly on the cut lands in *both* children.  A child is
+            therefore a strict subset of its parent only when the cut ``s``
+            is *strictly interior* to the observed coordinates::
+
+                left  = {x_dim <= s}  is proper  <=>  s < max(x_dim)
+                right = {x_dim >= s}  is proper  <=>  s > min(x_dim)
+
+            Violate it and one child inherits the whole parent, is over-full
+            on arrival, splits again — the §13 live-lock, one level up from
+            the identical-points case :meth:`_can_split` already guards.
+
+            ``"mean"`` satisfies it for free: the average of values that are
+            not all equal lies strictly between the smallest and the largest,
+            and ``_can_split`` has already established ``spread > 0``.
+
+            A **plain median does not**, in two separate ways, and both were
+            measured rather than reasoned about:
+
+            1. It can *be* the minimum — on ``[0,0,0,1,1]`` the median is 0,
+               so the right child inherits all five points.
+            2. Worse, and the one that actually bit: the median is an
+               *observed coordinate*, and a converging search produces long
+               runs of duplicates (a clipped bound, a stalled component).
+               Every point on the cut goes into **both** children, so the two
+               children together hold ``n + (duplicates at the cut)`` points
+               and neither shrinks much.  Replaying one real ``Random``
+               *d* = 5 cloud (2500 points) through a plain median cut gave
+               **61 leaves at depth 60** — the ``MAX_DEPTH`` cap — with a
+               leaf holding **1302** points, against 113 leaves at depth 31
+               and a largest leaf of 36 for the mean.
+
+            So ``"median"`` here is the median *boundary*: of all the gaps
+            between adjacent **distinct** coordinates, take the one that
+            comes closest to halving the population and cut in its middle.
+            With distinct coordinates that is exactly the median; with ties
+            it is the nearest cut that no point can sit on, so a duplicate
+            mass lands wholly on one side.  The mean stays the fallback for
+            the float-degenerate case where the gap is too narrow to hold a
+            representable point.
+            """
+            if self.splitter.cut_rule == "mean":
+                # ``np.average`` over the list, verbatim: legacy trees are
+                # pinned bit-for-bit on this expression.
+                return np.average([r.x[dim] for r in self.results])
+            n = len(self.results)
+            xd = np.fromiter((r.x[dim] for r in self.results), dtype=float, count=n)
+            values, counts = np.unique(xd, return_counts=True)
+            if len(values) >= 2:
+                # ``below[k]`` = points at or below ``values[k]``; the cut
+                # between ``values[k]`` and ``values[k+1]`` splits the box
+                # ``below[k]`` against ``n - below[k]``.
+                below = np.cumsum(counts)[:-1]
+                k = int(np.argmin(np.abs(2 * below - n)))
+                lo_v, hi_v = float(values[k]), float(values[k + 1])
+                cut = 0.5 * (lo_v + hi_v)
+                if lo_v < cut < hi_v:
+                    return cut
+            lo, hi = float(xd.min()), float(xd.max())
+            cut = float(np.average(xd))
+            # The last resort is bounded by ``MAX_DEPTH``, not by this line:
+            # if no representable point is strictly interior the box simply
+            # keeps splitting until the depth cap stops it.
+            return cut if lo < cut < hi else 0.5 * (lo + hi)
+
         def split(self, dim=None):
             """
             Arguments::
@@ -747,8 +860,7 @@ class Splitter(Analyzer):
             b1 = Splitter.Box(self, self.splitter, self.box.copy())
             b2 = Splitter.Box(self, self.splitter, self.box.copy())
             self.split_dim = dim
-            # split_point = np.median(map(lambda r:r.x[dim], self.results))
-            split_point = np.average([r.x[dim] for r in self.results])
+            split_point = self._split_point(dim)
             b1.box[dim, 1] = split_point
             b2.box[dim, 0] = split_point
             self.children.extend([b1, b2])

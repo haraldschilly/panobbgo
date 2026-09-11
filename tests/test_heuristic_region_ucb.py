@@ -267,3 +267,60 @@ def test_rewarding_region_ucb_seed_spec_has_explicit_region_ucb_kwargs():
     assert kw["ucb_c"] == 1.0
     assert kw["gauss_fraction"] == 0.5
     assert kw["gauss_scale"] == 0.25
+
+
+# ----------------------------------------------------------------------
+# The heuristic must be able to open a run on its own
+# ----------------------------------------------------------------------
+
+
+def test_region_ucb_alone_spends_its_budget():
+    """``RegionUCB`` used to emit nothing when run without a second arm.
+
+    Every other handler is driven by ``on_new_results``, and the Splitter
+    tree it allocates over does not exist until results arrive — so with no
+    ``on_start`` the strategy stalled at **0 evaluations** and died on the
+    no-progress guard.  It was only ever benchmarked next to another arm,
+    which hid the defect.
+    """
+    from panobbgo.heuristics import RegionUCB
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRoundRobin
+
+    strategy = StrategyRoundRobin(Rosenbrock(dim=3), parse_args=False, testing_mode=True, seed=0)
+    strategy.config.max_eval = 200
+    strategy.config.sync_evaluation = True
+    strategy.config.stop_on_convergence = False
+    strategy.add_heuristic(RegionUCB(strategy))
+    strategy.start()
+    assert len(strategy.results) >= 200, f"only {len(strategy.results)}/200 evaluations"
+
+
+def test_region_ucb_on_start_fills_the_queue_from_its_own_rng():
+    """The opening design is uniform in the problem box and uses ``self.rng``.
+
+    ``self.rng`` rather than ``strategy.rng``: module streams are derived in
+    construction order, so drawing from the master generator would shift
+    every module built afterwards.
+    """
+    import numpy as np
+
+    from panobbgo.heuristics import RegionUCB
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRoundRobin
+
+    strategy = StrategyRoundRobin(Rosenbrock(dim=4), parse_args=False, testing_mode=True, seed=0)
+    strategy.config.max_eval = 100
+    try:
+        h = RegionUCB(strategy)
+        before = strategy.rng.bit_generator.state
+        h.on_start()
+        assert strategy.rng.bit_generator.state == before, "on_start drew from the master stream"
+        points = h.get_points()
+        assert len(points) > 0
+        box = np.asarray(strategy.problem.box.box)
+        for p in points:
+            x = np.asarray(getattr(p, "x", p), dtype=float)
+            assert (x >= box[:, 0]).all() and (x <= box[:, 1]).all()
+    finally:
+        strategy._cleanup()

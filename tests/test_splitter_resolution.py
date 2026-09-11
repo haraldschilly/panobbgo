@@ -392,3 +392,114 @@ def test_archive_per_leaf_best_sees_the_finer_tree():
         seeds[name] = len(s.analyzer("Archive").per_leaf_best(32))
     assert seeds["new"] > seeds["old"], seeds
     assert seeds["old"] <= 8, "the legacy tree at d=2 cannot offer more than a handful"
+
+
+# --- 6. where the cut falls: mean vs median --------------------------------
+
+
+def _cut(sp, dim=0):
+    """The split point ``Box.split`` would use on the root."""
+    return float(sp.root._split_point(dim))
+
+
+def test_cut_rule_is_validated_and_legacy_forces_the_mean():
+    with pytest.raises(ValueError):
+        _splitter(3, 500, cut_rule="quartile")
+    _, sp = _splitter(3, 500, legacy=True, cut_rule="median")
+    assert sp.cut_rule == "mean"
+
+
+def test_mean_cut_is_unchanged():
+    """``cut_rule="mean"`` is the historical expression, bit for bit."""
+    strategy, sp = _splitter(3, 5000, cut_rule="mean", leaf_size=10000)
+    xs = _uniform_cloud(strategy, 40, seed=2)
+    _feed(sp, xs, np.arange(40, dtype=float))
+    assert _cut(sp, 1) == np.average([r.x[1] for r in sp.root.results])
+
+
+@pytest.mark.parametrize(
+    "coords",
+    [
+        [0.0] * 30 + [1.0] * 3,  # the plain-median trap: median == min
+        [0.0] * 3 + [1.0] * 30,  # ... and its mirror: median == max
+        [0.0, 1.0],  # the smallest possible split
+        [0.0] * 20 + [0.5] * 20 + [1.0] * 20,  # a median sitting on a big tie
+        list(np.linspace(0.0, 1.0, 41)),  # all distinct, odd count
+        list(np.linspace(0.0, 1.0, 40)),  # all distinct, even count
+        [0.0] * 19 + [1e-12] + [1.0] * 20,  # a near-degenerate gap
+    ],
+)
+def test_median_cut_is_strictly_interior_and_off_the_data(coords):
+    """The two invariants a cut has to satisfy, on adversarial coordinates.
+
+    *Strictly interior* keeps each child a proper subset of its parent.
+    *Not equal to any observed coordinate* is the second one, and the one a
+    plain median violates: ``contains`` includes both boundaries, so points
+    sitting on the cut are counted into **both** children and neither box
+    shrinks.
+    """
+    strategy, sp = _splitter(3, 100000, cut_rule="median", leaf_size=1000000)
+    coords = np.asarray(coords, dtype=float)
+    box = np.asarray(strategy.problem.box.box)
+    lo, hi = box[1, 0], box[1, 1]
+    rng = np.random.default_rng(1)
+    xs = _uniform_cloud(strategy, len(coords), seed=8)
+    xs[:, 1] = lo + (hi - lo) * coords  # put the pattern on dimension 1
+    _feed(sp, xs, rng.random(len(coords)))
+
+    cut = _cut(sp, 1)
+    observed = xs[:, 1]
+    assert observed.min() < cut < observed.max(), "cut is not strictly interior"
+    assert not np.any(observed == cut), "cut sits on an observed coordinate"
+    # Both children are proper subsets, which is what the two invariants buy.
+    assert 0 < (observed <= cut).sum() < len(observed)
+    assert 0 < (observed >= cut).sum() < len(observed)
+
+
+def test_median_cut_balances_a_skewed_cloud_better_than_the_mean():
+    """On a cloud with a long tail the median halves it; the mean does not."""
+    strategy, _ = _splitter(3, 100, leaf_size=1000000)
+    box = np.asarray(strategy.problem.box.box)
+    lo, hi = box[1, 0], box[1, 1]
+    # A dense cluster holding 3/4 of the points, plus a far tail: the mean is
+    # dragged out to the tail and cuts 60-against-20, the median halves the
+    # cluster itself and cuts 40-against-40.
+    coords = np.concatenate([np.linspace(0.0, 0.05, 60), np.linspace(0.9, 1.0, 20)])
+
+    balance = {}
+    for rule in ("mean", "median"):
+        strategy, sp = _splitter(3, 100000, cut_rule=rule, leaf_size=1000000)
+        xs = _uniform_cloud(strategy, len(coords), seed=8)
+        xs[:, 1] = lo + (hi - lo) * coords
+        _feed(sp, xs, np.arange(len(coords), dtype=float))
+        cut = _cut(sp, 1)
+        left = int((xs[:, 1] <= cut).sum())
+        balance[rule] = abs(2 * left - len(coords))
+    assert balance["median"] < balance["mean"], balance
+
+
+@pytest.mark.parametrize("rule", ["mean", "median"])
+def test_identical_points_never_split_under_either_cut(rule):
+    """The §13 guard is upstream of the cut and must hold for both."""
+    _, sp = _splitter(3, 400, cut_rule=rule)
+    x = np.array([0.25, -0.5, 1.0])
+    n = 10 * int(sp.limit)
+    _feed(sp, [x.copy() for _ in range(n)], np.arange(n, dtype=float))
+    assert sp.root.leaf
+    assert len(sp.leafs) == 1
+
+
+@pytest.mark.parametrize("rule", ["mean", "median"])
+def test_a_contracting_search_keeps_its_leaves_bounded(rule):
+    """No leaf may exceed ``limit`` unless the depth cap stopped it."""
+    strategy, sp = _splitter(5, 2500, cut_rule=rule)
+    rng = np.random.default_rng(0)
+    box = np.asarray(strategy.problem.box.box)
+    lo, rg = box[:, 0], box[:, 1] - box[:, 0]
+    centre = lo + 0.37 * rg
+    for i in range(2500):
+        scale = max(1e-3, 1.0 - i / 2500)
+        x = np.clip(centre + scale * rg * (rng.random(5) - 0.5), lo, lo + rg)
+        _feed(sp, [x], [float(np.sum((x - centre) ** 2))])
+    for box_ in sp.leafs:
+        assert len(box_) < sp.limit or box_.depth >= Splitter.Box.MAX_DEPTH

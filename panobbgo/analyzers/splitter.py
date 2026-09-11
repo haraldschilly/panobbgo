@@ -139,7 +139,7 @@ class Splitter(Analyzer):
             rather than refusing splits, so the partition stays a proper
             kd-tree.
         cut_rule: ``"mean"`` (default, see :data:`DEFAULT_CUT_RULE`; measured in DISCOVERY §39) or
-            ``"mean"`` — where along the chosen dimension the cut falls.
+            ``"median"`` — where along the chosen dimension the cut falls.
         legacy: ``True`` restores the pre-2026-09-10 analyzer exactly —
             ``limit = max(20, max_eval / dim**2)``, ``split_rule =
             "widest"`` and ``cut_rule = "mean"``.  Every other knob is

@@ -1380,3 +1380,35 @@ identical; family battery seed 42 in three parallel processes 3/48 →
 the fixed order is the branch that won ~11 times in 12 — but every DE
 A/B before f4b6376 carried this term, and no reproducibility test could
 see it because they all ran within one process.
+
+## 41. Regime table: selection by regime is the right direction, not yet evidence
+
+`planning/REGIME_TABLE_2026-09-11.md`: 1932 rows over 17 regime cells
+(kind × noise × constrained × dim × budget/dim), paired streams only.
+
+* Winners flip: CMA-ES 6 cells, jSO 5, portfolio 3, L-SHADE 3; 9 of
+  17 margins clear the floor.
+* Fitted regime oracle 0.577 vs fixed CMA-ES 0.538 (+0.039); the
+  fixed portfolio (0.528) is *worse* than fixed CMA-ES across regimes.
+* **Honest (leave-one-seed-out) gain over CMA-ES: +0.026 [−0.006,
+  +0.057], 3/3 — inside the floor.**  The 12-seed control is negative:
+  gating by dimension alone on MA-BBOB scores −0.017 [−0.048, +0.015],
+  5/12 — where the arms sit within the floor, selection costs more than
+  it earns.
+* Gating clearly beats the portfolio (+0.036 [+0.011, +0.062]) and
+  L-SHADE (+0.055, CI clear).
+* The five regimes with an established mechanism (Cauchy ×2, gauss
+  d=10, families d=5/10) contribute **zero** against a CMA-ES default —
+  CMA-ES is already best there; the whole +0.026 is switches away from
+  CMA-ES at d ≤ 5 and d=10/2000·d, all on 3 seeds.
+* Dimension alone is negative out of sample; dim × noise (+0.014) and
+  dim + budget + noise + constrained (+0.031) carry the signal; budget
+  per dim is fully confounded with dimension in this data.  Regime
+  gating captures ~64 % of per-instance headroom.
+* **Tool defect found**: `benchmarks/oracle.py` pinned `seed_name` per
+  arm, so its per-cell maxima were over *unpaired* draws (one cell off
+  by 0.52 against the paired stream).  Fixed 40cdd08; §22/§28's oracle
+  numbers are upper-biased.
+
+The runs that decide (12 seeds, launched): standard at 2000·dim
+(d 2/5), cauchy / gauss / unif, and d=10 at 500·dim.

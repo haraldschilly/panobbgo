@@ -55,9 +55,20 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
 - Probe (Schritte 2–3) **zurückgestellt** (§45.2): Decke ~+0.03 in einem
   Regime, nur bei d=5.
 
-Nächste Läufe (ein Agent): 100·dim und 300·dim Standard-Batterie
-(Crossover des Sharing-Gewinns), dritter Arm / kürzerer Block bei
-200·dim; dann `warm_start=None` am CMA-ES-Arm auf constrained (§44.2).
+- **Budget-Reihe gelaufen (§46)**: Sharing ist bei **100·dim am größten**
+  (+0.056, 12/12 gegen alle drei Arme — stärkste Akzeptanz bisher),
+  d=5 monoton fallend bis 2000·dim. Der d=2-Einbruch bei 200–300·dim
+  ist ein Artefakt des `n_blocks=50`-Defaults (12-Eval-Block, Stalls in
+  6–8 Zellen); mit `block_evals="auto"` sauber: ≈ +0.03 bei d=2 über
+  100–300. Dritter Arm (−0.020) und D-UCB (−0.028) verlieren auch bei
+  Niedrigbudget. **Offen:** Low-Budget-Zeile und Portfolio-Spec auf
+  `block_evals="auto"` umstellen; Fixed-Block-Punkt bei 500 (Crossover
+  300 oder 500?); Stall-Mechanismus (Re-Seed in ein Becken) messen.
+- **Nähte** (`planning/DESIGN_seams_2026-09-11.md`): Injection in CMA-ES
+  + shared pbest in jSO, Sonnet-Agent, Messung bei 100/200·dim auf dem
+  `auto`-Block; Falsifikator: keine Naht schlägt Blockgrenzen-Sharing →
+  Nähte innerhalb der Generation sind nicht der Hebel.
+- Danach: `warm_start=None` am CMA-ES-Arm auf constrained (§44.2).
 
 ### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)
 

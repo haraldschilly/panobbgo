@@ -1507,10 +1507,12 @@ dimension) the shared archive pays.
 Two caveats.  (i) `NP_init="auto"` scales with the budget, so at 200·dim
 the DE arms run with ≈2.4·dim individuals (floor 6) — both alone and
 inside the portfolio, so the comparison is fair, but the absolute DE
-numbers are those of a small population.  (ii) The block length is
-`block_evals="auto"`; at 400 evaluations (d=2) that is ~8 blocks in
-total, so the effect at *d* = 2 (+0.014) rides on very few hand-offs.
-The *d* = 5 number (+0.059) is the robust one.
+numbers are those of a small population.  (ii) *Corrected in §46:*
+the spec has no `block_evals`, so it runs the `n_blocks=50` default —
+block = `max(round(budget/50), 2·dim)` — which at 400 evaluations
+(d=2) is a **12-evaluation block and ~37 hand-offs**, not ~8.  The
+*d* = 2 number (+0.014) is depressed by short-block stalls; the *d* = 5
+number (+0.059) is the robust one.
 
 **Regime consequence.**  Budget per dimension is known *before* the
 first evaluation — it needs no probe, unlike the noise class.  It is
@@ -1628,3 +1630,96 @@ was written for.  So: probe deferred; next runs are 100·dim and
 paying), and whether a *third* arm or a shorter block helps at 200·dim
 (§25's dilution and §29's block length were measured at 500·dim only).
 Then the constrained warm-start hypothesis of §44.2.
+
+## 46. Budget series 100…2000·dim: sharing is largest at the lowest budget (+0.056, 12/12), the *d* = 2 dip is a short-block artefact, third arm and D-UCB still lose
+
+Raw: `results/2026-09-11/bs_bm100.json`, `bs_bm300.json`,
+`bs_bm200_structure.json` (12 seeds, 0 errors, every row at full
+budget; the 240 cells shared with `r12_bm200.json` reproduce bit for
+bit).  All deltas recomputed from the rows.
+
+### 46.1 The series, `Blocks_uniform_cj_warm2` − `CMAES_alone`
+
+| bpd | Δ | 95 % CI | seeds | *d*=2 | *d*=5 | rule |
+|---|---|---|---|---|---|---|
+| **100** | **+0.0558** | [+0.037, +0.074] | **12/12** | +0.052 | +0.060 | **accepted** — also vs jSO +0.057 and L-SHADE +0.059, both 12/12 |
+| 200 | +0.0365 | [+0.005, +0.069] | 9/12 | +0.014 | +0.059 | accepted (§44.1) |
+| 300 | +0.0114 | [−0.031, +0.054] | 7/12 | **−0.020** | +0.043 | no |
+| 500 | +0.0192 | [−0.015, +0.053] | 8/12 | +0.007 | +0.032 | parity (§27) |
+| 2000 | +0.0017 | [−0.019, +0.023] | 6/12 | +0.002 | +0.001 | nothing (§44.1) |
+
+The strongest acceptance in the project so far.  At 100·dim the three
+single arms are within 0.003 of each other (0.356/0.355/0.354) and the
+portfolio is 0.412 — no arm starves (jSO at the NP floor of 6 is level
+with CMA-ES alone), the gain is sharing.  The **d = 5 column is
+monotone**: +0.060 → +0.059 → +0.043 → +0.032 → +0.001.  The *d* = 2
+column is not, and the reason is structural, not statistical.
+
+### 46.2 The block the default spec actually runs
+
+`Blocks_uniform_cj_warm2` carries no `block_evals`, so it uses
+`n_blocks=50`: block = `max(round(budget/50), 2·dim)`.  Realised (seed
+42, inst 0):
+
+| bpd | *d* | block | hand-offs | | *d* | block | hand-offs |
+|---|---|---|---|---|---|---|---|
+| 100 | 2 | **6 = one generation** | 34 | | 5 | 16 | 32 |
+| 200 | 2 | 12 | 35 | | 5 | 24 | 39 |
+| 300 | 2 | 12 | 46 | | 5 | 32 | 41 |
+| 500 | 2 | 24 | 43 | | 5 | 56 | 39 |
+
+At 200–300·dim, *d* = 2, the block is two CMA-ES generations and the
+portfolio **stalls** in 6–8 of 60 cells (AOCC 0.17–0.30 where CMA-ES
+alone reaches 0.55–0.82 and the same cells at 500·dim reach 0.66–0.91);
+with a block ≥ 24 the count is 0–2.  The likely mechanism — both arms
+re-seeded from a tight top-K into one basin every two generations — is
+not measured yet.  So the default's *d* = 2 series mixes a ≈ +0.03
+sharing gain with a growing loss from stalled cells; §44.1's caveat
+(ii) was wrong and is corrected in place.
+
+**Control with the block pinned at four generations
+(`block_evals="auto"`, new spec `Blocks_uniform_cj_warm2_auto`, 70fbdc8):**
+
+| bpd | Δ vs CMA-ES | 95 % CI | seeds | *d*=2 | *d*=5 | rule |
+|---|---|---|---|---|---|---|
+| 100 | +0.0359 | [+0.018, +0.054] | 10/12 | +0.029 | +0.043 | accepted |
+| 200 | +0.0423 | [+0.018, +0.067] | 11/12 | +0.031 | +0.054 | accepted |
+| 300 | +0.0248 | [−0.001, +0.051] | 9/12 | +0.026 | +0.023 | misses by 0.001 |
+
+With the block fixed the picture is clean: *d* = 2 flat at ≈ +0.03
+across 100–300, *d* = 5 decaying.  The one-generation relay at 100·dim
+adds a further +0.020 [−0.003, +0.043], 8/12 over `auto` — a lean.
+The crossover sits around 300·dim (lower bound −0.001); a fixed-block
+point at 500 would settle whether it is 300 or 500.
+
+### 46.3 Structure at 200·dim (Run B, vs `Blocks_uniform_cj_warm2`)
+
+| spec | Δ | seeds | *d*=2 | *d*=5 | vs CMA-ES |
+|---|---|---|---|---|---|
+| `_auto` (block 24/48) | +0.006 | 5/12 | +0.017 | −0.005 | **+0.042, 11/12** acc. |
+| `_be25` (30/32) | −0.000 | 5/12 | +0.002 | −0.003 | +0.036, 10/12 acc. |
+| `_be50` (54/56) | −0.007 | 4/12 | +0.008 | −0.022 | +0.030, 10/12 acc. |
+| `cjl_warm3` (+ NLSHADE_LBC) | −0.020 | 3/12 | +0.009 | **−0.048** | +0.017, 8/12 |
+| `ducb_cj_warm2` (D-UCB) | −0.028 | 4/12 | −0.007 | **−0.048** | +0.009, 8/12 |
+
+Block length is flat from 12 to 56 evaluations on the pooled mean (all
+within 0.013, all accepted vs CMA-ES) — only the *d* = 2 stall of the
+12-eval block is structure.  The third arm still dilutes (−0.020,
+carried by *d* = 5, same sign and size as §26 at 500·dim) and drops the
+pair below the rule.  D-UCB still adds nothing and at a low budget
+costs −0.028: a committing bandit has too few blocks to learn from and
+forgoes the relays (§31 again).
+
+### 46.4 Consequences
+
+* The low-budget row of `REGIME_TABLE_V1` should carry
+  `block_evals="auto"` (or any fixed block ≥ 24), not the `n_blocks`
+  default — `auto` is accepted at 100 and 200 with the tightest CIs
+  and has no stall.  Same for the portfolio spec's default.
+* The regime row `bpd ≤ 200` stands; `bpd ≤ 300` is borderline
+  (`auto` lower bound −0.001) and stays out until a fixed-block 500
+  point places the crossover.
+* Sharing at 100·dim is the regime to aim the seams at
+  (`DESIGN_seams_2026-09-11.md`): the seam experiment runs at 100 and
+  200·dim on the `auto` block, so the stall cannot masquerade as a seam
+  effect.

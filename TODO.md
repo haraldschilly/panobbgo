@@ -60,12 +60,15 @@ gebaut ist.
       `RegionUCB.on_start` folgen als Patch v2.
 - [x] **DE-Arme zwischen Prozessen nicht reproduzierbar** (§40): Thread-Race
       in `Results.add_results` (publish vor extend), gefixt f4b6376.
-- [ ] **Fixes aus der Fundliste** (§36), in Arbeit: F2 (`_archive_cap()`-Draw
-      vor dem Bail-out) und F5 (PSO-Knopf inert) — Agent; F1 (RoundRobin-
-      Division), F3 (Pull-Bridge für L-BFGS-B/COBYQA) und F4 (Liveness
-      statt Wall-Clock-Stall-Guard) — Agent nach
+- [x] **F2** (`_archive_cap()`-Draw vor dem Bail-out) und **F5** (PSO-Knopf
+      inert → `ValueError` außerhalb `topology="random"`): gefixt 4d58531.
+- [ ] **F1/F3/F4** (RoundRobin-Division; Pull-Bridge für L-BFGS-B/COBYQA;
+      Liveness statt Wall-Clock-Stall-Guard) — Agent nach
       `planning/DESIGN_pump_and_stall_2026-09-11.md`. RegionUCB `on_start`
       erledigt (ebb8290).
+- [ ] **Invarianten-Tests robust machen** — vier trajektorienabhängige Fälle
+      kippten mit dem Splitter-Umbau; master-CI rot bis der grüne Stand
+      landet.
 - [ ] Zoo kompaktieren: **zurückgestellt**, bis die neuen Batterien
       zeigen, was gut ist.
 

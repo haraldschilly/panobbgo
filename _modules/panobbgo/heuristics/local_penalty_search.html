@@ -147,284 +147,318 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
-</span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
-</span><span data-line="18"><span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
-</span><span data-line="19"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="20"><span class="kn">from</span><span class="w"> </span><span class="nn">queue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Full</span>
+</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipeBridgeHeuristic</span>
+</span><span data-line="17"><span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+</span><span data-line="18"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="19"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+</span><span data-line="20">
 </span><span data-line="21">
-</span><span data-line="22">
-</span><span data-line="23"><span class="k">def</span><span class="w"> </span><span class="nf">_local_penalty_search_worker</span><span class="p">(</span><span class="n">pipe</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
-</span><span data-line="24"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="25"><span class="sd">    Worker function that runs optimization in a separate process.</span>
-</span><span data-line="26">
-</span><span data-line="27"><span class="sd">    Args:</span>
-</span><span data-line="28"><span class="sd">        pipe: Multiprocessing connection for communication with parent.</span>
-</span><span data-line="29"><span class="sd">        method: Optimization method (str).</span>
-</span><span data-line="30"><span class="sd">        dim: Problem dimension.</span>
-</span><span data-line="31"><span class="sd">        bounds: List of (min, max) tuples.</span>
-</span><span data-line="32"><span class="sd">        max_iter: Maximum iterations for the optimizer.</span>
-</span><span data-line="33"><span class="sd">    """</span>
-</span><span data-line="34">    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="35">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
-</span><span data-line="36">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-</span><span data-line="37">        <span class="k">return</span>
-</span><span data-line="38">
-</span><span data-line="39">    <span class="k">def</span><span class="w"> </span><span class="nf">objective_function</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="40">        <span class="c1"># 1. Send candidate point to parent for evaluation</span>
-</span><span data-line="41">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="42">            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"eval"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">:</span> <span class="n">x</span><span class="p">})</span>
-</span><span data-line="43">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="44">            <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Pipe closed"</span><span class="p">)</span>
-</span><span data-line="45">
-</span><span data-line="46">        <span class="c1"># 2. Wait for penalized objective value</span>
-</span><span data-line="47">        <span class="c1"># Use a loop with poll/timeout to detect aborts or parent death</span>
-</span><span data-line="48">        <span class="n">start_wait</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span data-line="49">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="50">            <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_wait</span> <span class="o">&gt;</span> <span class="mf">600.0</span><span class="p">:</span>  <span class="c1"># 10 minute timeout per evaluation</span>
-</span><span data-line="51">                <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Timeout waiting for evaluation result"</span><span class="p">)</span>
-</span><span data-line="52">
-</span><span data-line="53">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="54">                <span class="k">if</span> <span class="n">pipe</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">0.1</span><span class="p">):</span>
-</span><span data-line="55">                    <span class="n">msg</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="56">                    <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"result"</span><span class="p">:</span>
-</span><span data-line="57">                        <span class="k">return</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span>
-</span><span data-line="58">                    <span class="k">elif</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"stop"</span><span class="p">:</span>
-</span><span data-line="59">                        <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Stop requested"</span><span class="p">)</span>
-</span><span data-line="60">                    <span class="k">elif</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"abort"</span><span class="p">:</span>
-</span><span data-line="61">                        <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Optimization aborted"</span><span class="p">)</span>
-</span><span data-line="62">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="63">                <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Pipe closed"</span><span class="p">)</span>
-</span><span data-line="64">
-</span><span data-line="65">    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-</span><span data-line="66">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="67">            <span class="c1"># Wait for start command</span>
-</span><span data-line="68">            <span class="k">if</span> <span class="n">pipe</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="69">                <span class="n">msg</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="70">                <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"stop"</span><span class="p">:</span>
-</span><span data-line="71">                    <span class="k">break</span>
-</span><span data-line="72">
-</span><span data-line="73">                <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"start"</span><span class="p">:</span>
-</span><span data-line="74">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"x0"</span><span class="p">]</span>
-</span><span data-line="75">                    <span class="c1"># Run optimization</span>
-</span><span data-line="76">                    <span class="k">try</span><span class="p">:</span>
-</span><span data-line="77">                        <span class="n">options</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"maxiter"</span><span class="p">:</span> <span class="n">max_iter</span><span class="p">}</span>
-</span><span data-line="78">                        <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">objective_function</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
-</span><span data-line="79">                        <span class="c1"># Notify parent we are done</span>
-</span><span data-line="80">                        <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"done"</span><span class="p">,</span> <span class="s2">"success"</span><span class="p">:</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">,</span> <span class="s2">"message"</span><span class="p">:</span> <span class="n">res</span><span class="o">.</span><span class="n">message</span><span class="p">})</span>
-</span><span data-line="81">                    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
-</span><span data-line="82">                        <span class="c1"># Optimization interrupted (e.g. by stop/abort or pipe close)</span>
-</span><span data-line="83">                        <span class="k">pass</span>
-</span><span data-line="84">                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="85">                        <span class="c1"># Optimization failed for other reasons</span>
-</span><span data-line="86">                        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="87">                            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"error"</span><span class="p">,</span> <span class="s2">"message"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)})</span>
-</span><span data-line="88">                        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="89">                            <span class="k">pass</span>
-</span><span data-line="90">        <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="91">            <span class="k">break</span>
-</span><span data-line="92">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="93">            <span class="c1"># unexpected error in worker loop</span>
-</span><span data-line="94">            <span class="k">break</span>
+</span><span data-line="22"><span class="k">def</span><span class="w"> </span><span class="nf">_local_penalty_search_worker</span><span class="p">(</span><span class="n">pipe</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+</span><span data-line="23"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="24"><span class="sd">    Worker function that runs optimization in a separate process.</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="sd">    Args:</span>
+</span><span data-line="27"><span class="sd">        pipe: Multiprocessing connection for communication with parent.</span>
+</span><span data-line="28"><span class="sd">        method: Optimization method (str).</span>
+</span><span data-line="29"><span class="sd">        dim: Problem dimension.</span>
+</span><span data-line="30"><span class="sd">        bounds: List of (min, max) tuples.</span>
+</span><span data-line="31"><span class="sd">        max_iter: Maximum iterations for the optimizer.</span>
+</span><span data-line="32"><span class="sd">    """</span>
+</span><span data-line="33">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="34">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
+</span><span data-line="35">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+</span><span data-line="36">        <span class="k">return</span>
+</span><span data-line="37">
+</span><span data-line="38">    <span class="k">def</span><span class="w"> </span><span class="nf">objective_function</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+</span><span data-line="39">        <span class="c1"># 1. Send candidate point to parent for evaluation</span>
+</span><span data-line="40">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="41">            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"eval"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">:</span> <span class="n">x</span><span class="p">})</span>
+</span><span data-line="42">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="43">            <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Pipe closed"</span><span class="p">)</span>
+</span><span data-line="44">
+</span><span data-line="45">        <span class="c1"># 2. Wait for penalized objective value</span>
+</span><span data-line="46">        <span class="c1"># Use a loop with poll/timeout to detect aborts or parent death</span>
+</span><span data-line="47">        <span class="n">start_wait</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="48">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span data-line="49">            <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_wait</span> <span class="o">&gt;</span> <span class="mf">600.0</span><span class="p">:</span>  <span class="c1"># 10 minute timeout per evaluation</span>
+</span><span data-line="50">                <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Timeout waiting for evaluation result"</span><span class="p">)</span>
+</span><span data-line="51">
+</span><span data-line="52">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="53">                <span class="k">if</span> <span class="n">pipe</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">0.1</span><span class="p">):</span>
+</span><span data-line="54">                    <span class="n">msg</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="55">                    <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"result"</span><span class="p">:</span>
+</span><span data-line="56">                        <span class="k">return</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span>
+</span><span data-line="57">                    <span class="k">elif</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"stop"</span><span class="p">:</span>
+</span><span data-line="58">                        <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Stop requested"</span><span class="p">)</span>
+</span><span data-line="59">                    <span class="k">elif</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"abort"</span><span class="p">:</span>
+</span><span data-line="60">                        <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Optimization aborted"</span><span class="p">)</span>
+</span><span data-line="61">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="62">                <span class="k">raise</span> <span class="ne">StopIteration</span><span class="p">(</span><span class="s2">"Pipe closed"</span><span class="p">)</span>
+</span><span data-line="63">
+</span><span data-line="64">    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span data-line="65">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="66">            <span class="c1"># Wait for start command</span>
+</span><span data-line="67">            <span class="k">if</span> <span class="n">pipe</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="68">                <span class="n">msg</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="69">                <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"stop"</span><span class="p">:</span>
+</span><span data-line="70">                    <span class="k">break</span>
+</span><span data-line="71">
+</span><span data-line="72">                <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"start"</span><span class="p">:</span>
+</span><span data-line="73">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"x0"</span><span class="p">]</span>
+</span><span data-line="74">                    <span class="c1"># Run optimization</span>
+</span><span data-line="75">                    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="76">                        <span class="n">options</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"maxiter"</span><span class="p">:</span> <span class="n">max_iter</span><span class="p">}</span>
+</span><span data-line="77">                        <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">objective_function</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">method</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="n">options</span><span class="p">)</span>
+</span><span data-line="78">                        <span class="c1"># Notify parent we are done</span>
+</span><span data-line="79">                        <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"done"</span><span class="p">,</span> <span class="s2">"success"</span><span class="p">:</span> <span class="n">res</span><span class="o">.</span><span class="n">success</span><span class="p">,</span> <span class="s2">"message"</span><span class="p">:</span> <span class="n">res</span><span class="o">.</span><span class="n">message</span><span class="p">})</span>
+</span><span data-line="80">                    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+</span><span data-line="81">                        <span class="c1"># Optimization interrupted (e.g. by stop/abort or pipe close)</span>
+</span><span data-line="82">                        <span class="k">pass</span>
+</span><span data-line="83">                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="84">                        <span class="c1"># Optimization failed for other reasons</span>
+</span><span data-line="85">                        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="86">                            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"error"</span><span class="p">,</span> <span class="s2">"message"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)})</span>
+</span><span data-line="87">                        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="88">                            <span class="k">pass</span>
+</span><span data-line="89">        <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="90">            <span class="k">break</span>
+</span><span data-line="91">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="92">            <span class="c1"># unexpected error in worker loop</span>
+</span><span data-line="93">            <span class="k">break</span>
+</span><span data-line="94">
 </span><span data-line="95">
-</span><span data-line="96">
 <div class="viewcode-block" id="LocalPenaltySearch">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch">[docs]</a>
-</span><span data-line="97"><span class="k">class</span><span class="w"> </span><span class="nc">LocalPenaltySearch</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="98"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="99"><span class="sd">    Heuristic that runs a local search using Scipy's optimizers (e.g. L-BFGS-B, Nelder-Mead)</span>
-</span><span data-line="100"><span class="sd">    on the penalized objective function provided by the strategy's constraint handler.</span>
-</span><span data-line="101">
-</span><span data-line="102"><span class="sd">    It runs in a separate process and communicates via Pipe.</span>
-</span><span data-line="103"><span class="sd">    The heuristic thread acts as a bridge:</span>
-</span><span data-line="104"><span class="sd">    1. Receives "eval" requests from worker -&gt; Emits point to strategy.</span>
-</span><span data-line="105"><span class="sd">    2. Receives results from strategy -&gt; Sends penalty value back to worker.</span>
-</span><span data-line="106"><span class="sd">    """</span>
-</span><span data-line="107">
-</span><span data-line="108">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"L-BFGS-B"</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
-</span><span data-line="109">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"LocalPenaltySearch"</span><span class="p">)</span>
-</span><span data-line="110">        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
-</span><span data-line="111">        <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
-</span><span data-line="112">        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"spawn"</span><span class="p">)</span>
-</span><span data-line="113">        <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
-</span><span data-line="114">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="115">
-</span><span data-line="116">        <span class="c1"># State tracking</span>
-</span><span data-line="117">        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="118">        <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># True if worker is waiting for us to send a result</span>
-</span><span data-line="119">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Last point emitted, waiting for result</span>
-</span><span data-line="120">
-</span><span data-line="121">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="122">        <span class="c1"># Convert bounds to list of tuples for pickling and scipy compatibility</span>
-</span><span data-line="123">        <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
-</span><span data-line="124">
-</span><span data-line="125">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
-</span><span data-line="126">            <span class="n">target</span><span class="o">=</span><span class="n">_local_penalty_search_worker</span><span class="p">,</span>
-</span><span data-line="127">            <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">),</span>
-</span><span data-line="128">            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-Worker"</span><span class="p">,</span>
-</span><span data-line="129">        <span class="p">)</span>
-</span><span data-line="130">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="131">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span data-line="132">
-</span><span data-line="133">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="134">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
-</span><span data-line="135">        <span class="c1"># Send stop message</span>
-</span><span data-line="136">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="137">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"stop"</span><span class="p">})</span>
-</span><span data-line="138">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="139">            <span class="k">pass</span>
-</span><span data-line="140">
-</span><span data-line="141">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="142">            <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="143">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="144">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"LocalPenaltySearch process did not exit gracefully, terminating..."</span><span class="p">)</span>
-</span><span data-line="145">                <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
-</span><span data-line="146">                <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-</span><span data-line="147">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="148">                    <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-</span><span data-line="149">
-</span><span data-line="150">        <span class="c1"># Close pipes</span>
-</span><span data-line="151">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="152">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="153">            <span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="154">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="155">            <span class="k">pass</span>
+</span><span data-line="96"><span class="k">class</span><span class="w"> </span><span class="nc">LocalPenaltySearch</span><span class="p">(</span><span class="n">PipeBridgeHeuristic</span><span class="p">):</span>
+</span><span data-line="97"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="98"><span class="sd">    Heuristic that runs a local search using Scipy's optimizers (e.g. L-BFGS-B, Nelder-Mead)</span>
+</span><span data-line="99"><span class="sd">    on the penalized objective function provided by the strategy's constraint handler.</span>
+</span><span data-line="100">
+</span><span data-line="101"><span class="sd">    It runs in a separate process and communicates via Pipe, as a **pull</span>
+</span><span data-line="102"><span class="sd">    bridge** (:class:`~panobbgo.core.PipeBridgeHeuristic`): the strategy asks</span>
+</span><span data-line="103"><span class="sd">    for the next point with :meth:`~panobbgo.core.PipeBridgeHeuristic.produce`</span>
+</span><span data-line="104"><span class="sd">    and the whole round trip happens on the caller's thread.</span>
+</span><span data-line="105">
+</span><span data-line="106"><span class="sd">    1. ``produce`` receives an ``"eval"`` request from the worker and emits</span>
+</span><span data-line="107"><span class="sd">       the point it carries.</span>
+</span><span data-line="108"><span class="sd">    2. ``on_new_results`` *stores* the penalty value (it runs on the event-bus</span>
+</span><span data-line="109"><span class="sd">       dispatcher thread, which must neither block nor do I/O).</span>
+</span><span data-line="110"><span class="sd">    3. The next ``produce`` sends that value back and receives the next</span>
+</span><span data-line="111"><span class="sd">       request.</span>
+</span><span data-line="112">
+</span><span data-line="113"><span class="sd">    Until 2026-09 steps 1 and 2 ran on a daemon "pump" thread and the event-bus</span>
+</span><span data-line="114"><span class="sd">    thread respectively, so the output queue was empty whenever a scheduler</span>
+</span><span data-line="115"><span class="sd">    looked at it and any competitor with a stocked queue starved this arm</span>
+</span><span data-line="116"><span class="sd">    completely (F3 of ``planning/results/2026-09-10/invariants_findings.md``).</span>
+</span><span data-line="117">
+</span><span data-line="118"><span class="sd">    Unlike L-BFGS-B and COBYQA, this worker is a **server**: it idles between</span>
+</span><span data-line="119"><span class="sd">    searches, waiting for a ``"start"`` command, so</span>
+</span><span data-line="120"><span class="sd">    :meth:`_bridge_pending_request` reports whether a descent is actually</span>
+</span><span data-line="121"><span class="sd">    running.  The commands that start one arrive on event handlers</span>
+</span><span data-line="122"><span class="sd">    (:meth:`on_start`, :meth:`on_new_best`, :meth:`on_restart`) and are</span>
+</span><span data-line="123"><span class="sd">    therefore *recorded* there and sent from :meth:`produce` — only one thread</span>
+</span><span data-line="124"><span class="sd">    may write to the pipe.</span>
+</span><span data-line="125"><span class="sd">    """</span>
+</span><span data-line="126">
+</span><span data-line="127">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"L-BFGS-B"</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+</span><span data-line="128">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"LocalPenaltySearch"</span><span class="p">)</span>
+</span><span data-line="129">        <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">method</span>
+</span><span data-line="130">        <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span> <span class="o">=</span> <span class="n">max_iter</span>
+</span><span data-line="131">        <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"spawn"</span><span class="p">)</span>
+</span><span data-line="132">        <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
+</span><span data-line="133">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="134">
+</span><span data-line="135">        <span class="c1"># State tracking</span>
+</span><span data-line="136">        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="137">        <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># True if worker is waiting for us to send a result</span>
+</span><span data-line="138">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Last point emitted, waiting for result</span>
+</span><span data-line="139">        <span class="c1"># Deferred control commands, recorded by event handlers and sent by</span>
+</span><span data-line="140">        <span class="c1"># ``produce`` on the main loop's thread.</span>
+</span><span data-line="141">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="142">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_abort</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="143">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_clear</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="144">
+</span><span data-line="145">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="146">    <span class="c1"># The pull bridge (see panobbgo.core.PipeBridgeHeuristic)</span>
+</span><span data-line="147">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="148">
+</span><span data-line="149">    <span class="nd">@property</span>
+</span><span data-line="150">    <span class="k">def</span><span class="w"> </span><span class="nf">p1</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="151"><span class="w">        </span><span class="sd">"""The base class's name for :attr:`parent_conn`."""</span>
+</span><span data-line="152">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span>
+</span><span data-line="153">
+</span><span data-line="154">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_process</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="155">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span>
 </span><span data-line="156">
-<div class="viewcode-block" id="LocalPenaltySearch.emit_reliable">
-<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.emit_reliable">[docs]</a>
-</span><span data-line="157">    <span class="k">def</span><span class="w"> </span><span class="nf">emit_reliable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="158"><span class="w">        </span><span class="sd">"""</span>
-</span><span data-line="159"><span class="sd">        Emits a single point reliably, blocking if necessary until the queue accepts it.</span>
-</span><span data-line="160"><span class="sd">        """</span>
-</span><span data-line="161">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="162">            <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="163">
-</span><span data-line="164">        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="165">        <span class="n">p</span> <span class="o">=</span> <span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-</span><span data-line="166">
-</span><span data-line="167">        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="168">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="169">                <span class="bp">self</span><span class="o">.</span><span class="n">_output</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="170">                <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="171">            <span class="k">except</span> <span class="n">Full</span><span class="p">:</span>
-</span><span data-line="172">                <span class="k">continue</span>
-</span><span data-line="173">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="174">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error emitting point: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="175">                <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="176">        <span class="k">return</span> <span class="kc">False</span></div>
+</span><span data-line="157">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_pending_request</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="158"><span class="w">        </span><span class="sd">"""A descent is running, or one is queued up to be started."""</span>
+</span><span data-line="159">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="160">
+</span><span data-line="161">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="162"><span class="w">        </span><span class="sd">"""Unwrap the ``{"type": "eval", "x": ...}`` request."""</span>
+</span><span data-line="163">        <span class="k">return</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span>
+</span><span data-line="164">
+</span><span data-line="165">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_send_fx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fx</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="166"><span class="w">        </span><span class="sd">"""This worker's replies are tagged, not bare floats."""</span>
+</span><span data-line="167">        <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"result"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">fx</span><span class="p">})</span>
+</span><span data-line="168">
+</span><span data-line="169">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="170"><span class="w">        </span><span class="sd">"""Consume everything that is not an evaluation request."""</span>
+</span><span data-line="171">        <span class="n">kind</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="172">        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"eval"</span><span class="p">:</span>
+</span><span data-line="173">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span>
+</span><span data-line="174">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="175">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="176">        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"done"</span><span class="p">:</span>
+</span><span data-line="177">            <span class="bp">self</span><span class="o">.</span><span class="n">_end_optimization</span><span class="p">()</span>
+</span><span data-line="178">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Local search finished: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'message'</span><span class="p">,</span><span class="w"> </span><span class="s1">'unknown'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="179">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="180">        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"error"</span><span class="p">:</span>
+</span><span data-line="181">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Local search error: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'message'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="182">            <span class="bp">self</span><span class="o">.</span><span class="n">_end_optimization</span><span class="p">()</span>
+</span><span data-line="183">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="184">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LocalPenaltySearch: unexpected message </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="185">        <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="186">
+</span><span data-line="187">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="188"><span class="w">        </span><span class="sd">"""The descent ended; the worker is idle until the next ``start``."""</span>
+</span><span data-line="189">        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="190">        <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="191">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="192">        <span class="c1"># The worker never got the value it last asked for, or asked for</span>
+</span><span data-line="193">        <span class="c1"># nothing more: forget the round trip so the next descent starts clean.</span>
+</span><span data-line="194">        <span class="bp">self</span><span class="o">.</span><span class="n">_bridge_reset</span><span class="p">()</span>
+</span><span data-line="195">
+<div class="viewcode-block" id="LocalPenaltySearch.produce">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.produce">[docs]</a>
+</span><span data-line="196">    <span class="k">def</span><span class="w"> </span><span class="nf">produce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="197"><span class="w">        </span><span class="sd">"""Flush any deferred control command, then do the round trip."""</span>
+</span><span data-line="198">        <span class="bp">self</span><span class="o">.</span><span class="n">_apply_pending_control</span><span class="p">()</span>
+</span><span data-line="199">        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">produce</span><span class="p">(</span><span class="n">limit</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span></div>
 
-</span><span data-line="177">
+</span><span data-line="200">
+</span><span data-line="201">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_pending_control</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="202"><span class="w">        </span><span class="sd">"""Send the commands the event handlers recorded.  Main thread only.</span>
+</span><span data-line="203">
+</span><span data-line="204"><span class="sd">        ``on_new_best`` / ``on_restart`` / ``on_start`` run on the event-bus</span>
+</span><span data-line="205"><span class="sd">        dispatcher thread.  Writing to the pipe there would race the</span>
+</span><span data-line="206"><span class="sd">        ``send``/``recv`` this class does from the main loop's thread — two</span>
+</span><span data-line="207"><span class="sd">        threads writing pickled frames into one connection is corruption — so</span>
+</span><span data-line="208"><span class="sd">        they only record, and this applies.</span>
+</span><span data-line="209"><span class="sd">        """</span>
+</span><span data-line="210">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_clear</span><span class="p">:</span>
+</span><span data-line="211">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_clear</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="212">            <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="213">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_abort</span><span class="p">:</span>
+</span><span data-line="214">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_abort</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="215">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="216">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"abort"</span><span class="p">})</span>
+</span><span data-line="217">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="218">                <span class="k">pass</span>
+</span><span data-line="219">            <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="220">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="221">            <span class="bp">self</span><span class="o">.</span><span class="n">_bridge_reset</span><span class="p">()</span>
+</span><span data-line="222">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
+</span><span data-line="223">            <span class="n">x0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span>
+</span><span data-line="224">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="225">            <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
+</span><span data-line="226">
+</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="228">        <span class="c1"># Convert bounds to list of tuples for pickling and scipy compatibility</span>
+</span><span data-line="229">        <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
+</span><span data-line="230">
+</span><span data-line="231">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+</span><span data-line="232">            <span class="n">target</span><span class="o">=</span><span class="n">_local_penalty_search_worker</span><span class="p">,</span>
+</span><span data-line="233">            <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="n">bounds</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_iter</span><span class="p">),</span>
+</span><span data-line="234">            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-Worker"</span><span class="p">,</span>
+</span><span data-line="235">        <span class="p">)</span>
+</span><span data-line="236">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="237">        <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="238">
+</span><span data-line="239">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="240">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
+</span><span data-line="241">        <span class="c1"># Send stop message</span>
+</span><span data-line="242">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="243">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"stop"</span><span class="p">})</span>
+</span><span data-line="244">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="245">            <span class="k">pass</span>
+</span><span data-line="246">
+</span><span data-line="247">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="248">            <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="249">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="250">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"LocalPenaltySearch process did not exit gracefully, terminating..."</span><span class="p">)</span>
+</span><span data-line="251">                <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+</span><span data-line="252">                <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span data-line="253">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="254">                    <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="255">
+</span><span data-line="256">        <span class="c1"># Close pipes</span>
+</span><span data-line="257">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="258">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="259">            <span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="260">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="261">            <span class="k">pass</span>
+</span><span data-line="262">
 <div class="viewcode-block" id="LocalPenaltySearch.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_start">[docs]</a>
-</span><span data-line="178">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="179"><span class="w">        </span><span class="sd">"""Kick off the first local search and start the pipe pump.</span>
-</span><span data-line="180">
-</span><span data-line="181"><span class="sd">        The pipe pump runs on its own daemon thread (appended to</span>
-</span><span data-line="182"><span class="sd">        ``self._threads``) so the event bus, which delivers handlers serially,</span>
-</span><span data-line="183"><span class="sd">        is never blocked by it.  Emissions from a subprocess bridge are</span>
-</span><span data-line="184"><span class="sd">        inherently timing-dependent; such heuristics are excluded from the</span>
-</span><span data-line="185"><span class="sd">        reproducible synchronous mode's guarantees.</span>
-</span><span data-line="186"><span class="sd">        """</span>
-</span><span data-line="187">        <span class="n">x0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
-</span><span data-line="188">        <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span>
-</span><span data-line="189">        <span class="bp">self</span><span class="o">.</span><span class="n">spawn_thread</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pump</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"</span><span class="si">%s</span><span class="s2">-pump"</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+</span><span data-line="263">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="264"><span class="w">        </span><span class="sd">"""Queue the first local search.</span>
+</span><span data-line="265">
+</span><span data-line="266"><span class="sd">        The starting point is drawn *here*, so this heuristic consumes exactly</span>
+</span><span data-line="267"><span class="sd">        the same number of draws from its module RNG, at the same point in the</span>
+</span><span data-line="268"><span class="sd">        stream, as it always did.  Only the ``send`` is deferred to</span>
+</span><span data-line="269"><span class="sd">        :meth:`produce` — see :meth:`_apply_pending_control`.</span>
+</span><span data-line="270"><span class="sd">        """</span>
+</span><span data-line="271">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span></div>
 
-</span><span data-line="190">
-</span><span data-line="191">    <span class="k">def</span><span class="w"> </span><span class="nf">_pump</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="192">        <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="193">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="194">                <span class="c1"># Check for messages from worker</span>
-</span><span data-line="195">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">poll</span><span class="p">(</span><span class="mf">0.1</span><span class="p">):</span>
-</span><span data-line="196">                    <span class="n">msg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="197">
-</span><span data-line="198">                    <span class="k">if</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"eval"</span><span class="p">:</span>
-</span><span data-line="199">                        <span class="n">x</span> <span class="o">=</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span>
-</span><span data-line="200">                        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="201">                        <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="202">                        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">emit_reliable</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-</span><span data-line="203">                            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Failed to emit reliable point, stopping local search."</span><span class="p">)</span>
-</span><span data-line="204">                            <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="205">
-</span><span data-line="206">                    <span class="k">elif</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"done"</span><span class="p">:</span>
-</span><span data-line="207">                        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="208">                        <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="209">                        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="210">                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Local search finished: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'message'</span><span class="p">,</span><span class="w"> </span><span class="s1">'unknown'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="211">
-</span><span data-line="212">                    <span class="k">elif</span> <span class="n">msg</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"error"</span><span class="p">:</span>
-</span><span data-line="213">                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Local search error: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'message'</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="214">                        <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="215">                        <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="216">
-</span><span data-line="217">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="218">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Pipe closed, stopping heuristic loop"</span><span class="p">)</span>
-</span><span data-line="219">                <span class="k">break</span>
-</span><span data-line="220">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="221">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error in LocalPenaltySearch loop: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="222">                <span class="c1"># Don't break, try to recover</span>
-</span><span data-line="223">                <span class="k">pass</span>
-</span><span data-line="224">
-</span><span data-line="225">    <span class="k">def</span><span class="w"> </span><span class="nf">_start_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
-</span><span data-line="226">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
-</span><span data-line="227">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="228">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"start"</span><span class="p">,</span> <span class="s2">"x0"</span><span class="p">:</span> <span class="n">x0</span><span class="p">})</span>
-</span><span data-line="229">                <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="230">                <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="231">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Started local search optimization"</span><span class="p">)</span>
-</span><span data-line="232">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="233">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to start optimization: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="234">
+</span><span data-line="272">
+</span><span data-line="273">    <span class="k">def</span><span class="w"> </span><span class="nf">_start_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
+</span><span data-line="274">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
+</span><span data-line="275">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="276">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"start"</span><span class="p">,</span> <span class="s2">"x0"</span><span class="p">:</span> <span class="n">x0</span><span class="p">})</span>
+</span><span data-line="277">                <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="278">                <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="279">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Started local search optimization"</span><span class="p">)</span>
+</span><span data-line="280">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="281">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to start optimization: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="282">
 <div class="viewcode-block" id="LocalPenaltySearch.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_restart">[docs]</a>
-</span><span data-line="235">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="236"><span class="w">        </span><span class="sd">"""</span>
-</span><span data-line="237"><span class="sd">        Respond to a restart event by resetting the search around the new center.</span>
-</span><span data-line="238"><span class="sd">        """</span>
-</span><span data-line="239">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="240">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="241">            <span class="c1"># Send abort message to stop any ongoing search</span>
-</span><span data-line="242">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="243">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"abort"</span><span class="p">})</span>
-</span><span data-line="244">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="245">                <span class="k">pass</span>
-</span><span data-line="246">            <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="247">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="248">            <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">center</span><span class="p">)</span></div>
+</span><span data-line="283">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="284"><span class="w">        </span><span class="sd">"""Reset the search around the new center.</span>
+</span><span data-line="285">
+</span><span data-line="286"><span class="sd">        Records the intent; :meth:`_apply_pending_control` performs it on the</span>
+</span><span data-line="287"><span class="sd">        main loop's thread (this handler runs on the event bus, which may not</span>
+</span><span data-line="288"><span class="sd">        touch the pipe or the output queue — the strategy may be draining it</span>
+</span><span data-line="289"><span class="sd">        at that instant).</span>
+</span><span data-line="290"><span class="sd">        """</span>
+</span><span data-line="291">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_clear</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="292">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="293">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_abort</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="294">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="n">center</span></div>
 
-</span><span data-line="249">
+</span><span data-line="295">
 <div class="viewcode-block" id="LocalPenaltySearch.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_new_best">[docs]</a>
-</span><span data-line="250">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="251">        <span class="c1"># If idle, restart search from new best</span>
-</span><span data-line="252">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
-</span><span data-line="253">            <span class="n">x0</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span>
-</span><span data-line="254">            <span class="bp">self</span><span class="o">.</span><span class="n">_start_optimization</span><span class="p">(</span><span class="n">x0</span><span class="p">)</span></div>
+</span><span data-line="296">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="297">        <span class="c1"># If idle, restart the search from the new best.</span>
+</span><span data-line="298">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="299">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span></div>
 
-</span><span data-line="255">
+</span><span data-line="300">
 <div class="viewcode-block" id="LocalPenaltySearch.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_new_results">[docs]</a>
-</span><span data-line="256">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="257">        <span class="c1"># We need to find the result corresponding to our pending evaluation</span>
-</span><span data-line="258">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span><span class="p">:</span>
-</span><span data-line="259">            <span class="k">return</span>
-</span><span data-line="260">
-</span><span data-line="261">        <span class="n">my_results</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
-</span><span data-line="262">        <span class="k">if</span> <span class="ow">not</span> <span class="n">my_results</span><span class="p">:</span>
-</span><span data-line="263">            <span class="k">return</span>
-</span><span data-line="264">
-</span><span data-line="265">        <span class="c1"># Take the latest one, assuming sequential processing</span>
-</span><span data-line="266">        <span class="c1"># (the worker blocks waiting for the result)</span>
-</span><span data-line="267">        <span class="n">result</span> <span class="o">=</span> <span class="n">my_results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-</span><span data-line="268">
-</span><span data-line="269">        <span class="c1"># Calculate penalized value</span>
-</span><span data-line="270">        <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="271">
-</span><span data-line="272">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="273">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"result"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">:</span> <span class="n">val</span><span class="p">})</span>
-</span><span data-line="274">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="275">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="276">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="277">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to send result to worker: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
+</span><span data-line="301">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="302"><span class="w">        </span><span class="sd">"""Store the penalty value of our outstanding point.</span>
+</span><span data-line="303">
+</span><span data-line="304"><span class="sd">        Delegates to :class:`~panobbgo.core.PipeBridgeHeuristic`, which keeps</span>
+</span><span data-line="305"><span class="sd">        the value in a queue until :meth:`produce` can send it from the main</span>
+</span><span data-line="306"><span class="sd">        thread.</span>
+</span><span data-line="307"><span class="sd">        """</span>
+</span><span data-line="308">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_new_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="309">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_inbox</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+</span><span data-line="310">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="311">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span></div>
 </div>
 
 </span></pre></div>

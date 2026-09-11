@@ -204,11 +204,12 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.emit_reliable"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.emit_reliable()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_new_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_restart"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_start"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.on_start()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.p1"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.p1</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.produce"><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch.produce()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.MetaAnalyst"><code class="docutils literal notranslate"><span class="pre">MetaAnalyst</span></code></a><ul>
@@ -1529,13 +1530,32 @@ Then, it randomly selects one point from inside such a cube.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">LocalPenaltySearch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'L-BFGS-B'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">Heuristic</span></code></a></p>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a></p>
 <p>Heuristic that runs a local search using Scipy’s optimizers (e.g. L-BFGS-B, Nelder-Mead)
 on the penalized objective function provided by the strategy’s constraint handler.</p>
-<p>It runs in a separate process and communicates via Pipe.
-The heuristic thread acts as a bridge:
-1. Receives “eval” requests from worker -&gt; Emits point to strategy.
-2. Receives results from strategy -&gt; Sends penalty value back to worker.</p>
+<p>It runs in a separate process and communicates via Pipe, as a <strong>pull
+bridge</strong> (<a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a>): the strategy asks
+for the next point with <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>
+and the whole round trip happens on the caller’s thread.</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">produce</span></code> receives an <code class="docutils literal notranslate"><span class="pre">&quot;eval&quot;</span></code> request from the worker and emits
+the point it carries.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">on_new_results</span></code> <em>stores</em> the penalty value (it runs on the event-bus
+dispatcher thread, which must neither block nor do I/O).</p></li>
+<li><p>The next <code class="docutils literal notranslate"><span class="pre">produce</span></code> sends that value back and receives the next
+request.</p></li>
+</ol>
+<p>Until 2026-09 steps 1 and 2 ran on a daemon “pump” thread and the event-bus
+thread respectively, so the output queue was empty whenever a scheduler
+looked at it and any competitor with a stocked queue starved this arm
+completely (F3 of <code class="docutils literal notranslate"><span class="pre">planning/results/2026-09-10/invariants_findings.md</span></code>).</p>
+<p>Unlike L-BFGS-B and COBYQA, this worker is a <strong>server</strong>: it idles between
+searches, waiting for a <code class="docutils literal notranslate"><span class="pre">&quot;start&quot;</span></code> command, so
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_bridge_pending_request()</span></code> reports whether a descent is actually
+running.  The commands that start one arrive on event handlers
+(<a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_start" title="panobbgo.heuristics.LocalPenaltySearch.on_start"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_start()</span></code></a>, <a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best" title="panobbgo.heuristics.LocalPenaltySearch.on_new_best"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_new_best()</span></code></a>, <a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.on_restart" title="panobbgo.heuristics.LocalPenaltySearch.on_restart"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_restart()</span></code></a>) and are
+therefore <em>recorded</em> there and sent from <a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.produce" title="panobbgo.heuristics.LocalPenaltySearch.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> — only one thread
+may write to the pipe.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1546,12 +1566,6 @@ The heuristic thread acts as a bridge:
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.emit_reliable">
-<span class="sig-name descname"><span class="pre">emit_reliable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.emit_reliable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.emit_reliable" title="Link to this definition">#</a></dt>
-<dd><p>Emits a single point reliably, blocking if necessary until the queue accepts it.</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_new_best">
 <span class="sig-name descname"><span class="pre">on_new_best</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_new_best"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_best" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
@@ -1559,23 +1573,42 @@ The heuristic thread acts as a bridge:
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_new_results" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Store the penalty value of our outstanding point.</p>
+<p>Delegates to <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a>, which keeps
+the value in a queue until <a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.produce" title="panobbgo.heuristics.LocalPenaltySearch.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> can send it from the main
+thread.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_restart" title="Link to this definition">#</a></dt>
-<dd><p>Respond to a restart event by resetting the search around the new center.</p>
+<dd><p>Reset the search around the new center.</p>
+<p>Records the intent; <code class="xref py py-meth docutils literal notranslate"><span class="pre">_apply_pending_control()</span></code> performs it on the
+main loop’s thread (this handler runs on the event bus, which may not
+touch the pipe or the output queue — the strategy may be draining it
+at that instant).</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.on_start">
 <span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.on_start" title="Link to this definition">#</a></dt>
-<dd><p>Kick off the first local search and start the pipe pump.</p>
-<p>The pipe pump runs on its own daemon thread (appended to
-<code class="docutils literal notranslate"><span class="pre">self._threads</span></code>) so the event bus, which delivers handlers serially,
-is never blocked by it.  Emissions from a subprocess bridge are
-inherently timing-dependent; such heuristics are excluded from the
-reproducible synchronous mode’s guarantees.</p>
+<dd><p>Queue the first local search.</p>
+<p>The starting point is drawn <em>here</em>, so this heuristic consumes exactly
+the same number of draws from its module RNG, at the same point in the
+stream, as it always did.  Only the <code class="docutils literal notranslate"><span class="pre">send</span></code> is deferred to
+<a class="reference internal" href="#panobbgo.heuristics.LocalPenaltySearch.produce" title="panobbgo.heuristics.LocalPenaltySearch.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> — see <code class="xref py py-meth docutils literal notranslate"><span class="pre">_apply_pending_control()</span></code>.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.p1">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">p1</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.p1" title="Link to this definition">#</a></dt>
+<dd><p>The base class’s name for <code class="xref py py-attr docutils literal notranslate"><span class="pre">parent_conn</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.LocalPenaltySearch.produce">
+<span class="sig-name descname"><span class="pre">produce</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/local_penalty_search.html#LocalPenaltySearch.produce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LocalPenaltySearch.produce" title="Link to this definition">#</a></dt>
+<dd><p>Flush any deferred control command, then do the round trip.</p>
 </dd></dl>
 
 </dd></dl>

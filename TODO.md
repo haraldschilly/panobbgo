@@ -27,7 +27,14 @@ dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
 gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
 nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
 
-### In Arbeit (2026-09-10 abends, vier Agenten, disjunkte Branches)
+### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)
+
+Reihenfolge: (1) LocalPenaltySearch-Bridge → Invarianten + LPS in einem
+grünen Push; (2) Regime-Detektor-Design fortsetzen; (3) Regime-Gate
+implementieren, sobald bm2000/bm200/constrained (12 Seeds, laufen) die
+Tabelle füllen; (4) Zoo kompaktieren bleibt zurückgestellt.
+
+### In Arbeit (2026-09-10 abends — Welle abgeschlossen bis auf LPS/Invarianten)
 
 Haralds Einschätzung: die Idee (mehrere Strategien und Bausteine unter
 einem Hut) bleibt richtig; Parität bei 500·dim/*d* ≤ 5 ist ein Befund

@@ -1470,3 +1470,92 @@ the Splitter's best leaf and was never a null; against a uniform null
 DifferentialEvolution, WeightedAverage and LatinHypercube beat it, only
 `Extremal` is worse.  `RegionUCB.ucb_c` was under-probed, not dead.
 F1–F5 and F7 (for LocalPenaltySearch) are fixed on master.
+
+## 44. Budget decouples the noiseless verdict: the sharing portfolio wins at 200·dim, is level at 500·dim, and is indistinguishable at 2000·dim; constrained on 12 seeds belongs to jSO
+
+Raw: `results/2026-09-11/r12_{bm200,bm2000,constrained}.{json,log}`, git
+HEAD 40cdd08, 12-seed roster, one RNG stream, 0 errors.  Numbers below
+were recomputed from the JSON rows, not read off the logs.
+
+### 44.1 Budget per dimension, standard battery (MA-BBOB, *d* ∈ {2, 5})
+
+Paired delta of `Blocks_uniform_cj_warm2` (CMA-ES + jSO, both warm from
+the archive, 50-eval rotation) against the single arms:
+
+| budget | vs CMA-ES | seeds | *d*=2 | *d*=5 | vs jSO | vs L-SHADE | rule |
+|---|---|---|---|---|---|---|---|
+| **200·dim** | **+0.0365 [+0.0045, +0.0685]** | **9/12** | +0.014 | +0.059 | +0.0567 [+0.018, +0.096], 10/12 | +0.0542 [+0.014, +0.095], 10/12 | **accepted** |
+| 500·dim (§27) | +0.0192 [−0.0156, +0.0541] | 8/12 | +0.007 | +0.032 | +0.0364, 9/12, CI incl. 0 | — | parity |
+| 2000·dim | +0.0017 [−0.0191, +0.0226] | 6/12 | +0.002 | +0.001 | −0.005 | −0.001 | nothing |
+
+Means at 200·dim: portfolio **0.5239**, CMA-ES 0.4874, jSO 0.4697,
+L-SHADE 0.4672; at 2000·dim all four inside 0.005 (jSO 0.8257, L-SHADE
+0.8213, portfolio 0.8204, CMA-ES 0.8187).
+
+**This is the second win by the rule** (after uniform noise, §42), and
+the cleaner one: it beats *all three* arms, both dimensions positive,
+and the budget series is monotone — +0.037 → +0.019 → +0.002.  Sharing
+evaluations is a **low-budget effect**.  The mechanism is the one §27
+guessed for *d* = 2: the warm hand-off at block boundaries buys speed
+in the early curve, and AOCC at a short budget is *all* early curve.
+With 2000·dim every arm converges on its own and the tail, where nothing
+is left to gain, dominates the area.  Equally, the §27 "parity" was a
+budget artefact, not a verdict on the idea — at the budget panobbgo was
+written for (expensive functions, a few hundred evaluations per
+dimension) the shared archive pays.
+
+Two caveats.  (i) `NP_init="auto"` scales with the budget, so at 200·dim
+the DE arms run with ≈2.4·dim individuals (floor 6) — both alone and
+inside the portfolio, so the comparison is fair, but the absolute DE
+numbers are those of a small population.  (ii) The block length is
+`block_evals="auto"`; at 400 evaluations (d=2) that is ~8 blocks in
+total, so the effect at *d* = 2 (+0.014) rides on very few hand-offs.
+The *d* = 5 number (+0.059) is the robust one.
+
+**Regime consequence.**  Budget per dimension is known *before* the
+first evaluation — it needs no probe, unlike the noise class.  It is
+the first gate branch that is both 12-seed-accepted and free:
+`bpd ≤ 200 → CMA-ES + jSO sharing`.  Goes into `REGIME_TABLE_V1` now
+(design §2.4 planned it for `_V2`; there is no reason to wait — the row
+carries 12 seeds).  Open: where between 200 and 500 the crossover sits
+(one run at 300·dim would place it), and whether 100·dim widens the
+gap or the DE arm starves.
+
+### 44.2 Constrained families, 12 seeds
+
+`preset constrained` (ellipsoid_ball, rastrigin_ball, rosenbrock_lin,
+sphere_lin; *d* ∈ {2, 5}; 500·dim; 288 cells):
+
+| spec | mean | *d*=2 | *d*=5 |
+|---|---|---|---|
+| **JSO_alone** | **0.4704** | 0.5806 | 0.3602 |
+| LSHADE_alone | 0.4576 | 0.5706 | 0.3446 |
+| CMAES_alone | 0.4419 | 0.5226 | **0.3613** |
+| Blocks_uniform_cj_warm2 | 0.4392 | 0.5751 | 0.3033 |
+
+| paired delta | Δ | 95 % CI | seeds | *d*=2 | *d*=5 |
+|---|---|---|---|---|---|
+| jSO vs CMA-ES | +0.0285 | [+0.0077, +0.0493] | 9/12 | +0.058 | −0.001 |
+| portfolio vs CMA-ES | −0.0028 | [−0.0190, +0.0135] | 5/12 | +0.053 | −0.058 |
+| portfolio vs jSO | −0.0312 | [−0.0553, −0.0072] | 2/12 | −0.006 | −0.057 |
+
+The 3-seed picture (§38: portfolio last, DE arms ahead) survives with a
+sharper edge: jSO leads CMA-ES with a CI clear of zero on 9/12 seeds
+but *d* = 5 is −0.001, so by the letter of the rule it is a lean, not an
+acceptance — the whole jSO advantage is a *d* = 2 effect.  The portfolio
+is level with CMA-ES and **loses to jSO by the rule** (2/12).  Per
+family vs jSO: ellipsoid_ball **−0.175**, rosenbrock_lin −0.033,
+rastrigin_ball +0.033, sphere_lin +0.049 — one family carries the loss,
+and it is the ill-conditioned one with the active ball constraint.
+
+Hypothesis, not yet tested: the top-K archive on a constrained problem
+is a set of points crowded along the active constraint, so
+`warm_start="archive"` hands CMA-ES a mean *on* the boundary with a σ
+collapsed along it, from which the penalty gradient (not the objective)
+dominates the next generation.  The test is cheap — `warm_start=None`
+on the CMA-ES arm only, constrained battery, 3 seeds first — and if it
+holds, the constrained row of the table is `("JSO",)` for now and the
+archive needs a feasibility-aware K for later.  Constrained-or-not is
+free to read (`eval_constraints` is not `None`), so this row, too,
+needs no probe; it enters the table as a lean with 12 seeds behind it,
+flagged as not rule-accepted.

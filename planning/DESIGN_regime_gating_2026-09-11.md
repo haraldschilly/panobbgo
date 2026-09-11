@@ -251,6 +251,9 @@ REGIME_TABLE_V1 = {
     ("outlier", None,       None):          ("CMAES",),          # §42, 12 seeds, 0/12 against
     ("bounded", "dim <= 5", None):          ("CMAES", "JSO"),    # §42 unif +0.037 vs CMA-ES, 10/12
     (None,      "dim >= 10", "bpd <= 500"): ("CMAES",),          # §42, portfolio -0.023, DE clear
+    (None,      "dim <= 5",  "bpd <= 200"): ("CMAES", "JSO"),    # §44.1, +0.037 vs CMA-ES, 9/12, both dims positive — no probe needed
+    ("constrained", None,    None):          ("JSO",),            # §44.2, 12 seeds, lean (d=5 -0.001), portfolio loses 2/12 — no probe needed;
+                                                                  # "constrained" is a fourth key field in the implementation (eval_constraints is not None), not a noise class
     # default, and every cell not named above:
     (None,      None,       None):          ("CMAES",),          # REGIME_TABLE §6
 }
@@ -264,8 +267,8 @@ negative, REGIME_TABLE §3).  Constrained-or-not *is* free to read —
 `problem.eval_constraints` returns `None` when unconstrained
 (`lib/lib.py:404-411`), and a handler is a `ConstraintHandler` subclass
 (`lib/constraints.py:29`) — it is left out for lack of seeds, not lack
-of access.  Add rows as the in-flight 2000·dim / 200·dim / constrained
-12-seed runs land, bumping to `_V2`.
+of access.  The 200·dim and constrained rows landed with 12 seeds (§44) and are in
+`_V1` from the start; 2000·dim adds nothing (all arms level, §44.1).
 
 ### 2.5 How a wrong probe degrades
 

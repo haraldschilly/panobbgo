@@ -27,16 +27,26 @@ dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
 gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
 nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
 
-### Stand beim Session-Ende (2026-09-11 mittags, Token-Limit)
+### Stand 2026-09-11 nachmittags (nach Token-Reset)
 
-master ist grün und vollständig committed (HEAD nach 6fe7a8b). Der
-Oracle-Gate-Agent wurde **vor** dem ersten Edit gestoppt — Working Tree
-sauber, nichts verloren; Schritt 1 ist beim Fortsetzen von Null zu
-starten (Design 6fe7a8b, Auftrag im TODO unten). Noch laufende
-tokenfreie Läufe schreiben nach
-`/tmp/claude-1000/-home-hsy-p-panobbgo/5874a51a-…/scratchpad/r12_{bm2000,bm200,constrained}.{json,log}`
-— beim Fortsetzen nach `planning/results/2026-09-11/` kopieren und als
-§44 auswerten (Budget-Entkopplung, constrained auf 12 Seeds).
+master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
+`planning/results/2026-09-11/` und sind als **§44** ausgewertet:
+
+- **Budget entkoppelt das Verdikt**: Sharing-Portfolio bei **200·dim
+  nach Regel akzeptiert** (+0.037 vs CMA-ES, 9/12, beide Dims positiv;
+  gegen jSO/L-SHADE 10/12), 500·dim Parität (§27), 2000·dim alle Arme
+  gleich. Sharing ist ein Niedrig-Budget-Effekt — genau das Regime, für
+  das panobbgo gebaut ist. Zweiter Regel-Sieg nach unif-Rauschen (§42).
+- **Constrained, 12 Seeds**: jSO führt (Lean, d=5 −0.001), Portfolio
+  verliert nach Regel gegen jSO (2/12), getragen von ellipsoid_ball
+  (−0.175). Hypothese: Archive-Warm-Start auf der aktiven Nebenbedingung
+  kollabiert σ — Test: `warm_start=None` nur am CMA-ES-Arm, 3 Seeds.
+- `REGIME_TABLE_V1` im Design hat jetzt zwei probefreie Zeilen mehr
+  (bpd ≤ 200 → CMA-ES+jSO; constrained → jSO).
+
+Nächster Schritt: Regime-Gate Schritt 1 (Oracle-Gate) aus
+`planning/DESIGN_regime_gating_2026-09-11.md`, **ein** Opus-Agent.
+Danach: 300·dim-Lauf (Crossover), constrained-Warm-Start-Test.
 
 ### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)
 

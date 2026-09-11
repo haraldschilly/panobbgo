@@ -1443,3 +1443,24 @@ CMA-ES alone; gaussian/uniform noise at *d* ≤ 5 → the sharing portfolio
 needs a probe (re-evaluate a few points; outliers show as a heavy tail
 in the differences).  Pending: 2000·dim and 200·dim at *d* 2/5 (does
 budget move the noiseless verdict), constrained, and the paired oracle.
+
+## 43. Paired oracle on the shipped defaults, 12 seeds (replaces §28's unpaired numbers)
+
+`benchmarks/oracle.py` with one RNG stream for all arms (40cdd08):
+
+| arm | mean | *d*=2 | *d*=5 | regret | seed-cell wins |
+|---|---|---|---|---|---|
+| jSO | **0.6488** | 0.7197 | 0.5780 | 0.081 | 31 |
+| CMA-ES | 0.6372 | 0.6795 | **0.5949** | 0.092 | **41** |
+| L-SHADE | 0.6312 | 0.6990 | 0.5634 | 0.098 | 20 |
+| NLSHADE_LBC | 0.6145 | 0.6669 | 0.5620 | 0.115 | 28 |
+| oracle | **0.7295** | 0.7922 | 0.6668 | | 120 |
+
+Headroom **+0.0807 [+0.0636, +0.0978], 12/12**.  Best pair CMA-ES +
+jSO 0.7118 — **78 % of the headroom** (+0.063 over jSO); every other
+pair ≤ 56 %.  Pairing did not change the story of §28, it sharpened
+it: CMA-ES is the complement (most wins, worst regret of the four), jSO
+the safest single arm, and the two together are the portfolio worth
+having.  The measured sharing portfolio of those two arms captures
+none of this at 500·dim noiseless (§27) and all of it under uniform
+noise (§42) — the headroom is real, the selection is the bottleneck.

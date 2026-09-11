@@ -1464,3 +1464,9 @@ the safest single arm, and the two together are the portfolio worth
 having.  The measured sharing portfolio of those two arms captures
 none of this at 500·dim noiseless (§27) and all of it under uniform
 noise (§42) — the headroom is real, the selection is the bottleneck.
+
+**Addendum to §36 (f41bf62):** F6 is superseded — `Random` samples inside
+the Splitter's best leaf and was never a null; against a uniform null
+DifferentialEvolution, WeightedAverage and LatinHypercube beat it, only
+`Extremal` is worse.  `RegionUCB.ucb_c` was under-probed, not dead.
+F1–F5 and F7 (for LocalPenaltySearch) are fixed on master.

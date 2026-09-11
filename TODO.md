@@ -58,13 +58,14 @@ gebaut ist.
 - [x] **Splitter-Auflösung** (§35/§37): budget-skaliert, 12-Seed-akzeptiert
       für alle Baum-Konsumenten (RegionUCB +0.050 12/12). Median-Schnitt +
       `RegionUCB.on_start` folgen als Patch v2.
-- [ ] **Fixes aus der Fundliste** (§36, nach dem Nondeterminismus-Fix, da
-      Datei-Überlappung): F1 RoundRobin-Division, F2 `_archive_cap()`-Draw
-      vor dem Bail-out (RSP/LBC), F5 PSO-Knopf inert, RegionUCB `on_start`;
-      F3 (L-BFGS-B/COBYQA liefern neben Konkurrenten nichts) und F4
-      (Stall-Guard macht Läufe maschinenabhängig) brauchen ein Design.
-- [ ] **DE-Arme zwischen Prozessen nicht reproduzierbar** (§34) — Agent
-      sucht; Verdacht `PYTHONHASHSEED`-abhängige Iteration.
+- [x] **DE-Arme zwischen Prozessen nicht reproduzierbar** (§40): Thread-Race
+      in `Results.add_results` (publish vor extend), gefixt f4b6376.
+- [ ] **Fixes aus der Fundliste** (§36), in Arbeit: F2 (`_archive_cap()`-Draw
+      vor dem Bail-out) und F5 (PSO-Knopf inert) — Agent; F1 (RoundRobin-
+      Division), F3 (Pull-Bridge für L-BFGS-B/COBYQA) und F4 (Liveness
+      statt Wall-Clock-Stall-Guard) — Agent nach
+      `planning/DESIGN_pump_and_stall_2026-09-11.md`. RegionUCB `on_start`
+      erledigt (ebb8290).
 - [ ] Zoo kompaktieren: **zurückgestellt**, bis die neuen Batterien
       zeigen, was gut ist.
 

@@ -1357,3 +1357,26 @@ Caveats: 3 seeds, screen CIs on selected specs carry no weight (§18,
   another arm.  With a six-line initial design it spends its budget
   and is the stronger of the two standalone tree consumers (0.43–0.46
   vs Random's 0.37–0.39).
+
+## 40. The DE arms' cross-process nondeterminism was a thread race in `Results.add_results`
+
+Not hash randomisation (ruled out over five `PYTHONHASHSEED` values).
+`add_results` published `new_results` **before** extending the result
+buffer; the handler cascade ran on the bus thread while the main thread
+was still writing.  The L-SHADE family paces LPSR, the F-schedule and
+`p_best` annealing on `len(strategy.results)`, so whether a handler
+counted its own batch depended on which thread won the GIL — ~8 stale
+reads in 204 batches at the default switch interval.  One stale read
+moves an LPSR step a loop earlier, one fewer trial is drawn, and the
+stream shifts by exactly 4 bytes (`new_who` draws 16); every point after
+that differs.  CMA-ES never reads `len(results)` — hence immune.
+`sync_eval` serialises evaluation, not this overlap; in-process repeats
+mostly agreed because the race is rare.
+
+Fix f4b6376: publish last.  Worst cell 9/10 → 10/10 subprocesses
+identical; family battery seed 42 in three parallel processes 3/48 →
+0/48 differing rows.  A handler-time probe now asserts the count
+(fails 5/5 on the old ordering).  Effect on measured numbers: small —
+the fixed order is the branch that won ~11 times in 12 — but every DE
+A/B before f4b6376 carried this term, and no reproducibility test could
+see it because they all ran within one process.

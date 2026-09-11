@@ -27,6 +27,17 @@ dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
 gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
 nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
 
+### Stand beim Session-Ende (2026-09-11 mittags, Token-Limit)
+
+master ist grün und vollständig committed (HEAD nach 6fe7a8b). Der
+Oracle-Gate-Agent wurde **vor** dem ersten Edit gestoppt — Working Tree
+sauber, nichts verloren; Schritt 1 ist beim Fortsetzen von Null zu
+starten (Design 6fe7a8b, Auftrag im TODO unten). Noch laufende
+tokenfreie Läufe schreiben nach
+`/tmp/claude-1000/-home-hsy-p-panobbgo/5874a51a-…/scratchpad/r12_{bm2000,bm200,constrained}.{json,log}`
+— beim Fortsetzen nach `planning/results/2026-09-11/` kopieren und als
+§44 auswerten (Budget-Entkopplung, constrained auf 12 Seeds).
+
 ### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)
 
 Reihenfolge: (1) LocalPenaltySearch-Bridge → Invarianten + LPS in einem

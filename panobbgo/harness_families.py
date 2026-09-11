@@ -290,7 +290,9 @@ def _run_one(
         try:
             # Budget before construction: ``NP_init="auto"`` sizes itself
             # from ``config.max_eval`` in the heuristic's constructor.
-            strategy = strategy_spec.create_strategy(problem, seed=seed, max_eval=budget)
+            # The families are noiseless, so an oracle regime gate reads
+            # ``"clean"`` (constrained-or-not it reads off the problem).
+            strategy = strategy_spec.with_regime_class("clean").create_strategy(problem, seed=seed, max_eval=budget)
             strategy.config.max_eval = budget
             strategy.config.sync_evaluation = bool(sync_eval)
             # Anytime metric: the tracker's budget is the only stop.

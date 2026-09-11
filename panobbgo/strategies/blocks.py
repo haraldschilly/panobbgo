@@ -164,6 +164,43 @@ compose (both must pass):
 
 Set either to ``False`` to measure the unguarded behaviour.
 
+Regime gate
+-----------
+
+``regime_gate`` (``planning/DESIGN_regime_gating_2026-09-11.md``) disables
+arms according to the *regime* the run is in — the noise class, the
+dimension, the budget per dimension and whether the problem is constrained
+— by looking the four up in :data:`REGIME_TABLE_V1` and keeping only the
+arms the matching row names.  The evidence is that the sharing portfolio
+wins under bounded noise and at short budgets, loses badly under outliers
+and to jSO on constrained problems, and is level everywhere else
+(``planning/DISCOVERY_2026-09-09.md`` §42/§44), so on most batteries the
+gate means "CMA-ES alone".
+
+Every arm is **always constructed**, gate or no gate.  ``StrategyBase``
+spawns each module's RNG stream from the master generator in construction
+order, so an arm that is built lazily — or not at all — shifts every later
+stream and changes the run bit-for-bit.  The gate therefore only flips a
+per-arm ``enabled`` bit, read at exactly one place, the ``ready`` list of
+:meth:`~StrategyBlockBandit._select`, and filters the prologue at the
+moment the mask is set.  ``regime_gate=None`` is byte-identical to a run
+without the feature, and a gate that enables every arm is byte-identical to
+``None`` (``tests/test_regime_gate.py``).
+
+A disabled arm is a paused arm (see above): it keeps receiving
+``on_new_results`` and keeps topping its queue up, so its own stream
+advances and "CMA-ES alone via the gate" is *not* byte-identical to
+``StrategyRoundRobin`` with CMA-ES — a different, measurably
+equal-or-better (§42) thing.  Deterministic under ``sync_evaluation``.
+
+The alternative — "the gate picks between two pre-built strategies" — is
+**not implementable** and is not to be re-proposed: one strategy owns the
+run (``start()`` → ``initialize()`` → ``_run()`` builds the event bus, the
+mandatory analyzers and the evaluator once and publishes ``start`` exactly
+once), so a wrapper cannot hold two built strategies and switch after a few
+evaluations without discarding a live evaluator or double-counting the
+probe, and it would break the RNG-order contract above (design §2.1, §3).
+
 Region hand-offs
 ----------------
 
@@ -182,12 +219,165 @@ the arm's output queue, which ``execute()`` may be draining at that moment
 from __future__ import annotations
 
 import heapq
-from typing import Any, Dict, List, Optional, Tuple
+import operator
+import re
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 
 from panobbgo.core import Heuristic, StrategyBase
 from panobbgo.lib import Result
+
+# ---------------------------------------------------------------------------
+# The regime table
+# ---------------------------------------------------------------------------
+
+#: The noise classes a regime gate distinguishes.  ``"bounded"`` is one
+#: class for the BBOB gauss *and* unif models: the two do not separate in
+#: a probe (design §1.3) and §42 sends both to the same arm set anyway.
+NOISE_CLASSES: Tuple[str, ...] = ("clean", "bounded", "outlier")
+
+#: A row key of the regime table: ``(noise class, dim predicate, bpd predicate, constrained)``.
+RegimeKey = Tuple[Optional[str], Optional[str], Optional[str], Optional[bool]]
+
+#: Regime -> arm roles.  **Versioned**: every row is an empirical claim
+#: with a date and a DISCOVERY section behind it, and a row without
+#: 12-seed evidence does not belong here.  A change of any row is a new
+#: table (``_V2``), not an edit — the 12-seed runs that accepted ``_V1``
+#: cite it by name.
+#:
+#: Key: ``(noise class, dim predicate, budget-per-dimension predicate,
+#: constrained)``.  ``None`` in a field matches anything; a predicate is a
+#: string ``"<dim|bpd> <op> <number>"`` with ``op`` one of ``<= < >= > ==``
+#: (see :func:`regime_predicate_holds`); ``constrained`` is ``True`` /
+#: ``False`` / ``None``.  **First match wins**, so the order is part of
+#: the claim.  Values are arm *roles* (heuristic class names), mapped to
+#: the strategy's actual arms by :func:`regime_arms_for_roles`.
+#:
+#: Order of the rows, and why (``planning/DESIGN_regime_gating_2026-09-11.md``
+#: §2.4 as amended by DISCOVERY §44):
+#:
+#: 1. ``outlier`` first — its miss is the costly one: the DE arms lose
+#:    0.135 and the portfolio 0.101 under cauchy outliers, 0/12 seeds
+#:    against, the largest margin in the file.
+#: 2. ``constrained`` second, ahead of the bounded-noise and short-budget
+#:    rows.  We have **no** evidence for constrained *and* noisy or
+#:    constrained *and* short-budget cells, so a choice had to be made.
+#:    The constrained verdict is a verdict *against* the portfolio (it
+#:    loses to jSO by the rule, 2/12, CI clear of zero) with a mechanism
+#:    specific to constrained problems — the top-k archive crowds along
+#:    the active constraint, so the warm start hands CMA-ES a mean on the
+#:    boundary (§44.2 hypothesis) — which neither noise nor a short budget
+#:    removes.  The bounded-noise and 200·dim wins, on the other hand, were
+#:    measured on *unconstrained* problems only, and their mechanism (the
+#:    warm hand-off at block boundaries) is exactly the one the constrained
+#:    result says is broken.  So the row that says "do not share" wins over
+#:    the rows that say "share", and the combined cells are flagged
+#:    **unmeasured**.  Constrained at ``d >= 10`` is unmeasured too and,
+#:    by this order, also goes to jSO.
+#: 3. Bounded noise at ``d <= 5``: the sharing portfolio's first win by the
+#:    rule (§42, unif +0.037 vs CMA-ES, 10/12; gauss leans the same way but
+#:    does not clear the rule and the probe cannot split the two).
+#: 4. ``d >= 10`` at ``<= 500·dim``: CMA-ES clearly, portfolio level, DE
+#:    arms lose (§42).  Above 500·dim at d = 10 there are 3 seeds only
+#:    (L-SHADE ahead) — deliberately absent, falls to the default.
+#: 5. ``d <= 5`` at ``<= 200·dim``: the portfolio's second, cleaner win by
+#:    the rule (§44.1, +0.037 vs CMA-ES, 9/12, both dims positive, beats
+#:    all three single arms).  Budget per dimension is known before the
+#:    first evaluation, so this row needs no probe.
+#: 6. Default: CMA-ES.  Noiseless d <= 5 at 500·dim is parity (+0.019,
+#:    8/12, CI includes zero, §27/§44.1), 2000·dim is indistinguishable
+#:    (§44.1), and gating on dimension alone at d <= 5 is negative on the
+#:    12-seed control (REGIME_TABLE §3) — where the arms are level,
+#:    selection costs.
+REGIME_TABLE_V1: Mapping[RegimeKey, Tuple[str, ...]] = {
+    # (noise, dim predicate, bpd predicate, constrained) -> arm roles
+    # §42, 12 seeds, 0/12 against: CMA-ES +0.101 over the portfolio, +0.135 over the DE arms
+    ("outlier", None, None, None): ("CMAES",),
+    # §44.2, 12 seeds: jSO +0.029 vs CMA-ES [+0.008, +0.049] 9/12 but d=5 -0.001 (a lean, not
+    # rule-accepted); the portfolio loses to jSO by the rule (-0.031, 2/12).  Unmeasured with noise.
+    (None, None, None, True): ("JSO",),
+    # §42, 12 seeds: unif +0.037 vs CMA-ES [+0.012, +0.061] 10/12, +0.026 vs L-SHADE 9/12; gauss
+    # +0.022 vs CMA-ES 9/12 (CI includes zero) — one class, the probe cannot split them
+    ("bounded", "dim <= 5", None, None): ("CMAES", "JSO"),
+    # §42, 12 seeds: portfolio -0.023 [-0.070, +0.024] 6/12, DE arms -0.056 / -0.069 (CI clear)
+    (None, "dim >= 10", "bpd <= 500", None): ("CMAES",),
+    # §44.1, 12 seeds: +0.037 vs CMA-ES [+0.005, +0.069] 9/12, d=2 +0.014, d=5 +0.059; beats
+    # jSO and L-SHADE by the rule too (10/12 each)
+    (None, "dim <= 5", "bpd <= 200", None): ("CMAES", "JSO"),
+    # default (REGIME_TABLE §6): 500·dim noiseless is parity (§27), 2000·dim is level (§44.1)
+    (None, None, None, None): ("CMAES",),
+}
+
+_PREDICATE_OPS: Dict[str, Callable[[float, float], bool]] = {
+    "<=": operator.le,
+    "<": operator.lt,
+    ">=": operator.ge,
+    ">": operator.gt,
+    "==": operator.eq,
+}
+_PREDICATE_RE = re.compile(r"^\s*(dim|bpd)\s*(<=|>=|==|<|>)\s*([0-9]+(?:\.[0-9]*)?)\s*$")
+
+
+def regime_predicate_holds(predicate: Optional[str], variable: str, value: float) -> bool:
+    """Evaluate a table predicate such as ``"dim <= 5"`` against ``value``.
+
+    ``None`` matches anything.  The predicate must name ``variable``
+    (``"dim"`` or ``"bpd"``); a malformed string or one naming the wrong
+    variable raises ``ValueError`` — a table typo must fail at lookup, not
+    silently fall through to the default row.
+    """
+    if predicate is None:
+        return True
+    m = _PREDICATE_RE.match(predicate)
+    if m is None:
+        raise ValueError("malformed regime predicate %r (expected e.g. 'dim <= 5')" % predicate)
+    var, op, number = m.groups()
+    if var != variable:
+        raise ValueError("regime predicate %r is in the %r slot" % (predicate, variable))
+    return _PREDICATE_OPS[op](float(value), float(number))
+
+
+def lookup_regime_table(
+    noise_class: str,
+    dim: int,
+    bpd: float,
+    constrained: bool,
+    table: Mapping[RegimeKey, Tuple[str, ...]] = REGIME_TABLE_V1,
+) -> Tuple[RegimeKey, Tuple[str, ...]]:
+    """First row of ``table`` matching the regime — ``(key, arm roles)``.
+
+    ``noise_class`` is one of :data:`NOISE_CLASSES`; ``bpd`` is the budget
+    per dimension, ``max_eval / dim``.  A table without a catch-all row is
+    a programming error (``LookupError``).
+    """
+    if noise_class not in NOISE_CLASSES:
+        raise ValueError("noise class must be one of %s, got %r" % (NOISE_CLASSES, noise_class))
+    for key, roles in table.items():
+        k_noise, k_dim, k_bpd, k_con = key
+        if k_noise is not None and k_noise != noise_class:
+            continue
+        if k_con is not None and bool(k_con) != bool(constrained):
+            continue
+        if not regime_predicate_holds(k_dim, "dim", dim):
+            continue
+        if not regime_predicate_holds(k_bpd, "bpd", bpd):
+            continue
+        return key, tuple(roles)
+    raise LookupError("regime table has no row for %r/%d/%g/%s and no default" % (noise_class, dim, bpd, constrained))
+
+
+def regime_arms_for_roles(heuristics: List[Heuristic], roles: Tuple[str, ...]) -> List[str]:
+    """Names of the arms among ``heuristics`` that play one of ``roles``.
+
+    A role is a heuristic *class name* (``"CMAES"``, ``"JSO"``); an arm
+    plays it if that is its exact class or its :attr:`name`.  Exact class,
+    not ``isinstance``: ``NLSHADE_LBC`` subclasses ``JSO`` and is not the
+    arm §42 measured.  The result is in registration order and may be
+    empty — the caller decides what an empty mask means.
+    """
+    wanted = set(roles)
+    return [h.name for h in heuristics if type(h).__name__ in wanted or h.name in wanted]
 
 
 class StrategyBlockBandit(StrategyBase):
@@ -231,6 +421,23 @@ class StrategyBlockBandit(StrategyBase):
         12-seed roster (-0.007, §30), so it is **off by default**; available
         as an opt-in, and it composes with the foreign guard.
     :param hysteresis: a challenger must beat the incumbent by this factor.
+    :param regime_gate: ``None`` (default) — no gate, today's behaviour,
+        byte-identical to a run without the feature.  ``"oracle:<class>"``
+        with ``class`` in :data:`NOISE_CLASSES` — take the noise class as
+        given (the benchmark harness knows it; a library user does not),
+        read the dimension, the budget per dimension and the constrained
+        flag at the first :meth:`execute`, look the four up in
+        :data:`REGIME_TABLE_V1` and disable every arm the matching row does
+        not name.  ``"table-v1"`` — the in-run noise probe of design §1 —
+        is **not built yet** and raises ``NotImplementedError``; it is
+        step 3 of the design's plan and only worth building if the oracle
+        clears the §4 battery.  Anything else is a ``ValueError``.
+
+        If the row names roles the strategy has no arm for, whatever
+        *does* match is enabled; if nothing matches at all the mask is left
+        fully enabled and a warning is logged — the gate must never
+        silently switch every arm off.  The decision is logged at INFO and
+        kept in :attr:`regime_decision`.
     """
 
     def __init__(
@@ -252,10 +459,12 @@ class StrategyBlockBandit(StrategyBase):
         warm_start_only_if_foreign: bool = True,
         warm_start_only_if_better: bool = False,
         hysteresis: float = 1.2,
+        regime_gate: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         if policy not in ("ducb", "uniform"):
             raise ValueError("policy must be 'ducb' or 'uniform', got %r" % policy)
+        self._gate_class: Optional[str] = self._parse_regime_gate(regime_gate)
         if reward not in ("area", "endpoint"):
             raise ValueError("reward must be 'area' or 'endpoint', got %r" % reward)
         if prior == "dim":
@@ -280,6 +489,13 @@ class StrategyBlockBandit(StrategyBase):
         self.warm_start_only_if_foreign: bool = bool(warm_start_only_if_foreign)
         self.warm_start_only_if_better: bool = bool(warm_start_only_if_better)
         self.hysteresis: float = float(hysteresis)
+        self.regime_gate: Optional[str] = regime_gate
+
+        #: per-arm enable bit set by the regime gate; an arm absent from the
+        #: dict is enabled.  Read in :meth:`_select` only.
+        self._enabled: Dict[str, bool] = {}
+        #: what the gate decided, for logs and tests (``None`` until it ran)
+        self.regime_decision: Optional[Dict[str, Any]] = None
 
         #: per-arm discounted statistics, keyed by heuristic name
         self._S: Dict[str, float] = {}
@@ -385,6 +601,93 @@ class StrategyBlockBandit(StrategyBase):
         StrategyBase.add_heuristic(self, h)
         self._S.setdefault(h.name, 0.0)
         self._n.setdefault(h.name, 0.0)
+
+    # -- the regime gate ---------------------------------------------------
+
+    @staticmethod
+    def _parse_regime_gate(regime_gate: Optional[str]) -> Optional[str]:
+        """Validate ``regime_gate``; return the oracle's noise class or ``None``."""
+        if regime_gate is None:
+            return None
+        if not isinstance(regime_gate, str):
+            raise ValueError("regime_gate must be None or a string, got %r" % (regime_gate,))
+        if regime_gate == "table-v1":
+            raise NotImplementedError(
+                "regime_gate='table-v1' (the in-run noise probe) is not built yet — design §6 step 3; "
+                "use regime_gate='oracle:<class>' with the class known from outside"
+            )
+        prefix, sep, cls = regime_gate.partition(":")
+        if prefix == "oracle" and sep and cls in NOISE_CLASSES:
+            return cls
+        if regime_gate == "oracle":
+            raise ValueError(
+                "regime_gate='oracle' names no class; the harnesses resolve it to 'oracle:<class>' from the "
+                "battery (StrategySpec.with_regime_class) — pass one of %s explicitly here" % (NOISE_CLASSES,)
+            )
+        raise ValueError(
+            "regime_gate must be None, 'oracle:<class>' with class in %s, or 'table-v1'; got %r"
+            % (NOISE_CLASSES, regime_gate)
+        )
+
+    def _apply_regime_gate(self) -> None:
+        """Set the arm mask from the regime, once, before the first block.
+
+        Dimension, budget per dimension and the constrained flag are read
+        *here* rather than in the constructor: the budget is regularly
+        assigned after construction (``s.config.max_eval = ...``, see
+        :attr:`block_evals`) and the arms only exist once ``initialize``
+        ran.  The mask is set before the prologue list is built, so a
+        disabled arm never gets its prologue block either.
+        """
+        if self._gate_class is None:
+            return
+        dim = int(self.problem.dim)
+        max_eval = self._max_eval()
+        bpd = max_eval / max(1, dim)
+        constrained = bool(self.problem.is_constrained())
+        key, roles = lookup_regime_table(self._gate_class, dim, bpd, constrained)
+        arms = [h.name for h in self.heuristics]
+        keep = regime_arms_for_roles(self.heuristics, roles)
+        missing = [role for role in roles if not regime_arms_for_roles(self.heuristics, (role,))]
+        if not keep:
+            self.logger.warning(
+                "regime gate: row %s asks for %s but no arm of %s plays any of them; leaving every arm enabled"
+                % (key, roles, arms)
+            )
+            keep = list(arms)
+        elif missing:
+            self.logger.warning(
+                "regime gate: row %s names %s; no arm plays %s, enabling %s" % (key, roles, missing, keep)
+            )
+        self._enabled = {name: name in keep for name in arms}
+        self.regime_decision = {
+            "gate": self.regime_gate,
+            "noise_class": self._gate_class,
+            "dim": dim,
+            "max_eval": max_eval,
+            "bpd": bpd,
+            "constrained": constrained,
+            "row": key,
+            "roles": roles,
+            "enabled": list(keep),
+            "disabled": [name for name in arms if name not in keep],
+        }
+        self.logger.info(
+            "regime gate %s: class=%s dim=%d bpd=%.1f constrained=%s -> row %s -> enabled %s, disabled %s"
+            % (
+                self.regime_gate,
+                self._gate_class,
+                dim,
+                bpd,
+                constrained,
+                key,
+                keep,
+                self.regime_decision["disabled"],
+            )
+        )
+
+    def _is_enabled(self, h: Heuristic) -> bool:
+        return self._enabled.get(h.name, True)
 
     # -- accounting: every result feeds the block's log-precision trace ----
 
@@ -761,7 +1064,10 @@ class StrategyBlockBandit(StrategyBase):
         # ``can_produce``, not ``has_points``: an on-demand arm (a solver
         # bridge) has an empty queue between round trips, so gating on the
         # queue alone makes it permanently unselectable.
-        ready = [h for h in self.heuristics if h.can_produce or self._can_warm_start(h)]
+        # The regime gate's mask is honoured here and nowhere else: every
+        # other path that touches an arm (warm start, region hand-off,
+        # prologue) only runs for an arm this list returned.
+        ready = [h for h in self.heuristics if self._is_enabled(h) and (h.can_produce or self._can_warm_start(h))]
         if not ready:
             return None
 
@@ -793,7 +1099,10 @@ class StrategyBlockBandit(StrategyBase):
 
     def execute(self) -> List[Any]:
         if self._prologue is None:
-            self._prologue = [h.name for h in self.heuristics]
+            # The gate runs once, before the first block, and the prologue
+            # is built from the mask so a disabled arm gets no block at all.
+            self._apply_regime_gate()
+            self._prologue = [h.name for h in self.heuristics if self._is_enabled(h)]
 
         owner = self._heuristics.get(self._owner) if self._owner is not None else None
         if owner is not None and not owner.active:

@@ -70,6 +70,7 @@ from panobbgo.harness_ioh import (
     make_noisy_battery,
     make_noisy_highdim_battery,
     make_standard_battery,
+    noise_class_of,
     run_ioh_harness,
 )
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
@@ -448,6 +449,22 @@ SPECS = {
         {**SOFT, "block_evals": 25, **NOB},
         ARCHIVE,
     ),
+    # -- regime gating (planning/DESIGN_regime_gating_2026-09-11.md §4) ---
+    #
+    # ``Blocks_uniform_cj_warm2`` behind the **oracle** regime gate: both
+    # arms are still constructed (the RNG-order contract, design §2.2), but
+    # ``REGIME_TABLE_V1`` decides per run which may own a block, with the
+    # battery's noise class handed in as *known* — ``"oracle"`` is resolved
+    # to ``"oracle:<class>"`` by ``harness_ioh._run_one`` from ``kind=``
+    # (gauss/unif -> bounded, cauchy -> outlier, else clean).  This is the
+    # upper bound of what any probe can reach.  Expected rows: cauchy ->
+    # CMA-ES alone (the +0.10 over the portfolio, §42); unif/gauss at d 2/5
+    # -> both arms (must cost nothing against the portfolio); standard at
+    # 500·dim and d = 10 -> CMA-ES alone (must not lose to ``CMAES_alone``
+    # by more than the floor); ``bm=200`` -> both arms (§44.1).  The
+    # falsifier: if this spec does not beat ``CMAES_alone`` by the rule on
+    # cauchy *and* unif, the table is wrong and no probe can save it.
+    "RegimeGate_oracle": (StrategyBlockBandit, CJ, {"policy": "uniform", **WARM_ON, "regime_gate": "oracle"}, ARCHIVE),
     # No ``Phased_cma60_lshade_warm``: ``StrategyPhased`` never calls
     # ``warm_start_now`` at a phase boundary (the §12 defect), and the arm's
     # own ``on_start`` warm path runs at t = 0 against an empty archive.  The
@@ -533,6 +550,15 @@ else:
     out = pos[0]
     seeds = [int(x) for x in pos[1:]]
     specs = [spec(n) for n in names]
+    for sp in specs:
+        if sp.config_overrides.get("regime_gate") == "oracle":
+            # Say what the harness will hand the gate on this battery, so the
+            # log shows which table rows were reachable before a seed lands.
+            print(
+                f"{sp.name}: regime_gate=oracle:{noise_class_of(battery.problem_kind)} "
+                f"(battery {battery.name}, dims {list(battery.dims)}, budget {battery.budget_multiplier}*d)",
+                flush=True,
+            )
     rows, t0 = [], time.perf_counter()
     for seed in seeds:
         r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True)

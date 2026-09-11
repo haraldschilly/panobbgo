@@ -26,7 +26,7 @@ import time
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from panobbgo.lib import Problem, Result
 from panobbgo.core import StrategyBase
@@ -164,6 +164,24 @@ class StrategySpec:
     def rng_identity(self) -> str:
         """Label the harnesses hash into each run's seed — ``seed_name or name``."""
         return self.seed_name or self.name
+
+    def with_regime_class(self, noise_class: str) -> "StrategySpec":
+        """Resolve a bare ``regime_gate="oracle"`` override to ``"oracle:<class>"``.
+
+        The oracle form of :class:`~panobbgo.strategies.StrategyBlockBandit`'s
+        regime gate takes the noise class as given.  A benchmark knows it —
+        it built the noisy problem — but the spec is written once for every
+        battery, so it says ``"oracle"`` and the harness fills the class in
+        per run (:func:`panobbgo.harness_ioh.noise_class_of`).  Specs
+        without that exact override are returned unchanged; a spec that
+        already names a class keeps it (a deliberate override of the
+        battery's tag).
+        """
+        if self.config_overrides.get("regime_gate") != "oracle":
+            return self
+        overrides = dict(self.config_overrides)
+        overrides["regime_gate"] = "oracle:%s" % noise_class
+        return replace(self, config_overrides=overrides)
 
     def create_strategy(
         self,

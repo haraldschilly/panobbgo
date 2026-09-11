@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -409,6 +409,22 @@ class Problem:
         :rtype: numpy.ndarray
         """
         return None
+
+    def is_constrained(self) -> bool:
+        """Does this problem report constraint violations?
+
+        There is no declared flag: a problem is constrained iff its
+        :meth:`eval_constraints` returns a vector rather than ``None``, and
+        several implementations decide that per instance (a family with
+        ``n_constraints=0`` returns ``None``).  So the constraints are
+        evaluated **once**, at the box centre, through the same translation
+        :meth:`__call__` applies.  That is one constraint evaluation and no
+        objective evaluation; it does not touch any evaluation counter.
+        """
+        x = np.asarray(self.center, dtype=np.float64)
+        if self.dx is not None:
+            x = x + self.dx
+        return self.eval_constraints(x) is not None
 
     def __call__(self, point: Point) -> Result:
         x = point.x + self.dx if self.dx is not None and point.x is not None else point.x

@@ -256,6 +256,32 @@ def resolve_problem_kind(kind: str) -> Tuple[str, Optional[str]]:
     return kind, None
 
 
+#: Noise-model tag -> the regime class an oracle regime gate takes as given
+#: (:data:`panobbgo.strategies.blocks.NOISE_CLASSES`).  gauss and unif are
+#: *one* class: a probe cannot separate them (design §1.3) and §42 sends
+#: both to the same arm set.  ``None`` is a noiseless kind.
+NOISE_CLASS_OF_TAG: Dict[Optional[str], str] = {
+    None: "clean",
+    "gauss": "bounded",
+    "unif": "bounded",
+    "cauchy": "outlier",
+}
+
+
+def noise_class_of(problem_kind: str) -> str:
+    """The regime noise class of a battery kind — ``"clean"``, ``"bounded"`` or ``"outlier"``.
+
+    This is what the harness injects into a spec whose ``config_overrides``
+    say ``regime_gate="oracle"`` (:meth:`StrategySpec.with_regime_class`):
+    the *upper bound* of regime gating, the class known rather than probed.
+    """
+    _, tag = resolve_problem_kind(problem_kind)
+    try:
+        return NOISE_CLASS_OF_TAG[tag]
+    except KeyError:
+        raise ValueError(f"no regime noise class for noise tag {tag!r} (kind {problem_kind!r})") from None
+
+
 # ---------------------------------------------------------------------------
 # Battery / spec
 # ---------------------------------------------------------------------------
@@ -613,6 +639,33 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 # states what it ran.
                 "warm_start_only_if_better": False,
             },
+        ),
+        # The same portfolio behind the **oracle regime gate**
+        # (``planning/DESIGN_regime_gating_2026-09-11.md`` §2, §4): both
+        # arms are still constructed, but ``REGIME_TABLE_V1`` decides per
+        # run which of them may own a block, with the battery's noise class
+        # handed in as known (``"oracle"`` is resolved to
+        # ``"oracle:<class>"`` by :func:`noise_class_of` in ``_run_one``).
+        # On a noiseless 500·dim battery the row is CMA-ES alone; under
+        # bounded noise at d <= 5 and at <= 200·dim it is the portfolio.
+        # ``seed_name`` pins it to the portfolio's RNG stream so the delta
+        # between the two carries only the gate.
+        StrategySpec(
+            name="RegimeGate_oracle",
+            strategy_class=StrategyBlockBandit,
+            heuristics=[
+                (CMAES, {"warm_start": "archive"}),
+                (JSO, {"NP_init": "auto", "warm_start": "archive"}),
+            ],
+            analyzers=[(Archive, {})],
+            config_overrides={
+                "policy": "uniform",
+                "warm_start_on_resume": True,
+                "warm_start_only_if_foreign": False,
+                "warm_start_only_if_better": False,
+                "regime_gate": "oracle",
+            },
+            seed_name="Blocks_warm_CMAES_JSO",
         ),
     ]
 
@@ -1121,7 +1174,12 @@ def _run_one(
             # themselves from ``config.max_eval`` in their constructor, and
             # would otherwise read Config's default (1000) instead of the
             # battery's ``budget_multiplier * dim``.
-            strategy = strategy_spec.create_strategy(problem, seed=seed, max_eval=budget)
+            # A spec gated by ``regime_gate="oracle"`` learns the battery's
+            # noise class here — the one regime feature the strategy cannot
+            # read off the problem itself.
+            strategy = strategy_spec.with_regime_class(noise_class_of(problem_kind)).create_strategy(
+                problem, seed=seed, max_eval=budget
+            )
             # Harmless belt-and-braces: keeps the invariant for factory-built
             # strategies that rebuild their own config.
             strategy.config.max_eval = budget

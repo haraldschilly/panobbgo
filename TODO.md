@@ -76,6 +76,13 @@ gebaut ist.
 - [ ] **Invarianten-Tests robust machen** — vier trajektorienabhängige Fälle
       kippten mit dem Splitter-Umbau; master-CI rot bis der grüne Stand
       landet.
+- [ ] **Regime-Gating, Schritt 1 (Oracle-Gate)** — Agent implementiert
+      `regime_gate="table-v1"` auf `StrategyBlockBandit` (ein Schalter:
+      begrenztes Rauschen bei *d* ≤ 5 → Portfolio, sonst CMA-ES) + Spec
+      `RegimeGate_oracle` + 12-Seed-Experiment über cauchy/gauss/unif/
+      standard/d10. Falsifikator: Oracle-Gate verfehlt die Regel, wo die
+      Tabelle Sieg sagt → Tabelle falsch, keine Probe bauen. Design:
+      `planning/DESIGN_regime_gating_2026-09-11.md`.
 - [ ] **Regime-Gating** (§41/§42): zwei Zweige mit 12-Seed-Evidenz —
       Ausreißer → CMA-ES allein; uniformes Rauschen bei *d* ≤ 5 →
       Sharing-Portfolio (erster Roster-Sieg des Portfolios). Design des

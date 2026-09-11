@@ -357,6 +357,21 @@ SPECS = {
         {"policy": "uniform", "block_evals": 80, **WARM_ON},
         ARCHIVE,
     ),
+    # ``block_evals="auto"`` = ``max(2*dim, 4*lambda_ref)``: 24 at d=2 (CMA-ES
+    # lambda 6) and 4x jSO's budget-scaled NP at d=5 (40 at 100*dim, 48 at
+    # 200*dim, 60 at 500*dim).  The control for the budget series (§44.1's
+    # follow-up): ``Blocks_uniform_cj_warm2`` runs on the ``n_blocks=50``
+    # default, whose block *shrinks* with the budget -- 4 nominal / 6 realised
+    # evaluations at 100*dim, d=2, i.e. one generation per block with a warm
+    # start before every generation.  If the low-budget win survives with the
+    # block pinned to four generations, it is sharing; if not, it is the
+    # one-generation relay.
+    "Blocks_uniform_cj_warm2_auto": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
     # -- §27 B: which soft-D-UCB knob carries the gain? -------------------
     #
     # ``_soft`` (ucb_c 2.0, hysteresis 1.0, gamma 0.7) led §26 at 0.6921 by

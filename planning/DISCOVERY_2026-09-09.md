@@ -1333,3 +1333,27 @@ right warm-start policy.  The reference portfolio is untouched (§35).
 Caveats: 3 seeds, screen CIs on selected specs carry no weight (§18,
 §30); noisy-vs-noiseless comparisons are unpaired (different
 `problem_kind` → different stream).  Raw: `planning/results/2026-09-11/`.
+
+## 39. Splitter v2: the median cut is not the fix for the chain; RegionUCB could never start alone
+
+* A median cut does **not** cure `Random`'s depth-60 chain — mean and
+  median give the identical pathology (61 leaves, a 1300-point leaf at
+  *d* = 5).  The chain is `Random`'s own: it samples only inside the
+  current best leaf, that leaf splits, the child with the best point is
+  the next target, the sibling is never revisited.  Fixing it means
+  changing the heuristic (or `MAX_DEPTH`), not the geometry.  The
+  earlier diagnosis in §35 was wrong and is retracted.
+* A *plain* median cut is dangerous: it lands on an observed
+  coordinate, and with both-boundaries `contains` a duplicated mass is
+  counted into both children — §13 in a softer form.  The shipped
+  `cut_rule="median"` cuts the median *gap* between adjacent distinct
+  coordinates.  Median vs mean, 3 seeds: RegionUCB +0.033 (3/3), Random
+  −0.015; `Blocks_uniform_cj_warm2` at *d* = 5 hits `MAX_DEPTH` with a
+  423-point leaf under the median where the mean stays at depth 52.
+  `"mean"` stays the default; `"median"` is opt-in.
+* **`RegionUCB` had no `on_start`** and emits only from
+  `on_new_results`, so alone it produced **0 of 200 evaluations** — a
+  pre-existing defect hidden by every benchmark that paired it with
+  another arm.  With a six-line initial design it spends its budget
+  and is the stronger of the two standalone tree consumers (0.43–0.46
+  vs Random's 0.37–0.39).

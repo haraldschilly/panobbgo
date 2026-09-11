@@ -1277,3 +1277,21 @@ evaluations; on the battery it fired 17 times in 60 runs (§23).
 Clean and now guarded: the §5 queue contract for all population arms,
 constructor RNG order, all 91 handler signatures, no NaN/out-of-box
 points.
+
+## 37. Splitter resolution accepted on the 12-seed roster (2026-09-11)
+
+Consumers of the tree, new resolution vs `legacy=True`, 12 seeds, dims
+(2, 5), instances 0–2, one stream (`planning/results/2026-09-11/splitter_roster.*`):
+
+| consumer | Δ new − legacy | 95 % CI | seeds | *d*=2 | *d*=5 |
+|---|---|---|---|---|---|
+| RoundRobin_Random | +0.0330 | [+0.009, +0.057] | 9/12 | +0.084 | −0.018 |
+| RoundRobin_RegionUCB (+Random bootstrap) | **+0.0500** | [+0.023, +0.078] | **12/12** | +0.103 | −0.003 |
+| Blocks_uniform_cj_warmleaf | **+0.0530** | [+0.027, +0.079] | 11/12 | +0.054 | +0.053 |
+
+Accept rule met for all three.  The gain is concentrated at *d* = 2,
+where the old tree had 5 leaves; at *d* = 5 the two direct consumers
+are flat.  `archive_leaf` warm start gains at both dimensions but at
+0.502 remains far below the `archive` mode (0.685, §27) — the finer
+tree helps the leaf selector, it does not make leaf selection the
+right warm-start policy.  The reference portfolio is untouched (§35).

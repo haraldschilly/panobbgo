@@ -1,0 +1,35 @@
+0.028890 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.028992 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.352149 config:333      CONFG INFO      Evaluation method: threaded
+0.352195 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'fa1a3ee40a3652a83079495326e4ba41ab912c05'}
+seed 42 done (28s)
+seed 7 done (55s)
+seed 1234 done (82s)
+seed 2025 done (114s)
+seed 3 done (201s)
+seed 11 done (237s)
+seed 99 done (278s)
+seed 123 done (306s)
+seed 777 done (332s)
+seed 2024 done (373s)
+seed 31337 done (400s)
+seed 555 done (427s)
+
+=== splitter screen ===  (12 seeds, dims [2, 5], insts [0, 1, 2], cells 72)
+
+spec                                        mean        d=2       d=5
+Blocks_uniform_cj_warmleaf|neww           0.5022     0.5301    0.4743
+Blocks_uniform_cj_warmleaf|old            0.4492     0.4766    0.4218
+RoundRobin_RegionUCB|neww                 0.4074     0.4957    0.3192
+RoundRobin_Random|neww                    0.3768     0.4624    0.2911
+RoundRobin_RegionUCB|old                  0.3574     0.3929    0.3219
+RoundRobin_Random|old                     0.3438     0.3786    0.3089
+
+paired delta  NEW - OLD  (per (seed,dim,inst) cell; t-CI over per-seed means)
+spec                            variant    delta                95% CI    wins        d=2       d=5
+RoundRobin_Random                  neww  +0.0330     [+0.0093,+0.0567]   9/12     +0.0838   -0.0178 <--
+RoundRobin_RegionUCB               neww  +0.0500     [+0.0225,+0.0775]  12/12     +0.1028   -0.0027 <--
+Blocks_uniform_cj_warmleaf         neww  +0.0530     [+0.0273,+0.0788]  11/12     +0.0535   +0.0526 <--
+
+--- run health ---
+  no errored runs, every run spent its full budget

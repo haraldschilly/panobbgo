@@ -1072,210 +1072,229 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="936">            <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
 </span><span data-line="937">
 </span><span data-line="938">        <span class="n">slots</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">slot</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">_Dropped</span><span class="p">)]</span>
-</span><span data-line="939">        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_cap</span><span class="p">()</span>
-</span><span data-line="940">        <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive_seed</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slots</span><span class="p">)</span> <span class="o">+</span> <span class="n">cap</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start_box</span><span class="p">)</span>
-</span><span data-line="941">        <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
-</span><span data-line="942">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># empty archive: the caller falls back to the cold path</span>
-</span><span data-line="943">
-</span><span data-line="944">        <span class="n">seeds</span> <span class="o">=</span> <span class="n">pool</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">slots</span><span class="p">)]</span>
-</span><span data-line="945">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">slots</span><span class="p">,</span> <span class="n">seeds</span><span class="p">):</span>
-</span><span data-line="946">            <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="947">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">slots</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span> <span class="p">:]:</span>
-</span><span data-line="948">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="949">                <span class="c1"># shortfall: the existing random path, unchanged</span>
-</span><span data-line="950">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="951">                <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span>
-</span><span data-line="952">
-</span><span data-line="953">        <span class="bp">self</span><span class="o">.</span><span class="n">_seed_archive</span><span class="p">(</span><span class="n">pool</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span> <span class="p">:],</span> <span class="n">cap</span><span class="p">)</span>
-</span><span data-line="954">        <span class="bp">self</span><span class="o">.</span><span class="n">_wake_idle_slots</span><span class="p">()</span>
-</span><span data-line="955">        <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="956">
-</span><span data-line="957">    <span class="k">def</span><span class="w"> </span><span class="nf">_seed_archive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rest</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Result</span><span class="p">],</span> <span class="n">cap</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="958"><span class="w">        </span><span class="sd">"""Prime the external archive with good points, foreign ones first."""</span>
-</span><span data-line="959">        <span class="k">if</span> <span class="n">cap</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">rest</span><span class="p">:</span>
-</span><span data-line="960">            <span class="k">return</span>
-</span><span data-line="961">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
-</span><span data-line="962">        <span class="n">foreign</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rest</span> <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)]</span>
-</span><span data-line="963">        <span class="n">own</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rest</span> <span class="k">if</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)]</span>
-</span><span data-line="964">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="n">foreign</span> <span class="o">+</span> <span class="n">own</span><span class="p">)[:</span><span class="n">cap</span><span class="p">]:</span>
-</span><span data-line="965">            <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
-</span><span data-line="966">        <span class="c1"># ``on_start`` cleared the archive first, but a mid-run re-seed</span>
-</span><span data-line="967">        <span class="c1"># (:meth:`warm_start_now`) appends on top of a live one.</span>
-</span><span data-line="968">        <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
-</span><span data-line="969">
-</span><span data-line="970">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="971">    <span class="c1"># Heuristic interface</span>
-</span><span data-line="972">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="973">
+</span><span data-line="939">
+</span><span data-line="940">        <span class="c1"># Find out whether the archive has anything at all *before* asking for</span>
+</span><span data-line="941">        <span class="c1"># the archive cap.  :meth:`_archive_cap` is not a pure accessor in</span>
+</span><span data-line="942">        <span class="c1"># every subclass: :meth:`NLSHADE_RSP._archive_cap</span>
+</span><span data-line="943">        <span class="c1"># &lt;panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP._archive_cap&gt;` draws</span>
+</span><span data-line="944">        <span class="c1"># the per-generation cap from ``self._rng`` when</span>
+</span><span data-line="945">        <span class="c1"># ``adaptive_archive=True`` (the default).  Computing it on a path</span>
+</span><span data-line="946">        <span class="c1"># that then bails out consumed an RNG draw, so on NL-SHADE-RSP and</span>
+</span><span data-line="947">        <span class="c1"># NL-SHADE-LBC merely *passing* ``warm_start="archive"`` shifted the</span>
+</span><span data-line="948">        <span class="c1"># whole initial population even though the empty archive meant the</span>
+</span><span data-line="949">        <span class="c1"># warm start never happened — which turns every paired "warm vs cold"</span>
+</span><span data-line="950">        <span class="c1"># A/B on those arms into a comparison of two different RNG streams</span>
+</span><span data-line="951">        <span class="c1"># (``DISCOVERY_2026-09-09.md`` §18).  ``archive_seed`` is a pure</span>
+</span><span data-line="952">        <span class="c1"># query with no randomness of its own and returns a prefix of the</span>
+</span><span data-line="953">        <span class="c1"># same ranking for every ``k``, so a one-element probe is empty</span>
+</span><span data-line="954">        <span class="c1"># exactly when the full request would be.</span>
+</span><span data-line="955">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive_seed</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start_box</span><span class="p">):</span>
+</span><span data-line="956">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># empty archive: the caller falls back to the cold path</span>
+</span><span data-line="957">
+</span><span data-line="958">        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_cap</span><span class="p">()</span>
+</span><span data-line="959">        <span class="n">pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive_seed</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slots</span><span class="p">)</span> <span class="o">+</span> <span class="n">cap</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start_box</span><span class="p">)</span>
+</span><span data-line="960">        <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
+</span><span data-line="961">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># nothing requestable (every slot dropped and cap 0)</span>
+</span><span data-line="962">
+</span><span data-line="963">        <span class="n">seeds</span> <span class="o">=</span> <span class="n">pool</span><span class="p">[:</span> <span class="nb">len</span><span class="p">(</span><span class="n">slots</span><span class="p">)]</span>
+</span><span data-line="964">        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">slots</span><span class="p">,</span> <span class="n">seeds</span><span class="p">):</span>
+</span><span data-line="965">            <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="966">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">slots</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span> <span class="p">:]:</span>
+</span><span data-line="967">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="968">                <span class="c1"># shortfall: the existing random path, unchanged</span>
+</span><span data-line="969">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="970">                <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span>
+</span><span data-line="971">
+</span><span data-line="972">        <span class="bp">self</span><span class="o">.</span><span class="n">_seed_archive</span><span class="p">(</span><span class="n">pool</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">)</span> <span class="p">:],</span> <span class="n">cap</span><span class="p">)</span>
+</span><span data-line="973">        <span class="bp">self</span><span class="o">.</span><span class="n">_wake_idle_slots</span><span class="p">()</span>
+</span><span data-line="974">        <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="975">
+</span><span data-line="976">    <span class="k">def</span><span class="w"> </span><span class="nf">_seed_archive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rest</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Result</span><span class="p">],</span> <span class="n">cap</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="977"><span class="w">        </span><span class="sd">"""Prime the external archive with good points, foreign ones first."""</span>
+</span><span data-line="978">        <span class="k">if</span> <span class="n">cap</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">rest</span><span class="p">:</span>
+</span><span data-line="979">            <span class="k">return</span>
+</span><span data-line="980">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
+</span><span data-line="981">        <span class="n">foreign</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rest</span> <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)]</span>
+</span><span data-line="982">        <span class="n">own</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rest</span> <span class="k">if</span> <span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">)]</span>
+</span><span data-line="983">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="n">foreign</span> <span class="o">+</span> <span class="n">own</span><span class="p">)[:</span><span class="n">cap</span><span class="p">]:</span>
+</span><span data-line="984">            <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="985">        <span class="c1"># ``on_start`` cleared the archive first, but a mid-run re-seed</span>
+</span><span data-line="986">        <span class="c1"># (:meth:`warm_start_now`) appends on top of a live one.</span>
+</span><span data-line="987">        <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
+</span><span data-line="988">
+</span><span data-line="989">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="990">    <span class="c1"># Heuristic interface</span>
+</span><span data-line="991">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="992">
 <div class="viewcode-block" id="LSHADE.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_start">[docs]</a>
-</span><span data-line="974">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="975"><span class="w">        </span><span class="sd">"""Allocate state and emit ``NP_init`` random initial trials.</span>
-</span><span data-line="976">
-</span><span data-line="977"><span class="sd">        With ``warm_start`` set and a non-empty archive the initial trials</span>
-</span><span data-line="978"><span class="sd">        are replaced by seeds taken straight from the shared archive; with</span>
-</span><span data-line="979"><span class="sd">        ``warm_start=None`` — or an archive that has nothing to give — this</span>
-</span><span data-line="980"><span class="sd">        is the cold start, statement for statement as before.</span>
-</span><span data-line="981"><span class="sd">        """</span>
-</span><span data-line="982">        <span class="bp">self</span><span class="o">.</span><span class="n">_population</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
-</span><span data-line="983">        <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
-</span><span data-line="984">        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="985">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="986">        <span class="bp">self</span><span class="o">.</span><span class="n">_init_memory</span><span class="p">()</span>
-</span><span data-line="987">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="988">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="989">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="990">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="991">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="992">
-</span><span data-line="993">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">():</span>
-</span><span data-line="994">            <span class="k">return</span>
+</span><span data-line="993">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="994"><span class="w">        </span><span class="sd">"""Allocate state and emit ``NP_init`` random initial trials.</span>
 </span><span data-line="995">
-</span><span data-line="996">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
-</span><span data-line="997">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="998">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
+</span><span data-line="996"><span class="sd">        With ``warm_start`` set and a non-empty archive the initial trials</span>
+</span><span data-line="997"><span class="sd">        are replaced by seeds taken straight from the shared archive; with</span>
+</span><span data-line="998"><span class="sd">        ``warm_start=None`` — or an archive that has nothing to give — this</span>
+</span><span data-line="999"><span class="sd">        is the cold start, statement for statement as before.</span>
+</span><span data-line="1000"><span class="sd">        """</span>
+</span><span data-line="1001">        <span class="bp">self</span><span class="o">.</span><span class="n">_population</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
+</span><span data-line="1002">        <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
+</span><span data-line="1003">        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1004">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1005">        <span class="bp">self</span><span class="o">.</span><span class="n">_init_memory</span><span class="p">()</span>
+</span><span data-line="1006">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1007">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1008">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1009">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1010">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1011">
+</span><span data-line="1012">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">():</span>
+</span><span data-line="1013">            <span class="k">return</span>
+</span><span data-line="1014">
+</span><span data-line="1015">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
+</span><span data-line="1016">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="1017">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
 
-</span><span data-line="999">
+</span><span data-line="1018">
 <div class="viewcode-block" id="LSHADE.warm_start_now">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.warm_start_now">[docs]</a>
-</span><span data-line="1000">    <span class="k">def</span><span class="w"> </span><span class="nf">warm_start_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="1001"><span class="w">        </span><span class="sd">"""Re-seed the population from the shared archive on re-acquisition.</span>
-</span><span data-line="1002">
-</span><span data-line="1003"><span class="sd">        The direct-call hook of</span>
-</span><span data-line="1004"><span class="sd">        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`: an arm that</span>
-</span><span data-line="1005"><span class="sd">        is handed a fresh block with an empty queue drops its stale in-flight</span>
-</span><span data-line="1006"><span class="sd">        trials and restarts from the best points the *portfolio* has found,</span>
-</span><span data-line="1007"><span class="sd">        without spending an evaluation on any of them.  Adapted state (the</span>
-</span><span data-line="1008"><span class="sd">        success-history memory, the LPSR population size) is deliberately</span>
-</span><span data-line="1009"><span class="sd">        kept — this is a re-seeding, not a restart.</span>
-</span><span data-line="1010"><span class="sd">        """</span>
-</span><span data-line="1011">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
-</span><span data-line="1012">            <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="1013">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="1014">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1015">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">()</span></div>
+</span><span data-line="1019">    <span class="k">def</span><span class="w"> </span><span class="nf">warm_start_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="1020"><span class="w">        </span><span class="sd">"""Re-seed the population from the shared archive on re-acquisition.</span>
+</span><span data-line="1021">
+</span><span data-line="1022"><span class="sd">        The direct-call hook of</span>
+</span><span data-line="1023"><span class="sd">        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`: an arm that</span>
+</span><span data-line="1024"><span class="sd">        is handed a fresh block with an empty queue drops its stale in-flight</span>
+</span><span data-line="1025"><span class="sd">        trials and restarts from the best points the *portfolio* has found,</span>
+</span><span data-line="1026"><span class="sd">        without spending an evaluation on any of them.  Adapted state (the</span>
+</span><span data-line="1027"><span class="sd">        success-history memory, the LPSR population size) is deliberately</span>
+</span><span data-line="1028"><span class="sd">        kept — this is a re-seeding, not a restart.</span>
+</span><span data-line="1029"><span class="sd">        """</span>
+</span><span data-line="1030">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
+</span><span data-line="1031">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="1032">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="1033">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1034">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">()</span></div>
 
-</span><span data-line="1016">
+</span><span data-line="1035">
 <div class="viewcode-block" id="LSHADE.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_new_results">[docs]</a>
-</span><span data-line="1017">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1018"><span class="w">        </span><span class="sd">"""Process incoming evaluations and dispatch follow-up trials."""</span>
-</span><span data-line="1019">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
-</span><span data-line="1020">            <span class="k">return</span>  <span class="c1"># not started yet</span>
-</span><span data-line="1021">
-</span><span data-line="1022">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
-</span><span data-line="1023">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
-</span><span data-line="1024">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="1025">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
-</span><span data-line="1026">            <span class="k">if</span> <span class="ow">not</span> <span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
-</span><span data-line="1027">                <span class="k">continue</span>
-</span><span data-line="1028">            <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
-</span><span data-line="1029">            <span class="n">meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="1030">            <span class="k">if</span> <span class="n">meta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1031">                <span class="k">continue</span>  <span class="c1"># stale or unknown trial id</span>
-</span><span data-line="1032">            <span class="n">slot_idx</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">slot_idx</span>
-</span><span data-line="1033">
-</span><span data-line="1034">            <span class="c1"># Slot dropped by LPSR after we issued this trial — discard.</span>
-</span><span data-line="1035">            <span class="k">if</span> <span class="n">slot_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">):</span>
-</span><span data-line="1036">                <span class="k">continue</span>
-</span><span data-line="1037">            <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span>
-</span><span data-line="1038">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">_Dropped</span><span class="p">):</span>
-</span><span data-line="1039">                <span class="k">continue</span>
+</span><span data-line="1036">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1037"><span class="w">        </span><span class="sd">"""Process incoming evaluations and dispatch follow-up trials."""</span>
+</span><span data-line="1038">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
+</span><span data-line="1039">            <span class="k">return</span>  <span class="c1"># not started yet</span>
 </span><span data-line="1040">
-</span><span data-line="1041">            <span class="k">if</span> <span class="n">slot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1042">                <span class="c1"># Initial random fill — just store.  No success counted.</span>
-</span><span data-line="1043">                <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="1044">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1045">                <span class="c1"># Competitive trial.  Compete; loser may go to archive.</span>
-</span><span data-line="1046">                <span class="n">target</span> <span class="o">=</span> <span class="n">slot</span>
-</span><span data-line="1047">                <span class="k">if</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
-</span><span data-line="1048">                    <span class="n">delta</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fx_of</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_of</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
-</span><span data-line="1049">                    <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
-</span><span data-line="1050">                    <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
-</span><span data-line="1051">                    <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="1052">                    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">F</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">CR</span><span class="p">):</span>
-</span><span data-line="1053">                        <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">F</span><span class="p">)</span>
-</span><span data-line="1054">                        <span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">CR</span><span class="p">)</span>
-</span><span data-line="1055">                        <span class="c1"># Floor delta so an unweighted-but-real success</span>
-</span><span data-line="1056">                        <span class="c1"># still influences the Lehmer mean.</span>
-</span><span data-line="1057">                        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">delta</span><span class="p">),</span> <span class="mf">1e-30</span><span class="p">))</span>
-</span><span data-line="1058">                        <span class="bp">self</span><span class="o">.</span><span class="n">_record_success</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta</span><span class="p">))</span>
-</span><span data-line="1059">                <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="1060">
-</span><span data-line="1061">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
-</span><span data-line="1062">                    <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
-</span><span data-line="1063">
-</span><span data-line="1064">            <span class="c1"># Emit a follow-up trial for this slot if it survived.</span>
-</span><span data-line="1065">            <span class="k">if</span> <span class="n">slot_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">],</span> <span class="n">Result</span><span class="p">):</span>
-</span><span data-line="1066">                <span class="bp">self</span><span class="o">.</span><span class="n">_generate_trial</span><span class="p">(</span><span class="n">slot_idx</span><span class="p">)</span>
-</span><span data-line="1067">
-</span><span data-line="1068">            <span class="c1"># Wake up any idle live slots (filled, but no pending trial).</span>
-</span><span data-line="1069">            <span class="bp">self</span><span class="o">.</span><span class="n">_wake_idle_slots</span><span class="p">()</span></div>
+</span><span data-line="1041">        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
+</span><span data-line="1042">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
+</span><span data-line="1043">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="1044">            <span class="n">who</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
+</span><span data-line="1045">            <span class="k">if</span> <span class="ow">not</span> <span class="n">who</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+</span><span data-line="1046">                <span class="k">continue</span>
+</span><span data-line="1047">            <span class="n">req_id</span> <span class="o">=</span> <span class="n">who</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
+</span><span data-line="1048">            <span class="n">meta</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="1049">            <span class="k">if</span> <span class="n">meta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1050">                <span class="k">continue</span>  <span class="c1"># stale or unknown trial id</span>
+</span><span data-line="1051">            <span class="n">slot_idx</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">slot_idx</span>
+</span><span data-line="1052">
+</span><span data-line="1053">            <span class="c1"># Slot dropped by LPSR after we issued this trial — discard.</span>
+</span><span data-line="1054">            <span class="k">if</span> <span class="n">slot_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">):</span>
+</span><span data-line="1055">                <span class="k">continue</span>
+</span><span data-line="1056">            <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span>
+</span><span data-line="1057">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">_Dropped</span><span class="p">):</span>
+</span><span data-line="1058">                <span class="k">continue</span>
+</span><span data-line="1059">
+</span><span data-line="1060">            <span class="k">if</span> <span class="n">slot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1061">                <span class="c1"># Initial random fill — just store.  No success counted.</span>
+</span><span data-line="1062">                <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="1063">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1064">                <span class="c1"># Competitive trial.  Compete; loser may go to archive.</span>
+</span><span data-line="1065">                <span class="n">target</span> <span class="o">=</span> <span class="n">slot</span>
+</span><span data-line="1066">                <span class="k">if</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="1067">                    <span class="n">delta</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fx_of</span><span class="p">(</span><span class="n">target</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_of</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+</span><span data-line="1068">                    <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="1069">                    <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
+</span><span data-line="1070">                    <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="1071">                    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">F</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">CR</span><span class="p">):</span>
+</span><span data-line="1072">                        <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">F</span><span class="p">)</span>
+</span><span data-line="1073">                        <span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">CR</span><span class="p">)</span>
+</span><span data-line="1074">                        <span class="c1"># Floor delta so an unweighted-but-real success</span>
+</span><span data-line="1075">                        <span class="c1"># still influences the Lehmer mean.</span>
+</span><span data-line="1076">                        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">delta</span><span class="p">),</span> <span class="mf">1e-30</span><span class="p">))</span>
+</span><span data-line="1077">                        <span class="bp">self</span><span class="o">.</span><span class="n">_record_success</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta</span><span class="p">))</span>
+</span><span data-line="1078">                <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="1079">
+</span><span data-line="1080">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+</span><span data-line="1081">                    <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
+</span><span data-line="1082">
+</span><span data-line="1083">            <span class="c1"># Emit a follow-up trial for this slot if it survived.</span>
+</span><span data-line="1084">            <span class="k">if</span> <span class="n">slot_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">],</span> <span class="n">Result</span><span class="p">):</span>
+</span><span data-line="1085">                <span class="bp">self</span><span class="o">.</span><span class="n">_generate_trial</span><span class="p">(</span><span class="n">slot_idx</span><span class="p">)</span>
+</span><span data-line="1086">
+</span><span data-line="1087">            <span class="c1"># Wake up any idle live slots (filled, but no pending trial).</span>
+</span><span data-line="1088">            <span class="bp">self</span><span class="o">.</span><span class="n">_wake_idle_slots</span><span class="p">()</span></div>
 
-</span><span data-line="1070">
+</span><span data-line="1089">
 <div class="viewcode-block" id="LSHADE.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_restart">[docs]</a>
-</span><span data-line="1071">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1072"><span class="w">        </span><span class="sd">"""Drop in-flight state and reseed the population around ``center``.</span>
-</span><span data-line="1073">
-</span><span data-line="1074"><span class="sd">        Mirrors the warm-restart pattern used by</span>
-</span><span data-line="1075"><span class="sd">        :class:`~panobbgo.heuristics.pso.PSO` and the IPOP/BIPOP CMA-ES</span>
-</span><span data-line="1076"><span class="sd">        variants: archive cleared, memory bins reset to 0.5, slots</span>
-</span><span data-line="1077"><span class="sd">        re-randomised in a small ball around ``center`` (or random in</span>
-</span><span data-line="1078"><span class="sd">        the box if ``center`` is ``None``), and a fresh round of</span>
-</span><span data-line="1079"><span class="sd">        initial-random trials emitted.</span>
-</span><span data-line="1080"><span class="sd">        """</span>
-</span><span data-line="1081">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="1082">            <span class="k">return</span>
-</span><span data-line="1083">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="1084">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1085">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
-</span><span data-line="1086">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
-</span><span data-line="1087">
-</span><span data-line="1088">        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1089">        <span class="bp">self</span><span class="o">.</span><span class="n">_init_memory</span><span class="p">()</span>
-</span><span data-line="1090">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1091">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1092">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1093">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1094">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1095">        <span class="c1"># Restore full-size population; LPSR will shrink it again from scratch.</span>
-</span><span data-line="1096">        <span class="bp">self</span><span class="o">.</span><span class="n">_population</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
-</span><span data-line="1097">        <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
-</span><span data-line="1098">
-</span><span data-line="1099">        <span class="c1"># A warm-started arm re-seeds from the shared archive instead of</span>
-</span><span data-line="1100">        <span class="c1"># re-evaluating ``NP_init`` fresh points — the restart's ``center``</span>
-</span><span data-line="1101">        <span class="c1"># is the incumbent, and the archive's best points are around it</span>
-</span><span data-line="1102">        <span class="c1"># anyway.  Design §2: the random re-emission below is pure waste.</span>
-</span><span data-line="1103">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">():</span>
-</span><span data-line="1104">            <span class="k">return</span>
-</span><span data-line="1105">
-</span><span data-line="1106">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="1107">        <span class="n">ball</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">ranges</span>  <span class="c1"># small reseed ball; conservative</span>
-</span><span data-line="1108">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1109">            <span class="n">base</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="1110">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1111">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="1112">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
-</span><span data-line="1113">            <span class="k">if</span> <span class="n">base</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1114">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="1115">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1116">                <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ball</span><span class="p">,</span> <span class="n">ball</span><span class="p">)</span>
-</span><span data-line="1117">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
-</span><span data-line="1118">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
+</span><span data-line="1090">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1091"><span class="w">        </span><span class="sd">"""Drop in-flight state and reseed the population around ``center``.</span>
+</span><span data-line="1092">
+</span><span data-line="1093"><span class="sd">        Mirrors the warm-restart pattern used by</span>
+</span><span data-line="1094"><span class="sd">        :class:`~panobbgo.heuristics.pso.PSO` and the IPOP/BIPOP CMA-ES</span>
+</span><span data-line="1095"><span class="sd">        variants: archive cleared, memory bins reset to 0.5, slots</span>
+</span><span data-line="1096"><span class="sd">        re-randomised in a small ball around ``center`` (or random in</span>
+</span><span data-line="1097"><span class="sd">        the box if ``center`` is ``None``), and a fresh round of</span>
+</span><span data-line="1098"><span class="sd">        initial-random trials emitted.</span>
+</span><span data-line="1099"><span class="sd">        """</span>
+</span><span data-line="1100">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="1101">            <span class="k">return</span>
+</span><span data-line="1102">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="1103">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1104">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
+</span><span data-line="1105">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
+</span><span data-line="1106">
+</span><span data-line="1107">        <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1108">        <span class="bp">self</span><span class="o">.</span><span class="n">_init_memory</span><span class="p">()</span>
+</span><span data-line="1109">        <span class="bp">self</span><span class="o">.</span><span class="n">_mem_ptr</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1110">        <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1111">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_F</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1112">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_CR</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1113">        <span class="bp">self</span><span class="o">.</span><span class="n">_success_delta</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1114">        <span class="c1"># Restore full-size population; LPSR will shrink it again from scratch.</span>
+</span><span data-line="1115">        <span class="bp">self</span><span class="o">.</span><span class="n">_population</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
+</span><span data-line="1116">        <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span>
+</span><span data-line="1117">
+</span><span data-line="1118">        <span class="c1"># A warm-started arm re-seeds from the shared archive instead of</span>
+</span><span data-line="1119">        <span class="c1"># re-evaluating ``NP_init`` fresh points — the restart's ``center``</span>
+</span><span data-line="1120">        <span class="c1"># is the incumbent, and the archive's best points are around it</span>
+</span><span data-line="1121">        <span class="c1"># anyway.  Design §2: the random re-emission below is pure waste.</span>
+</span><span data-line="1122">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">():</span>
+</span><span data-line="1123">            <span class="k">return</span>
+</span><span data-line="1124">
+</span><span data-line="1125">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="1126">        <span class="n">ball</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">ranges</span>  <span class="c1"># small reseed ball; conservative</span>
+</span><span data-line="1127">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1128">            <span class="n">base</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="1129">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1130">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="1131">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
+</span><span data-line="1132">            <span class="k">if</span> <span class="n">base</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1133">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="1134">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1135">                <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ball</span><span class="p">,</span> <span class="n">ball</span><span class="p">)</span>
+</span><span data-line="1136">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
+</span><span data-line="1137">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
 </div>
 
-</span><span data-line="1119">
-</span><span data-line="1120">
-</span><span data-line="1121"><span class="k">class</span><span class="w"> </span><span class="nc">_TrialMeta</span><span class="p">:</span>
-</span><span data-line="1122"><span class="w">    </span><span class="sd">"""Per-trial bookkeeping used to identify which slot/F/CR a result came from."""</span>
-</span><span data-line="1123">
-</span><span data-line="1124">    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"slot_idx"</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">,</span> <span class="s2">"CR"</span><span class="p">)</span>
-</span><span data-line="1125">
-</span><span data-line="1126">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1127">        <span class="bp">self</span><span class="o">.</span><span class="n">slot_idx</span> <span class="o">=</span> <span class="n">slot_idx</span>
-</span><span data-line="1128">        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">F</span>
-</span><span data-line="1129">        <span class="bp">self</span><span class="o">.</span><span class="n">CR</span> <span class="o">=</span> <span class="n">CR</span>
+</span><span data-line="1138">
+</span><span data-line="1139">
+</span><span data-line="1140"><span class="k">class</span><span class="w"> </span><span class="nc">_TrialMeta</span><span class="p">:</span>
+</span><span data-line="1141"><span class="w">    </span><span class="sd">"""Per-trial bookkeeping used to identify which slot/F/CR a result came from."""</span>
+</span><span data-line="1142">
+</span><span data-line="1143">    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"slot_idx"</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">,</span> <span class="s2">"CR"</span><span class="p">)</span>
+</span><span data-line="1144">
+</span><span data-line="1145">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1146">        <span class="bp">self</span><span class="o">.</span><span class="n">slot_idx</span> <span class="o">=</span> <span class="n">slot_idx</span>
+</span><span data-line="1147">        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">F</span>
+</span><span data-line="1148">        <span class="bp">self</span><span class="o">.</span><span class="n">CR</span> <span class="o">=</span> <span class="n">CR</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

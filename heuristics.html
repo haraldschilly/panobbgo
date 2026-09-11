@@ -2187,10 +2187,14 @@ mid-run after <code class="docutils literal notranslate"><span class="pre">stagn
 results land without lifting the global best.  The Clerc /
 SPSO 2011 default is <code class="docutils literal notranslate"><span class="pre">NP</span></code> (one swarm-cycle’s worth of
 evaluations).  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) preserves the static-
-between-restarts behaviour shipped 2026-05-29.  Ignored
-for <code class="docutils literal notranslate"><span class="pre">topology</span> <span class="pre">in</span> <span class="pre">{&quot;gbest&quot;,</span> <span class="pre">&quot;lbest&quot;,</span> <span class="pre">&quot;vonneumann&quot;}</span></code> — the
-three geometric topologies are deterministic functions of
-<code class="docutils literal notranslate"><span class="pre">NP</span></code> and have no stochastic graph to rebuild.</p></li>
+between-restarts behaviour shipped 2026-05-29.  <strong>Rejected</strong>
+with a <a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.14)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">ValueError</span></code></a> for <code class="docutils literal notranslate"><span class="pre">topology</span> <span class="pre">in</span> <span class="pre">{&quot;gbest&quot;,</span> <span class="pre">&quot;lbest&quot;,</span>
+<span class="pre">&quot;vonneumann&quot;}</span></code> — the three geometric topologies are
+deterministic functions of <code class="docutils literal notranslate"><span class="pre">NP</span></code> and have no stochastic graph
+to rebuild, so the argument could only ever be inert there.
+Until 2026-09-11 it was accepted and silently ignored, which
+made a sweep over it on a default-topology swarm measure
+nothing (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §18).</p></li>
 <li><p><strong>warm_start</strong> – Optional seeding of the initial swarm from the <em>shared</em>
 archive instead of uniform random positions
 (<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_warm_start_2026-09-10.md</span></code> §2).  One of

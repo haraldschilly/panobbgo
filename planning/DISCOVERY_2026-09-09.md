@@ -1295,3 +1295,41 @@ are flat.  `archive_leaf` warm start gains at both dimensions but at
 0.502 remains far below the `archive` mode (0.685, §27) — the finer
 tree helps the leaf selector, it does not make leaf selection the
 right warm-start policy.  The reference portfolio is untouched (§35).
+
+## 38. Noise and higher dimension: the portfolio still does not lead; outliers destroy the DE arms
+
+`panobbgo/lib/noise.py` (BBOB gauss / unif / cauchy, deterministic per
+(seed, x); AOCC scored on the true value), presets `noisy`, `highdim`
+(d 10/20 at 2000·dim), `noisy-highdim`.  3 seeds, one stream per cell:
+
+| battery | CMA-ES | jSO | L-SHADE | portfolio | vs best single |
+|---|---|---|---|---|---|
+| noiseless 500·d (control) | 0.671 | 0.674 | 0.650 | 0.685 | +0.011 |
+| noisy-gauss 500·d | 0.630 | **0.697** | 0.661 | 0.679 | −0.017 (d=2 −0.105, **d=5 +0.071** 3/3) |
+| noisy-unif 500·d | 0.638 | **0.659** | 0.640 | 0.666 | +0.008 (d=2 −0.054, d=5 +0.051) |
+| noisy-cauchy 500·d | **0.661** | 0.490 | 0.505 | 0.561 | −0.100 |
+| noiseless d=10, 500·d | **0.403** | 0.375 | 0.357 | 0.397 | −0.006 |
+| noisy-gauss d=10, 500·d | **0.500** | 0.363 | 0.350 | 0.401 | −0.099 |
+| noiseless d=10, 2000·d | 0.519 | 0.600 | **0.652** | 0.623 | −0.029 |
+| noiseless d=20, 2000·d | **0.477** | 0.414 | 0.388 | 0.480 | +0.003 |
+
+* **Sharing does not pull ahead in any regime tested.** The lean at
+  *d* = 5 is sharper under noise (+0.07) and the loss at *d* = 2 is
+  larger (−0.10); the mean does not move.
+* **Cauchy outliers collapse the DE arms** (jSO −0.21, L-SHADE −0.16)
+  and leave CMA-ES untouched (−0.01), with CIs clear of zero.  A
+  rank-based recombination survives a constant shift plus rare
+  outliers; greedy per-individual replacement does not.  This has a
+  mechanism and counts as located: **under outlier noise, no DE arm in
+  the portfolio.**
+* **The best arm is a function of the regime**: jSO at *d* ≤ 5 under
+  gaussian/uniform noise, CMA-ES at *d* = 10/500·d, *d* = 20 and under
+  outliers, L-SHADE at *d* = 10/2000·d.  Dimension and budget are known
+  before the first evaluation; the noise class is not, but is
+  detectable from re-evaluations.  This is the strongest evidence yet
+  for *selection by regime* — a context-gated spec — over any online
+  bandit.
+
+Caveats: 3 seeds, screen CIs on selected specs carry no weight (§18,
+§30); noisy-vs-noiseless comparisons are unpaired (different
+`problem_kind` → different stream).  Raw: `planning/results/2026-09-11/`.

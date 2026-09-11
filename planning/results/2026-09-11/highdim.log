@@ -1,0 +1,11 @@
+0.016393 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.016718 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.321312 config:333      CONFG INFO      Evaluation method: threaded
+0.321406 config:336      CONFG INFO      Environment: {'numpy': '2.4.1', 'scipy': '1.17.0', 'pandas': '2.3.3', 'statsmodels': '0.14.6', 'matplotlib': '3.10.8', 'dask': '2026.1.1', 'git HEAD': b'42209c7c9303fc5aff142fa97167940bd063da89'}
+dim done: 10
+dim done: 20
+
+  dim         portfolio        cmaes_only          lbc_only  Baseline_SciPyDE
+   10            0.1808            0.3005            0.1922            0.1622
+   20            0.1018            0.1979            0.1617            0.0804
+exit=0

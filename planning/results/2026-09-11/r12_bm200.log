@@ -1,0 +1,54 @@
+0.041031 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.041225 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.362920 config:333      CONFG INFO      Evaluation method: threaded
+0.363090 config:336      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'40cdd08c594b5a629879987a263ebf667c9b731e'}
+seed 42 done (43s)
+seed 7 done (72s)
+seed 1234 done (98s)
+seed 2025 done (125s)
+seed 3 done (152s)
+seed 11 done (178s)
+seed 99 done (201s)
+seed 123 done (222s)
+seed 777 done (249s)
+seed 2024 done (269s)
+seed 31337 done (299s)
+seed 555 done (330s)
+
+=== portfolio screen ===  (12 seeds, dims [2, 5], ioh-standard, budget 200*d, insts [0, 1, 2, 3, 4])
+specs: CMAES_alone, JSO_alone, LSHADE_alone, Blocks_uniform_cj_warm2   cells: 120
+
+spec                                    mean        d=2       d=5
+Blocks_uniform_cj_warm2               0.5239     0.5554    0.4924
+CMAES_alone                           0.4874     0.5410    0.4337
+JSO_alone                             0.4697     0.5488    0.3907
+LSHADE_alone                          0.4672     0.5374    0.3970
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2               +0.0365     [+0.0037,+0.0694]   9/12     +0.0144   +0.0587 <--
+JSO_alone                             -0.0176     [-0.0525,+0.0172]   4/12     +0.0077   -0.0430
+LSHADE_alone                          -0.0202     [-0.0439,+0.0035]   5/12     -0.0036   -0.0367
+
+delta vs LSHADE_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2               +0.0567     [+0.0177,+0.0957]  10/12     +0.0180   +0.0954 <--
+CMAES_alone                           +0.0202     [-0.0035,+0.0439]   7/12     +0.0036   +0.0367
+JSO_alone                             +0.0025     [-0.0296,+0.0347]   6/12     +0.0114   -0.0063
+
+delta vs JSO_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2               +0.0542     [+0.0135,+0.0949]  10/12     +0.0067   +0.1017 <--
+CMAES_alone                           +0.0176     [-0.0172,+0.0525]   8/12     -0.0077   +0.0430
+LSHADE_alone                          -0.0025     [-0.0347,+0.0296]   6/12     -0.0114   +0.0063
+
+--- screening gates (design §6) ---
+  G5 PASS  best warm (Blocks_uniform_cj_warm2) - best single (CMAES_alone) +0.0365  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

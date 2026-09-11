@@ -417,8 +417,15 @@ Implemented Analyzers
 :class:`~panobbgo.analyzers.splitter.Splitter` manages hierarchical box decomposition:
 
 - Maintains tree of boxes splitting the search space
-- Splits boxes when they contain sufficient points
+- Splits boxes when they contain sufficient points — the threshold is derived
+  from a target leaf population (``leaf_size``, ``min_leaf_size``,
+  ``max_leaves``), so the resolution **scales with the evaluation budget**;
+  ``split_rule`` / ``cut_rule`` choose the cut, and ``legacy=True`` restores
+  the pre-2026-09-10 fixed-resolution tree
 - Identifies "best leaf box" containing current best point
+
+See *Splitter Resolution* in :doc:`guide_usage` for the knobs and the measured
+effect on the consumers that read the tree.
 
 **Events published:**
 
@@ -643,8 +650,11 @@ Events are delivered **serially by one dispatcher thread**:
 - Non-blocking: publishing returns immediately; the event is queued
 - Ordered: handlers run one after the other, in the order the events were published
 - Handlers must return promptly — a module *reacts* to events, it never loops,
-  sleeps or waits inside a handler (subprocess bridges such as
-  :class:`~panobbgo.heuristics.LBFGSB` pump their pipe on a private thread)
+  sleeps or waits inside a handler.  Subprocess bridges such as
+  :class:`~panobbgo.heuristics.LBFGSB` obey this by *storing* the result in
+  their handler and doing the pipe round trip in
+  :meth:`~panobbgo.core.Heuristic.produce`, on the strategy's own thread —
+  no private thread is involved
 - Fire-and-forget: a handler's return value, if any, is passed to ``emit``
 
 Because no two handlers ever run at the same time, module state needs no

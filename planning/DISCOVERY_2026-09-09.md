@@ -1723,3 +1723,69 @@ forgoes the relays (§31 again).
   (`DESIGN_seams_2026-09-11.md`): the seam experiment runs at 100 and
   200·dim on the `auto` block, so the stall cannot masquerade as a seam
   effect.
+
+## 47. Seams, step 1: injection is inert under block rotation; in a channel that carries it, within-generation sharing is real but four times smaller than the hand-off
+
+`DESIGN_seams_2026-09-11.md` §2 landed (733af5c): `CMAES(inject=True)`
+(Hansen 2011, clipped, capped λ/4) and `JSO(shared_pbest=True)`, both
+proven inert alone (byte-identity tests).  Raw:
+`results/2026-09-11/seams_{bm100,bm200,unif}.json` (round 1, on the
+`auto` block, 12 seeds, 0 errors) and `seams2_{bm100,bm200}.json`
+(round 2, the cold and round-robin channels).  All deltas recomputed
+from the rows; the `auto` baseline reproduces §46 cell for cell.
+
+### 47.1 Round 1: `inject` never fired; `shared_pbest` is a small loss
+
+| cell | inject vs `warm2_auto` | pbest vs `warm2_auto` |
+|---|---|---|
+| 100·dim | **bit-identical, 120/120** | −0.0105 [−0.021, +0.000], 5/12 |
+| 200·dim | bit-identical | −0.0136 [−0.043, +0.015], 3/12 |
+| unif | bit-identical | −0.0023, 6/12 |
+
+Injection is inert *by construction*, not by bug: the screen runs
+`sync_eval=True`, so no point is ever in flight; the only foreign
+points CMA-ES sees while it holds an open generation arrive during
+jSO's block, and `warm_start_now` on re-acquisition discards that
+generation together with its injected list.  Under block rotation +
+warm-start-on-resume there is no channel.  (An instrumented threaded
+local run *does* inject — via in-flight points at the block switch — an
+artefact of the executor, not a mechanism.)  The design's risk 1 was
+the whole story.  Shared pbest is a lean loss at low budget: jSO pulls
+pbest from CMA-ES's points, which can sit in another basin, and the
+differential is mis-scaled.
+
+### 47.2 Round 2: give the seams a channel — cold blocks and per-point round-robin
+
+| pair | 100·dim | 200·dim |
+|---|---|---|
+| **(a)** `inject_cold_auto` − `cold_auto` | +0.0051 [−0.000, +0.010], 8/12 | +0.0106 [+0.001, +0.020], 9/12 — accepted, barely |
+| **(b)** `RoundRobin_cj_seams` − `RoundRobin_cj_cold` | +0.0077 [+0.002, +0.013], 9/12 | **+0.0331 [+0.021, +0.045], 12/12** |
+| `cold_auto` − `warm2_auto` (what the hand-off is worth) | **−0.0761 [−0.087, −0.065], 0/12** | **−0.1379 [−0.166, −0.110], 0/12** |
+| `RoundRobin_cj_cold` − `CMAES_alone` (the per-point penalty) | −0.0418, 0/12 | −0.0969, 0/12 |
+| `RoundRobin_cj_seams` − `CMAES_alone` | −0.0341, 0/12 | −0.0638, 0/12 |
+
+Within-generation sharing is **real** once a channel exists — (b) is
+accepted at both budgets, 12/12 at 200·dim — and it recovers about a
+third of the per-point structural penalty (−0.097 → −0.064).  But every
+cold or per-point spec loses to `CMAES_alone` and to the warm block
+portfolio by the rule, 0/12, both dimensions.  The **hand-off** —
+re-fitting m/σ/C (and jSO's population) to the shared archive at
+re-acquisition — is worth +0.08…+0.14; both seams together are worth
++0.03 at best.  Four to one.
+
+### 47.3 What this says about "decompose CMA-ES"
+
+The sharing that pays is not point-level: it is the *distribution*
+being handed the other arm's knowledge in one move — Hansen's
+"mean-shift" injection in its strongest form, applied to the whole
+search distribution rather than one ranked point.  The block structure
+is not a limitation to engineer around; it is the mechanism.  So the
+building block worth generalising is **the hand-off itself** — what it
+carries (mean, σ, C, population), from which points, how often — and
+the seams that reduce *evaluations* (surrogate pre-screening, lq-CMA-ES)
+rather than the ones that add information to a ranking.  Step 2 of the
+seam catalogue (pre-evaluation) keeps its case; model-blended ranking
+does not inherit any credit from this round.
+
+`inject` and `shared_pbest` stay in the code as measured, inert-alone
+knobs (they are the falsifier's record); neither is a default.

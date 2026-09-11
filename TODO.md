@@ -64,10 +64,18 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   Niedrigbudget. **Offen:** Low-Budget-Zeile und Portfolio-Spec auf
   `block_evals="auto"` umstellen; Fixed-Block-Punkt bei 500 (Crossover
   300 oder 500?); Stall-Mechanismus (Re-Seed in ein Becken) messen.
-- **Nähte** (`planning/DESIGN_seams_2026-09-11.md`): Injection in CMA-ES
-  + shared pbest in jSO, Sonnet-Agent, Messung bei 100/200·dim auf dem
-  `auto`-Block; Falsifikator: keine Naht schlägt Blockgrenzen-Sharing →
-  Nähte innerhalb der Generation sind nicht der Hebel.
+- **Nähte gemessen (§47)**: Injection unter Blockrotation strukturell
+  inert (Warm-Start verwirft die offene Generation); im Per-Punkt-Kanal
+  ist Sharing innerhalb der Generation real (+0.033, 12/12 bei 200·dim),
+  aber die **Übergabe** (Warm-Start beim Wiedererwerb) ist +0.08…+0.14
+  wert — vier zu eins. Der Baustein, der sich zu generalisieren lohnt,
+  ist die Übergabe selbst; Nähte, die Evaluationen *sparen* (Surrogat-
+  Vorauswahl), behalten ihren Fall. `inject`/`shared_pbest` bleiben als
+  gemessene Knöpfe, kein Default.
+- **Nächste Kandidaten**: (1) Übergabe-Ablation bei 100/200·dim — nur
+  CMA-ES warm / nur jSO warm / `archive_cov` / `archive_diverse` (nur
+  Spec-Tabelle, Sonnet); (2) Surrogat-Vorauswahl (lq-CMA-ES) als neuer
+  Baustein (Opus); (3) Stall-Mechanismus kurzer Blöcke (§46).
 - Danach: `warm_start=None` am CMA-ES-Arm auf constrained (§44.2).
 
 ### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)

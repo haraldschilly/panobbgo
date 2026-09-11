@@ -114,6 +114,12 @@ def warm_kw(key, mode, **extra):
     return (cls, {**kw, "warm_start": mode, **extra})
 
 
+def arm_kw(key, **extra):
+    """The tuned arm ``key`` plus extra constructor kwargs, cold (no ``warm_start``)."""
+    cls, kw = ARM[key]
+    return (cls, {**kw, **extra})
+
+
 #: ``warm_start_only_if_foreign=False``: re-seed on *every* re-acquisition.
 #: §21 measured the ``_any`` variants above the foreign-only default
 #: (``Blocks_ducb_2_warm_any`` +0.005 over ``Blocks_ducb_2_warm``), so every
@@ -404,6 +410,53 @@ SPECS = {
         StrategyBlockBandit,
         [warm_kw("cmaes", "archive", inject=True), warm_kw("jso", "archive", shared_pbest=True)],
         {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    # -- follow-up to §2.3: the injection channel is empty by construction --
+    #
+    # ``Blocks_cj_inject_auto`` measured **bit-identical** to
+    # ``Blocks_uniform_cj_warm2_auto`` in all 360 cells of the 12-seed roster
+    # above.  Not a wiring bug — structural: the screen runs
+    # ``sync_eval=True``, so the only foreign points CMA-ES ever sees while
+    # it has an open generation arrive during jSO's block, and
+    # ``warm_start_now`` on re-acquisition (``warm_start_on_resume=True``,
+    # in ``WARM_ON``) clears ``_injected`` together with that stale
+    # generation before an update can use it.  Under block rotation plus
+    # warm-start-on-resume the injection channel is empty by construction.
+    # (In a threaded local run it does fire, via genuinely in-flight points
+    # racing the block boundary — that is a scheduling artefact of that mode,
+    # not evidence about the seam, and is not what this screen runs.)
+    #
+    # So the within-generation seam needs a channel that actually carries
+    # it: either drop the warm start that wipes the open generation
+    # (``Blocks_cj_inject_cold_auto`` — the seam is the *only* sharing left
+    # once the block re-acquisition hand-off does nothing), or drop
+    # blocking itself for per-point interleaving where a foreign point is
+    # always available while a generation is open (``RoundRobin_cj_seams``).
+    # ``Blocks_cj_cold_auto`` / ``RoundRobin_cj_cold`` are the respective
+    # no-seam bars those two are read against.
+    "Blocks_cj_cold_auto": (
+        StrategyBlockBandit,
+        arms("cmaes", "jso"),
+        {"policy": "uniform", "block_evals": "auto"},
+        ARCHIVE,
+    ),
+    "Blocks_cj_inject_cold_auto": (
+        StrategyBlockBandit,
+        [arm_kw("cmaes", inject=True), arm_kw("jso", shared_pbest=True)],
+        {"policy": "uniform", "block_evals": "auto"},
+        ARCHIVE,
+    ),
+    "RoundRobin_cj_cold": (
+        StrategyRoundRobin,
+        arms("cmaes", "jso"),
+        {},
+        ARCHIVE,
+    ),
+    "RoundRobin_cj_seams": (
+        StrategyRoundRobin,
+        [arm_kw("cmaes", inject=True), arm_kw("jso", shared_pbest=True)],
+        {},
         ARCHIVE,
     ),
     # -- §27 B: which soft-D-UCB knob carries the gain? -------------------

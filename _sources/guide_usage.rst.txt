@@ -128,10 +128,32 @@ On first run, Panobbgo creates ``~/.panobbgo/config.ini``:
    discount = 0.95           # Performance decay factor
    jobs_per_client = 5       # Batch size per engine
 
+   [core]
+   deadlock_seconds = 600    # error backstop for a wedged worker (see below)
+
    [logging]
    level = INFO              # DEBUG, INFO, WARNING, ERROR
 
 Edit this file to customize behavior.
+
+.. note::
+
+   **There is no wall-clock stall guard.**  A run used to end after
+   ``max_stall_seconds`` without progress, which made a seeded run a function
+   of machine speed — a slow handler could truncate it anywhere between 70 and
+   240 of 300 evaluations.  A run now ends when *nothing can produce a point*:
+   no evaluation in flight, no event handler queued, and no heuristic with a
+   point to give.  Progress is counted in evaluations; a slow arm makes a run
+   take longer, never shorter.
+
+   ``deadlock_seconds`` (default ``600``) is the remaining time-based knob and
+   is **not** a scheduling parameter: it is an error backstop for a genuine
+   bug — a wedged subprocess, a handler that never returns — and tripping it
+   is logged at ``ERROR`` level with the state that caused it.  Leave it
+   alone unless an arm of yours legitimately takes minutes per evaluation.
+   ``max_stall_seconds`` is still accepted so old config files keep loading,
+   but it is **inert**.  See
+   ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.
 
 Basic Usage
 -----------
@@ -1658,19 +1680,33 @@ evaluated sequentially in submission order (a thread pool would return
 results in completion order).  Without ``seed`` the
 strategy draws one from numpy's global state, so ``np.random.seed(s)``
 before construction also pins the run; ``strategy.seed`` reports which seed
-was used.  Heuristics that bridge a subprocess solver (``LBFGSB``, ``COBYQA``,
-``LocalPenaltySearch``) emit on their own schedule and are exempt from this
-guarantee.
+was used.
+
+The guarantee now covers the subprocess solver bridges (``LBFGSB``,
+``COBYQA``) too.  They used to relay their pipe on a private "pump" thread
+and emit on their own schedule, which put them outside it; they now produce
+on the strategy's own thread, when asked, so the point they hand out is a
+pure function of the values they were given and their worker's seed
+(``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1.5).
 
 Budget Management
 ~~~~~~~~~~~~~~~~~
 
-A run always spends its full ``max_eval`` budget.  The
-:class:`~panobbgo.analyzers.Convergence` analyzer publishes a ``converged``
-event when the best value plateaus, but that event only ends the run if you
-opt in with ``strategy.config.stop_on_convergence = True`` (the plateau test
-fires routinely on multimodal problems, so stopping on it is not a safe
-default for global optimization).
+A run spends its full ``max_eval`` budget unless its heuristics run out of
+points to give.  The :class:`~panobbgo.analyzers.Convergence` analyzer
+publishes a ``converged`` event when the best value plateaus, but that event
+only ends the run if you opt in with
+``strategy.config.stop_on_convergence = True`` (the plateau test fires
+routinely on multimodal problems, so stopping on it is not a safe default for
+global optimization).
+
+The other way a run ends early is that **nothing can produce a point** — see
+the note under *Configuration* above.  That is a fact about the portfolio,
+not a timeout, and it is sometimes the correct outcome: a solo
+:class:`~panobbgo.heuristics.cobyqa.COBYQA` converges its trust region after
+roughly 25 evaluations and has nothing further to propose, so it ends there
+whatever budget you gave it.  Pair such an arm with a generator (``Random``,
+a population method) if you want the rest of the budget spent.
 
 .. code-block:: python
 
@@ -1722,6 +1758,76 @@ is declared.
    Do not use it with :class:`~panobbgo.heuristics.cma_es.CMAES`, which
    restarts itself (:ref:`cma-es-restarts`); the analyzer's restart event
    throws away its adapted covariance and halved its score in measurement.
+
+Splitter Resolution
+~~~~~~~~~~~~~~~~~~~
+
+:class:`~panobbgo.analyzers.splitter.Splitter` partitions the search space
+into a kd-tree of boxes and cuts a leaf once it holds enough points.  How many
+points is "enough" used to be ``max(20, max_eval / dim²)`` — independent of
+the budget once the dimension is fixed, so a longer run produced the same
+coarse tree.  The threshold is now stated on the *leaf population* and
+inverted, so the resolution scales with the budget: at ``d=2`` the tree grows
+to 38 / 105 / 204 / 351 leaves across the budget range where the old one gave
+6 / 33 / 142 / 602, and the root splits at evaluation 37 instead of 250
+(``planning/DISCOVERY_2026-09-09.md`` §35).
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Parameter
+     - Meaning
+   * - ``leaf_size``
+     - Target mean results per leaf (default 25); the tree aims at
+       ``max_eval / leaf_size`` leaves.
+   * - ``min_leaf_size``
+     - Floor on the split threshold, so a leaf is never cut before it can say
+       anything.  Default ``2·dim + 2``.
+   * - ``max_leaves``
+     - Cap on the leaf count (default 512).  It raises the threshold rather
+       than refusing splits, so the partition stays a proper kd-tree.
+   * - ``split_rule``
+     - Which dimension to cut: ``"widest"`` (default) or ``"value"``, which
+       scores dimensions by how strongly the objective separates across the
+       prospective cut.
+   * - ``cut_rule``
+     - Where along it: ``"mean"`` (default) or ``"median"``, which cuts the
+       median *gap* between adjacent distinct coordinates.
+   * - ``legacy``
+     - ``True`` restores the pre-2026-09-10 tree exactly, ignoring every other
+       knob.  Kept so the two trees can be measured paired.
+
+Accepted on the 12-seed roster against ``legacy=True`` (§37): the consumers
+that read the tree gain — ``Random`` **+0.033** [+0.009, +0.057],
+``RegionUCB`` **+0.050** [+0.023, +0.078] (12/12 seeds), and an
+``archive_leaf`` warm start **+0.053** [+0.027, +0.079].  The gain is
+concentrated at ``d=2``, where the old tree had five leaves.  **The reference
+portfolio is unaffected** — 0.0000 in every cell — because none of its arms
+queries the tree, so this change is free if you do not use one that does.
+
+``split_rule="value"`` and ``cut_rule="median"`` both ship **opt-in**: each
+measured inside the null floor overall, and the median cut carries a
+structural regression (it hits the depth cap with a 423-point leaf on a spec
+where the mean stays at depth 52).  ``RegionUCB``, the one consumer that reads
+every leaf, is the case worth revisiting on a roster — it gained +0.024 and
++0.033 from them respectively (§39).
+
+.. code-block:: python
+
+   from panobbgo.analyzers import Splitter
+   from panobbgo.heuristics import RegionUCB
+
+   strategy.add_analyzer(Splitter, leaf_size=25)   # defaults; budget-scaled
+   strategy.add(RegionUCB)                         # UCB1 over the leaves
+
+.. note::
+
+   :class:`~panobbgo.heuristics.region_ucb.RegionUCB` can now be run **alone**.
+   It emitted only from ``on_new_results`` and had no ``on_start``, so a solo
+   run produced 0 of 200 evaluations — a defect every benchmark hid by pairing
+   it with another arm.  With an initial design it spends its budget and is
+   the stronger of the two standalone tree consumers (§39).
 
 Sensitivity Analysis
 ~~~~~~~~~~~~~~~~~~~~

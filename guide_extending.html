@@ -101,6 +101,7 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#adding-a-custom-heuristic">Adding a Custom Heuristic</a><ul>
 <li><a class="reference internal" href="#basic-template">Basic Template</a></li>
+<li><a class="reference internal" href="#two-production-contracts">Two production contracts</a></li>
 <li><a class="reference internal" href="#example-gradient-sampling">Example: Gradient Sampling</a></li>
 <li><a class="reference internal" href="#example-particle-swarm-component">Example: Particle Swarm Component</a></li>
 <li><a class="reference internal" href="#registering-your-heuristic">Registering Your Heuristic</a></li>
@@ -227,6 +228,65 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="37">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
 </span></pre></div>
 </div>
+</section>
+<section id="two-production-contracts">
+<h3>Two production contracts<a class="headerlink" href="#two-production-contracts" title="Link to this heading">#</a></h3>
+<p>The template above uses the <strong>queue contract</strong>, which is the default and
+what nearly every heuristic wants: react to an event, <code class="docutils literal notranslate"><span class="pre">emit()</span></code> whatever
+points that implies, and let the scheduler drain the queue when it gets to
+you.  <a class="reference internal" href="core.html#panobbgo.core.Heuristic.has_points" title="panobbgo.core.Heuristic.has_points"><code class="xref py py-attr docutils literal notranslate"><span class="pre">has_points</span></code></a> and
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.get_points" title="panobbgo.core.Heuristic.get_points"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code></a> are the queue’s interface, and
+you need to do nothing to opt in.</p>
+<p>The other contract exists for arms that can only compute <strong>one point at a
+time, and only once the previous one has been evaluated</strong> — a sequential
+solver whose next iterate is a function of <code class="docutils literal notranslate"><span class="pre">f</span></code> at the current one.  Such an
+arm cannot keep a queue stocked: a “next point” produced ahead of the
+answer would be a fabrication.  It sets
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.on_demand" title="panobbgo.core.Heuristic.on_demand"><code class="xref py py-attr docutils literal notranslate"><span class="pre">on_demand</span></code></a> and overrides two members:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">MySequentialSolver</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="2">    <span class="n">on_demand</span> <span class="o">=</span> <span class="kc">True</span>                      <span class="c1"># the scheduler must call produce()</span>
+</span><span data-line="3">
+</span><span data-line="4">    <span class="nd">@property</span>
+</span><span data-line="5">    <span class="k">def</span><span class="w"> </span><span class="nf">can_produce</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="6"><span class="w">        </span><span class="sd">"""True iff produce() would hand out a point right now."""</span>
+</span><span data-line="7">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ready</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_outstanding</span>
+</span><span data-line="8">
+</span><span data-line="9">    <span class="k">def</span><span class="w"> </span><span class="nf">produce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="10"><span class="w">        </span><span class="sd">"""Compute the next point, on the caller's thread."""</span>
+</span><span data-line="11">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_outstanding</span><span class="p">:</span>             <span class="c1"># we owe an answer we don't have</span>
+</span><span data-line="12">            <span class="k">return</span> <span class="p">[]</span>                     <span class="c1"># return instantly; never block</span>
+</span><span data-line="13">        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_solver_next_point</span><span class="p">()</span>
+</span><span data-line="14">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="15">        <span class="bp">self</span><span class="o">.</span><span class="n">_outstanding</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="16">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="17">
+</span><span data-line="18">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="19">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="20">            <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">who</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+</span><span data-line="21">                <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>            <span class="c1"># store only; do not compute here</span>
+</span><span data-line="22">                <span class="bp">self</span><span class="o">.</span><span class="n">_outstanding</span> <span class="o">=</span> <span class="kc">False</span>
+</span></pre></div>
+</div>
+<p>Three rules make this safe:</p>
+<ul class="simple">
+<li><p><strong>Produce on the caller’s thread.</strong>  <code class="docutils literal notranslate"><span class="pre">produce()</span></code> runs inside the
+strategy’s main loop, so the whole round trip is ordered and a seeded run
+stays reproducible.  Do not start a thread to feed the queue instead — the
+scheduler cannot see such an arm and will starve it.</p></li>
+<li><p><strong>Never block.</strong>  If you owe a result you do not have yet, return <code class="docutils literal notranslate"><span class="pre">[]</span></code>
+immediately.  <code class="docutils literal notranslate"><span class="pre">timeout</span></code> is a deadlock backstop for a wedged external
+worker, not a scheduling parameter.</p></li>
+<li><p><strong>Be honest in ``can_produce``.</strong>  Every selection strategy gates on it, and
+the strategy’s liveness predicate sums over it to decide whether the run can
+still make progress at all.  An arm that answers <code class="docutils literal notranslate"><span class="pre">True</span></code> forever keeps a
+finished run spinning.</p></li>
+</ul>
+<p><a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a> implements exactly this for a
+solver living in a subprocess, and is the base class of
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a> and
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>.  Subclass it rather than
+rebuilding the pipe protocol.  Design and measurements:
+<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §1.</p>
 </section>
 <section id="example-gradient-sampling">
 <h3>Example: Gradient Sampling<a class="headerlink" href="#example-gradient-sampling" title="Link to this heading">#</a></h3>

@@ -49,6 +49,69 @@ Basic Template
                x = self.problem.project(x)  # Ensure in bounding box
                self.emit(Point(x, self.name))
 
+Two production contracts
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The template above uses the **queue contract**, which is the default and
+what nearly every heuristic wants: react to an event, ``emit()`` whatever
+points that implies, and let the scheduler drain the queue when it gets to
+you.  :attr:`~panobbgo.core.Heuristic.has_points` and
+:meth:`~panobbgo.core.Heuristic.get_points` are the queue's interface, and
+you need to do nothing to opt in.
+
+The other contract exists for arms that can only compute **one point at a
+time, and only once the previous one has been evaluated** — a sequential
+solver whose next iterate is a function of ``f`` at the current one.  Such an
+arm cannot keep a queue stocked: a "next point" produced ahead of the
+answer would be a fabrication.  It sets
+:attr:`~panobbgo.core.Heuristic.on_demand` and overrides two members:
+
+.. code-block:: python
+
+   class MySequentialSolver(Heuristic):
+       on_demand = True                      # the scheduler must call produce()
+
+       @property
+       def can_produce(self):
+           """True iff produce() would hand out a point right now."""
+           return self._ready and not self._outstanding
+
+       def produce(self, limit=None, timeout=None):
+           """Compute the next point, on the caller's thread."""
+           if self._outstanding:             # we owe an answer we don't have
+               return []                     # return instantly; never block
+           x = self._solver_next_point()
+           self.emit(Point(x, self.name))
+           self._outstanding = True
+           return self.get_points(1)
+
+       def on_new_results(self, results):
+           for r in results:
+               if r.who == self.name:
+                   self._store(r)            # store only; do not compute here
+                   self._outstanding = False
+
+Three rules make this safe:
+
+- **Produce on the caller's thread.**  ``produce()`` runs inside the
+  strategy's main loop, so the whole round trip is ordered and a seeded run
+  stays reproducible.  Do not start a thread to feed the queue instead — the
+  scheduler cannot see such an arm and will starve it.
+- **Never block.**  If you owe a result you do not have yet, return ``[]``
+  immediately.  ``timeout`` is a deadlock backstop for a wedged external
+  worker, not a scheduling parameter.
+- **Be honest in ``can_produce``.**  Every selection strategy gates on it, and
+  the strategy's liveness predicate sums over it to decide whether the run can
+  still make progress at all.  An arm that answers ``True`` forever keeps a
+  finished run spinning.
+
+:class:`~panobbgo.core.PipeBridgeHeuristic` implements exactly this for a
+solver living in a subprocess, and is the base class of
+:class:`~panobbgo.heuristics.lbfgsb.LBFGSB` and
+:class:`~panobbgo.heuristics.cobyqa.COBYQA`.  Subclass it rather than
+rebuilding the pipe protocol.  Design and measurements:
+``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1.
+
 Example: Gradient Sampling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

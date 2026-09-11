@@ -166,6 +166,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#budget-management">Budget Management</a></li>
 <li><a class="reference internal" href="#parallel-evaluation">Parallel Evaluation</a></li>
 <li><a class="reference internal" href="#multi-start-optimization">Multi-start Optimization</a></li>
+<li><a class="reference internal" href="#splitter-resolution">Splitter Resolution</a></li>
 <li><a class="reference internal" href="#sensitivity-analysis">Sensitivity Analysis</a></li>
 <li><a class="reference internal" href="#bayesian-optimization-with-gaussian-process">Bayesian Optimization with Gaussian Process</a></li>
 <li><a class="reference internal" href="#custom-events">Custom Events</a></li>
@@ -333,11 +334,32 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </span><span data-line="15"><span class="na">discount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.95</span><span class="w">           </span><span class="c1"># Performance decay factor</span>
 </span><span data-line="16"><span class="na">jobs_per_client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">5</span><span class="w">       </span><span class="c1"># Batch size per engine</span>
 </span><span data-line="17">
-</span><span data-line="18"><span class="k">[logging]</span>
-</span><span data-line="19"><span class="na">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">INFO</span><span class="w">              </span><span class="c1"># DEBUG, INFO, WARNING, ERROR</span>
+</span><span data-line="18"><span class="k">[core]</span>
+</span><span data-line="19"><span class="na">deadlock_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">600</span><span class="w">    </span><span class="c1"># error backstop for a wedged worker (see below)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="k">[logging]</span>
+</span><span data-line="22"><span class="na">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">INFO</span><span class="w">              </span><span class="c1"># DEBUG, INFO, WARNING, ERROR</span>
 </span></pre></div>
 </div>
 <p>Edit this file to customize behavior.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>There is no wall-clock stall guard.</strong>  A run used to end after
+<code class="docutils literal notranslate"><span class="pre">max_stall_seconds</span></code> without progress, which made a seeded run a function
+of machine speed — a slow handler could truncate it anywhere between 70 and
+240 of 300 evaluations.  A run now ends when <em>nothing can produce a point</em>:
+no evaluation in flight, no event handler queued, and no heuristic with a
+point to give.  Progress is counted in evaluations; a slow arm makes a run
+take longer, never shorter.</p>
+<p><code class="docutils literal notranslate"><span class="pre">deadlock_seconds</span></code> (default <code class="docutils literal notranslate"><span class="pre">600</span></code>) is the remaining time-based knob and
+is <strong>not</strong> a scheduling parameter: it is an error backstop for a genuine
+bug — a wedged subprocess, a handler that never returns — and tripping it
+is logged at <code class="docutils literal notranslate"><span class="pre">ERROR</span></code> level with the state that caused it.  Leave it
+alone unless an arm of yours legitimately takes minutes per evaluation.
+<code class="docutils literal notranslate"><span class="pre">max_stall_seconds</span></code> is still accepted so old config files keep loading,
+but it is <strong>inert</strong>.  See
+<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §2.</p>
+</div>
 </section>
 </section>
 <section id="basic-usage">
@@ -1816,18 +1838,30 @@ evaluated sequentially in submission order (a thread pool would return
 results in completion order).  Without <code class="docutils literal notranslate"><span class="pre">seed</span></code> the
 strategy draws one from numpy’s global state, so <code class="docutils literal notranslate"><span class="pre">np.random.seed(s)</span></code>
 before construction also pins the run; <code class="docutils literal notranslate"><span class="pre">strategy.seed</span></code> reports which seed
-was used.  Heuristics that bridge a subprocess solver (<code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>,
-<code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code>) emit on their own schedule and are exempt from this
-guarantee.</p>
+was used.</p>
+<p>The guarantee now covers the subprocess solver bridges (<code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code>,
+<code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>) too.  They used to relay their pipe on a private “pump” thread
+and emit on their own schedule, which put them outside it; they now produce
+on the strategy’s own thread, when asked, so the point they hand out is a
+pure function of the values they were given and their worker’s seed
+(<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §1.5).</p>
 </section>
 <section id="budget-management">
 <h3>Budget Management<a class="headerlink" href="#budget-management" title="Link to this heading">#</a></h3>
-<p>A run always spends its full <code class="docutils literal notranslate"><span class="pre">max_eval</span></code> budget.  The
-<a class="reference internal" href="analyzers.html#panobbgo.analyzers.Convergence" title="panobbgo.analyzers.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> analyzer publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code>
-event when the best value plateaus, but that event only ends the run if you
-opt in with <code class="docutils literal notranslate"><span class="pre">strategy.config.stop_on_convergence</span> <span class="pre">=</span> <span class="pre">True</span></code> (the plateau test
-fires routinely on multimodal problems, so stopping on it is not a safe
-default for global optimization).</p>
+<p>A run spends its full <code class="docutils literal notranslate"><span class="pre">max_eval</span></code> budget unless its heuristics run out of
+points to give.  The <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Convergence" title="panobbgo.analyzers.Convergence"><code class="xref py py-class docutils literal notranslate"><span class="pre">Convergence</span></code></a> analyzer
+publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event when the best value plateaus, but that event
+only ends the run if you opt in with
+<code class="docutils literal notranslate"><span class="pre">strategy.config.stop_on_convergence</span> <span class="pre">=</span> <span class="pre">True</span></code> (the plateau test fires
+routinely on multimodal problems, so stopping on it is not a safe default for
+global optimization).</p>
+<p>The other way a run ends early is that <strong>nothing can produce a point</strong> — see
+the note under <em>Configuration</em> above.  That is a fact about the portfolio,
+not a timeout, and it is sometimes the correct outcome: a solo
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a> converges its trust region after
+roughly 25 evaluations and has nothing further to propose, so it ends there
+whatever budget you gave it.  Pair such an arm with a generator (<code class="docutils literal notranslate"><span class="pre">Random</span></code>,
+a population method) if you want the rest of the budget spent.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Set evaluation budget</span>
 </span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
 </span><span data-line="3">
@@ -1872,6 +1906,86 @@ is declared.</p>
 <p>Do not use it with <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>, which
 restarts itself (<a class="reference internal" href="#cma-es-restarts"><span class="std std-ref">CMA-ES Restarts</span></a>); the analyzer’s restart event
 throws away its adapted covariance and halved its score in measurement.</p>
+</div>
+</section>
+<section id="splitter-resolution">
+<h3>Splitter Resolution<a class="headerlink" href="#splitter-resolution" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> partitions the search space
+into a kd-tree of boxes and cuts a leaf once it holds enough points.  How many
+points is “enough” used to be <code class="docutils literal notranslate"><span class="pre">max(20,</span> <span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">dim²)</span></code> — independent of
+the budget once the dimension is fixed, so a longer run produced the same
+coarse tree.  The threshold is now stated on the <em>leaf population</em> and
+inverted, so the resolution scales with the budget: at <code class="docutils literal notranslate"><span class="pre">d=2</span></code> the tree grows
+to 38 / 105 / 204 / 351 leaves across the budget range where the old one gave
+6 / 33 / 142 / 602, and the root splits at evaluation 37 instead of 250
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §35).</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 78.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">leaf_size</span></code></p></td>
+<td><p>Target mean results per leaf (default 25); the tree aims at
+<code class="docutils literal notranslate"><span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">leaf_size</span></code> leaves.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">min_leaf_size</span></code></p></td>
+<td><p>Floor on the split threshold, so a leaf is never cut before it can say
+anything.  Default <code class="docutils literal notranslate"><span class="pre">2·dim</span> <span class="pre">+</span> <span class="pre">2</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_leaves</span></code></p></td>
+<td><p>Cap on the leaf count (default 512).  It raises the threshold rather
+than refusing splits, so the partition stays a proper kd-tree.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">split_rule</span></code></p></td>
+<td><p>Which dimension to cut: <code class="docutils literal notranslate"><span class="pre">&quot;widest&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;value&quot;</span></code>, which
+scores dimensions by how strongly the objective separates across the
+prospective cut.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cut_rule</span></code></p></td>
+<td><p>Where along it: <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code>, which cuts the
+median <em>gap</em> between adjacent distinct coordinates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">legacy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code> restores the pre-2026-09-10 tree exactly, ignoring every other
+knob.  Kept so the two trees can be measured paired.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Accepted on the 12-seed roster against <code class="docutils literal notranslate"><span class="pre">legacy=True</span></code> (§37): the consumers
+that read the tree gain — <code class="docutils literal notranslate"><span class="pre">Random</span></code> <strong>+0.033</strong> [+0.009, +0.057],
+<code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code> <strong>+0.050</strong> [+0.023, +0.078] (12/12 seeds), and an
+<code class="docutils literal notranslate"><span class="pre">archive_leaf</span></code> warm start <strong>+0.053</strong> [+0.027, +0.079].  The gain is
+concentrated at <code class="docutils literal notranslate"><span class="pre">d=2</span></code>, where the old tree had five leaves.  <strong>The reference
+portfolio is unaffected</strong> — 0.0000 in every cell — because none of its arms
+queries the tree, so this change is free if you do not use one that does.</p>
+<p><code class="docutils literal notranslate"><span class="pre">split_rule=&quot;value&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">cut_rule=&quot;median&quot;</span></code> both ship <strong>opt-in</strong>: each
+measured inside the null floor overall, and the median cut carries a
+structural regression (it hits the depth cap with a 423-point leaf on a spec
+where the mean stays at depth 52).  <code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code>, the one consumer that reads
+every leaf, is the case worth revisiting on a roster — it gained +0.024 and
++0.033 from them respectively (§39).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Splitter</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegionUCB</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add_analyzer</span><span class="p">(</span><span class="n">Splitter</span><span class="p">,</span> <span class="n">leaf_size</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>   <span class="c1"># defaults; budget-scaled</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">RegionUCB</span><span class="p">)</span>                         <span class="c1"># UCB1 over the leaves</span>
+</span></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.RegionUCB" title="panobbgo.heuristics.region_ucb.RegionUCB"><code class="xref py py-class docutils literal notranslate"><span class="pre">RegionUCB</span></code></a> can now be run <strong>alone</strong>.
+It emitted only from <code class="docutils literal notranslate"><span class="pre">on_new_results</span></code> and had no <code class="docutils literal notranslate"><span class="pre">on_start</span></code>, so a solo
+run produced 0 of 200 evaluations — a defect every benchmark hid by pairing
+it with another arm.  With an initial design it spends its budget and is
+the stronger of the two standalone tree consumers (§39).</p>
 </div>
 </section>
 <section id="sensitivity-analysis">

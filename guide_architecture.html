@@ -590,9 +590,15 @@ them back into the feasible region using nearest-feasible-point logic.</p></li>
 <p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> manages hierarchical box decomposition:</p>
 <ul class="simple">
 <li><p>Maintains tree of boxes splitting the search space</p></li>
-<li><p>Splits boxes when they contain sufficient points</p></li>
+<li><p>Splits boxes when they contain sufficient points — the threshold is derived
+from a target leaf population (<code class="docutils literal notranslate"><span class="pre">leaf_size</span></code>, <code class="docutils literal notranslate"><span class="pre">min_leaf_size</span></code>,
+<code class="docutils literal notranslate"><span class="pre">max_leaves</span></code>), so the resolution <strong>scales with the evaluation budget</strong>;
+<code class="docutils literal notranslate"><span class="pre">split_rule</span></code> / <code class="docutils literal notranslate"><span class="pre">cut_rule</span></code> choose the cut, and <code class="docutils literal notranslate"><span class="pre">legacy=True</span></code> restores
+the pre-2026-09-10 fixed-resolution tree</p></li>
 <li><p>Identifies “best leaf box” containing current best point</p></li>
 </ul>
+<p>See <em>Splitter Resolution</em> in <a class="reference internal" href="guide_usage.html"><span class="doc">Usage Guide</span></a> for the knobs and the measured
+effect on the consumers that read the tree.</p>
 <p><strong>Events published:</strong></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code>: A box was split into children</p></li>
@@ -794,8 +800,11 @@ by focused exploitation).</p>
 <li><p>Non-blocking: publishing returns immediately; the event is queued</p></li>
 <li><p>Ordered: handlers run one after the other, in the order the events were published</p></li>
 <li><p>Handlers must return promptly — a module <em>reacts</em> to events, it never loops,
-sleeps or waits inside a handler (subprocess bridges such as
-<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a> pump their pipe on a private thread)</p></li>
+sleeps or waits inside a handler.  Subprocess bridges such as
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a> obey this by <em>storing</em> the result in
+their handler and doing the pipe round trip in
+<a class="reference internal" href="core.html#panobbgo.core.Heuristic.produce" title="panobbgo.core.Heuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>, on the strategy’s own thread —
+no private thread is involved</p></li>
 <li><p>Fire-and-forget: a handler’s return value, if any, is passed to <code class="docutils literal notranslate"><span class="pre">emit</span></code></p></li>
 </ul>
 <p>Because no two handlers ever run at the same time, module state needs no

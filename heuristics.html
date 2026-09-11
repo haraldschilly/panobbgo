@@ -276,6 +276,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.RegionUCB"><code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.heuristics.RegionUCB.on_new_results"><code class="docutils literal notranslate"><span class="pre">RegionUCB.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.RegionUCB.on_start"><code class="docutils literal notranslate"><span class="pre">RegionUCB.on_start()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.RegionUCB.sample_in_leaf"><code class="docutils literal notranslate"><span class="pre">RegionUCB.sample_in_leaf()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.RegionUCB.select_leaf"><code class="docutils literal notranslate"><span class="pre">RegionUCB.select_leaf()</span></code></a></li>
 </ul>
@@ -2387,6 +2388,26 @@ ranges (default 0.25).</p></li>
 <dt class="sig sig-object py" id="panobbgo.heuristics.RegionUCB.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/region_ucb.html#RegionUCB.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.RegionUCB.on_new_results" title="Link to this definition">#</a></dt>
 <dd><p>Re-select a region and refill the output queue on every batch.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.RegionUCB.on_start">
+<span class="sig-name descname"><span class="pre">on_start</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/region_ucb.html#RegionUCB.on_start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.RegionUCB.on_start" title="Link to this definition">#</a></dt>
+<dd><p>Emit an initial design, so the bandit has something to react to.</p>
+<p>Every other line of this class is driven by <code class="docutils literal notranslate"><span class="pre">on_new_results</span></code>, and
+the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> tree it allocates
+over does not exist until results arrive.  Without a producer of its
+own the heuristic therefore emits nothing, <em>ever</em>: run alone it
+stalls the strategy at <strong>0 evaluations</strong> and the run dies on the
+no-progress guard (measured: 0 of 200 on Rosenbrock <em>d</em> = 3, and 0
+of 200 through the IOH harness — under the legacy Splitter as well,
+so this is the heuristic’s own defect, not the tree’s).  Until now it
+was only ever benchmarked next to another arm, which hid it.</p>
+<p>A uniform draw over the problem box is the cheapest opening that
+presupposes no tree, and it is the same one
+<a class="reference internal" href="#panobbgo.heuristics.Random" title="panobbgo.heuristics.Random"><code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code></a> opens with.  It uses this
+module’s own <code class="xref py py-attr docutils literal notranslate"><span class="pre">rng</span></code>, so the master stream is untouched and the
+RNG-order contract (<code class="docutils literal notranslate"><span class="pre">__init__</span></code> draws nothing) still holds.</p>
 </dd></dl>
 
 <dl class="py method">

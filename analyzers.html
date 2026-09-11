@@ -146,6 +146,8 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.register()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.CUT_RULES"><code class="docutils literal notranslate"><span class="pre">CUT_RULES</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.DEFAULT_CUT_RULE"><code class="docutils literal notranslate"><span class="pre">DEFAULT_CUT_RULE</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.DEFAULT_SPLIT_RULE"><code class="docutils literal notranslate"><span class="pre">DEFAULT_SPLIT_RULE</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.LEAF_FILL"><code class="docutils literal notranslate"><span class="pre">LEAF_FILL</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.LEAF_SIZE"><code class="docutils literal notranslate"><span class="pre">LEAF_SIZE</span></code></a></li>
@@ -647,6 +649,44 @@ the minimal and maximal representants for that region.</p>
 </dd></dl>
 
 <dl class="py data" id="module-panobbgo.analyzers.splitter">
+<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.CUT_RULES">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">CUT_RULES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('mean',</span> <span class="pre">'median')</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.CUT_RULES" title="Link to this definition">#</a></dt>
+<dd><p>Where along the chosen dimension the cut goes.  <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> is the
+historical point; <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> cuts through the middle <em>order statistic</em>.
+See <code class="xref py py-meth docutils literal notranslate"><span class="pre">Splitter.Box._split_point()</span></code>.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.DEFAULT_CUT_RULE">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_CUT_RULE</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'mean'</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.DEFAULT_CUT_RULE" title="Link to this definition">#</a></dt>
+<dd><p>The default cut.  <code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code>, and the reasoning that said otherwise was
+<strong>wrong</strong>, so it is written down here rather than repeated.</p>
+<p>The observation was real: <code class="docutils literal notranslate"><span class="pre">Random</span></code> at <em>d</em> = 5 (Rosenbrock, 2500
+evaluations) builds a tree of depth 60 — the <code class="xref py py-attr docutils literal notranslate"><span class="pre">Box.MAX_DEPTH</span></code> cap —
+holding 61 leaves against a target of 101, with a single leaf of ~1300
+points.  The <em>diagnosis</em> — “the mean is dragged towards the stragglers of
+a contracting cloud, so each cut only peels a few points off” — was not:
+a median cut produces the identical depth 60 / 61 leaves / 1301-point leaf
+on the same spec.  The chain is <a class="reference internal" href="heuristics.html#panobbgo.heuristics.Random" title="panobbgo.heuristics.Random"><code class="xref py py-class docutils literal notranslate"><span class="pre">Random</span></code></a>’s
+own doing: it samples <em>only inside the current best leaf</em>, so every point
+lands in one leaf, that leaf splits, the child holding the best point
+becomes the next target and the sibling is never visited again.  Depth
+then grows once per split whatever the cut rule is.  Fixing it means
+changing the heuristic or the depth cap, not the geometry.</p>
+<p>What the median <em>does</em> change was then measured, paired, 3 seeds
+(42/7/1234, MA-BBOB standard battery, dims 2 and 5 at 500·d, instances
+0-2): <code class="docutils literal notranslate"><span class="pre">Random</span></code> <strong>−0.0145</strong> (1/3 seeds), <code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code> <strong>+0.0327</strong>
+(3/3) — one inside the ±0.03 null floor and negative, the other barely
+outside it, mean +0.009.  No mandate.  And it carries one concrete
+structural regression: on <code class="docutils literal notranslate"><span class="pre">Blocks_uniform_cj_warm2</span></code> at <em>d</em> = 5 the
+median cut reaches <code class="docutils literal notranslate"><span class="pre">MAX_DEPTH</span></code> with a 423-point leaf where the mean
+stays at depth 52 with no leaf above 36.</p>
+<p>So <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> ships opt-in — it is genuinely the better <em>geometry</em> (see
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">Splitter.Box._split_point()</span></code>) and <code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code>, the one consumer
+that reads every leaf, is the case worth revisiting on a 12-seed roster.</p>
+</dd></dl>
+
+<dl class="py data">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.DEFAULT_SPLIT_RULE">
 <span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_SPLIT_RULE</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'widest'</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.DEFAULT_SPLIT_RULE" title="Link to this definition">#</a></dt>
 <dd><p>a paired 3-seed
@@ -716,7 +756,7 @@ separates across the prospective cut.  See <code class="xref py py-meth docutils
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legacy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.splitter.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cut_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legacy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Manages a tree of splits.
 Each split in this tree is a <a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box" title="panobbgo.analyzers.splitter.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">box</span></code></a>, which
@@ -743,10 +783,13 @@ variables needs, plus a margin.</p></li>
 (default <a class="reference internal" href="#panobbgo.analyzers.splitter.MAX_LEAVES" title="panobbgo.analyzers.splitter.MAX_LEAVES"><code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_LEAVES</span></code></a>); it raises the split threshold
 rather than refusing splits, so the partition stays a proper
 kd-tree.</p></li>
+<li><p><strong>cut_rule</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default, see <a class="reference internal" href="#panobbgo.analyzers.splitter.DEFAULT_CUT_RULE" title="panobbgo.analyzers.splitter.DEFAULT_CUT_RULE"><code class="xref py py-data docutils literal notranslate"><span class="pre">DEFAULT_CUT_RULE</span></code></a>) or
+<code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> — where along the chosen dimension the cut falls.</p></li>
 <li><p><strong>legacy</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> restores the pre-2026-09-10 analyzer exactly —
-<code class="docutils literal notranslate"><span class="pre">limit</span> <span class="pre">=</span> <span class="pre">max(20,</span> <span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">dim**2)</span></code> and <code class="docutils literal notranslate"><span class="pre">split_rule</span> <span class="pre">=</span>
-<span class="pre">&quot;widest&quot;</span></code>.  Every other knob is ignored.  Kept so both trees
-are runnable from one code base and a measurement can be paired.</p></li>
+<code class="docutils literal notranslate"><span class="pre">limit</span> <span class="pre">=</span> <span class="pre">max(20,</span> <span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">dim**2)</span></code>, <code class="docutils literal notranslate"><span class="pre">split_rule</span> <span class="pre">=</span>
+<span class="pre">&quot;widest&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">cut_rule</span> <span class="pre">=</span> <span class="pre">&quot;mean&quot;</span></code>.  Every other knob is
+ignored.  Kept so both trees are runnable from one code base
+and a measurement can be paired.</p></li>
 <li><p><strong>strategy</strong></p></li>
 <li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
 </ul>
@@ -1294,7 +1337,7 @@ and periodically computes importance scores for each dimension.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legacy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Splitter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cut_rule</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_leaves</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">legacy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Manages a tree of splits.
 Each split in this tree is a <a class="reference internal" href="#panobbgo.analyzers.Splitter.Box" title="panobbgo.analyzers.Splitter.Box"><code class="xref py py-class docutils literal notranslate"><span class="pre">box</span></code></a>, which
@@ -1321,10 +1364,13 @@ variables needs, plus a margin.</p></li>
 (default <code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_LEAVES</span></code>); it raises the split threshold
 rather than refusing splits, so the partition stays a proper
 kd-tree.</p></li>
+<li><p><strong>cut_rule</strong> – <code class="docutils literal notranslate"><span class="pre">&quot;median&quot;</span></code> (default, see <code class="xref py py-data docutils literal notranslate"><span class="pre">DEFAULT_CUT_RULE</span></code>) or
+<code class="docutils literal notranslate"><span class="pre">&quot;mean&quot;</span></code> — where along the chosen dimension the cut falls.</p></li>
 <li><p><strong>legacy</strong> – <code class="docutils literal notranslate"><span class="pre">True</span></code> restores the pre-2026-09-10 analyzer exactly —
-<code class="docutils literal notranslate"><span class="pre">limit</span> <span class="pre">=</span> <span class="pre">max(20,</span> <span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">dim**2)</span></code> and <code class="docutils literal notranslate"><span class="pre">split_rule</span> <span class="pre">=</span>
-<span class="pre">&quot;widest&quot;</span></code>.  Every other knob is ignored.  Kept so both trees
-are runnable from one code base and a measurement can be paired.</p></li>
+<code class="docutils literal notranslate"><span class="pre">limit</span> <span class="pre">=</span> <span class="pre">max(20,</span> <span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">dim**2)</span></code>, <code class="docutils literal notranslate"><span class="pre">split_rule</span> <span class="pre">=</span>
+<span class="pre">&quot;widest&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">cut_rule</span> <span class="pre">=</span> <span class="pre">&quot;mean&quot;</span></code>.  Every other knob is
+ignored.  Kept so both trees are runnable from one code base
+and a measurement can be paired.</p></li>
 <li><p><strong>strategy</strong></p></li>
 <li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
 </ul>

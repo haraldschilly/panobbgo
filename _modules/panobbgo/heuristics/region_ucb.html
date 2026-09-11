@@ -289,29 +289,53 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="147">
 </span><span data-line="148">    <span class="c1"># -- event handlers ----------------------------------------------------</span>
 </span><span data-line="149">
+<div class="viewcode-block" id="RegionUCB.on_start">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.RegionUCB.on_start">[docs]</a>
+</span><span data-line="150">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="151"><span class="w">        </span><span class="sd">"""Emit an initial design, so the bandit has something to react to.</span>
+</span><span data-line="152">
+</span><span data-line="153"><span class="sd">        Every other line of this class is driven by ``on_new_results``, and</span>
+</span><span data-line="154"><span class="sd">        the :class:`~panobbgo.analyzers.splitter.Splitter` tree it allocates</span>
+</span><span data-line="155"><span class="sd">        over does not exist until results arrive.  Without a producer of its</span>
+</span><span data-line="156"><span class="sd">        own the heuristic therefore emits nothing, *ever*: run alone it</span>
+</span><span data-line="157"><span class="sd">        stalls the strategy at **0 evaluations** and the run dies on the</span>
+</span><span data-line="158"><span class="sd">        no-progress guard (measured: 0 of 200 on Rosenbrock *d* = 3, and 0</span>
+</span><span data-line="159"><span class="sd">        of 200 through the IOH harness — under the legacy Splitter as well,</span>
+</span><span data-line="160"><span class="sd">        so this is the heuristic's own defect, not the tree's).  Until now it</span>
+</span><span data-line="161"><span class="sd">        was only ever benchmarked next to another arm, which hid it.</span>
+</span><span data-line="162">
+</span><span data-line="163"><span class="sd">        A uniform draw over the problem box is the cheapest opening that</span>
+</span><span data-line="164"><span class="sd">        presupposes no tree, and it is the same one</span>
+</span><span data-line="165"><span class="sd">        :class:`~panobbgo.heuristics.Random` opens with.  It uses this</span>
+</span><span data-line="166"><span class="sd">        module's own :attr:`rng`, so the master stream is untouched and the</span>
+</span><span data-line="167"><span class="sd">        RNG-order contract (``__init__`` draws nothing) still holds.</span>
+</span><span data-line="168"><span class="sd">        """</span>
+</span><span data-line="169">        <span class="bp">self</span><span class="o">.</span><span class="n">fill_queue</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">))</span></div>
+
+</span><span data-line="170">
 <div class="viewcode-block" id="RegionUCB.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.RegionUCB.on_new_results">[docs]</a>
-</span><span data-line="150">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="151"><span class="w">        </span><span class="sd">"""Re-select a region and refill the output queue on every batch."""</span>
-</span><span data-line="152">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="153">            <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">"Splitter"</span><span class="p">)</span>
-</span><span data-line="154">            <span class="n">leafs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">splitter</span><span class="o">.</span><span class="n">leafs</span><span class="p">)</span>
-</span><span data-line="155">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="156">            <span class="n">leafs</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="157">
-</span><span data-line="158">        <span class="k">if</span> <span class="ow">not</span> <span class="n">leafs</span><span class="p">:</span>
-</span><span data-line="159">            <span class="c1"># No Splitter (yet) — sample the full problem box instead.</span>
-</span><span data-line="160">            <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="161">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span><span class="p">)])</span>
-</span><span data-line="162">            <span class="k">return</span>
-</span><span data-line="163">
-</span><span data-line="164">        <span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_leaf</span><span class="p">(</span><span class="n">leafs</span><span class="p">)</span>
-</span><span data-line="165">        <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_in_leaf</span><span class="p">(</span><span class="n">leaf</span><span class="p">)</span>
-</span><span data-line="166">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="167">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
-</span><span data-line="168">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-</span><span data-line="169">            <span class="s2">"leaf id=</span><span class="si">%s</span><span class="s2"> depth=</span><span class="si">%s</span><span class="s2"> n=</span><span class="si">%d</span><span class="s2"> -&gt; emitted </span><span class="si">%d</span><span class="s2"> points"</span> <span class="o">%</span> <span class="p">(</span><span class="n">leaf</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">leaf</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">leaf</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">))</span>
-</span><span data-line="170">        <span class="p">)</span></div>
+</span><span data-line="171">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="172"><span class="w">        </span><span class="sd">"""Re-select a region and refill the output queue on every batch."""</span>
+</span><span data-line="173">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="174">            <span class="n">splitter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">analyzer</span><span class="p">(</span><span class="s2">"Splitter"</span><span class="p">)</span>
+</span><span data-line="175">            <span class="n">leafs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">splitter</span><span class="o">.</span><span class="n">leafs</span><span class="p">)</span>
+</span><span data-line="176">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="177">            <span class="n">leafs</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="178">
+</span><span data-line="179">        <span class="k">if</span> <span class="ow">not</span> <span class="n">leafs</span><span class="p">:</span>
+</span><span data-line="180">            <span class="c1"># No Splitter (yet) — sample the full problem box instead.</span>
+</span><span data-line="181">            <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="182">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_candidates</span><span class="p">)])</span>
+</span><span data-line="183">            <span class="k">return</span>
+</span><span data-line="184">
+</span><span data-line="185">        <span class="n">leaf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">select_leaf</span><span class="p">(</span><span class="n">leafs</span><span class="p">)</span>
+</span><span data-line="186">        <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_in_leaf</span><span class="p">(</span><span class="n">leaf</span><span class="p">)</span>
+</span><span data-line="187">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="188">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+</span><span data-line="189">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+</span><span data-line="190">            <span class="s2">"leaf id=</span><span class="si">%s</span><span class="s2"> depth=</span><span class="si">%s</span><span class="s2"> n=</span><span class="si">%d</span><span class="s2"> -&gt; emitted </span><span class="si">%d</span><span class="s2"> points"</span> <span class="o">%</span> <span class="p">(</span><span class="n">leaf</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">leaf</span><span class="o">.</span><span class="n">depth</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">leaf</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">))</span>
+</span><span data-line="191">        <span class="p">)</span></div>
 </div>
 
 </span></pre></div>

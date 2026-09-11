@@ -232,10 +232,9 @@ class Results:
             return
 
         assert all([isinstance(_, Result) for _ in new_results])
-        # notification for all received results at once
-        self.eventbus.publish("new_results", results=new_results)
 
-        # Prepare stats for progress reporting
+        # Prepare stats for progress reporting.  Computed *before* the batch
+        # lands in the buffer below, so "previous best" keeps its meaning.
         progress_stats = {}
         if len(self) > 0:
             try:
@@ -270,12 +269,20 @@ class Results:
             except Exception:
                 pass
 
-        # Report progress for each result
-        for result in new_results:
-            if result.fx is not None and result.fx < self._best_fx:
-                self._best_fx = result.fx
-            self._report_evaluation_progress(result, stats=progress_stats)
-
+        # The batch must be *in* the store before anyone is told about it.
+        # ``publish`` hands the event to the bus thread, which runs the
+        # subscribers' handlers concurrently with whatever this (main) thread
+        # does next.  Several handlers pace themselves on
+        # ``len(strategy.results)`` — the DE family's LPSR population
+        # schedule, its F-schedule and its ``p_best`` annealing all read
+        # :meth:`panobbgo.heuristics.lshade.LSHADE._progress`, and the
+        # constraint handlers count evaluations the same way.  Publishing
+        # first raced this ``_buffer.extend``: whether a handler counted its
+        # own batch depended on thread scheduling, so a run was reproducible
+        # only by luck (an LPSR step could land one batch early or late, which
+        # shifts the RNG stream and every point drawn after it).  Landing the
+        # results first, and publishing *last*, makes the count a pure
+        # function of the evaluation sequence.
         with self._lock:
             self._buffer.extend(new_results)
 
@@ -294,9 +301,19 @@ class Results:
             except Exception:
                 pass
 
+        # Report progress for each result
+        for result in new_results:
+            if result.fx is not None and result.fx < self._best_fx:
+                self._best_fx = result.fx
+            self._report_evaluation_progress(result, stats=progress_stats)
+
         if len(self) // 100 > self._last_nb // 100:
             self.info()
             self._last_nb = len(self)
+
+        # notification for all received results at once — last, so no
+        # main-thread bookkeeping overlaps the handler cascade.
+        self.eventbus.publish("new_results", results=new_results)
 
     def close(self) -> None:
         """

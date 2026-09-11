@@ -36,12 +36,14 @@ strategy's own effect, not the run-to-run variance (see
 Usage::
 
     uv run python benchmarks/portfolio_screen.py OUT.json SEED [SEED ...] \
-        [dims=2,5] [bm=500] [specs=name,name]
+        [kind=standard] [dims=2,5] [bm=500] [insts=0,1,2] [specs=name,name]
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
-    dims      battery dimensions (default 2,5 — the standard battery)
+    kind      battery preset (default ``standard``); see ``BATTERIES``
+    dims      battery dimensions (default: the preset's)
     bm        budget multiplier; the budget per run is ``bm * dim``
+    insts     instance ids (default: the preset's)
     specs     subset of ``SPECS`` to run (default: all of them)
 
 Re-analysis of a finished run is free::
@@ -62,7 +64,14 @@ import time
 from collections import defaultdict
 
 from panobbgo.analyzers import Archive
-from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness
+from panobbgo.harness_ioh import (
+    make_highdim_battery,
+    make_ioh_strategies,
+    make_noisy_battery,
+    make_noisy_highdim_battery,
+    make_standard_battery,
+    run_ioh_harness,
+)
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyBlockBandit, StrategyRewarding, StrategyRoundRobin
 
@@ -469,12 +478,31 @@ unknown = [n for n in names if n not in SPECS]
 if unknown:
     sys.exit(f"unknown spec(s): {','.join(unknown)}  (known: {','.join(SPECS)})")
 
-battery = make_standard_battery()
-if "dims" in opts or "bm" in opts:
+#: ``kind=`` picks the regime the screen runs on.  The screen's whole
+#: question — does a *sharing* portfolio beat the best single arm? — was
+#: answered "level" on the standard battery (§27/§30/§31), and
+#: ``planning/GOAL.md`` §2c says the places left to look are noise and
+#: dimension.  Same specs, same gates, different regime.
+BATTERIES = {
+    "standard": make_standard_battery,
+    "noisy-gauss": lambda: make_noisy_battery("gauss"),
+    "noisy-unif": lambda: make_noisy_battery("unif"),
+    "noisy-cauchy": lambda: make_noisy_battery("cauchy"),
+    "noisy-gauss-severe": lambda: make_noisy_battery("gauss", level="severe"),
+    "highdim": make_highdim_battery,
+    "noisy-highdim": make_noisy_highdim_battery,
+}
+
+kind = opts.get("kind", "standard")
+if kind not in BATTERIES:
+    sys.exit(f"unknown kind {kind!r}  (known: {','.join(BATTERIES)})")
+battery = BATTERIES[kind]()
+if "dims" in opts or "bm" in opts or "insts" in opts:
     battery = dataclasses.replace(
         battery,
         dims=tuple(int(d) for d in opts.get("dims", ",".join(str(d) for d in battery.dims)).split(",")),
         budget_multiplier=int(opts.get("bm", battery.budget_multiplier)),
+        instances=tuple(int(i) for i in opts.get("insts", ",".join(str(i) for i in battery.instances)).split(",")),
     )
 
 
@@ -515,6 +543,10 @@ else:
                 "dim": x.dim,
                 "inst": x.instance,
                 "aocc": x.aocc,
+                # noisy batteries only: AOCC is scored on the TRUE value
+                # above; this is what the optimizer's own observations
+                # would have said.  Kept so a re-analysis can see both.
+                "obs": x.aocc_observed,
                 "evals": x.n_evals,
                 "budget": x.budget,
                 "err": x.error,
@@ -574,7 +606,9 @@ def delta(a, b):
     return st.mean(ds) if ds else float("nan")
 
 
-setup = f"from {src}" if src else f"budget {battery.budget_multiplier}*d"
+setup = (
+    f"from {src}" if src else f"{battery.name}, budget {battery.budget_multiplier}*d, insts {list(battery.instances)}"
+)
 print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 

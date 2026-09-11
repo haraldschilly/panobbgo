@@ -49,6 +49,11 @@ Public surface
 * :func:`make_quick_battery` / :func:`make_standard_battery` /
   :func:`make_full_battery` — preset batteries matching the
   ``quick``/``standard``/``full`` modes of the legacy harness.
+* :func:`make_noisy_battery` / :func:`make_highdim_battery` /
+  :func:`make_noisy_highdim_battery` — the regimes ``planning/GOAL.md``
+  §2c asks for: noise on the objective (scored on the true value, BBOB
+  noisy-suite style) and *d* ∈ {10, 20}.  Noise is applied in *this*
+  process by :mod:`panobbgo.lib.noise`; the ``ioh`` worker is untouched.
 * :class:`IOHRunRecord` — per (problem kind, dim, instance, strategy, rep)
   result, including the convergence trajectory.
 * :class:`IOHHarnessResult` — aggregate over a battery, with mean AOCC and
@@ -210,11 +215,45 @@ def aocc_to_harness_result(ioh_result, mode: str = "ioh", base_seed: int = 42):
 # needs to build it.
 
 
-#: Recognised problem-kind tags.  These are forwarded to the worker as
+#: Problem-kind tags the *worker* understands.  These are forwarded as
 #: the ``kind`` field of the ``create`` JSON-Lines request, where the
 #: actual ``ioh`` builder lives.  Keep in sync with
 #: ``tools/ioh_worker/src/ioh_worker/__main__.py::_build_problem``.
-SUPPORTED_PROBLEM_KINDS: Tuple[str, ...] = ("MA-BBOB", "BBOB")
+WORKER_PROBLEM_KINDS: Tuple[str, ...] = ("MA-BBOB", "BBOB")
+
+#: Noisy problem kinds — ``tag -> (worker kind, noise-model tag)``.
+#:
+#: The noise is applied **in this process** by
+#: :class:`~panobbgo.lib.noise.NoisyProblem`, on top of a plain worker
+#: problem; the worker and its JSON-Lines protocol are untouched.  That
+#: keeps the ``ioh`` child venv (pinned to Python 3.12) free of panobbgo
+#: code and means a noisy battery costs exactly the same number of worker
+#: round-trips as a noiseless one — the wrapper's ``eval_pair`` hands the
+#: tracker the noisy *and* the true value from a single ``eval`` call.
+#:
+#: The noise level (``"moderate"`` / ``"severe"``, the BBOB f101–f106 vs.
+#: f107–f130 settings) is a field of :class:`IOHBatterySpec`, not part of
+#: the kind, so one battery preset can be re-run at a second level
+#: without a second tag.
+NOISY_PROBLEM_KINDS: Dict[str, Tuple[str, str]] = {
+    "MA-BBOB-noisy-gauss": ("MA-BBOB", "gauss"),
+    "MA-BBOB-noisy-unif": ("MA-BBOB", "unif"),
+    "MA-BBOB-noisy-cauchy": ("MA-BBOB", "cauchy"),
+}
+
+#: Everything :func:`run_ioh_harness` accepts.
+SUPPORTED_PROBLEM_KINDS: Tuple[str, ...] = WORKER_PROBLEM_KINDS + tuple(NOISY_PROBLEM_KINDS)
+
+
+def resolve_problem_kind(kind: str) -> Tuple[str, Optional[str]]:
+    """Split a battery's ``problem_kind`` into ``(worker kind, noise tag)``.
+
+    ``("MA-BBOB", None)`` for a noiseless kind,
+    ``("MA-BBOB", "gauss")`` for ``"MA-BBOB-noisy-gauss"``.
+    """
+    if kind in NOISY_PROBLEM_KINDS:
+        return NOISY_PROBLEM_KINDS[kind]
+    return kind, None
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +286,14 @@ class IOHBatterySpec:
     extra_builder_kwargs
         Optional dict of additional kwargs passed to the builder
         (e.g. ``{"fid": 1}`` for the BBOB sphere).
+    noise_level
+        Only read for a kind in :data:`NOISY_PROBLEM_KINDS`:
+        ``"moderate"`` (BBOB f101–f106) or ``"severe"`` (f107–f130).
+    noise_resample
+        Only read for a noisy kind.  ``False`` (default) freezes the noise
+        per point — re-evaluating the same ``x`` cannot average it away.
+        ``True`` draws fresh noise per call.  See
+        :mod:`panobbgo.lib.noise`.
     """
 
     name: str
@@ -256,6 +303,12 @@ class IOHBatterySpec:
     reps: int = 1
     budget_multiplier: int = 2000
     extra_builder_kwargs: Tuple[Tuple[str, Any], ...] = ()
+    noise_level: str = "moderate"
+    noise_resample: bool = False
+
+    @property
+    def is_noisy(self) -> bool:
+        return self.problem_kind in NOISY_PROBLEM_KINDS
 
     def pair_count(self, n_strategies: int) -> int:
         return n_strategies * len(self.dims) * len(self.instances) * self.reps
@@ -339,6 +392,116 @@ def make_full_battery() -> IOHBatterySpec:
         instances=tuple(range(10)),
         reps=1,
         budget_multiplier=2000,  # competition budget
+    )
+
+
+# ---------------------------------------------------------------------------
+# The regimes §2c asks for: noise, and dimension
+# ---------------------------------------------------------------------------
+#
+# ``planning/GOAL.md`` §2c items 1 and 3.  Every number in §2 was measured
+# on noiseless, unconstrained MA-BBOB at *d* <= 5, and on that battery a
+# two-arm sharing portfolio is *level* with the best single arm
+# (§27/§30/§31).  The lean it does have is entirely at *d* = 5, which is
+# the gradient these two batteries extend: a portfolio should pay where a
+# single arm cannot converge inside the budget (higher *d*) or where its
+# model assumptions break (noise).
+#
+# They are separate presets rather than flags on the standard battery
+# because the standard battery is a frozen contract — a mean AOCC from a
+# noisy or *d* = 10 run is not comparable with one from §2 and must not
+# be able to masquerade as one.
+
+
+def make_noisy_battery(noise: str = "gauss", *, level: str = "moderate") -> IOHBatterySpec:
+    """Standard battery shape, with BBOB-style noise on the objective.
+
+    Same cube as :func:`make_standard_battery` (dims 2 and 5, instances
+    0–4, budget ``500·d``) so the *only* difference against the §2
+    numbers is the noise, and one battery's cost is one standard
+    battery's cost.
+
+    Parameters
+    ----------
+    noise
+        ``"gauss"`` (multiplicative log-normal), ``"unif"`` (the
+        endgame-inflating uniform model) or ``"cauchy"`` (rare heavy-tail
+        outliers).  See :mod:`panobbgo.lib.noise` for the definitions.
+    level
+        ``"moderate"`` (default) or ``"severe"``.
+
+    AOCC is scored on the **true** value (the BBOB noisy-suite
+    convention); the AOCC an optimizer would compute from its own
+    observations is reported alongside as ``aocc_observed``.
+    """
+    kind = f"MA-BBOB-noisy-{noise}"
+    if kind not in NOISY_PROBLEM_KINDS:
+        raise ValueError(
+            f"unknown noise model {noise!r}; known: {sorted(k.rsplit('-', 1)[1] for k in NOISY_PROBLEM_KINDS)}"
+        )
+    return IOHBatterySpec(
+        name=f"ioh-noisy-{noise}-{level}",
+        problem_kind=kind,
+        dims=(2, 5),
+        instances=tuple(range(5)),
+        reps=1,
+        budget_multiplier=500,
+        noise_level=level,
+    )
+
+
+def make_highdim_battery() -> IOHBatterySpec:
+    """Noiseless MA-BBOB at *d* = 10 and 20, at the competition budget.
+
+    Three instances rather than five, and ``2000·d`` evaluations
+    (20 000 at *d* = 10, 40 000 at *d* = 20) — the regime §2c item 1
+    predicts a sharing portfolio should finally pay in, because a single
+    arm cannot converge inside the budget.
+
+    Cost, measured 2026-09-10 on a 16-core laptop (``nice -n 15``,
+    ``sync_eval=True``, two screens running side by side): **≈ 18 s per
+    run at *d* = 10 and ≈ 55 s at *d* = 20**, for both a CMA-ES arm and
+    the two-arm warm portfolio.  The full 2 × 3 cube is therefore ≈ 3.7
+    min per strategy per seed — a 4-spec, 3-seed screen is ≈ 45 min, and
+    the *d* = 10 half of it alone is ≈ 11 min.  Screen at ``dims=(10,)``
+    first.  Most of the wall time is the JSON-Lines round-trip to the
+    ``ioh`` worker (one subprocess call per evaluation), so the cost
+    scales with the budget, not with the optimizer.
+    """
+    return IOHBatterySpec(
+        name="ioh-highdim",
+        problem_kind="MA-BBOB",
+        dims=(10, 20),
+        instances=(0, 1, 2),
+        reps=1,
+        budget_multiplier=2000,
+    )
+
+
+def make_noisy_highdim_battery(noise: str = "gauss", *, level: str = "moderate") -> IOHBatterySpec:
+    """Both regimes at once — noise at *d* = 10, at the standard budget.
+
+    ``dims=(10,)``, instances 0–2, ``budget_multiplier=500`` (5000
+    evaluations per run): deliberately the cheap corner of the cross, so
+    the two effects can be crossed for far less than
+    :func:`make_highdim_battery` costs.  Measured 2026-09-10: **≈ 3 s per
+    run**, i.e. a 4-spec 3-seed screen (36 runs) in under two minutes.
+
+    Read it against ``make_highdim_battery()`` with ``bm=500``, not
+    against the 2000·d one: at 500·d a *d* = 10 run has not converged,
+    and which arm leads depends on the budget as much as on the noise.
+    """
+    kind = f"MA-BBOB-noisy-{noise}"
+    if kind not in NOISY_PROBLEM_KINDS:
+        raise ValueError(f"unknown noise model {noise!r}")
+    return IOHBatterySpec(
+        name=f"ioh-noisy-highdim-{noise}-{level}",
+        problem_kind=kind,
+        dims=(10,),
+        instances=(0, 1, 2),
+        reps=1,
+        budget_multiplier=500,
+        noise_level=level,
     )
 
 
@@ -480,6 +643,20 @@ class IOHRunRecord:
     # store best_fx at evenly-spaced budget fractions.
     trace_evals: List[int] = field(default_factory=list)
     trace_fx: List[float] = field(default_factory=list)
+    # --- noisy batteries only (None on a noiseless kind) ----------------
+    #: Seed of the noise realisation.  Shared by every strategy on this
+    #: (dim, instance, rep) cell, so the comparison stays paired: all
+    #: arms face the *same* noisy function.
+    noise_seed: Optional[int] = None
+    #: AOCC an optimizer would compute from its own (noisy) observations.
+    #: Optimistically biased — the minimum of many noisy readings sits
+    #: below the minimum of their means — and reported only as a
+    #: diagnostic.  ``aocc`` above is on the true value.
+    aocc_observed: Optional[float] = None
+    #: AOCC of the *recommendation* trace: the true value of whichever
+    #: point currently has the best observed value.  ``aocc - aocc_reco``
+    #: is the price of being fooled by the noise.
+    aocc_reco: Optional[float] = None
 
     @property
     def precision(self) -> float:
@@ -558,6 +735,11 @@ class IOHHarnessResult:
             print("  eval mode:    sync (deterministic result batches)")
         print(f"  log targets:  [10^{self.log_lo:.0f}, 10^{self.log_hi:.0f}]")
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.runs)} run(s)")
+        obs = [r.aocc_observed for r in self.runs if r.error is None and r.aocc_observed is not None]
+        if obs:
+            reco = [r.aocc_reco for r in self.runs if r.error is None and r.aocc_reco is not None]
+            print(f"  (noisy: AOCC is on the TRUE value; observed {float(np.mean(obs)):.4f}", end="")
+            print(f", recommendation {float(np.mean(reco)):.4f})" if reco else ")")
         print("\n  per strategy:")
         for name, val in sorted(self.per_strategy_aocc().items(), key=lambda kv: -kv[1]):
             print(f"    {name:32s}  {val:.4f}")
@@ -793,8 +975,49 @@ def paired_seed_stats(before: IOHMultiSeedResult, after: IOHMultiSeedResult) -> 
 # ---------------------------------------------------------------------------
 
 
-def _derive_seed(base_seed: int, problem_kind: str, dim: int, instance: int, strategy_name: str, rep: int) -> int:
-    payload = f"{base_seed}|{problem_kind}|{dim}|{instance}|{strategy_name}|{rep}".encode()
+def _derive_seed(
+    base_seed: int,
+    problem_kind: str,
+    dim: int,
+    instance: int,
+    strategy_name: str,
+    rep: int,
+    noise_seed: Optional[int] = None,
+) -> int:
+    """Per-run RNG seed.
+
+    ``noise_seed`` is appended only when it is not ``None``, so every
+    noiseless battery keeps the seeds it had before noisy kinds existed —
+    ``tests/test_harness_reproducibility.py`` and every historical
+    comparison depend on that.
+
+    Consequence worth knowing before reading a table: a *noisy* battery
+    and its noiseless counterpart run on **different RNG streams** (the
+    kind differs, and the noise seed is appended), so
+    "same arm, noise vs no noise" is an *unpaired* comparison and carries
+    the full null floor of ±0.05 for a CMA-ES-containing spec (§18a).
+    Comparisons *within* one battery — every ``delta vs <ref>`` the
+    screen prints — are paired per (seed, dim, instance) cell and are the
+    ones that resolve small effects.
+    """
+    payload = f"{base_seed}|{problem_kind}|{dim}|{instance}|{strategy_name}|{rep}"
+    if noise_seed is not None:
+        payload += f"|n{noise_seed}"
+    return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:4], "little")
+
+
+def _derive_noise_seed(base_seed: int, problem_kind: str, dim: int, instance: int, rep: int) -> int:
+    """Seed of the noise realisation for one (dim, instance, rep) cell.
+
+    Deliberately **not** a function of the strategy: every arm on a cell
+    must face the identical noisy function or the paired comparison the
+    whole harness rests on (``AGENTS.md`` "Statistical rigor",
+    ``StrategySpec.seed_name``) leaks the noise realisation into the
+    delta.  It *is* a function of the instance and the rep, so the five
+    instances of a noisy battery are five different noise realisations
+    rather than one repeated.
+    """
+    payload = f"noise|{base_seed}|{problem_kind}|{dim}|{instance}|{rep}".encode()
     return int.from_bytes(hashlib.sha256(payload).digest()[:4], "little")
 
 
@@ -843,12 +1066,16 @@ def _run_one(
     log_hi: float,
     timeout_s: Optional[float] = None,
     sync_eval: bool = False,
+    noise_seed: Optional[int] = None,
+    noise_level: str = "moderate",
+    noise_resample: bool = False,
 ) -> IOHRunRecord:
     """Run one strategy on one (problem, instance) and return its record."""
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
     if problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
+    worker_kind, noise_tag = resolve_problem_kind(problem_kind)
 
     t0 = time.time()
     err: Optional[str] = None
@@ -858,27 +1085,43 @@ def _run_one(
     trace_evals: List[int] = []
     trace_fx: List[float] = []
     score = 0.0
-    wrapped: Optional[IOHProblem] = None
+    aocc_observed: Optional[float] = None
+    aocc_reco: Optional[float] = None
+    problem: Optional[Any] = None
 
     try:
-        wrapped = IOHProblem(
-            kind=problem_kind,
+        problem = IOHProblem(
+            kind=worker_kind,
             instance=instance,
             dim=dim,
             **builder_kwargs,
         )
-        f_opt = float(wrapped.optimum_y)
+        f_opt = float(problem.optimum_y)
+
+        if noise_tag is not None:
+            from panobbgo.lib.noise import NoisyProblem, make_noise_model
+
+            # Wrapped *in this process*, on top of the untouched worker
+            # problem.  The strategy sees only the noisy value; the
+            # tracker pulls both out of one inner evaluation.
+            problem = NoisyProblem(
+                problem,
+                make_noise_model(noise_tag, dim=dim, level=noise_level),
+                seed=int(noise_seed if noise_seed is not None else 0),
+                resample=noise_resample,
+                f_opt=f_opt,
+            )
 
         np.random.seed(seed)
 
-        tracker = IOHTracker(wrapped, budget=budget)
+        tracker = IOHTracker(problem, budget=budget)
         try:
             # The budget must reach the config *before* the heuristics are
             # constructed — budget-adaptive arms (``NP_init="auto"``) size
             # themselves from ``config.max_eval`` in their constructor, and
             # would otherwise read Config's default (1000) instead of the
             # battery's ``budget_multiplier * dim``.
-            strategy = strategy_spec.create_strategy(wrapped, seed=seed, max_eval=budget)
+            strategy = strategy_spec.create_strategy(problem, seed=seed, max_eval=budget)
             # Harmless belt-and-braces: keeps the invariant for factory-built
             # strategies that rebuild their own config.
             strategy.config.max_eval = budget
@@ -901,15 +1144,25 @@ def _run_one(
             tracker.restore()
 
         n_evals = tracker.n_evals
-        best_fx = tracker.best_fx
-        score = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
-        trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
+        if tracker.has_true:
+            # BBOB-noisy convention: the metric is scored on the true,
+            # noise-free value; what the optimizer *observed* is a
+            # diagnostic (and an optimistically biased one).
+            best_fx = tracker.best_true_fx
+            score = aocc(tracker.best_so_far_true, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
+            aocc_observed = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
+            aocc_reco = aocc(tracker.best_so_far_reco, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
+            trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far_true, budget=budget)
+        else:
+            best_fx = tracker.best_fx
+            score = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
+            trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
     except Exception as e:  # noqa: BLE001  — record and continue
         err = f"{type(e).__name__}: {e}"
     finally:
-        if wrapped is not None:
+        if problem is not None:
             try:
-                wrapped.close()
+                problem.close()
             except Exception:
                 pass
 
@@ -929,6 +1182,9 @@ def _run_one(
         error=err,
         trace_evals=trace_evals,
         trace_fx=trace_fx,
+        noise_seed=noise_seed,
+        aocc_observed=aocc_observed,
+        aocc_reco=aocc_reco,
     )
 
 
@@ -971,10 +1227,19 @@ def run_ioh_harness(
             for spec in strategies:
                 for rep in range(battery.reps):
                     idx += 1
+                    # One noise realisation per (dim, instance, rep) cell,
+                    # identical for every strategy — see _derive_noise_seed.
+                    noise_seed = (
+                        _derive_noise_seed(base_seed, battery.problem_kind, dim, instance, rep)
+                        if battery.is_noisy
+                        else None
+                    )
                     # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
                     # of one arm can opt into a shared RNG stream so an A/B
                     # measures the parameter, not the run-to-run variance.
-                    seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep)
+                    seed = _derive_seed(
+                        base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep, noise_seed
+                    )
                     if progress:
                         print(
                             f"  [{idx:>3d}/{total:>3d}] {battery.problem_kind} "
@@ -995,6 +1260,9 @@ def run_ioh_harness(
                         log_hi=log_hi,
                         timeout_s=timeout_s,
                         sync_eval=sync_eval,
+                        noise_seed=noise_seed,
+                        noise_level=battery.noise_level,
+                        noise_resample=battery.noise_resample,
                     )
                     if progress:
                         tag = "ERR " if rec.error else ""

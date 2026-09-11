@@ -40,6 +40,13 @@ Examples::
     uv run python scripts/ioh_benchmark.py run --families --sync-eval
     uv run python scripts/ioh_benchmark.py run --families-constrained --sync-eval
     uv run python scripts/ioh_benchmark.py run --families-quick --sync-eval   # smoke test
+
+    # The two regimes GOAL.md 2c asks for: noise, and dimension.  AOCC on a
+    # noisy battery is scored on the TRUE value (panobbgo.lib.noise).
+    uv run python scripts/ioh_benchmark.py run --noisy gauss --sync-eval
+    uv run python scripts/ioh_benchmark.py run --noisy cauchy --noisy-severe --sync-eval
+    uv run python scripts/ioh_benchmark.py run --highdim --sync-eval          # d = 10, 20; slow
+    uv run python scripts/ioh_benchmark.py run --noisy-highdim gauss --sync-eval
 """
 
 from __future__ import annotations
@@ -67,7 +74,10 @@ from panobbgo.harness_ioh import (
     IOHHarnessResult,
     IOHMultiSeedResult,
     make_full_battery,
+    make_highdim_battery,
     make_ioh_strategies,
+    make_noisy_battery,
+    make_noisy_highdim_battery,
     make_quick_battery,
     make_standard_battery,
     paired_seed_stats,
@@ -81,6 +91,15 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
         battery = make_full_battery()
     elif args.standard:
         battery = make_standard_battery()
+    elif getattr(args, "noisy", None):
+        # Standard cube, BBOB-style noise on the objective, AOCC scored on
+        # the TRUE value (panobbgo.lib.noise).  --noisy-severe switches the
+        # BBOB f101-f106 "moderate" parameters for the f107-f130 ones.
+        battery = make_noisy_battery(args.noisy, level="severe" if args.noisy_severe else "moderate")
+    elif getattr(args, "noisy_highdim", None):
+        battery = make_noisy_highdim_battery(args.noisy_highdim, level="severe" if args.noisy_severe else "moderate")
+    elif getattr(args, "highdim", False):
+        battery = make_highdim_battery()
     else:
         battery = make_quick_battery()
     if args.reps is not None:
@@ -327,6 +346,30 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         action="store_true",
         help="Smoke test of the family track: 2 instances at dim 2 (one unconstrained, one "
         "constrained), 100 evaluations each. Not a measurement.",
+    )
+    grp.add_argument(
+        "--noisy",
+        choices=("gauss", "unif", "cauchy"),
+        help="Standard MA-BBOB cube with BBOB-style noise on the objective. AOCC is scored on "
+        "the TRUE (noise-free) value, as the BBOB noisy suite does; what the optimizer observed "
+        "is reported alongside (panobbgo.lib.noise).",
+    )
+    grp.add_argument(
+        "--highdim",
+        action="store_true",
+        help="Noiseless MA-BBOB at dims (10, 20), instances 0-2, budget 2000*d. Expensive: "
+        "~18 s per run at d=10 and ~55 s at d=20.",
+    )
+    grp.add_argument(
+        "--noisy-highdim",
+        choices=("gauss", "unif", "cauchy"),
+        help="Both regimes crossed cheaply: noise at dim 10, instances 0-2, budget 500*d.",
+    )
+    run_p.add_argument(
+        "--noisy-severe",
+        action="store_true",
+        help="With --noisy / --noisy-highdim: the BBOB *severe* noise parameters (f107-f130) "
+        "instead of the moderate ones (f101-f106).",
     )
     run_p.add_argument("--baselines", action="store_true", help="Include external baselines (Random, scipy DE, ...).")
     run_p.add_argument(

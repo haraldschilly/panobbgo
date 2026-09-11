@@ -31,7 +31,7 @@ the full benchmark machinery.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Sequence
+from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 
@@ -109,15 +109,41 @@ class _BudgetExhausted(Exception):
 
 @dataclass
 class Trajectory:
-    """Convergence trace from one optimisation run."""
+    """Convergence trace from one optimisation run.
+
+    On a noiseless problem there is one trace and ``best_so_far`` is it.
+    On a noisy one (:class:`~panobbgo.lib.noise.NoisyProblem`) three
+    traces are recorded and they say different things:
+
+    * ``best_so_far`` — the best **observed** (noisy) value.  What the
+      optimizer believes it has achieved; biased optimistically, because
+      the minimum of many noisy readings is below the minimum of their
+      means.  Not a metric.
+    * ``best_so_far_true`` — the best **true** value over all evaluated
+      points.  The BBOB noisy-suite convention and the metric of record:
+      it credits the algorithm for having *visited* a good point, whether
+      or not the noise let it recognise one.
+    * ``best_so_far_reco`` — the true value of the current
+      **recommendation**, i.e. of the point with the best observed value.
+      Not monotone.  The gap to ``best_so_far_true`` is exactly the cost
+      of being fooled by the noise, which no other trace measures.
+    """
 
     best_so_far: List[float]
     n_evals: int
     best_x: Optional[np.ndarray]
     best_fx: float
+    best_so_far_true: Optional[List[float]] = None
+    best_so_far_reco: Optional[List[float]] = None
+    best_true_fx: float = float("nan")
 
     def aocc(self, f_opt: float = 0.0, budget: Optional[int] = None) -> float:
         return aocc(self.best_so_far, f_opt=f_opt, budget=budget)
+
+    def aocc_true(self, f_opt: float = 0.0, budget: Optional[int] = None) -> float:
+        """AOCC on the true trace, falling back to the observed one."""
+        trace = self.best_so_far_true if self.best_so_far_true is not None else self.best_so_far
+        return aocc(trace, f_opt=f_opt, budget=budget)
 
 
 class IOHTracker:
@@ -150,6 +176,22 @@ class IOHTracker:
         self.best_x: Optional[np.ndarray] = None
         self.best_so_far: List[float] = []
 
+        # Noisy problems expose ``eval_pair(x) -> (noisy, true)``: both
+        # values out of *one* inner evaluation, so the true trace costs no
+        # extra worker round-trips.  A plain problem has no such method and
+        # the true trace is simply not recorded (``has_true`` is False).
+        pair = getattr(problem, "eval_pair", None)
+        self._eval_pair: Optional[Callable[[np.ndarray], Tuple[float, float]]] = (
+            cast("Callable[[np.ndarray], Tuple[float, float]]", pair) if callable(pair) else None
+        )
+        self.has_true: bool = self._eval_pair is not None
+        self.best_true_fx: float = float("inf")
+        self.best_so_far_true: List[float] = []
+        #: True value of the incumbent — the point with the best *observed*
+        #: value.  Non-monotone under noise; see :class:`Trajectory`.
+        self.best_so_far_reco: List[float] = []
+        self._incumbent_true: float = float("inf")
+
         self._orig_eval: Callable[[np.ndarray], float] = problem.eval
         problem.eval = self._tracked_eval  # type: ignore[method-assign]
 
@@ -160,12 +202,23 @@ class IOHTracker:
             # Soft mode: don't fail the evaluation; just signal "no useful
             # value" so the strategy treats it as a non-improvement.
             return self.best_fx if np.isfinite(self.best_fx) else float("inf")
-        fx = float(self._orig_eval(x))
+        if self._eval_pair is not None:
+            noisy, true_fx = self._eval_pair(x)
+            fx, tfx = float(noisy), float(true_fx)
+        else:
+            fx = float(self._orig_eval(x))
+            tfx = fx
         self.n_evals += 1
         if np.isfinite(fx) and fx < self.best_fx:
             self.best_fx = fx
             self.best_x = np.asarray(x, dtype=np.float64).copy()
+            self._incumbent_true = tfx
+        if np.isfinite(tfx) and tfx < self.best_true_fx:
+            self.best_true_fx = tfx
         self.best_so_far.append(self.best_fx)
+        if self.has_true:
+            self.best_so_far_true.append(self.best_true_fx)
+            self.best_so_far_reco.append(self._incumbent_true)
         return fx
 
     def restore(self) -> None:
@@ -178,6 +231,9 @@ class IOHTracker:
             n_evals=self.n_evals,
             best_x=self.best_x,
             best_fx=self.best_fx,
+            best_so_far_true=list(self.best_so_far_true) if self.has_true else None,
+            best_so_far_reco=list(self.best_so_far_reco) if self.has_true else None,
+            best_true_fx=self.best_true_fx if self.has_true else float("nan"),
         )
 
 
@@ -194,6 +250,9 @@ def run_strategy_on_ioh_problem(
     strategy_factory: Callable[[Any], Any],
     budget: Optional[int] = None,
     fid: Optional[int] = None,
+    noise: Optional[Any] = None,
+    noise_seed: int = 0,
+    resample: bool = False,
 ) -> Trajectory:
     """Run a panobbgo strategy against an IOH problem (spawns a worker subprocess).
 
@@ -216,6 +275,12 @@ def run_strategy_on_ioh_problem(
         MA-BBOB anytime competition rules.
     fid
         BBOB function id (1..24).  Required when ``kind == "BBOB"``.
+    noise
+        Optional :class:`~panobbgo.lib.noise.NoiseModel`.  When given, the
+        problem is wrapped in a :class:`~panobbgo.lib.noise.NoisyProblem`
+        and the returned trajectory carries the true traces as well.
+    noise_seed, resample
+        Forwarded to :class:`~panobbgo.lib.noise.NoisyProblem`.
 
     Returns
     -------
@@ -224,19 +289,22 @@ def run_strategy_on_ioh_problem(
     """
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
-    wrapped = IOHProblem(kind=kind, instance=instance, dim=dim, fid=fid)
+    wrapped: Any = IOHProblem(kind=kind, instance=instance, dim=dim, fid=fid)
     try:
-        if budget is None:
-            budget = 2000 * wrapped.dim
+        if noise is not None:
+            from panobbgo.lib.noise import NoisyProblem
 
-        tracker = IOHTracker(wrapped, budget=budget)
+            wrapped = NoisyProblem(wrapped, noise, seed=noise_seed, resample=resample)
+        n_evals_budget = int(budget) if budget is not None else 2000 * int(wrapped.dim)
+
+        tracker = IOHTracker(wrapped, budget=n_evals_budget)
         try:
             strategy = strategy_factory(wrapped)
             # The strategy's own max_eval should be set via panobbgo config,
             # but the tracker enforces budget hard-stop regardless.
             if hasattr(strategy, "config"):
                 if hasattr(strategy.config, "max_eval"):
-                    strategy.config.max_eval = budget
+                    strategy.config.max_eval = n_evals_budget
                 # Anytime metric: don't let convergence detection forfeit the
                 # remaining budget — the tracker is the only authority that
                 # ends the run.

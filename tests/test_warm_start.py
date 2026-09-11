@@ -514,3 +514,69 @@ def test_an_empty_archive_degrades_to_the_cold_path():
         _run(warm_start=None, with_archive=True),
         _run(warm_start="archive", with_archive=True),
     )
+
+
+# ``_run`` above carries a JSO, a PSO and a CMAES, so the two contracts it
+# pins were only ever checked on those three.  The rest of the L-SHADE
+# family overrides pieces of the warm-start path, and one of those overrides
+# was randomised: ``NLSHADE_RSP._archive_cap`` samples the per-generation
+# archive cap from ``self._rng`` when ``adaptive_archive=True`` (its
+# default, inherited by ``NLSHADE_LBC``), and
+# ``LSHADE._warm_start_population`` used to call it one line *before* the
+# "empty archive -> cold path" bail-out.  So on those two arms, passing
+# ``warm_start="archive"`` against an empty archive consumed a draw and
+# shifted the entire initial population — the warm start never happened,
+# but the run moved anyway, which makes every paired warm-vs-cold A/B on
+# them a comparison of two different RNG streams.  One arm per run here, so
+# a regression names the arm that broke.
+_DE_FAMILY = ("LSHADE", "JSO", "NLSHADE_RSP", "NLSHADE_LBC", "LSHADE_EpSin")
+
+
+def _run_arm(name, seed=1234, max_eval=60, warm_start="__omitted__", with_archive=False):
+    """``_run``, but with a single named arm of the L-SHADE family."""
+    import panobbgo.heuristics as H
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, seed=seed)
+    s.config.max_eval = max_eval
+    s.config.sync_evaluation = True
+    s.config.stop_on_convergence = False
+
+    kw = {} if warm_start == "__omitted__" else {"warm_start": warm_start}
+    s.add_heuristic(getattr(H, name)(s, NP_init=8, **kw))
+    if with_archive:
+        s.add_analyzer(Archive(s))
+    s.start()
+
+    df = s.results.results
+    assert df is not None and len(df) >= max_eval
+    return (
+        df["x"].to_numpy(dtype=float),
+        df["fx"].to_numpy(dtype=float).ravel(),
+        df["who"].to_numpy().ravel().astype(str),
+    )
+
+
+@pytest.mark.parametrize("name", _DE_FAMILY)
+def test_empty_archive_is_the_cold_path_for_the_whole_de_family(name):
+    """Every L-SHADE variant, not just the two ``_run`` happens to carry."""
+    _assert_same(
+        _run_arm(name, warm_start=None, with_archive=True),
+        _run_arm(name, warm_start="archive", with_archive=True),
+    )
+
+
+@pytest.mark.parametrize("name", _DE_FAMILY)
+@pytest.mark.parametrize("mode", ("archive", "archive_diverse", "archive_leaf"))
+def test_every_selector_is_free_against_an_empty_archive(name, mode):
+    """The bail-out must cost nothing whichever selector asked for it."""
+    _assert_same(
+        _run_arm(name, warm_start=None, with_archive=True),
+        _run_arm(name, warm_start=mode, with_archive=True),
+    )
+
+
+@pytest.mark.parametrize("name", _DE_FAMILY)
+def test_explicit_none_is_the_omitted_run_for_the_whole_de_family(name):
+    """And the keyword itself stays inert, arm by arm."""
+    _assert_same(_run_arm(name, warm_start="__omitted__"), _run_arm(name, warm_start=None))

@@ -936,10 +936,29 @@ class LSHADE(Heuristic):
             self._NP_current = self.NP_init
 
         slots = [i for i, slot in enumerate(self._population) if not isinstance(slot, _Dropped)]
+
+        # Find out whether the archive has anything at all *before* asking for
+        # the archive cap.  :meth:`_archive_cap` is not a pure accessor in
+        # every subclass: :meth:`NLSHADE_RSP._archive_cap
+        # <panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP._archive_cap>` draws
+        # the per-generation cap from ``self._rng`` when
+        # ``adaptive_archive=True`` (the default).  Computing it on a path
+        # that then bails out consumed an RNG draw, so on NL-SHADE-RSP and
+        # NL-SHADE-LBC merely *passing* ``warm_start="archive"`` shifted the
+        # whole initial population even though the empty archive meant the
+        # warm start never happened — which turns every paired "warm vs cold"
+        # A/B on those arms into a comparison of two different RNG streams
+        # (``DISCOVERY_2026-09-09.md`` §18).  ``archive_seed`` is a pure
+        # query with no randomness of its own and returns a prefix of the
+        # same ranking for every ``k``, so a one-element probe is empty
+        # exactly when the full request would be.
+        if not self.archive_seed(1, mode=self.warm_start, box=self.warm_start_box):
+            return False  # empty archive: the caller falls back to the cold path
+
         cap = self._archive_cap()
         pool = self.archive_seed(len(slots) + cap, mode=self.warm_start, box=self.warm_start_box)
         if not pool:
-            return False  # empty archive: the caller falls back to the cold path
+            return False  # nothing requestable (every slot dropped and cap 0)
 
         seeds = pool[: len(slots)]
         for i, r in zip(slots, seeds):

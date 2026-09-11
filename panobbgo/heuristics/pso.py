@@ -94,7 +94,11 @@ How ``sbest_i`` is determined depends on the *swarm topology*:
   consecutive incoming results land without lifting ``_gbest_idx``,
   the adjacency is rebuilt from the heuristic's RNG and the counter
   resets.  ``stagnation_threshold=None`` (default) preserves the
-  static-between-restarts behaviour shipped 2026-05-29.
+  static-between-restarts behaviour shipped 2026-05-29.  The knob
+  belongs to *this* topology and nowhere else: the constructor raises
+  a :exc:`ValueError` if it is combined with ``gbest``, ``lbest`` or
+  ``vonneumann``, whose adjacency is a deterministic function of
+  ``NP`` with nothing to re-sample.
 
 The four topologies are *complementary*: ``gbest`` excels on unimodal /
 weakly-multimodal problems where rapid exploitation pays off, ``lbest``
@@ -276,10 +280,14 @@ class PSO(Heuristic):
             results land without lifting the global best.  The Clerc /
             SPSO 2011 default is ``NP`` (one swarm-cycle's worth of
             evaluations).  ``None`` (default) preserves the static-
-            between-restarts behaviour shipped 2026-05-29.  Ignored
-            for ``topology in {"gbest", "lbest", "vonneumann"}`` — the
-            three geometric topologies are deterministic functions of
-            ``NP`` and have no stochastic graph to rebuild.
+            between-restarts behaviour shipped 2026-05-29.  **Rejected**
+            with a :exc:`ValueError` for ``topology in {"gbest", "lbest",
+            "vonneumann"}`` — the three geometric topologies are
+            deterministic functions of ``NP`` and have no stochastic graph
+            to rebuild, so the argument could only ever be inert there.
+            Until 2026-09-11 it was accepted and silently ignored, which
+            made a sweep over it on a default-topology swarm measure
+            nothing (``planning/DISCOVERY_2026-09-09.md`` §18).
         warm_start: Optional seeding of the initial swarm from the *shared*
             archive instead of uniform random positions
             (``planning/DESIGN_warm_start_2026-09-10.md`` §2).  One of
@@ -352,6 +360,23 @@ class PSO(Heuristic):
                 )
             if stagnation_threshold < 1:
                 raise ValueError(f"PSO: stagnation_threshold must be >= 1 when set, got {stagnation_threshold}")
+            if topology != "random":
+                # The mechanism *is* "re-roll the random informer graph"
+                # (:meth:`_init_random_adjacency`), and the other three
+                # topologies have no such graph: ``gbest`` has no graph at
+                # all, ``lbest`` is a wrap-around ring and ``vonneumann`` a
+                # toroidal grid, both deterministic functions of ``NP`` (and
+                # ``k_neighbors``).  There is nothing to re-sample, so the
+                # argument used to be validated, stored and then silently
+                # ignored — a sweep over it on a default-topology swarm
+                # measured nothing at all.  Refuse the combination instead of
+                # accepting a knob that cannot do anything.
+                raise ValueError(
+                    f"PSO: stagnation_threshold applies only to topology='random' — it re-samples "
+                    f"the stochastic informer graph, and topology={topology!r} has no such graph "
+                    f"(gbest has none; lbest and vonneumann are deterministic in NP). "
+                    f"Pass topology='random', or leave stagnation_threshold=None."
+                )
         if warm_start is not None and warm_start not in Heuristic.WARM_START_MODES:
             raise ValueError(f"PSO: warm_start must be None or one of {Heuristic.WARM_START_MODES}, got {warm_start!r}")
 
@@ -535,9 +560,13 @@ class PSO(Heuristic):
         global best.  When the counter reaches
         :attr:`stagnation_threshold` (and the topology is ``"random"``),
         the adjacency is rebuilt from the heuristic's RNG and the
-        counter resets.  No-op for any other topology, when the
-        threshold is ``None`` (default), or when the swarm has not
-        seen any global best yet.
+        counter resets.  No-op when the threshold is ``None`` (default)
+        or when the swarm has not seen any global best yet.
+
+        The topology half of the guard is belt-and-braces: since
+        2026-09-11 the constructor refuses ``stagnation_threshold`` with
+        any topology but ``"random"``, so it can only fire if
+        :attr:`topology` is reassigned after construction.
 
         Args:
             prev_gbest_result: The :class:`~panobbgo.lib.Result`

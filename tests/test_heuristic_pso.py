@@ -1120,30 +1120,34 @@ class PSOStochasticKTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._stagnation_counter == 0
         assert h._random_adjacency == before
 
-    def test_stagnation_noop_for_non_random_topology(self):
-        """``stagnation_threshold`` is ignored for ``gbest`` / ``lbest`` / ``vonneumann``."""
+    def test_stagnation_threshold_rejected_for_non_random_topology(self):
+        """``stagnation_threshold`` is a ``random``-topology knob, and only that.
+
+        The mechanism it switches on is "re-roll the stochastic informer
+        graph".  ``gbest`` has no graph, and ``lbest`` / ``vonneumann`` have
+        deterministic ones (a wrap-around ring and a toroidal grid, both
+        functions of ``NP``), so there is nothing for it to do there.  Until
+        2026-09-11 the constructor validated the argument and then ignored
+        it, which made a sweep over it on a default-topology swarm measure
+        exactly nothing — the ``ipop_factor`` failure mode of
+        ``DISCOVERY_2026-09-09.md`` §18.  It now refuses the combination.
+        """
         from panobbgo.heuristics.pso import PSO
 
         for topo in ("gbest", "lbest", "vonneumann"):
-            h = PSO(
-                self.strategy,
-                NP=12,
-                topology=topo,
-                k_neighbors=2,
-                stagnation_threshold=2,
-                seed=5,
-            )
+            with pytest.raises(ValueError, match="stagnation_threshold applies only to topology='random'"):
+                PSO(self.strategy, NP=12, topology=topo, k_neighbors=2, stagnation_threshold=2, seed=5)
+
+    def test_default_threshold_is_accepted_by_every_topology(self):
+        """The default stays universal — only the *set* knob is topology-bound."""
+        from panobbgo.heuristics.pso import PSO
+
+        for topo in ("gbest", "lbest", "vonneumann", "random"):
+            h = PSO(self.strategy, NP=12, topology=topo, k_neighbors=2, stagnation_threshold=None, seed=5)
+            assert h.stagnation_threshold is None
             h.on_start()
-            # No random adjacency exists — only the random topology
-            # allocates one.
-            assert h._random_adjacency is None
-            self._feed(h, 0, -1.0)  # establishes gbest
-            self._feed(h, 1, 100.0)
-            self._feed(h, 2, 100.0)
-            self._feed(h, 3, 100.0)
-            # The counter advances but nothing else changes — there is
-            # no adjacency to rebuild under these topologies.
-            assert h._random_adjacency is None
+            # Only the random topology allocates a stochastic adjacency.
+            assert (h._random_adjacency is None) is (topo != "random")
 
     def test_stagnation_counter_resets_on_restart(self):
         """``on_restart`` zeros the stagnation counter even if mid-stagnation."""

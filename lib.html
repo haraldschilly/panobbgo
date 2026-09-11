@@ -135,6 +135,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.Problem.dim"><code class="docutils literal notranslate"><span class="pre">Problem.dim</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Problem.eval"><code class="docutils literal notranslate"><span class="pre">Problem.eval()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Problem.eval_constraints"><code class="docutils literal notranslate"><span class="pre">Problem.eval_constraints()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.Problem.is_constrained"><code class="docutils literal notranslate"><span class="pre">Problem.is_constrained()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Problem.project"><code class="docutils literal notranslate"><span class="pre">Problem.project()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Problem.random_point"><code class="docutils literal notranslate"><span class="pre">Problem.random_point()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.Problem.ranges"><code class="docutils literal notranslate"><span class="pre">Problem.ranges</span></code></a></li>
@@ -487,6 +488,19 @@ It has to return a <a class="reference external" href="https://numpy.org/doc/sta
 <dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)">numpy.ndarray</a></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.Problem.is_constrained">
+<span class="sig-name descname"><span class="pre">is_constrained</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#Problem.is_constrained"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.Problem.is_constrained" title="Link to this definition">#</a></dt>
+<dd><p>Does this problem report constraint violations?</p>
+<p>There is no declared flag: a problem is constrained iff its
+<a class="reference internal" href="#panobbgo.lib.Problem.eval_constraints" title="panobbgo.lib.Problem.eval_constraints"><code class="xref py py-meth docutils literal notranslate"><span class="pre">eval_constraints()</span></code></a> returns a vector rather than <code class="docutils literal notranslate"><span class="pre">None</span></code>, and
+several implementations decide that per instance (a family with
+<code class="docutils literal notranslate"><span class="pre">n_constraints=0</span></code> returns <code class="docutils literal notranslate"><span class="pre">None</span></code>).  So the constraints are
+evaluated <strong>once</strong>, at the box centre, through the same translation
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">__call__()</span></code> applies.  That is one constraint evaluation and no
+objective evaluation; it does not touch any evaluation counter.</p>
 </dd></dl>
 
 <dl class="py method">

@@ -682,7 +682,19 @@ their rows after every seed so an interrupted run loses nothing:
    * - ``portfolio_screen.py``
      - Whether a *portfolio* under ``StrategyBlockBandit`` beats one arm, and
        what warm starting from the shared archive is worth against the same
-       portfolio cold.
+       portfolio cold.  ``kind=`` selects the regime (``standard``,
+       ``noisy-gauss`` / ``noisy-unif`` / ``noisy-cauchy``, ``highdim``);
+       ``RegimeGate_oracle`` is the sharing portfolio behind the *oracle*
+       regime gate — ``regime_gate="oracle"`` in its spec, which the harness
+       resolves per run to ``"oracle:<class>"`` from the battery's noise tag
+       (gauss/unif → ``bounded``, cauchy → ``outlier``, else ``clean``;
+       :func:`panobbgo.harness_ioh.noise_class_of`,
+       :meth:`panobbgo.benchmark.StrategySpec.with_regime_class`).  It shares
+       the portfolio's RNG stream, so its delta to ``Blocks_uniform_cj_warm2``
+       is the gate alone; its delta to ``CMAES_alone`` on cauchy and unif is
+       the design's falsifier.  The same spec is registered in
+       ``make_ioh_strategies`` for ``ioh_benchmark.py run --strategies
+       RegimeGate_oracle``.
    * - ``family_screen.py``
      - Whether that verdict survives *outside* MA-BBOB: the same specs on the
        generated problem families of :mod:`panobbgo.harness_families` —

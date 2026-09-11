@@ -909,7 +909,19 @@ old rule vs. new vs. plain <code class="docutils literal notranslate"><span clas
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">portfolio_screen.py</span></code></p></td>
 <td><p>Whether a <em>portfolio</em> under <code class="docutils literal notranslate"><span class="pre">StrategyBlockBandit</span></code> beats one arm, and
 what warm starting from the shared archive is worth against the same
-portfolio cold.</p></td>
+portfolio cold.  <code class="docutils literal notranslate"><span class="pre">kind=</span></code> selects the regime (<code class="docutils literal notranslate"><span class="pre">standard</span></code>,
+<code class="docutils literal notranslate"><span class="pre">noisy-gauss</span></code> / <code class="docutils literal notranslate"><span class="pre">noisy-unif</span></code> / <code class="docutils literal notranslate"><span class="pre">noisy-cauchy</span></code>, <code class="docutils literal notranslate"><span class="pre">highdim</span></code>);
+<code class="docutils literal notranslate"><span class="pre">RegimeGate_oracle</span></code> is the sharing portfolio behind the <em>oracle</em>
+regime gate — <code class="docutils literal notranslate"><span class="pre">regime_gate=&quot;oracle&quot;</span></code> in its spec, which the harness
+resolves per run to <code class="docutils literal notranslate"><span class="pre">&quot;oracle:&lt;class&gt;&quot;</span></code> from the battery’s noise tag
+(gauss/unif → <code class="docutils literal notranslate"><span class="pre">bounded</span></code>, cauchy → <code class="docutils literal notranslate"><span class="pre">outlier</span></code>, else <code class="docutils literal notranslate"><span class="pre">clean</span></code>;
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness_ioh.noise_class_of()</span></code>,
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.benchmark.StrategySpec.with_regime_class()</span></code>).  It shares
+the portfolio’s RNG stream, so its delta to <code class="docutils literal notranslate"><span class="pre">Blocks_uniform_cj_warm2</span></code>
+is the gate alone; its delta to <code class="docutils literal notranslate"><span class="pre">CMAES_alone</span></code> on cauchy and unif is
+the design’s falsifier.  The same spec is registered in
+<code class="docutils literal notranslate"><span class="pre">make_ioh_strategies</span></code> for <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--strategies</span>
+<span class="pre">RegimeGate_oracle</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">family_screen.py</span></code></p></td>
 <td><p>Whether that verdict survives <em>outside</em> MA-BBOB: the same specs on the

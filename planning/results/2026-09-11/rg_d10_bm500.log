@@ -1,0 +1,50 @@
+RegimeGate_oracle: regime_gate=oracle:clean (battery ioh-highdim, dims [10], budget 500*d)
+0.010789 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.010889 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.070233 config:343      CONFG INFO      Evaluation method: threaded
+0.070286 config:346      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'71cd0831162a40ff80c8ef8fe4b3811c8250de18'}
+seed 42 done (27s)
+seed 7 done (53s)
+seed 1234 done (80s)
+seed 2025 done (110s)
+seed 3 done (141s)
+seed 11 done (170s)
+seed 99 done (199s)
+seed 123 done (226s)
+seed 777 done (255s)
+seed 2024 done (283s)
+seed 31337 done (313s)
+seed 555 done (339s)
+
+=== portfolio screen ===  (12 seeds, dims [10], ioh-highdim, budget 500*d, insts [0, 1, 2])
+specs: CMAES_alone, JSO_alone, Blocks_uniform_cj_warm2, RegimeGate_oracle   cells: 36
+
+spec                                    mean       d=10
+CMAES_alone                           0.4223     0.4223
+RegimeGate_oracle                     0.4223     0.4223
+Blocks_uniform_cj_warm2               0.3997     0.3997
+JSO_alone                             0.3665     0.3665
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds       d=10
+RegimeGate_oracle                     +0.0000     [+0.0000,+0.0000]   0/12     +0.0000
+Blocks_uniform_cj_warm2               -0.0226     [-0.0696,+0.0244]   6/12     -0.0226
+JSO_alone                             -0.0558     [-0.0983,-0.0132]   2/12     -0.0558 <--
+
+delta vs JSO_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds       d=10
+CMAES_alone                           +0.0558     [+0.0132,+0.0983]  10/12     +0.0558 <--
+RegimeGate_oracle                     +0.0558     [+0.0132,+0.0983]  10/12     +0.0558 <--
+Blocks_uniform_cj_warm2               +0.0332     [+0.0080,+0.0584]   9/12     +0.0332 <--
+
+--- screening gates (design §6) ---
+  G5 FAIL  best warm (Blocks_uniform_cj_warm2) - best single (CMAES_alone) -0.0226  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.
+exit=0

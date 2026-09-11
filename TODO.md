@@ -62,10 +62,10 @@ gebaut ist.
       in `Results.add_results` (publish vor extend), gefixt f4b6376.
 - [x] **F2** (`_archive_cap()`-Draw vor dem Bail-out) und **F5** (PSO-Knopf
       inert → `ValueError` außerhalb `topology="random"`): gefixt 4d58531.
-- [ ] **F1/F3/F4** (RoundRobin-Division; Pull-Bridge für L-BFGS-B/COBYQA;
-      Liveness statt Wall-Clock-Stall-Guard) — Agent nach
-      `planning/DESIGN_pump_and_stall_2026-09-11.md`. RegionUCB `on_start`
-      erledigt (ebb8290).
+- [x] **F1/F3/F4** gefixt dd8b096: Pull-Bridge (`PipeBridgeHeuristic`) für
+      L-BFGS-B/COBYQA, Liveness aus Zustand statt Wall-Clock-Stall-Guard
+      (`deadlock_seconds` Backstop), RoundRobin-Division. Offen:
+      `LocalPenaltySearch` (letzter Pump-Thread) — Agent.
 - [ ] **Invarianten-Tests robust machen** — vier trajektorienabhängige Fälle
       kippten mit dem Splitter-Umbau; master-CI rot bis der grüne Stand
       landet.

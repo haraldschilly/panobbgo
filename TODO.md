@@ -55,6 +55,9 @@ gebaut ist.
       springen, analysieren, wo noch etwas zu holen ist / wo nicht
       gesucht wurde, Modell rechnen, Kandidatenpunkte an die Solver.
       Trigger-Regel ist Experimentsache.
+- [x] **Splitter-Auflösung** (§35/§37): budget-skaliert, 12-Seed-akzeptiert
+      für alle Baum-Konsumenten (RegionUCB +0.050 12/12). Median-Schnitt +
+      `RegionUCB.on_start` folgen als Patch v2.
 - [ ] **Fixes aus der Fundliste** (§36, nach dem Nondeterminismus-Fix, da
       Datei-Überlappung): F1 RoundRobin-Division, F2 `_archive_cap()`-Draw
       vor dem Bail-out (RSP/LBC), F5 PSO-Knopf inert, RegionUCB `on_start`;

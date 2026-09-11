@@ -89,23 +89,34 @@ random draw, so a warm-started worker degrades gracefully to classic multi-
 start until the portfolio produces its first result.  ``warm_start=False``
 (the default) keeps the historical uniform-restart worker byte-for-byte.
 
-Asynchronous execution
-----------------------
+On-demand execution (the pull bridge)
+-------------------------------------
 
 Like :class:`~panobbgo.heuristics.cobyqa.COBYQA`, ``fmin_l_bfgs_b`` is
 *synchronous*: it calls a Python callable ``f(x)`` and blocks for the return
-value.  We run it in a dedicated subprocess and bridge each ``f(x)`` request
-to Panobbgo's event-driven main thread over a pipe:
+value, and it cannot be suspended mid-step to yield an evaluation request.  We
+run it in a dedicated subprocess and bridge each ``f(x)`` request over a pipe —
+**from the strategy's own thread**, via
+:class:`~panobbgo.core.PipeBridgeHeuristic`:
 
 1. The subprocess calls ``f(x)``, which ``pipe.send(x)`` and ``pipe.recv()``.
-2. The main thread (:meth:`on_start`) polls the pipe, projects ``x`` onto the
-   feasible box, emits the projected point, and when the evaluation returns in
-   :meth:`on_new_results` sends the penalty value back over the pipe.
-3. The subprocess uses that value to continue the quasi-Newton step.
+2. The strategy calls :meth:`~panobbgo.core.PipeBridgeHeuristic.produce`, which
+   receives ``x``, projects it onto the feasible box and emits it.
+3. :meth:`~panobbgo.core.PipeBridgeHeuristic.on_new_results` *stores* the
+   penalty value; the next ``produce`` sends it back and receives the next
+   ``x``.
+
+Until 2026-09 steps 2 and 3 ran on a daemon "pump" thread and the event-bus
+thread respectively, which left this heuristic's output queue empty whenever a
+scheduler looked at it — beside any competitor with a stocked queue it
+contributed *zero* points, and its emissions were timing-dependent.  With the
+pull bridge a run carrying this arm is reproducible from its seed like any
+other; see ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1.
 
 The :attr:`Heuristic.cap` is fixed to ``1`` because L-BFGS-B can only have one
 outstanding evaluation at a time — the blocking pipe naturally rate-limits the
-descent against the rest of the portfolio.
+descent against the rest of the portfolio, which also means the arm contributes
+**one point per round it is polled**, not a share of the batch.
 
 Constraint handling delegates to ``strategy.constraint_handler`` exactly like
 :class:`~panobbgo.heuristics.cobyqa.COBYQA`: the value piped back is
@@ -129,7 +140,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from panobbgo.core import Heuristic
+from panobbgo.core import PipeBridgeHeuristic
 
 
 def _make_pipe_objective(pipe: Any):
@@ -173,7 +184,7 @@ _DEFAULT_EPSILON: Optional[float] = None  # scipy default finite-diff step
 _X0_REQUEST = "__lbfgsb_x0_request__"
 
 
-class LBFGSB(Heuristic):
+class LBFGSB(PipeBridgeHeuristic):
     """Multi-start L-BFGS-B bound-constrained quasi-Newton local optimizer.
 
     Args:
@@ -255,7 +266,7 @@ class LBFGSB(Heuristic):
         if not np.isfinite(warm_start_sigma) or warm_start_sigma < 0.0:
             raise ValueError(f"LBFGSB: warm_start_sigma must be a non-negative finite float, got {warm_start_sigma!r}")
 
-        Heuristic.__init__(self, strategy, name=name or "LBFGSB", cap=1)
+        PipeBridgeHeuristic.__init__(self, strategy, name=name or "LBFGSB", cap=1)
         self.logger = self.config.get_logger("LBFGS")
         self.max_starts: Optional[int] = max_starts
         self.maxfun: Optional[int] = maxfun
@@ -400,43 +411,27 @@ class LBFGSB(Heuristic):
             return
         _safe_send(output, {"done": starts})
 
-    def on_start(self) -> None:
-        """Start the pipe pump: x → emit → wait for fx → pipe.send (shared with COBYQA).
+    # ------------------------------------------------------------------
+    # The pull bridge (see panobbgo.core.PipeBridgeHeuristic)
+    # ------------------------------------------------------------------
 
-        Under ``warm_start`` the worker interleaves :data:`_X0_REQUEST`
-        sentinels with its ``f(x)`` sends; those are answered inline with a
-        perturbed incumbent (:meth:`_warm_start_x0`) rather than emitted for
-        evaluation.
+    def _bridge_process(self) -> Any:
+        return self.lbfgsb
 
-        The pipe pump runs on its own daemon thread (appended to
-        ``self._threads``) so the event bus, which delivers handlers serially,
-        is never blocked by it.  Emissions from a subprocess bridge are
-        inherently timing-dependent; such heuristics are excluded from the
-        reproducible synchronous mode's guarantees.
+    def _bridge_control(self, msg: Any) -> bool:
+        """Answer the warm-start ``x0`` request inline.
+
+        The only non-point message the worker sends over the request pipe is
+        :data:`_X0_REQUEST`; a string can never be mistaken for a search
+        point.  Answering it here keeps the whole protocol on one thread.
         """
-        self.spawn_thread(self._pump, name="%s-pump" % self.name)
-
-    def _pump(self) -> None:
-        while not self._stopped:
-            try:
-                if self.out1.poll(0):
-                    output = self.out1.recv()
-                    self.logger.info(output)
-                # Short poll timeout so we still notice the stop flag promptly.
-                if self.p1.poll(0.1):
-                    msg = self.p1.recv()
-                    if isinstance(msg, str):
-                        # The only string the worker sends is the warm-start
-                        # x0 sentinel; answer it inline, never emit a string.
-                        if msg == _X0_REQUEST:
-                            self.p1.send(self._warm_start_x0())
-                    else:
-                        self.emit(msg)
-            except (EOFError, OSError):
-                break
-            except Exception as e:
-                self.logger.error(f"Error in LBFGSB loop: {e}")
-                break
+        if isinstance(msg, str):
+            if msg == _X0_REQUEST:
+                self.p1.send(self._warm_start_x0())
+            else:
+                self.logger.warning("%s: unexpected control message %r" % (self.name, msg))
+            return True
+        return False
 
     def on_new_best(self, best) -> None:
         """Track the strategy's best incumbent for warm-started restarts.
@@ -480,13 +475,6 @@ class LBFGSB(Heuristic):
             if self.lbfgsb.is_alive():
                 self.lbfgsb.kill()
 
-    def on_new_results(self, results) -> None:
-        for result in results:
-            if result.who == self.name:
-                # Penalty value: true fx if feasible, else penalized.
-                val = self.strategy.constraint_handler.get_penalty_value(result)
-                self.p1.send(val)
-
     def on_restart(self, center, reason: str = "") -> None:
         """Tear down and relaunch the subprocess warm-started at ``center``.
 
@@ -519,5 +507,9 @@ class LBFGSB(Heuristic):
                 hi = np.asarray([b[1] for b in bounds], dtype=float)
                 x0 = np.clip(center, lo, hi)
             self._spawn(x0, bounds)
+            # A fresh worker owes us nothing and we owe it nothing: drop any
+            # value the old one's last point produced, or the new worker would
+            # be answered with a reply to a question it never asked.
+            self._bridge_reset()
         except Exception as exc:
             self.logger.warning(f"LBFGSB: subprocess restart failed: {exc}")

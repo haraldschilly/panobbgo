@@ -351,7 +351,7 @@ class StrategyPhased(StrategyBase):
             if not phase_heurs:
                 break
             current = current % len(phase_heurs)
-            new_points = phase_heurs[current].get_points(size)
+            new_points = phase_heurs[current].produce(size)
             points.extend(new_points)
             current = (current + 1) % len(phase_heurs)
             attempts += 1
@@ -382,7 +382,7 @@ class StrategyPhased(StrategyBase):
             for h in phase_heurs:
                 prob = (h.performance + s) / (perf_sum + s * len(phase_heurs))
                 nb_h = max(1, round(target * prob))
-                h_pts = h.get_points(nb_h)
+                h_pts = h.produce(nb_h)
                 if h_pts:
                     # Discount
                     val = discount_val if discount_val is not None else self.config.discount
@@ -424,7 +424,7 @@ class StrategyPhased(StrategyBase):
                 scores.append((score, h))
             scores.sort(key=lambda x: x[0], reverse=True)
             for _score, h in scores:
-                new_points = h.get_points(1)
+                new_points = h.produce(1)
                 if new_points:
                     h.ucb_count += len(new_points)
                     self.total_selections += len(new_points)
@@ -456,7 +456,7 @@ class StrategyPhased(StrategyBase):
                 samples.append((theta, h))
             samples.sort(key=lambda x: x[0], reverse=True)
             for _theta, h in samples:
-                new_points = h.get_points(1)
+                new_points = h.produce(1)
                 if new_points:
                     h.ts_counts += len(new_points)
                     self.total_selections += len(new_points)
@@ -503,7 +503,7 @@ class StrategyPhased(StrategyBase):
                 scores.append((score, h))
             scores.sort(key=lambda x: x[0], reverse=True)
             for _score, h in scores:
-                new_points = h.get_points(1)
+                new_points = h.produce(1)
                 if new_points:
                     for p in new_points:
                         p.context_vector = context

@@ -279,9 +279,19 @@ class Config:
         # used to cut a 2500-evaluation run down to ~100.  The event is still
         # published for listeners; opt in to stop early.
         self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", False, bool)
-        # Abort the main loop if no progress (no new points, no pending tasks,
-        # no new results) for this many seconds. Guards against starved/deadlocked
-        # heuristics burning CPU for minutes before the loop-count guard trips.
+        # Last-resort backstop for a *bug*, not a scheduling parameter: abort
+        # the main loop when nothing has arrived for this many seconds *while*
+        # StrategyBase._alive() still reports the run as running (a wedged
+        # worker subprocess, a handler that never returns).  A correct run —
+        # however slow its arms — ends via the liveness predicate instead and
+        # never reaches this.  600 s is deliberately far outside any
+        # legitimate slow-arm regime; a smaller value reintroduces the
+        # truncation of F4 at a larger constant.
+        self.deadlock_seconds = get_config("core.deadlock_seconds", "core", "deadlock_seconds", 600.0, float)
+        # Deprecated: the wall-clock stall guard this configured was replaced
+        # by the evaluation-counted liveness predicate
+        # (planning/DESIGN_pump_and_stall_2026-09-11.md §2).  Still accepted so
+        # existing config files and callers do not break; it is inert.
         self.max_stall_seconds = get_config("core.max_stall_seconds", "core", "max_stall_seconds", 30.0, float)
 
         # Evaluation method configuration (YAML only)

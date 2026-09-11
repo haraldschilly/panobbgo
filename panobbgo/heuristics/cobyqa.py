@@ -40,26 +40,41 @@ derivative-free *and* curvature-aware local refinement step that the
 structural mutation catalog can swap into a portfolio whenever the
 problem's local geometry has structure Nelder-Mead cannot exploit.
 
-Asynchronous execution
-----------------------
+On-demand execution (the pull bridge)
+-------------------------------------
 
 Like :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`, COBYQA's reference
 implementation in ``scipy.optimize.minimize`` is synchronous: the solver
-calls a Python callable ``f(x)`` and blocks waiting for the return value.
-We run it in a dedicated subprocess and pipe the request / response
-between the solver and Panobbgo's event-driven main thread:
+calls a Python callable ``f(x)`` and blocks waiting for the return value,
+and it cannot be suspended mid-step to yield an evaluation request.  We
+run it in a dedicated subprocess and pipe the request / response
+**on the strategy's own thread**, via
+:class:`~panobbgo.core.PipeBridgeHeuristic`:
 
 1. The subprocess invokes ``scipy.optimize.minimize(method='COBYQA')``
    with a callable that ``pipe.send(x)`` and ``pipe.recv()`` for ``f(x)``.
-2. The main thread polls the pipe, projects ``x`` onto the feasible box,
-   emits the projected point for evaluation, and when the result arrives
-   in :meth:`on_new_results` sends the penalty value back over the pipe.
-3. The subprocess uses that value to continue COBYQA's trust-region
-   update and either calls ``f(x)`` again or terminates.
+2. The strategy calls
+   :meth:`~panobbgo.core.PipeBridgeHeuristic.produce`, which receives
+   ``x``, projects it onto the feasible box and emits it.
+3. :meth:`~panobbgo.core.PipeBridgeHeuristic.on_new_results` *stores* the
+   penalty value; the next ``produce`` sends it back, and the subprocess
+   continues its trust-region update or terminates.
+
+Until 2026-09 steps 2 and 3 ran on a daemon "pump" thread and the
+event-bus thread respectively, which left the output queue empty whenever
+a scheduler looked at it: beside any competitor with a stocked queue this
+arm contributed *zero* points.  See
+``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1.
 
 The :attr:`Heuristic.cap` is fixed to ``1`` because COBYQA can only have
 one outstanding evaluation at a time — the subprocess blocks until the
-previous return value arrives.
+previous return value arrives, so the arm contributes **one point per
+round it is polled**.
+
+When the solver converges (its trust-region radius falls below
+``final_tr_radius``) the worker exits and the heuristic goes inactive:
+unlike L-BFGS-B, COBYQA does not multi-start, so a solo COBYQA run ends
+when the descent ends rather than at ``max_eval``.
 
 Constraint handling delegates to ``strategy.constraint_handler`` exactly
 like :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`: the value piped back
@@ -88,7 +103,7 @@ from typing import Any, Optional
 
 import numpy as np
 
-from panobbgo.core import Heuristic
+from panobbgo.core import PipeBridgeHeuristic
 
 
 def _make_pipe_objective(pipe: Any):
@@ -152,7 +167,7 @@ _DEFAULT_MAXFEV: Optional[int] = None  # let strategy budget terminate us
 _DEFAULT_SCALE: bool = True
 
 
-class COBYQA(Heuristic):
+class COBYQA(PipeBridgeHeuristic):
     """COBYQA: Powell-family derivative-free trust-region local optimizer.
 
     Args:
@@ -220,7 +235,7 @@ class COBYQA(Heuristic):
             if maxfev <= 0:
                 raise ValueError(f"COBYQA: maxfev must be > 0, got {maxfev}")
 
-        Heuristic.__init__(self, strategy, name=name or "COBYQA", cap=1)
+        PipeBridgeHeuristic.__init__(self, strategy, name=name or "COBYQA", cap=1)
         self.logger = self.config.get_logger("COBYQ")
         self.initial_tr_radius: Optional[float] = initial_tr_radius
         self.final_tr_radius: float = float(final_tr_radius)
@@ -311,33 +326,13 @@ class COBYQA(Heuristic):
             return
         _safe_send(output, solution)
 
-    def on_start(self) -> None:
-        """Start the pipe pump: x → emit → wait for fx → pipe.send.
+    def _bridge_process(self) -> Any:
+        """The worker process, for :class:`~panobbgo.core.PipeBridgeHeuristic`.
 
-        The pipe pump runs on its own daemon thread (appended to
-        ``self._threads``) so the event bus, which delivers handlers serially,
-        is never blocked by it.  Emissions from a subprocess bridge are
-        inherently timing-dependent; such heuristics are excluded from the
-        reproducible synchronous mode's guarantees.
+        COBYQA sends nothing but search points over the request pipe, so the
+        base class's ``_bridge_control`` hook is left at its default.
         """
-        self.spawn_thread(self._pump, name="%s-pump" % self.name)
-
-    def _pump(self) -> None:
-        while not self._stopped:
-            try:
-                if self.out1.poll(0):
-                    output = self.out1.recv()
-                    self.logger.info(output)
-                # Check for input with a short timeout so we still notice
-                # the stop flag promptly.
-                if self.p1.poll(0.1):
-                    x = self.p1.recv()
-                    self.emit(x)
-            except (EOFError, OSError):
-                break
-            except Exception as e:
-                self.logger.error(f"Error in COBYQA loop: {e}")
-                break
+        return self.cobyqa
 
     def __stop__(self) -> None:
         super(COBYQA, self).__stop__()
@@ -346,12 +341,6 @@ class COBYQA(Heuristic):
             self.cobyqa.join(timeout=1.0)
             if self.cobyqa.is_alive():
                 self.cobyqa.kill()
-
-    def on_new_results(self, results) -> None:
-        for result in results:
-            if result.who == self.name:
-                val = self.strategy.constraint_handler.get_penalty_value(result)
-                self.p1.send(val)
 
     def on_restart(self, center, reason) -> None:
         """Tear down and restart the subprocess around ``center``.
@@ -412,5 +401,9 @@ class COBYQA(Heuristic):
             )
             self.cobyqa.daemon = True
             self.cobyqa.start()
+            # A fresh worker owes us nothing and we owe it nothing: drop any
+            # value the old one's last point produced, or the new worker would
+            # be answered with a reply to a question it never asked.
+            self._bridge_reset()
         except Exception as exc:
             self.logger.warning(f"COBYQA: subprocess restart failed: {exc}")

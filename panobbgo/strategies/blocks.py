@@ -549,7 +549,7 @@ class StrategyBlockBandit(StrategyBase):
         protect is that we never walk away from points the arm had already
         queued — exactly what the recorded flag says.
         """
-        if not owner.has_points and not self._can_still_produce():
+        if not owner.can_produce and not self._can_still_produce():
             return True  # starved arm, and nothing in flight will wake it
         if self._block_n >= 2 * self._block_size:
             return True  # hard cap
@@ -758,7 +758,10 @@ class StrategyBlockBandit(StrategyBase):
         # warm start is what it is waiting for.  (Design §5 lets a scoreless
         # arm be picked and returns ``[]``; under sync evaluation that stops
         # the result flow the arm needs to refill, so the queue gate stays.)
-        ready = [h for h in self.heuristics if h.has_points or self._can_warm_start(h)]
+        # ``can_produce``, not ``has_points``: an on-demand arm (a solver
+        # bridge) has an empty queue between round trips, so gating on the
+        # queue alone makes it permanently unselectable.
+        ready = [h for h in self.heuristics if h.can_produce or self._can_warm_start(h)]
         if not ready:
             return None
 
@@ -808,7 +811,7 @@ class StrategyBlockBandit(StrategyBase):
         # spent`` would both cut generations and make the single-arm case
         # differ from StrategyRoundRobin for no gain -- the overshoot is at
         # most ``size - 1`` evaluations per block.
-        points = owner.get_points(self.size)
+        points = owner.produce(self.size)
         self._block_n += len(points)
         self._block_drained = not owner.has_points
         return points

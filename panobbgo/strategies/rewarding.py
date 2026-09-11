@@ -253,7 +253,7 @@ class StrategyRewarding(StrategyBase):
                     # smoothing
                     prob = (h.performance + s) / (perf_sum + s * len(heurs))
                     nb_h = max(1, round(target * prob))
-                    h_pts = h.get_points(nb_h)
+                    h_pts = h.produce(nb_h)
 
                     if h_pts:
                         # Discount the heuristic performance for emitting points
@@ -269,7 +269,7 @@ class StrategyRewarding(StrategyBase):
 
     def _select_ema(self, heurs, target):
         """Probability matching with an exploration floor over heuristics that have points."""
-        ready = [h for h in heurs if h.has_points]
+        ready = [h for h in heurs if h.can_produce]
         if not ready:
             return []
         perf = np.array([max(0.0, float(h.performance)) for h in ready])
@@ -281,5 +281,5 @@ class StrategyRewarding(StrategyBase):
         batch = []
         for h, p in zip(ready, probs):
             nb_h = max(1, int(round(target * p)))
-            batch.extend(h.get_points(nb_h))
+            batch.extend(h.produce(nb_h))
         return batch

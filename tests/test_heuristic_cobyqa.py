@@ -173,10 +173,25 @@ class COBYQALifecycleTests(PanobbgoTestCase):
 # ----------------------------------------------------------------------
 
 
+def _live_bridge(h):
+    """Wire ``h`` up with mock pipes and a worker that reports itself alive."""
+    h.out1 = mock.MagicMock()
+    h.out1.poll.return_value = False
+    h.p1 = mock.MagicMock()
+    h.cobyqa = mock.MagicMock()
+    h.cobyqa.is_alive.return_value = True
+    return h
+
+
 class COBYQAPipeTests(PanobbgoTestCase):
-    def test_on_new_results_routes_penalty_value(self):
-        cobyqa = COBYQA(self.strategy)
-        cobyqa.p1 = mock.MagicMock()
+    """The pull bridge: every pipe operation happens in ``produce``.
+
+    ``on_new_results`` runs on the event-bus dispatcher thread and therefore
+    only *stores* the value — see ``panobbgo.core.PipeBridgeHeuristic``.
+    """
+
+    def test_on_new_results_stores_the_penalty_value(self):
+        cobyqa = _live_bridge(COBYQA(self.strategy))
 
         class _R:
             def __init__(self, who, fx):
@@ -185,42 +200,69 @@ class COBYQAPipeTests(PanobbgoTestCase):
 
         results = [_R("COBYQA", 7.5), _R("Other", 1.0)]
         self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+        cobyqa._outstanding = True
         cobyqa.on_new_results(results)
-        cobyqa.p1.send.assert_called_once_with(7.5)
+        cobyqa.p1.send.assert_not_called()
+        assert cobyqa._fx_inbox.get_nowait() == 7.5
+        assert cobyqa._fx_inbox.empty()
 
     def test_on_new_results_ignores_foreign_who(self):
-        cobyqa = COBYQA(self.strategy)
-        cobyqa.p1 = mock.MagicMock()
+        cobyqa = _live_bridge(COBYQA(self.strategy))
 
         class _R:
             def __init__(self, who, fx):
                 self.who = who
                 self.fx = fx
 
-        results = [_R("OtherHeuristic", 3.14)]
         self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
-        cobyqa.on_new_results(results)
-        cobyqa.p1.send.assert_not_called()
+        cobyqa._outstanding = True
+        cobyqa.on_new_results([_R("OtherHeuristic", 3.14)])
+        assert cobyqa._fx_inbox.empty()
 
-    def test_on_start_exits_on_pipe_closed(self):
-        cobyqa = COBYQA(self.strategy)
-        cobyqa.out1 = mock.MagicMock()
-        cobyqa.out1.poll.return_value = False
-        cobyqa.p1 = mock.MagicMock()
+    def test_produce_answers_the_outstanding_fx_then_takes_the_next_point(self):
+        cobyqa = _live_bridge(COBYQA(self.strategy))
+        cobyqa.p1.poll.return_value = True
+        cobyqa.p1.recv.return_value = np.array([0.1, 0.2])
+        cobyqa._outstanding = True
+        cobyqa._fx_inbox.put(7.5)
+
+        points = cobyqa.produce(1)
+        cobyqa.p1.send.assert_called_once_with(7.5)
+        assert len(points) == 1
+        np.testing.assert_allclose(points[0].x, [0.1, 0.2])
+        assert cobyqa._outstanding
+
+    def test_produce_returns_nothing_while_it_owes_the_worker_a_value(self):
+        """The structural deadlock guard: never wait on an arm waiting on us."""
+        cobyqa = _live_bridge(COBYQA(self.strategy))
+        cobyqa._outstanding = True  # inbox empty
+        assert cobyqa.produce(1) == []
+        assert not cobyqa.can_produce
+        cobyqa.p1.poll.assert_not_called()
+
+    def test_produce_ends_the_bridge_on_a_closed_pipe(self):
+        cobyqa = _live_bridge(COBYQA(self.strategy))
         cobyqa.p1.poll.side_effect = EOFError()
-        cobyqa._stopped = False
-        cobyqa._pump()  # must exit silently
+        assert cobyqa.produce(1) == []
+        assert cobyqa._bridge_done and cobyqa._stopped
 
-    def test_on_start_logs_output(self):
-        cobyqa = COBYQA(self.strategy)
-        cobyqa.out1 = mock.MagicMock()
-        cobyqa.out1.poll.return_value = True
+    def test_produce_ends_the_bridge_when_the_solver_converged(self):
+        """COBYQA does not multi-start: a finished worker ends the arm."""
+        cobyqa = _live_bridge(COBYQA(self.strategy))
+        cobyqa.p1.poll.return_value = False
+        cobyqa.cobyqa.is_alive.return_value = False
+        assert cobyqa.produce(1) == []
+        assert cobyqa._bridge_done
+        assert not cobyqa.can_produce
+
+    def test_produce_logs_the_worker_status_pipe(self):
+        cobyqa = _live_bridge(COBYQA(self.strategy))
+        cobyqa.out1.poll.side_effect = [True, False]
         cobyqa.out1.recv.return_value = "solution payload"
-        cobyqa.p1 = mock.MagicMock()
-        cobyqa.p1.poll.side_effect = EOFError()
-        cobyqa._stopped = False
+        cobyqa.p1.poll.return_value = True
+        cobyqa.p1.recv.return_value = np.array([0.1, 0.2])
         cobyqa.logger = mock.MagicMock()
-        cobyqa._pump()
+        cobyqa.produce(1)
         cobyqa.logger.info.assert_called_with("solution payload")
 
 

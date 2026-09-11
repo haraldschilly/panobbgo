@@ -162,7 +162,7 @@ class StrategyThompsonSampling(StrategyBase):
 
                 for theta, h in samples:
                     # Request points from the selected heuristic
-                    new_points = h.get_points(1)
+                    new_points = h.produce(1)
                     if new_points:
                         count = len(new_points)
                         # Update selection stats (attempts)

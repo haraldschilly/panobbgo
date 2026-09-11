@@ -123,7 +123,7 @@ class StrategyUCB(StrategyBase):
 
                 for score, h in scores:
                     # Request points from the selected heuristic
-                    new_points = h.get_points(1)
+                    new_points = h.produce(1)
                     if new_points:
                         # Update selection counts immediately
                         count = len(new_points)

@@ -31,17 +31,23 @@ class StrategyRoundRobin(StrategyBase):
         StrategyBase.__init__(self, problem, **kwargs)
 
     def execute(self):
-        import time
-
         points = []
         attempts = 0
         max_attempts = 10  # Prevent infinite loop
         while len(points) == 0 and attempts < max_attempts:
             hs = self.heuristics
+            if not hs:
+                # Every arm went inactive (emitted everything it will ever
+                # emit and unsubscribed).  There is nothing left to rotate
+                # over, and ``% len(hs)`` used to raise ZeroDivisionError
+                # here — which escaped ``start()`` and leaked the event bus,
+                # the evaluator pool and every subprocess.  Returning ``[]``
+                # lets ``StrategyBase._alive`` end the run cleanly.
+                return []
             self.current = (self.current + 1) % len(hs)
-            new_points = hs[self.current].get_points(self.size)
-            points.extend(new_points)
+            # ``produce``, not ``get_points``: an on-demand arm (a solver
+            # bridge) has an empty queue between round trips and would be
+            # skipped forever beside any arm that keeps one stocked.
+            points.extend(hs[self.current].produce(self.size))
             attempts += 1
-            if len(new_points) == 0:
-                time.sleep(1e-3)  # Only sleep if no points generated
         return points

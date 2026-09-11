@@ -860,6 +860,33 @@ class Heuristic(Module):
             pass
         return new_points
 
+    #: ``True`` iff this heuristic produces points **on demand**, on the
+    #: caller's thread, rather than reactively topping its queue up from
+    #: event handlers.  The solver bridges
+    #: (:class:`~panobbgo.heuristics.lbfgsb.LBFGSB`,
+    #: :class:`~panobbgo.heuristics.cobyqa.COBYQA`) set it: a sequential
+    #: SciPy optimizer cannot queue a point ahead, because its next iterate
+    #: is a function of ``f`` at the current one.  A scheduler must call
+    #: :meth:`produce` — never :meth:`get_points` — or such an arm is
+    #: starved by any competitor that keeps a stocked queue
+    #: (``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1).
+    on_demand: bool = False
+
+    def produce(self, limit: Optional[int] = None, timeout: Optional[float] = None) -> List["Point"]:
+        """The scheduler's point-acquisition call.
+
+        For a reactive heuristic this is exactly :meth:`get_points` — the
+        queue is whatever its event handlers put there.  An
+        :attr:`on_demand` heuristic overrides it and *produces* the next
+        point synchronously, on the calling thread.
+
+        ``timeout`` is a deadlock backstop for the on-demand case, never a
+        scheduling parameter: a healthy producer answers immediately, so
+        the value cannot influence *which* points a run evaluates — only
+        whether the run reports a wedged worker.
+        """
+        return self.get_points(limit)
+
     @property
     def has_points(self) -> bool:
         """``True`` iff this heuristic can hand out a point right now.
@@ -869,6 +896,18 @@ class Heuristic(Module):
         received is not wasted.
         """
         return self._output.qsize() > 0
+
+    @property
+    def can_produce(self) -> bool:
+        """``True`` iff :meth:`produce` would hand out a point right now.
+
+        The same question as :attr:`has_points` for a reactive heuristic,
+        and the *correct* one for an :attr:`on_demand` one, whose queue is
+        empty by construction between round trips.  This is the predicate
+        schedulers gate on and the one
+        :meth:`StrategyBase._alive` sums over.
+        """
+        return self.has_points
 
     @property
     def active(self) -> bool:
@@ -921,6 +960,220 @@ class HeuristicSubprocess(Heuristic):
         while True:
             payload = pipe.recv()
             pipe.send("subprocess received: %s" % payload)
+
+
+class PipeBridgeHeuristic(Heuristic):
+    r"""A sequential solver in a subprocess, **pulled** from the caller's thread.
+
+    SciPy's local optimizers (``fmin_l_bfgs_b``, ``minimize(method="COBYQA")``)
+    are synchronous: they call ``f(x)`` and block for the return value, and
+    they cannot be suspended mid-step to yield an evaluation request.  So the
+    solver runs in its own subprocess and each ``f(x)`` is a round trip over a
+    pipe.  The protocol is strictly one outstanding evaluation:
+
+    .. code-block:: none
+
+        worker: f(x) -> pipe.send(x), blocks on recv
+        parent: produce()  -> recv(x), emit -> the strategy evaluates it
+        parent: on_new_results -> stores the penalty value
+        parent: produce()  -> sends the value, recv's the next x
+
+    **Every pipe operation happens on the thread that calls** :meth:`produce`,
+    i.e. the strategy's main loop.  Until 2026-09 a daemon "pump" thread did
+    the ``recv``/``emit`` half and the event-bus thread did the ``send`` half.
+    That had three consequences, all removed here:
+
+    #. the arm's output queue was empty whenever the scheduler looked, so any
+       competitor with a stocked queue starved it completely — under
+       :class:`~panobbgo.strategies.round_robin.StrategyRoundRobin` such an arm
+       contributed **0** points beside ``Random``;
+    #. :attr:`Heuristic.active` and
+       :meth:`StrategyBase._can_still_produce` answered "yes" from the pump
+       thread's liveness, which never ended, so they were constants;
+    #. emissions were timing-dependent, which excluded these heuristics from
+       the reproducible ``sync_evaluation`` mode.
+
+    Now a bridge arm's contribution is a pure function of the seed: the point
+    it hands out depends only on the values it was given and its worker's
+    seed.  See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1.
+
+    Subclasses provide the subprocess and the pipes (``p1`` = parent end of
+    the request pipe, ``out1`` = parent end of the status pipe), and may
+    intercept control messages by overriding :meth:`_bridge_control`.
+    """
+
+    on_demand = True
+
+    #: Parent end of the request pipe (``x`` in, ``f(x)`` out) and of the
+    #: worker's status pipe.  Created by the subclass when it spawns.
+    p1: Any = None
+    out1: Any = None
+
+    #: Deadlock backstop for :meth:`produce`, in seconds.  **Not** a
+    #: scheduling parameter: a live worker is waited for however long it
+    #: needs, and this can only expire when the worker is wedged — an error,
+    #: logged as one.  It therefore never influences *which* points a run
+    #: evaluates.
+    bridge_timeout: float = 60.0
+
+    #: Granularity of the wait.  Only affects how quickly a *dead* worker is
+    #: noticed; a live worker's data is returned as soon as it arrives.
+    _bridge_poll_slice: float = 0.05
+
+    def __init__(self, strategy: "StrategyBase", name: Optional[str] = None, cap: Optional[int] = None) -> None:
+        Heuristic.__init__(self, strategy, name=name, cap=cap)
+        #: Penalty values handed over from the event-bus thread.  A queue,
+        #: not an attribute, so the hand-off needs no lock and no GIL
+        #: assumption.
+        self._fx_inbox: Queue = Queue()
+        #: ``True`` while the worker is blocked waiting for the value of a
+        #: point we already emitted.  The structural deadlock guard: while it
+        #: is set and the inbox is empty, :meth:`produce` returns ``[]``
+        #: *immediately* instead of waiting for an arm that is waiting for us.
+        self._outstanding: bool = False
+        #: The worker finished (converged, hit its cap, or died).
+        self._bridge_done: bool = False
+
+    # -- subclass hooks ----------------------------------------------------
+
+    def _bridge_process(self) -> Any:
+        """The worker :class:`multiprocessing.Process`, or ``None``."""
+        raise NotImplementedError
+
+    def _bridge_control(self, msg: Any) -> bool:
+        """Handle a non-point message from the worker.
+
+        Return ``True`` if ``msg`` was consumed (the loop then asks for the
+        next message), ``False`` if it is a search point to emit.
+        """
+        return False
+
+    def _bridge_alive(self) -> bool:
+        proc = self._bridge_process()
+        return proc is not None and proc.is_alive()
+
+    def _bridge_reset(self) -> None:
+        """Forget the in-flight round trip; call after respawning a worker."""
+        while True:
+            try:
+                self._fx_inbox.get_nowait()
+            except Empty:
+                break
+        self._outstanding = False
+        self._bridge_done = False
+
+    # -- the Heuristic contract -------------------------------------------
+
+    @property
+    def can_produce(self) -> bool:
+        if self.has_points:
+            return True
+        if self._stopped or self._bridge_done:
+            return False
+        if not self._bridge_alive():
+            return False
+        if self._outstanding:
+            # We owe the worker a value; it can only move once we have one.
+            return not self._fx_inbox.empty()
+        return True
+
+    def produce(self, limit: Optional[int] = None, timeout: Optional[float] = None) -> List["Point"]:
+        if self.has_points:
+            return self.get_points(limit)
+        if self._stopped or self._bridge_done:
+            return []
+        if not self._bridge_alive():
+            # Never spawned, or the solver converged / hit its cap / died.
+            self._bridge_finished("worker is not running")
+            return []
+        if self._outstanding:
+            try:
+                fx = self._fx_inbox.get_nowait()
+            except Empty:
+                return []  # the evaluation of our last point has not landed yet
+            try:
+                self.p1.send(fx)
+            except (EOFError, OSError):
+                self._bridge_finished("pipe closed while answering f(x)")
+                return []
+            self._outstanding = False
+        return self._bridge_next_point(self.bridge_timeout if timeout is None else timeout, limit)
+
+    def on_new_results(self, results: List["Result"]) -> None:
+        """Store the penalty value of *our* point; never touch the pipe here.
+
+        This runs on the event-bus dispatcher thread, which
+        :class:`EventBus` delivers serially — so it must return promptly and
+        must not do I/O.  :meth:`produce` sends the value on, from the main
+        thread.
+        """
+        if not self._outstanding:
+            return
+        for result in results:
+            if result.who == self.name:
+                self._fx_inbox.put(self.strategy.constraint_handler.get_penalty_value(result))
+
+    # -- internals ---------------------------------------------------------
+
+    def _bridge_next_point(self, timeout: float, limit: Optional[int]) -> List["Point"]:
+        waited = 0.0
+        slice_ = self._bridge_poll_slice
+        while True:
+            self._bridge_drain_status()
+            try:
+                ready = self.p1.poll(slice_)
+            except (EOFError, OSError):
+                self._bridge_finished("request pipe closed")
+                return []
+            if not ready:
+                if not self._bridge_alive():
+                    # The worker exited.  Everything it wrote before exiting is
+                    # already in the pipe buffer, so one non-blocking poll is
+                    # conclusive: nothing waiting means it converged, hit its
+                    # evaluation cap or died.  A deterministic end, not a
+                    # timeout.
+                    try:
+                        leftover = self.p1.poll(0)
+                    except (EOFError, OSError):
+                        leftover = False
+                    if not leftover:
+                        self._bridge_finished("worker finished")
+                        return []
+                    continue
+                waited += slice_
+                if waited >= timeout:
+                    self.logger.error(
+                        "%s: no request from the worker for %.0fs; treating it as wedged. "
+                        "This is a bug, not a slow problem." % (self.name, waited)
+                    )
+                    self._bridge_finished("worker wedged")
+                    return []
+                continue
+            try:
+                msg = self.p1.recv()
+            except (EOFError, OSError):
+                self._bridge_finished("worker closed the request pipe")
+                return []
+            if self._bridge_control(msg):
+                continue
+            self.emit(msg)
+            self._outstanding = True
+            return self.get_points(limit)
+
+    def _bridge_drain_status(self) -> None:
+        out = getattr(self, "out1", None)
+        if out is None:
+            return
+        try:
+            while out.poll(0):
+                self.logger.info(out.recv())
+        except (EOFError, OSError):
+            pass
+
+    def _bridge_finished(self, reason: str) -> None:
+        self._bridge_done = True
+        self._stopped = True
+        self.logger.debug("%s: bridge finished (%s)" % (self.name, reason))
 
 
 #
@@ -1128,6 +1381,19 @@ class EventBus:
             # A failing handler must not take the dispatcher down; report
             # loudly and keep serving the other modules.
             self.logger.critical("Exception in %s/on_%s: %r" % (target, key, e), exc_info=True)
+
+    @property
+    def inflight(self) -> int:
+        """Events queued plus the one currently being dispatched.
+
+        A non-zero value means a handler is about to run (or is running),
+        i.e. a heuristic may still refill its queue without any new
+        evaluation.  :meth:`StrategyBase._alive` needs exactly this: the
+        difference between "every queue is empty" and "nothing can ever
+        produce again".
+        """
+        with self._cv:
+            return self._inflight
 
     def wait_idle(self, timeout: Optional[float] = None) -> bool:
         """Block until every published event has been handled.
@@ -1359,8 +1625,11 @@ class StrategyBase:
 
         # Prepare for execution
         self.eventbus.publish("start", terminate=True)
-        # Let the heuristics process the start event and emit their initial points.
-        self.eventbus.wait_idle(timeout=5.0)
+        # Let the heuristics process the start event and emit their initial
+        # points.  Under ``sync_evaluation`` this must not be bounded by a
+        # clock: a slow ``on_start`` (a GP prior, a large LHS design) that
+        # timed out here silently changed which points the run began with.
+        self.eventbus.wait_idle(timeout=None if self.config.sync_evaluation else 5.0)
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' initialized" % self._name)
@@ -1374,6 +1643,14 @@ class StrategyBase:
             self._run()
         except KeyboardInterrupt:
             self.logger.critical("KeyboardInterrupt received, e.g. via Ctrl-C")
+        finally:
+            # Every exit path cleans up.  Before this ``finally`` only
+            # ``KeyboardInterrupt`` did, so any other exception escaping
+            # ``_run`` — the ``ZeroDivisionError`` of F1, a heuristic raising
+            # inside ``execute`` — leaked the event-bus dispatcher thread, the
+            # evaluator pool, the results store and every heuristic's
+            # subprocess.  ``_cleanup`` is idempotent, so the normal path
+            # (which calls it at the end of ``_run``) is unaffected.
             self._cleanup()
 
     @property
@@ -1680,10 +1957,20 @@ class StrategyBase:
         self.logger.info("Strategy '%s' started main loop" % self._name)
         self.loops = 0
         self._last_results_count = 0
-        self._loops_without_progress = 0
-        self._max_loops_without_progress = 10000  # backstop; the time-based guard below trips first
-        self._stall_started: Optional[float] = None
-        self._max_stall_seconds = float(getattr(self.config, "max_stall_seconds", 30.0))
+        self._dead_loops = 0
+        #: Consecutive dead passes before a run is declared finished.  Under
+        #: ``sync_evaluation`` one is conclusive (see :meth:`_alive`); the
+        #: asynchronous path allows a small margin for the window in
+        #: :meth:`_run_threaded_evaluation` where a task is submitted but not
+        #: yet in ``pending``.
+        self._max_dead_loops = 1 if self.config.sync_evaluation else 3
+        self._last_progress_at: Optional[float] = None
+        #: Wall-clock **backstop for a bug**, not a scheduling parameter: it
+        #: can only fire while :meth:`_alive` says something is running yet
+        #: nothing arrives — a wedged subprocess, a handler in an infinite
+        #: loop.  A healthy run, however slow its arms, never reaches it.
+        #: See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.3.
+        self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
         sync = bool(self.config.sync_evaluation)
         max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
         self._max_total_loops = max_eval_int * 10000  # Much more headroom
@@ -1719,8 +2006,17 @@ class StrategyBase:
                 # before the next draw, so the run is a deterministic function
                 # of the seed rather than of thread scheduling, and size the
                 # next batch without consulting wall-clock task timings.
-                if not self.eventbus.wait_idle(timeout=self._max_stall_seconds):
-                    self.logger.warning("eventbus did not settle within %.1fs" % self._max_stall_seconds)
+                #
+                # No timeout: a slow handler (a GP fit takes ~0.4 s) must delay
+                # the run, never shorten it.  Waiting a bounded number of
+                # *seconds* here was the primary half of F4 — the next pass then
+                # found every queue empty, because the refills were still
+                # undelivered, and the stall guard below ended the run at
+                # whatever evaluation count the machine's speed happened to
+                # produce.  Progress is counted in evaluations (AGENTS.md
+                # "Local runs"); the deadlock backstop below is the only clock
+                # left, and it is an error path.
+                self.eventbus.wait_idle()
                 self.jobs_per_client = max(1, int(self.config.max_eval / 50.0))
             else:
                 self.jobs_per_client = max(1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task)))
@@ -1729,32 +2025,46 @@ class StrategyBase:
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
             # heurs)))
 
-            # Progress check: new points, in-flight tasks, or new results all count.
-            # A loop with none of those is "stalled" — e.g. a starved heuristic that
-            # waits for results which will never arrive. Bail out after
-            # config.max_stall_seconds instead of spinning for minutes.
+            # Progress / liveness check.  A pass that produced nothing is not
+            # a stall: the question is whether anything *can* still produce.
+            # ``_alive`` answers that from state alone — no wall clock.
             current_results_count = len(self.results)
             progressed = len(points) > 0 or len(self.pending) > 0 or current_results_count != self._last_results_count
+            now = time_module.time()
             if progressed:
-                self._loops_without_progress = 0
-                self._stall_started = None
+                self._dead_loops = 0
+                self._last_progress_at = now
                 self._last_results_count = current_results_count
+            elif not self._alive():
+                self._dead_loops += 1
+                if self._dead_loops >= self._max_dead_loops:
+                    # Not an incident: every queue is empty, nothing is in
+                    # flight and the event bus is drained, so nothing in this
+                    # process can change any of those three.  The run is over.
+                    self.logger.info(
+                        "No heuristic can produce a point (queues empty, bus idle, nothing in "
+                        "flight); ending run at %d/%s evaluations." % (len(self.results), self.config.max_eval)
+                    )
+                    break
             else:
-                self._loops_without_progress += 1
-                now = time_module.time()
-                if self._stall_started is None:
-                    self._stall_started = now
-                stalled_for = now - self._stall_started
-                if (
-                    stalled_for > self._max_stall_seconds
-                    or self._loops_without_progress > self._max_loops_without_progress
-                ):
-                    self.logger.warning(
-                        f"No progress (no new points, no pending tasks, no new results) for "
-                        f"{stalled_for:.1f}s ({self._loops_without_progress} consecutive loops). "
-                        f"This may indicate a starved/deadlocked heuristic, a configuration issue, "
-                        f"or an exhausted search space. "
-                        f"Results so far: {len(self.results)}/{self.config.max_eval}. Stopping optimization."
+                # Something claims to be running.  Give it as long as it needs;
+                # only a genuine wedge trips the backstop below.
+                self._dead_loops = 0
+                if self._last_progress_at is None:
+                    self._last_progress_at = now
+                elif now - self._last_progress_at > self._deadlock_seconds:
+                    self.logger.error(
+                        "Deadlock backstop: %.0fs without a new result while the run still reports "
+                        "itself alive (pending=%d, bus=%d, ready=%s). This is a bug — a wedged "
+                        "worker or a handler that never returns. Results so far: %d/%s."
+                        % (
+                            now - self._last_progress_at,
+                            len(self.pending),
+                            self.eventbus.inflight,
+                            [h.name for h in self.heuristics if h.can_produce],
+                            len(self.results),
+                            self.config.max_eval,
+                        )
                     )
                     break
 
@@ -2021,17 +2331,49 @@ with open('{result_file.name}', 'wb') as f:
             extra_fields=extra_fields,
         )
 
-    def _can_still_produce(self) -> bool:
-        """``True`` if points may still arrive without a new result batch.
+    def _alive(self) -> bool:
+        """``True`` iff this run can still produce a point.
 
-        Heuristics are reactive: they refill their queues when results come
-        in, so once a full pass over them yields nothing, waiting is
-        pointless — *unless* something produces asynchronously, i.e. a
-        subprocess bridge's pump thread or an evaluation still in flight.
+        The liveness predicate that replaced the wall-clock stall guard
+        (``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2).  Three terms,
+        all read from existing state, none of them a clock:
+
+        * ``pending`` — an evaluation is in flight, and its result will wake
+          every reactive heuristic;
+        * ``eventbus.inflight`` — a handler is queued or running, i.e. a
+          heuristic is *about to* refill its queue.  This is the term the old
+          guard lacked: it read "every queue is empty" and concluded "nothing
+          can produce", when the refills were merely still on the bus;
+        * ``h.can_produce`` — a queued point, or an on-demand arm ready to be
+          asked.
+
+        When all three are false the state is closed: no handler can run
+        (the bus is drained), no result can arrive (nothing is in flight) and
+        no queue holds a point, so nothing in this process can change any of
+        them.  Stopping is then a fact, not a timeout.
         """
         if self.pending:
             return True
-        return any(t.is_alive() for h in self._heuristics.values() for t in h._threads)
+        if self.eventbus.inflight > 0:
+            return True
+        return any(h.can_produce for h in self.heuristics)
+
+    def _can_still_produce(self) -> bool:
+        """``True`` if points may still arrive without a new result batch.
+
+        Narrower than :meth:`_alive`, deliberately: it is consulted inside a
+        single ``execute()`` (``_collect_points_safely``) to decide whether
+        *retrying the selector* can help, and a retry loop is not where a run
+        should be kept alive.  An evaluation in flight is the one thing that
+        can still change the answer within one pass.
+
+        Until the pull bridge of ``DESIGN_pump_and_stall_2026-09-11.md`` §1
+        this also counted a live pump thread — which never exits, so for any
+        strategy carrying a solver-bridge arm the answer was unconditionally
+        ``True``.  An on-demand arm now answers synchronously in
+        :meth:`Heuristic.produce`, so there is nothing left to wait for.
+        """
+        return bool(self.pending)
 
     def _collect_points_safely(self, target, selector, until=None):
         """
@@ -2084,7 +2426,14 @@ with open('{result_file.name}', 'wb') as f:
     def _cleanup(self):
         """
         cleanup + shutdown
+
+        Idempotent: :meth:`start` calls it from a ``finally`` so that an
+        exception escaping the main loop cannot leak threads, and ``_run``
+        calls it on the normal path.  The second call is a no-op.
         """
+        if getattr(self, "_cleaned_up", False):
+            return
+        self._cleaned_up = True
         self.logger.info("Cleaning up strategy...")
         # Signal termination to all event bus subscribers
         self.eventbus.publish("finished", terminate=True)
@@ -2117,7 +2466,14 @@ with open('{result_file.name}', 'wb') as f:
 
         self.info()
         self.results.info()
-        [m.__stop__() for m in self.analyzers + self.heuristics]
+        # *Every* module, not ``self.heuristics`` — that property filters on
+        # ``active``, so a heuristic that had already exhausted itself (the F1
+        # shape) never got its ``__stop__`` and kept its subprocess alive.
+        for m in list(self._analyzers.values()) + list(self._heuristics.values()):
+            try:
+                m.__stop__()
+            except Exception as exc:
+                self.logger.debug("%s.__stop__() failed: %r" % (getattr(m, "name", m), exc))
         # Deliver what is still queued (e.g. on_finished), then stop the dispatcher.
         self.eventbus.shutdown()
         self.results.close()

@@ -221,7 +221,7 @@ class StrategyLinUCB(StrategyBase):
 
                 for _, h in scores:
                     # Request points from the selected heuristic
-                    new_points = h.get_points(1)
+                    new_points = h.produce(1)
                     if new_points:
                         # Attach context to points!
                         for p in new_points:

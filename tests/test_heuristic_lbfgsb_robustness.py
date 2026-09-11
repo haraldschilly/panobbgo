@@ -113,17 +113,25 @@ class WorkerRobustnessTests(PanobbgoTestCase):
         )
         output.send.assert_called_once_with({"done": 2})
 
-    def test_on_start_handles_unexpected_exception(self):
+    def test_produce_gives_up_on_a_wedged_worker(self):
+        """A worker that never answers is an *error*, bounded and reported.
+
+        The deadlock backstop of ``panobbgo.core.PipeBridgeHeuristic``: it can
+        only fire when a live worker stops answering, so it never influences
+        which points a healthy run evaluates.
+        """
         h = LBFGSB(self.strategy)
         h.out1 = mock.MagicMock()
         h.out1.poll.return_value = False
         h.p1 = mock.MagicMock()
-        # A non-EOF error should be logged and break the loop, not propagate.
-        h.p1.poll.side_effect = RuntimeError("boom")
-        h._stopped = False
+        h.p1.poll.return_value = False  # alive, but never sends anything
+        h.lbfgsb = mock.MagicMock()
+        h.lbfgsb.is_alive.return_value = True
         h.logger = mock.MagicMock()
-        h.on_start()
+
+        assert h.produce(1, timeout=0.01) == []
         assert h.logger.error.called
+        assert h._bridge_done
 
 
 class StartFailureTests(PanobbgoTestCase):

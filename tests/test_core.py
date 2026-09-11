@@ -233,10 +233,17 @@ def test_check_dependencies_failure():
         strategy.check_dependencies()
 
 
-def test_stall_guard_aborts_starved_run():
-    """A starved strategy (heuristic that stops emitting) must abort after
-    ``config.max_stall_seconds`` — not spin through 10000 no-progress loops
-    (which took ~16 minutes before the time-based guard existed)."""
+def test_starved_run_ends_when_nothing_can_produce():
+    """A starved strategy must end the moment nothing *can* produce a point.
+
+    Not after a wall-clock timeout: the guard this replaced
+    (``config.max_stall_seconds``) was denominated in seconds, so the number
+    of evaluations a seeded run performed was a function of machine speed —
+    F4 of ``planning/results/2026-09-10/invariants_findings.md``.  The
+    liveness predicate :meth:`StrategyBase._alive` reads the same fact from
+    state: every queue empty, the bus drained, nothing in flight.  The claim
+    is therefore denominated in *loops*, not seconds.
+    """
     import time
 
     from panobbgo.strategies import StrategyRewarding
@@ -250,11 +257,50 @@ def test_stall_guard_aborts_starved_run():
     problem = Rosenbrock(2)
     t0 = time.time()
     with StrategyRewarding(problem, max_evaluations=50, evaluation_method="threaded") as strategy:
-        strategy.config.max_stall_seconds = 1.0
         strategy.add(Silent)
         strategy.start()
     elapsed = time.time() - t0
 
-    # Guard must trip ~1s after starvation begins; generous bound for slow CI.
-    assert elapsed < 20, f"stall guard too slow: {elapsed:.1f}s"
     assert len(strategy.results) < 50
+    # A handful of passes: one to emit, a few for the async margin
+    # (``_max_dead_loops``).  The old guard needed >= max_stall_seconds of
+    # spinning to reach the same conclusion.
+    assert strategy.loops < 50, f"took {strategy.loops} loops to notice starvation"
+    assert elapsed < 20, f"liveness guard too slow: {elapsed:.1f}s"
+
+
+def test_alive_is_false_only_when_nothing_can_change_it():
+    """The liveness predicate's three terms, one at a time."""
+    from panobbgo.strategies import StrategyRewarding
+
+    class OneShot(Heuristic):
+        """Emits one point on start and is never heard from again."""
+
+        def on_start(self):
+            self.emit([np.zeros(self.problem.dim)])
+
+    problem = Rosenbrock(2)
+    with StrategyRewarding(problem, max_evaluations=10, evaluation_method="threaded") as strategy:
+        strategy.add(OneShot)
+        strategy.initialize()
+        try:
+            h = strategy._heuristics["OneShot"]
+            strategy.eventbus.wait_idle()
+            assert strategy.eventbus.inflight == 0
+
+            # A queued point: alive, and it is ``can_produce`` that says so.
+            assert h.can_produce
+            assert strategy._alive()
+
+            # Drained, bus idle, nothing in flight -> the closed state.
+            h.get_points()
+            assert not h.can_produce
+            assert not strategy._alive()
+
+            # An evaluation in flight alone makes it alive again.
+            strategy.pending["fake"] = object()
+            assert strategy._alive()
+            strategy.pending.pop("fake")
+            assert not strategy._alive()
+        finally:
+            strategy._cleanup()

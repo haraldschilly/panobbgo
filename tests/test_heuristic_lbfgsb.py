@@ -147,10 +147,25 @@ class LBFGSBLifecycleTests(PanobbgoTestCase):
 # ----------------------------------------------------------------------
 
 
+def _live_bridge(h):
+    """Wire ``h`` up with mock pipes and a worker that reports itself alive."""
+    h.out1 = mock.MagicMock()
+    h.out1.poll.return_value = False
+    h.p1 = mock.MagicMock()
+    h.lbfgsb = mock.MagicMock()
+    h.lbfgsb.is_alive.return_value = True
+    return h
+
+
 class LBFGSBPipeTests(PanobbgoTestCase):
-    def test_on_new_results_routes_penalty_value(self):
-        h = LBFGSB(self.strategy)
-        h.p1 = mock.MagicMock()
+    """The pull bridge: every pipe operation happens in ``produce``.
+
+    ``on_new_results`` runs on the event-bus dispatcher thread and therefore
+    only *stores* the value — see ``panobbgo.core.PipeBridgeHeuristic``.
+    """
+
+    def test_on_new_results_stores_the_penalty_value(self):
+        h = _live_bridge(LBFGSB(self.strategy))
 
         class _R:
             def __init__(self, who, fx):
@@ -159,12 +174,15 @@ class LBFGSBPipeTests(PanobbgoTestCase):
 
         results = [_R("LBFGSB", 5.0), _R("Other", 3.0)]
         self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+        h._outstanding = True
         h.on_new_results(results)
-        h.p1.send.assert_called_once_with(5.0)
+        # Stored, not sent: the bus thread must not do I/O.
+        h.p1.send.assert_not_called()
+        assert h._fx_inbox.get_nowait() == 5.0
+        assert h._fx_inbox.empty()
 
     def test_on_new_results_ignores_foreign_who(self):
-        h = LBFGSB(self.strategy)
-        h.p1 = mock.MagicMock()
+        h = _live_bridge(LBFGSB(self.strategy))
 
         class _R:
             def __init__(self, who, fx):
@@ -172,51 +190,53 @@ class LBFGSBPipeTests(PanobbgoTestCase):
                 self.fx = fx
 
         self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+        h._outstanding = True
         h.on_new_results([_R("OtherHeuristic", 3.14)])
-        h.p1.send.assert_not_called()
+        assert h._fx_inbox.empty()
 
-    def test_on_start_exits_on_pipe_closed(self):
-        h = LBFGSB(self.strategy)
-        h.out1 = mock.MagicMock()
-        h.out1.poll.return_value = False
-        h.p1 = mock.MagicMock()
-        h.p1.poll.side_effect = EOFError()
-        h._stopped = False
-        h._pump()  # must exit silently
-
-    def test_on_start_logs_output(self):
-        h = LBFGSB(self.strategy)
-        h.out1 = mock.MagicMock()
-        h.out1.poll.return_value = True
-        h.out1.recv.return_value = "status payload"
-        h.p1 = mock.MagicMock()
-        h.p1.poll.side_effect = EOFError()
-        h._stopped = False
-        h.logger = mock.MagicMock()
-        h._pump()
-        h.logger.info.assert_called_with("status payload")
-
-    def test_on_start_emits_requested_point(self):
-        h = LBFGSB(self.strategy)
-        h.out1 = mock.MagicMock()
-        h.out1.poll.return_value = False
-        h.p1 = mock.MagicMock()
-        # First poll yields a point; the emit handler then flips _stopped so
-        # the loop terminates after exactly one iteration.
+    def test_produce_answers_the_outstanding_fx_then_takes_the_next_point(self):
+        h = _live_bridge(LBFGSB(self.strategy))
         h.p1.poll.return_value = True
         h.p1.recv.return_value = np.array([0.1, 0.2])
+        h._outstanding = True
+        h._fx_inbox.put(5.0)
 
-        emitted = []
+        points = h.produce(1)
+        h.p1.send.assert_called_once_with(5.0)
+        assert len(points) == 1
+        np.testing.assert_allclose(points[0].x, [0.1, 0.2])
+        assert h._outstanding  # the new point is now the one we owe a value for
 
-        def fake_emit(x):
-            emitted.append(np.asarray(x))
-            h._stopped = True
+    def test_produce_returns_nothing_while_it_owes_the_worker_a_value(self):
+        """The structural deadlock guard: never wait on an arm waiting on us."""
+        h = _live_bridge(LBFGSB(self.strategy))
+        h._outstanding = True  # inbox empty
+        assert h.produce(1) == []
+        assert not h.can_produce
+        h.p1.poll.assert_not_called()
 
-        h._stopped = False
-        with mock.patch.object(h, "emit", side_effect=fake_emit):
-            h._pump()
-        assert len(emitted) == 1
-        np.testing.assert_allclose(emitted[0], [0.1, 0.2])
+    def test_produce_ends_the_bridge_on_a_closed_pipe(self):
+        h = _live_bridge(LBFGSB(self.strategy))
+        h.p1.poll.side_effect = EOFError()
+        assert h.produce(1) == []
+        assert h._bridge_done and h._stopped
+
+    def test_produce_ends_the_bridge_when_the_worker_exited(self):
+        h = _live_bridge(LBFGSB(self.strategy))
+        h.p1.poll.return_value = False
+        h.lbfgsb.is_alive.return_value = False
+        assert h.produce(1) == []
+        assert h._bridge_done
+
+    def test_produce_logs_the_worker_status_pipe(self):
+        h = _live_bridge(LBFGSB(self.strategy))
+        h.out1.poll.side_effect = [True, False]
+        h.out1.recv.return_value = "status payload"
+        h.p1.poll.return_value = True
+        h.p1.recv.return_value = np.array([0.1, 0.2])
+        h.logger = mock.MagicMock()
+        h.produce(1)
+        h.logger.info.assert_called_with("status payload")
 
 
 # ----------------------------------------------------------------------
@@ -293,29 +313,21 @@ class LBFGSBWarmStartTests(PanobbgoTestCase):
             x0 = h._warm_start_x0()
             assert np.all(x0 >= lo - 1e-12) and np.all(x0 <= hi + 1e-12)
 
-    def test_on_start_answers_x0_request_inline(self):
+    def test_produce_answers_x0_request_inline(self):
         # An ``_X0_REQUEST`` sentinel from the worker is answered on the pipe
-        # (never emitted as a search point).
-        h = LBFGSB(self.strategy, warm_start=True, seed=0)
-        h.out1 = mock.MagicMock()
-        h.out1.poll.return_value = False
-        h.p1 = mock.MagicMock()
+        # (never emitted as a search point), on the caller's thread.
+        h = _live_bridge(LBFGSB(self.strategy, warm_start=True, seed=0))
         h.p1.poll.return_value = True
 
         sent = []
+        # First recv yields the sentinel, the second a real point, so the
+        # round trip ends after exactly one inline answer.
+        h.p1.recv.side_effect = [_X0_REQUEST, np.array([0.1, 0.2])]
         h.p1.send.side_effect = lambda payload: sent.append(payload)
-        # First recv yields the sentinel; the send handler then stops the loop.
-        h.p1.recv.return_value = _X0_REQUEST
 
-        def stop_after_send(payload):
-            sent.append(payload)
-            h._stopped = True
-
-        h.p1.send.side_effect = stop_after_send
-        h._stopped = False
         with mock.patch.object(h, "emit") as mock_emit:
-            h._pump()
-        mock_emit.assert_not_called()
+            h.produce(1)
+        mock_emit.assert_called_once()
         assert len(sent) == 1
         # The answer is a valid in-box point (uniform draw since no incumbent).
         bounds = h._box_bounds()

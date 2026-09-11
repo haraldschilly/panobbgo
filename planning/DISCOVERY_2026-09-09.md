@@ -1559,3 +1559,72 @@ archive needs a feasibility-aware K for later.  Constrained-or-not is
 free to read (`eval_constraints` is not `None`), so this row, too,
 needs no probe; it enters the table as a lean with 12 seeds behind it,
 flagged as not rule-accepted.
+
+## 45. Oracle regime gate, 12 seeds: not falsified, and it costs exactly nothing — the gate is worth precisely what the table is worth
+
+Step 1 of `DESIGN_regime_gating_2026-09-11.md` landed (71cd083):
+`StrategyBlockBandit(regime_gate="oracle:<class>")`, every arm
+constructed up front, a per-arm `_enabled` mask read in one place
+(`_select`), `REGIME_TABLE_V1` with the four-field key (noise, dim,
+bpd, constrained) and the two probe-free §44 rows.  Raw:
+`results/2026-09-11/rg_{cauchy,unif,gauss,standard,d10_bm500,bm200}.json`,
+12 seeds, 0 errors, all deltas recomputed from the rows.
+
+| cell | gate → | vs `CMAES_alone` | vs portfolio |
+|---|---|---|---|
+| cauchy | CMA-ES | **identical, 120/120 cells** | **+0.1009 [+0.078, +0.124], 12/12** — accepted |
+| unif | both | **+0.0367 [+0.013, +0.061], 10/12**, d2 +0.018 d5 +0.055 — accepted | identical |
+| gauss | both | +0.0224 [−0.003, +0.047], 9/12, d2 −0.003 | identical |
+| standard 500·dim | CMA-ES | **identical** (the must-not-lose control) | −0.019, 4/12 (= §27 parity) |
+| d=10, 500·dim | CMA-ES | identical, 36/36 | +0.023, 6/12 |
+| standard 200·dim | both | **+0.0365 [+0.005, +0.069], 9/12** — accepted (= §44.1 to the 4th decimal) | identical |
+
+Two facts, one of them unexpected.
+
+**Not falsified.**  The oracle beats CMA-ES by the rule on unif and on
+200·dim, and on cauchy it *is* CMA-ES — bit for bit — so the cauchy
+evidence is the +0.101 recovery over the portfolio at zero cost against
+the arm.  Every row fired where it should.
+
+**The design's §2.2 caveat did not materialise.**  A disabled arm still
+receives `on_new_results` and advances its own stream, but that stream
+never touches the enabled arm's, and a never-selected arm never has a
+point evaluated — so "CMA-ES via the gate" equals `CMAES_alone` in all
+276 gated-to-one-arm cells, and "both arms via the gate" equals the
+ungated portfolio in all 360.  The mask is free.  The consequence is
+sharper than the design expected: **the value of regime gating is
+exactly the value of the table**, and the only price any future probe
+(`table-v1`, steps 2–3) can add is its own k evaluations.
+
+### 45.1 What this makes shippable now
+
+Three of the table's rows need no probe — outlier is the only class
+that must be *detected*, and the bounded row is the only one that
+*needs* the detection.  Assume `clean` (`regime_gate="oracle:clean"`)
+and the gate reduces to: **d ≤ 5 and ≤ 200·dim → CMA-ES + jSO sharing;
+constrained → jSO; everything else → CMA-ES.**  Measured against the
+flagship `RoundRobin_CMAES` ≡ `CMAES_alone` this is identical in every
+clean cell we have (500·dim, 2000·dim, d = 10), better by the rule at
+200·dim, a 12-seed lean on constrained, and identical (not worse) under
+cauchy and gauss; under unif it forgoes +0.037.  A default that is
+never worse by the rule anywhere measured and better by the rule in one
+regime is the first candidate to replace the flagship since Phase A.
+Proposal: make it the default of the portfolio spec
+(`Blocks_warm_CMAES_JSO`), keep `RoundRobin_CMAES` as the plain
+reference, and revisit the flagship label once one more low-budget
+point (§45.2) is in.
+
+### 45.2 What the probe is worth, and why it is not next
+
+The probe buys the bounded row only: +0.037 (unif) to +0.022 (gauss,
+not by the rule), all of it at *d* = 5 (*d* = 2: +0.018 / −0.003), at
+the price of k evaluations and a 0.40 cauchy detection rate whose
+safety comes from the fallback, not the detector.  A ceiling of ~+0.03
+in one regime.  The low-budget line (§44.1) is the larger and cleaner
+lead — a monotone series with a rule win at its end and the crossover
+between 200 and 500·dim not yet located — and it is the regime panobbgo
+was written for.  So: probe deferred; next runs are 100·dim and
+300·dim on the standard battery (where does sharing start and stop
+paying), and whether a *third* arm or a shorter block helps at 200·dim
+(§25's dilution and §29's block length were measured at 500·dim only).
+Then the constrained warm-start hypothesis of §44.2.

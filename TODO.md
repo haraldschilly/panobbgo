@@ -44,9 +44,20 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
 - `REGIME_TABLE_V1` im Design hat jetzt zwei probefreie Zeilen mehr
   (bpd ≤ 200 → CMA-ES+jSO; constrained → jSO).
 
-Nächster Schritt: Regime-Gate Schritt 1 (Oracle-Gate) aus
-`planning/DESIGN_regime_gating_2026-09-11.md`, **ein** Opus-Agent.
-Danach: 300·dim-Lauf (Crossover), constrained-Warm-Start-Test.
+- **Regime-Gate Schritt 1 gelandet** (71cd083, 12 Seeds, §45): nicht
+  falsifiziert, und die Maske kostet **nichts** — gated-zu-einem-Arm ist
+  bit-identisch mit dem Arm, gated-zu-beiden mit dem Portfolio. Der
+  Wert des Gates ist exakt der Wert der Tabelle.
+- **Kandidat für den neuen Default** (§45.1): `regime_gate="oracle:clean"`
+  (kein Probe) = d ≤ 5 & ≤ 200·dim → Sharing; constrained → jSO; sonst
+  CMA-ES. Nirgends schlechter als `CMAES_alone`, bei 200·dim nach Regel
+  besser. Entscheidung Harald: Default von `Blocks_warm_CMAES_JSO`?
+- Probe (Schritte 2–3) **zurückgestellt** (§45.2): Decke ~+0.03 in einem
+  Regime, nur bei d=5.
+
+Nächste Läufe (ein Agent): 100·dim und 300·dim Standard-Batterie
+(Crossover des Sharing-Gewinns), dritter Arm / kürzerer Block bei
+200·dim; dann `warm_start=None` am CMA-ES-Arm auf constrained (§44.2).
 
 ### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)
 

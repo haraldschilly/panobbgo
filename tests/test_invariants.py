@@ -148,6 +148,17 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     ),
     ("CMAES", "sigma_max_frac"): "threshold of the sigma-divergence criterion, which never fires here",
     ("CMAES", "sigma_divergence_gens"): "patience of the sigma-divergence criterion, which never fires here",
+    # --- seams (planning/DESIGN_seams_2026-09-11.md §2): inert without a second arm ---
+    ("CMAES", "inject"): (
+        "ranks foreign results (who not starting with this instance's tag) with the generation's "
+        "offspring; a solo run never produces a foreign result, so on_new_results never has anything "
+        "to inject -- pinned as an identity in tests/test_cma_es_inject.py"
+    ),
+    ("JSO", "shared_pbest"): (
+        "widens the pbest pool with the shared Archive analyzer's foreign top-k; the probe's solo run "
+        "attaches no Archive, so _archive_analyzer() is None and the pool never changes -- pinned as "
+        "an identity in tests/test_jso_shared_pbest.py"
+    ),
     # --- warm start needs a non-empty archive, which on_start never has ----
     ("LBFGSB", "warm_start_sigma"): "only read in _warm_start_x0, i.e. only when warm_start=True",
     # --- gated by a sibling argument --------------------------------------

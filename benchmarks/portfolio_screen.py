@@ -108,6 +108,12 @@ def warm_lshade(mode):
     return warm("lshade", mode)
 
 
+def warm_kw(key, mode, **extra):
+    """``warm(key, mode)`` plus extra constructor kwargs — the seam knobs of §2.3 below."""
+    cls, kw = ARM[key]
+    return (cls, {**kw, "warm_start": mode, **extra})
+
+
 #: ``warm_start_only_if_foreign=False``: re-seed on *every* re-acquisition.
 #: §21 measured the ``_any`` variants above the foreign-only default
 #: (``Blocks_ducb_2_warm_any`` +0.005 over ``Blocks_ducb_2_warm``), so every
@@ -369,6 +375,34 @@ SPECS = {
     "Blocks_uniform_cj_warm2_auto": (
         StrategyBlockBandit,
         CJ,
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    # -- planning/DESIGN_seams_2026-09-11.md §2.3: within-generation sharing -
+    #
+    # ``Blocks_uniform_cj_warm2_auto`` plus the two seams that let the shared
+    # archive enter *inside* a generation instead of only at block
+    # boundaries: CMA-ES ranks foreign results with its offspring
+    # (``inject=True``, §2.1) and jSO widens its pbest pool with the
+    # archive's foreign top-k (``shared_pbest=True``, §2.2).  Both are inert
+    # alone (tests/test_cma_es_inject.py, tests/test_jso_shared_pbest.py); the
+    # only question this screen answers is whether either one, or both, beats
+    # block-boundary sharing by the rule (§3's falsifier).
+    "Blocks_cj_inject_auto": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", inject=True), warm("jso", "archive")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_pbest_auto": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), warm_kw("jso", "archive", shared_pbest=True)],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_seams_auto": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", inject=True), warm_kw("jso", "archive", shared_pbest=True)],
         {"policy": "uniform", "block_evals": "auto", **WARM_ON},
         ARCHIVE,
     ),

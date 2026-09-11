@@ -255,6 +255,25 @@ class CMAES(Heuristic):
             evaluations: CMA-ES has no population to fill, so the whole gain
             is starting in the right basin with the right scale.  At
             ``t = 0`` the archive is empty and the heuristic cold-starts.
+        inject (bool): Rank foreign results — points this instance did not
+            emit — alongside the current generation's own offspring
+            (``planning/DESIGN_seams_2026-09-11.md`` §2.1; N. Hansen (2011),
+            "Injecting external solutions into CMA-ES", arXiv:1110.4181).
+            A foreign point is converted to normalised coordinates
+            ``y = (x_f - m) / σ`` and its Mahalanobis norm
+            ``‖diag(1/D) Bᵀ y‖`` is clipped to ``c_y = √n + 2n/(n+2)`` so it
+            cannot drag the mean, the step-size path or the covariance
+            update further than one clipped step would — the stored position
+            is ``m + σ·y_clipped``, not the original point.  At most
+            ``max(1, λ // 4)`` injected points are kept per generation, the
+            best by penalty.  Default ``False``.  Without a second arm
+            feeding the shared archive there are no foreign points, so this
+            is inert alone — it only does something inside a portfolio.
+        name (str, optional): Override the heuristic's display name, and
+            with it the ``who`` tag prefix (``"<name>:g<gen>:i<i>"``) used to
+            tell this instance's own points from a foreign result.  Default
+            ``"CMAES"``, matching the tag every point carried before this
+            argument existed.
     """
 
     #: Accepted values for the ``restart_from`` constructor argument.
@@ -290,9 +309,16 @@ class CMAES(Heuristic):
         sigma_max_frac: float = 0.3,
         sigma_divergence_gens: int = 5,
         warm_start: Optional[str] = None,
+        inject: bool = False,
+        name: Optional[str] = None,
     ):
-        super().__init__(strategy, name="CMAES")
+        super().__init__(strategy, name=name or "CMAES")
         self.logger = self.config.get_logger("H:CMA")
+        #: ``who`` tag prefix identifying this instance's own points; a
+        #: result whose ``who`` does not start with it is foreign (§2.1/§2.2
+        #: of ``planning/DESIGN_seams_2026-09-11.md``).  Instance-specific
+        #: via ``name`` so two CMA-ES arms in one strategy stay distinct.
+        self._who_prefix = f"{self.name}:"
         self._sigma0_frac = sigma0
         self._popsize_override = popsize
         self._min_results_fraction = min_results_fraction
@@ -354,6 +380,8 @@ class CMAES(Heuristic):
         self._sigma_divergence = bool(sigma_divergence)
         self._sigma_max_frac = float(sigma_max_frac)
         self._sigma_divergence_gens = int(sigma_divergence_gens)
+        #: Injection seam (§2.1): rank foreign results with the offspring.
+        self._inject = bool(inject)
 
         # Budget-relative stagnation bookkeeping.  ``_total_evals`` counts the
         # results this heuristic has consumed over the *whole* run (it survives
@@ -429,6 +457,10 @@ class CMAES(Heuristic):
         # queue — the update trigger must be based on this, not on λ, or a
         # partially-emitted generation deadlocks the heuristic.
         self._gen_emitted: Dict[int, int] = {}
+        # Foreign points accepted for injection into the still-open
+        # generation they arrived during (§2.1), keyed the same way as
+        # ``_gen_results`` and cleared everywhere that dict is.
+        self._injected: Dict[int, List[dict]] = {}
 
         # Box bounds (set in on_start)
         self._lo: Optional[np.ndarray] = None
@@ -523,6 +555,7 @@ class CMAES(Heuristic):
         self._gen = 0
         self._pending = {}
         self._gen_results = {}
+        self._injected = {}
 
         # Remember base population so IPOP doubling scales correctly
         if self._base_lam == 0:
@@ -703,6 +736,7 @@ class CMAES(Heuristic):
         self._pending.clear()
         self._gen_results.clear()
         self._gen_emitted.clear()
+        self._injected.clear()
         self.clear_output()
         self._reset_run_state()
         self._emit_generation()
@@ -715,7 +749,9 @@ class CMAES(Heuristic):
     def on_new_results(self, results) -> None:
         """Collect results and trigger a CMA-ES update when enough have arrived."""
         for r in results:
-            if not r.who.startswith("CMAES:"):
+            if not r.who.startswith(self._who_prefix):
+                if self._inject:
+                    self._maybe_inject(r)
                 continue
 
             info = self._pending.pop(r.who, None)
@@ -755,7 +791,11 @@ class CMAES(Heuristic):
             emitted = self._gen_emitted.get(gen, self._lam)
             min_needed = max(2, int(min(self._lam, emitted) * self._min_results_fraction))
             if len(bucket) >= min_needed:
-                self._update(bucket)
+                # Injected foreign points (§2.1) are added to the bucket here
+                # — after the quorum check, so they never count toward
+                # ``min_needed`` — and ranked with the offspring by ``_update``.
+                injected = self._injected.pop(gen, None)
+                self._update(bucket + injected if injected else bucket)
                 del self._gen_results[gen]
                 self._gen_emitted.pop(gen, None)
                 # A fired termination criterion replaces the next generation
@@ -767,6 +807,63 @@ class CMAES(Heuristic):
                 else:
                     self._emit_generation()
                 break
+
+    @staticmethod
+    def _clip_injected(y: np.ndarray, B: np.ndarray, D: np.ndarray, c_y: float) -> np.ndarray:
+        """Rescale ``y`` so its Mahalanobis norm does not exceed ``c_y``.
+
+        Hansen (2011), arXiv:1110.4181, "Injecting external solutions into
+        CMA-ES": the Mahalanobis norm of a normalised step ``y`` is
+        ``‖C^{-1/2} y‖ = ‖diag(1/D) Bᵀ y‖``.  When it exceeds ``c_y`` the
+        vector is rescaled along its own direction — never rotated — so an
+        injected point can drag the mean, the step-size path and the
+        covariance update no further than one clipped step would.  A
+        (numerically impossible but defensive) zero norm is returned
+        unchanged rather than divided by.
+        """
+        z = (1.0 / D) * (B.T @ y)
+        norm = float(np.linalg.norm(z))
+        if norm <= c_y or norm == 0.0:
+            return y
+        return y * (c_y / norm)
+
+    def _maybe_inject(self, r) -> None:
+        """Offer a foreign result as a candidate injection (§2.1).
+
+        No-op without an open generation (``_gen_results`` empty), before
+        :meth:`on_start` has run, or for a result with no finite penalty —
+        an infinitely bad point could never be selected and would only
+        waste a slot in the per-generation cap.  Otherwise the point is
+        converted to the oldest open generation's normalised coordinates,
+        Mahalanobis-clipped (:meth:`_clip_injected`), and kept if it beats
+        the worst currently injected entry once the cap
+        ``inject_max = max(1, λ // 4)`` is full.
+        """
+        if not self._gen_results:
+            return
+        if self._m is None or self._B is None or self._D is None:
+            return
+        if r.fx is None or not np.isfinite(r.fx):
+            return
+        penalty = float(self.strategy.constraint_handler.get_penalty_value(r))
+        if not np.isfinite(penalty):
+            return
+
+        n = self.problem.dim
+        c_y = float(np.sqrt(n) + 2.0 * n / (n + 2.0))
+        x_f = np.asarray(r.x, dtype=float)
+        y = self._clip_injected((x_f - self._m) / self._sigma, self._B, self._D, c_y)
+        entry = {"penalty": penalty, "x": self._m + self._sigma * y, "y": y}
+
+        gen = min(self._gen_results.keys())
+        bucket = self._injected.setdefault(gen, [])
+        inject_max = max(1, self._lam // 4)
+        if len(bucket) < inject_max:
+            bucket.append(entry)
+        else:
+            worst = max(range(len(bucket)), key=lambda i: bucket[i]["penalty"])
+            if bucket[worst]["penalty"] > entry["penalty"]:
+                bucket[worst] = entry
 
     def on_restart(self, center: np.ndarray, reason: str = "") -> None:
         """Reset CMA-ES to *center* using the configured restart scheme.
@@ -942,6 +1039,7 @@ class CMAES(Heuristic):
         self._pending.clear()
         self._gen_results.clear()
         self._gen_emitted.clear()
+        self._injected.clear()
         self.clear_output()
 
         # Emit the first generation from the new distribution
@@ -1010,6 +1108,12 @@ class CMAES(Heuristic):
         element is the generation's best.  Non-finite penalties (the rank-last
         marker for a failed evaluation) are excluded from the ranges the
         criteria test, but still counted in the median.
+
+        With ``inject=True`` (§2.1), ``collected`` is the offspring bucket
+        merged with this generation's injected foreign points — a good
+        injection can therefore make ``best`` improve, ``fx_hist``/``med_hist``
+        move, and ``tolfun``/``tolfunhist``/``stagnation`` see it exactly as
+        they would a real offspring.
         """
         penalties = [float(d["penalty"]) for d in collected]
         best = penalties[0]
@@ -1209,7 +1313,7 @@ class CMAES(Heuristic):
             x = self._m + self._sigma * y
             x = self.problem.project(x)
 
-            who = f"CMAES:g{gen}:i{i}"
+            who = f"{self._who_prefix}g{gen}:i{i}"
             # Put directly to bypass emit()'s ndarray-only check,
             # preserving the custom 'who' tag needed for generation tracking.
             self._put(Point(x, who))

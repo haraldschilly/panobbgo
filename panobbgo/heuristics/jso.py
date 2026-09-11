@@ -111,7 +111,7 @@ References
 
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -168,6 +168,17 @@ class JSO(LSHADE):
         warm_start: Optional archive-seeding mode; see
             :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``
             (cold start).
+        shared_pbest: Widen the ``pbest`` pool with the shared archive
+            (``planning/DESIGN_seams_2026-09-11.md`` §2.2): the pool becomes
+            the live top-``p_count`` union the best ``p_count`` *foreign*
+            results (``who`` not starting with this instance's own tag) from
+            the :class:`~panobbgo.analyzers.archive.Archive` analyzer, and
+            ``pbest`` is drawn uniformly from that union with the instance's
+            own RNG.  Without an ``Archive`` analyzer, or with none of its
+            results foreign, the pool and the RNG draw are exactly today's —
+            no extra draw is spent probing for foreign points.  Default
+            ``False``; like ``inject`` on :class:`~panobbgo.heuristics.cma_es.CMAES`,
+            this is inert without a second arm feeding the archive.
         seed: Optional seed for the per-instance RNG.
         name: Override the heuristic's display name.
 
@@ -197,6 +208,7 @@ class JSO(LSHADE):
         p_best_min: float = _DEFAULT_P_BEST_MIN,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         warm_start: Optional[str] = None,
+        shared_pbest: bool = False,
         seed: Optional[int] = None,
         name: Optional[str] = None,
     ) -> None:
@@ -225,6 +237,9 @@ class JSO(LSHADE):
         )
         self.p_best_max: float = float(p_best_max)
         self.p_best_min: float = float(p_best_min)
+        #: Shared-pbest seam (§2.2): widen the pbest pool with the best
+        #: foreign results from the shared archive.
+        self.shared_pbest: bool = bool(shared_pbest)
 
         # Re-initialize memory bins per jSO defaults (L-SHADE used 0.5).
         self._M_F[:] = _INIT_M_F
@@ -295,7 +310,9 @@ class JSO(LSHADE):
         * applying the linear ``p_best`` schedule (``_current_p_best``)
           when picking the pbest pool size;
         * weighting the pbest direction by ``F_w`` (``_current_F_weight``)
-          while keeping the differential ``F`` unchanged.
+          while keeping the differential ``F`` unchanged;
+        * with ``shared_pbest=True`` (§2.2), widening the pool with the best
+          foreign results from the shared archive.
         """
         live = self._live_indices()
         if len(live) < 4 or target_idx not in live:
@@ -313,8 +330,23 @@ class JSO(LSHADE):
         p_best = self._current_p_best()
         p_count = max(int(np.ceil(p_best * len(sorted_live))), 1)
         pbest_pool = sorted_live[:p_count]
-        pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
-        pbest_slot = self._population[pbest_idx]
+
+        # §2.2: widen the pool with the best foreign archive results.  An
+        # empty ``foreign`` (no ``shared_pbest``, no ``Archive`` analyzer, or
+        # nothing foreign in it yet) falls through to exactly today's draw —
+        # no extra RNG call is spent finding that out.
+        foreign: List[Result] = []
+        if self.shared_pbest:
+            archive = self._archive_analyzer()
+            if archive is not None:
+                foreign = archive.top_k(p_count, exclude_who=self.name)
+
+        if foreign:
+            union: List[Result] = [self._population[i] for i in pbest_pool] + list(foreign)  # type: ignore[misc]
+            pbest_slot = union[int(self._rng.integers(0, len(union)))]
+        else:
+            pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
+            pbest_slot = self._population[pbest_idx]
         if not isinstance(pbest_slot, Result):
             return
         x_pbest = np.asarray(pbest_slot.x, dtype=float)

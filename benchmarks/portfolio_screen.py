@@ -459,6 +459,49 @@ SPECS = {
         {},
         ARCHIVE,
     ),
+    # -- §47.3 follow-up: what does the hand-off carry? --------------------
+    #
+    # The baseline is ``Blocks_uniform_cj_warm2_auto`` (both arms re-seed
+    # from the shared ``Archive`` top-k on re-acquisition) and the bar is
+    # ``Blocks_cj_cold_auto`` (identical arms, no hand-off at all); §47
+    # measured the gap between them at +0.076 (100*d) and +0.138 (200*d).
+    # These four ablations split that gap:
+    #
+    # * ``_warmC`` / ``_warmJ`` -- only one arm receives the hand-off.  If
+    #   one of them alone reaches the baseline, the hand-off is a
+    #   one-directional effect and the other arm's warm start is dead
+    #   weight (it still costs the arm its open generation).
+    # * ``_cov`` -- CMA-ES additionally seeds its covariance from the
+    #   archive points (``archive_cov``, cma_es.py:654) instead of taking
+    #   only mean and sigma.  Does the hand-off want the *shape* of the
+    #   other arm's search, or just its location?
+    # * ``_div`` -- both arms re-seed from k well-separated good points
+    #   (``archive_diverse``) instead of the top-k, which crowd on one
+    #   incumbent.  Does the hand-off want the best points or a spread?
+    "Blocks_cj_warmC_auto": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive"), ARM["jso"]],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_warmJ_auto": (
+        StrategyBlockBandit,
+        [ARM["cmaes"], warm("jso", "archive")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_warm2_cov_auto": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive_cov"), warm("jso", "archive")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_warm2_div_auto": (
+        StrategyBlockBandit,
+        [warm("cmaes", "archive_diverse"), warm("jso", "archive_diverse")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
     # -- §27 B: which soft-D-UCB knob carries the gain? -------------------
     #
     # ``_soft`` (ucb_c 2.0, hysteresis 1.0, gamma 0.7) led §26 at 0.6921 by

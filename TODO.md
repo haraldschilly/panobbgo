@@ -72,11 +72,23 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   ist die Übergabe selbst; Nähte, die Evaluationen *sparen* (Surrogat-
   Vorauswahl), behalten ihren Fall. `inject`/`shared_pbest` bleiben als
   gemessene Knöpfe, kein Default.
-- **Nächste Kandidaten**: (1) Übergabe-Ablation bei 100/200·dim — nur
-  CMA-ES warm / nur jSO warm / `archive_cov` / `archive_diverse` (nur
-  Spec-Tabelle, Sonnet) — **läuft 2026-09-13**; (2) Surrogat-Vorauswahl
-  (lq-CMA-ES) als neuer Baustein (Opus); (3) Stall-Mechanismus kurzer
-  Blöcke (§46).
+- **Übergabe-Ablation gelaufen (§48)**: die Übergabe ist **beidseitig
+  und superadditiv** — einseitig warm bringt je ~1/3 der Lücke, beide
+  zusammen 47 % (100·dim) bzw. 31 % (200·dim) *mehr* als die Summe.
+  Lesart: eine Ratsche — ein warm gestarteter Arm schreibt bessere
+  Punkte ins Archiv, aus dem der andere Arm beim nächsten Mal zieht.
+  `archive_diverse` ist **exakt so viel wert wie gar keine Übergabe**
+  (−0.002/−0.004, CI über null) — die Übergabe ist Intensivierung, nicht
+  Diversifizierung. `archive_cov` spaltet nach Dimension (+0.010 bei
+  d=2/200·dim — bester d=2-Wert überhaupt; −0.069 bei d=5), Ursache:
+  10 korrelierte Top-Punkte für eine 5×5-Kovarianz, unreguliert.
+- **Nächste Kandidaten**: (1) **Shrinkage für `archive_cov`** —
+  `C = (1−α)I + αĈ`, α aus k/n, Kondition auf 10²–10³ statt 1e7
+  (`cma_es.py:_seed_covariance`); klarer Falsifikator, lokal, billig;
+  (2) Surrogat-Vorauswahl (lq-CMA-ES) als neuer Baustein (Opus);
+  (3) Ratschen-Hypothese: Wert der Übergabe gegen die *Anzahl* der
+  Übergaben (Re-Read der §46.3-Zellen, kostenlos); (4) Stall-Mechanismus
+  kurzer Blöcke (§46).
 
 ### Entscheidung Harald 2026-09-13: Defaults erst nach der Suite-Erweiterung
 

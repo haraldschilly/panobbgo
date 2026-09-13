@@ -1789,3 +1789,116 @@ does not inherit any credit from this round.
 
 `inject` and `shared_pbest` stay in the code as measured, inert-alone
 knobs (they are the falsifier's record); neither is a default.
+
+## 48. What the hand-off carries: both directions or nothing, the top-k and not a spread, and covariance only where the sample supports it
+
+§47.3 named the hand-off as the building block worth generalising, so
+this ablation splits the gap it opened.  Raw:
+`results/2026-09-13/ho_bm100.json`, `ho_bm200.json` (12 seeds, dims 2
+and 5, 5 instances, `block_evals="auto"`, uniform rotation, 120 cells
+per budget, 0 errors, every run spent its full budget).  Four new specs
+(95edf29) against the baseline `Blocks_uniform_cj_warm2_auto` (both arms
+re-seed from the archive top-k) and the bar `Blocks_cj_cold_auto` (same
+arms, no hand-off):
+
+* `Blocks_cj_warmC_auto` / `_warmJ_auto` — only CMA-ES / only jSO
+  receives the hand-off,
+* `Blocks_cj_warm2_cov_auto` — CMA-ES additionally seeds **C** from the
+  archive cloud (`archive_cov`, `cma_es.py:673`); jSO unchanged,
+* `Blocks_cj_warm2_div_auto` — both arms re-seed from k well-separated
+  good points (`archive_diverse`) instead of the top-k.
+
+The baseline reproduces §47 cell for cell (`warm2_auto − cold_auto`
+= +0.0761 / +0.1379, the same to four decimals), so the added specs did
+not move anyone else's stream: `_derive_seed` hashes the strategy name.
+
+### 48.1 The hand-off is bidirectional, and superadditive
+
+All deltas paired per (seed, dim, instance), t(11) = 2.201.
+
+| over `cold_auto` | 100·dim | 200·dim |
+|---|---|---|
+| only CMA-ES warm | +0.0269 [+0.022, +0.032], 12/12 | +0.0512 [+0.042, +0.060], 12/12 |
+| only jSO warm | +0.0249 [+0.018, +0.032], 12/12 | +0.0539 [+0.040, +0.068], 12/12 |
+| sum of the two | +0.0518 | +0.1052 |
+| **both warm (baseline)** | **+0.0761** | **+0.1379** |
+| superadditivity | **+0.0243 (47 % over the sum)** | **+0.0327 (31 %)** |
+
+Each direction alone is accepted by the rule and each is worth about a
+third (100·dim) to two fifths (200·dim) of the full hand-off — but both
+one-sided variants lose to the two-arm baseline by the rule (−0.049 /
+−0.051 at 100·dim, 0/12; −0.087 / −0.084 at 200·dim, 1/12) and to
+`CMAES_alone` as well.  There is no cheap one-sided version to ship.
+
+The superadditivity is the finding.  The hand-off is not a one-way
+transfer into an arm; it is a **ratchet**: a warm-started arm writes
+better points into the shared archive, which is the pool the *other*
+arm's next hand-off draws from.  One-sided warm breaks the loop — the
+cold arm keeps feeding the archive its unimproved points.  Prediction to
+test: the value should grow with the *number* of hand-offs (more, shorter
+blocks) until the switching transient eats it, which is the other end of
+§46.3's flat block-length curve.
+
+### 48.2 The selector: the top-k crowd is the point; a spread is worth nothing
+
+| over `cold_auto` (i.e. what the hand-off is still worth) | 100·dim | 200·dim |
+|---|---|---|
+| top-k (`archive`, baseline) | +0.0761, 12/12 | +0.1379, 12/12 |
+| `archive_cov` (top-2n + covariance) | +0.0463, 12/12 | +0.1085, 12/12 |
+| **`archive_diverse`** | **−0.0022 [−0.006, +0.001], 3/12** | **−0.0036 [−0.017, +0.010], 7/12** |
+
+`archive_diverse` does not merely underperform the top-k: it is
+statistically **indistinguishable from no hand-off at all**, at both
+budgets, both CIs straddling zero.  Re-seeding from k well-separated
+good points destroys the entire value of the hand-off (−0.078 / −0.142
+against the baseline, 0/12).  Whatever the hand-off does, it does by
+placing the receiving arm's distribution *on the incumbent*, with a σ
+fitted to a tight cloud — the spread version hands it a wide σ and a
+mean in no basin at all.  The hand-off is intensification, not
+diversification; the exploration in this portfolio comes from the arms,
+not from the transfer.
+
+### 48.3 `archive_cov`: location always, shape only where the sample supports it
+
+| `archive_cov` − baseline | overall | d = 2 | d = 5 |
+|---|---|---|---|
+| 100·dim | −0.0298 [−0.041, −0.019], 1/12 | −0.0067 | −0.0529 |
+| 200·dim | −0.0294 [−0.061, +0.003], 3/12 | **+0.0100** | −0.0688 |
+
+The sign splits cleanly by dimension, and at 200·dim `archive_cov` has
+the best *d* = 2 mean of every spec measured (0.5822 vs the baseline's
+0.5721) while costing −0.069 at *d* = 5.  The mechanism is the sample
+size: `_warm_start_seeds` asks for `k = max(λ, 4 + ⌊3 ln n⌋, 2n)`, i.e.
+10 points at *d* = 5 for a 5×5 covariance — and those 10 are the archive
+*top*-10, so they are strongly correlated by construction.  Nothing
+regularises that estimate: `_seed_covariance` normalises to unit
+determinant and only falls back to **I** above cond 1e7, which a noisy
+10-point cloud never reaches.  So at *d* = 2 (10 points for a 2×2) the
+shape is real information and pays; at *d* = 5 it is an over-fitted
+ellipse that the arm then has to unlearn.
+
+This is the concrete new building block this ablation produces:
+**shrink the seed covariance toward the identity by its own sample
+size** — `C = (1−α)·I + α·Ĉ` with α a function of *k*/*n* (Ledoit–Wolf,
+or simply `α = clip((k − n − 1)/(c·n), 0, 1)`), and a condition cap of
+order 10²–10³ rather than 1e7.  At *d* = 2 that leaves today's winning
+behaviour almost untouched (α ≈ 1); at *d* = 5 it collapses gracefully
+to the location-only hand-off instead of costing −0.07.  Cheap, local to
+`cma_es.py`, and directly falsifiable: `archive_cov` with shrinkage must
+be ≥ `archive` at both dimensions, or the shape carries nothing.
+
+### 48.4 Consequences
+
+* The shipped hand-off stays as it is: **both arms warm, `archive`
+  top-k**.  Nothing in this ablation is a cheaper or better default.
+* `archive_diverse` is out as a warm-start selector for this portfolio.
+  It remains available for other uses, but no spec should reach for it
+  on the strength of "diversity is good": here it is exactly equal to
+  switching sharing off.
+* `archive_cov` is *not* dead — it is unregularised.  The shrinkage
+  above is the next implementation step, measured on the same two
+  budgets against `archive` per dimension.
+* The ratchet reading of §48.1 gives the block-length question a
+  hypothesis (value grows with hand-off count) that §46.3 measured only
+  as a flat curve on the pooled mean; a re-read of those cells against
+  the number of realised hand-offs is free.

@@ -74,8 +74,26 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   gemessene Knöpfe, kein Default.
 - **Nächste Kandidaten**: (1) Übergabe-Ablation bei 100/200·dim — nur
   CMA-ES warm / nur jSO warm / `archive_cov` / `archive_diverse` (nur
-  Spec-Tabelle, Sonnet); (2) Surrogat-Vorauswahl (lq-CMA-ES) als neuer
-  Baustein (Opus); (3) Stall-Mechanismus kurzer Blöcke (§46).
+  Spec-Tabelle, Sonnet) — **läuft 2026-09-13**; (2) Surrogat-Vorauswahl
+  (lq-CMA-ES) als neuer Baustein (Opus); (3) Stall-Mechanismus kurzer
+  Blöcke (§46).
+
+### Entscheidung Harald 2026-09-13: Defaults erst nach der Suite-Erweiterung
+
+Die offenen Default-Fragen — `regime_gate="oracle:clean"` und
+`block_evals="auto"` als Default von `Blocks_warm_CMAES_JSO` (§45.1,
+§46.4) — werden **nicht jetzt** entschieden. Erst wird die Benchmark-
+Suite erweitert, dann werden diese Entscheidungen auf der breiteren
+Batterie re-evaluiert. Bis dahin bleiben die Defaults wie sie sind und
+die Regime-Tabelle bleibt opt-in.
+
+**Offen (Design, vor der Erweiterung zu klären):** was heißt „breiter“ —
+mehr Dimensionen (10, 20) auf der Standard-Batterie, mehr Instanzen pro
+Funktion, die vollen 24 BBOB-Funktionen statt der MA-BBOB-Mischung,
+weitere Problemklassen (constrained/noisy als eigene Achsen statt
+Presets)? Kostenrahmen: die 12-Seed-Entscheidungsläufe müssen bezahlbar
+bleiben, also eher eine gestufte Suite (Screen klein, Entscheidung breit)
+als eine einzige große.
 - Danach: `warm_start=None` am CMA-ES-Arm auf constrained (§44.2).
 
 ### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)

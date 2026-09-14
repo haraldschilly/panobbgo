@@ -36,7 +36,8 @@ strategy's own effect, not the run-to-run variance (see
 Usage::
 
     uv run python benchmarks/portfolio_screen.py OUT.json SEED [SEED ...] \
-        [kind=standard] [dims=2,5] [bm=500] [insts=0,1,2] [specs=name,name]
+        [kind=standard] [dims=2,5] [bm=500] [insts=0,1,2] [fids=1,2,3] \
+        [specs=name,name]
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
@@ -44,6 +45,9 @@ Usage::
     dims      battery dimensions (default: the preset's)
     bm        budget multiplier; the budget per run is ``bm * dim``
     insts     instance ids (default: the preset's)
+    fids      BBOB function ids 1..24 (``kind=bbob`` only; default: all 24).
+              With a function axis the screen also prints the paired
+              deltas grouped by COCO class.
     specs     subset of ``SPECS`` to run (default: all of them)
 
 Re-analysis of a finished run is free::
@@ -65,6 +69,9 @@ from collections import defaultdict
 
 from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import (
+    BBOB_CLASS_ORDER,
+    bbob_class_of,
+    make_bbob_battery,
     make_highdim_battery,
     make_ioh_strategies,
     make_noisy_battery,
@@ -805,18 +812,26 @@ BATTERIES = {
     "noisy-gauss-severe": lambda: make_noisy_battery("gauss", level="severe"),
     "highdim": make_highdim_battery,
     "noisy-highdim": make_noisy_highdim_battery,
+    # The function axis (``planning/DESIGN_suite_2026-09-14.md`` gap 1):
+    # the plain 24 BBOB functions instead of MA-BBOB mixtures, so a delta
+    # can be attributed to a landscape class and not only to a budget.
+    "bbob": make_bbob_battery,
 }
 
 kind = opts.get("kind", "standard")
 if kind not in BATTERIES:
     sys.exit(f"unknown kind {kind!r}  (known: {','.join(BATTERIES)})")
 battery = BATTERIES[kind]()
-if "dims" in opts or "bm" in opts or "insts" in opts:
+if "dims" in opts or "bm" in opts or "insts" in opts or "fids" in opts:
     battery = dataclasses.replace(
         battery,
         dims=tuple(int(d) for d in opts.get("dims", ",".join(str(d) for d in battery.dims)).split(",")),
         budget_multiplier=int(opts.get("bm", battery.budget_multiplier)),
         instances=tuple(int(i) for i in opts.get("insts", ",".join(str(i) for i in battery.instances)).split(",")),
+        # ``fids=`` on a battery whose kind has no function axis is a
+        # mistake, and ``IOHBatterySpec.__post_init__`` says so by name
+        # rather than running a cube nobody asked for.
+        fids=tuple(int(f) for f in opts["fids"].split(",")) if "fids" in opts else battery.fids,
     )
 
 
@@ -865,6 +880,11 @@ else:
                 "s": x.strategy_name,
                 "dim": x.dim,
                 "inst": x.instance,
+                # ``None`` on every battery without a function axis, which
+                # is what every results file written before 2026-09-14 has
+                # (absent, read back as None) — the analysis below folds
+                # both shapes on the same key.
+                "fid": x.fid,
                 "aocc": x.aocc,
                 # noisy batteries only: AOCC is scored on the TRUE value
                 # above; this is what the optimizer's own observations
@@ -879,13 +899,17 @@ else:
         json.dump(rows, open(out, "w"))
         print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
 
-# --- fold rows into cells: (seed, dim, inst) -> {spec: mean AOCC over reps} --
+# --- fold rows into cells: (seed, fid, dim, inst) -> {spec: mean AOCC} ------
+#
+# ``fid`` is ``None`` for every battery without a function axis, so a
+# results file written before 2026-09-14 (no ``fid`` key at all) folds into
+# exactly the cells it always did and every number below is unchanged.
 raw = defaultdict(lambda: defaultdict(list))
 errs, short = defaultdict(list), defaultdict(list)
 for r in rows:
     if r["s"] not in names:
         continue
-    raw[(r["seed"], r["dim"], r["inst"])][r["s"]].append(r["aocc"])
+    raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["s"]].append(r["aocc"])
     if r["err"]:
         errs[r["s"]].append(r["err"])
     # A run that stops short of its budget did not spend what it was given
@@ -893,7 +917,11 @@ for r in rows:
     if r.get("budget") and r.get("evals", 0) < 0.98 * r["budget"]:
         short[r["s"]].append((r["dim"], r["inst"], r["evals"], r["budget"]))
 cells = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
-dims = sorted({d for _, d, _ in cells})
+dims = sorted({d for _, _, d, _ in cells})
+#: The COCO classes actually present, in COCO order.  Only those: a run cut
+#: to a handful of fids must not print three columns of NaN.
+fids_seen = sorted({f for _, f, _, _ in cells if f is not None})
+classes = [c for c in BBOB_CLASS_ORDER if any(bbob_class_of(f) == c for f in fids_seen)]
 n = len(seeds)
 tc = {2: 12.71, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365}.get(n, 2.26 if n > 8 else 2.5)
 
@@ -901,15 +929,21 @@ if not cells:
     sys.exit("no rows for the selected specs — nothing to compare")
 
 
-def mean_of(name, dim=None):
-    vals = [v[name] for (_, d, _), v in cells.items() if name in v and (dim is None or d == dim)]
+def mean_of(name, dim=None, cls=None):
+    vals = [
+        v[name]
+        for (_, f, d, _), v in cells.items()
+        if name in v and (dim is None or d == dim) and (cls is None or (f is not None and bbob_class_of(f) == cls))
+    ]
     return st.mean(vals) if vals else float("nan")
 
 
-def paired(a, b, dim=None):
+def paired(a, b, dim=None, cls=None):
     """Per-seed mean of ``a - b`` over the cells where both have a result."""
     ps = defaultdict(list)
-    for (seed, d, _), v in cells.items():
+    for (seed, f, d, _), v in cells.items():
+        if cls is not None and (f is None or bbob_class_of(f) != cls):
+            continue
         if a in v and b in v and (dim is None or d == dim):
             ps[seed].append(v[a] - v[b])
     return [st.mean(x) for x in ps.values()]
@@ -932,6 +966,8 @@ def delta(a, b):
 setup = (
     f"from {src}" if src else f"{battery.name}, budget {battery.budget_multiplier}*d, insts {list(battery.instances)}"
 )
+if fids_seen:
+    setup += f", {len(fids_seen)} fids"
 print(f"\n=== portfolio screen ===  ({n} seeds, dims {dims}, {setup})")
 print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
@@ -963,6 +999,46 @@ for ref in REFS:
         flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
         per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
         print(f"{s:36s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+
+# (b2) the same deltas, grouped by COCO class — the point of the fid axis.
+#
+# Printed only when the battery has a function axis, and only for the
+# classes actually present in the run.
+#
+# What it reports and why.  A 3-seed (let alone 12-seed) per-class CI is
+# thin: a class is 4 or 5 fids, so its per-seed mean rests on a fifth of
+# the cells the pooled number uses and its t-CI is correspondingly wide.
+# Printing five per-class PASS/FAIL verdicts would therefore manufacture
+# five weak decisions out of one already-marginal one.  So this block
+# prints the per-class **mean delta** only — no CI, no verdict — plus
+# ``neg``, the number of classes whose mean is negative.  ``neg`` is the
+# honest summary statistic here: it says whether a pooled win is carried
+# by every landscape or by one, which is exactly the question the class
+# axis was added to answer, and it needs no distributional assumption.
+# The accepted/rejected verdict stays where it was: the pooled CI above
+# and the gates below.
+if classes:
+    print("\n--- per COCO class (mean paired delta; no CI — see the note) ---")
+    print(f"fids: {', '.join('f' + str(f) for f in fids_seen)}")
+    print(f"\n{'spec':36s} " + "".join(f"  {c:>18s}" for c in classes))
+    for s_name in order:
+        per = "".join(f"  {mean_of(s_name, cls=c):18.4f}" for c in classes)
+        print(f"{s_name:36s} " + per)
+    for ref in REFS:
+        if ref not in names:
+            continue
+        print(f"\ndelta vs {ref}, per class")
+        print(f"{'spec':36s} {'pooled':>8s} " + "".join(f"  {c:>18s}" for c in classes) + f" {'neg':>5s}")
+        for s_name in order:
+            if s_name == ref:
+                continue
+            ds = paired(s_name, ref)
+            if not ds:
+                continue
+            per_cls = [st.mean(paired(s_name, ref, cls=c) or [float("nan")]) for c in classes]
+            neg = sum(1 for m in per_cls if m == m and m < 0)
+            per = "".join(f"  {m:+18.4f}" for m in per_cls)
+            print(f"{s_name:36s} {st.mean(ds):+8.4f} " + per + f" {neg:3d}/{len(classes):<2d}")
 
 # (c) the §6 screening gates.
 #

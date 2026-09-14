@@ -49,6 +49,11 @@ Public surface
 * :func:`make_quick_battery` / :func:`make_standard_battery` /
   :func:`make_full_battery` — preset batteries matching the
   ``quick``/``standard``/``full`` modes of the legacy harness.
+* :func:`make_bbob_battery` — the **function axis**: the 24 noiseless
+  BBOB functions as a dimension of the cube, with
+  :func:`bbob_class_of` / :data:`BBOB_CLASS_OF_FID` giving each run its
+  COCO class so results can be reported per landscape group
+  (``planning/DESIGN_suite_2026-09-14.md``).
 * :func:`make_noisy_battery` / :func:`make_highdim_battery` /
   :func:`make_noisy_highdim_battery` — the regimes ``planning/GOAL.md``
   §2c asks for: noise on the objective (scored on the true value, BBOB
@@ -130,7 +135,12 @@ def aocc_to_harness_result(ioh_result, mode: str = "ioh", base_seed: int = 42):
     pair_buckets: Dict[Tuple[str, str], List[Any]] = {}
     pair_meta: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for r in ioh_result.runs:
-        pname = f"{r.problem_kind}_d{r.dim}_i{r.instance}"
+        # The fid segment appears only on a battery that has a function
+        # axis, so the problem keys of every pre-2026-09-14 result are
+        # unchanged — and two functions of one battery do not collapse
+        # into a single "problem" whose runs would then be averaged.
+        fid_tag = f"_f{r.fid}" if getattr(r, "fid", None) is not None else ""
+        pname = f"{r.problem_kind}{fid_tag}_d{r.dim}_i{r.instance}"
         key = (pname, r.strategy_name)
         pair_buckets.setdefault(key, []).append(r)
         pair_meta[key] = {
@@ -283,6 +293,69 @@ def noise_class_of(problem_kind: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# The BBOB function axis and its COCO classes
+# ---------------------------------------------------------------------------
+#
+# Same table shape as NOISE_CLASS_OF_TAG above: a flat mapping plus a
+# lookup helper, so a report can group runs by a *landscape* label the way
+# it already groups them by noise class.
+#
+# The five groups are the COCO/BBOB ones (Hansen et al., "Real-Parameter
+# Black-Box Optimization Benchmarking 2009: Noiseless Functions
+# Definitions"), in the canonical order:
+#
+#   f1–f5    separable
+#   f6–f9    low or moderate conditioning
+#   f10–f14  high conditioning and unimodal
+#   f15–f19  multi-modal with adequate global structure
+#   f20–f24  multi-modal with weak global structure
+#
+# The short tags below are what the screen prints; the long names are
+# kept in :data:`BBOB_CLASS_NAMES` for headers.
+
+#: Short class tag -> the COCO group's full name.
+BBOB_CLASS_NAMES: Dict[str, str] = {
+    "separable": "separable",
+    "low-cond": "low or moderate conditioning",
+    "high-cond": "high conditioning, unimodal",
+    "multimodal-global": "multi-modal, adequate global structure",
+    "multimodal-weak": "multi-modal, weak global structure",
+}
+
+#: The five groups, in COCO order, as ``tag -> (first fid, last fid)``.
+BBOB_CLASS_RANGES: Tuple[Tuple[str, int, int], ...] = (
+    ("separable", 1, 5),
+    ("low-cond", 6, 9),
+    ("high-cond", 10, 14),
+    ("multimodal-global", 15, 19),
+    ("multimodal-weak", 20, 24),
+)
+
+#: Every BBOB function id 1..24 -> its COCO class tag.  Complete and
+#: gap-free by construction; ``tests/test_harness_ioh.py`` pins that.
+BBOB_CLASS_OF_FID: Dict[int, str] = {fid: tag for tag, lo, hi in BBOB_CLASS_RANGES for fid in range(lo, hi + 1)}
+
+#: The 24 noiseless BBOB functions — the full function axis.
+ALL_BBOB_FIDS: Tuple[int, ...] = tuple(range(1, 25))
+
+#: Class tags in COCO order, for deterministic report ordering.
+BBOB_CLASS_ORDER: Tuple[str, ...] = tuple(tag for tag, _lo, _hi in BBOB_CLASS_RANGES)
+
+
+def bbob_class_of(fid: int) -> str:
+    """The COCO class tag of BBOB function ``fid`` (1..24).
+
+    Raises :class:`ValueError` outside 1..24 — there is no 25th BBOB
+    function and ``fid=0`` is not an id, so a silent ``"unknown"`` bucket
+    would only hide a caller's off-by-one.
+    """
+    try:
+        return BBOB_CLASS_OF_FID[int(fid)]
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"not a BBOB function id (expected 1..24): {fid!r}") from None
+
+
+# ---------------------------------------------------------------------------
 # Battery / spec
 # ---------------------------------------------------------------------------
 
@@ -302,16 +375,30 @@ class IOHBatterySpec:
         Tuple of dimensions to evaluate.  The competition uses ``(2, 5)``.
     instances
         Tuple of instance ids.  ``range(N)`` becomes ``tuple(range(N))``.
+    fids
+        The **function axis**: BBOB function ids (1..24) the battery runs
+        over.  Empty (the default) means "the kind has no function axis" —
+        every battery written before 2026-09-14 keeps exactly the cube,
+        the seeds and the numbers it had.  Non-empty requires a
+        ``"BBOB"``-derived ``problem_kind`` and turns the run cube into
+        ``fids × dims × instances × reps``; ``fid`` then joins the seed
+        payloads, the run record and the report keys.  Use
+        :data:`ALL_BBOB_FIDS` for the whole suite and
+        :func:`bbob_class_of` to group the rows.
     reps
-        Independent repetitions per (dim, instance, strategy).  Each rep
-        uses a SHA-256-derived seed so before/after runs see the same
+        Independent repetitions per (fid, dim, instance, strategy).  Each
+        rep uses a SHA-256-derived seed so before/after runs see the same
         problem realisation but different RNG state across reps.
     budget_multiplier
         Evaluation budget per run = ``budget_multiplier * dim``.  The
         MA-BBOB anytime rules use ``2000``.
     extra_builder_kwargs
-        Optional dict of additional kwargs passed to the builder
-        (e.g. ``{"fid": 1}`` for the BBOB sphere).
+        Optional ``(key, value)`` pairs passed straight to the worker's
+        problem builder — the escape hatch for a builder argument that has
+        no field here.  A single fixed function is expressible as
+        ``(("fid", 1),)``, but a battery that wants the function as an
+        *axis* (and therefore per-fid seeds, records and class labels)
+        must use ``fids`` instead; giving both is an error.
     noise_level
         Only read for a kind in :data:`NOISY_PROBLEM_KINDS`:
         ``"moderate"`` (BBOB f101–f106) or ``"severe"`` (f107–f130).
@@ -331,13 +418,49 @@ class IOHBatterySpec:
     extra_builder_kwargs: Tuple[Tuple[str, Any], ...] = ()
     noise_level: str = "moderate"
     noise_resample: bool = False
+    fids: Tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        # ``fids`` is normalised the way callers already hand ``instances``
+        # in — any iterable of ints (``range(1, 25)``, a list, a generator)
+        # becomes a plain tuple of ``int`` — so a frozen spec is hashable
+        # and comparable regardless of how it was built.  The frozen
+        # dataclass needs object.__setattr__ for that.
+        fids = tuple(int(f) for f in self.fids)
+        bad = [f for f in fids if f not in BBOB_CLASS_OF_FID]
+        if bad:
+            raise ValueError(f"fids must be BBOB function ids 1..24; got {bad}")
+        if fids:
+            worker_kind, _tag = resolve_problem_kind(self.problem_kind)
+            if worker_kind != "BBOB":
+                raise ValueError(
+                    f"a fid axis needs a BBOB problem kind, not {self.problem_kind!r} "
+                    "(MA-BBOB mixtures have no single function id)"
+                )
+            if "fid" in dict(self.extra_builder_kwargs):
+                raise ValueError(
+                    "fids and extra_builder_kwargs['fid'] both set — use fids for the axis "
+                    "and extra_builder_kwargs only for a builder argument that has no field"
+                )
+        object.__setattr__(self, "fids", fids)
 
     @property
     def is_noisy(self) -> bool:
         return self.problem_kind in NOISY_PROBLEM_KINDS
 
+    @property
+    def fid_axis(self) -> Tuple[Optional[int], ...]:
+        """The function axis to iterate — ``(None,)`` when there is none.
+
+        Lets one loop cover both shapes: without a fid axis the single
+        ``None`` reproduces exactly the old single pass, and ``None`` is
+        also what lands in the record and the seed payloads (where it is
+        omitted), so nothing about a fid-less battery changes.
+        """
+        return self.fids if self.fids else (None,)
+
     def pair_count(self, n_strategies: int) -> int:
-        return n_strategies * len(self.dims) * len(self.instances) * self.reps
+        return n_strategies * len(self.fid_axis) * len(self.dims) * len(self.instances) * self.reps
 
     def budget_for(self, dim: int) -> int:
         return self.budget_multiplier * dim
@@ -532,6 +655,44 @@ def make_noisy_highdim_battery(noise: str = "gauss", *, level: str = "moderate")
 
 
 # ---------------------------------------------------------------------------
+# The function axis: plain BBOB, all 24 functions
+# ---------------------------------------------------------------------------
+
+
+def make_bbob_battery(
+    dims: Sequence[int] = (2, 5),
+    instances: Sequence[int] = (0, 1, 2),
+    budget_multiplier: int = 200,
+    fids: Sequence[int] = ALL_BBOB_FIDS,
+) -> IOHBatterySpec:
+    """The 24 noiseless BBOB functions as a first-class battery axis.
+
+    ``planning/DESIGN_suite_2026-09-14.md`` gap 1.  Every number of
+    §44–§51 was measured on MA-BBOB *mixtures* — affine combinations of
+    two BBOB functions, broad by construction but not attributable to a
+    landscape class.  This battery is the plain suite instead, so a
+    result can be reported per COCO class (:func:`bbob_class_of`) and the
+    regime table can be asked whether it keys on the landscape rather
+    than only on the wallet.
+
+    Defaults: ``24 × 2 × 3 = 144`` cells per strategy and seed — 14× the
+    standard battery's 10 — at ``200·dim``, the budget where §44/§50 put
+    the sharing effect.  At the measured ~0.7 s per run that is ~1.7 min
+    per strategy per seed.  Screens stay on the small MA-BBOB cube; this
+    is the *re-test* instrument.
+    """
+    return IOHBatterySpec(
+        name="ioh-bbob",
+        problem_kind="BBOB",
+        dims=tuple(int(d) for d in dims),
+        instances=tuple(int(i) for i in instances),
+        reps=1,
+        budget_multiplier=int(budget_multiplier),
+        fids=tuple(int(f) for f in fids),
+    )
+
+
+# ---------------------------------------------------------------------------
 # IOH-tuned strategy registry
 # ---------------------------------------------------------------------------
 #
@@ -677,7 +838,7 @@ def make_ioh_strategies() -> List[StrategySpec]:
 
 @dataclass
 class IOHRunRecord:
-    """Result of one (problem kind, dim, instance, strategy, rep) run."""
+    """Result of one (problem kind, fid, dim, instance, strategy, rep) run."""
 
     problem_kind: str
     dim: int
@@ -692,6 +853,11 @@ class IOHRunRecord:
     elapsed_s: float
     seed: int
     error: Optional[str] = None
+    #: BBOB function id of this run, or ``None`` on a battery with no fid
+    #: axis (every MA-BBOB and families row, and every result file written
+    #: before 2026-09-14 — which is why it is optional and defaults to
+    #: ``None``: ``IOHRunRecord(**row)`` keeps loading old JSON unchanged).
+    fid: Optional[int] = None
     # Down-sampled convergence trace so JSON dumps don't blow up:
     # store best_fx at evenly-spaced budget fractions.
     trace_evals: List[int] = field(default_factory=list)
@@ -753,6 +919,15 @@ class IOHHarnessResult:
             by.setdefault((r.strategy_name, r.dim), []).append(r.aocc)
         return {k: float(np.mean(v)) for k, v in by.items()}
 
+    def per_strategy_per_class_aocc(self) -> Dict[Tuple[str, str], float]:
+        """``{(strategy, COCO class tag): mean AOCC}`` — empty without a fid axis."""
+        by: Dict[Tuple[str, str], List[float]] = {}
+        for r in self.runs:
+            if r.error is not None or r.fid is None:
+                continue
+            by.setdefault((r.strategy_name, bbob_class_of(r.fid)), []).append(r.aocc)
+        return {k: float(np.mean(v)) for k, v in by.items()}
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "battery_name": self.battery_name,
@@ -808,6 +983,16 @@ class IOHHarnessResult:
                     "    " + s.ljust(32) + "  " + "  ".join(f"  {per_dim.get((s, d), float('nan')):.4f}" for d in dims)
                 )
                 print(row)
+        per_class = self.per_strategy_per_class_aocc()
+        if per_class:
+            # Only the classes actually present in the run: a battery cut
+            # to a few fids would otherwise print three columns of NaN.
+            classes = [c for c in BBOB_CLASS_ORDER if any(cc == c for _s, cc in per_class)]
+            print("\n  per (strategy, COCO class):")
+            print("    " + "strategy".ljust(32) + "  " + "  ".join(f"{c:>19s}" for c in classes))
+            for s in sorted({s for s, _ in per_class}):
+                vals = "  ".join(f"{per_class.get((s, c), float('nan')):19.4f}" for c in classes)
+                print("    " + s.ljust(32) + "  " + vals)
 
 
 # ---------------------------------------------------------------------------
@@ -1036,13 +1221,20 @@ def _derive_seed(
     strategy_name: str,
     rep: int,
     noise_seed: Optional[int] = None,
+    fid: Optional[int] = None,
 ) -> int:
     """Per-run RNG seed.
 
     ``noise_seed`` is appended only when it is not ``None``, so every
     noiseless battery keeps the seeds it had before noisy kinds existed —
     ``tests/test_harness_reproducibility.py`` and every historical
-    comparison depend on that.
+    comparison depend on that.  ``fid`` follows the same rule for the same
+    reason: a battery with no function axis passes ``None`` and its
+    payload is byte-identical to the pre-2026-09-14 one.  When there *is*
+    a function axis the segment is mandatory — without it every function
+    of a battery would share one RNG stream and the runs on f1 and f2
+    would be the same draw, which is exactly the bug the axis must not
+    introduce.
 
     Consequence worth knowing before reading a table: a *noisy* battery
     and its noiseless counterpart run on **different RNG streams** (the
@@ -1056,11 +1248,20 @@ def _derive_seed(
     payload = f"{base_seed}|{problem_kind}|{dim}|{instance}|{strategy_name}|{rep}"
     if noise_seed is not None:
         payload += f"|n{noise_seed}"
+    if fid is not None:
+        payload += f"|f{fid}"
     return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:4], "little")
 
 
-def _derive_noise_seed(base_seed: int, problem_kind: str, dim: int, instance: int, rep: int) -> int:
-    """Seed of the noise realisation for one (dim, instance, rep) cell.
+def _derive_noise_seed(
+    base_seed: int,
+    problem_kind: str,
+    dim: int,
+    instance: int,
+    rep: int,
+    fid: Optional[int] = None,
+) -> int:
+    """Seed of the noise realisation for one (fid, dim, instance, rep) cell.
 
     Deliberately **not** a function of the strategy: every arm on a cell
     must face the identical noisy function or the paired comparison the
@@ -1069,9 +1270,15 @@ def _derive_noise_seed(base_seed: int, problem_kind: str, dim: int, instance: in
     delta.  It *is* a function of the instance and the rep, so the five
     instances of a noisy battery are five different noise realisations
     rather than one repeated.
+
+    ``fid`` is appended only when present (same backward-compatibility
+    rule as :func:`_derive_seed`), and for the same statistical reason:
+    two functions of one battery must not share a noise realisation.
     """
-    payload = f"noise|{base_seed}|{problem_kind}|{dim}|{instance}|{rep}".encode()
-    return int.from_bytes(hashlib.sha256(payload).digest()[:4], "little")
+    payload = f"noise|{base_seed}|{problem_kind}|{dim}|{instance}|{rep}"
+    if fid is not None:
+        payload += f"|f{fid}"
+    return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:4], "little")
 
 
 # ---------------------------------------------------------------------------
@@ -1122,8 +1329,9 @@ def _run_one(
     noise_seed: Optional[int] = None,
     noise_level: str = "moderate",
     noise_resample: bool = False,
+    fid: Optional[int] = None,
 ) -> IOHRunRecord:
-    """Run one strategy on one (problem, instance) and return its record."""
+    """Run one strategy on one (problem, fid, instance) and return its record."""
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
     if problem_kind not in SUPPORTED_PROBLEM_KINDS:
@@ -1143,6 +1351,11 @@ def _run_one(
     problem: Optional[Any] = None
 
     try:
+        # ``fid=None`` is left out entirely rather than forwarded: the
+        # wrapper's ``create`` request then carries no ``fid`` key and the
+        # worker builds exactly what it built before the axis existed.
+        if fid is not None:
+            builder_kwargs = {**builder_kwargs, "fid": int(fid)}
         problem = IOHProblem(
             kind=worker_kind,
             instance=instance,
@@ -1243,6 +1456,7 @@ def _run_one(
         noise_seed=noise_seed,
         aocc_observed=aocc_observed,
         aocc_reco=aocc_reco,
+        fid=fid,
     )
 
 
@@ -1262,7 +1476,7 @@ def run_ioh_harness(
     progress: bool = True,
     sync_eval: bool = False,
 ) -> IOHHarnessResult:
-    """Run every strategy against every (dim, instance, rep) in ``battery``.
+    """Run every strategy against every (fid, dim, instance, rep) in ``battery``.
 
     Runs serially; the underlying strategies use internal threading.  For
     large batteries, drive multiple ``run_ioh_harness`` calls from outside
@@ -1279,58 +1493,71 @@ def run_ioh_harness(
     total = battery.pair_count(len(strategies))
     runs: List[IOHRunRecord] = []
     idx = 0
-    for dim in battery.dims:
-        budget = battery.budget_for(dim)
-        for instance in battery.instances:
-            for spec in strategies:
-                for rep in range(battery.reps):
-                    idx += 1
-                    # One noise realisation per (dim, instance, rep) cell,
-                    # identical for every strategy — see _derive_noise_seed.
-                    noise_seed = (
-                        _derive_noise_seed(base_seed, battery.problem_kind, dim, instance, rep)
-                        if battery.is_noisy
-                        else None
-                    )
-                    # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
-                    # of one arm can opt into a shared RNG stream so an A/B
-                    # measures the parameter, not the run-to-run variance.
-                    seed = _derive_seed(
-                        base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep, noise_seed
-                    )
-                    if progress:
-                        print(
-                            f"  [{idx:>3d}/{total:>3d}] {battery.problem_kind} "
-                            f"dim={dim:<2d} inst={instance:<2d} rep={rep} "
-                            f"{spec.name}",
-                            flush=True,
+    # ``fid_axis`` is ``(None,)`` on a battery with no function axis, so
+    # this is the same single pass the loop has always made.
+    for fid in battery.fid_axis:
+        for dim in battery.dims:
+            budget = battery.budget_for(dim)
+            for instance in battery.instances:
+                for spec in strategies:
+                    for rep in range(battery.reps):
+                        idx += 1
+                        # One noise realisation per (fid, dim, instance, rep)
+                        # cell, identical for every strategy — see
+                        # _derive_noise_seed.
+                        noise_seed = (
+                            _derive_noise_seed(base_seed, battery.problem_kind, dim, instance, rep, fid)
+                            if battery.is_noisy
+                            else None
                         )
-                    rec = _run_one(
-                        strategy_spec=spec,
-                        problem_kind=battery.problem_kind,
-                        dim=dim,
-                        instance=instance,
-                        rep=rep,
-                        budget=budget,
-                        seed=seed,
-                        builder_kwargs=builder_kwargs,
-                        log_lo=log_lo,
-                        log_hi=log_hi,
-                        timeout_s=timeout_s,
-                        sync_eval=sync_eval,
-                        noise_seed=noise_seed,
-                        noise_level=battery.noise_level,
-                        noise_resample=battery.noise_resample,
-                    )
-                    if progress:
-                        tag = "ERR " if rec.error else ""
-                        print(
-                            f"      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
-                            f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s"
-                            + (f"  ({rec.error})" if rec.error else ""),
-                            flush=True,
+                        # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
+                        # of one arm can opt into a shared RNG stream so an A/B
+                        # measures the parameter, not the run-to-run variance.
+                        seed = _derive_seed(
+                            base_seed,
+                            battery.problem_kind,
+                            dim,
+                            instance,
+                            spec.rng_identity,
+                            rep,
+                            noise_seed,
+                            fid,
                         )
-                    runs.append(rec)
+                        if progress:
+                            fid_tag = f"f{fid:<2d} " if fid is not None else ""
+                            print(
+                                f"  [{idx:>4d}/{total:>4d}] {battery.problem_kind} "
+                                f"{fid_tag}dim={dim:<2d} inst={instance:<2d} rep={rep} "
+                                f"{spec.name}",
+                                flush=True,
+                            )
+                        rec = _run_one(
+                            strategy_spec=spec,
+                            problem_kind=battery.problem_kind,
+                            dim=dim,
+                            instance=instance,
+                            rep=rep,
+                            budget=budget,
+                            seed=seed,
+                            builder_kwargs=builder_kwargs,
+                            log_lo=log_lo,
+                            log_hi=log_hi,
+                            timeout_s=timeout_s,
+                            sync_eval=sync_eval,
+                            noise_seed=noise_seed,
+                            noise_level=battery.noise_level,
+                            noise_resample=battery.noise_resample,
+                            fid=fid,
+                        )
+                        if progress:
+                            tag = "ERR " if rec.error else ""
+                            print(
+                                f"      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
+                                f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s"
+                                + (f"  ({rec.error})" if rec.error else ""),
+                                flush=True,
+                            )
+                        runs.append(rec)
 
     return IOHHarnessResult(
         battery_name=battery.name,

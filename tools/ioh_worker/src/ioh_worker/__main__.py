@@ -34,7 +34,10 @@ def _build_problem(kind: str, instance: int, dim: int, fid: int | None = None):
     if kind == "BBOB":
         if fid is None:
             raise ValueError("BBOB kind requires a 'fid' (1..24)")
-        return ioh.get_problem(int(fid), instance, dim, "BBOB")
+        # ``problem_class`` must be the enum member, not the string: the
+        # current ioh binding rejects ``"BBOB"`` with
+        # ``AttributeError: problem_class should be of type <enum 'ProblemClass'>``.
+        return ioh.get_problem(int(fid), instance, dim, ioh.ProblemClass.BBOB)
     raise ValueError(f"Unknown problem kind {kind!r}")
 
 

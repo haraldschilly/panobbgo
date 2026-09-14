@@ -1,0 +1,46 @@
+# bbob smoke, 3 seeds x 24 fids x 2 dims x 3 instances x 3 specs, budget 200*d
+# run one seed per invocation (bbob_smoke_s{42,7,1234}.{json,log}), merged into bbob_smoke.json,
+# then re-analysed with from= --- the analysis below is that re-analysis.
+# command per seed:
+#   nice -n 15 uv run python benchmarks/portfolio_screen.py bbob_smoke_s<SEED>.json <SEED> \
+#     kind=bbob bm=200 dims=2,5 insts=0,1,2 \
+#     specs=CMAES_alone,Blocks_uniform_cj_warm2,Blocks_uniform_cj_warm2_auto
+
+read 1296 rows from planning/results/2026-09-14/bbob_smoke.json
+
+=== portfolio screen ===  (3 seeds, dims [2, 5], from planning/results/2026-09-14/bbob_smoke.json, 24 fids)
+specs: CMAES_alone, Blocks_uniform_cj_warm2, Blocks_uniform_cj_warm2_auto   cells: 432
+
+spec                                    mean        d=2       d=5
+Blocks_uniform_cj_warm2_auto          0.3055     0.4057    0.2053
+Blocks_uniform_cj_warm2               0.2957     0.3761    0.2152
+CMAES_alone                           0.2650     0.3205    0.2095
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_uniform_cj_warm2_auto          +0.0405     [+0.0151,+0.0659]   3/3      +0.0852   -0.0042 <--
+Blocks_uniform_cj_warm2               +0.0306     [-0.0240,+0.0853]   3/3      +0.0556   +0.0056
+
+--- per COCO class (mean paired delta; no CI — see the note) ---
+fids: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24
+
+spec                                            separable            low-cond           high-cond   multimodal-global     multimodal-weak
+Blocks_uniform_cj_warm2_auto                       0.3902              0.3545              0.2400              0.2639              0.2887
+Blocks_uniform_cj_warm2                            0.3934              0.3637              0.2195              0.2396              0.2756
+CMAES_alone                                        0.3716              0.3225              0.1803              0.2365              0.2257
+
+delta vs CMAES_alone, per class
+spec                                   pooled            separable            low-cond           high-cond   multimodal-global     multimodal-weak   neg
+Blocks_uniform_cj_warm2_auto          +0.0405              +0.0186             +0.0320             +0.0597             +0.0274             +0.0630   0/5 
+Blocks_uniform_cj_warm2               +0.0306              +0.0217             +0.0412             +0.0392             +0.0031             +0.0500   0/5 
+
+--- screening gates (design §6) ---
+  G5 PASS  best warm (Blocks_uniform_cj_warm2_auto) - best single (CMAES_alone) +0.0405  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

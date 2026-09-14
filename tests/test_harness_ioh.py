@@ -24,13 +24,19 @@ import pytest
 from panobbgo.benchmark import StrategySpec
 from panobbgo.harness_baselines import make_baseline_strategies
 from panobbgo.harness_ioh import (
+    ALL_BBOB_FIDS,
+    BBOB_CLASS_OF_FID,
+    BBOB_CLASS_ORDER,
     DEFAULT_DECISION_SEEDS,
     IOHBatterySpec,
     IOHHarnessResult,
     IOHMultiSeedResult,
     IOHRunRecord,
+    _derive_noise_seed,
     _derive_seed,
     _downsample_trajectory,
+    bbob_class_of,
+    make_bbob_battery,
     make_full_battery,
     make_quick_battery,
     make_standard_battery,
@@ -826,3 +832,192 @@ class TestSeedName:
         assert [r.error for r in result.runs] == [None, None]
         assert by_name["Variant_A"].seed != by_name["Variant_B"].seed
         assert _outcome(by_name["Variant_A"]) != _outcome(by_name["Variant_B"])
+
+
+# ---------------------------------------------------------------------------
+# The BBOB function axis (planning/DESIGN_suite_2026-09-14.md gap 1)
+# ---------------------------------------------------------------------------
+
+
+class TestBBOBClassMapping:
+    def test_covers_1_to_24_with_no_gaps(self) -> None:
+        assert sorted(BBOB_CLASS_OF_FID) == list(range(1, 25))
+        assert ALL_BBOB_FIDS == tuple(range(1, 25))
+        # Every class tag is one of the five COCO groups, and all five are used.
+        assert set(BBOB_CLASS_OF_FID.values()) == set(BBOB_CLASS_ORDER)
+        assert len(BBOB_CLASS_ORDER) == 5
+
+    def test_group_boundaries_match_coco(self) -> None:
+        assert bbob_class_of(1) == bbob_class_of(5) == "separable"
+        assert bbob_class_of(6) == bbob_class_of(9) == "low-cond"
+        assert bbob_class_of(10) == bbob_class_of(14) == "high-cond"
+        assert bbob_class_of(15) == bbob_class_of(19) == "multimodal-global"
+        assert bbob_class_of(20) == bbob_class_of(24) == "multimodal-weak"
+
+    def test_rejects_out_of_range(self) -> None:
+        for bad in (0, 25, -1, 100):
+            with pytest.raises(ValueError):
+                bbob_class_of(bad)
+
+
+class TestFidAxisSpec:
+    def test_empty_fids_is_todays_behaviour(self) -> None:
+        b = make_standard_battery()
+        assert b.fids == ()
+        assert b.fid_axis == (None,)
+        assert b.pair_count(2) == 2 * len(b.dims) * len(b.instances) * b.reps
+
+    def test_fids_normalised_like_instances(self) -> None:
+        b = IOHBatterySpec(name="x", problem_kind="BBOB", dims=(2,), instances=(0,), fids=range(1, 4))
+        assert b.fids == (1, 2, 3)
+        assert all(isinstance(f, int) for f in b.fids)
+        # frozen + normalised -> hashable and comparable
+        assert hash(b) == hash(IOHBatterySpec(name="x", problem_kind="BBOB", dims=(2,), instances=(0,), fids=(1, 2, 3)))
+
+    def test_fid_axis_multiplies_the_cube(self) -> None:
+        b = IOHBatterySpec(name="x", problem_kind="BBOB", dims=(2, 5), instances=(0, 1, 2), reps=2, fids=(1, 2, 3, 4))
+        assert b.pair_count(3) == 3 * 4 * 2 * 3 * 2
+
+    def test_rejects_non_bbob_kind(self) -> None:
+        with pytest.raises(ValueError, match="BBOB problem kind"):
+            IOHBatterySpec(name="x", problem_kind="MA-BBOB", dims=(2,), instances=(0,), fids=(1,))
+
+    def test_rejects_ids_outside_1_24(self) -> None:
+        for bad in ((0,), (25,), (1, 30)):
+            with pytest.raises(ValueError, match="1..24"):
+                IOHBatterySpec(name="x", problem_kind="BBOB", dims=(2,), instances=(0,), fids=bad)
+
+    def test_rejects_fid_in_extra_builder_kwargs_too(self) -> None:
+        with pytest.raises(ValueError, match="extra_builder_kwargs"):
+            IOHBatterySpec(
+                name="x",
+                problem_kind="BBOB",
+                dims=(2,),
+                instances=(0,),
+                fids=(1,),
+                extra_builder_kwargs=(("fid", 2),),
+            )
+
+    def test_preset_carries_all_24(self) -> None:
+        b = make_bbob_battery()
+        assert b.problem_kind == "BBOB"
+        assert b.fids == tuple(range(1, 25))
+        assert b.dims == (2, 5) and b.instances == (0, 1, 2)
+        assert b.budget_for(5) == 1000  # 200 * dim
+        assert b.pair_count(1) == 24 * 2 * 3
+
+
+class TestFidSeedDerivation:
+    #: Byte-compatibility pins.  These two numbers were produced by the
+    #: pre-2026-09-14 payloads (``base|kind|dim|inst|strategy|rep`` and
+    #: ``noise|base|kind|dim|inst|rep``).  The fid axis appends its segment
+    #: only when a fid is present, so every historical battery must still
+    #: hash to exactly these values — if either changes, every number in
+    #: planning/DISCOVERY_2026-09-09.md became unreproducible.
+    PIN_SEED: ClassVar[int] = 3371302379
+    PIN_NOISE_SEED: ClassVar[int] = 1915730949
+
+    def test_no_fid_is_byte_identical_to_the_pin(self) -> None:
+        assert _derive_seed(42, "MA-BBOB", 2, 0, "Foo", 0) == self.PIN_SEED
+        # Explicit None must not change the payload either.
+        assert _derive_seed(42, "MA-BBOB", 2, 0, "Foo", 0, None, None) == self.PIN_SEED
+        assert _derive_noise_seed(42, "MA-BBOB-noisy-gauss", 2, 0, 0) == self.PIN_NOISE_SEED
+        assert _derive_noise_seed(42, "MA-BBOB-noisy-gauss", 2, 0, 0, None) == self.PIN_NOISE_SEED
+
+    def test_a_fid_changes_the_seed(self) -> None:
+        base = _derive_seed(42, "BBOB", 2, 0, "Foo", 0)
+        assert _derive_seed(42, "BBOB", 2, 0, "Foo", 0, None, 1) != base
+
+    def test_two_fids_on_one_cell_get_different_seeds(self) -> None:
+        # The bug the fid segment exists to prevent: without it every
+        # function of a battery would share one RNG stream and the runs on
+        # f1 and f2 would be the same draw.
+        seeds = {f: _derive_seed(42, "BBOB", 2, 0, "Foo", 0, None, f) for f in range(1, 25)}
+        assert len(set(seeds.values())) == 24
+
+    def test_two_fids_get_different_noise_seeds(self) -> None:
+        ns = {f: _derive_noise_seed(42, "MA-BBOB-noisy-gauss", 2, 0, 0, f) for f in range(1, 25)}
+        assert len(set(ns.values())) == 24
+
+    def test_run_records_and_json_carry_the_fid(self) -> None:
+        rec = IOHRunRecord(
+            problem_kind="BBOB",
+            dim=2,
+            instance=0,
+            strategy_name="S",
+            rep=0,
+            budget=10,
+            n_evals=10,
+            best_fx=1.0,
+            f_opt=0.0,
+            aocc=0.5,
+            elapsed_s=0.1,
+            seed=1,
+            fid=7,
+        )
+        res = IOHHarnessResult(battery_name="b", problem_kind="BBOB", log_lo=-8, log_hi=2, runs=[rec])
+        back = IOHHarnessResult.from_dict(json.loads(res.to_json()))
+        assert back.runs[0].fid == 7
+        assert back.per_strategy_per_class_aocc() == {("S", "low-cond"): pytest.approx(0.5)}
+
+    def test_old_rows_without_a_fid_still_load(self) -> None:
+        row = {
+            "problem_kind": "MA-BBOB",
+            "dim": 2,
+            "instance": 0,
+            "strategy_name": "S",
+            "rep": 0,
+            "budget": 10,
+            "n_evals": 10,
+            "best_fx": 1.0,
+            "f_opt": 0.0,
+            "aocc": 0.5,
+            "elapsed_s": 0.1,
+            "seed": 1,
+        }
+        res = IOHHarnessResult.from_dict(
+            {"battery_name": "b", "problem_kind": "MA-BBOB", "runs": [row]},
+        )
+        assert res.runs[0].fid is None
+        assert res.per_strategy_per_class_aocc() == {}
+
+
+@requires_worker
+class TestFidReachesWorker:
+    def test_different_fids_build_different_problems(self) -> None:
+        p1 = IOHProblem(kind="BBOB", instance=0, dim=2, fid=1)
+        p24 = IOHProblem(kind="BBOB", instance=0, dim=2, fid=24)
+        try:
+            assert p1.ioh_problem_id == 1
+            assert p24.ioh_problem_id == 24
+            assert p1.ioh_name != p24.ioh_name
+        finally:
+            p1.close()
+            p24.close()
+
+    def test_harness_runs_the_axis_and_records_the_fid(self) -> None:
+        baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
+        battery = IOHBatterySpec(
+            name="ioh-fid-axis",
+            problem_kind="BBOB",
+            dims=(2,),
+            instances=(0,),
+            reps=1,
+            budget_multiplier=25,
+            fids=(1, 24),
+        )
+        result = run_ioh_harness(baselines, battery, base_seed=42, progress=False)
+        assert len(result.runs) == battery.pair_count(1) == 2
+        by_fid = {r.fid: r for r in result.runs}
+        assert set(by_fid) == {1, 24}
+        for r in result.runs:
+            assert r.error is None, r.error
+            assert r.n_evals == r.budget
+        # The two functions are genuinely different RNG streams.
+        assert by_fid[1].seed != by_fid[24].seed
+        # f1 (sphere) and f24 (Lunacek bi-Rastrigin) have different optima.
+        assert by_fid[1].f_opt != by_fid[24].f_opt
+        assert result.per_strategy_per_class_aocc().keys() == {
+            ("Baseline_Random", "separable"),
+            ("Baseline_Random", "multimodal-weak"),
+        }

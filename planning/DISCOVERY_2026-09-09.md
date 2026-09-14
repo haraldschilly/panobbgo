@@ -2116,3 +2116,107 @@ eaten by the pathology its own frequency creates.
   there are now two untested pieces of the hand-off's payload, both
   predicted by the same reading: relocate the receiving arm, but stop
   destroying what it had.
+
+## 51. The payload is location and scale: all four shape payloads are now measured, and the identity wins
+
+§49.4 predicted that keeping CMA-ES's own adapted **C** across a hand-off
+would pay, most at the higher budget where more adaptation is discarded;
+§50.4 predicted a σ floor would keep the ratchet's frequency without its
+stall.  Both landed as opt-in kwargs (6ef2498) and were screened on the
+full roster at both budgets, at the short block (`n_blocks=50`, where the
+stall lives) and at `auto`.  Raw:
+`results/2026-09-14/payload_{bm100,bm200}.json` — the three baselines are
+**cell-for-cell identical** to the §50 `ratchet_*` files, so the added
+specs perturbed no stream.
+
+### 51.1 Keeping the arm's own C: falsified, in the informative direction
+
+`warm_start_keep_cov` skips `_reset_covariance`, keeping B/D/C
+bit-identical while m and σ are refitted; the evolution paths are zeroed
+(the mean has just jumped).  Against its own baseline:
+
+| | 100·dim | *d*=2 | *d*=5 | 200·dim | *d*=2 | *d*=5 |
+|---|---|---|---|---|---|---|
+| keep C, `nb50` | −0.0175, 3/12 | −0.0033 | −0.0316 [−0.052, −0.012] | −0.0253, 2/12 | −0.0012 | **−0.0494 [−0.088, −0.011], 1/12** |
+| keep C, `auto` | −0.0053, 5/12 | −0.0068 | −0.0038 | −0.0173, 5/12 | −0.0205 | −0.0141 |
+
+Negative at every budget and dimension, *worse* at the higher budget, and
+worst at *d* = 5 / 200·dim — exactly the cell where §49.4 said it should
+pay most.  It is also the **only spec in the campaign that stalls at
+*d* = 5** (2–3 cells of 60), and at *d* = 2 / 200·dim it stalls in 5 of
+60 where its `auto` baseline stalls in 2.  The prediction is refuted as
+cleanly as it could be.
+
+The reading that survives: after a hand-off the arm's mean sits on the
+*other* arm's incumbent, and its own C describes the curvature it
+measured around its *old* mean.  Carrying that shape to a new location is
+not conservation, it is a stale prior — and a confidently anisotropic one,
+which is why it can stall.  The identity is the honest prior at a place
+the arm has never sampled, and CMA-ES re-adapts within a few generations
+because σ is already fitted to the cloud.
+
+With this the payload table is complete — four ways to set **C** at a
+hand-off, all measured on the same roster:
+
+| payload for C | verdict |
+|---|---|
+| **identity (reset)** — shipped | **best; the baseline nothing beats** |
+| archive shape (`archive_cov`, §48.3) | −0.053 / −0.069 at *d* = 5, cost grows with budget |
+| shrunk archive shape (§49) | parity at 100·dim, −0.043 at 200·dim; family bracketed |
+| the arm's own C (§51.1) | negative everywhere, worst where predicted to win |
+
+**Shape is not transferable across a relocation — neither the other
+arm's nor the arm's own.**  The hand-off carries **m** and **σ**, and
+that is the whole payload.  Combined with §48.2 (the top-k crowd, not a
+spread) the building block is now fully characterised: *put the receiving
+arm on the incumbent, at the scale of the cloud around it, with no memory
+of shape.*
+
+### 51.2 The σ floor: a targeted repair, not a default
+
+`warm_start_sigma_floor=f` sets `σ = clip(spread, f·σ_self, σ₀_cold)` —
+the floor is relative to the arm's **own current σ**, so it bounds the
+*rate* of collapse per hand-off (σ may still fall as `f^k` over k
+hand-offs) and binds only on an already-collapsed cloud.  `f = 0.5` was
+picked on a 3-seed pilot at 200·dim from {0.25, 0.5, 0.8} before the
+roster was spent.
+
+| | overall | *d*=2 | *d*=5 | stalls *d*=2 / 60 |
+|---|---|---|---|---|
+| floor, `nb50`, 100·dim | +0.0048, 7/12 | +0.0004 | +0.0091 | 0 → 0 |
+| floor, `nb50`, 200·dim | +0.0136, 10/12 | **+0.0444 [+0.014, +0.075], 10/12** | −0.0171 [−0.043, +0.009], 6/12 | **7 → 2** |
+| floor, `auto`, 100·dim | −0.0206 [−0.031, −0.010], 1/12 | −0.0274 | −0.0138 | 0 → 0 |
+| floor, `auto`, 200·dim | −0.0234, 3/12 | −0.0282 | −0.0186 [−0.030, −0.007] | 2 → 2 |
+
+Where the pathology exists — short block, *d* = 2, 200·dim — the floor
+removes **five of seven** stalled cells and is not paid for: +0.044 at
+*d* = 2 with the CI clear of zero, the best *d* = 2 mean in the run
+(0.5998).  Where it does not exist, the floor is a straight loss: at the
+`auto` block it costs −0.02 at both budgets and fixes nothing, and at
+*d* = 5 / 200·dim it is parity-to-negative.  A rate bound that is right
+for a 8-evaluation block is too tight for a 24–48-evaluation one, which
+is the obvious next form if it is pursued (scale `f` with the block
+length), but the honest verdict today is: **not a default**; a candidate
+row for a regime table keyed on short block × low *d*.
+
+### 51.3 What this does to the configuration ranking
+
+At 100·dim the short block plus the floor is the strongest configuration
+measured in this project:
+
+| spec | Δ vs `CMAES_alone`, 100·dim |
+|---|---|
+| `sigfloor_nb50` | **+0.0606 [+0.042, +0.079], 12/12** |
+| `Blocks_uniform_cj_warm2` (`nb50`, §46) | +0.0558 [+0.037, +0.074], 12/12 |
+| `Blocks_uniform_cj_warm2_auto` | +0.0359 [+0.018, +0.054], 10/12 |
+
+and `sigfloor_nb50 − warm2_auto` = +0.0247 [+0.001, +0.048], 9/12 —
+accepted.  But note where that margin comes from: the floor itself adds
+only +0.005 (7/12) over `nb50`, and §50 already showed `nb50 − auto` is
++0.020 at this budget.  **The gain is the block length, not the floor.**
+At 200·dim `sigfloor_nb50` reaches +0.0502 (9/12) against `auto`'s
++0.0423 (11/12), and the two are level head-to-head (+0.0079, 6/12).
+
+So the configuration story stands where §50 left it — block length by
+budget — with the floor as a repair for the *d* = 2 corner of the short
+block, and the payload question now closed.

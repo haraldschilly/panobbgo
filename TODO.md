@@ -102,11 +102,18 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   bei 200·dim/d=2 kollabieren 7/60 Zellen warm gegen 1/60 kalt bei
   gleicher Blocklänge — die Pathologie *braucht* die Übergabe, §46.2's
   Mechanismus hält.
-- **Nächste Kandidaten**: (1) **σ-Boden auf der Übergabe** — der
-  Warm-Start setzt σ auf die Streuung der Seed-Wolke, nur nach oben
-  geclippt; kollabiert die Top-K in ein Becken, startet der Arm auf einen
-  Punkt gepinnt (= der Stall). Ein Boden relativ zu σ₀ oder zum eigenen σ
-  behält die Frequenz der Ratsche ohne ihre Pathologie (§50.4); (2) **Übergabe ohne Reset**: jeder Warm-Start-
+- **Nutzlast abgeschlossen (§51, 6ef2498)**: alle vier Wege, C bei einer
+  Übergabe zu setzen, sind gemessen — **Identität gewinnt**. Eigenes C
+  behalten ist überall negativ, am schlechtesten genau dort, wo §49.4 es
+  vorhergesagt hatte (d=5/200·dim −0.049), und es ist der einzige Spec
+  der Kampagne, der bei d=5 stallt. **Form ist über eine Umsetzung nicht
+  übertragbar** — weder die fremde noch die eigene. Die Übergabe trägt m
+  und σ, sonst nichts. Der **σ-Boden** entfernt 5 von 7 Stalls bei
+  200·dim/d=2 (+0.044 dort, CI klar über null), kostet aber am
+  `auto`-Block überall −0.02: gezielte Reparatur für kurzer-Block × d=2,
+  kein Default. Nächste Form, falls verfolgt: f mit der Blocklänge
+  skalieren.
+- **Nächste Kandidaten**: (1) **Übergabe ohne Reset**: jeder Warm-Start-
   Modus wirft heute CMA-ES' adaptiertes C weg (`_reset_covariance`, C=I)
   oder ersetzt es durch die Archiv-Form — die vierte Nutzlast, *eigenes C
   behalten und nur m/σ verschieben*, ist nie gemessen worden. §48.2 +

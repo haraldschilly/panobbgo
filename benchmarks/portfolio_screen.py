@@ -541,6 +541,47 @@ SPECS = {
         {"policy": "uniform", "block_evals": "auto", **WARM_ON},
         ARCHIVE,
     ),
+    # -- §48.1 follow-up: the ratchet — is the hand-off worth more when it
+    # -- happens more often? ------------------------------------------------
+    #
+    # A warm/cold pair at four block lengths, all other settings identical
+    # to ``Blocks_uniform_cj_warm2_auto`` / ``Blocks_cj_cold_auto``, so
+    # ``warm - cold`` at each length is the value of the hand-off alone with
+    # the switching transient held fixed.  (§46.3's ``_be25``/``_be50`` pin
+    # ``warm_start_only_if_better=False`` via ``NOB`` while ``_auto`` takes
+    # the default, so they are not comparable as a family; these are.)
+    # ``Blocks_uniform_cj_warm2`` (the ``n_blocks=50`` default) is already
+    # the warm member at the shortest length, so only its cold twin is new.
+    "Blocks_cj_warm_be25": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 25, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_warm_be50": (
+        StrategyBlockBandit,
+        CJ,
+        {"policy": "uniform", "block_evals": 50, **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_cold_nb50": (
+        StrategyBlockBandit,
+        arms("cmaes", "jso"),
+        {"policy": "uniform"},
+        ARCHIVE,
+    ),
+    "Blocks_cj_cold_be25": (
+        StrategyBlockBandit,
+        arms("cmaes", "jso"),
+        {"policy": "uniform", "block_evals": 25},
+        ARCHIVE,
+    ),
+    "Blocks_cj_cold_be50": (
+        StrategyBlockBandit,
+        arms("cmaes", "jso"),
+        {"policy": "uniform", "block_evals": 50},
+        ARCHIVE,
+    ),
     # -- §27 B: which soft-D-UCB knob carries the gain? -------------------
     #
     # ``_soft`` (ucb_c 2.0, hysteresis 1.0, gamma 0.7) led §26 at 0.6921 by

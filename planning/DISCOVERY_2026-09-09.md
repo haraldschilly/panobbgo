@@ -1902,3 +1902,110 @@ be ≥ `archive` at both dimensions, or the shape carries nothing.
   hypothesis (value grows with hand-off count) that §46.3 measured only
   as a flat curve on the pooled mean; a re-read of those cells against
   the number of realised hand-offs is free.
+
+## 49. Shrinking the seeded covariance: the fix works at 100·dim and is bracketed out at 200·dim — `archive_cov` stays a *d* ≤ 2 knob
+
+§48.3 proposed shrinkage toward the identity by sample size as the repair
+for `archive_cov`'s *d* = 5 loss, with the falsifier "≥ plain `archive` at
+both dimensions".  Landed in b19c7ab as three opt-in `CMAES` kwargs
+(defaults off, `archive_cov` without them bit-identical to §48 — the
+unshrunk cells reproduce to four decimals):
+
+* `warm_start_cov_shrink` — `C = (1−α)·I + α·Ĉ` blended on the
+  eigenvalues, re-normalised to unit determinant, with
+  `α = clip((k − n − 1)/(c·n(n+1)/2), 0, 1)`.  The denominator counts the
+  covariance's **free parameters**, not *n*: with `c·n` no single constant
+  hits both targets (at *d* = 2 the seed set is 6, so α = 1 needs
+  `c ≤ 1.5`, and that same `c` leaves α ≥ 0.53 at *d* = 5).  Counting
+  `n(n+1)/2` gives with one constant `c = 1` exactly α = 1 at *d* = 2 and
+  α = 4/15 at *d* = 5.  Ledoit–Wolf was rejected in the docstring: its
+  intensity is derived for an i.i.d. sample, and the archive top-k is
+  selected by objective value from a concentrating search.
+* `warm_start_cov_cond_max` — caps cond(C) by clipping the eigenvalue
+  ratio (spec: 1e3); the 1e7 hard fallback stays, now read off the raw
+  ratio.
+* `warm_start_wide_seeds` — the `2n` seed floor in *any* mode: the
+  location-only control for §48.3's hypothesis (B).
+
+Raw: `results/2026-09-14/covshrink_{bm100,bm200}.json`, same roster and
+cube as §48, 0 errors, full budgets.
+
+### 49.1 The measurement
+
+Paired per-seed deltas against the `archive` baseline
+(`Blocks_uniform_cj_warm2_auto`), t(11) = 2.201:
+
+| bm | spec − baseline | overall | *d* = 2 | *d* = 5 |
+|---|---|---|---|---|
+| 100 | **shrunk cov** | −0.0058 [−0.020, +0.008], 4/12 | −0.0072, 8/12 | **−0.0045 [−0.024, +0.015], 6/12** |
+| 100 | unshrunk cov (§48) | −0.0298 [−0.041, −0.019], 1/12 | −0.0067, 8/12 | −0.0529 [−0.073, −0.033], 0/12 |
+| 100 | wide seeds, C = I | −0.0012, 5/12 | **0.0000, bit-identical** | −0.0024 [−0.017, +0.012], 5/12 |
+| 200 | **shrunk cov** | −0.0177 [−0.046, +0.011], 4/12 | +0.0079, 6/12 | **−0.0434 [−0.067, −0.020], 1/12** |
+| 200 | unshrunk cov (§48) | −0.0294 [−0.061, +0.003], 3/12 | +0.0100, 6/12 | −0.0688 [−0.101, −0.037], 1/12 |
+| 200 | wide seeds, C = I | −0.0082, 5/12 | **0.0000, bit-identical** | −0.0165 [−0.039, +0.006], 5/12 |
+
+Shrinkage over unshrunk at *d* = 5: **+0.0484 [+0.028, +0.069], 12/12**
+at 100·dim, +0.0254, 8/12 at 200·dim.  At *d* = 2 the two are within
+0.002 — α = 1 there, so only the condition cap separates them.
+
+### 49.2 Falsifier: failed, and the family is bracketed
+
+At 100·dim shrinkage does what it was designed to do: the −0.053 loss at
+*d* = 5 becomes −0.0045 with the CI straddling zero, i.e. parity, while
+*d* = 2 keeps its lean.  At 200·dim it is still −0.0434, CI clear of
+zero, 1/12 — the rule is not met, so **`archive_cov` does not become a
+default**.
+
+And no constant `c` will rescue it, because the endpoints of the
+shrinkage path are both measured: `wide seeds, C = I` **is** the α → 0
+endpoint (the same seed set, identity shape) and the unshrunk spec is
+α = 1.  At *d* = 5 / 200·dim those bracket the family in
+[−0.0165, −0.0688] — every value of α lies inside a negative interval.
+Tuning the constant against the decision roster would only be picking
+the least-negative point of a losing family, which is exactly the
+winner's curse the rule exists to prevent.
+
+### 49.3 Which hypothesis, and a new one
+
+Hypothesis **(A)** (over-fitted shape) carries most of it: of the *d* = 5
+loss, the wider sample explains −0.002 of −0.053 at 100·dim and −0.017 of
+−0.069 at 200·dim.  **(B)** is real but small — and note *what* it is:
+the `2n` floor does not move **m** (that is the μ-weighted mean of the
+best μ = 4 seeds, the same four points at k = 8 and k = 10), only **σ**.
+So the wide control isolates a pure *spread* effect, the same knob that
+killed `archive_diverse` in §48.2, and it has the same sign.
+
+The new observation is in the budget column.  The pure shape cost
+(shrunk − wide, both on the same seed set) is **−0.0021, 3/12 at
+100·dim** and **−0.0269 [−0.048, −0.006], 2/12 at 200·dim**: at the low
+budget the seeded shape is free, at the higher budget it is the whole
+loss.  The block is what changed — `auto` gives 40 evaluations per block
+at *d* = 5 / 100·dim and 48 at 200·dim, but the *budget* gives 12.5
+blocks versus 20.8, so at 200·dim the arm has adapted its own **C** over
+far more generations before each hand-off, and the hand-off overwrites
+it.  The seeded shape does not have to be good; it has to be better than
+what it replaces, and what it replaces improves with the budget.
+
+### 49.4 The payload that has never been measured: keep the arm's own C
+
+Every warm-start mode in the code today **discards CMA-ES's adapted
+covariance**: `_warm_start_distribution` calls `_reset_covariance(n)`
+(C = B = I, D = 1, paths zeroed) unless the mode is `archive_cov`, which
+replaces it with the archive's shape instead.  So the three payloads
+measured so far are *identity*, *archive shape* and (now) *shrunk archive
+shape* — and the fourth, **preserve the arm's own C and move only m and
+σ**, does not exist.
+
+§48.2 says the hand-off works by relocating the receiving arm onto the
+incumbent; §49.3 says the cost of the payload grows with how much
+adaptation is thrown away.  Together they predict that the best payload
+is the *relocation without the reset*: keep B, D, C (and, an open sub-
+question, the evolution paths), refit m to the archive's μ-weighted best
+and σ to the cloud spread.  It is a small change in the same method, it
+is falsifiable the same way (≥ `archive` at both dimensions, 100 and
+200·dim), and it should pay most exactly where shrinkage failed — at the
+higher budget, where the discarded C is worth most.
+
+Consequence for the shipped configuration: unchanged.  Both arms on
+`archive`; `archive_cov` (shrunk or not) is a *d* ≤ 2 knob with a lean,
+not a default; `warm_start_wide_seeds` is a control, not a feature.

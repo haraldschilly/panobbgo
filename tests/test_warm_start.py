@@ -814,3 +814,232 @@ def test_every_selector_is_free_against_an_empty_archive(name, mode):
 def test_explicit_none_is_the_omitted_run_for_the_whole_de_family(name):
     """And the keyword itself stays inert, arm by arm."""
     _assert_same(_run_arm(name, warm_start="__omitted__"), _run_arm(name, warm_start=None))
+
+
+# ----------------------------------------------------------------------
+# (f) §50.4 / §49.4: the two untested pieces of the hand-off's payload
+# ----------------------------------------------------------------------
+#
+# ``warm_start_sigma_floor`` bounds how far one hand-off may collapse the
+# step size (§50.3's stall: the archive top-k fall into one basin, their
+# spread is tiny, and the receiving arm restarts pinned to a point).
+# ``warm_start_keep_cov`` keeps the arm's own adapted B/D/C instead of
+# resetting it to **I** (§49.4: the relocation without the reset).  Both are
+# opt-in and default-off, so every number measured before 2026-09-14 stands.
+
+
+def _cluster(s, *, center=(1.0, 0.0), jitter=1e-4, n=20, seed=7):
+    """Results collapsed into one basin — the cloud that pins the hand-off."""
+    rng = np.random.default_rng(seed)
+    c = np.asarray(center, dtype=float)[: s.problem.dim]
+    out = []
+    for i in range(n):
+        x = s.problem.project(c + rng.uniform(-jitter, jitter, s.problem.dim))
+        out.append(Result(Point(x, "T"), float(i)))
+    return out
+
+
+def _warm_arm(s, **kw):
+    """A started CMA-ES on an empty archive: cold state, warm start armed."""
+    from panobbgo.heuristics import CMAES
+
+    h = CMAES(s, warm_start="archive", **kw)
+    h.on_start()
+    return h
+
+
+def test_cmaes_sigma_floor_binds_when_the_seed_cloud_has_collapsed():
+    s = _strategy()
+    a = _archive_of(s, [])
+    plain = _warm_arm(s)
+    floored = _warm_arm(s, warm_start_sigma_floor=0.5)
+    sigma_self = plain._sigma
+    assert floored._sigma == sigma_self  # both cold-started identically
+
+    a.on_new_results(_cluster(s))
+    assert plain.warm_start_now() is True
+    assert floored.warm_start_now() is True
+
+    # without the floor the arm inherits the cloud's (tiny) spread ...
+    assert plain._sigma < 1e-3
+    # ... with it, it may lose at most half of what it had
+    assert floored._sigma == pytest.approx(0.5 * sigma_self)
+    # and the floor moves nothing else: same seeds, same incumbent mean
+    np.testing.assert_array_equal(floored._m, plain._m)
+
+
+def test_cmaes_sigma_floor_is_inert_when_the_cloud_is_not_collapsed():
+    """A spread above the floor is taken unchanged — bit for bit."""
+    s = _strategy()
+    a = _archive_of(s, [])
+    plain = _warm_arm(s)
+    floored = _warm_arm(s, warm_start_sigma_floor=0.5)
+    sigma_self = plain._sigma
+
+    a.on_new_results(_cluster(s, jitter=0.5, n=30))
+    assert plain.warm_start_now() is True
+    assert floored.warm_start_now() is True
+
+    assert 0.5 * sigma_self < plain._sigma < plain._sigma0_default()
+    assert floored._sigma == plain._sigma
+    np.testing.assert_array_equal(floored._C, plain._C)
+
+
+def test_cmaes_sigma_floor_never_beats_the_cold_sigma0():
+    """The upper clip wins: a warm start may narrow, never widen."""
+    s = _strategy()
+    _archive_of(s, _cluster(s))
+
+    h = _warm_arm(s, warm_start_sigma_floor=1.0)
+    # an arm whose own sigma has grown past the cold sigma0 (the step-size
+    # path may take it up to mean(range); sigma0 is 0.3 * range / 2)
+    h._sigma = float(np.mean(h._ranges))
+    assert h._sigma > h._sigma0_default()
+
+    assert h.warm_start_now() is True
+    assert h._sigma == pytest.approx(h._sigma0_default())
+
+
+def test_cmaes_sigma_floor_bounds_the_rate_not_the_depth():
+    """Repeated hand-offs from a collapsed archive still intensify — slowly."""
+    s = _strategy()
+    a = _archive_of(s, [])
+    h = _warm_arm(s, warm_start_sigma_floor=0.5)
+    plain = _warm_arm(s)
+    sigma0 = h._sigma
+    a.on_new_results(_cluster(s))
+
+    sigmas = []
+    for _ in range(4):
+        assert h.warm_start_now() is True
+        assert plain.warm_start_now() is True
+        sigmas.append(h._sigma)
+    # geometric decay at exactly the floor's rate, four hand-offs deep ...
+    np.testing.assert_allclose(sigmas, sigma0 * 0.5 ** np.arange(1, 5), rtol=1e-12)
+    # ... where the unfloored arm was pinned to the cloud by the first one
+    assert plain._sigma < 1e-3
+    assert h._sigma > plain._sigma
+
+
+@pytest.mark.parametrize("f", [0.0, -0.5, 1.5])
+def test_cmaes_sigma_floor_validates_its_argument(f):
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    with pytest.raises(ValueError, match="warm_start_sigma_floor"):
+        CMAES(s, warm_start="archive", warm_start_sigma_floor=f)
+
+
+def _adapted(h, *, cond=9.0, seed=3):
+    """Give *h* a non-identity C/B/D and non-zero evolution paths."""
+    n = h.problem.dim
+    rng = np.random.default_rng(seed)
+    q, _ = np.linalg.qr(rng.normal(size=(n, n)))
+    eig = np.geomspace(1.0 / np.sqrt(cond), np.sqrt(cond), n)
+    h._C = (q * eig) @ q.T
+    h._B = q
+    h._D = np.sqrt(eig)
+    h._p_c = rng.normal(size=n)
+    h._p_sigma = rng.normal(size=n)
+    return h
+
+
+def test_cmaes_keep_cov_moves_m_and_sigma_and_nothing_else():
+    s = _strategy()
+    a = _archive_of(s, [])
+
+    h = _adapted(_warm_arm(s, warm_start_keep_cov=True))
+    C, B, D = h._C.copy(), h._B.copy(), h._D.copy()
+    m, sigma = h._m.copy(), h._sigma
+    a.on_new_results(_cluster(s, jitter=0.3, n=30))
+
+    assert h.warm_start_now() is True
+
+    # the payload: B, D and C survive bit for bit ...
+    np.testing.assert_array_equal(h._C, C)
+    np.testing.assert_array_equal(h._B, B)
+    np.testing.assert_array_equal(h._D, D)
+    # ... the evolution paths are zeroed (the mean has just jumped) ...
+    np.testing.assert_array_equal(h._p_c, np.zeros(s.problem.dim))
+    np.testing.assert_array_equal(h._p_sigma, np.zeros(s.problem.dim))
+    # ... and the relocation itself happened
+    assert not np.array_equal(h._m, m)
+    assert h._sigma != sigma
+
+
+def test_cmaes_keep_cov_is_the_only_branch_that_keeps_a_shape():
+    """The default and ``archive_cov`` both overwrite what the arm adapted."""
+    s = _strategy()
+    a = _archive_of(s, [])
+    n = s.problem.dim
+
+    reset = _adapted(_warm_arm(s))
+    kept = _adapted(_warm_arm(s, warm_start_keep_cov=True))
+    a.on_new_results(_cluster(s, jitter=0.3, n=30))
+    assert reset.warm_start_now() is True
+    assert kept.warm_start_now() is True
+
+    np.testing.assert_array_equal(reset._C, np.eye(n))
+    np.testing.assert_array_equal(reset._D, np.ones(n))
+    assert not np.allclose(kept._C, np.eye(n))
+    # m and sigma are the same in both: only the shape payload differs
+    np.testing.assert_array_equal(kept._m, reset._m)
+    assert kept._sigma == reset._sigma
+
+
+def test_cmaes_keep_cov_leaves_the_lazy_eigen_schedule_alone():
+    """Nothing rewrote the decomposition, so nothing restarts its clock."""
+    s = _strategy()
+    a = _archive_of(s, [])
+
+    kept = _adapted(_warm_arm(s, warm_start_keep_cov=True))
+    reset = _adapted(_warm_arm(s))
+    a.on_new_results(_cluster(s, jitter=0.3, n=30))
+    for h in (kept, reset):
+        h._counteval = 40
+        h._eigeneval = 7
+
+    assert kept.warm_start_now() is True
+    assert reset.warm_start_now() is True
+
+    assert kept._eigeneval == 7  # the arm's own schedule, uninterrupted
+    assert reset._eigeneval == 40  # B/D were just made consistent with C
+
+
+def test_cmaes_keep_cov_rejects_the_archive_cov_payload():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        CMAES(s, warm_start="archive_cov", warm_start_keep_cov=True)
+    # ... and is accepted on every payload that does not seed C itself
+    for mode in ("archive", "archive_diverse", "archive_leaf"):
+        assert CMAES(s, warm_start=mode, warm_start_keep_cov=True)._warm_start_keep_cov is True
+
+
+def test_cmaes_handoff_payload_default_path_is_unchanged():
+    """Both knobs are opt-in: omitted or off is the pre-2026-09-14 hand-off."""
+    from panobbgo.heuristics import CMAES
+
+    for cloud in (_cluster, lambda s: _cluster(s, jitter=0.3, n=30)):
+        s = _strategy()
+        a = _archive_of(s, [])
+        omitted = CMAES(s, warm_start="archive")
+        omitted.on_start()
+        explicit = CMAES(s, warm_start="archive", warm_start_sigma_floor=None, warm_start_keep_cov=False)
+        explicit.on_start()
+        for h in (omitted, explicit):
+            _adapted(h)
+        a.on_new_results(cloud(s))
+
+        assert omitted.warm_start_now() is True
+        assert explicit.warm_start_now() is True
+        np.testing.assert_array_equal(omitted._m, explicit._m)
+        np.testing.assert_array_equal(omitted._C, explicit._C)
+        np.testing.assert_array_equal(omitted._D, explicit._D)
+        assert omitted._sigma == explicit._sigma
+        # the default really is the reset, floor or no floor
+        np.testing.assert_array_equal(omitted._C, np.eye(s.problem.dim))
+        assert omitted._sigma == pytest.approx(
+            float(np.clip(omitted._sigma, 1e-6 * float(np.mean(omitted._ranges)), omitted._sigma0_default()))
+        )

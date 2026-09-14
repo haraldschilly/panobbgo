@@ -1,0 +1,35 @@
+0.014129 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.014267 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.080809 config:343      CONFG INFO      Evaluation method: threaded
+0.080851 config:346      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'39ba601bd5750ae97181d685950d2414bf7ba267'}
+seed 42 done (20s)
+seed 7 done (41s)
+seed 1234 done (61s)
+
+=== portfolio screen ===  (3 seeds, dims [2, 5], ioh-standard, budget 200*d, insts [0, 1, 2, 3, 4])
+specs: CMAES_alone, Blocks_uniform_cj_warm2, Blocks_cj_sigfloor25_nb50, Blocks_cj_sigfloor50_nb50, Blocks_cj_sigfloor80_nb50   cells: 30
+
+spec                                    mean        d=2       d=5
+Blocks_cj_sigfloor50_nb50             0.5466     0.5982    0.4951
+Blocks_uniform_cj_warm2               0.5233     0.5530    0.4937
+Blocks_cj_sigfloor80_nb50             0.5174     0.5784    0.4565
+Blocks_cj_sigfloor25_nb50             0.5155     0.5411    0.4898
+CMAES_alone                           0.4835     0.5436    0.4233
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_cj_sigfloor50_nb50             +0.0632     [+0.0028,+0.1235]   3/3      +0.0546   +0.0718 <--
+Blocks_uniform_cj_warm2               +0.0399     [-0.0952,+0.1750]   2/3      +0.0094   +0.0704
+Blocks_cj_sigfloor80_nb50             +0.0340     [-0.0393,+0.1072]   3/3      +0.0347   +0.0332
+Blocks_cj_sigfloor25_nb50             +0.0320     [-0.0861,+0.1501]   2/3      -0.0025   +0.0665
+
+--- screening gates (design §6) ---
+  G5 PASS  best warm (Blocks_uniform_cj_warm2) - best single (CMAES_alone) +0.0399  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

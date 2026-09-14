@@ -139,6 +139,12 @@ SOFT = {"policy": "ducb", "ucb_c": 2.0, "hysteresis": 1.0, "gamma": 0.7}
 #: ``False`` reproduces what #6 actually ran and ``True`` is the new guard.
 NOB = {**WARM_ON, "warm_start_only_if_better": False}
 
+#: Fraction of the arm's own sigma a hand-off may not undercut (§50.4's sigma
+#: floor).  Fixed on a **three-seed** pilot (42, 7, 1234) over f = 0.25 / 0.5 /
+#: 0.8 at 200*dim, the budget where §50.3's stall lives -- see the
+#: ``Blocks_cj_sigfloor{25,50,80}_nb50`` specs below.
+SIGMA_FLOOR = 0.5
+
 
 #: Analyzer list of every warm spec.  ``Splitter`` is **not** listed: it is
 #: one of the four analyzers ``StrategyBase.initialize`` always installs
@@ -580,6 +586,72 @@ SPECS = {
         StrategyBlockBandit,
         arms("cmaes", "jso"),
         {"policy": "uniform", "block_evals": 50},
+        ARCHIVE,
+    ),
+    # -- §50.4 / §49.4: the two untested pieces of the hand-off's payload --
+    #
+    # §50.3 isolated the short-block stall: at 200*dim, d = 2 the warm spec
+    # at the shortest block collapses (AOCC more than 0.25 below
+    # ``CMAES_alone``) in 7 of 60 cells while its *cold* twin collapses in 1,
+    # and the count grows as the block shortens (7 at ``n_blocks=50``, 4 at
+    # ``block_evals=25``, 2 at ``auto``, 0 at 50).  So the stall needs the
+    # hand-off.  §49.4 names the other half of the payload: every mode today
+    # *discards* CMA-ES's adapted C (``_reset_covariance``), and §49.3 showed
+    # the cost of doing that grows with the budget.  Two CMA-ES-side knobs,
+    # both default-off; jSO stays on plain ``warm_start="archive"`` in every
+    # spec so only the receiving arm's payload changes.
+    #
+    # ``_sigfloor`` floors the new sigma at ``SIGMA_FLOOR`` x the arm's own
+    # current sigma, so one hand-off from a collapsed archive cloud can no
+    # longer pin the arm to a point.  ``_keepC`` keeps B/D/C (paths still
+    # zeroed) instead of resetting to I.  Both are screened at the
+    # ``n_blocks=50`` default -- where the stall lives -- and at ``auto``,
+    # against ``Blocks_uniform_cj_warm2`` / ``Blocks_uniform_cj_warm2_auto``.
+    "Blocks_cj_sigfloor_nb50": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_sigma_floor=SIGMA_FLOOR), warm("jso", "archive")],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_sigfloor_auto": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_sigma_floor=SIGMA_FLOOR), warm("jso", "archive")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_keepC_nb50": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_keep_cov=True), warm("jso", "archive")],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_keepC_auto": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_keep_cov=True), warm("jso", "archive")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    # The three-seed pilot that fixed ``SIGMA_FLOOR`` (seeds 42, 7, 1234 at
+    # 200*dim only -- the budget where the stall is).  Kept so the choice is
+    # reproducible, and *not* re-run on the decision roster: tuning a constant
+    # against the 12 seeds that decide is the winner's curse the rule exists
+    # to prevent.
+    "Blocks_cj_sigfloor25_nb50": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_sigma_floor=0.25), warm("jso", "archive")],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_sigfloor50_nb50": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_sigma_floor=0.5), warm("jso", "archive")],
+        {"policy": "uniform", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_sigfloor80_nb50": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_sigma_floor=0.8), warm("jso", "archive")],
+        {"policy": "uniform", **WARM_ON},
         ARCHIVE,
     ),
     # -- §27 B: which soft-D-UCB knob carries the gain? -------------------

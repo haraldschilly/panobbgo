@@ -280,6 +280,26 @@ class CMAES(Heuristic):
             gives ``"archive"`` the exact seed set ``"archive_cov"`` fits,
             so a delta between the two isolates the covariance from the
             wider sample that also moves ``m`` and ``σ``.
+        warm_start_sigma_floor (float, optional): Floor the warm start's new
+            ``σ`` at this fraction of the arm's **own current** ``σ``
+            (§50.4).  ``None`` (default) leaves only the nominal
+            ``1e-6·range`` floor every number before 2026-09-14 was measured
+            with.  A float ``f ∈ (0, 1]`` makes the hand-off
+            ``σ_new = clip(spread, f·σ_self, σ0_cold)``: the step size may
+            still shrink at every hand-off, but by at most ``1 − f`` of what
+            the arm had, so a *sequence* of hand-offs from a collapsed archive
+            cloud can no longer pin the receiving arm to a point in one move.
+            The upper clip is unchanged and still wins — a warm start may
+            never be *wider* than a cold start, floor or no floor.  See
+            :meth:`_warm_start_distribution` for why the floor is relative to
+            the arm's own σ rather than to σ0.
+        warm_start_keep_cov (bool): Keep the arm's own adapted ``B``/``D``/
+            ``C`` across the warm start instead of resetting them to the
+            identity (§49.4).  Default ``False`` — the reset every warm-start
+            mode has always done.  With it on the hand-off moves ``m`` and
+            ``σ`` only: the relocation without the reset.  Mutually exclusive
+            with ``warm_start="archive_cov"``, which by definition overwrites
+            ``C`` with the archive's shape; passing both raises.
         inject (bool): Rank foreign results — points this instance did not
             emit — alongside the current generation's own offspring
             (``planning/DESIGN_seams_2026-09-11.md`` §2.1; N. Hansen (2011),
@@ -337,6 +357,8 @@ class CMAES(Heuristic):
         warm_start_cov_shrink: Optional[float] = None,
         warm_start_cov_cond_max: Optional[float] = None,
         warm_start_wide_seeds: bool = False,
+        warm_start_sigma_floor: Optional[float] = None,
+        warm_start_keep_cov: bool = False,
         inject: bool = False,
         name: Optional[str] = None,
     ):
@@ -406,6 +428,19 @@ class CMAES(Heuristic):
         #: ``"archive_cov"`` — the location-only control of §48.3's
         #: hypothesis (B).
         self._warm_start_wide_seeds = bool(warm_start_wide_seeds)
+        if warm_start_sigma_floor is not None and not 0.0 < float(warm_start_sigma_floor) <= 1.0:
+            raise ValueError(f"warm_start_sigma_floor must be in (0, 1] or None, got {warm_start_sigma_floor!r}")
+        if warm_start_keep_cov and warm_start == "archive_cov":
+            raise ValueError(
+                "warm_start_keep_cov and warm_start='archive_cov' are mutually exclusive: "
+                "the first keeps the arm's own C, the second overwrites it with the archive's shape"
+            )
+        #: Fraction of the arm's own σ the hand-off may not undercut, or
+        #: ``None`` for no floor beyond the nominal ``1e-6·range`` (§50.4).
+        self._warm_start_sigma_floor = None if warm_start_sigma_floor is None else float(warm_start_sigma_floor)
+        #: Keep ``B``/``D``/``C`` across a warm start instead of resetting
+        #: them to the identity — the untested payload of §49.4.
+        self._warm_start_keep_cov = bool(warm_start_keep_cov)
         #: Region the next warm start is restricted to, or ``None`` for the
         #: whole archive.  Written by
         #: :meth:`panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region`
@@ -674,6 +709,52 @@ class CMAES(Heuristic):
           :meth:`_seed_covariance`.
         * evolution paths zeroed, ``_counteval`` untouched.
 
+        Two opt-in knobs change the payload, both off by default so every
+        number measured before 2026-09-14 reproduces bit for bit.
+
+        **The σ floor** (``warm_start_sigma_floor = f``).  §50.3 measured the
+        hand-off's one pathology: at 200·dim / *d* = 2 the shortest block
+        collapses in 7 of 60 cells while its *cold* twin collapses in 1, and
+        the count grows as the block shortens.  The mechanism is this line —
+        when the archive top-*k* have already fallen into one basin their
+        spread is tiny, σ is set to it, and the receiving arm restarts pinned
+        to a point; its next generation writes the same collapsed cloud back
+        into the archive, so the next hand-off repeats the move.  The floor
+        breaks that loop by bounding the *rate*: ``σ_new ≥ f·σ_self``.
+
+        Relative to the arm's **own current σ**, deliberately, and not to
+        ``σ0_cold``.  A floor at ``f·σ0`` is easier to reason about but
+        forbids deep intensification outright — after enough hand-offs every
+        arm would be pinned to the same absolute step size whatever the basin
+        it found, which is the ``archive_diverse`` failure of §48.2 arriving
+        by a different road.  ``f·σ_self`` is scale-free, composes across
+        hand-offs (``σ`` may still fall by ``fᵏ`` over *k* of them, i.e. as far
+        as a genuinely converging search needs) and costs nothing when the
+        seed cloud is not collapsed, because the floor only binds when the
+        spread is below it.  Note this is *not* §48.2's rejected
+        diversification: the seeds stay the archive top-*k* and **m** stays
+        the incumbent — only the step size is prevented from collapsing in
+        one move.
+
+        **Keeping the arm's own C** (``warm_start_keep_cov``).  §49.4: every
+        payload measured so far overwrites the adapted covariance — with
+        **I** (the reset below) or with the archive's shape
+        (``"archive_cov"``) — and §49.3 showed the cost of overwriting grows
+        with the budget, because the arm has adapted **C** over more
+        generations before each hand-off.  With the knob on, the hand-off is
+        the relocation *without* the reset: **m** and **σ** move, ``B``, ``D``
+        and ``C`` survive untouched.
+
+        The evolution paths are zeroed even then, which is the conservative
+        choice and the one this implements: ``p_c`` and ``p_σ`` are cumulated
+        *displacements of the mean*, and the mean has just jumped
+        discontinuously to a point the arm may never have sampled.  Carrying
+        them over would make the next step-size update react to a trajectory
+        that no longer exists, and ``p_c``'s rank-one term would push **C**
+        along a direction the arm did not travel.  ``C`` is a running average
+        of shapes and degrades gracefully when it is one hand-off stale; the
+        paths are not, so the two are treated differently on purpose.
+
         Returns ``False`` — **without touching any state** — when the archive
         has nothing to give, so a caller can fall back to the cold path (or,
         for :meth:`warm_start_now`, leave a running search alone).
@@ -696,21 +777,37 @@ class CMAES(Heuristic):
 
         # --- σ: the spread of the seed cloud, never wider than cold ---
         spread = float(np.mean(np.std(X, axis=0))) if len(X) > 1 else 0.0
+        cap = self._sigma0_default()
         floor = 1e-6 * float(np.mean(self._ranges))
-        self._sigma = float(np.clip(spread, floor, self._sigma0_default()))
+        if self._warm_start_sigma_floor is not None and self._sigma is not None:
+            floor = max(floor, self._warm_start_sigma_floor * float(self._sigma))
+        # The cap wins if the floor ever exceeds it: a warm start may narrow
+        # the search, never widen it (this is also what ``np.clip`` does with
+        # ``a_min > a_max``, spelled out rather than relied upon).
+        self._sigma = float(np.clip(spread, min(floor, cap), cap))
 
         # --- C, B, D and the evolution paths ---
         self._p_c = np.zeros(n)
         self._p_sigma = np.zeros(n)
         if self.warm_start == "archive_cov" and len(X) >= n + 2:
             self._seed_covariance(X)
+            # B and D were just made consistent with C, so the lazy
+            # eigendecomposition schedule restarts from here.  ``_counteval``
+            # itself is deliberately left alone.
+            self._eigeneval = self._counteval
+        elif self._warm_start_keep_cov:
+            # §49.4's payload: keep B, D and C exactly as the arm adapted
+            # them — including their staleness relative to each other, which
+            # is the state the arm was legitimately sampling from one moment
+            # ago.  ``_eigeneval`` is therefore *not* touched: the arm's own
+            # lazy schedule continues unbroken, where every other branch
+            # restarts it because it has just rewritten the decomposition.
+            # ``_cond`` likewise still describes the kept matrix.
+            pass
         else:
             self._reset_covariance(n)
             self._cond = 1.0
-        # B and D were just made consistent with C, so the lazy
-        # eigendecomposition schedule restarts from here.  ``_counteval``
-        # itself is deliberately left alone.
-        self._eigeneval = self._counteval
+            self._eigeneval = self._counteval
 
         self.logger.info(
             "CMA-ES warm start (%s): %d seeds, σ=%.4g, cond(C)=%.3g",

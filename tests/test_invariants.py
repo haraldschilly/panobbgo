@@ -155,6 +155,14 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "Splitter at on_start, so no warm start ever fits anything -- pinned in "
         "tests/test_warm_start.py::test_cmaes_wide_seeds_is_the_location_only_control"
     ),
+    # --- the hand-off's payload (DISCOVERY §49.4): same reach, same reason ---
+    ("CMAES", "warm_start_keep_cov"): (
+        "keeps the arm's own B/D/C across a warm start instead of resetting them to I; read only in "
+        "_warm_start_distribution, which returns before it whenever the archive has nothing to give "
+        "-- the probe's solo run has no Archive and an empty Splitter at on_start, and its only "
+        "other warm start would come from a block scheduler it does not run -- pinned in "
+        "tests/test_warm_start.py::test_cmaes_keep_cov_moves_m_and_sigma_and_nothing_else"
+    ),
     # --- seams (planning/DESIGN_seams_2026-09-11.md §2): inert without a second arm ---
     ("CMAES", "inject"): (
         "ranks foreign results (who not starting with this instance's tag) with the generation's "

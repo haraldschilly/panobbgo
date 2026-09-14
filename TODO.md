@@ -113,7 +113,23 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   `auto`-Block überall −0.02: gezielte Reparatur für kurzer-Block × d=2,
   kein Default. Nächste Form, falls verfolgt: f mit der Blocklänge
   skalieren.
-- **Nächste Kandidaten**: (1) **Übergabe ohne Reset**: jeder Warm-Start-
+- **Funktionsachse gelandet (§52, 6282807)**: 24 BBOB-Funktionen als
+  Batterie-Dimension, nach COCO-Klasse gruppiert; Rückwärtskompatibilität
+  zweifach gepinnt. Dabei ein Worker-Bug gefunden (der BBOB-Pfad war nie
+  ausgeführt worden). Erster Blick (3 Seeds, keine Evidenz): das
+  Portfolio ist in **allen fünf Klassen** positiv, gewinnt 34 von 48
+  (fid × dim) Zellen, aber **eine einzige Funktion (f5, lineare Steigung)
+  kippt das Vorzeichen der ganzen Dimension d=5** (−0.239 dort; ohne f5
+  wird d=5 positiv). Reine Funktionen sind ein viel härteres Instrument
+  als die Mischungen (AOCC 0.27–0.31 gegen 0.49–0.53) — MA-BBOB mittelt
+  genau die Streuung weg, von der ein Portfolio lebt. Das ist vermutlich
+  der Grund, warum die Batterie so lange „paritätisch" las (§27).
+  **Folge:** der in §45.2 zurückgestellte Probe hat jetzt ein Ziel, das
+  die Komplexität wert ist — dieselbe Konfiguration reicht je nach
+  Landschaft von +0.22 bis −0.24.
+- **Nächste Kandidaten**: (0) **12-Seed-Entscheidungslauf auf der
+  fid-Achse** bei 100/200·dim mit den Konfigurationen, die §50–§51 haben
+  stehen lassen (~100 min) — das ist das Tor vom 13.9.; (1) **Übergabe ohne Reset**: jeder Warm-Start-
   Modus wirft heute CMA-ES' adaptiertes C weg (`_reset_covariance`, C=I)
   oder ersetzt es durch die Archiv-Form — die vierte Nutzlast, *eigenes C
   behalten und nur m/σ verschieben*, ist nie gemessen worden. §48.2 +

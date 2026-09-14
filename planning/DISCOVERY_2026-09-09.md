@@ -2220,3 +2220,112 @@ At 200·dim `sigfloor_nb50` reaches +0.0502 (9/12) against `auto`'s
 So the configuration story stands where §50 left it — block length by
 budget — with the floor as a repair for the *d* = 2 corner of the short
 block, and the payload question now closed.
+
+## 52. The BBOB function axis: first look — mixtures were hiding the dispersion the portfolio lives on
+
+`planning/DESIGN_suite_2026-09-14.md` step 1 landed (6282807):
+`IOHBatterySpec.fids` makes the 24 standard BBOB functions a battery
+dimension, `fid` joins both seed payloads and the run record, and the
+screen folds cells on `(seed, fid, dim, instance)` and prints paired
+deltas per COCO class.  Backward compatibility is pinned two ways — two
+pinned seed constants, and `from=…ratchet_bm200.json` producing
+byte-identical output before and after — so every number of §44–§51
+stands unchanged.
+
+The BBOB path had **never been exercised**: `ioh.get_problem(fid, inst,
+dim, "BBOB")` fails on the current binding, which wants
+`ioh.ProblemClass.BBOB`.  Fixed in the worker.
+
+**The run below is 3 seeds.  Nothing here is evidence by the rule; it is
+orientation for where to spend the roster.**  432 cells (3 seeds × 24
+fids × 2 dims × 3 instances), 3 specs, 200·dim, 0 errors:
+`results/2026-09-14/bbob_smoke.json`.
+
+### 52.1 Plain functions are a much harder instrument than the mixtures
+
+Mean AOCC at the same budget: **0.27–0.31 on plain BBOB against
+0.49–0.53 on MA-BBOB**.  MA-BBOB instances are affine combinations of
+two BBOB functions, so each instance averages two landscapes — and the
+average of a landscape CMA-ES owns with one it cannot solve is a
+landscape on which every method scores middling.  That compression is
+almost certainly why the battery of record read "level" for so long
+(§27): the instrument was averaging away the very dispersion a portfolio
+exists to exploit.
+
+### 52.2 The portfolio is positive in all five classes — pooled
+
+`Blocks_uniform_cj_warm2_auto` − `CMAES_alone`, per COCO class:
+
+| class | pooled | *d* = 2 | *d* = 5 |
+|---|---|---|---|
+| separable (f1–5) | +0.019 | +0.058 | −0.021 |
+| low conditioning (f6–9) | +0.032 | +0.081 | −0.017 |
+| high conditioning (f10–14) | +0.060 | +0.104 | +0.016 |
+| multimodal, global structure (f15–19) | +0.027 | +0.068 | −0.014 |
+| multimodal, weak structure (f20–24) | +0.063 | +0.115 | +0.012 |
+
+Pooled +0.0405, 0 of 5 classes negative.  The ordering is the one the
+thesis predicts — most where a single covariance model is least
+sufficient (high conditioning, weak global structure), least on separable
+problems — but **the per-dimension split is a sign flip against
+MA-BBOB**, where *d* = 5 carried the gain (+0.054) and *d* = 2 was the
+smaller half (+0.031).  Here *d* = 2 is +0.085 and *d* = 5 is −0.004.
+
+### 52.3 One function carries the *d* = 5 sign
+
+Per (fid, dim) the portfolio wins **34 of 48** cells.  The losses are not
+spread: they concentrate on **f5** (the linear slope — −0.030 at *d* = 2,
+**−0.239** at *d* = 5) and **f7** (step ellipsoid — −0.065 / −0.095).
+
+| pooled delta | all 24 | drop f5 | drop f5, f7 |
+|---|---|---|---|
+| overall | +0.0405 | +0.0481 | +0.0539 |
+| *d* = 2 | +0.0852 | +0.0902 | +0.0973 |
+| *d* = 5 | **−0.0042** | **+0.0060** | **+0.0106** |
+
+A single function flips the sign of a whole dimension.  That is the
+function axis earning its keep on its first run: on the mixtures this
+would have been invisible, folded into an average.
+
+f5 is the honest explanation rather than an excuse to drop it: a linear
+slope has no interior optimum, CMA-ES walks to the boundary and reaches
+AOCC 0.87–0.91, and every evaluation the scheduler hands to jSO is spent
+on a problem that is already solved.  f7's plateaus are the case where a
+ranking sees ties.  Both are cells where CMA-ES alone does *well*.
+
+### 52.4 The pattern: the portfolio wins where the single arm struggles
+
+Bucketing each cell's delta by CMA-ES's own AOCC in that cell:
+
+| CMA-ES alone | < .15 | .15–.30 | .30–.45 | .45–.60 | .60–.75 | > .75 |
+|---|---|---|---|---|---|---|
+| portfolio delta | +0.063 | +0.059 | +0.045 | +0.024 | −0.037 | **−0.121** |
+| cells | 151 | 160 | 44 | 31 | 16 | 30 |
+
+Bucketing by the baseline's own value invites regression to the mean, so
+this table alone would not be trusted — but the per-function cut of
+§52.3, which is free of that trap (a fid is a property of the problem,
+not of a run), says the same thing: the losses sit exactly on the
+functions CMA-ES handles well.
+
+**Consequence.**  This is the strongest argument so far for the probe
+that §45.2 deferred.  On the mixtures the dispersion of per-cell outcomes
+was small, so a gate had little to win (~+0.03 in one regime).  On plain
+functions the same portfolio ranges from **+0.22 to −0.24** depending on
+the landscape.  A gate that can tell "CMA-ES alone will handle this" from
+"it will not" is worth an order of magnitude more here than the mixtures
+suggested — and §52.4 says the signal it needs is observable early: how
+fast the first arm is making progress.
+
+### 52.5 What to spend the roster on
+
+1. The 12-seed decision run on the fid axis at 100 and 200·dim, with the
+   configurations §50–§51 left standing (`nb50`, `auto`, and the σ floor
+   at the short block).  Cost ≈ 100 min; that is the re-test Harald's
+   2026-09-13 gate asks for before any default changes.
+2. Only then the probe, now with a target worth the complexity.
+3. Step 3 of the suite design (the missing synthetic shapes) gains a
+   concrete motivation from this run: f7's plateaus and f20–f24's weak
+   structure are where the extremes live, and `step_ellipsoid`,
+   `lunacek_bi_rastrigin` and `gallagher` are exactly those shapes as
+   parametrised families where the knob can be swept.

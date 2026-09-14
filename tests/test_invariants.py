@@ -148,6 +148,13 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     ),
     ("CMAES", "sigma_max_frac"): "threshold of the sigma-divergence criterion, which never fires here",
     ("CMAES", "sigma_divergence_gens"): "patience of the sigma-divergence criterion, which never fires here",
+    # --- warm-start regularisers (DISCOVERY §48.3): inert without an archive ---
+    ("CMAES", "warm_start_wide_seeds"): (
+        "raises the warm start's seed count to the 2n floor; read only in _warm_start_seeds, which "
+        "runs only when warm_start is set -- the probe's solo run has no Archive and an empty "
+        "Splitter at on_start, so no warm start ever fits anything -- pinned in "
+        "tests/test_warm_start.py::test_cmaes_wide_seeds_is_the_location_only_control"
+    ),
     # --- seams (planning/DESIGN_seams_2026-09-11.md §2): inert without a second arm ---
     ("CMAES", "inject"): (
         "ranks foreign results (who not starting with this instance's tag) with the generation's "

@@ -38,11 +38,11 @@ from panobbgo.lib.classic import Rosenbrock
 # ----------------------------------------------------------------------
 
 
-def _strategy(seed=1, max_eval=100):
+def _strategy(seed=1, max_eval=100, dim=2):
     """An unstarted strategy: enough context for a module, no main loop."""
     from panobbgo.strategies import StrategyRoundRobin
 
-    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=seed)
+    s = StrategyRoundRobin(Rosenbrock(dim=dim), parse_args=False, testing_mode=True, seed=seed)
     s.config.max_eval = max_eval
     s.config.sync_evaluation = True
     s.config.stop_on_convergence = False
@@ -415,6 +415,240 @@ def test_cmaes_archive_cov_degrades_to_identity_on_a_degenerate_cloud():
     h.on_start()
     np.testing.assert_array_equal(h._C, np.eye(s.problem.dim))
     np.testing.assert_array_equal(h._D, np.ones(s.problem.dim))
+
+
+# ----------------------------------------------------------------------
+# (e) §48.3: shrinking the seeded covariance by its own sample size
+# ----------------------------------------------------------------------
+#
+# ``archive_cov`` won *d* = 2 and lost *d* = 5 (§48.3, −0.069 at 200·dim).
+# The estimator is a 5x5 sample covariance of the archive top-10, with
+# nothing between it and the search distribution.  ``warm_start_cov_shrink``
+# blends it toward **I** by the sample size, ``warm_start_cov_cond_max``
+# clips the eigenvalue ratio, and ``warm_start_wide_seeds`` is the
+# location-only control that gives plain ``archive`` the *same* seed set so
+# the wider sample can be measured apart from the shape it buys.
+
+
+def _anisotropic_cloud(s, *, n=20, ratio=40.0, seed=5):
+    """Results on an axis-aligned cloud whose covariance is badly conditioned."""
+    rng = np.random.default_rng(seed)
+    dim = s.problem.dim
+    scales = np.geomspace(0.8, 0.8 / ratio, dim)
+    out = []
+    for i in range(n):
+        x = s.problem.project(rng.normal(0.0, 1.0, dim) * scales)
+        out.append(Result(Point(x, "T"), float(i)))
+    return out
+
+
+def _cond_of(h):
+    """``cond(C)`` read off the decomposition.
+
+    Not ``h._cond``: ``_reset_run_state`` runs *after* the warm start and
+    zeroes that field, so the seeded condition number is only visible in
+    ``_D`` (which is what the sampling actually uses).
+    """
+    return float(h._D.max() / h._D.min()) ** 2
+
+
+def test_shrinkage_alpha_counts_free_parameters_not_dimensions():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    h = CMAES(s, warm_start="archive_cov", warm_start_cov_shrink=1.0)
+
+    # d=2, k=6 (λ): (6-2-1)/(1·3) = 1 exactly — the winning d=2 behaviour
+    # of §48.3 is preserved, not merely approximated.
+    assert h._shrinkage_alpha(6, 2) == 1.0
+    # d=5, k=10 (the 2n floor): (10-5-1)/(1·15) = 4/15
+    assert h._shrinkage_alpha(10, 5) == pytest.approx(4.0 / 15.0)
+    # the constant scales the whole rule
+    assert h._shrinkage_alpha(10, 5) == pytest.approx(
+        3.0 * CMAES(s, warm_start="archive_cov", warm_start_cov_shrink=3.0)._shrinkage_alpha(10, 5)
+    )
+    # clipped into [0, 1] at both ends
+    assert h._shrinkage_alpha(3, 2) == 0.0  # k = n+1: nothing to estimate with
+    assert h._shrinkage_alpha(1000, 2) == 1.0
+    # off by default: no shrinkage at all, whatever the sample size
+    assert CMAES(s, warm_start="archive_cov")._shrinkage_alpha(10, 5) == 1.0
+
+
+def test_cmaes_cov_shrinkage_is_inert_at_alpha_one():
+    """α = 1 reproduces the unshrunk matrix — bit for bit, at d = 2."""
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    _archive_of(s, _anisotropic_cloud(s))
+
+    plain = CMAES(s, warm_start="archive_cov")
+    plain.on_start()
+    shrunk = CMAES(s, warm_start="archive_cov", warm_start_cov_shrink=1.0)
+    shrunk.on_start()
+
+    assert shrunk._shrinkage_alpha(len(shrunk._warm_start_seeds()), s.problem.dim) == 1.0
+    np.testing.assert_array_equal(shrunk._C, plain._C)
+    np.testing.assert_array_equal(shrunk._D, plain._D)
+
+
+def test_cmaes_cov_shrinkage_at_alpha_zero_is_the_identity():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy(dim=5)
+    _archive_of(s, _anisotropic_cloud(s, n=30))
+
+    h = CMAES(s, warm_start="archive_cov", warm_start_cov_shrink=1.0)
+    h._shrinkage_alpha = lambda k, n: 0.0  # type: ignore[method-assign]
+    h.on_start()
+
+    np.testing.assert_allclose(h._C, np.eye(s.problem.dim), atol=1e-12)
+    np.testing.assert_allclose(h._D, np.ones(s.problem.dim), atol=1e-12)
+    assert _cond_of(h) == pytest.approx(1.0)
+
+
+def test_cmaes_cov_shrinkage_stays_spd_with_unit_determinant():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy(dim=5)
+    _archive_of(s, _anisotropic_cloud(s, n=30))
+
+    plain = CMAES(s, warm_start="archive_cov")
+    plain.on_start()
+    h = CMAES(s, warm_start="archive_cov", warm_start_cov_shrink=1.0)
+    h.on_start()
+
+    n = s.problem.dim
+    # the 2n floor binds at d=5: 10 seeds for a 5x5, alpha = 4/15
+    assert len(h._warm_start_seeds()) == 2 * n
+    eig = np.linalg.eigvalsh(h._C)
+    assert np.all(eig > 0.0)  # positive definite
+    np.testing.assert_allclose(h._C, h._C.T, atol=1e-12)  # symmetric
+    assert np.linalg.det(h._C) == pytest.approx(1.0)
+    np.testing.assert_allclose(h._C, (h._B * (h._D**2)) @ h._B.T, atol=1e-12)
+    # and it really is closer to I than the unshrunk estimate
+    assert np.linalg.norm(h._C - np.eye(n)) < np.linalg.norm(plain._C - np.eye(n))
+    assert _cond_of(h) < _cond_of(plain)
+
+
+def test_cmaes_cov_condition_cap_binds_without_discarding_the_estimate():
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy(dim=5)
+    # ratio 1e4 per axis pair: ill-conditioned, but nowhere near the 1e7
+    # hard fallback, so the cap is the only thing that can act.
+    _archive_of(s, _anisotropic_cloud(s, n=30, ratio=1e4))
+
+    plain = CMAES(s, warm_start="archive_cov")
+    plain.on_start()
+    assert _cond_of(plain) > 1e3, "the uncapped estimate must be worse than the cap"
+
+    capped = CMAES(s, warm_start="archive_cov", warm_start_cov_cond_max=1e3)
+    capped.on_start()
+    assert _cond_of(capped) <= 1e3 * (1.0 + 1e-9)
+    assert np.linalg.det(capped._C) == pytest.approx(1.0)
+    # clipped, not thrown away: the anisotropy survives, and the principal
+    # directions are the cloud's.
+    assert _cond_of(capped) > 1.0
+    np.testing.assert_allclose(np.abs(capped._B), np.abs(plain._B), atol=1e-8)
+
+
+def test_cmaes_cov_hard_fallback_survives_the_new_knobs():
+    """A rank-deficient cloud still degrades to I, cap and shrinkage or not."""
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    base = np.array([0.1, 0.1])
+    line = [Result(Point(s.problem.project(base * (1 + i)), "T"), float(i)) for i in range(12)]
+    _archive_of(s, line)
+
+    h = CMAES(s, warm_start="archive_cov", warm_start_cov_shrink=1.0, warm_start_cov_cond_max=1e3)
+    h.on_start()
+    np.testing.assert_array_equal(h._C, np.eye(s.problem.dim))
+    np.testing.assert_array_equal(h._D, np.ones(s.problem.dim))
+
+
+def test_cmaes_wide_seeds_is_the_location_only_control():
+    """``archive`` with the ``2n`` floor: the cov sample, none of the shape."""
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy(dim=5)
+    _archive_of(s, _anisotropic_cloud(s, n=30))
+    n = s.problem.dim
+
+    narrow = CMAES(s, warm_start="archive")
+    narrow.on_start()
+    wide = CMAES(s, warm_start="archive", warm_start_wide_seeds=True)
+    wide.on_start()
+    cov = CMAES(s, warm_start="archive_cov")
+    cov.on_start()
+
+    # the confound §48.3 names: at d=5 ``archive_cov`` fits 10 points where
+    # ``archive`` fits 8.  The two extra points move sigma -- and *only*
+    # sigma: m is the mu-weighted recombination of the best mu = lambda//2 = 4
+    # seeds, which are the same four either way.  So the wider sample is a
+    # pure *spread* effect, which is the hand-off's one measured failure mode
+    # (DISCOVERY §48.2: a wider seed cloud is what killed ``archive_diverse``).
+    assert len(narrow._warm_start_seeds()) == narrow._lam == 8
+    assert len(wide._warm_start_seeds()) == 2 * n == 10
+    assert len(cov._warm_start_seeds()) == 2 * n
+    np.testing.assert_array_equal(wide._m, narrow._m)
+    assert wide._sigma != narrow._sigma
+    # ... but the control keeps C = I, so its delta is location only
+    np.testing.assert_array_equal(wide._C, np.eye(n))
+    np.testing.assert_array_equal(wide._D, np.ones(n))
+    np.testing.assert_allclose(wide._m, cov._m)
+    np.testing.assert_allclose(wide._sigma, cov._sigma)
+
+    # at d=2 the floor does not bind, so the control is a no-op there
+    two = _strategy(dim=2, seed=4)
+    _archive_of(two, _anisotropic_cloud(two, n=30))
+    a = CMAES(two, warm_start="archive")
+    a.on_start()
+    b = CMAES(two, warm_start="archive", warm_start_wide_seeds=True)
+    b.on_start()
+    assert len(a._warm_start_seeds()) == len(b._warm_start_seeds()) == 6
+    np.testing.assert_array_equal(a._m, b._m)
+    assert a._sigma == b._sigma
+
+
+def test_cmaes_cov_default_path_is_unchanged():
+    """The knobs are opt-in: omitted or ``None`` is the pre-2026-09-14 run."""
+    from panobbgo.heuristics import CMAES
+
+    for dim in (2, 5):
+        s = _strategy(dim=dim)
+        _archive_of(s, _anisotropic_cloud(s, n=30))
+        omitted = CMAES(s, warm_start="archive_cov")
+        omitted.on_start()
+        explicit = CMAES(
+            s,
+            warm_start="archive_cov",
+            warm_start_cov_shrink=None,
+            warm_start_cov_cond_max=None,
+            warm_start_wide_seeds=False,
+        )
+        explicit.on_start()
+        np.testing.assert_array_equal(omitted._C, explicit._C)
+        np.testing.assert_array_equal(omitted._m, explicit._m)
+        np.testing.assert_array_equal(omitted._D, explicit._D)
+        assert omitted._sigma == explicit._sigma
+
+
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {"warm_start_cov_shrink": 0.0},
+        {"warm_start_cov_shrink": -1.0},
+        {"warm_start_cov_cond_max": 1.0},
+        {"warm_start_cov_cond_max": 0.5},
+    ],
+)
+def test_cmaes_cov_knobs_validate_their_arguments(kw):
+    from panobbgo.heuristics import CMAES
+
+    s = _strategy()
+    with pytest.raises(ValueError):
+        CMAES(s, warm_start="archive_cov", **kw)
 
 
 def test_cmaes_warm_start_now_only_fires_with_seeds_and_reloads_the_queue():

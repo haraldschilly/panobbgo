@@ -255,6 +255,31 @@ class CMAES(Heuristic):
             evaluations: CMA-ES has no population to fill, so the whole gain
             is starting in the right basin with the right scale.  At
             ``t = 0`` the archive is empty and the heuristic cold-starts.
+        warm_start_cov_shrink (float, optional): Shrink the ``"archive_cov"``
+            seed covariance toward the identity by its own sample size
+            (§48.3).  ``None`` (default) is the unregularised estimate every
+            number before 2026-09-14 was measured on.  A float is the
+            constant ``c`` of
+
+            .. math:: α = \\mathrm{clip}\\!\\left(\\frac{k-n-1}{c·n(n+1)/2},\\,0,\\,1\\right),
+                      \\qquad C = (1-α)·I + α·\\hat C
+
+            with both the input and the blend re-normalised to unit
+            determinant.  ``k`` is the number of seeds actually fitted.  See
+            :meth:`_seed_covariance` for why the denominator counts the
+            *free parameters* of the estimate rather than ``n``.
+        warm_start_cov_cond_max (float, optional): Cap ``cond(C)`` of the
+            seeded covariance at this value by clipping its eigenvalue ratio
+            (not by discarding the estimate).  ``None`` (default) leaves only
+            the 1e7 hard fallback to **I**.  Order 1e2–1e3 is the useful
+            range: a *k*-point cloud with *k* barely above *n* produces
+            near-zero eigenvalues that no amount of search will ever undo.
+        warm_start_wide_seeds (bool): Apply the ``2n`` seed floor that
+            ``"archive_cov"`` uses to *every* warm-start mode.  Default
+            ``False``.  Exists as the location-only control for §48.3: it
+            gives ``"archive"`` the exact seed set ``"archive_cov"`` fits,
+            so a delta between the two isolates the covariance from the
+            wider sample that also moves ``m`` and ``σ``.
         inject (bool): Rank foreign results — points this instance did not
             emit — alongside the current generation's own offspring
             (``planning/DESIGN_seams_2026-09-11.md`` §2.1; N. Hansen (2011),
@@ -309,6 +334,9 @@ class CMAES(Heuristic):
         sigma_max_frac: float = 0.3,
         sigma_divergence_gens: int = 5,
         warm_start: Optional[str] = None,
+        warm_start_cov_shrink: Optional[float] = None,
+        warm_start_cov_cond_max: Optional[float] = None,
+        warm_start_wide_seeds: bool = False,
         inject: bool = False,
         name: Optional[str] = None,
     ):
@@ -364,6 +392,20 @@ class CMAES(Heuristic):
         #: for the cold start.  A *string*, deliberately not a callable: the
         #: trigger is :meth:`warm_start_now`.
         self.warm_start: Optional[str] = warm_start
+        if warm_start_cov_shrink is not None and float(warm_start_cov_shrink) <= 0.0:
+            raise ValueError(f"warm_start_cov_shrink must be > 0 or None, got {warm_start_cov_shrink!r}")
+        if warm_start_cov_cond_max is not None and float(warm_start_cov_cond_max) <= 1.0:
+            raise ValueError(f"warm_start_cov_cond_max must be > 1 or None, got {warm_start_cov_cond_max!r}")
+        #: Shrinkage constant ``c`` of :meth:`_seed_covariance`, or ``None``
+        #: for the unregularised estimate shipped before (§48.3).
+        self._warm_start_cov_shrink = None if warm_start_cov_shrink is None else float(warm_start_cov_shrink)
+        #: Condition cap on the seeded ``C``, or ``None`` for no cap beyond
+        #: the 1e7 hard fallback.
+        self._warm_start_cov_cond_max = None if warm_start_cov_cond_max is None else float(warm_start_cov_cond_max)
+        #: Ask for the ``2n`` seed floor in *every* warm-start mode, not only
+        #: ``"archive_cov"`` — the location-only control of §48.3's
+        #: hypothesis (B).
+        self._warm_start_wide_seeds = bool(warm_start_wide_seeds)
         #: Region the next warm start is restricted to, or ``None`` for the
         #: whole archive.  Written by
         #: :meth:`panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region`
@@ -599,10 +641,17 @@ class CMAES(Heuristic):
         than the default λ.  ``"archive_cov"`` asks for ``2n`` as well: a
         sample covariance of ``k ≤ n`` points is rank-deficient by
         construction, and would always fall back to the identity.
+        ``warm_start_wide_seeds`` asks for the same ``2n`` floor in *any*
+        mode — the control that separates the wider sample from the
+        covariance it is there to estimate.
+
+        The floor only bites above ``n = 3``: at ``n = 2`` the default λ is
+        already 6 > 2n, at ``n = 5`` it is 8 < 10.  That asymmetry is exactly
+        the confound §48.3's hypothesis (B) names.
         """
         n = self.problem.dim
         k = max(self._lam, 4 + int(3 * np.log(max(n, 2))))
-        if self.warm_start == "archive_cov":
+        if self.warm_start == "archive_cov" or self._warm_start_wide_seeds:
             k = max(k, 2 * n)
         seeds = self.archive_seed(k, mode=self.warm_start, box=self.warm_start_box)
         return [np.asarray(r.x, dtype=float) for r in seeds]
@@ -620,7 +669,9 @@ class CMAES(Heuristic):
           cold start: a warm start may only narrow the search.
         * **C** — the identity, or (``"archive_cov"``) the seed covariance
           normalised to unit determinant, so it carries the *shape* of the
-          cloud while σ alone carries its scale.
+          cloud while σ alone carries its scale.  Optionally shrunk toward
+          **I** by the sample size and condition-capped; see
+          :meth:`_seed_covariance`.
         * evolution paths zeroed, ``_counteval`` untouched.
 
         Returns ``False`` — **without touching any state** — when the archive
@@ -670,6 +721,48 @@ class CMAES(Heuristic):
         )
         return True
 
+    def _shrinkage_alpha(self, k: int, n: int) -> float:
+        """The shrinkage weight α for a *k*-point sample in *n* dimensions.
+
+        ``α = clip((k − n − 1) / (c · n(n+1)/2), 0, 1)`` with
+        ``c = warm_start_cov_shrink``; ``α = 1`` (no shrinkage) when the knob
+        is off.
+
+        Two choices here are worth the words.
+
+        **Why this and not Ledoit–Wolf.**  The Ledoit–Wolf optimal intensity
+        is derived for an i.i.d. sample, and estimates its own numerator from
+        the fourth moments of that sample.  The seed cloud is the archive
+        *top-k*: points selected by their objective value, from a search that
+        was itself concentrating — the most strongly non-i.i.d. sample the
+        code base has.  Its fourth moments say more about how hard the arm
+        was intensifying than about the estimation error, so the LW intensity
+        would be a number with a derivation that does not apply.  A rule that
+        is a function of ``k`` and ``n`` alone is honest about using only the
+        thing that is actually known: how many points support how many
+        parameters.
+
+        **Why the denominator counts free parameters, not n.**  §48.3
+        suggested ``c·n``.  A symmetric ``n × n`` covariance has
+        ``p = n(n+1)/2`` free parameters, and that is what ``k`` has to pay
+        for — ``c·n`` makes the rule scale as if the cost were linear in the
+        dimension.  It also cannot hit the two targets §48.3 states with one
+        constant: at *d* = 2 the seed set is 6 points, so ``(k−n−1)/(c·n)``
+        is ``1.5/c``, and *c* ≤ 1.5 is needed for α = 1 — but the same *c* at
+        *d* = 5 (10 points) gives α ≥ 0.53, barely shrunk, where §48.3 asks
+        for 0.2–0.3.  With ``p`` in the denominator, ``c = 1`` gives
+        **α = 1 exactly at d = 2** ((6−3)/3) and **α = 4/15 ≈ 0.267 at
+        d = 5** ((10−6)/15) — both targets, no second constant.  ``k − n − 1``
+        is the numerator either way: it is the excess over the sample size at
+        which the estimate stops being degenerate, which is the same ``n + 2``
+        gate :meth:`_warm_start_distribution` already applies.
+        """
+        c = self._warm_start_cov_shrink
+        if c is None:
+            return 1.0
+        p = 0.5 * n * (n + 1)
+        return float(np.clip((k - n - 1) / (c * p), 0.0, 1.0))
+
     def _seed_covariance(self, X: np.ndarray) -> None:
         """Set ``C`` to the seed covariance, normalised to unit determinant.
 
@@ -679,6 +772,25 @@ class CMAES(Heuristic):
         normalisation is what keeps the *scale* of the search in σ alone,
         where CMA-ES's step-size control can adapt it; without it the seed
         cloud's scale would be counted twice.
+
+        Two optional regularisers sit between the normalisation and the hard
+        fallback, both off by default so every number measured before
+        2026-09-14 reproduces bit for bit:
+
+        * **shrinkage** (``warm_start_cov_shrink``) — ``C = (1−α)·I + α·Ĉ``
+          with α from :meth:`_shrinkage_alpha`.  Because ``I`` is isotropic
+          the blend is done on the eigenvalues in place (same ``B``), and the
+          result is re-normalised: a convex combination of two unit-
+          determinant matrices does not have unit determinant.
+        * **a condition cap** (``warm_start_cov_cond_max``) — the eigenvalues
+          are clipped into ``[cap^(−1/2), cap^(1/2)]`` around their geometric
+          mean of 1 and re-normalised.  Clipping preserves ratios under the
+          re-normalisation, so one pass suffices.  Unlike the 1e7 guard this
+          *keeps* the estimate's leading directions instead of throwing the
+          whole matrix away; the 1e7 fallback stays as the last resort for a
+          genuinely rank-deficient cloud — and it is decided on the *raw*
+          eigenvalue ratio, before either regulariser, so a cloud that falls
+          back to **I** today falls back to **I** with the knobs on too.
         """
         n = self.problem.dim
         cov = np.atleast_2d(np.asarray(np.cov(X, rowvar=False), dtype=float))
@@ -699,15 +811,34 @@ class CMAES(Heuristic):
         eigvals = np.maximum(eigvals, 1e-20)
         # det(C) = Π eigvals = 1  ⇔  the eigenvalues have geometric mean 1.
         eigvals = eigvals / float(np.exp(np.mean(np.log(eigvals))))
+        raw_ratio = float(eigvals.max() / eigvals.min())
+
+        alpha = self._shrinkage_alpha(len(X), n)
+        if alpha < 1.0:
+            # (1-α)·I + α·Ĉ in the eigenbasis of Ĉ: I contributes 1 to every
+            # eigenvalue and leaves B untouched.
+            eigvals = (1.0 - alpha) + alpha * eigvals
+            eigvals = np.maximum(eigvals, 1e-20)
+            eigvals = eigvals / float(np.exp(np.mean(np.log(eigvals))))
+
+        cap = self._warm_start_cov_cond_max
+        if cap is not None and float(eigvals.max() / eigvals.min()) > cap:
+            bound = float(np.sqrt(cap))
+            eigvals = np.clip(eigvals, 1.0 / bound, bound)
+            eigvals = eigvals / float(np.exp(np.mean(np.log(eigvals))))
+
         D_new = np.sqrt(eigvals)
         self._B = B_new
         self._D = D_new
         self._C = (B_new * eigvals) @ B_new.T
         self._cond = float(D_new.max() / D_new.min()) ** 2
 
-        if D_new.max() / D_new.min() > 1e7:
+        if np.sqrt(raw_ratio) > 1e7:
             # A degenerate seed cloud (duplicates, or fewer independent
             # directions than dimensions) — the identity is the honest prior.
+            # Read off the *raw* ratio: with a condition cap on, the capped
+            # eigenvalues could never trip this, and the point of the guard is
+            # to catch a cloud that carries no shape worth capping.
             self.logger.info("CMA-ES warm start: seed covariance too ill-conditioned — using I")
             self._reset_covariance(n)
             self._cond = 1.0

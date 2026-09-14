@@ -502,6 +502,45 @@ SPECS = {
         {"policy": "uniform", "block_evals": "auto", **WARM_ON},
         ARCHIVE,
     ),
+    # -- §48.3 follow-up: is the covariance over-fitted, or just wider? ----
+    #
+    # ``Blocks_cj_warm2_cov_auto`` above splits by dimension: +0.010 at
+    # *d* = 2 (the best d=2 mean of any spec measured, 200*dim) and −0.069 at
+    # *d* = 5.  Two hypotheses, and they are confounded in that spec:
+    #
+    # (A) the *shape* is over-fitted -- a 5x5 sample covariance from the
+    #     archive top-10, a cloud correlated by construction, with nothing
+    #     between the estimate and the search distribution.
+    # (B) it is not the shape at all but the *sample*: ``archive_cov`` raises
+    #     k to ``2n``, and the same seed set also fixes m and sigma.  At
+    #     *d* = 2 the ``2n`` clause does not bind (k = lambda = 6 either
+    #     way); at *d* = 5 it does (8 -> 10).  So the d=5 column compares a
+    #     seeded C *and* a wider cloud, and §48.2 showed a wider cloud is
+    #     exactly what destroyed ``archive_diverse``.
+    #
+    # ``_covshrink`` tests (A): the same estimate, shrunk toward I by its own
+    # sample size (alpha = clip((k-n-1)/(c*n(n+1)/2), 0, 1), c = 1 -> alpha = 1
+    # at d=2, 4/15 at d=5) and condition-capped at 1e3 instead of 1e7.
+    # ``_wide`` tests (B): plain ``archive`` semantics (C = I) on the *exact*
+    # seed set ``archive_cov`` fits.  Since m is the mu-weighted mean of the
+    # best mu = 4 seeds either way, that control isolates one thing -- the
+    # sigma fitted to two extra, worse points.  If ``_wide`` alone carries the
+    # d=5 loss, no shrinkage can help and the sample sets have to be decoupled.
+    "Blocks_cj_warm2_covshrink_auto": (
+        StrategyBlockBandit,
+        [
+            warm_kw("cmaes", "archive_cov", warm_start_cov_shrink=1.0, warm_start_cov_cond_max=1e3),
+            warm("jso", "archive"),
+        ],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
+    "Blocks_cj_warm2_wide_auto": (
+        StrategyBlockBandit,
+        [warm_kw("cmaes", "archive", warm_start_wide_seeds=True), warm("jso", "archive")],
+        {"policy": "uniform", "block_evals": "auto", **WARM_ON},
+        ARCHIVE,
+    ),
     # -- §27 B: which soft-D-UCB knob carries the gain? -------------------
     #
     # ``_soft`` (ucb_c 2.0, hysteresis 1.0, gamma 0.7) led §26 at 0.6921 by

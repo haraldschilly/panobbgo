@@ -82,13 +82,25 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   Diversifizierung. `archive_cov` spaltet nach Dimension (+0.010 bei
   d=2/200·dim — bester d=2-Wert überhaupt; −0.069 bei d=5), Ursache:
   10 korrelierte Top-Punkte für eine 5×5-Kovarianz, unreguliert.
-- **Nächste Kandidaten**: (1) **Shrinkage für `archive_cov`** —
-  `C = (1−α)I + αĈ`, α aus k/n, Kondition auf 10²–10³ statt 1e7
-  (`cma_es.py:_seed_covariance`); klarer Falsifikator, lokal, billig;
-  (2) Surrogat-Vorauswahl (lq-CMA-ES) als neuer Baustein (Opus);
-  (3) Ratschen-Hypothese: Wert der Übergabe gegen die *Anzahl* der
-  Übergaben (Re-Read der §46.3-Zellen, kostenlos); (4) Stall-Mechanismus
-  kurzer Blöcke (§46).
+- **Shrinkage gemessen (§49, b19c7ab)**: repariert `archive_cov` bei
+  100·dim (d=5 von −0.053 auf Parität), scheitert aber bei 200·dim
+  (−0.043, CI klar unter null). Und **kein `c` kann das retten**: die
+  Orts-Kontrolle mit breiter Stichprobe *ist* der α→0-Endpunkt, der
+  ungeschrumpfte Spec ist α=1, und bei d=5/200·dim sind beide negativ —
+  die ganze Familie liegt in [−0.017, −0.069]. `archive_cov` bleibt ein
+  d≤2-Knopf, kein Default. Neue Beobachtung: die reine Form-Kosten
+  *wachsen mit dem Budget* (−0.002 bei 100·dim, −0.027 bei 200·dim),
+  weil die Übergabe ein C überschreibt, das der Arm über mehr
+  Generationen adaptiert hat.
+- **Nächste Kandidaten**: (1) **Ratschen-Lauf mit kalten Kontrollen** bei
+  vier Blocklängen — `warm − cold` gegen die Zahl der Übergaben; testet
+  nebenbei den Stall-Mechanismus (§46.2: stallen nur die warmen Specs?)
+  — **läuft 2026-09-14**; (2) **Übergabe ohne Reset**: jeder Warm-Start-
+  Modus wirft heute CMA-ES' adaptiertes C weg (`_reset_covariance`, C=I)
+  oder ersetzt es durch die Archiv-Form — die vierte Nutzlast, *eigenes C
+  behalten und nur m/σ verschieben*, ist nie gemessen worden. §48.2 +
+  §49.3 sagen genau die vorher: Umsetzen ohne Vergessen (§49.4);
+  (3) Surrogat-Vorauswahl (lq-CMA-ES) als neuer Baustein (Opus).
 
 ### Entscheidung Harald 2026-09-13: Defaults erst nach der Suite-Erweiterung
 

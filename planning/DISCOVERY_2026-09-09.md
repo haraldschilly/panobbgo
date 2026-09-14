@@ -2009,3 +2009,110 @@ higher budget, where the discarded C is worth most.
 Consequence for the shipped configuration: unchanged.  Both arms on
 `archive`; `archive_cov` (shrunk or not) is a *d* ≤ 2 knob with a lean,
 not a default; `warm_start_wide_seeds` is a control, not a feature.
+
+## 50. The ratchet is real at 100·dim and saturates at 200·dim; blocking itself is free; the short-block stall is a hand-off pathology
+
+§48.1's superadditivity suggested the hand-off is a **ratchet** — a
+warm-started arm writes better points into the archive, which is the pool
+the other arm's next hand-off draws from — and predicted that its value
+grows with the *number* of hand-offs.  §46.3 could not test that: it
+compared warm specs at four block lengths against `CMAES_alone`, which
+mixes the hand-off's value with the switching transient, and its
+`_be25`/`_be50` pin `warm_start_only_if_better=False` (`NOB`) while
+`_auto` takes the default.  So this run builds **warm/cold pairs at four
+block lengths with identical settings** (078114d): `warm − cold` is the
+hand-off alone, with the transient held fixed.  Raw:
+`results/2026-09-14/ratchet_{bm100,bm200}.json`, same roster and cube,
+0 errors, full budgets.  The `auto` pair reproduces §48 exactly
+(+0.0761 / +0.1379).
+
+### 50.1 Value of the hand-off against the number of hand-offs
+
+| block | blocks *d*=2 / *d*=5 | `warm − cold` at 100·dim | at 200·dim |
+|---|---|---|---|
+| 50 | 4 / 10 (bm100), 8 / 20 (bm200) | +0.0526 [+0.043, +0.062] | +0.1197 [+0.106, +0.133] |
+| `auto` (24 / 40–48) | 8.3 / 12.5, 16.7 / 20.8 | +0.0761 [+0.065, +0.087] | +0.1379 [+0.110, +0.166] |
+| 25 | 8 / 20, 16 / 40 | +0.0794 [+0.070, +0.089] | +0.1307 [+0.113, +0.148] |
+| `n_blocks=50` (4–10 / 8–20 evals) | 50 / 50 | **+0.0980 [+0.080, +0.116]** | +0.1327 [+0.103, +0.162] |
+
+All 12/12.  At **100·dim the ratchet is there and monotone**: from 4
+blocks to 50 the hand-off nearly doubles in value (+0.053 → +0.098), in
+both dimensions separately (d=2 +0.043→+0.097, d=5 +0.063→+0.099).  At
+**200·dim it is flat** — every length lands in [+0.120, +0.138], the
+ordering scrambled and well inside the CIs.  The ratchet saturates: by
+8 blocks at the higher budget the archive already holds what the other
+arm can use, and further hand-offs add nothing.
+
+This is also why the shipped default beats `auto` at the low budget
+(`Blocks_uniform_cj_warm2` +0.0558, 12/12 vs CMA-ES at 100·dim, against
+`auto`'s +0.0359) and loses at 200·dim (+0.0365, 9/12 vs +0.0423,
+11/12): the one-generation relay is the *right* configuration exactly
+where the ratchet has not saturated.
+
+### 50.2 Blocking is free — the block length matters only through the hand-off
+
+The cold specs are almost independent of the block length: mean AOCC
+0.3140 / 0.3153 / 0.3159 / 0.3176 at 100·dim across 50, 16–20, 8–12 and
+4–10 blocks (a spread of 0.0036), and 0.3912…0.3974 at 200·dim (0.0062).
+Over a 12× range in block count the switching transient costs **under
+0.006 AOCC**.
+
+That corrects §46.3's reading.  The flat warm curve there was taken as
+"two effects cancelling" — a sharing gain rising with hand-off count
+against a transient cost rising with it too.  There is no transient cost
+worth the name.  The warm curve is flat at 200·dim because the *gain*
+is saturated, and it is steep at 100·dim because the gain is not.  Block
+length is not a cost/benefit trade-off in this portfolio; it is a dial on
+one quantity, how often the arms exchange.
+
+### 50.3 The short-block stall is caused by the hand-off, not by the block
+
+§46.2 reported that at 200–300·dim, *d* = 2 the `n_blocks=50` default
+collapses in 6–8 of 60 cells (AOCC 0.17–0.30 where CMA-ES alone reaches
+0.55–0.82) and left the mechanism unmeasured — the *hypothesis* was both
+arms re-seeded from a tight top-K into one basin every two generations.
+(Note the stall is an AOCC collapse, not an unspent budget: no run in
+any file of this campaign finished short of 98 % of its budget.)  The
+cold twins settle it.  Cells more than 0.25 AOCC below `CMAES_alone`, of
+60 per dimension, at 200·dim:
+
+| block | warm, *d*=2 | cold, *d*=2 |
+|---|---|---|
+| `n_blocks=50` (8–12 evals) | **7** | 1 |
+| 25 | **4** | 0 |
+| `auto` (24) | 2 | 1 |
+| 50 | 0 | 0 |
+
+The warm count reproduces §46.2's 6–8 exactly, and the cold twin at the
+same block length does not stall.  So the collapse **requires the
+hand-off**, and it grows as the block shortens.  §46.2's mechanism
+survives its first real test.  (At *d* = 5 the pattern inverts — the
+*cold* specs collapse in 4–11 cells, the warm ones in 0–1 — which is
+just cold portfolios being bad at *d* = 5, where they lose −0.094 to
+CMA-ES.)
+
+Note what this costs at 200·dim: seven stalled cells is why the
+50-block default does not win there despite having the most hand-offs.
+The ratchet gain is real at every length; at *d* = 2 / 200·dim it is
+eaten by the pathology its own frequency creates.
+
+### 50.4 Consequences
+
+* **Regime table, low budget:** at ≤ 100·dim the one-generation relay
+  (`n_blocks=50`) is the better block, not `block_evals="auto"` — §46.4's
+  recommendation was right for 200·dim and wrong for 100·dim.  The row
+  should carry the block length, and it should depend on the budget.
+* **A σ floor on the hand-off is the building block this points at.**
+  The warm start sets σ to the *spread of the seed cloud* (clipped only
+  above, by the cold σ₀).  When the top-K have collapsed into one basin
+  that spread is tiny, and the receiving arm restarts pinned to a point —
+  exactly the stall.  A floor (relative to the arm's own current σ, or to
+  σ₀) would keep the ratchet's frequency without its pathology.  This is
+  *not* §48.2's rejected diversification: the seeds stay the top-K and the
+  mean stays the incumbent; only the step size is prevented from
+  collapsing.  Falsifiable the same way, and it should show up precisely
+  in the seven stalled cells.
+* Together with §49.4 (keep the arm's own **C** instead of resetting it)
+  there are now two untested pieces of the hand-off's payload, both
+  predicted by the same reading: relocate the receiving arm, but stop
+  destroying what it had.

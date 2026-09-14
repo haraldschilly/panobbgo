@@ -92,10 +92,21 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   *wachsen mit dem Budget* (−0.002 bei 100·dim, −0.027 bei 200·dim),
   weil die Übergabe ein C überschreibt, das der Arm über mehr
   Generationen adaptiert hat.
-- **Nächste Kandidaten**: (1) **Ratschen-Lauf mit kalten Kontrollen** bei
-  vier Blocklängen — `warm − cold` gegen die Zahl der Übergaben; testet
-  nebenbei den Stall-Mechanismus (§46.2: stallen nur die warmen Specs?)
-  — **läuft 2026-09-14**; (2) **Übergabe ohne Reset**: jeder Warm-Start-
+- **Ratsche gemessen (§50, 078114d)**: bei 100·dim **real und monoton**
+  (+0.053 bei 4 Blöcken → +0.098 bei 50, 12/12, beide Dimensionen),
+  bei 200·dim **gesättigt** (alles in [+0.120, +0.138]). Deshalb gewinnt
+  der Default `n_blocks=50` bei 100·dim und `auto` bei 200·dim.
+  **Blockieren ist gratis**: die kalten Specs unterscheiden sich über
+  einen 12×-Bereich der Blockzahl um < 0.006 AOCC — die Blocklänge wirkt
+  *nur* über die Übergabe (korrigiert §46.3's Lesart). **Stall geklärt**:
+  bei 200·dim/d=2 kollabieren 7/60 Zellen warm gegen 1/60 kalt bei
+  gleicher Blocklänge — die Pathologie *braucht* die Übergabe, §46.2's
+  Mechanismus hält.
+- **Nächste Kandidaten**: (1) **σ-Boden auf der Übergabe** — der
+  Warm-Start setzt σ auf die Streuung der Seed-Wolke, nur nach oben
+  geclippt; kollabiert die Top-K in ein Becken, startet der Arm auf einen
+  Punkt gepinnt (= der Stall). Ein Boden relativ zu σ₀ oder zum eigenen σ
+  behält die Frequenz der Ratsche ohne ihre Pathologie (§50.4); (2) **Übergabe ohne Reset**: jeder Warm-Start-
   Modus wirft heute CMA-ES' adaptiertes C weg (`_reset_covariance`, C=I)
   oder ersetzt es durch die Archiv-Form — die vierte Nutzlast, *eigenes C
   behalten und nur m/σ verschieben*, ist nie gemessen worden. §48.2 +

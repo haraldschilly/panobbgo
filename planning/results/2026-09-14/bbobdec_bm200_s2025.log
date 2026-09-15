@@ -1,0 +1,64 @@
+0.019234 config:192      CONFG INFO      config.yaml loaded from: config.yaml
+0.019676 config:218      CONFG INFO      config.ini: {'heuristic.capacity': '20', 'core.loglevel': '40', 'core.show_interval': '1.0', 'core.max_eval': '1000', 'core.discount': '0.95', 'core.smooth': '0.5'}
+0.107574 config:343      CONFG INFO      Evaluation method: threaded
+0.107736 config:346      CONFG INFO      Environment: {'numpy': '2.5.3', 'scipy': '1.18.1', 'pandas': '3.0.5', 'statsmodels': '0.15.0', 'matplotlib': '3.11.1', 'dask': '2026.8.0', 'git HEAD': b'5ec0d104e3b47c6326a252082c3e9ef15d191eea'}
+seed 2025 done (228s)
+
+=== portfolio screen ===  (1 seeds, dims [2, 5], ioh-bbob, budget 200*d, insts [0, 1], 24 fids)
+specs: CMAES_alone, JSO_alone, Blocks_uniform_cj_warm2, Blocks_uniform_cj_warm2_auto, Blocks_cj_sigfloor_nb50   cells: 96
+
+spec                                    mean        d=2       d=5
+Blocks_cj_sigfloor_nb50               0.3062     0.3961    0.2163
+Blocks_uniform_cj_warm2               0.3024     0.3847    0.2200
+JSO_alone                             0.2890     0.3847    0.1933
+Blocks_uniform_cj_warm2_auto          0.2720     0.3332    0.2109
+CMAES_alone                           0.2633     0.3225    0.2042
+
+delta vs CMAES_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_cj_sigfloor_nb50               +0.0429                 (n<2)   1/1      +0.0736   +0.0121
+Blocks_uniform_cj_warm2               +0.0391                 (n<2)   1/1      +0.0622   +0.0159
+JSO_alone                             +0.0256                 (n<2)   1/1      +0.0622   -0.0109
+Blocks_uniform_cj_warm2_auto          +0.0087                 (n<2)   1/1      +0.0107   +0.0067
+
+delta vs JSO_alone (paired per cell, t-CI over per-seed means)
+spec                                    delta                95% CI   seeds        d=2       d=5
+Blocks_cj_sigfloor_nb50               +0.0172                 (n<2)   1/1      +0.0114   +0.0230
+Blocks_uniform_cj_warm2               +0.0134                 (n<2)   1/1      +0.0000   +0.0268
+Blocks_uniform_cj_warm2_auto          -0.0169                 (n<2)   0/1      -0.0515   +0.0176
+CMAES_alone                           -0.0256                 (n<2)   0/1      -0.0622   +0.0109
+
+--- per COCO class (mean paired delta; no CI — see the note) ---
+fids: f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21, f22, f23, f24
+
+spec                                            separable            low-cond           high-cond   multimodal-global     multimodal-weak
+Blocks_cj_sigfloor_nb50                            0.3862              0.4252              0.2433              0.2716              0.2285
+Blocks_uniform_cj_warm2                            0.3816              0.3851              0.2557              0.2893              0.2168
+JSO_alone                                          0.3560              0.3389              0.2673              0.2191              0.2737
+Blocks_uniform_cj_warm2_auto                       0.3593              0.3040              0.2444              0.2555              0.2034
+CMAES_alone                                        0.3734              0.3057              0.1910              0.2383              0.2167
+
+delta vs CMAES_alone, per class
+spec                                   pooled            separable            low-cond           high-cond   multimodal-global     multimodal-weak   neg
+Blocks_cj_sigfloor_nb50               +0.0429              +0.0127             +0.1196             +0.0523             +0.0333             +0.0118   0/5 
+Blocks_uniform_cj_warm2               +0.0391              +0.0082             +0.0794             +0.0647             +0.0509             +0.0001   0/5 
+JSO_alone                             +0.0256              -0.0175             +0.0332             +0.0762             -0.0192             +0.0570   2/5 
+Blocks_uniform_cj_warm2_auto          +0.0087              -0.0142             -0.0016             +0.0534             +0.0171             -0.0133   3/5 
+
+delta vs JSO_alone, per class
+spec                                   pooled            separable            low-cond           high-cond   multimodal-global     multimodal-weak   neg
+Blocks_cj_sigfloor_nb50               +0.0172              +0.0302             +0.0863             -0.0239             +0.0526             -0.0452   2/5 
+Blocks_uniform_cj_warm2               +0.0134              +0.0257             +0.0462             -0.0115             +0.0702             -0.0569   2/5 
+Blocks_uniform_cj_warm2_auto          -0.0169              +0.0033             -0.0349             -0.0229             +0.0364             -0.0703   3/5 
+CMAES_alone                           -0.0256              +0.0175             -0.0332             -0.0762             +0.0192             -0.0570   3/5 
+
+--- screening gates (design §6) ---
+  G5 PASS  best warm (Blocks_uniform_cj_warm2) - best single (JSO_alone) +0.0134  (need >= +0.000)
+
+--- run health ---
+  no errored runs, every run spent its full budget
+
+Null floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no
+reason at all, so a gate verdict inside that band is a direction, not evidence.
+Only deltas larger than +-0.05 (or a CI that excludes zero, marked `<--`) count;
+the 12-seed roster of §6 step 3 is what decides.

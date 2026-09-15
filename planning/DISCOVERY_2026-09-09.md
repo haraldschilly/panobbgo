@@ -2329,3 +2329,106 @@ fast the first arm is making progress.
    structure are where the extremes live, and `step_ellipsoid`,
    `lunacek_bi_rastrigin` and `gallagher` are exactly those shapes as
    parametrised families where the knob can be swept.
+
+## 53. The decision run on the function axis: the low-budget claim survives; at 200·dim the arm order changes and the portfolio only ties the winner
+
+The re-test Harald's 2026-09-13 gate asks for, on the axis §52 built.
+Raw: `results/2026-09-14/bbobdec_{bm100,bm200}.json` (c5b7d8c) — 6 seeds
+`42 7 1234 2025 3 11`, all 24 fids, dims 2 and 5, instances 0–1, 5 specs,
+576 cells per budget, 2880 rows each, **0 errors**.  Six seeds means
+**t(5) = 2.571**, not the roster's 2.201; the cell count (576 vs the
+MA-BBOB cube's 60) is what buys the precision back.
+
+### 53.1 Against each arm
+
+| | vs `CMAES_alone` | vs `JSO_alone` |
+|---|---|---|
+| **100·dim** | | |
+| `warm2_auto` | **+0.0186 [+0.008, +0.029], 6/6** | **+0.0257 [+0.013, +0.038], 6/6** |
+| `sigfloor_nb50` | **+0.0169 [+0.010, +0.024], 6/6** | **+0.0240 [+0.018, +0.030], 6/6** |
+| `warm2` (`nb50`) | +0.0121 [+0.003, +0.021], 5/6 | +0.0192 [+0.010, +0.028], 6/6 |
+| `JSO_alone` | −0.0071 [−0.018, +0.003], 1/6 | — |
+| **200·dim** | | |
+| `warm2_auto` | +0.0336 [+0.016, +0.051], 6/6 | +0.0074 [−0.010, +0.025], 4/6 |
+| `sigfloor_nb50` | +0.0356 [+0.017, +0.055], 6/6 | +0.0094 [−0.004, +0.022], 5/6 |
+| `warm2` (`nb50`) | +0.0305 [+0.005, +0.056], 5/6 | +0.0042 [−0.014, +0.022], 4/6 |
+| `JSO_alone` | **+0.0263 [+0.012, +0.041], 6/6** | — |
+
+**At 100·dim the sharing portfolio is accepted against both arms** — the
+central claim of §46 survives the move from mixtures to the 24 standard
+functions, on a battery where the absolute AOCC is 0.20 rather than 0.39.
+
+**At 200·dim it is not**, and the reason is the interesting part: *the
+better arm changes*.  jSO is worse than CMA-ES at 100·dim (−0.007) and
+clearly better at 200·dim (+0.026, 6/6).  On MA-BBOB CMA-ES was the arm
+to beat at every budget, so this could not appear.  The portfolio tracks
+whichever arm is ahead — beating the loser by +0.034 and matching the
+winner — but the acceptance rule asks it to beat the winner, and it does
+not.
+
+### 53.2 Three bars, and where the remaining value is
+
+The rule's bar is *ex post*: it asks the portfolio to beat the arm that
+turned out best, which no user could have chosen in advance.  Two other
+bars bracket it.  Per cell, CMA-ES is the better arm 277 times of 576 at
+100·dim and 262 of 576 at 200·dim — and **in all 24 functions the better
+arm is not the same in every cell**, so "pick the right arm" is not even
+a per-function decision.
+
+`Blocks_uniform_cj_warm2_auto` against:
+
+| bar | 100·dim | 200·dim |
+|---|---|---|
+| the **average** arm (what you get without knowledge) | **+0.0221 [+0.012, +0.033], 6/6** | **+0.0205 [+0.005, +0.037], 5/6** |
+| the **pooled-best** arm (ex post, but one choice) | +0.0186, 6/6 | +0.0074, 4/6 |
+| the **per-cell oracle** arm (perfect selection) | −0.0150 [−0.025, −0.006], 0/6 | −0.0386 [−0.053, −0.025], 0/6 |
+
+Against ignorance the portfolio is worth a steady **+0.02 at both
+budgets**.  Against perfect selection it is behind by 0.015 and 0.039 —
+and at 200·dim that gap is *five times* the portfolio's own margin over
+the pooled-best arm.  **The remaining value in this system is in
+selection, not in more sharing.**  That is the strongest case yet for the
+probe deferred in §45.2, and it now has a measured target rather than a
+hoped-for one.
+
+### 53.3 Per class, and f5 again
+
+Classes with a negative mean delta against CMA-ES: 1 of 5 at 100·dim
+(separable, −0.023 for `auto`), **0 of 5** at 200·dim for both `auto` and
+`sigfloor_nb50`.  The negative class is the one f5 lives in.  Dropping
+the linear slope:
+
+| `warm2_auto` − CMA-ES | all 24 | drop f5 | drop f5, f7 |
+|---|---|---|---|
+| 100·dim, *d* = 5 | +0.0020 | +0.0159 | +0.0162 |
+| 200·dim, *d* = 5 | **−0.0026** | **+0.0059** | +0.0092 |
+
+At 200·dim the *d* = 5 sign flip of §52.3 reproduces at 6 seeds.  Per
+(fid, dim) `warm2_auto` wins 38 of 48 at 100·dim and 32 of 48 at
+200·dim; `sigfloor_nb50` 41 and 36.  The largest losses are f5 at both
+budgets and both dimensions, then f17 and f7.  The largest wins are f22
+(Gallagher, +0.30 at 200·dim), f6 (attractive sector) and f20 (Schwefel)
+— the weak-structure and asymmetric shapes.
+
+Note the σ floor is not uniformly kind to f5: it makes that function's
+*d* = 5 loss worse (−0.477 vs `auto`'s −0.317 at 100·dim) while winning
+more cells overall (41 of 48).  A guard that keeps a step size alive is
+exactly wrong on a landscape with no interior optimum.
+
+### 53.4 What this settles and what it opens
+
+* **Settled:** the low-budget sharing claim is not an artefact of the
+  MA-BBOB mixtures.  It holds on the standard functions, against both
+  arms, at 100·dim.
+* **Qualified:** at 200·dim the portfolio ties the best arm rather than
+  beating it, because which arm is best is itself budget-dependent.  The
+  honest statement of the product is *robustness without foreknowledge*,
+  and against that bar (+0.02 vs the average arm) it delivers at both
+  budgets.
+* **Opened:** the selection headroom (−0.015 / −0.039 against the
+  per-cell oracle) is now the largest measured quantity on the table, and
+  §52.4 says the signal is observable early.  The probe moves from
+  "deferred, ceiling ~+0.03 in one regime" to the main line of work.
+* Default decisions stay where Harald left them on 2026-09-13: this run
+  is the gate's first half (standard functions); the synthetic families
+  with swept knobs (`DESIGN_suite_2026-09-14.md` step 3) are the second.

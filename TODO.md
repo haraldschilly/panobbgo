@@ -127,9 +127,27 @@ master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
   **Folge:** der in §45.2 zurückgestellte Probe hat jetzt ein Ziel, das
   die Komplexität wert ist — dieselbe Konfiguration reicht je nach
   Landschaft von +0.22 bis −0.24.
-- **Nächste Kandidaten**: (0) **12-Seed-Entscheidungslauf auf der
-  fid-Achse** bei 100/200·dim mit den Konfigurationen, die §50–§51 haben
-  stehen lassen (~100 min) — das ist das Tor vom 13.9.; (1) **Übergabe ohne Reset**: jeder Warm-Start-
+- **Entscheidungslauf auf der fid-Achse gelaufen (§53, c5b7d8c)**,
+  6 Seeds × 24 fids × 2 dims × 2 Instanzen = 576 Zellen pro Budget.
+  **Bei 100·dim gegen beide Arme akzeptiert** (+0.019 / +0.026, 6/6) —
+  die Kernbehauptung aus §46 überlebt den Wechsel von den Mischungen zu
+  den Standardfunktionen. **Bei 200·dim nicht**, und der Grund ist
+  lehrreich: *der bessere Arm wechselt* — jSO ist bei 100·dim schlechter
+  als CMA-ES (−0.007) und bei 200·dim deutlich besser (+0.026). Das
+  Portfolio folgt dem jeweils führenden Arm, schlägt den anderen um
+  +0.034 und liegt mit dem Sieger gleichauf. Auf MA-BBOB konnte das nicht
+  auftreten, dort war CMA-ES immer der zu schlagende Arm.
+  **Drei Schranken:** gegen den *durchschnittlichen* Arm (was man ohne
+  Vorwissen bekommt) +0.02 bei beiden Budgets, akzeptiert; gegen den
+  gepoolt besten +0.019 / +0.007; gegen das *zellweise Orakel* −0.015 /
+  −0.039. In allen 24 Funktionen ist der bessere Arm nicht in jeder Zelle
+  derselbe. **Die verbleibende Wertmasse liegt in der Auswahl, nicht in
+  mehr Sharing** — bei 200·dim ist die Orakel-Lücke fünfmal so groß wie
+  die eigene Marge des Portfolios.
+- **Nächste Kandidaten**: (0) **Probe / Regime-Gate** — von „zurück-
+  gestellt, Decke ~+0.03" (§45.2) zur Hauptlinie: gemessenes Ziel
+  +0.015…+0.039, und §52.4 sagt, das Signal ist früh beobachtbar
+  (wie schnell der erste Arm vorankommt); (1) **Übergabe ohne Reset**: jeder Warm-Start-
   Modus wirft heute CMA-ES' adaptiertes C weg (`_reset_covariance`, C=I)
   oder ersetzt es durch die Archiv-Form — die vierte Nutzlast, *eigenes C
   behalten und nur m/σ verschieben*, ist nie gemessen worden. §48.2 +

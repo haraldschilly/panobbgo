@@ -212,6 +212,20 @@ class TestIOHTracker:
         ioh_problem.eval(np.zeros(ioh_problem.dim))
         assert tracker.n_evals == 1
 
+    def test_deadline_stops_counting(self, ioh_problem: IOHProblem) -> None:
+        tracker = IOHTracker(ioh_problem, budget=10, timeout_s=0.0)
+        ioh_problem.eval(np.zeros(ioh_problem.dim))
+        assert tracker.timed_out
+        assert tracker.n_evals == 0
+        tracker.restore()
+
+    def test_no_deadline_by_default(self, ioh_problem: IOHProblem) -> None:
+        tracker = IOHTracker(ioh_problem, budget=10)
+        ioh_problem.eval(np.zeros(ioh_problem.dim))
+        assert not tracker.timed_out
+        assert tracker.n_evals == 1
+        tracker.restore()
+
 
 # ---------------------------------------------------------------------------
 # End-to-end harness runs (need the worker)
@@ -688,6 +702,17 @@ class TestSyncEvalHarness:
         )
         result = run_ioh_harness(baselines, battery, base_seed=42, progress=False)
         assert result.sync_eval is False
+
+    def test_timeout_marks_the_run(self) -> None:
+        """``timeout_s`` reaches the run: a zero deadline cuts it off and says so."""
+        baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
+        battery = IOHBatterySpec(
+            name="ioh-timeout", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
+        )
+        result = run_ioh_harness(baselines, battery, base_seed=42, progress=False, timeout_s=0.0)
+        rec = result.runs[0]
+        assert rec.error is not None and rec.error.startswith("TimeoutError"), rec.error
+        assert rec.n_evals < rec.budget
 
 
 class TestCompetitionCandidate:

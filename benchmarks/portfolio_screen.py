@@ -915,7 +915,9 @@ for r in rows:
     # A run that stops short of its budget did not spend what it was given
     # -- a stall, an exhausted arm, or the strategy returning no points.
     if r.get("budget") and r.get("evals", 0) < 0.98 * r["budget"]:
-        short[r["s"]].append((r["dim"], r["inst"], r["evals"], r["budget"]))
+        fid = r.get("fid")
+        cell = (f"f{fid}" if fid is not None else "") + f"d{r['dim']}i{r['inst']}"
+        short[r["s"]].append((cell, r["evals"], r["budget"]))
 cells = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
 dims = sorted({d for _, _, d, _ in cells})
 #: The COCO classes actually present, in COCO order.  Only those: a run cut
@@ -1096,7 +1098,7 @@ for s in names:
         seen = sorted(set(errs[s]))[:3]
         print(f"  {s}: {len(errs[s])} errored run(s); first messages: {seen}")
     if short[s]:
-        ex = ", ".join(f"d{d}i{i} {e}/{b}" for d, i, e, b in short[s][:4])
+        ex = ", ".join(f"{cell} {e}/{b}" for cell, e, b in short[s][:4])
         print(f"  {s}: {len(short[s])} run(s) below budget: {ex}")
 
 print(

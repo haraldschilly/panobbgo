@@ -1380,7 +1380,7 @@ def _run_one(
 
         np.random.seed(seed)
 
-        tracker = IOHTracker(problem, budget=budget)
+        tracker = IOHTracker(problem, budget=budget, timeout_s=timeout_s)
         try:
             # The budget must reach the config *before* the heuristics are
             # constructed — budget-adaptive arms (``NP_init="auto"``) size
@@ -1428,6 +1428,10 @@ def _run_one(
             best_fx = tracker.best_fx
             score = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
             trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
+        if tracker.timed_out:
+            # Scored above on the trajectory up to the deadline; the error
+            # marks it so no table mistakes a cut-off run for a finished one.
+            err = f"TimeoutError: stopped after {timeout_s:g}s at {n_evals}/{budget} evals"
     except Exception as e:  # noqa: BLE001  — record and continue
         err = f"{type(e).__name__}: {e}"
     finally:
@@ -1486,6 +1490,10 @@ def run_ioh_harness(
     (``config.sync_evaluation``) on every strategy: deterministic result
     batches, roughly halving run-to-run measurement noise for adaptive
     strategies.  Only compare results measured under the same mode.
+
+    ``timeout_s`` is a per-run wall-clock deadline, enforced by the
+    tracker: evaluations past it are not counted, and the run keeps its
+    AOCC up to the deadline but is recorded with a ``TimeoutError``.
     """
     if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")

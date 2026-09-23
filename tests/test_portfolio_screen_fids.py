@@ -154,3 +154,19 @@ class TestScreenCli:
         )
         assert proc.returncode != 0
         assert "1..24" in (proc.stdout + proc.stderr)
+
+
+def test_short_runs_name_their_function(tmp_path: Path) -> None:
+    """A run below budget names its fid — with 24 functions, ``d2i0`` alone is ambiguous."""
+    rows = _fid_rows()
+    stalled = next(r for r in rows if r["s"] == ALT and r["fid"] == 7)
+    stalled["evals"] = 100
+    out = _run(tmp_path, rows)
+    assert "f7d2i0 100/400" in out
+
+
+def test_short_runs_without_fid_keep_the_old_label(tmp_path: Path) -> None:
+    rows = [_row(seed, spec, 0.5) for seed in (42, 7) for spec in (REF, ALT)]
+    rows[1]["evals"] = 100
+    out = _run(tmp_path, rows)
+    assert " d2i0 100/400" in out

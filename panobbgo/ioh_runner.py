@@ -30,6 +30,7 @@ the full benchmark machinery.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
 
@@ -165,12 +166,20 @@ class IOHTracker:
     :class:`_BudgetExhausted` past budget, used by adapters that want a
     hard-stop control-flow signal (e.g. scipy DE inside a baseline
     strategy).
+
+    ``timeout_s`` adds a wall-clock deadline that ends the run the same
+    way the budget does: past it, evaluations are no longer counted and
+    :attr:`timed_out` is set.  The trajectory up to the deadline is kept,
+    so the run is still scored — penalised, like any run that stops
+    early, at its final best-fx for the rest of the budget.
     """
 
-    def __init__(self, problem: Any, budget: int, *, hard: bool = False) -> None:
+    def __init__(self, problem: Any, budget: int, *, hard: bool = False, timeout_s: Optional[float] = None) -> None:
         self.problem = problem
         self.budget = int(budget)
         self.hard = bool(hard)
+        self._deadline: Optional[float] = None if timeout_s is None else time.monotonic() + float(timeout_s)
+        self.timed_out: bool = False
         self.n_evals: int = 0
         self.best_fx: float = float("inf")
         self.best_x: Optional[np.ndarray] = None
@@ -196,7 +205,9 @@ class IOHTracker:
         problem.eval = self._tracked_eval  # type: ignore[method-assign]
 
     def _tracked_eval(self, x: np.ndarray) -> float:
-        if self.n_evals >= self.budget:
+        if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
+            self.timed_out = True
+        if self.n_evals >= self.budget or self.timed_out:
             if self.hard:
                 raise _BudgetExhausted()
             # Soft mode: don't fail the evaluation; just signal "no useful

@@ -69,8 +69,8 @@ from collections import defaultdict
 
 from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import (
-    BBOB_CLASS_ORDER,
     bbob_class_of,
+    bbob_classes_present,
     make_bbob_battery,
     make_highdim_battery,
     make_ioh_strategies,
@@ -921,7 +921,8 @@ dims = sorted({d for _, _, d, _ in cells})
 #: The COCO classes actually present, in COCO order.  Only those: a run cut
 #: to a handful of fids must not print three columns of NaN.
 fids_seen = sorted({f for _, f, _, _ in cells if f is not None})
-classes = [c for c in BBOB_CLASS_ORDER if any(bbob_class_of(f) == c for f in fids_seen)]
+classes = bbob_classes_present(fids_seen)
+cls_of = {f: bbob_class_of(f) for f in fids_seen}
 n = len(seeds)
 tc = {2: 12.71, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365}.get(n, 2.26 if n > 8 else 2.5)
 
@@ -929,12 +930,13 @@ if not cells:
     sys.exit("no rows for the selected specs — nothing to compare")
 
 
+def in_group(f, d, dim, cls):
+    """Whether a cell with fid ``f`` and dim ``d`` matches the ``dim``/``cls`` filter (``None`` = any)."""
+    return (dim is None or d == dim) and (cls is None or (f is not None and cls_of[f] == cls))
+
+
 def mean_of(name, dim=None, cls=None):
-    vals = [
-        v[name]
-        for (_, f, d, _), v in cells.items()
-        if name in v and (dim is None or d == dim) and (cls is None or (f is not None and bbob_class_of(f) == cls))
-    ]
+    vals = [v[name] for (_, f, d, _), v in cells.items() if name in v and in_group(f, d, dim, cls)]
     return st.mean(vals) if vals else float("nan")
 
 
@@ -942,9 +944,7 @@ def paired(a, b, dim=None, cls=None):
     """Per-seed mean of ``a - b`` over the cells where both have a result."""
     ps = defaultdict(list)
     for (seed, f, d, _), v in cells.items():
-        if cls is not None and (f is None or bbob_class_of(f) != cls):
-            continue
-        if a in v and b in v and (dim is None or d == dim):
+        if a in v and b in v and in_group(f, d, dim, cls):
             ps[seed].append(v[a] - v[b])
     return [st.mean(x) for x in ps.values()]
 

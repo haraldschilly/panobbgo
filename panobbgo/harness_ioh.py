@@ -69,10 +69,11 @@ Public surface
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import time
 from dataclasses import asdict, dataclass, field, replace
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -139,7 +140,7 @@ def aocc_to_harness_result(ioh_result, mode: str = "ioh", base_seed: int = 42):
         # axis, so the problem keys of every pre-2026-09-14 result are
         # unchanged — and two functions of one battery do not collapse
         # into a single "problem" whose runs would then be averaged.
-        fid_tag = f"_f{r.fid}" if getattr(r, "fid", None) is not None else ""
+        fid_tag = f"_f{r.fid}" if r.fid is not None else ""
         pname = f"{r.problem_kind}{fid_tag}_d{r.dim}_i{r.instance}"
         key = (pname, r.strategy_name)
         pair_buckets.setdefault(key, []).append(r)
@@ -310,17 +311,7 @@ def noise_class_of(problem_kind: str) -> str:
 #   f15–f19  multi-modal with adequate global structure
 #   f20–f24  multi-modal with weak global structure
 #
-# The short tags below are what the screen prints; the long names are
-# kept in :data:`BBOB_CLASS_NAMES` for headers.
-
-#: Short class tag -> the COCO group's full name.
-BBOB_CLASS_NAMES: Dict[str, str] = {
-    "separable": "separable",
-    "low-cond": "low or moderate conditioning",
-    "high-cond": "high conditioning, unimodal",
-    "multimodal-global": "multi-modal, adequate global structure",
-    "multimodal-weak": "multi-modal, weak global structure",
-}
+# The short tags below are what the reports print.
 
 #: The five groups, in COCO order, as ``tag -> (first fid, last fid)``.
 BBOB_CLASS_RANGES: Tuple[Tuple[str, int, int], ...] = (
@@ -336,7 +327,7 @@ BBOB_CLASS_RANGES: Tuple[Tuple[str, int, int], ...] = (
 BBOB_CLASS_OF_FID: Dict[int, str] = {fid: tag for tag, lo, hi in BBOB_CLASS_RANGES for fid in range(lo, hi + 1)}
 
 #: The 24 noiseless BBOB functions — the full function axis.
-ALL_BBOB_FIDS: Tuple[int, ...] = tuple(range(1, 25))
+ALL_BBOB_FIDS: Tuple[int, ...] = tuple(BBOB_CLASS_OF_FID)
 
 #: Class tags in COCO order, for deterministic report ordering.
 BBOB_CLASS_ORDER: Tuple[str, ...] = tuple(tag for tag, _lo, _hi in BBOB_CLASS_RANGES)
@@ -353,6 +344,12 @@ def bbob_class_of(fid: int) -> str:
         return BBOB_CLASS_OF_FID[int(fid)]
     except (KeyError, TypeError, ValueError):
         raise ValueError(f"not a BBOB function id (expected 1..24): {fid!r}") from None
+
+
+def bbob_classes_present(fids: Iterable[int]) -> List[str]:
+    """The COCO class tags covered by ``fids``, in COCO order."""
+    present = {bbob_class_of(f) for f in fids}
+    return [c for c in BBOB_CLASS_ORDER if c in present]
 
 
 # ---------------------------------------------------------------------------
@@ -688,7 +685,7 @@ def make_bbob_battery(
         instances=tuple(int(i) for i in instances),
         reps=1,
         budget_multiplier=int(budget_multiplier),
-        fids=tuple(int(f) for f in fids),
+        fids=tuple(fids),
     )
 
 
@@ -911,22 +908,23 @@ class IOHHarnessResult:
             by_strat.setdefault(r.strategy_name, []).append(r.aocc)
         return {k: float(np.mean(v)) for k, v in by_strat.items()}
 
-    def per_strategy_per_dim_aocc(self) -> Dict[Tuple[str, int], float]:
-        by: Dict[Tuple[str, int], List[float]] = {}
+    def _mean_aocc_by(self, key_fn: Callable[[IOHRunRecord], Any]) -> Dict[Any, float]:
+        """Mean AOCC of the error-free runs, grouped by ``key_fn(run)``; a ``None`` key skips the run."""
+        by: Dict[Any, List[float]] = {}
         for r in self.runs:
             if r.error is not None:
                 continue
-            by.setdefault((r.strategy_name, r.dim), []).append(r.aocc)
+            key = key_fn(r)
+            if key is not None:
+                by.setdefault(key, []).append(r.aocc)
         return {k: float(np.mean(v)) for k, v in by.items()}
+
+    def per_strategy_per_dim_aocc(self) -> Dict[Tuple[str, int], float]:
+        return self._mean_aocc_by(lambda r: (r.strategy_name, r.dim))
 
     def per_strategy_per_class_aocc(self) -> Dict[Tuple[str, str], float]:
         """``{(strategy, COCO class tag): mean AOCC}`` — empty without a fid axis."""
-        by: Dict[Tuple[str, str], List[float]] = {}
-        for r in self.runs:
-            if r.error is not None or r.fid is None:
-                continue
-            by.setdefault((r.strategy_name, bbob_class_of(r.fid)), []).append(r.aocc)
-        return {k: float(np.mean(v)) for k, v in by.items()}
+        return self._mean_aocc_by(lambda r: None if r.fid is None else (r.strategy_name, bbob_class_of(r.fid)))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -987,7 +985,7 @@ class IOHHarnessResult:
         if per_class:
             # Only the classes actually present in the run: a battery cut
             # to a few fids would otherwise print three columns of NaN.
-            classes = [c for c in BBOB_CLASS_ORDER if any(cc == c for _s, cc in per_class)]
+            classes = bbob_classes_present(r.fid for r in self.runs if r.fid is not None and r.error is None)
             print("\n  per (strategy, COCO class):")
             print("    " + "strategy".ljust(32) + "  " + "  ".join(f"{c:>19s}" for c in classes))
             for s in sorted({s for s, _ in per_class}):
@@ -1213,6 +1211,13 @@ def paired_seed_stats(before: IOHMultiSeedResult, after: IOHMultiSeedResult) -> 
 # ---------------------------------------------------------------------------
 
 
+def _hash_seed(payload: str, fid: Optional[int]) -> int:
+    """SHA-256 seed of ``payload``, with the ``|f<fid>`` segment appended only when a fid is given."""
+    if fid is not None:
+        payload += f"|f{fid}"
+    return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:4], "little")
+
+
 def _derive_seed(
     base_seed: int,
     problem_kind: str,
@@ -1248,9 +1253,7 @@ def _derive_seed(
     payload = f"{base_seed}|{problem_kind}|{dim}|{instance}|{strategy_name}|{rep}"
     if noise_seed is not None:
         payload += f"|n{noise_seed}"
-    if fid is not None:
-        payload += f"|f{fid}"
-    return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:4], "little")
+    return _hash_seed(payload, fid)
 
 
 def _derive_noise_seed(
@@ -1275,10 +1278,7 @@ def _derive_noise_seed(
     rule as :func:`_derive_seed`), and for the same statistical reason:
     two functions of one battery must not share a noise realisation.
     """
-    payload = f"noise|{base_seed}|{problem_kind}|{dim}|{instance}|{rep}"
-    if fid is not None:
-        payload += f"|f{fid}"
-    return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:4], "little")
+    return _hash_seed(f"noise|{base_seed}|{problem_kind}|{dim}|{instance}|{rep}", fid)
 
 
 # ---------------------------------------------------------------------------
@@ -1492,72 +1492,54 @@ def run_ioh_harness(
     builder_kwargs = battery.builder_kwargs()
     total = battery.pair_count(len(strategies))
     runs: List[IOHRunRecord] = []
-    idx = 0
     # ``fid_axis`` is ``(None,)`` on a battery with no function axis, so
     # this is the same single pass the loop has always made.
-    for fid in battery.fid_axis:
-        for dim in battery.dims:
-            budget = battery.budget_for(dim)
-            for instance in battery.instances:
-                for spec in strategies:
-                    for rep in range(battery.reps):
-                        idx += 1
-                        # One noise realisation per (fid, dim, instance, rep)
-                        # cell, identical for every strategy — see
-                        # _derive_noise_seed.
-                        noise_seed = (
-                            _derive_noise_seed(base_seed, battery.problem_kind, dim, instance, rep, fid)
-                            if battery.is_noisy
-                            else None
-                        )
-                        # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
-                        # of one arm can opt into a shared RNG stream so an A/B
-                        # measures the parameter, not the run-to-run variance.
-                        seed = _derive_seed(
-                            base_seed,
-                            battery.problem_kind,
-                            dim,
-                            instance,
-                            spec.rng_identity,
-                            rep,
-                            noise_seed,
-                            fid,
-                        )
-                        if progress:
-                            fid_tag = f"f{fid:<2d} " if fid is not None else ""
-                            print(
-                                f"  [{idx:>4d}/{total:>4d}] {battery.problem_kind} "
-                                f"{fid_tag}dim={dim:<2d} inst={instance:<2d} rep={rep} "
-                                f"{spec.name}",
-                                flush=True,
-                            )
-                        rec = _run_one(
-                            strategy_spec=spec,
-                            problem_kind=battery.problem_kind,
-                            dim=dim,
-                            instance=instance,
-                            rep=rep,
-                            budget=budget,
-                            seed=seed,
-                            builder_kwargs=builder_kwargs,
-                            log_lo=log_lo,
-                            log_hi=log_hi,
-                            timeout_s=timeout_s,
-                            sync_eval=sync_eval,
-                            noise_seed=noise_seed,
-                            noise_level=battery.noise_level,
-                            noise_resample=battery.noise_resample,
-                            fid=fid,
-                        )
-                        if progress:
-                            tag = "ERR " if rec.error else ""
-                            print(
-                                f"      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
-                                f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s"
-                                + (f"  ({rec.error})" if rec.error else ""),
-                                flush=True,
-                            )
-                        runs.append(rec)
+    cells = itertools.product(battery.fid_axis, battery.dims, battery.instances, strategies, range(battery.reps))
+    for idx, (fid, dim, instance, spec, rep) in enumerate(cells, start=1):
+        budget = battery.budget_for(dim)
+        # One noise realisation per (fid, dim, instance, rep) cell,
+        # identical for every strategy — see _derive_noise_seed.
+        noise_seed = (
+            _derive_noise_seed(base_seed, battery.problem_kind, dim, instance, rep, fid) if battery.is_noisy else None
+        )
+        # ``rng_identity`` is ``spec.seed_name or spec.name``: variants
+        # of one arm can opt into a shared RNG stream so an A/B
+        # measures the parameter, not the run-to-run variance.
+        seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep, noise_seed, fid)
+        if progress:
+            fid_tag = f"f{fid:<2d} " if fid is not None else ""
+            print(
+                f"  [{idx:>4d}/{total:>4d}] {battery.problem_kind} "
+                f"{fid_tag}dim={dim:<2d} inst={instance:<2d} rep={rep} "
+                f"{spec.name}",
+                flush=True,
+            )
+        rec = _run_one(
+            strategy_spec=spec,
+            problem_kind=battery.problem_kind,
+            dim=dim,
+            instance=instance,
+            rep=rep,
+            budget=budget,
+            seed=seed,
+            builder_kwargs=builder_kwargs,
+            log_lo=log_lo,
+            log_hi=log_hi,
+            timeout_s=timeout_s,
+            sync_eval=sync_eval,
+            noise_seed=noise_seed,
+            noise_level=battery.noise_level,
+            noise_resample=battery.noise_resample,
+            fid=fid,
+        )
+        if progress:
+            tag = "ERR " if rec.error else ""
+            print(
+                f"      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
+                f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s" + (f"  ({rec.error})" if rec.error else ""),
+                flush=True,
+            )
+        runs.append(rec)
 
     return IOHHarnessResult(
         battery_name=battery.name,

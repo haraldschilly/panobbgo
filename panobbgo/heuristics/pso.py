@@ -176,6 +176,11 @@ References
   per particle drawn uniformly with replacement.
 * R. Poli, J. Kennedy, T. Blackwell (2007). "Particle Swarm Optimization:
   An Overview." *Swarm Intelligence*, 1(1):33–57.
+* S. Helwig, J. Branke & S. Mostaghim (2013). "Experimental Analysis of
+  Bound Handling Techniques in Particle Swarm Optimization." *IEEE
+  Transactions on Evolutionary Computation*, 17(2):259–271.  A position
+  clipped onto the box also zeroes that velocity component ("absorb-Z",
+  as in SPSO 2007) — what :meth:`PSO._emit_trial` does.
 """
 
 from __future__ import annotations
@@ -461,6 +466,15 @@ class PSO(Heuristic):
         # pre-projection ones, which may be outside the box).
         if self._positions is not None:
             self._positions[particle_idx] = x_proj
+        # Absorbing wall: a coordinate that was clipped onto the box also
+        # loses its velocity component (SPSO 2007's confinement, "absorb-Z"
+        # in Helwig, Branke & Mostaghim 2013).  Keeping it would push the
+        # particle into the same wall on every following move, so it sticks
+        # there until inertia decays the outward momentum.
+        if self._velocities is not None:
+            clipped = np.asarray(x_proj) != np.asarray(x)
+            if np.any(clipped):
+                self._velocities[particle_idx][clipped] = 0.0
         return True
 
     def _update_global_best(self) -> None:
@@ -690,12 +704,14 @@ class PSO(Heuristic):
         Falls back to a fresh random point if we don't yet have a
         social attractor (e.g. all initial trials still pending, or
         ``lbest`` mode with the entire local neighbourhood empty).
+        Callers only move a particle that already holds a personal best
+        (after its own result, or after a warm-start seed).
         """
         if self._positions is None or self._velocities is None or self._pbest_x is None:
             return
 
         social_idx = self._social_best_idx(particle_idx)
-        if social_idx is None or self._pbest_x[particle_idx] is None:
+        if social_idx is None:
             # No memory to pull from yet — emit a fresh random point so
             # the particle stays active.
             x = self.problem.random_point(rng=self._rng)

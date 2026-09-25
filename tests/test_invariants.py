@@ -179,7 +179,7 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     # --- gated by a sibling argument --------------------------------------
     ("PSO", "k_neighbors"): 'documented as ignored unless topology is "lbest"/"vonneumann"/"random"',
     ("PSO", "stagnation_threshold"): (
-        'pso.py:548 returns early unless topology == "random"; under the default "gbest" the '
+        'PSO._maybe_rebuild_random_adjacency returns early unless topology == "random"; under the default "gbest" the '
         "stochastic-K rebuild is unreachable, yet the constructor validates the argument without warning"
     ),
     ("Nearby", "sensitivity_scale"): "scales the per-axis radius from the Sensitivity analyzer's on_new_sensitivity",

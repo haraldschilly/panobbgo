@@ -318,6 +318,33 @@ class PSOVelocityTests(_MockStrategyMixin, PanobbgoTestCase):
         v_max = 0.2 * ranges
         assert np.all(np.abs(h._velocities) <= v_max + 1e-12)
 
+    def test_clipped_coordinate_loses_its_velocity(self):
+        """Regression: a move projected onto the wall zeroes that velocity component.
+
+        The old code projected the position but kept the outward velocity, so
+        the next move pushed into the same wall again and the particle stuck.
+        """
+        from panobbgo.heuristics.pso import PSO
+
+        h = PSO(self.strategy, NP=3, w=0.9, c1=0.0, c2=0.0, seed=5)
+        h.on_start()
+        h.get_points(limit=100)
+        lo, hi = self.problem.box[:, 0], self.problem.box[:, 1]
+        v_max = h._v_max()
+
+        h._pbest_result = [object()] * 3  # type: ignore[list-item]  # any non-None: all particles "have" a pbest
+        h._gbest_idx = 0
+        h._positions[0] = hi - 0.01 * (hi - lo)  # right under the upper wall
+        v0 = np.full(self.problem.dim, -0.5) * v_max  # inwards ...
+        v0[0] = v_max[0]  # ... except out through dim 0
+        h._velocities[0] = v0
+        h._generate_next(0)
+
+        pt = h.get_points(limit=100)[-1]
+        assert pt.x[0] == hi[0], "dim 0 must have been clipped onto the wall"
+        assert h._velocities[0][0] == 0.0, "the clipped component must be absorbed"
+        np.testing.assert_allclose(h._velocities[0][1:], 0.9 * v0[1:], err_msg="free components keep momentum")
+
 
 # ----------------------------------------------------------------------
 # on_restart resets state

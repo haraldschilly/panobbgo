@@ -108,6 +108,8 @@ def linucb_observe(constraint_handler, local_best, result):
     With no *local_best* yet the result is the first point and counts as a
     success (improvement 1.0).
     """
+    if getattr(result, "timed_out", False):
+        return 0.0, local_best  # an evaluation.timeout placeholder earns nothing
     if local_best is None:
         return linucb_reward(1.0), result
     improvement = constraint_handler.calculate_improvement(local_best, result)
@@ -167,7 +169,9 @@ def ema_credit(constraint_handler, lookup, last_best, results, alpha: float):
             h = lookup(r.who)
         except KeyError:
             continue
-        if last_best is None:
+        if getattr(r, "timed_out", False):
+            reward = 0.0  # an evaluation.timeout placeholder: never the first best
+        elif last_best is None:
             reward = 1.0
             last_best = r
         elif constraint_handler.is_better(last_best, r):

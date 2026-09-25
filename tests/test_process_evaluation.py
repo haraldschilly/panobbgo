@@ -434,7 +434,13 @@ def test_a_timed_out_constrained_evaluation_is_infeasible():
     assert len(seen) == 1  # published through new_results like any result
     r = seen[0]
     assert np.isnan(r.fx) and r.cv == float("inf")
-    assert r.cv_vec is not None and r.cv_vec.shape == (2,) and np.isnan(r.cv_vec).all()
+    # Never None (that would count as feasible).  The first evaluation timed
+    # out before any real result, and the constraints are not evaluated for
+    # it, so its length is a guess; the frame lays it out at the real width.
+    assert r.cv_vec is not None and np.isnan(r.cv_vec).all()
+    df = s.results.results
+    assert sum(1 for c in df.columns if c[0] == "cv_vec") == 2
+    assert np.isnan(df["cv_vec"].to_numpy(dtype=float)[0]).all()
     assert s.best is not None and not s.best.timed_out and np.isfinite(s.best.fx)
 
 
@@ -784,3 +790,63 @@ def test_processes_are_not_stopped_by_the_backstop_while_workers_spawn():
     s.add(Random)
     s.start()
     assert len(s.results) == 20
+
+
+def test_placeholders_earn_no_first_point_credit_and_are_never_best():
+    """A timed-out first result must not become the incumbent or earn the "first best" reward."""
+    from types import SimpleNamespace
+
+    from panobbgo.lib import Point, Result
+    from panobbgo.strategies._bandit import ema_credit, linucb_observe
+
+    ph = Result(Point(np.zeros(2), "A"), float("nan"), cv_vec=np.full(1, np.nan), timed_out=True)
+    real = Result(Point(np.ones(2), "B"), 3.0)
+    a, b = SimpleNamespace(performance=1.0), SimpleNamespace(performance=1.0)
+    best = ema_credit(None, {"A": a, "B": b}.__getitem__, None, [ph, real], alpha=0.5)
+    assert best is real
+    assert a.performance == 0.5 and b.performance == 1.0  # A: reward 0; B: the first real best
+    assert linucb_observe(None, None, ph) == (0.0, None)
+
+
+def test_best_skips_a_timed_out_first_result():
+    from panobbgo.analyzers.best import Best
+    from panobbgo.lib import Point, Result
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    try:
+        best = Best(s)
+        ph = Result(Point(np.zeros(2), "A"), float("nan"), cv_vec=np.full(1, np.nan), timed_out=True)
+        best.on_new_results([ph])
+        assert best.best is None
+        real = Result(Point(np.ones(2), "B"), 3.0)
+        best.on_new_results([real])
+        assert best.best is real
+    finally:
+        s._cleanup()
+
+
+def test_n_timed_out_is_restored_from_storage(tmp_path):
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    uri = str(tmp_path / "t.db")
+
+    def make():
+        s = StrategyRoundRobin(_Slow(1.0), parse_args=False, testing_mode=True, seed=3)
+        s.config.storage_backend = "sqlite"
+        s.config.storage_uri = uri
+        s.config.evaluation_timeout = 0.3
+        s.config.sync_evaluation = True
+        s.config.stop_on_convergence = False
+        s.add(Random)
+        return s
+
+    s = make()
+    s.config.max_eval = 2
+    s.start()
+    assert s.n_timed_out == 2
+    t = make()
+    t.config.max_eval = 2  # the restored results already fill the budget
+    t.start()
+    assert t.n_timed_out == 2 and len(t.results) == 2

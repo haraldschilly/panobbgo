@@ -106,6 +106,26 @@ class _RankTracker:
         return -self._low[0]
 
 
+def _cv_len(cv_vec: Any) -> int:
+    """Length of a ``cv_vec`` (``0`` for ``None``)."""
+    return 0 if cv_vec is None else int(np.atleast_1d(cv_vec).size)
+
+
+def _frame_columns(dim: int, cv_width: int) -> MultiIndex:
+    """The column layout of the results frame."""
+    return MultiIndex.from_tuples(
+        [("x", j) for j in range(dim)]
+        + [("fx", 0)]
+        + [("cv_vec", j) for j in range(cv_width)]
+        + [("cv", 0), ("who", 0), ("error", 0), ("timed_out", 0)]
+    )
+
+
+def _frame_cv_width(df: Any) -> int:
+    """Number of ``cv_vec`` columns of a results frame."""
+    return sum(1 for c in df.columns if c[0] == "cv_vec")
+
+
 class Results:
     """
     A very simple database of results with a notification for new results.
@@ -128,6 +148,9 @@ class Results:
         self._results_df: Optional["DataFrame"] = None
         self._unmerged_dfs: List["DataFrame"] = []
         self._buffer: List["Result"] = []
+        #: Width of ``cv_vec`` of the first real (not timed-out) result, ``0``
+        #: for an unconstrained problem, ``None`` before one arrived.
+        self.cv_width: Optional[int] = None
         self._last_nb: int = 0  # for logging
         # Order statistics of past fx for the progress reporter, built lazily
         # the first time a batch arrives with the reporter on; ``_fed`` is the
@@ -159,6 +182,9 @@ class Results:
             loaded_results = self.backend.load()
             if loaded_results:
                 self.logger.info(f"Loaded {len(loaded_results)} results from storage.")
+                restored = sum(1 for r in loaded_results if getattr(r, "timed_out", False))
+                if restored:
+                    self.strategy.n_timed_out = getattr(self.strategy, "n_timed_out", 0) + restored
                 self.add_results(loaded_results, save_to_storage=False)
                 return len(loaded_results)
         return 0
@@ -197,17 +223,33 @@ class Results:
             if not self._buffer:
                 return
 
+            # The ``cv_vec`` width comes from a *real* result: an
+            # evaluation.timeout placeholder only carries a guessed-length
+            # all-NaN vector (StrategyBase._timeout_cv_vec).
+            real = next((r for r in self._buffer if not getattr(r, "timed_out", False)), None)
+            real_width = None if real is None else _cv_len(real.cv_vec)
+            frame_width = None if self._results_df is None else _frame_cv_width(self._results_df)
+
             # Initialize DataFrame if needed
             if self._results_df is None:
                 r = self._buffer[0]
-                midx_x = [("x", _) for _ in range(r.x.size if hasattr(r.x, "size") else len(r.x))]  # pyright: ignore
-                cv_vec = r.cv_vec
-                len_cv_vec = 0 if cv_vec is None else np.atleast_1d(cv_vec).size
-                midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
-                midx = MultiIndex.from_tuples(
-                    midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0), ("timed_out", 0)]
-                )
-                self._results_df = DataFrame(columns=midx)
+                dim = r.x.size if hasattr(r.x, "size") else len(r.x)  # pyright: ignore
+                if real_width is not None:
+                    width = real_width
+                elif self.cv_width is not None:
+                    width = self.cv_width
+                else:
+                    width = _cv_len(r.cv_vec)
+                self._results_df = DataFrame(columns=_frame_columns(dim, width))
+            elif real_width is not None and real_width != frame_width and self._only_placeholders():
+                # The frame so far holds nothing but placeholders, laid out
+                # with a guessed width: re-lay it out for the real one.  Their
+                # violations are all NaN, so ``reindex`` (new columns NaN) is
+                # lossless.
+                dim = len([c for c in self._results_df.columns if c[0] == "x"])
+                cols = _frame_columns(dim, real_width)
+                self._results_df = self._results_df.reindex(columns=cols)
+                self._unmerged_dfs = [df.reindex(columns=cols) for df in self._unmerged_dfs]
 
             # Build data with explicit types to avoid mixed-type array issues
             # (np.r_ with strings causes all values to become object dtype)
@@ -217,8 +259,7 @@ class Results:
 
             r0 = self._buffer[0]
             dim_x = r0.x.size if hasattr(r0.x, "size") else len(r0.x)  # pyright: ignore
-            r0_cv_vec = r0.cv_vec
-            len_cv_vec = 0 if r0_cv_vec is None else np.atleast_1d(r0_cv_vec).size
+            len_cv_vec = _frame_cv_width(self._results_df)
 
             # Pre-allocate typed arrays
             x_data = np.empty((n_results, dim_x), dtype=np.float64)
@@ -233,7 +274,10 @@ class Results:
                 x_data[i, :] = r.x
                 fx_data[i] = r.fx if r.fx is not None else np.nan
                 if cv_vec_data is not None:
-                    cv_vec_data[i, :] = r.cv_vec if r.cv_vec is not None else 0.0
+                    if getattr(r, "timed_out", False):
+                        cv_vec_data[i, :] = np.nan  # unknown violation, whatever width it guessed
+                    else:
+                        cv_vec_data[i, :] = r.cv_vec if r.cv_vec is not None else 0.0
                 cv_data[i] = r.cv if r.cv is not None else 0.0
                 who_data[i] = r.who
                 error_data[i] = r.error if r.error is not None else 0.0
@@ -253,9 +297,7 @@ class Results:
             # ``evaluation.timeout`` placeholders (fx = NaN): see Result.timed_out.
             data_dict[("timed_out", 0)] = timed_out_data
 
-            results_new = DataFrame(
-                data_dict, columns=self._results_df.columns if self._results_df is not None else midx
-            )
+            results_new = DataFrame(data_dict, columns=self._results_df.columns)
 
             if self._results_df is None and not self._unmerged_dfs:
                 self._results_df = results_new
@@ -264,11 +306,25 @@ class Results:
 
             self._buffer = []
 
+    def _only_placeholders(self) -> bool:
+        """Does the stored frame hold nothing but evaluation.timeout placeholders?"""
+        frames = ([self._results_df] if self._results_df is not None else []) + list(self._unmerged_dfs)
+        for df in frames:
+            if ("timed_out", 0) not in df.columns:
+                return False
+            if len(df) and not df[("timed_out", 0)].astype(bool).all():
+                return False
+        return True
+
     def add_results(self, new_results: List["Result"], save_to_storage: bool = True) -> None:
         """
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
         """
+        if self.cv_width is None:
+            real = next((r for r in new_results if not getattr(r, "timed_out", False)), None)
+            if real is not None:
+                self.cv_width = _cv_len(real.cv_vec)
         # Persist to storage backend if enabled
         if self.backend and save_to_storage:
             self.backend.save(new_results)
@@ -2765,26 +2821,24 @@ class StrategyBase:
         t = getattr(self.config, "evaluation_timeout", None)
         return float(t) if t else None
 
-    def _timeout_cv_vec(self) -> Optional[np.ndarray]:
-        """``NaN`` constraint violations for a timed-out point, ``None`` on an unconstrained problem.
+    def _timeout_cv_vec(self) -> np.ndarray:
+        """All-``NaN`` constraint violations for a timed-out point — never ``None``.
 
-        The length is that of the problem's constraint vector, evaluated once
-        at the box centre (:meth:`~panobbgo.lib.Problem.is_constrained` does
-        the same; no objective evaluation) and cached.  ``NaN`` entries are an
-        *unknown* violation: :attr:`~panobbgo.lib.Result.cv` is ``inf``, i.e.
-        infeasible.
+        ``None`` would count as feasible; ``NaN`` entries are an *unknown*
+        violation, so :attr:`~panobbgo.lib.Result.cv` is ``inf`` (infeasible).
+        The length is taken from what is already known, without evaluating
+        anything (a constraint evaluation may take as long as the objective,
+        hang, or only work on the cluster): the width of an earlier real
+        result's ``cv_vec`` (:attr:`Results.cv_width`), else a declared
+        integer ``problem.n_constraints``, else 1.  The results frame
+        re-sizes a placeholder's vector to its own width
+        (:meth:`Results._flush_buffer`), so a guessed length is harmless.
         """
-        if not hasattr(self, "_timeout_cv_len"):
-            n: Optional[int] = None
-            try:
-                problem = self.problem
-                v = problem.eval_constraints(problem._untranslate(np.asarray(problem.center, dtype=np.float64)))
-                n = None if v is None else int(np.atleast_1d(v).size)
-            except Exception as exc:  # a wrapper without constraints support
-                self.logger.debug("timeout: constraint vector length unknown (%r); none recorded" % exc)
-            self._timeout_cv_len = n
-        n = self._timeout_cv_len
-        return None if n is None else np.full(n, np.nan)
+        n = getattr(self.results, "cv_width", None)
+        if not n:
+            declared = getattr(self.problem, "n_constraints", None)
+            n = declared if isinstance(declared, (int, np.integer)) and declared > 0 else 1
+        return np.full(int(n), np.nan)
 
     def _timed_out_result(self, point, seconds: Optional[float] = None) -> Result:
         """The regular :class:`~panobbgo.lib.Result` booked for an evaluation past ``evaluation.timeout``.

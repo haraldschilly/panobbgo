@@ -11,6 +11,34 @@ class TestResultsDataFrame(PanobbgoTestCase):
         # Use real Results object attached to the mock strategy
         self.strategy.results = Results(self.strategy)
 
+    def _placeholder(self, width=1):
+        return Result(Point(np.array([0.5]), "t"), float("nan"), cv_vec=np.full(width, np.nan), timed_out=True)
+
+    def test_a_placeholder_first_does_not_fix_the_cv_layout(self):
+        """A timed-out first result guesses its cv_vec width; the first real result decides it."""
+        rs = self.strategy.results
+        rs.add_results([self._placeholder()])
+        df = rs.results  # frame built from the placeholder alone (guessed width 1)
+        self.assertEqual(sum(1 for c in df.columns if c[0] == "cv_vec"), 1)
+        rs.add_results([Result(Point(np.array([0.0]), "r"), 1.0, cv_vec=np.array([-1.0, 2.0]))])
+        rs.add_results([self._placeholder(width=5)])  # any guessed width lands as NaN of the frame's
+        df = rs.results
+        self.assertEqual(rs.cv_width, 2)
+        self.assertEqual(sum(1 for c in df.columns if c[0] == "cv_vec"), 2)
+        self.assertTrue(np.isnan(df["cv_vec"].to_numpy(dtype=float)[[0, 2]]).all())
+        self.assertEqual(list(df["cv_vec"].to_numpy(dtype=float)[1]), [-1.0, 2.0])
+        self.assertEqual(list(df[("timed_out", 0)].astype(bool)), [True, False, True])
+        self.assertTrue(np.isinf(df[("cv", 0)].to_numpy(dtype=float)[[0, 2]]).all())
+
+    def test_a_placeholder_on_an_unconstrained_problem(self):
+        rs = self.strategy.results
+        rs.add_results([Result(Point(np.array([0.0]), "r"), 1.0)])
+        rs.add_results([self._placeholder()])
+        df = rs.results
+        self.assertEqual(rs.cv_width, 0)
+        self.assertNotIn("cv_vec", df.columns.get_level_values(0))
+        self.assertTrue(np.isinf(float(df[("cv", 0)].iloc[1])))
+
     def test_dataframe_columns_no_collision(self):
         """
         Verify that scalar 'cv' and vector 'cv_vec' (renamed) do not collide

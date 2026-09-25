@@ -150,6 +150,10 @@ class Best(Analyzer):
 
     def on_new_results(self, results):
         for r in results:
+            if getattr(r, "timed_out", False):
+                # An evaluation.timeout placeholder (fx = NaN) never becomes
+                # the incumbent, not even as the first result of a run.
+                continue
             if (
                 (self._min is None)
                 or (_fx(r) < _fx(self._min))

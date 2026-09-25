@@ -311,7 +311,10 @@ class Config:
         # outstanding dask future (queued or running) all count as progress,
         # indefinitely — evaluations may take hours or run remotely.
         # Per-evaluation run time is limited only by the opt-in
-        # ``evaluation.timeout``.  A correct run ends via the liveness
+        # ``evaluation.timeout``.  Under evaluation.sync the main loop also
+        # waits for the event bus before every draw; an event *handler* (not
+        # an evaluation) still running after this many seconds ends the run
+        # too (ERROR "an event handler has not returned").  A correct run ends via the liveness
         # predicate and never reaches this; 600 s is deliberately far outside
         # any legitimate handler time.
         self.deadlock_seconds = get_config("core.deadlock_seconds", "core", "deadlock_seconds", 600.0, float)

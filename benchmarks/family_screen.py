@@ -32,7 +32,10 @@ Usage::
 
     uv run python benchmarks/family_screen.py OUT.json SEED [SEED ...] \
         [preset=free|constrained] [dims=2,5,10] [bm=500] [ninst=3] \
-        [specs=name,name]
+        [specs=name,name] [timeout=SECONDS]
+
+``timeout`` is a per-run wall-clock deadline (default: none); a run past it
+is stopped, scored so far and counted under ``errors``.
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
@@ -136,6 +139,7 @@ preset = opts.get("preset", "free")
 if preset not in PRESETS:
     sys.exit(f"unknown preset {preset!r} (known: {', '.join(PRESETS)})")
 bm = int(opts.get("bm", 500))
+timeout_s = float(opts["timeout"]) if opts.get("timeout") else None
 kwargs = {}
 if "dims" in opts:
     kwargs["dims"] = tuple(int(d) for d in opts["dims"].split(","))
@@ -182,7 +186,9 @@ else:
     )
     rows, t0 = [], time.perf_counter()
     for seed in seeds:
-        r = run_family_harness(specs, instances, budget_multiplier=bm, base_seed=seed, progress=False, sync_eval=True)
+        r = run_family_harness(
+            specs, instances, budget_multiplier=bm, base_seed=seed, progress=False, sync_eval=True, timeout_s=timeout_s
+        )
         rows += [
             {
                 "seed": seed,

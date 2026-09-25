@@ -48,6 +48,7 @@ See ``tools/ioh_worker/README.md``.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import selectors
@@ -62,6 +63,16 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from panobbgo.lib.lib import Problem
+
+#: Default bound on one worker round-trip, independent of any run timeout:
+#: a healthy evaluation answers in milliseconds, so this only ends a wedged
+#: worker.  Per instance via ``IOHProblem(call_timeout=...)``.
+DEFAULT_CALL_TIMEOUT_S: float = 300.0
+
+#: The worker's stderr file is cut back to its last ``STDERR_KEEP_BYTES``
+#: once it exceeds ``STDERR_MAX_BYTES``.
+STDERR_MAX_BYTES: int = 1 << 20
+STDERR_KEEP_BYTES: int = 64 << 10
 
 
 _WORKER_DIR_CACHE: Optional[Path] = None
@@ -148,12 +159,19 @@ class IOHProblem(Problem):
     thread-safe in C++ so serialising is correct.
 
     The worker's stderr goes to an anonymous temp file, never a pipe: a
-    pipe nobody drains blocks a chatty worker once it holds 64 KB.  Its
-    tail is quoted in the error when the worker dies.
+    pipe nobody drains blocks a chatty worker once it holds 64 KB.  The
+    file is opened ``O_APPEND`` and read with :func:`os.pread`, so this
+    process never moves the offset the child writes at; it is cut back to
+    its last :data:`STDERR_KEEP_BYTES` once it exceeds
+    :data:`STDERR_MAX_BYTES`.  Its tail is quoted in the error when the
+    worker dies.
 
-    :attr:`deadline` (a :func:`time.monotonic` instant, ``None`` = none)
-    bounds every round-trip: a worker that has not answered by then is
-    killed and the call raises, instead of blocking the run forever.
+    Every round-trip is bounded: by ``call_timeout`` seconds (default
+    :data:`DEFAULT_CALL_TIMEOUT_S`, ``None`` = unbounded) and by
+    :attr:`deadline` (a :func:`time.monotonic` instant, ``None`` = none),
+    whichever comes first.  A worker that has not answered by then is
+    killed and the call raises :class:`TimeoutError`, instead of blocking
+    the run forever.
     """
 
     def __init__(
@@ -164,17 +182,26 @@ class IOHProblem(Problem):
         *,
         fid: Optional[int] = None,
         worker_dir: Optional[Path] = None,
+        call_timeout: Optional[float] = DEFAULT_CALL_TIMEOUT_S,
     ) -> None:
         self._proc: Optional[subprocess.Popen] = None
+        self._sel: Optional[selectors.BaseSelector] = None
         self._lock = threading.Lock()
         self._closed = False
         self._rbuf = b""
         #: Absolute :func:`time.monotonic` deadline for worker round-trips.
         self.deadline: Optional[float] = None
+        #: Seconds one round-trip may take (``None``: unbounded).
+        self.call_timeout: Optional[float] = call_timeout
         self._stderr = tempfile.TemporaryFile(mode="w+b")
+        fd = self._stderr.fileno()
+        fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_APPEND)
 
         self._worker_dir = Path(worker_dir).resolve() if worker_dir is not None else _resolve_worker_dir()
         self._proc = self._spawn_worker()
+        assert self._proc.stdout is not None
+        self._sel = selectors.DefaultSelector()
+        self._sel.register(self._proc.stdout.fileno(), selectors.EVENT_READ)
 
         create_kwargs: Dict[str, Any] = {
             "kind": str(kind),
@@ -242,39 +269,63 @@ class IOHProblem(Problem):
         )
 
     def _stderr_tail(self, limit: int = 4000) -> str:
-        """The last ``limit`` characters the worker wrote to stderr."""
+        """The last ``limit`` bytes the worker wrote to stderr (``pread``: no offset moves)."""
         try:
-            self._stderr.flush()
-            size = self._stderr.seek(0, os.SEEK_END)
-            self._stderr.seek(max(0, size - limit))
-            return self._stderr.read().decode("utf-8", errors="replace")
+            fd = self._stderr.fileno()
+            size = os.fstat(fd).st_size
+            start = max(0, size - limit)
+            return os.pread(fd, size - start, start).decode("utf-8", errors="replace")
         except Exception:
             return ""
+
+    def _trim_stderr(self) -> None:
+        """Keep the stderr file bounded: cut it back to its tail once it is large."""
+        try:
+            fd = self._stderr.fileno()
+            size = os.fstat(fd).st_size
+            if size <= STDERR_MAX_BYTES:
+                return
+            tail = os.pread(fd, STDERR_KEEP_BYTES, size - STDERR_KEEP_BYTES)
+            os.ftruncate(fd, 0)
+            os.write(fd, tail)  # O_APPEND: lands at the new end, as the child's writes do
+        except Exception:
+            pass
 
     def _readline(self) -> bytes:
         """One response line from the worker; ``b""`` on EOF.
 
-        Reads the raw fd so a selector can bound the wait by
-        :attr:`deadline` (a buffered text reader would hide data from it).
-        Raises :class:`TimeoutError` past the deadline.
+        Reads the raw fd so the selector can bound the wait (a buffered
+        text reader would hide data from it).  Raises :class:`TimeoutError`
+        past ``call_timeout`` or :attr:`deadline`.
         """
-        assert self._proc is not None and self._proc.stdout is not None
+        assert self._proc is not None and self._proc.stdout is not None and self._sel is not None
         fd = self._proc.stdout.fileno()
-        with selectors.DefaultSelector() as sel:
-            sel.register(fd, selectors.EVENT_READ)
-            while b"\n" not in self._rbuf:
-                timeout = None if self.deadline is None else max(0.0, self.deadline - time.monotonic())
-                if not sel.select(timeout):
-                    raise TimeoutError("IOH worker did not answer before the deadline")
-                chunk = os.read(fd, 65536)
-                if not chunk:
-                    return b""
-                self._rbuf += chunk
+        limits = [] if self.deadline is None else [self.deadline]
+        if self.call_timeout is not None:
+            limits.append(time.monotonic() + float(self.call_timeout))
+        until = min(limits) if limits else None
+        while b"\n" not in self._rbuf:
+            timeout = None if until is None else max(0.0, until - time.monotonic())
+            if not self._sel.select(timeout):
+                raise TimeoutError("IOH worker did not answer in time")
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                return b""
+            self._rbuf += chunk
         line, _, self._rbuf = self._rbuf.partition(b"\n")
         return line + b"\n"
 
+    def _close_selector(self) -> None:
+        if self._sel is not None:
+            try:
+                self._sel.close()
+            except Exception:
+                pass
+            self._sel = None
+
     def _kill(self) -> None:
         """Kill a worker whose protocol state is unknown (e.g. after a timeout)."""
+        self._close_selector()
         proc, self._proc = self._proc, None
         if proc is not None:
             try:
@@ -304,6 +355,7 @@ class IOHProblem(Problem):
                 # A late answer would desynchronise every later call.
                 self._kill()
                 raise
+            self._trim_stderr()
         if not resp_line:
             raise RuntimeError(
                 f"IOH worker closed stdout while waiting for response to {cmd!r}. "
@@ -320,6 +372,7 @@ class IOHProblem(Problem):
             return
         if self._proc is None:  # never spawned, or killed after a timeout
             self._closed = True
+            self._close_selector()
             self._stderr.close()
             return
         self._closed = True
@@ -341,6 +394,7 @@ class IOHProblem(Problem):
                 self._proc.wait(timeout=2)
         finally:
             self._proc = None
+            self._close_selector()
             try:
                 self._stderr.close()
             except Exception:

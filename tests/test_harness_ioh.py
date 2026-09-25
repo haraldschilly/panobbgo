@@ -119,12 +119,16 @@ class _SlowSphere:
     dim = 2
 
     def __init__(self) -> None:
+        import threading
+
         self.calls = 0
+        self._calls_lock = threading.Lock()
 
     def eval(self, x: np.ndarray) -> float:
         import time
 
-        self.calls += 1
+        with self._calls_lock:
+            self.calls += 1
         time.sleep(1e-4)
         return float(np.sum(np.asarray(x) ** 2))
 
@@ -147,6 +151,16 @@ class TestIOHTrackerThreads:
         trace = np.asarray(tracker.best_so_far)
         assert np.all(np.diff(trace) <= 0)
         assert trace[-1] == tracker.best_fx
+
+    def test_on_timeout_runs_outside_the_lock(self) -> None:
+        prob = _SlowSphere()
+        tracker = IOHTracker(prob, budget=10, timeout_s=0.0)
+        seen = []
+        # A callback that re-enters the tracker would deadlock under the lock.
+        tracker.on_timeout = lambda: seen.append(prob.eval(np.zeros(2)))
+        prob.eval(np.zeros(2))
+        tracker.restore()
+        assert tracker.timed_out and len(seen) == 1 and tracker.n_evals == 0
 
     def test_failed_eval_releases_its_slot(self) -> None:
         class Flaky(_SlowSphere):

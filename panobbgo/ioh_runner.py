@@ -195,7 +195,7 @@ class IOHTracker:
         self.best_x: Optional[np.ndarray] = None
         self.best_so_far: List[float] = []
         self._lock = threading.Lock()
-        #: Called once, under the lock, when the deadline passes — a driver
+        #: Called once (after the lock is released) when the deadline passes — a driver
         #: points it at ``strategy.request_stop`` so a timed-out run ends
         #: instead of spinning through no-op evaluations to ``max_eval``.
         self.on_timeout: Optional[Callable[[], None]] = None
@@ -222,15 +222,18 @@ class IOHTracker:
         problem.eval = self._tracked_eval  # type: ignore[method-assign]
 
     def _tracked_eval(self, x: np.ndarray) -> float:
+        fire_timeout = False
         with self._lock:
             if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
                 self.timed_out = True
-                if self.on_timeout is not None:
-                    self.on_timeout()
+                fire_timeout = True
             admitted = self._reserved < self.budget and not self.timed_out
             if admitted:
                 self._reserved += 1
             last_best = self.best_fx
+        if fire_timeout and self.on_timeout is not None:
+            # Outside the lock: the callback may call back into the problem.
+            self.on_timeout()
         if not admitted:
             if self.hard:
                 raise _BudgetExhausted()

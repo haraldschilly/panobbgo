@@ -202,6 +202,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             reps=args.reps or 1,
             progress=not args.quiet,
             battery_name=name,
+            timeout_s=args.timeout,
         )
     else:
         battery = _resolve_battery(args)
@@ -214,11 +215,21 @@ def cmd_run(args: argparse.Namespace) -> int:
         if seeds is not None:
             print(f"Seeds ({len(seeds)}): {seeds}")
             result = run_ioh_harness_multi_seed(
-                strategies, battery, seeds, progress=not args.quiet, sync_eval=args.sync_eval
+                strategies,
+                battery,
+                seeds,
+                progress=not args.quiet,
+                sync_eval=args.sync_eval,
+                timeout_s=args.timeout,
             )
         else:
             result = run_ioh_harness(
-                strategies, battery, base_seed=args.seed, progress=not args.quiet, sync_eval=args.sync_eval
+                strategies,
+                battery,
+                base_seed=args.seed,
+                progress=not args.quiet,
+                sync_eval=args.sync_eval,
+                timeout_s=args.timeout,
             )
     result.print_summary()
     if args.output:
@@ -404,6 +415,15 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         help="Synchronous-harvest evaluation: deterministic result batches, ~2x lower "
         "run-to-run noise for adaptive strategies. Use on BOTH sides of an A/B "
         "(compare warns on a mode mismatch).",
+    )
+    run_p.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Per-run wall-clock deadline (default: none).  A run past it is stopped, "
+        "scored on its trajectory so far and marked with a TimeoutError.  A wedged IOH "
+        "worker is bounded separately by IOHProblem.call_timeout (300 s per round-trip).",
     )
     run_p.add_argument("--output", help="Save full result as JSON.")
     run_p.add_argument("--quiet", action="store_true", help="Suppress per-run progress lines.")

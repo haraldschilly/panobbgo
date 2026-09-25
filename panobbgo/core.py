@@ -102,9 +102,11 @@ class Results:
         # Initialize storage backend if configured
         self.backend: Any = None
         if hasattr(strategy.config, "storage_backend") and strategy.config.storage_backend == "sqlite":
-            from .storage import SQLiteStorage
+            from .storage import SQLiteStorage, problem_fingerprint
 
-            self.backend = SQLiteStorage(strategy.config.storage_uri)
+            # The fingerprint keeps a run from resuming another problem's
+            # results (the default URI is a shared ``panobbgo.db`` in the cwd).
+            self.backend = SQLiteStorage(strategy.config.storage_uri, fingerprint=problem_fingerprint(self.problem))
             self.logger.info(f"Using SQLite storage backend: {strategy.config.storage_uri}")
 
     def load_from_storage(self) -> int:

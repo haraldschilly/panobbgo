@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2025 Panobbgo Contributors
+# Copyright 2025-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,8 +27,32 @@ import sqlite3
 import threading
 import numpy as np
 import time
-from typing import List, Optional
+from typing import Any, List, Optional
 from panobbgo.lib import Result, Point
+
+
+class StorageMismatchError(ValueError):
+    """The storage holds results of a different problem than the one being solved."""
+
+
+def problem_fingerprint(problem: Any) -> str:
+    """Identify a problem for storage resumption: class, dimension and box.
+
+    Deliberately not ``repr(problem)``: that includes arbitrary instance
+    attributes (RNGs, caches) whose text can change between two runs of the
+    same problem.  Two problems with equal fingerprints are treated as the
+    same problem, so their stored results are interchangeable.
+    """
+    cls = type(problem)
+    box = np.asarray(problem.box.box if hasattr(problem.box, "box") else problem.box, dtype=float)
+    return json.dumps(
+        {
+            "class": "%s.%s" % (cls.__module__, cls.__qualname__),
+            "dim": int(problem.dim),
+            "box": [[float(lo), float(hi)] for lo, hi in box],
+        },
+        sort_keys=True,
+    )
 
 
 class StorageBackend(abc.ABC):
@@ -74,9 +98,17 @@ class StorageBackend(abc.ABC):
 class SQLiteStorage(StorageBackend):
     """
     SQLite-based storage backend.
+
+    Args:
+        uri: SQLite database path.
+        fingerprint: identity of the problem the results belong to (see
+            :func:`problem_fingerprint`).  It is stored in a ``meta`` table
+            on first use; opening the database later with a different
+            fingerprint raises :class:`StorageMismatchError` instead of
+            resuming another problem's results.  ``None`` skips the check.
     """
 
-    def __init__(self, uri: str = "panobbgo.db"):
+    def __init__(self, uri: str = "panobbgo.db", fingerprint: Optional[str] = None):
         self.uri = uri
         self._lock = threading.RLock()
         # Open connection once and keep it open.
@@ -84,6 +116,35 @@ class SQLiteStorage(StorageBackend):
         # provided we serialize access (which we do via self._lock).
         self._conn: Optional[sqlite3.Connection] = sqlite3.connect(self.uri, check_same_thread=False)
         self._init_db()
+        if fingerprint is not None:
+            try:
+                self._check_fingerprint(fingerprint)
+            except Exception:
+                self.close()
+                raise
+
+    def _check_fingerprint(self, fingerprint: str) -> None:
+        with self._lock:
+            assert self._conn is not None
+            row = self._conn.execute("SELECT value FROM meta WHERE key = 'problem'").fetchone()
+            if row is not None and row[0] != fingerprint:
+                raise StorageMismatchError(
+                    "Storage %r holds results of a different problem:\n  stored:  %s\n  current: %s\n"
+                    "Use another storage_uri, or clear the database." % (self.uri, row[0], fingerprint)
+                )
+            if row is None:
+                # A database written before fingerprints existed: the one
+                # thing that can still be checked is the dimension.
+                first = self._conn.execute("SELECT x FROM results ORDER BY id ASC LIMIT 1").fetchone()
+                if first is not None:
+                    dim = json.loads(fingerprint)["dim"]
+                    if len(json.loads(first[0])) != dim:
+                        raise StorageMismatchError(
+                            "Storage %r holds %d-dimensional points; the problem has dimension %d."
+                            % (self.uri, len(json.loads(first[0])), dim)
+                        )
+                with self._conn:
+                    self._conn.execute("INSERT INTO meta (key, value) VALUES ('problem', ?)", (fingerprint,))
 
     def _init_db(self):
         with self._lock:
@@ -103,6 +164,7 @@ class SQLiteStorage(StorageBackend):
                     )
                     """
                 )
+                self._conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
                 # No explicit commit needed, context manager handles it
 
     def save(self, results: List[Result]):
@@ -191,6 +253,7 @@ class SQLiteStorage(StorageBackend):
                 return
             with self._conn:
                 self._conn.execute("DELETE FROM results")
+                self._conn.execute("DELETE FROM meta")
 
     def close(self):
         with self._lock:

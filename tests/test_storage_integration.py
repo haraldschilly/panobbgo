@@ -69,3 +69,31 @@ def test_resume_capability(storage_uri):
     # We can check if the loaded results are present
     # Exact count ensures no duplication happened during load
     assert db.count() == 20
+
+
+def test_storage_refuses_another_problems_results(storage_uri):
+    """A shared database used to resume foreign results (a dim mismatch crashed ``_flush_buffer``)."""
+    from panobbgo.lib.classic import Quadruple
+    from panobbgo.storage import StorageMismatchError
+
+    s1 = MockStrategy(
+        Rosenbrock(dims=2), max_eval=5, testing_mode=True, storage_backend="sqlite", storage_uri=storage_uri
+    )
+    s1.add(Random)
+    s1.start()
+
+    for other in (Rosenbrock(dims=3), Quadruple(dims=2)):
+        with pytest.raises(StorageMismatchError, match="different problem"):
+            MockStrategy(other, max_eval=5, testing_mode=True, storage_backend="sqlite", storage_uri=storage_uri)
+
+
+def test_legacy_storage_without_fingerprint_checks_the_dimension(storage_uri):
+    from panobbgo.storage import SQLiteStorage, StorageMismatchError, problem_fingerprint
+
+    legacy = SQLiteStorage(storage_uri)  # no fingerprint: a pre-fingerprint database
+    legacy.save([Result(Point(np.zeros(2), "R"), 1.0)])
+    legacy.close()
+    with pytest.raises(StorageMismatchError, match="2-dimensional"):
+        SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=3)))
+    ok = SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=2)))
+    assert ok.count() == 1

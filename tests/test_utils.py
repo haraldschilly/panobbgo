@@ -66,5 +66,54 @@ class TestUtils(unittest.TestCase):
         pass
 
 
+def _fresh_info(monkeypatch, run):
+    import subprocess
+
+    from panobbgo import utils
+
+    utils._info.cache_clear()
+    monkeypatch.setattr(subprocess, "run", run)
+    try:
+        return utils.info()
+    finally:
+        utils._info.cache_clear()
+
+
+def test_info_without_git_binary(monkeypatch):
+    def run(*a, **kw):
+        raise FileNotFoundError("git")
+
+    assert _fresh_info(monkeypatch, run)["git HEAD"] == "unknown"
+
+
+def test_info_outside_a_checkout(monkeypatch):
+    """Empty ``git rev-parse`` output used to raise IndexError."""
+    import subprocess
+
+    def run(args, **kw):
+        return subprocess.CompletedProcess(args, 128, stdout="", stderr="fatal: not a git repository")
+
+    assert _fresh_info(monkeypatch, run)["git HEAD"] == "unknown"
+
+
+def test_info_reports_panobbgos_repo_not_the_cwd(monkeypatch, tmp_path):
+    import os
+    import subprocess
+
+    import panobbgo
+
+    seen = {}
+    real = subprocess.run
+
+    def run(args, **kw):
+        seen["cwd"] = kw.get("cwd")
+        return real(args, **kw)
+
+    monkeypatch.chdir(tmp_path)
+    head = _fresh_info(monkeypatch, run)["git HEAD"]
+    assert seen["cwd"] == os.path.dirname(os.path.abspath(panobbgo.utils.__file__))
+    assert isinstance(head, str)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,8 +20,10 @@ Utilities
 Some utility functions, will move eventually.
 """
 
+import functools
 import logging
 import sys
+from typing import Dict
 import numpy as np
 
 
@@ -119,14 +121,33 @@ def create_logger(name, level=logging.INFO):
     return logger
 
 
-def info():
+def _git_head() -> str:
+    """The commit of the panobbgo checkout this module was imported from.
+
+    ``git`` runs in the package directory, not the caller's cwd (which may be
+    another repository, or none).  Anything that goes wrong — no ``git``,
+    an installed wheel outside any checkout, empty output — yields
+    ``"unknown"``.
     """
-    Shows a bit of info about the libraries and other environment information.
-    """
+    import os
     import subprocess
 
-    git = subprocess.Popen(["git", "rev-parse", "HEAD"], stdout=subprocess.PIPE)
-    v = {}
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    return out.splitlines()[0] if out else "unknown"
+
+
+@functools.lru_cache(maxsize=1)
+def _info() -> Dict[str, str]:
+    v: Dict[str, str] = {}
 
     def version(what):
         m = __import__(what)
@@ -134,24 +155,23 @@ def info():
 
     version("numpy")
     version("scipy")
-    try:
-        version("pandas")
-    except ImportError:
-        print("pandas not available")
-    try:
-        version("statsmodels")
-    except ImportError:
-        print("statsmodels not available")
-    try:
-        version("matplotlib")
-    except ImportError:
-        print("matplotlib not available")
-    try:
-        version("dask")
-    except ImportError:
-        print("dask not available")
-    v["git HEAD"] = git.communicate()[0].splitlines()[0]
+    for optional in ("pandas", "statsmodels", "matplotlib", "dask"):
+        try:
+            version(optional)
+        except ImportError:
+            print("%s not available" % optional)
+    v["git HEAD"] = _git_head()
     return v
+
+
+def info() -> Dict[str, str]:
+    """
+    Shows a bit of info about the libraries and other environment information.
+
+    Computed once per process (every :class:`~panobbgo.config.Config` asks);
+    each call returns a fresh copy.
+    """
+    return dict(_info())
 
 
 def is_left(p0, p1, ptest):

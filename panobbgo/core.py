@@ -303,19 +303,29 @@ class Results:
         # results first, and publishing *last*, makes the count a pure
         # function of the evaluation sequence.
         with self._lock:
+            n_before = len(self)
             self._buffer.extend(new_results)
 
             for r in new_results:
                 if r.fx is not None and r.fx < self._best_fx:
                     self._best_fx = r.fx
 
+            if reporting:
+                # The tracker covers ``_progress_ranks_fed`` results.  Extend
+                # it only if that is exactly the history this batch lands on;
+                # otherwise (a concurrent ``add_results`` got in between the
+                # stats and the extend) leave it marked stale, and the next
+                # ``_progress_stats`` rebuilds it from the store.
+                ranks = self._progress_ranks
+                if ranks is not None and self._progress_ranks_fed == n_before:
+                    for r in new_results:
+                        if r.fx is not None:
+                            ranks.push(float(r.fx))
+                    self._progress_ranks_fed = len(self)
+                else:
+                    self._progress_ranks_fed = -1
+
         if reporting:
-            ranks = self._progress_ranks
-            assert ranks is not None  # built by _progress_stats
-            for r in new_results:
-                if r.fx is not None:
-                    ranks.push(float(r.fx))
-            self._progress_ranks_fed = len(self)
             for result in new_results:
                 self._report_evaluation_progress(result, stats=progress_stats)
 
@@ -420,27 +430,26 @@ class Results:
     def _progress_stats(self) -> Dict[str, float]:
         """Statistics of the results stored so far, for :meth:`_report_evaluation_progress`.
 
-        ``current_best_fx`` and ``prev_best`` are the best fx so far;
+        ``current_best_fx`` is the best fx so far;
         ``threshold`` is the ``int(0.1 * n)``-th smallest of the ``n`` finite
         fx so far (only once ``n > 10``).  O(log n) per result via
         :class:`_RankTracker`; a full rebuild happens only when the tracker does
         not cover the current history.
         """
-        if self._progress_ranks is None or self._progress_ranks_fed != len(self):
-            ranks = _RankTracker()
-            try:
-                for fx in self._all_fx():
-                    ranks.push(fx)
-            except Exception:
+        with self._lock:
+            if self._progress_ranks is None or self._progress_ranks_fed != len(self):
                 ranks = _RankTracker()
-            self._progress_ranks = ranks
-            self._progress_ranks_fed = len(self)
-        ranks = self._progress_ranks
+                try:
+                    for fx in self._all_fx():
+                        ranks.push(fx)
+                except Exception:
+                    ranks = _RankTracker()
+                self._progress_ranks = ranks
+                self._progress_ranks_fed = len(self)
+            ranks = self._progress_ranks
         stats: Dict[str, float] = {}
         if len(self) > 0:
             stats["current_best_fx"] = ranks.min
-        if ranks.n > 0:
-            stats["prev_best"] = ranks.min
         if ranks.n > 10:
             stats["threshold"] = ranks.threshold()
         return stats
@@ -483,8 +492,6 @@ class Results:
                 # Significant: within the top 10 % of the results so far.
                 if "threshold" in stats and result.fx < stats["threshold"]:
                     context.is_significant_improvement = True
-                if "prev_best" in stats and result.fx < stats["prev_best"]:
-                    context.is_improvement = True
             except (ValueError, TypeError, KeyError):
                 # If we can't determine improvement status, skip it
                 pass

@@ -475,8 +475,6 @@ def test_progress_context_is_relative_to_history_before_the_batch():
             c = next(got)
             best = bool(srt) and fx < srt[0]
             assert c.is_global_best == best
-            # prev_best is the best of *all* earlier results (was: all but the last).
-            assert c.is_improvement == best
             assert c.is_significant_improvement == (len(srt) > 10 and fx < srt[int(len(srt) * 0.1)])
         prior.extend(b)
 

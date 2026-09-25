@@ -153,7 +153,7 @@ class TestProgressReporterIntegration:
 
             # Report some evaluations
             reporter.report_evaluation(result1, ProgressContext())
-            reporter.report_evaluation(result2, ProgressContext(is_improvement=True))
+            reporter.report_evaluation(result2, ProgressContext(is_global_best=True))
 
             # Update status first time (creates status line)
             reporter.update_status(
@@ -174,7 +174,7 @@ class TestProgressReporterIntegration:
             # Verify progress symbols are present in the progress_text attribute
             # (Rich uses Live display, so raw output contains ANSI control codes)
             assert "." in reporter.progress_line  # normal evaluation
-            assert "⭐" in reporter.progress_line  # improvement
+            assert "🎉" in reporter.progress_line  # new global best
 
             # Verify ANSI escape sequences are present (Rich uses its own codes)
             assert "\x1b[" in output  # Contains ANSI escape sequences
@@ -203,7 +203,7 @@ class TestProgressReporterIntegration:
 
             # Report evaluations
             reporter.report_evaluation(result1, ProgressContext())
-            reporter.report_evaluation(result2, ProgressContext(is_improvement=True))
+            reporter.report_evaluation(result2, ProgressContext(is_global_best=True))
 
             # Update status
             reporter.update_status(
@@ -218,7 +218,7 @@ class TestProgressReporterIntegration:
 
             # Verify progress symbols
             assert "." in output
-            assert "⭐" in output
+            assert "🎉" in output
 
             # Verify NO ANSI escape sequences in fallback mode
             assert "\x1b7" not in output
@@ -244,7 +244,6 @@ class TestProgressReporterIntegration:
             evaluations = [
                 ProgressContext(),  # normal
                 ProgressContext(),  # normal
-                ProgressContext(is_improvement=True),  # improvement
                 ProgressContext(),  # normal
                 ProgressContext(is_significant_improvement=True),  # significant
                 ProgressContext(new_region_created=True),  # learning
@@ -273,7 +272,6 @@ class TestProgressReporterIntegration:
 
             # Verify all expected symbols appear in progress line
             assert "." in progress  # normal (appears multiple times)
-            assert "⭐" in progress  # improvement
             assert "🎊" in progress  # significant improvement
             assert "🆕" in progress  # learning
             assert "🎉" in progress  # major improvement

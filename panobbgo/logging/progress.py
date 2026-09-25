@@ -28,7 +28,6 @@ class ProgressContext:
 
     is_global_best: bool = False
     is_significant_improvement: bool = False
-    is_improvement: bool = False
     new_region_created: bool = False
     analyzer_learned: bool = False
     evaluation_failed: bool = False
@@ -76,7 +75,6 @@ class ProgressReporter:
         self.symbols = {
             "major_improvement": "🎉",
             "significant_improvement": "🎊",
-            "improvement": "⭐",
             "new_learning": "🆕",
             "normal": ".",
             "warning": "⚠️",
@@ -87,7 +85,6 @@ class ProgressReporter:
         self.plain_symbols = {
             "major_improvement": "!",
             "significant_improvement": "+",
-            "improvement": "*",
             "new_learning": "L",
             "normal": ".",
             "warning": "W",
@@ -185,8 +182,6 @@ class ProgressReporter:
             return symbols["major_improvement"]
         elif context.is_significant_improvement:
             return symbols["significant_improvement"]
-        elif context.is_improvement:
-            return symbols["improvement"]
         elif context.new_region_created or context.analyzer_learned:
             return symbols["new_learning"]
         else:

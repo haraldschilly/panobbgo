@@ -179,7 +179,7 @@ class StrategyPhased(StrategyBase):
 
     def start(self):
         # Compute phase cutoffs from max_eval
-        max_eval = int(self.config.max_eval) if self.config.max_eval else 1000
+        max_eval = self.max_eval_or(1000)
         cumulative = 0.0
         for cfg in self._phase_configs:
             cumulative += cfg["pct"]

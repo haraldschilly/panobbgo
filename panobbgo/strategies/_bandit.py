@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from panobbgo.core import known_budget
+
 #: Context dimension of LinUCB: (bias, budget progress, recent success rate).
 LINUCB_DIM = 3
 
@@ -234,7 +236,7 @@ def thompson_select(owner, heurs, rng):
 
 def linucb_context(n_results: int, max_eval, recent_rewards) -> np.ndarray:
     """The LinUCB context ``[1, budget progress, recent success rate]``."""
-    max_evals = float(max_eval) if max_eval else 1000.0
+    max_evals = known_budget(max_eval) or 1000.0
     feat_progress = min(1.0, n_results / max_evals)
     if recent_rewards:
         feat_success = sum(1 for r in recent_rewards if r > 0) / len(recent_rewards)

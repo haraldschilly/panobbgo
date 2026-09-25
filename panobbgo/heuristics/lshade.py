@@ -154,7 +154,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from panobbgo.core import Heuristic
+from panobbgo.core import Heuristic, known_budget
 from panobbgo.heuristics._tagged import emit_tagged, own_results
 from panobbgo.lib import Result
 from panobbgo.lib.constraints import result_key
@@ -286,15 +286,12 @@ def _resolve_auto_np_init(strategy, NP_min: int, dim_coef: Optional[float] = Non
     the measured optimum for that variant is a bigger swarm (NL-SHADE-LBC).
     ``None`` uses the module default :data:`_AUTO_DIM_COEF`.
     """
-    try:
-        budget = float(strategy.config.max_eval)
-    except Exception:
-        budget = float("nan")
+    budget = known_budget(strategy.config.max_eval)
     try:
         dim = int(strategy.problem.dim)
     except Exception:
         dim = 0
-    if not np.isfinite(budget) or budget <= 0.0 or dim <= 0:
+    if budget is None or dim <= 0:
         return _DEFAULT_NP_INIT
     try:
         np_min_i = int(NP_min)
@@ -568,32 +565,6 @@ class LSHADE(Heuristic):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _max_eval(self) -> Optional[float]:
-        """Return the strategy's evaluation budget, or ``None`` if unknown."""
-        try:
-            v = float(self.strategy.config.max_eval)  # type: ignore[union-attr]
-        except Exception:
-            return None
-        if not np.isfinite(v) or v <= 0.0:
-            return None
-        return v
-
-    def _progress(self) -> Optional[float]:
-        """Return ``len(strategy.results) / max_eval`` clipped to ``[0, 1]``.
-
-        Returns ``None`` when the budget is unknown so callers can
-        distinguish "early phase" (progress = 0.0) from "no budget at
-        all" and pick a safe fallback for each schedule.
-        """
-        max_eval = self._max_eval()
-        if max_eval is None:
-            return None
-        try:
-            current = float(len(self.strategy.results))
-        except Exception:
-            return None
-        return float(np.clip(current / max_eval, 0.0, 1.0))
-
     def _current_p_best(self) -> float:
         """Return the ``p_best`` value to use for the next trial.
 
@@ -609,7 +580,7 @@ class LSHADE(Heuristic):
         """
         if self.p_best_end is None:
             return self.p_best
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return self.p_best
         return self.p_best - (self.p_best - self.p_best_end) * progress
@@ -637,7 +608,7 @@ class LSHADE(Heuristic):
         """
         if self.F_schedule is None:
             return F
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return F
         bound1, bound2, cap1, cap2 = _F_SCHEDULE_REGIMES[self.F_schedule]
@@ -1113,7 +1084,7 @@ class LSHADE(Heuristic):
 
     def _apply_lpsr(self) -> None:
         """Shrink the population to ``NP_target`` based on budget progress."""
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return
         target = self._lpsr_target(progress)

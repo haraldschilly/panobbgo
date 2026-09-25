@@ -680,14 +680,9 @@ class PSO(Heuristic):
         """
         if self.w_end is None:
             return self.w
-        try:
-            max_eval = float(self.strategy.config.max_eval)  # type: ignore[union-attr]
-            current = float(len(self.strategy.results))
-        except Exception:
+        progress = self.budget_progress()
+        if progress is None:
             return self.w
-        if not np.isfinite(max_eval) or max_eval <= 0.0:
-            return self.w
-        progress = min(max(current / max_eval, 0.0), 1.0)
         return self.w - (self.w - self.w_end) * progress
 
     def _generate_next(self, particle_idx: int) -> None:

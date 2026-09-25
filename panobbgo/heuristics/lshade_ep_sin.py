@@ -149,6 +149,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
+from panobbgo.core import known_budget
 from panobbgo.heuristics.lshade import (
     _DEFAULT_ARCHIVE_FACTOR,
     _DEFAULT_H,
@@ -310,7 +311,7 @@ class LSHADE_EpSin(LSHADE):
         so the heuristic still produces a varied ``F`` distribution
         instead of accidentally sampling from the cold memory.
         """
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return True
         return progress < _PHASE_SPLIT
@@ -325,7 +326,7 @@ class LSHADE_EpSin(LSHADE):
         Always returns at least ``1.0`` so the envelope ratios stay
         finite.
         """
-        max_eval = self._max_eval()
+        max_eval = known_budget(self.config.max_eval)
         if max_eval is None:
             return float(max(_GMAX_FALLBACK_FACTOR * self.NP_init, 1))
         avg_NP = max((self.NP_init + self.NP_min) / 2.0, 1.0)

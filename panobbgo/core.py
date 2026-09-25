@@ -508,6 +508,44 @@ class Results:
         progress_reporter.report_evaluation(result, context)
 
 
+def known_budget(max_eval: Any) -> Optional[float]:
+    """``max_eval`` as a positive finite float, or ``None`` when the budget is unknown.
+
+    Unknown means missing, non-numeric, non-finite, zero or negative.  The
+    one parser behind :meth:`Module.budget_progress` / :meth:`Module.max_eval_or`
+    and their :class:`StrategyBase` twins.
+    """
+    try:
+        v = float(max_eval)
+    except Exception:
+        return None
+    if not np.isfinite(v) or v <= 0.0:
+        return None
+    return v
+
+
+def budget_progress_of(max_eval: Any, n_results: Callable[[], int]) -> Optional[float]:
+    """``n_results() / max_eval`` clipped to ``[0, 1]``; ``None`` when the budget is unknown.
+
+    *n_results* is a callable so a strategy stand-in without ``results``
+    degrades to ``None`` instead of raising.
+    """
+    budget = known_budget(max_eval)
+    if budget is None:
+        return None
+    try:
+        current = float(n_results())
+    except Exception:
+        return None
+    return float(np.clip(current / budget, 0.0, 1.0))
+
+
+def max_eval_or_default(max_eval: Any, default: int) -> int:
+    """``int(max_eval)`` when the budget is known (see :func:`known_budget`), else *default*."""
+    budget = known_budget(max_eval)
+    return default if budget is None else int(budget)
+
+
 def _module_rng(strategy: Any) -> np.random.Generator:
     """The generator a :class:`Module` owned by ``strategy`` draws from.
 
@@ -562,6 +600,19 @@ class Module:
         # Ensure logger name is at most 5 characters to satisfy config.get_logger assertion
         log_name = self._name[:5].upper()
         self.logger = self.config.get_logger(log_name)
+
+    def budget_progress(self) -> Optional[float]:
+        """Fraction of the evaluation budget used, ``len(strategy.results) / max_eval`` in ``[0, 1]``.
+
+        ``None`` when the budget is unknown (no ``max_eval``, zero, negative
+        or non-numeric), so a schedule can fall back to its constant setting
+        instead of guessing a horizon.
+        """
+        return budget_progress_of(self.config.max_eval, lambda: len(self._strategy.results))
+
+    def max_eval_or(self, default: int) -> int:
+        """The evaluation budget as an ``int``, or *default* when it is unknown."""
+        return max_eval_or_default(self.config.max_eval, default)
 
     def derive_rng(self, seed: Optional[int]) -> np.random.Generator:
         """Generator for a sub-component: ``seed`` if given, else this module's own.
@@ -1955,6 +2006,14 @@ class StrategyBase:
     def analyzers(self):
         return list(self._analyzers.values())
 
+    def budget_progress(self) -> Optional[float]:
+        """``len(self.results) / max_eval`` in ``[0, 1]``, ``None`` if the budget is unknown (:meth:`Module.budget_progress`)."""
+        return budget_progress_of(self.config.max_eval, lambda: len(self.results))
+
+    def max_eval_or(self, default: int) -> int:
+        """The evaluation budget as an ``int``, or *default* when it is unknown (:meth:`Module.max_eval_or`)."""
+        return max_eval_or_default(self.config.max_eval, default)
+
     def spawn_rng(self) -> np.random.Generator:
         """Return a fresh :class:`numpy.random.Generator` derived from the master seed.
 
@@ -2296,7 +2355,7 @@ class StrategyBase:
         #: See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.3.
         self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
         sync = bool(self.config.sync_evaluation)
-        max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
+        max_eval_int = self.max_eval_or(1000)
         self._max_total_loops = max_eval_int * 10000  # Much more headroom
         #: Evaluations charged against ``max_eval``: incremented when a point
         #: is *dispatched*, so a failing evaluation (no result) is charged
@@ -2609,10 +2668,7 @@ class StrategyBase:
 
         # Gather status information
         current_evals = len(self.results)
-        try:
-            max_evals = int(self.config.max_eval)
-        except (TypeError, ValueError):
-            max_evals = 1000
+        max_evals = self.max_eval_or(1000)
         budget_pct = (current_evals / max_evals) * 100 if max_evals > 0 else 0
 
         # Calculate ETA

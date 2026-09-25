@@ -457,10 +457,7 @@ class MetaAnalyst(Heuristic):
     # -- budget bookkeeping ------------------------------------------------
 
     def _max_eval(self) -> int:
-        try:
-            return int(self.config.max_eval)
-        except (TypeError, ValueError):
-            return 1000
+        return self.max_eval_or(1000)
 
     def _resolve_k(self) -> int:
         max_eval = self._max_eval()

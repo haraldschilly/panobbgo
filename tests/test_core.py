@@ -590,3 +590,32 @@ def test_module_requires_a_seeded_strategy_rng():
     a = Module(attach_spawn_rng(double, seed=3)).rng.random()
     b = Module(attach_spawn_rng(double, seed=3)).rng.random()
     assert a == b
+
+
+@pytest.mark.parametrize(
+    "max_eval, known",
+    [(200, 200.0), ("150", 150.0), (0, None), (-5, None), (None, None), ("abc", None), (float("inf"), None)],
+)
+def test_known_budget(max_eval, known):
+    from panobbgo.core import known_budget
+
+    assert known_budget(max_eval) == known
+
+
+def test_budget_progress_and_max_eval_or_on_module_and_strategy():
+    """One budget parser for modules and strategies (the ad-hoc copies it replaced)."""
+    strategy = StrategyBase(Rosenbrock(dim=2), parse_args=False, seed=1)
+    m = Module(strategy)
+    for owner in (m, strategy):
+        strategy.config.max_eval = 100
+        assert owner.max_eval_or(1000) == 100
+        assert owner.budget_progress() == 0.0
+        strategy.config.max_eval = None
+        assert owner.max_eval_or(1000) == 1000
+        assert owner.max_eval_or(0) == 0
+        assert owner.budget_progress() is None
+        strategy.config.max_eval = 0
+        assert owner.budget_progress() is None
+    strategy.config.max_eval = 4
+    strategy.results.add_results([Result(Point(np.zeros(2), "t"), float(i)) for i in range(6)])
+    assert m.budget_progress() == strategy.budget_progress() == 1.0  # clipped

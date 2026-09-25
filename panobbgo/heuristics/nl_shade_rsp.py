@@ -331,7 +331,7 @@ class NLSHADE_RSP(LSHADE):
 
     def _binomial_CR(self) -> float:
         """``CR_b``: ``0`` in the first half of the budget, ``2 (r − 0.5)`` after."""
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None or progress <= 0.5:
             return 0.0
         return 2.0 * (progress - 0.5)

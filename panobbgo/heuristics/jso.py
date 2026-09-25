@@ -283,7 +283,7 @@ class JSO(LSHADE):
         ``p_best_max`` (the early-phase value), matching the L-SHADE
         fall-back pattern.
         """
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return self.p_best_max
         return float(self.p_best_max + (self.p_best_min - self.p_best_max) * progress)
@@ -295,7 +295,7 @@ class JSO(LSHADE):
         :meth:`_generate_trial` multiplies it by the sampled ``F``.  Falls
         back to the early-phase factor when the budget is unknown.
         """
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return _FW_PHASE1_FACTOR
         if progress < _FW_PHASE1_BOUND:
@@ -310,7 +310,7 @@ class JSO(LSHADE):
         Applied to every sampled ``CR``, including the ``0`` a terminal bin
         yields (reference code).  Bypassed when the budget is unknown.
         """
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return CR
         for bound, floor in _CR_FLOORS:
@@ -335,7 +335,7 @@ class JSO(LSHADE):
         excluded throughout (early-phase fallback).
         """
         pool = super()._pbest_pool(sorted_live, target_idx)
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None or progress < _PBEST_NOT_TARGET_UNTIL:
             others = [i for i in pool if i != target_idx]
             if others:

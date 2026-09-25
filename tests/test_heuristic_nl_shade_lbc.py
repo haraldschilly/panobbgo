@@ -345,7 +345,7 @@ class NLSHADELBCScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
         h = NLSHADE_LBC(self.strategy)
 
         # progress 0 → p_F_init, progress 1 → p_F_final.  Use the
-        # strategy.results list to drive ``_progress()``.
+        # strategy.results list to drive ``budget_progress()``.
         self.strategy.results = []
         self.strategy.config.max_eval = 100
         assert h._lbc_exponent(h.p_F_init, h.p_F_final) == pytest.approx(h.p_F_init)
@@ -371,7 +371,7 @@ class NLSHADELBCScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._lbc_exponent(h.p_F_init, h.p_F_final) == pytest.approx(h.p_F_final)
 
     def test_exponent_fallback_when_budget_unknown(self):
-        """``_progress() is None`` → schedule returns p_init."""
+        """``budget_progress() is None`` → schedule returns p_init."""
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
 
         h = NLSHADE_LBC(self.strategy)

@@ -1152,27 +1152,27 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         assert any_above_08
 
     def test_progress_returns_none_without_budget(self):
-        """``_progress()`` returns ``None`` when ``max_eval`` is missing/zero."""
+        """``budget_progress()`` returns ``None`` when ``max_eval`` is missing/zero."""
         from panobbgo.heuristics.lshade import LSHADE
 
         h = LSHADE(self.strategy)
         self.strategy.config.max_eval = 0
-        assert h._progress() is None
+        assert h.budget_progress() is None
         self.strategy.config.max_eval = -1
-        assert h._progress() is None
+        assert h.budget_progress() is None
 
     def test_progress_clipped_to_unit_interval(self):
-        """``_progress()`` clips overshoots to [0, 1]."""
+        """``budget_progress()`` clips overshoots to [0, 1]."""
         from panobbgo.heuristics.lshade import LSHADE
 
         h = LSHADE(self.strategy)
         self.strategy.config.max_eval = 100
         self.strategy.results = []
-        assert h._progress() == pytest.approx(0.0)
+        assert h.budget_progress() == pytest.approx(0.0)
         self.strategy.results = list(range(50))
-        assert h._progress() == pytest.approx(0.5)
+        assert h.budget_progress() == pytest.approx(0.5)
         self.strategy.results = list(range(150))
-        assert h._progress() == pytest.approx(1.0)
+        assert h.budget_progress() == pytest.approx(1.0)
 
 
 class LSHADERegistrationTests(_MockStrategyMixin, PanobbgoTestCase):

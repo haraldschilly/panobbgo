@@ -420,10 +420,10 @@ class NLSHADE_LBC(NLSHADE_RSP):
         """Linear bias change schedule.
 
         ``p(r) = (1 − r) · p_init + r · p_final``.  When the strategy
-        budget is unknown (``_progress() is None``) the schedule falls
+        budget is unknown (``budget_progress() is None``) the schedule falls
         back to ``p_init`` — a documented, predictable fallback.
         """
-        progress = self._progress()
+        progress = self.budget_progress()
         if progress is None:
             return p_init
         r = float(np.clip(progress, 0.0, 1.0))

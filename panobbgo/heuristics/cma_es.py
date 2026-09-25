@@ -1480,8 +1480,7 @@ class CMAES(Heuristic):
         """
         if self._stagnation_frac is None:
             return 0
-        max_eval = getattr(self.config, "max_eval", 0) or 0
-        return int(max(10 * max(self._lam, 1), self._stagnation_frac * float(max_eval)))
+        return int(max(10 * max(self._lam, 1), self._stagnation_frac * float(self.max_eval_or(0))))
 
     def _restart_center(self, mode: Optional[str] = None) -> np.ndarray:
         """Start point for a *self*-restart, per ``restart_from`` or *mode*.

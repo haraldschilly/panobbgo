@@ -241,22 +241,22 @@ class JSOMemoryAnchorTests(_MockStrategyMixin, PanobbgoTestCase):
 
 class JSOScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
     def test_progress_clipped_to_unit_interval(self):
-        """``_progress`` must clip to [0, 1] regardless of result-count overshoot."""
+        """``budget_progress`` must clip to [0, 1] regardless of result-count overshoot."""
         from panobbgo.heuristics.jso import JSO
 
         h = JSO(self.strategy)
         self.strategy.config.max_eval = 100
         self.strategy.results = list(range(50))
-        assert h._progress() == pytest.approx(0.5)
+        assert h.budget_progress() == pytest.approx(0.5)
         self.strategy.results = list(range(150))  # over-spent budget
-        assert h._progress() == pytest.approx(1.0)
+        assert h.budget_progress() == pytest.approx(1.0)
         self.strategy.results = []
-        assert h._progress() == pytest.approx(0.0)
+        assert h.budget_progress() == pytest.approx(0.0)
 
     def test_progress_returns_none_without_budget(self):
         """No ``max_eval`` → ``progress`` returns ``None`` so each schedule picks its own fall-back.
 
-        The ``_progress()`` helper inherited from L-SHADE returns ``None``
+        The ``budget_progress()`` helper inherited from L-SHADE returns ``None``
         when the budget is unknown so callers (``_current_p_best``,
         ``_current_F_weight``, ``_apply_F_cap``, ``_apply_lpsr``) can each
         pick the right early-phase fall-back instead of being forced to
@@ -266,7 +266,7 @@ class JSOScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
 
         h = JSO(self.strategy)
         self.strategy.config.max_eval = 0
-        assert h._progress() is None
+        assert h.budget_progress() is None
 
     def test_p_best_schedule_is_linear_decreasing(self):
         """``_current_p_best`` decreases linearly from p_best_max to p_best_min.

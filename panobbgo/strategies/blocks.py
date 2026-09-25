@@ -603,10 +603,7 @@ class StrategyBlockBandit(StrategyBase):
         return best if best > 0 else self.LAMBDA_REF_DEFAULT
 
     def _max_eval(self) -> int:
-        try:
-            return int(self.config.max_eval)
-        except (TypeError, ValueError):
-            return 1000
+        return self.max_eval_or(1000)
 
     def add_heuristic(self, h: Heuristic) -> None:
         StrategyBase.add_heuristic(self, h)

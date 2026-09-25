@@ -1,7 +1,10 @@
 # GitHub Actions workflows
 
-Two workflows live here. `./test.sh` (via `run_ci.py`) replays the
-`tests.yml` commands locally.
+Two workflows live here. `./test.sh` (via `run_ci.py`) replays their `run`
+steps locally: each step's block runs in one `bash -e`, `continue-on-error`
+is honoured, `$GITHUB_STEP_SUMMARY` goes to `/dev/null`, and the jobs run in
+workflow order (the gh-pages `deploy` job is skipped).
+`uv run python run_ci.py --dry-run` prints the plan without running it.
 
 ## `tests.yml` — CI on every push / PR to `master`
 
@@ -27,7 +30,7 @@ Every job installs UV and runs `uv sync --extra dev`. UV itself and `.venv`
 are cached with `actions/cache`, keyed on
 `uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}`,
 so the install steps are skipped on a cache hit. The Python version is set
-once via `env.PYTHON` (currently 3.12) and referenced everywhere.
+once per workflow via `env.PYTHON` (currently 3.14) and referenced everywhere.
 
 If the cache becomes corrupted: GitHub → Actions → Caches, delete the
 offending entries, and the next run recreates them.

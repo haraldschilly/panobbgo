@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
@@ -74,9 +74,9 @@ jobs:
         # planning/TEST_PERFORMANCE.md): (1) one worker hangs in teardown at
         # end-of-run (a non-daemon background thread left by a strategy/dask
         # test), which would trip the 25 min job timeout; (2) a couple of
-        # timing-sensitive `@pytest.mark.flaky` tests fail under heavy
-        # CPU contention because `pytest-retry` is not installed in the
-        # `--extra dev` set CI uses, so the flaky markers are currently no-ops.
+        # timing-sensitive tests can fail under heavy CPU contention;
+        # `pytest-retry` is in the `--extra dev` set, so their
+        # `@pytest.mark.flaky(retries=3)` markers retry, but -n adds load.
         run: |
           uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
           uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
@@ -127,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
@@ -165,7 +165,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
@@ -208,7 +208,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
@@ -248,7 +248,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}

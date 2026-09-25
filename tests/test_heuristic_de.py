@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import unittest
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.heuristics.differential_evolution import DifferentialEvolution
 from panobbgo.lib import Result, Point
 from panobbgo.lib.classic import Rosenbrock

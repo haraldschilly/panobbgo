@@ -7,7 +7,7 @@ from panobbgo.lib.constraints import (
     AugmentedLagrangianConstraintHandler,
     DynamicPenaltyConstraintHandler,
 )
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 import pytest
 
 

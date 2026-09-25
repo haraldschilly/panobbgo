@@ -19,7 +19,7 @@ from __future__ import unicode_literals
 
 import numpy as np
 
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 class _FakeLeaf:

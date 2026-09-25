@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from panobbgo.core import Results
 from panobbgo.lib import Result, Point, Problem
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 class TestResultsDataFrame(PanobbgoTestCase):

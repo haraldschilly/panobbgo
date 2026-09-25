@@ -16,7 +16,7 @@ from __future__ import unicode_literals
 
 import unittest
 import numpy as np
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib import Point, Result, BoundingBox
 from panobbgo.lib.constraints import DefaultConstraintHandler
 

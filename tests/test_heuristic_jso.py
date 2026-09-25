@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 class _MockStrategyMixin:

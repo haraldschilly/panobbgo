@@ -6,7 +6,7 @@ from unittest import mock
 import numpy as np
 
 from panobbgo.heuristics.nelder_mead import NelderMead
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 class TestHeuristicNelderMead(PanobbgoTestCase):

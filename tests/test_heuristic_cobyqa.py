@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 
 from panobbgo.heuristics.cobyqa import COBYQA
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 # ----------------------------------------------------------------------

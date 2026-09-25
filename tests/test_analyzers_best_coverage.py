@@ -17,7 +17,7 @@ from __future__ import unicode_literals
 import unittest
 import unittest.mock as mock
 import numpy as np
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
 

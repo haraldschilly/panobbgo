@@ -27,7 +27,7 @@ from unittest import mock
 import numpy as np
 
 from panobbgo.heuristics.lbfgsb import LBFGSB, _make_pipe_objective
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 _BOUNDS = [(-1.0, 1.0), (-1.0, 1.0)]

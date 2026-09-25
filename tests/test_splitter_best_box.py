@@ -19,7 +19,7 @@ import numpy as np
 from panobbgo.analyzers.splitter import Splitter
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 class TestSplitterBestBox(PanobbgoTestCase):

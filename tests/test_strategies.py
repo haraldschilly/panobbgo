@@ -18,7 +18,7 @@ import numpy as np
 
 from panobbgo.heuristics.latin_hypercube import LatinHypercube
 from panobbgo.heuristics.random import Random
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.strategies.round_robin import StrategyRoundRobin
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.lib.classic import Rosenbrock

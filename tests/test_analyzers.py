@@ -19,7 +19,7 @@ from __future__ import print_function
 import numpy as np
 import numpy.random as rnd
 
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
 

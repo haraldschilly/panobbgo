@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 from unittest import mock
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.core import StrategyBase, Results, EventBus, Event, Module, StopHeuristic, Heuristic
 from panobbgo.lib import Point, Result
 from panobbgo.lib.classic import Rosenbrock

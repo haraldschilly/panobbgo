@@ -23,7 +23,7 @@ or falling back to penalized objective function.
 """
 
 import numpy as np
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib.classic import RosenbrockConstraint
 from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic
 from panobbgo.strategies.rewarding import StrategyRewarding

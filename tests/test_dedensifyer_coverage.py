@@ -1,5 +1,5 @@
 import numpy as np
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 from panobbgo.analyzers.dedensifyer import Dedensifyer, Box
 

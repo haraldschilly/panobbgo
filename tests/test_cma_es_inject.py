@@ -37,7 +37,7 @@ import pytest
 
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 def _strategy(seed=1234, max_eval=80, popsize=8):

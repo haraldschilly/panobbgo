@@ -5,7 +5,7 @@ from __future__ import print_function
 import numpy as np
 import pytest
 
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib import Point, Result
 
 

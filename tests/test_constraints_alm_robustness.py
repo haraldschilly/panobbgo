@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.lib.classic import RosenbrockConstraint

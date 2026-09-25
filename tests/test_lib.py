@@ -18,7 +18,7 @@ import pytest
 
 from panobbgo.lib.classic import *
 from panobbgo.lib import *
-from panobbgo.utils import expected_failure
+from tests.support import expected_failure
 
 
 def Disturbance(dim, nb=10, sd=0.001, minimum=0.0001):

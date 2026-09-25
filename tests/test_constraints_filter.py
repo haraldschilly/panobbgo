@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import unittest
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.lib.constraints import FilterConstraintHandler
 from panobbgo.lib import Result, Point
 import numpy as np

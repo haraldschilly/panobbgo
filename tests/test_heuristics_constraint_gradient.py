@@ -2,7 +2,7 @@
 import unittest
 from unittest import mock
 import numpy as np
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.lib import Point, Result, Problem
 from panobbgo.lib.constraints import DefaultConstraintHandler

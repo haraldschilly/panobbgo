@@ -1,7 +1,7 @@
 # -*- coding: utf8 -*-
 import numpy as np
 import pytest
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.strategies.contextual import StrategyLinUCB
 from panobbgo.core import Heuristic
 from panobbgo.lib import Point, Result, Problem

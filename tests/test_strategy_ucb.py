@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 from unittest import mock
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.core import Heuristic
 from panobbgo.heuristics import Random

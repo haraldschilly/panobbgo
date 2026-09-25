@@ -31,7 +31,7 @@ import numpy as np
 from panobbgo.heuristics.cobyqa import COBYQA
 from panobbgo.heuristics.lbfgsb import LBFGSB
 from panobbgo.lib import Point, Result
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 def _live(h, attr):

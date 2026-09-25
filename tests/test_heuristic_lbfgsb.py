@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 
 from panobbgo.heuristics.lbfgsb import _X0_REQUEST, LBFGSB
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 # ----------------------------------------------------------------------

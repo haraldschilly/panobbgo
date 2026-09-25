@@ -13,7 +13,7 @@ from unittest import mock
 
 import numpy as np
 
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 
 
 def _leaf(lo, hi):

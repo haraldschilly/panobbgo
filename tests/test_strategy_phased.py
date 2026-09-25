@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 import pytest
-from panobbgo.utils import PanobbgoTestCase
+from tests.support import PanobbgoTestCase
 from panobbgo.strategies.phased import StrategyPhased
 from panobbgo.strategies.round_robin import StrategyRoundRobin
 from panobbgo.strategies.rewarding import StrategyRewarding

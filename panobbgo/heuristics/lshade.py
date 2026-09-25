@@ -116,11 +116,14 @@ once.  In practice the SHADE memory adaptation is robust to this
 because the weighted Lehmer mean is invariant under the order of its
 contributing samples.
 
-Constraint handling delegates to ``strategy.constraint_handler`` exactly
-like :class:`~panobbgo.heuristics.differential_evolution.DifferentialEvolution`:
-``is_better`` for trial-vs-target competition, ``get_penalty_value`` for
-the scalar fitness used to rank pbest candidates and to weight memory
-updates by improvement magnitude.
+Constraint handling delegates to ``strategy.constraint_handler`` with one
+ordering throughout: ``is_better`` for trial-vs-target competition, the
+handler's ranking key (``rank_key``, via :meth:`LSHADE._rank_of`) to rank
+pbest candidates and the LPSR removals, and ``calculate_improvement`` to
+weight memory updates by improvement magnitude.  (Until 2026-09 the ranking
+used the scalar ``get_penalty_value``, ``fx + 100·cv`` under the default
+handler, which disagreed with ``is_better``'s feasibility-first order.  On
+unconstrained problems the two orders coincide.)
 
 References
 ----------
@@ -150,6 +153,7 @@ import numpy as np
 
 from panobbgo.core import Heuristic
 from panobbgo.lib import Point, Result
+from panobbgo.lib.constraints import result_key
 
 
 # Default tuning constants — match the values from Tanabe & Fukunaga
@@ -496,9 +500,9 @@ class LSHADE(Heuristic):
         #: ``(dim, 2)`` bounds array.
         self.warm_start_box: Any = None
         self._rng: np.random.Generator = self.derive_rng(seed)
-        # Ranking-key memo, see :meth:`_fx_of`.
-        self._fx_cache: Dict[int, float] = {}
-        self._fx_keep: List[Result] = []
+        # Ranking-key memo, see :meth:`_rank_of`.
+        self._rank_cache: Dict[int, tuple] = {}
+        self._rank_keep: List[Result] = []
 
         # Success-history memory.  Initial value 0.5 per the SHADE paper.
         self._M_F: np.ndarray = np.full(H, 0.5, dtype=float)
@@ -661,35 +665,32 @@ class LSHADE(Heuristic):
                 out.append(i)
         return out
 
-    def _fx_of(self, r: Result) -> float:
-        """Scalar fitness for ranking — falls back to ``r.fx`` if no handler.
+    def _rank_of(self, r: Result) -> tuple:
+        """Ranking key of ``r`` — the constraint handler's ``rank_key``, the
+        same order ``is_better`` uses (plain ``fx`` without a handler).
 
         Memoised per :class:`~panobbgo.lib.Result`: the population is ranked
         on every trial generation, so the same handful of results would
-        otherwise be re-penalised thousands of times per run.  Only when the
+        otherwise be re-keyed thousands of times per run.  Only when the
         handler is ``time_invariant``: results are immutable, but a dynamic
         penalty (``rho`` grows with the number of results), an epsilon level
-        or augmented-Lagrangian multipliers change the value of the *same*
-        result over time, and a memo would rank the population on stale
-        penalties.
+        or augmented-Lagrangian multipliers change the key of the *same*
+        result over time, and a memo would rank the population on stale keys.
         """
         handler = getattr(self.strategy, "constraint_handler", None)
         cacheable = handler is None or bool(getattr(handler, "time_invariant", False))
         if cacheable:
-            cached = self._fx_cache.get(id(r))
+            cached = self._rank_cache.get(id(r))
             if cached is not None:
                 return cached
-        if handler is None:
-            value = float(r.fx) if r.fx is not None else float("inf")
-        else:
-            value = handler.get_penalty_value(r)
+        value = result_key(handler, r)
         if not cacheable:
             return value
-        self._fx_cache[id(r)] = value
-        self._fx_keep.append(r)  # keep alive so ``id`` cannot be reused
-        if len(self._fx_keep) > 4 * max(self.NP_init, 1):
-            self._fx_cache.clear()
-            del self._fx_keep[:]
+        self._rank_cache[id(r)] = value
+        self._rank_keep.append(r)  # keep alive so ``id`` cannot be reused
+        if len(self._rank_keep) > 4 * max(self.NP_init, 1):
+            self._rank_cache.clear()
+            del self._rank_keep[:]
         return value
 
     def _archive_cap(self) -> int:
@@ -776,7 +777,7 @@ class LSHADE(Heuristic):
         # ``_current_p_best`` honours the optional iLSHADE / jSO linearly-
         # decreasing schedule when ``p_best_end`` is set; otherwise it is
         # the constant ``self.p_best``.
-        sorted_live = sorted(live, key=lambda i: self._fx_of(self._population[i]))  # type: ignore[arg-type]
+        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
         p_eff = self._current_p_best()
         p_count = max(int(np.ceil(p_eff * len(sorted_live))), 1)
         pbest_pool = sorted_live[:p_count]
@@ -880,7 +881,7 @@ class LSHADE(Heuristic):
             self._NP_current = target
             self._trim_archive()
             return
-        sorted_live = sorted(live, key=lambda i: self._fx_of(self._population[i]))  # type: ignore[arg-type]
+        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
         n_drop = self._NP_current - target
         for j in sorted_live[-n_drop:]:  # worst n_drop
             self._population[j] = _DROPPED  # type: ignore[assignment]
@@ -1072,7 +1073,9 @@ class LSHADE(Heuristic):
                 # Competitive trial.  Compete; loser may go to archive.
                 target = slot
                 if handler.is_better(target, r):
-                    delta = abs(self._fx_of(target) - self._fx_of(r))
+                    # Magnitude from the same ordering as the comparison
+                    # above (``> 0`` exactly when ``is_better``).
+                    delta = handler.calculate_improvement(target, r)
                     self._archive.append(np.asarray(target.x, dtype=float))
                     self._trim_archive()
                     self._population[slot_idx] = r

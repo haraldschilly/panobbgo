@@ -160,7 +160,7 @@ class TestJSOSharedPbest(PanobbgoTestCase):
         archive.on_new_results([foreign])
 
         live = h._live_indices()
-        sorted_live = sorted(live, key=lambda i: h._fx_of(h._population[i]))
+        sorted_live = sorted(live, key=lambda i: h._rank_of(h._population[i]))
         p_count = max(int(np.ceil(h._current_p_best() * len(sorted_live))), 1)
         pbest_pool = sorted_live[:p_count]
         foreign_results = archive.top_k(p_count, exclude_who=h.name)

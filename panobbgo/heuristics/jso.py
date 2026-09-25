@@ -330,7 +330,7 @@ class JSO(LSHADE):
         x_target = np.asarray(slot.x, dtype=float)
 
         # pbest: top p% of live population by fitness, with linear p_best schedule.
-        sorted_live = sorted(live, key=lambda i: self._fx_of(self._population[i]))  # type: ignore[arg-type]
+        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
         p_best = self._current_p_best()
         p_count = max(int(np.ceil(p_best * len(sorted_live))), 1)
         pbest_pool = sorted_live[:p_count]

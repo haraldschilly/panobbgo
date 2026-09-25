@@ -271,7 +271,7 @@ class NLSHADE_RSP(JSO):
         candidates = [i for i in live if i != target_idx]
         if not candidates:
             return None
-        ordered = sorted(candidates, key=lambda i: self._fx_of(self._population[i]))  # type: ignore[arg-type]
+        ordered = sorted(candidates, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
         n = len(ordered)
         positions = np.arange(n, dtype=float)
         weights = self.k_rank * (n - positions) / n + 1.0

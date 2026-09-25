@@ -1206,7 +1206,7 @@ class LSHADERegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 class LSHADEPenaltyMemoTests(_MockStrategyMixin, PanobbgoTestCase):
-    """``_fx_of`` may memoise only under a time-invariant handler."""
+    """``_rank_of`` may memoise only under a time-invariant handler."""
 
     def _result(self):
         from panobbgo.lib import Point, Result
@@ -1223,10 +1223,10 @@ class LSHADEPenaltyMemoTests(_MockStrategyMixin, PanobbgoTestCase):
         h = LSHADE(self.strategy)
         r = self._result()
         self.strategy.results = []
-        first = h._fx_of(r)  # rho = 1
+        first = h._rank_of(r)  # rho = 1
         self.strategy.results = list(range(9))
-        assert h._fx_of(r) != first  # rho = 10: the penalty of the same result moved
-        assert h._fx_of(r) == pytest.approx(1.0 + 10.0)
+        assert h._rank_of(r) != first  # rho = 10: the penalty of the same result moved
+        assert h._rank_of(r) == pytest.approx((1.0 + 10.0,))
 
     def test_time_invariant_handler_is_memoised(self):
         from unittest import mock
@@ -1235,6 +1235,25 @@ class LSHADEPenaltyMemoTests(_MockStrategyMixin, PanobbgoTestCase):
 
         h = LSHADE(self.strategy)
         r = self._result()
-        first = h._fx_of(r)
-        with mock.patch.object(type(self.strategy.constraint_handler), "get_penalty_value", return_value=-5.0):
-            assert h._fx_of(r) == first
+        first = h._rank_of(r)
+        with mock.patch.object(type(self.strategy.constraint_handler), "rank_key", return_value=(-5.0, -5.0)):
+            assert h._rank_of(r) == first
+
+
+class LSHADERankingOrderTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Regression: the population was ranked by ``fx + 100·cv`` while the
+    trial competition used ``is_better`` (feasibility first)."""
+
+    def test_rank_agrees_with_is_better(self):
+        from panobbgo.heuristics.jso import JSO
+        from panobbgo.heuristics.lshade import LSHADE
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+        from panobbgo.lib import Point, Result
+
+        infeasible = Result(Point(np.zeros(2), "t"), -1000.0, cv_vec=np.array([1.0]))
+        feasible = Result(Point(np.ones(2), "t"), 0.0, cv_vec=np.array([0.0]))
+        handler = self.strategy.constraint_handler
+        assert handler.is_better(infeasible, feasible)
+        for cls in (LSHADE, JSO, NLSHADE_RSP):
+            h = cls(self.strategy)
+            assert h._rank_of(feasible) < h._rank_of(infeasible)

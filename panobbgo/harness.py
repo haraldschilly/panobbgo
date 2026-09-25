@@ -154,7 +154,7 @@ def _make_quick_problems() -> List[ProblemSpec]:
 
 
 def _make_standard_problems() -> List[ProblemSpec]:
-    """Eight representative problems across easy/medium/hard."""
+    """Seven representative problems (six 2-D, one 5-D) across easy/medium/hard."""
     from panobbgo.lib.classic import (
         Rosenbrock,
         Rastrigin,
@@ -1438,8 +1438,9 @@ def statistical_accept(
             Default ``0.05``.
         n_boot: Number of bootstrap resamples.  Default ``10_000``.
         confidence: Confidence level for the bootstrap CI.  Default ``0.95``.
-        seed: Base RNG seed (derived per-pair via SHA-256 for independence).
-            Default ``42``.
+        seed: Seed of the single ``numpy.random.default_rng`` stream that
+            every pair's bootstrap resamples draw from, in sorted pair
+            order.  Default ``42``.
         paired: Bootstrap scheme for per-pair CIs.  Under
             ``--randomize`` (and any other run topology where reps are
             instance-aligned by index — same ``base_seed`` /

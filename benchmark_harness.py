@@ -450,8 +450,9 @@ def build_parser() -> argparse.ArgumentParser:
             " (Rosenbrock_HighDim, dim_choices=(2, 5)) to the randomized"
             " battery.  Only effective with --randomize.  Leaves the frozen"
             " 2-D default battery — and thus the historical composite"
-            " baseline — untouched; use --metric aocc for a responsive"
-            " signal on this hard family."
+            " baseline — untouched.  For a responsive signal in higher"
+            " dimensions use the AOCC track (scripts/ioh_benchmark.py run"
+            " --highdim)."
         ),
     )
     run_p.add_argument(
@@ -609,14 +610,14 @@ def _add_mode_group(parser: argparse.ArgumentParser) -> None:
         dest="mode",
         action="store_const",
         const="standard",
-        help="Standard mode: 8 problems, 3 strategies, 200 evals",
+        help="Standard mode: 7 problems, 8 strategies, 200 evals",
     )
     grp.add_argument(
         "--full",
         dest="mode",
         action="store_const",
         const="full",
-        help="Full mode: all problems and strategies, 500 evals",
+        help="Full mode: 10 problems, 12 strategies, 500 evals",
     )
     grp.add_argument(
         "--mode",

@@ -215,7 +215,7 @@ Implemented Heuristics
 
 **Model-based (surrogate):**
 
-- :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel`: Weighted least-squares quadratic surrogate
+- :class:`~panobbgo.heuristics.quadratic_wls.QuadraticWlsModel`: Weighted least-squares quadratic surrogate
 - :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic`: Gaussian Process surrogate with EI / UCB / PI
   acquisition functions (scikit-learn backend).  Supports constrained Expected Improvement (EIC)
   when the problem has active constraint violations.  Gold standard for expensive black-box

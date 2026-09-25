@@ -58,7 +58,7 @@ Bayesian Optimization
 **Panobbgo implementation**: :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic`
 fits a Matérn-5/2 GP via scikit-learn and optimises EI / UCB / PI acquisition functions.  Uses
 Constrained Expected Improvement (EIC) automatically when the problem has active constraint
-violations.  :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel` is retained as a
+violations.  :class:`~panobbgo.heuristics.quadratic_wls.QuadraticWlsModel` is retained as a
 faster, less accurate quadratic surrogate alternative.
 
 **Trade-offs**:

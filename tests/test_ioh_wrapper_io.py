@@ -113,6 +113,32 @@ def test_hung_worker_times_out_and_is_killed(fake_worker):
     p.close()
 
 
+def test_eval_racing_close_finds_the_worker_gone(fake_worker):
+    """``close`` wins the call lock first: the evaluation says "not running".
+
+    The running check used to sit outside the lock, so ``_release_to_pool``
+    could clear ``_proc`` between it and the write, and the evaluation died
+    with ``AttributeError: 'NoneType' object has no attribute 'stdin'``.
+    """
+    wd = fake_worker("ok")
+    p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    real = p._lock
+
+    class CloseWinsTheLock:
+        def __enter__(self):
+            p._lock = real
+            p.close()  # releases the healthy worker to the pool: _proc = None
+            real.acquire()
+
+        def __exit__(self, *exc):
+            real.release()
+
+    p._lock = CloseWinsTheLock()
+    with pytest.raises(RuntimeError, match="not running"):
+        p.eval(np.zeros(2))
+    assert p._proc is None
+
+
 def test_call_timeout_bounds_a_round_trip_without_any_deadline(fake_worker):
     wd = fake_worker("hang")
     p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd, call_timeout=0.5)

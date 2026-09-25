@@ -467,14 +467,18 @@ class IOHProblem(Problem):
                     pass
 
     def _call(self, cmd: str, **kwargs: Any) -> Dict[str, Any]:
-        if self._proc is None or self._proc.poll() is not None:
-            raise RuntimeError("IOH worker is not running")
         msg = {"cmd": cmd, **kwargs}
         line = json.dumps(msg)
         with self._lock:
-            assert self._proc.stdin is not None and self._proc.stdout is not None
-            self._proc.stdin.write((line + "\n").encode("utf-8"))
-            self._proc.stdin.flush()
+            # Checked under the lock: ``_release_to_pool`` (from ``close``)
+            # clears ``_proc`` under it, so a racing evaluation finds the
+            # worker gone here instead of an ``AttributeError`` on ``None``.
+            proc = self._proc
+            if proc is None or proc.poll() is not None:
+                raise RuntimeError("IOH worker is not running")
+            assert proc.stdin is not None and proc.stdout is not None
+            proc.stdin.write((line + "\n").encode("utf-8"))
+            proc.stdin.flush()
             try:
                 resp_line = self._readline()
             except TimeoutError:

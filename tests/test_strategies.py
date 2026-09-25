@@ -453,20 +453,22 @@ class TestFrameworkValidation(PanobbgoTestCase):
         errors = base._validate_config()
         self.assertTrue(any("max_eval must be positive" in error for error in errors))
 
-    def test_config_validation_max_eval_too_high(self):
-        """Test config validation for unreasonably high max_eval."""
+    def test_config_validation_max_eval_large_is_a_warning(self):
+        """A very large max_eval is unusual, not invalid: warn, do not fail."""
         from panobbgo.core import StrategyBase
 
         base = StrategyBase(self.problem, parse_args=False)
         mock_config = mock.MagicMock()
-        mock_config.max_eval = 200000  # Too high
+        mock_config.max_eval = 200000
         mock_config.discount = 0.95
         mock_config.smooth = 0.5
         mock_config.evaluation_method = "threaded"
         base.config = mock_config
 
-        errors = base._validate_config()
-        self.assertTrue(any("seems unreasonably high" in error for error in errors))
+        with mock.patch.object(base.logger, "warning") as warn:
+            errors = base._validate_config()
+        self.assertEqual(errors, [])
+        warn.assert_called_once()
 
     def test_config_validation_discount_invalid(self):
         """Test config validation for invalid discount."""

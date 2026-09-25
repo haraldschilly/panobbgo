@@ -15,9 +15,8 @@ class TestCoreStrategyBase(PanobbgoTestCase):
         errors = strategy._validate_config()
         assert any("max_eval must be positive" in e for e in errors)
 
-        strategy.config.max_eval = 200000
-        errors = strategy._validate_config()
-        assert any("seems unreasonably high" in e for e in errors)
+        strategy.config.max_eval = 200000  # large is a warning, not an error
+        assert strategy._validate_config() == []
 
         strategy.config.max_eval = "abc"
         errors = strategy._validate_config()
@@ -316,6 +315,18 @@ def test_heuristic_subprocess_stop_terminates_the_worker(strategy):
     h.__stop__()
     assert not proc.is_alive()
     assert h.pipe.closed and h.pipe_child.closed
+
+
+def test_unknown_strategy_kwarg_is_a_type_error():
+    """``max_evals=`` (typo) used to be dropped silently."""
+    from panobbgo.strategies import StrategyRoundRobin, StrategyUCB
+
+    with pytest.raises(TypeError, match="max_evals"):
+        StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, max_evals=10)
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, max_eval=10, rho=5.0)
+    assert s.config.max_eval == 10 and s.config.rho == 5.0
+    # ucb_c was one of the silently ignored ones.
+    assert StrategyUCB(Rosenbrock(dim=2), parse_args=False, testing_mode=True, ucb_c=0.2).ucb_c == 0.2
 
 
 def test_unstarted_strategy_owns_no_eventbus_thread():

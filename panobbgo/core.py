@@ -1609,6 +1609,11 @@ def _process_worker_eval(point: "Point") -> Any:
     return _WORKER_PROBLEM(point)
 
 
+def _config_keys(config: Any) -> set:
+    """Public, non-callable attributes of a :class:`Config` — the settable keys."""
+    return {k for k, v in vars(config).items() if not k.startswith("_") and not callable(v)}
+
+
 class _DirectEvaluators:
     """View of the in-process evaluation backend (threads or subprocesses).
 
@@ -1688,10 +1693,18 @@ class StrategyBase:
         #: from it via :meth:`spawn_rng` in construction order.
         self.rng: np.random.Generator = np.random.default_rng(self.seed)
 
-        # Apply remaining kwargs to config if they match existing config attributes
+        # Remaining kwargs override config attributes; anything else is a
+        # typo (``max_evals=``) that used to be dropped silently.
+        valid = _config_keys(self.config)
+        unknown = sorted(k for k in kwargs if k not in valid)
+        if unknown:
+            raise TypeError(
+                "%s got unexpected keyword argument(s) %s. Valid: max_eval, max_evaluations, seed, "
+                "the strategy's own parameters, or a config attribute: %s"
+                % (name, ", ".join(unknown), ", ".join(sorted(valid)))
+            )
         for k, v in kwargs.items():
-            if hasattr(self.config, k):
-                setattr(self.config, k, v)
+            setattr(self.config, k, v)
 
         self.logger = logger = config.get_logger("STRAT")
         self.slogger = config.get_logger("STATS")
@@ -2007,8 +2020,9 @@ class StrategyBase:
             max_eval = int(self.config.max_eval)
             if max_eval <= 0:
                 errors.append(f"max_eval must be positive, got {max_eval}")
-            elif max_eval > 100000:  # Reasonable upper bound
-                errors.append(f"max_eval ({max_eval}) seems unreasonably high. Consider values < 100,000")
+            elif max_eval > 100000:
+                # Unusual for an expensive black box, but not invalid.
+                self.logger.warning(f"max_eval ({max_eval}) is very large for expensive black-box optimisation.")
         except (ValueError, TypeError):
             errors.append(f"max_eval must be a valid integer, got {self.config.max_eval}")
 
@@ -2134,9 +2148,7 @@ class StrategyBase:
         self._problem = problem
 
         # Determine number of threads
-        self._n_processes = (
-            self.config.dask_n_workers if hasattr(self.config, "dask_n_workers") else multiprocessing.cpu_count()
-        )
+        self._n_processes = int(self.config.dask_n_workers)
 
         # Create thread pool
         self._thread_pool = ThreadPoolExecutor(max_workers=int(self._n_processes))

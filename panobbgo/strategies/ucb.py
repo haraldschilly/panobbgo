@@ -20,7 +20,10 @@ class StrategyUCB(StrategyBase):
     - Value Q_t(a): Average reward per point generated.
     """
 
-    def __init__(self, problem, **kwargs):
+    def __init__(self, problem, ucb_c: float = 1.414, **kwargs):
+        #: Exploration weight ``c`` (default ≈ √2).  Was read from a config
+        #: key that does not exist, so ``StrategyUCB(ucb_c=...)`` was ignored.
+        self.ucb_c = float(ucb_c)
         self.last_best = None
         self.total_selections = 0
         StrategyBase.__init__(self, problem, **kwargs)
@@ -83,13 +86,7 @@ class StrategyUCB(StrategyBase):
         target = self.jobs_per_client * len(self.evaluators)
 
         if len(self.evaluators.outstanding) < target:
-            # UCB Parameter c (exploration weight)
-            # Default to sqrt(2) approx 1.414
-            c_val = getattr(self.config, "ucb_c", 1.414)
-            try:
-                c = float(c_val)  # type: ignore
-            except (ValueError, TypeError):
-                c = 1.414
+            c = self.ucb_c  # exploration weight
 
             def until(points, target):
                 return len(self.evaluators.outstanding) + len(points) >= target

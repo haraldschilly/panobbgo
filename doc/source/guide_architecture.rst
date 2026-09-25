@@ -688,21 +688,26 @@ Function evaluations can run in parallel using different engines:
 
    # Start local cluster with 4 workers
    dask scheduler &
-   dask worker localhost:8786 --nprocs 4 &
+   dask worker localhost:8786 --nworkers 4 &
 
 Configuration
 ~~~~~~~~~~~~~
 
-Parallelism parameters in ``config.yaml`` or ``~/.panobbgo/config.ini``:
+The evaluation and Dask settings are read from ``config.yaml`` in the
+working directory only; ``~/.panobbgo/config.ini`` has no section for them.
 
 .. code-block:: yaml
 
    evaluation:
      method: threaded  # or 'processes' or 'dask'
      timeout: 60       # optional: seconds of *running* time per evaluation
-     # Dask specific configuration
-     dask:
-       address: localhost:8786
+   dask:               # top level, not under 'evaluation'
+     cluster_type: remote   # 'local' (default) starts a LocalCluster
+     remote:
+       scheduler_address: tcp://localhost:8786
+     local:                 # used when cluster_type is 'local'
+       n_workers: 2
+       threads_per_worker: 1
 
 ``processes`` evaluates in a pool of spawned worker processes
 (:mod:`panobbgo.local_pool`): the problem must be picklable, and the script
@@ -713,11 +718,13 @@ workers and is not visible on the caller's object.  An evaluation past
 ``timeout`` has its worker killed; a worker that crashes fails only its own
 evaluation.  Both still count against ``max_eval``.
 
+The heuristic queue size can be set in either file (YAML
+``heuristic: capacity: 20``, or in ``config.ini``):
+
 .. code-block:: ini
 
-   [optimization]
-   queue_capacity = 20      # Heuristic queue size
-
+   [heuristic]
+   capacity = 20      # Heuristic queue size
 
 Extension Points
 ----------------

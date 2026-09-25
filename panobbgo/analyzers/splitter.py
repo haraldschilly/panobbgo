@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -324,11 +324,39 @@ class Splitter(Analyzer):
         with self._new_result:
             return self.result2leaf.get(result)
 
+    def _is_better(self, incumbent, challenger):
+        """``True`` if result ``challenger`` beats ``incumbent`` under the
+        strategy's constraint handler (plain ``fx`` without one)."""
+        ch = getattr(self.strategy, "constraint_handler", None)
+        if ch:
+            return bool(ch.is_better(incumbent, challenger))
+        if challenger.fx is None or incumbent.fx is None:
+            return False
+        return challenger.fx < incumbent.fx
+
     def on_new_results(self, results):
+        changed = False
         with self._new_result:
             for result in results:
                 self.root += result
+                # Keep ``best_box`` current between splits: a result that
+                # beats the incumbent's best makes its own leaf the best box.
+                # (``on_new_split`` only re-targets among a split box's
+                # children, so without this the box went stale — and was
+                # ``None`` until the first split.)
+                leaf = self.result2leaf.get(result)
+                if leaf is None or leaf.best is None or leaf is self.best_box:
+                    continue
+                if (
+                    self.best_box is None
+                    or self.best_box.best is None
+                    or self._is_better(self.best_box.best, leaf.best)
+                ):
+                    self.best_box = leaf
+                    changed = True
             self._new_result.notify_all()
+        if changed:
+            self.eventbus.publish("new_best_box", best_box=self.best_box)
         # logger.info("leafs: %s" % map(lambda x:(x.depth, len(x)), self.leafs))
         # logger.info("point %s in boxes: %s" % (result.x, self.get_all_boxes(result)))
         # logger.info("point %s in leaf: %s" % (result.x, self.get_leaf(result)))

@@ -193,9 +193,11 @@ class StrategyPhased(StrategyBase):
 
             for heur_cls, heur_kwargs in cfg["heuristics"]:
                 h = heur_cls(self, **heur_kwargs)
-                # Deduplicate: if the same heuristic name already exists
-                # (e.g., same class used across phases), add to this phase's set
-                if h.name not in self._heuristics:
+                # Deduplicate: a heuristic listed in several phases (same name)
+                # is one module shared by those phases; the first instance
+                # wins.  Checked against ``_hs`` — ``_heuristics`` is only
+                # filled by StrategyBase.start() below.
+                if h.name not in {x.name for x in self._hs}:
                     self._hs.append(h)
                 phase_names.add(h.name)
 

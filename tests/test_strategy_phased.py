@@ -288,6 +288,35 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
         assert "phase" in info
 
 
+class TestStrategyPhasedSharedHeuristic(PanobbgoTestCase):
+    def test_heuristic_listed_in_two_phases_runs(self):
+        """Regression: the same heuristic in two phases raised a duplicate-name ValueError."""
+        problem = TrackingProblem()
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 40,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Shared"}), (SimpleHeuristic, {"name": "H_A"})],
+                },
+                {
+                    "strategy": (StrategyUCB, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_Shared"}), (SimpleHeuristic, {"name": "H_B"})],
+                },
+            ],
+            parse_args=False,
+            seed=1,
+        )
+        strategy.config.max_eval = 60
+        strategy.config.sync_evaluation = True
+        strategy.config.stop_on_convergence = False
+        strategy.start()
+        assert sorted(h.name for h in strategy.heuristics) == ["H_A", "H_B", "H_Shared"]
+        assert "H_Shared" in strategy._phase_heuristic_names[0] and "H_Shared" in strategy._phase_heuristic_names[1]
+        assert problem.call_counts.get("H_B", 0) > 0
+
+
 class TestStrategyPhasedLinUCB(PanobbgoTestCase):
     """A LinUCB phase must learn (regression: its A/b stayed I/0 for the whole phase)."""
 

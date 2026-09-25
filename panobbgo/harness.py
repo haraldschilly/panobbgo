@@ -763,7 +763,9 @@ class RunRecord:
         convergence: Ordered list of improvement events.
         heuristic_counts: Map from heuristic name to evaluation count.
         duration: Wall-clock time in seconds.
-        error: Error message if the run failed, else ``None``.
+        error: Error message if the run failed, else ``None``.  A run cut
+            off at ``timeout_per_run`` that stopped cleanly carries
+            ``"Run timed out after ..."`` here but keeps its measurements.
     """
 
     problem_name: str
@@ -1973,6 +1975,9 @@ class BenchmarkHarness:
             # because SIGALRM can corrupt state in threaded evaluation workers.
             timeout = self.config.timeout_per_run
             run_error: Optional[Exception] = None
+            # Set when the run was cut off at its deadline but stopped
+            # cleanly: its evaluations up to the stop are still scored.
+            timeout_note: Optional[str] = None
 
             def _run_strategy() -> None:
                 nonlocal run_error
@@ -2015,9 +2020,12 @@ class BenchmarkHarness:
                     raise TimeoutError(
                         f"Run timed out after {timeout:.0f}s and hung (did not stop within {grace:.0f}s)"
                     )
-                raise TimeoutError(f"Run timed out after {timeout:.0f}s")
+                # Stopped cleanly: the results it produced until the stop
+                # are complete, so they are scored (a tolerance hit at eval
+                # 5 still counts) and the error only marks the cut-off.
+                timeout_note = f"Run timed out after {timeout:.0f}s"
 
-            if run_error is not None:
+            if run_error is not None and timeout_note is None:
                 raise run_error
 
             # Best result
@@ -2072,7 +2080,7 @@ class BenchmarkHarness:
                 convergence=convergence,
                 heuristic_counts=heuristic_counts,
                 duration=duration,
-                error=None,
+                error=timeout_note,
             )
             # Success is "tolerance met within the budget", the same event
             # the score and ERT are computed from — not ``strategy.best``,

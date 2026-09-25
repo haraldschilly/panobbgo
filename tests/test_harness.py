@@ -1099,6 +1099,45 @@ class TestHarnessTimeout:
         time.sleep(0.1)
         assert len(strategy.results) == n < 50000
 
+    def test_timed_out_run_keeps_what_it_measured(self):
+        """A run cut off at its deadline still scores the evaluations it made."""
+        import time
+
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.heuristics import Random
+        from panobbgo.lib import Point
+        from panobbgo.strategies import StrategyRoundRobin
+
+        class OptimumThenSlow(StrategyRoundRobin):
+            calls = 0
+
+            def execute(self):
+                self.calls += 1
+                if self.calls == 1:
+                    return [Point(np.zeros(2), "Hit")]
+                time.sleep(0.02)
+                return [Point(np.full(2, 3.0), "Far")]
+
+        spec = StrategySpec(name="OptimumThenSlow", strategy_class=OptimumThenSlow, heuristics=[(Random, {})])
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=50000,
+            reps=1,
+            seed=0,
+            timeout_per_run=0.5,
+            sync_eval=True,
+            strategies_override=[spec],
+        )
+        result = BenchmarkHarness(cfg).run(verbose=False)
+        (run,) = _flat_runs(result)
+        assert run.error is not None and "timed out" in run.error and "hung" not in run.error
+        assert run.evaluations_used >= 1
+        assert run.first_success_eval == 1
+        assert run.success
+        assert run.best_fx == pytest.approx(0.0)
+        assert result.composite_score > 0.0
+
 
 class TestHarnessProblemDim:
     def test_mixed_dim_family_records_actual_dim(self):

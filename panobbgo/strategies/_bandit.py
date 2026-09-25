@@ -1,0 +1,236 @@
+# -*- coding: utf8 -*-
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Bandit selection policies shared by the strategies
+==================================================
+
+The per-heuristic statistics, the one-pull selectors and the reward rules of
+:class:`~.ucb.StrategyUCB`, :class:`~.thompson.StrategyThompsonSampling`,
+:class:`~.contextual.StrategyLinUCB` and :class:`~.rewarding.StrategyRewarding`.
+:class:`~.phased.StrategyPhased` runs the same policies inside a phase, so both
+call these functions instead of keeping two copies.
+
+A *selector* returns ``None`` when there is no heuristic to ask (the stop signal
+of :meth:`~panobbgo.core.StrategyBase._collect_points_safely`), else the points
+of one pull (possibly empty).  Selectors that count pulls update
+``owner.total_selections``.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+#: Context dimension of LinUCB: (bias, budget progress, recent success rate).
+LINUCB_DIM = 3
+
+
+# ── Per-heuristic statistics ──
+
+
+def init_ucb(h) -> None:
+    """Fresh UCB1 statistics: points generated and accumulated reward."""
+    h.ucb_count = 0
+    h.ucb_total_reward = 0.0
+
+
+def init_thompson(h) -> None:
+    """Fresh Beta(1, 1) Thompson statistics."""
+    h.ts_counts = 0
+    h.ts_total_reward = 0.0
+    h.ts_alpha = 1.0
+    h.ts_beta = 1.0
+
+
+def init_linucb(h, d: int = LINUCB_DIM) -> None:
+    """Fresh disjoint-LinUCB model: ``A = I``, ``b = 0``."""
+    h.linucb_A = np.eye(d)
+    h.linucb_b = np.zeros(d)
+    h.linucb_A_inv = np.eye(d)
+
+
+# ── Rewards ──
+
+
+def improvement_reward(constraint_handler, last_best, best) -> float:
+    """``1 - exp(-improvement)`` of *best* over *last_best*; 1.0 for the first best."""
+    if last_best is None:
+        return 1.0
+    improvement = constraint_handler.calculate_improvement(last_best, best)
+    return 1.0 - np.exp(-1.0 * improvement)
+
+
+def discount_factor(val) -> float:
+    """``float(val)``, or 0.95 when *val* is ``None`` or not a number."""
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.95
+
+
+def near_best_rewards(constraint_handler, problem, last_best, results):
+    """Yield ``(result, reward)`` for feasible results close in value to *last_best*.
+
+    The legacy Rewarding credit: a result within 10 % of the best value earns
+    up to 0.1, more the farther it lies from the best point (normalised by the
+    box ranges).  Results better than *last_best* and rewards ≤ 0.001 are
+    skipped.
+    """
+    ranges = problem.ranges
+    safe_ranges = np.where(ranges == 0, 1.0, ranges)
+    for r in results:
+        if constraint_handler.is_better(last_best, r):
+            continue  # a new best: credited by on_new_best
+        if not (last_best.cv == 0 and r.cv == 0):
+            continue
+        diff = abs(r.fx - last_best.fx)
+        denom = abs(last_best.fx) if abs(last_best.fx) > 1e-9 else 1.0
+        rel_diff = diff / denom
+        if rel_diff > 0.1:
+            continue
+        # 1 at equal value, 0.5 at 10 % off
+        value_score = 1.0 / (1.0 + 10.0 * rel_diff)
+        # Reward distance from the best: other optima of similar value
+        dist = np.linalg.norm((r.x - last_best.x) / safe_ranges)
+        spatial_factor = 1.0 - np.exp(-10.0 * dist)
+        reward = value_score * spatial_factor * 0.1
+        if reward > 0.001:
+            yield r, reward
+
+
+# ── Selectors ──
+
+
+def collect_pulls(strategy, selector, count_outstanding: bool = True) -> list:
+    """Fill *strategy*'s evaluator queue by repeated calls of ``selector(target)``.
+
+    ``target = jobs_per_client × evaluators``; nothing is pulled while that
+    many evaluations are outstanding.  With *count_outstanding* the
+    collection stops once outstanding plus collected points reach the target
+    (one-point pulls), otherwise once the collected points alone do.
+    """
+    target = strategy.jobs_per_client * len(strategy.evaluators)
+    if len(strategy.evaluators.outstanding) >= target:
+        return []
+
+    def until(points, target):
+        return len(strategy.evaluators.outstanding) + len(points) >= target
+
+    return strategy._collect_points_safely(target, lambda: selector(target), until=until if count_outstanding else None)
+
+
+def ucb_select(owner, heurs, c: float):
+    """One UCB1 pull: ask heuristics by ``Q + c·sqrt(ln N / n)`` (unpulled first)."""
+    if not heurs:
+        return None
+    scores = []
+    for h in heurs:
+        if not hasattr(h, "ucb_count"):
+            init_ucb(h)
+        if h.ucb_count == 0:
+            score = float("inf")  # force exploration of unselected arms
+        else:
+            average_reward = h.ucb_total_reward / h.ucb_count
+            exploration_term = c * np.sqrt(np.log(max(1, owner.total_selections)) / h.ucb_count)
+            score = average_reward + exploration_term
+        scores.append((score, h))
+    scores.sort(key=lambda x: x[0], reverse=True)
+    for _score, h in scores:
+        new_points = h.produce(1)
+        if new_points:
+            # Counted now: a pull that never becomes a best lowers Q.
+            h.ucb_count += len(new_points)
+            owner.total_selections += len(new_points)
+            return new_points
+    return []
+
+
+def thompson_select(owner, heurs, rng):
+    """One Thompson pull: sample ``θ ~ Beta(1 + reward, 1 + failures)`` per heuristic."""
+    if not heurs:
+        return None
+    samples = []
+    for h in heurs:
+        if not hasattr(h, "ts_counts"):
+            h.ts_counts = 0
+            h.ts_total_reward = 0.0
+        alpha = 1.0 + h.ts_total_reward
+        beta = 1.0 + max(0.0, h.ts_counts - h.ts_total_reward)
+        h.ts_alpha = alpha
+        h.ts_beta = beta
+        samples.append((rng.beta(alpha, beta), h))
+    samples.sort(key=lambda x: x[0], reverse=True)
+    for _theta, h in samples:
+        new_points = h.produce(1)
+        if new_points:
+            # Attempts count at once: beta grows until the reward comes back,
+            # which balances exploration in the asynchronous setting.
+            h.ts_counts += len(new_points)
+            owner.total_selections += len(new_points)
+            return new_points
+    return []
+
+
+def linucb_context(n_results: int, max_eval, recent_rewards) -> np.ndarray:
+    """The LinUCB context ``[1, budget progress, recent success rate]``."""
+    max_evals = float(max_eval) if max_eval else 1000.0
+    feat_progress = min(1.0, n_results / max_evals)
+    if recent_rewards:
+        feat_success = sum(1 for r in recent_rewards if r > 0) / len(recent_rewards)
+    else:
+        feat_success = 0.0
+    return np.array([1.0, feat_progress, feat_success])
+
+
+def linucb_select(heurs, context: np.ndarray, alpha: float, d: int = LINUCB_DIM):
+    """One LinUCB pull by ``xᵀθ + α·sqrt(xᵀA⁻¹x)``; the points carry *context*."""
+    if not heurs:
+        return None
+    scores = []
+    for h in heurs:
+        if not hasattr(h, "linucb_A"):
+            init_linucb(h, d)
+        theta = h.linucb_A_inv @ h.linucb_b
+        mean = context @ theta
+        variance = context @ h.linucb_A_inv @ context
+        scores.append((mean + alpha * np.sqrt(variance), h))
+    scores.sort(key=lambda x: x[0], reverse=True)
+    for _score, h in scores:
+        new_points = h.produce(1)
+        if new_points:
+            for p in new_points:
+                p.context_vector = context
+            return new_points
+    return []
+
+
+def rewarding_select(heurs, target: int, smooth: float, discount):
+    """One legacy Rewarding round: each heuristic emits ∝ ``performance + smooth``.
+
+    Every emitted point multiplies the emitter's ``performance`` by
+    :func:`discount_factor` of *discount*.
+    """
+    if not heurs:
+        return None
+    batch = []
+    perf_sum = sum(h.performance for h in heurs)
+    for h in heurs:
+        prob = (h.performance + smooth) / (perf_sum + smooth * len(heurs))
+        nb_h = max(1, round(target * prob))
+        h_pts = h.produce(nb_h)
+        if h_pts:
+            h.performance *= discount_factor(discount) ** len(h_pts)
+            batch.extend(h_pts)
+    return batch

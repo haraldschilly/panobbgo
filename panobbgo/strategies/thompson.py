@@ -2,7 +2,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 
-# Copyright 2025 Panobbgo Contributors
+# Copyright 2025-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from __future__ import unicode_literals
 # limitations under the License.
 
 from panobbgo.core import StrategyBase
-import numpy as np
+from panobbgo.strategies._bandit import collect_pulls, improvement_reward, init_thompson, thompson_select
 
 
 class StrategyThompsonSampling(StrategyBase):
@@ -45,13 +45,7 @@ class StrategyThompsonSampling(StrategyBase):
 
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
-        # Initialize Thompson Sampling statistics
-        h.ts_counts = 0  # Number of points generated (Attempts)
-        h.ts_total_reward = 0.0  # Accumulated reward (Successes)
-
-        # Initialize derived parameters for logging/debugging
-        h.ts_alpha = 1.0
-        h.ts_beta = 1.0
+        init_thompson(h)
 
     def reward(self, best):
         """
@@ -63,18 +57,7 @@ class StrategyThompsonSampling(StrategyBase):
         Returns:
             float: Reward value in [0, 1]
         """
-        if self.last_best is None:
-            # First point found is treated as a baseline success (max reward)
-            return 1.0
-
-        # Calculate improvement using constraint handler logic
-        improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
-
-        # Bounded reward in [0, 1] based on improvement magnitude
-        # improvement is >= 0
-        reward = 1.0 - np.exp(-1.0 * improvement)
-
-        return reward
+        return improvement_reward(self.constraint_handler, self.last_best, best)
 
     def on_new_best(self, best):
         """
@@ -122,60 +105,4 @@ class StrategyThompsonSampling(StrategyBase):
         return info
 
     def execute(self):
-        points = []
-        target = self.jobs_per_client * len(self.evaluators)
-
-        if len(self.evaluators.outstanding) < target:
-
-            def until(points, target):
-                return len(self.evaluators.outstanding) + len(points) >= target
-
-            def selector():
-                heurs = self.heuristics
-                if not heurs:
-                    return None
-
-                # Sample from Beta for all heuristics
-                samples = []
-                for h in heurs:
-                    # Ensure initialization
-                    if not hasattr(h, "ts_counts"):
-                        h.ts_counts = 0
-                        h.ts_total_reward = 0.0
-
-                    # Calculate parameters dynamically
-                    # alpha = 1 + successes
-                    alpha = 1.0 + h.ts_total_reward
-                    # beta = 1 + failures = 1 + (attempts - successes)
-                    beta = 1.0 + max(0.0, h.ts_counts - h.ts_total_reward)
-
-                    # Store for inspection
-                    h.ts_alpha = alpha
-                    h.ts_beta = beta
-
-                    # Sample theta
-                    theta = self.rng.beta(alpha, beta)
-                    samples.append((theta, h))
-
-                # Sort by sampled value (highest first)
-                samples.sort(key=lambda x: x[0], reverse=True)
-
-                for theta, h in samples:
-                    # Request points from the selected heuristic
-                    new_points = h.produce(1)
-                    if new_points:
-                        count = len(new_points)
-                        # Update selection stats (attempts)
-                        h.ts_counts += count
-                        self.total_selections += count
-
-                        # Note: We update attempts immediately.
-                        # This increases beta (failures) until reward comes back.
-                        # This naturally handles exploration/exploitation balance in async setting.
-                        return new_points
-
-                return []
-
-            points = self._collect_points_safely(target, selector, until=until)
-
-        return points
+        return collect_pulls(self, lambda _target: thompson_select(self, self.heuristics, self.rng))

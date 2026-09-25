@@ -34,9 +34,42 @@ from __future__ import annotations
 
 import time as time_module
 
-import numpy as np
-
 from panobbgo.core import StrategyBase
+from panobbgo.strategies._bandit import (
+    collect_pulls,
+    improvement_reward,
+    init_linucb,
+    init_thompson,
+    init_ucb,
+    linucb_context,
+    linucb_select,
+    near_best_rewards,
+    rewarding_select,
+    thompson_select,
+    ucb_select,
+)
+from panobbgo.strategies.contextual import StrategyLinUCB
+from panobbgo.strategies.rewarding import StrategyRewarding
+from panobbgo.strategies.round_robin import StrategyRoundRobin
+from panobbgo.strategies.thompson import StrategyThompsonSampling
+from panobbgo.strategies.ucb import StrategyUCB
+
+#: Selection policy of a phase, by its strategy class (first match wins).
+_POLICIES = (
+    (StrategyRoundRobin, "round_robin"),
+    (StrategyLinUCB, "linucb"),
+    (StrategyThompsonSampling, "thompson"),
+    (StrategyUCB, "ucb"),
+    (StrategyRewarding, "rewarding"),
+)
+
+
+def _policy(strat_cls) -> str | None:
+    """The selection policy *strat_cls* stands for, or ``None`` if it has none."""
+    for cls, name in _POLICIES:
+        if issubclass(strat_cls, cls):
+            return name
+    return None
 
 
 class StrategyPhased(StrategyBase):
@@ -192,39 +225,16 @@ class StrategyPhased(StrategyBase):
     def _init_phase_stats(self, phase_idx):
         """Initialize/reset selection statistics for a phase's heuristics."""
         info = self._phase_strategy_info[phase_idx]
-        strat_cls = info["cls"]
         names = self._phase_heuristic_names[phase_idx]
         self.total_selections = 0
 
-        # Import strategy classes for isinstance checks
-        from panobbgo.strategies.contextual import StrategyLinUCB
-        from panobbgo.strategies.rewarding import StrategyRewarding
-        from panobbgo.strategies.thompson import StrategyThompsonSampling
-        from panobbgo.strategies.ucb import StrategyUCB
-
         for h in self.heuristics:
-            if h.name not in names:
-                continue
-
-            if issubclass(strat_cls, StrategyRewarding):
-                h.performance = 1.0
-            elif issubclass(strat_cls, StrategyUCB):
-                h.ucb_count = 0
-                h.ucb_total_reward = 0.0
-            elif issubclass(strat_cls, StrategyThompsonSampling):
-                h.ts_counts = 0
-                h.ts_total_reward = 0.0
-                h.ts_alpha = 1.0
-                h.ts_beta = 1.0
-            elif issubclass(strat_cls, StrategyLinUCB):
-                d = 3  # context dimension
-                h.linucb_A = np.eye(d)
-                h.linucb_b = np.zeros(d)
-                h.linucb_A_inv = np.eye(d)
+            if h.name in names:
+                self._init_phase_heuristic(h, phase_idx)
 
         # Reset phase-level state
         info["state"] = {}
-        if issubclass(strat_cls, StrategyLinUCB):
+        if _policy(info["cls"]) == "linucb":
             info["state"]["recent_rewards"] = []
 
     def add_heuristic(self, h):
@@ -238,29 +248,15 @@ class StrategyPhased(StrategyBase):
 
     def _init_phase_heuristic(self, h, phase_idx):
         """Initialize a single heuristic's selection stats for a given phase."""
-        info = self._phase_strategy_info[phase_idx]
-        strat_cls = info["cls"]
-
-        from panobbgo.strategies.contextual import StrategyLinUCB
-        from panobbgo.strategies.rewarding import StrategyRewarding
-        from panobbgo.strategies.thompson import StrategyThompsonSampling
-        from panobbgo.strategies.ucb import StrategyUCB
-
-        if issubclass(strat_cls, StrategyRewarding):
+        policy = _policy(self._phase_strategy_info[phase_idx]["cls"])
+        if policy == "rewarding":
             h.performance = 1.0
-        elif issubclass(strat_cls, StrategyUCB):
-            h.ucb_count = 0
-            h.ucb_total_reward = 0.0
-        elif issubclass(strat_cls, StrategyThompsonSampling):
-            h.ts_counts = 0
-            h.ts_total_reward = 0.0
-            h.ts_alpha = 1.0
-            h.ts_beta = 1.0
-        elif issubclass(strat_cls, StrategyLinUCB):
-            d = 3
-            h.linucb_A = np.eye(d)
-            h.linucb_b = np.zeros(d)
-            h.linucb_A_inv = np.eye(d)
+        elif policy == "ucb":
+            init_ucb(h)
+        elif policy == "thompson":
+            init_thompson(h)
+        elif policy == "linucb":
+            init_linucb(h)
 
     # ── Event handlers (delegated to current phase's strategy logic) ──
 
@@ -269,15 +265,8 @@ class StrategyPhased(StrategyBase):
         info = self._phase_strategy_info[self._current_phase]
         strat_cls = info["cls"]
 
-        from panobbgo.strategies.rewarding import StrategyRewarding
-        from panobbgo.strategies.thompson import StrategyThompsonSampling
-        from panobbgo.strategies.ucb import StrategyUCB
-
-        if self.last_best is None:
-            reward = 1.0
-        else:
-            improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
-            reward = 1.0 - np.exp(-1.0 * improvement)
+        policy = _policy(strat_cls)
+        reward = improvement_reward(self.constraint_handler, self.last_best, best)
 
         try:
             h = self.heuristic(best.who)
@@ -285,12 +274,12 @@ class StrategyPhased(StrategyBase):
             self.last_best = best
             return
 
-        if issubclass(strat_cls, StrategyRewarding):
+        if policy == "rewarding":
             h.performance += reward
-        elif issubclass(strat_cls, StrategyUCB):
+        elif policy == "ucb":
             if hasattr(h, "ucb_total_reward"):
                 h.ucb_total_reward += reward
-        elif issubclass(strat_cls, StrategyThompsonSampling):
+        elif policy == "thompson":
             if hasattr(h, "ts_total_reward"):
                 h.ts_total_reward += reward
 
@@ -305,35 +294,13 @@ class StrategyPhased(StrategyBase):
         info = self._phase_strategy_info[self._current_phase]
         strat_cls = info["cls"]
 
-        from panobbgo.strategies.rewarding import StrategyRewarding
-
         # Rewarding strategy gives small rewards for points near best
-        if issubclass(strat_cls, StrategyRewarding) and self.last_best is not None:
-            ranges = self.problem.ranges
-            safe_ranges = np.where(ranges == 0, 1.0, ranges)
-
-            for r in results:
-                if self.constraint_handler.is_better(self.last_best, r):
-                    continue
-                if self.last_best.cv == 0 and r.cv == 0:
-                    self._reward_near_best(r, self.last_best, safe_ranges)
-
-    def _reward_near_best(self, r, last_best, ranges):
-        """Small reward for points near the best (Rewarding strategy logic)."""
-        diff = abs(r.fx - last_best.fx)
-        denom = abs(last_best.fx) if abs(last_best.fx) > 1e-9 else 1.0
-        rel_diff = diff / denom
-        if rel_diff > 0.1:
-            return
-        value_score = 1.0 / (1.0 + 10.0 * rel_diff)
-        dist = np.linalg.norm((r.x - last_best.x) / ranges)
-        spatial_factor = 1.0 - np.exp(-10.0 * dist)
-        reward = value_score * spatial_factor * 0.1
-        if reward > 0.001:
-            try:
-                self.heuristic(r.who).performance += reward
-            except KeyError:
-                pass
+        if _policy(strat_cls) == "rewarding" and self.last_best is not None:
+            for r, reward in near_best_rewards(self.constraint_handler, self.problem, self.last_best, results):
+                try:
+                    self.heuristic(r.who).performance += reward
+                except KeyError:
+                    pass
 
     # ── Selection logic per strategy type ──
 
@@ -363,154 +330,32 @@ class StrategyPhased(StrategyBase):
 
     def _execute_rewarding(self, phase_heurs, strat_kwargs):
         """Rewarding (probability-based) selection logic."""
-        target = self.jobs_per_client * len(self.evaluators)
-        if len(self.evaluators.outstanding) >= target:
-            return []
-
         try:
             s = float(self.config.smooth)
         except (ValueError, TypeError):
             s = 0.5
-
-        discount_val = strat_kwargs.get("discount", None)
-
-        def selector():
-            if not phase_heurs:
-                return None
-            batch = []
-            perf_sum = sum(h.performance for h in phase_heurs)
-            for h in phase_heurs:
-                prob = (h.performance + s) / (perf_sum + s * len(phase_heurs))
-                nb_h = max(1, round(target * prob))
-                h_pts = h.produce(nb_h)
-                if h_pts:
-                    # Discount
-                    val = discount_val if discount_val is not None else self.config.discount
-                    try:
-                        d = float(val)
-                    except (ValueError, TypeError):
-                        d = 0.95
-                    h.performance *= d ** len(h_pts)
-                    batch.extend(h_pts)
-            return batch
-
-        return self._collect_points_safely(target, selector)
+        discount = strat_kwargs.get("discount", None)
+        if discount is None:
+            discount = self.config.discount
+        return collect_pulls(
+            self, lambda target: rewarding_select(phase_heurs, target, s, discount), count_outstanding=False
+        )
 
     def _execute_ucb(self, phase_heurs, strat_kwargs):
         """UCB1 selection logic."""
-        target = self.jobs_per_client * len(self.evaluators)
-        if len(self.evaluators.outstanding) >= target:
-            return []
-
         c = float(strat_kwargs.get("ucb_c", 1.414))
-
-        def until(points, target):
-            return len(self.evaluators.outstanding) + len(points) >= target
-
-        def selector():
-            if not phase_heurs:
-                return None
-            scores = []
-            for h in phase_heurs:
-                if not hasattr(h, "ucb_count"):
-                    h.ucb_count = 0
-                    h.ucb_total_reward = 0.0
-                if h.ucb_count == 0:
-                    score = float("inf")
-                else:
-                    avg = h.ucb_total_reward / h.ucb_count
-                    exploration = c * np.sqrt(np.log(max(1, self.total_selections)) / h.ucb_count)
-                    score = avg + exploration
-                scores.append((score, h))
-            scores.sort(key=lambda x: x[0], reverse=True)
-            for _score, h in scores:
-                new_points = h.produce(1)
-                if new_points:
-                    h.ucb_count += len(new_points)
-                    self.total_selections += len(new_points)
-                    return new_points
-            return []
-
-        return self._collect_points_safely(target, selector, until=until)
+        return collect_pulls(self, lambda _target: ucb_select(self, phase_heurs, c))
 
     def _execute_thompson(self, phase_heurs, strat_kwargs):
         """Thompson Sampling selection logic."""
-        target = self.jobs_per_client * len(self.evaluators)
-        if len(self.evaluators.outstanding) >= target:
-            return []
-
-        def until(points, target):
-            return len(self.evaluators.outstanding) + len(points) >= target
-
-        def selector():
-            if not phase_heurs:
-                return None
-            samples = []
-            for h in phase_heurs:
-                if not hasattr(h, "ts_counts"):
-                    h.ts_counts = 0
-                    h.ts_total_reward = 0.0
-                alpha = 1.0 + h.ts_total_reward
-                beta = 1.0 + max(0.0, h.ts_counts - h.ts_total_reward)
-                theta = self.rng.beta(alpha, beta)
-                samples.append((theta, h))
-            samples.sort(key=lambda x: x[0], reverse=True)
-            for _theta, h in samples:
-                new_points = h.produce(1)
-                if new_points:
-                    h.ts_counts += len(new_points)
-                    self.total_selections += len(new_points)
-                    return new_points
-            return []
-
-        return self._collect_points_safely(target, selector, until=until)
+        return collect_pulls(self, lambda _target: thompson_select(self, phase_heurs, self.rng))
 
     def _execute_linucb(self, phase_heurs, strat_kwargs):
         """LinUCB selection logic."""
-        target = self.jobs_per_client * len(self.evaluators)
-        if len(self.evaluators.outstanding) >= target:
-            return []
-
         alpha = float(strat_kwargs.get("linucb_alpha", 0.5))
-        context_dim = 3
-
-        # Build context vector
-        n_evals = len(self.results)
-        max_evals = float(self.config.max_eval) if self.config.max_eval else 1000.0
-        feat_progress = min(1.0, n_evals / max_evals)
-
-        info = self._phase_strategy_info[self._current_phase]
-        recent = info["state"].get("recent_rewards", [])
-        feat_success = sum(1 for r in recent if r > 0) / len(recent) if recent else 0.0
-        context = np.array([1.0, feat_progress, feat_success])
-
-        def until(points, target):
-            return len(self.evaluators.outstanding) + len(points) >= target
-
-        def selector():
-            if not phase_heurs:
-                return None
-            scores = []
-            for h in phase_heurs:
-                if not hasattr(h, "linucb_A"):
-                    h.linucb_A = np.eye(context_dim)
-                    h.linucb_b = np.zeros(context_dim)
-                    h.linucb_A_inv = np.eye(context_dim)
-                theta = h.linucb_A_inv @ h.linucb_b
-                mean = context @ theta
-                variance = context @ h.linucb_A_inv @ context
-                score = mean + alpha * np.sqrt(variance)
-                scores.append((score, h))
-            scores.sort(key=lambda x: x[0], reverse=True)
-            for _score, h in scores:
-                new_points = h.produce(1)
-                if new_points:
-                    for p in new_points:
-                        p.context_vector = context
-                    return new_points
-            return []
-
-        return self._collect_points_safely(target, selector, until=until)
+        recent = self._phase_strategy_info[self._current_phase]["state"].get("recent_rewards", [])
+        context = linucb_context(len(self.results), self.config.max_eval, recent)
+        return collect_pulls(self, lambda _target: linucb_select(phase_heurs, context, alpha))
 
     # ── Main execute dispatch ──
 
@@ -534,24 +379,10 @@ class StrategyPhased(StrategyBase):
         if not phase_heurs:
             return []
 
-        from panobbgo.strategies.contextual import StrategyLinUCB
-        from panobbgo.strategies.round_robin import StrategyRoundRobin
-        from panobbgo.strategies.rewarding import StrategyRewarding
-        from panobbgo.strategies.thompson import StrategyThompsonSampling
-        from panobbgo.strategies.ucb import StrategyUCB
-
-        if issubclass(strat_cls, StrategyRoundRobin):
-            points = self._execute_round_robin(phase_heurs, strat_kwargs)
-        elif issubclass(strat_cls, StrategyLinUCB):
-            points = self._execute_linucb(phase_heurs, strat_kwargs)
-        elif issubclass(strat_cls, StrategyThompsonSampling):
-            points = self._execute_thompson(phase_heurs, strat_kwargs)
-        elif issubclass(strat_cls, StrategyUCB):
-            points = self._execute_ucb(phase_heurs, strat_kwargs)
-        elif issubclass(strat_cls, StrategyRewarding):
-            points = self._execute_rewarding(phase_heurs, strat_kwargs)
-        else:
+        policy = _policy(strat_cls)
+        if policy is None:
             raise ValueError(f"Unknown strategy class: {strat_cls}")
+        points = getattr(self, f"_execute_{policy}")(phase_heurs, strat_kwargs)
 
         return points[:remaining]
 

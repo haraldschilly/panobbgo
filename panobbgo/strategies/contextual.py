@@ -2,7 +2,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 
-# Copyright 2025 Panobbgo Contributors
+# Copyright 2025-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@ from __future__ import unicode_literals
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.core import StrategyBase
-import numpy as np
 import threading
+
+import numpy as np
+
+from panobbgo.core import StrategyBase
+from panobbgo.strategies._bandit import LINUCB_DIM, collect_pulls, init_linucb, linucb_context, linucb_select
 
 
 class StrategyLinUCB(StrategyBase):
@@ -49,19 +52,13 @@ class StrategyLinUCB(StrategyBase):
 
         # LinUCB state per heuristic: A (d x d), b (d), theta (d)
         # Context dimension d = 3 (Bias, Progress, SuccessRate)
-        self.context_dim = 3
+        self.context_dim = LINUCB_DIM
 
         StrategyBase.__init__(self, problem, **kwargs)
 
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
-        # Initialize LinUCB matrices for this heuristic
-        # A = Identity(d)
-        h.linucb_A = np.eye(self.context_dim)
-        # b = Zeros(d)
-        h.linucb_b = np.zeros(self.context_dim)
-        # Cached inverse of A for speed (optional, but A is small 3x3 so inversion is fast)
-        h.linucb_A_inv = np.eye(self.context_dim)
+        init_linucb(h, self.context_dim)
 
     def _get_context_vector(self):
         """
@@ -72,25 +69,9 @@ class StrategyLinUCB(StrategyBase):
         2. Budget Progress [0, 1]
         3. Recent Success Rate [0, 1]
         """
-        # 1. Bias
-        feat_bias = 1.0
-
-        # 2. Budget Progress
-        n_evals = len(self.results)
-        max_evals = float(self.config.max_eval) if self.config.max_eval else 1000.0
-        feat_progress = min(1.0, n_evals / max_evals)
-
-        # 3. Recent Success Rate
         if not hasattr(self, "_recent_rewards"):
             self._recent_rewards = []
-
-        if self._recent_rewards:
-            # Average of recent binary success (reward > 0)
-            feat_success = sum(1 for r in self._recent_rewards if r > 0) / len(self._recent_rewards)
-        else:
-            feat_success = 0.0
-
-        return np.array([feat_bias, feat_progress, feat_success])
+        return linucb_context(len(self.results), self.config.max_eval, self._recent_rewards)
 
     def reward(self, improvement):
         """
@@ -180,61 +161,11 @@ class StrategyLinUCB(StrategyBase):
                     pass
 
     def execute(self):
-        points = []
-        target = self.jobs_per_client * len(self.evaluators)
-
-        if len(self.evaluators.outstanding) < target:
-            # Calculate context once for this batch
-            current_context = self._get_context_vector()
-
-            def until(points, target):
-                return len(self.evaluators.outstanding) + len(points) >= target
-
-            def selector():
-                heurs = self.heuristics
-                if not heurs:
-                    return None
-
-                # Calculate LinUCB scores
-                scores = []
-                for h in heurs:
-                    # Ensure initialization
-                    if not hasattr(h, "linucb_A"):
-                        h.linucb_A = np.eye(self.context_dim)
-                        h.linucb_b = np.zeros(self.context_dim)
-                        h.linucb_A_inv = np.eye(self.context_dim)
-
-                    # Theta = A^-1 b
-                    theta = h.linucb_A_inv @ h.linucb_b
-
-                    # Predicted reward: x^T theta
-                    mean = current_context @ theta
-
-                    # Confidence interval: alpha * sqrt(x^T A^-1 x)
-                    variance = current_context @ h.linucb_A_inv @ current_context
-                    std = np.sqrt(variance)
-
-                    ucb_score = mean + self.alpha * std
-
-                    scores.append((ucb_score, h))
-
-                # Sort by score (descending)
-                scores.sort(key=lambda x: x[0], reverse=True)
-
-                for _, h in scores:
-                    # Request points from the selected heuristic
-                    new_points = h.produce(1)
-                    if new_points:
-                        # Attach context to points!
-                        for p in new_points:
-                            p.context_vector = current_context
-                        return new_points
-
-                return []
-
-            points = self._collect_points_safely(target, selector, until=until)
-
-        return points
+        # One context for the whole batch; each point carries it back to on_new_results.
+        context = self._get_context_vector()
+        return collect_pulls(
+            self, lambda _target: linucb_select(self.heuristics, context, self.alpha, self.context_dim)
+        )
 
     def _get_status_info(self):
         """Return strategy-specific status info."""

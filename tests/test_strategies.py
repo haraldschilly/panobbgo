@@ -101,7 +101,7 @@ class StrategiesTests(PanobbgoTestCase):
     def test_rewarding_near_best(self, my_setup_cluster):
         from panobbgo.strategies.rewarding import StrategyRewarding
 
-        # ``_reward_near_best`` is part of the legacy credit mechanism.
+        # Near-best credit is part of the legacy credit mechanism.
         rwd = StrategyRewarding(self.problem, credit="legacy")
         rwd.add(Random)
 

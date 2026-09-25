@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 # -*- coding: utf8 -*-
 
 from panobbgo.core import StrategyBase
-import numpy as np
+from panobbgo.strategies._bandit import collect_pulls, improvement_reward, init_ucb, ucb_select
 
 
 class StrategyUCB(StrategyBase):
@@ -30,9 +30,7 @@ class StrategyUCB(StrategyBase):
 
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
-        # Initialize UCB statistics
-        h.ucb_count = 0  # Number of points generated (Selections)
-        h.ucb_total_reward = 0.0  # Accumulated reward
+        init_ucb(h)
 
     def reward(self, best):
         """
@@ -44,17 +42,7 @@ class StrategyUCB(StrategyBase):
         Returns:
             float: Reward value in [0, 1]
         """
-        if self.last_best is None:
-            # First point found is treated as a baseline success (max reward)
-            return 1.0
-
-        # Calculate improvement using constraint handler logic
-        improvement = self.constraint_handler.calculate_improvement(self.last_best, best)
-
-        # Bounded reward in [0, 1] based on improvement magnitude
-        reward = 1.0 - np.exp(-1.0 * improvement)
-
-        return reward
+        return improvement_reward(self.constraint_handler, self.last_best, best)
 
     def on_new_best(self, best):
         """
@@ -82,54 +70,4 @@ class StrategyUCB(StrategyBase):
         self.logger.info("\u2318 %s | \u0394 %.7f %s (UCB)" % (best, reward, best.who))
 
     def execute(self):
-        points = []
-        target = self.jobs_per_client * len(self.evaluators)
-
-        if len(self.evaluators.outstanding) < target:
-            c = self.ucb_c  # exploration weight
-
-            def until(points, target):
-                return len(self.evaluators.outstanding) + len(points) >= target
-
-            def selector():
-                heurs = self.heuristics
-                if not heurs:
-                    return None
-
-                # Calculate UCB scores for all heuristics
-                scores = []
-                for h in heurs:
-                    # Ensure initialization if added dynamically or somehow missed
-                    if not hasattr(h, "ucb_count"):
-                        h.ucb_count = 0
-                        h.ucb_total_reward = 0.0
-
-                    if h.ucb_count == 0:
-                        # Infinite score for unselected arms to force exploration
-                        score = float("inf")
-                    else:
-                        # Q_t(a) = Average Reward
-                        average_reward = h.ucb_total_reward / h.ucb_count
-                        # UCB1 exploration term
-                        exploration_term = c * np.sqrt(np.log(max(1, self.total_selections)) / h.ucb_count)
-                        score = average_reward + exploration_term
-                    scores.append((score, h))
-
-                # Try heuristics in order of score (highest first)
-                scores.sort(key=lambda x: x[0], reverse=True)
-
-                for score, h in scores:
-                    # Request points from the selected heuristic
-                    new_points = h.produce(1)
-                    if new_points:
-                        # Update selection counts immediately
-                        count = len(new_points)
-                        h.ucb_count += count
-                        self.total_selections += count
-                        return new_points
-
-                return []
-
-            points = self._collect_points_safely(target, selector, until=until)
-
-        return points
+        return collect_pulls(self, lambda _target: ucb_select(self, self.heuristics, self.ucb_c))

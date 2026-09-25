@@ -38,9 +38,11 @@ Mechanics:
   background grandchild of the objective outlives it.
 * **Orphan protection.**  The child watches a dedicated pipe from the
   parent: when the parent dies (a dask worker killed by the nanny), the
-  pipe hits EOF and the child kills its own process group.  On Linux it
-  also asks the kernel for ``SIGKILL`` when its parent dies
-  (``PR_SET_PDEATHSIG``).
+  pipe hits EOF and the child kills its own process group.  On Linux the
+  kernel also sends it ``SIGTERM`` when its parent dies
+  (``PR_SET_PDEATHSIG``), whose handler kills the whole group — not just
+  the child, which would leave the objective's subprocesses running
+  (:func:`kill_group_with_parent`).
 * The result travels as a length-prefixed frame (8-byte big-endian length
   + pickle) over a private copy of the child's stdout; the parent reads
   exactly that many bytes, so an objective that forks (keeping the pipe
@@ -109,7 +111,9 @@ def dumps(obj: Any) -> bytes:
 
 
 #: id(problem) -> (weakref or the object, serialized bytes): a worker's
-#: problem copy is serialized once, not per call.
+#: problem copy is serialized once, not per call.  **Do not mutate the
+#: problem object during a run**: a changed problem is not re-serialized
+#: (on a dask worker nothing mutates it — the calls run in children).
 _PAYLOADS: Dict[int, Tuple[Any, bytes]] = {}
 _PAYLOADS_LOCK = threading.Lock()
 
@@ -180,7 +184,7 @@ def call_with_timeout(problem: Any, point: Any, timeout: float) -> TimedCall:
     watch_r, watch_w = os.pipe()  # the child's lifeline: EOF means the parent is gone
     try:
         proc = subprocess.Popen(
-            [sys.executable, "-P", "-m", "panobbgo.timeout_call", str(watch_r)],
+            [sys.executable, "-P", "-m", "panobbgo.timeout_call", str(watch_r), str(os.getpid())],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             env=env,
@@ -234,22 +238,39 @@ def _watchdog(fd: int) -> None:
     os.killpg(0, signal.SIGKILL)
 
 
-def _set_pdeathsig() -> None:
-    """Linux: SIGKILL this process when its parent dies (belt and braces for the watchdog)."""
+def _kill_own_group(signum: int = 0, frame: Any = None) -> None:
+    """Kill this process group — the calling process, the objective and everything it started."""
+    os.killpg(0, signal.SIGKILL)
+
+
+def kill_group_with_parent(parent_pid: int) -> None:
+    """Make the calling process group die with its parent (Linux; call it in a process-group leader).
+
+    ``PR_SET_PDEATHSIG`` delivers ``SIGTERM`` when the parent dies, and the
+    handler kills the *whole group* — a ``SIGKILL`` there would kill only this
+    process and leave the objective's own subprocesses running.  The check of
+    ``getppid`` covers a parent that died before the ``prctl``.  Must run in
+    the main thread (it installs a signal handler).  Elsewhere than Linux it
+    does nothing; the callers have other lifelines (a watchdog pipe, the
+    pool's close/atexit).
+    """
     if not sys.platform.startswith("linux"):
         return
+    signal.signal(signal.SIGTERM, _kill_own_group)
     try:
         import ctypes
 
         libc = ctypes.CDLL(None, use_errno=True)
-        libc.prctl(1, int(signal.SIGKILL), 0, 0, 0)  # PR_SET_PDEATHSIG
+        libc.prctl(1, int(signal.SIGTERM), 0, 0, 0)  # PR_SET_PDEATHSIG
     except Exception:  # pragma: no cover
-        pass
+        return
+    if os.getppid() != parent_pid:  # the parent is already gone
+        _kill_own_group()
 
 
-def _child(watch_fd: int) -> None:
-    """``python -m panobbgo.timeout_call FD``: evaluate one pickled ``(problem, point)`` from stdin."""
-    _set_pdeathsig()
+def _child(watch_fd: int, parent_pid: int) -> None:
+    """``python -m panobbgo.timeout_call FD PPID``: evaluate one pickled ``(problem, point)`` from stdin."""
+    kill_group_with_parent(parent_pid)
     threading.Thread(target=_watchdog, args=(watch_fd,), daemon=True).start()
     out = os.dup(1)
     os.dup2(2, 1)  # the objective's prints go to stderr, not into the protocol
@@ -273,4 +294,4 @@ def _child(watch_fd: int) -> None:
 
 
 if __name__ == "__main__":
-    _child(int(sys.argv[1]))
+    _child(int(sys.argv[1]), int(sys.argv[2]))

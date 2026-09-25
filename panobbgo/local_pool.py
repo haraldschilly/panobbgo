@@ -305,7 +305,7 @@ class LocalPool:
 # ---------------------------------------------------------------------------
 
 
-def _worker_main(conn: Any, payload: bytes) -> None:
+def _worker_main(conn: Any, payload: bytes, parent_pid: int) -> None:
     """A worker process: load the problem once, then evaluate one task at a time.
 
     Protocol (over ``conn``): receives ``(task_id, point)`` or ``None``
@@ -316,8 +316,13 @@ def _worker_main(conn: Any, payload: bytes) -> None:
     """
     if hasattr(os, "setsid"):
         # Its own process group: killing this worker (a timeout) also kills
-        # whatever the objective started.
+        # whatever the objective started.  Being its own group also means a
+        # signal to the parent's group no longer reaches it, so it must die
+        # with its parent by itself (a parent killed without running atexit).
         os.setsid()
+        from panobbgo.timeout_call import kill_group_with_parent
+
+        kill_group_with_parent(parent_pid)
     problem = pickle.loads(payload)  # an exception here ends the process: a failed init
     while True:
         try:
@@ -347,7 +352,7 @@ class _Worker:
         # Not a daemon: an objective may start processes of its own.  The
         # pool kills its workers on close; ``_kill_all_at_exit`` covers an
         # interpreter that exits without closing it.
-        self.proc = ctx.Process(target=_worker_main, args=(child, payload), daemon=False)
+        self.proc = ctx.Process(target=_worker_main, args=(child, payload, os.getpid()), daemon=False)
         self.proc.start()
         child.close()
         self.task: Optional[str] = None

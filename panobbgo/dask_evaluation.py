@@ -121,6 +121,25 @@ def evaluate_point(problem: Any, point: Any, timeout: Optional[float] = None) ->
     return call.result, call.seconds, call.error, call.timed_out
 
 
+def _resampling_noise(problem: Any, depth: int = 16) -> bool:
+    """Is ``problem`` — or a problem it wraps (``inner`` / ``problem`` / ``wrapped``) — resampling noise?"""
+    seen = set()
+    while problem is not None and depth > 0 and id(problem) not in seen:
+        if getattr(problem, "resample", False) is True:
+            return True
+        seen.add(id(problem))
+        problem = next(
+            (
+                getattr(problem, a)
+                for a in ("inner", "problem", "wrapped", "_problem")
+                if getattr(problem, a, None) is not None
+            ),
+            None,
+        )
+        depth -= 1
+    return False
+
+
 def check_timeout_problem(problem: Any, logger: Any = None) -> None:
     """Check once, before any task is submitted, that ``problem`` works under ``evaluation.timeout``.
 
@@ -142,7 +161,7 @@ def check_timeout_problem(problem: Any, logger: Any = None) -> None:
             "evaluation.timeout with evaluation.method 'dask' runs every call in a child process, so the "
             "problem must be serializable (cloudpickle): %r" % exc
         ) from exc
-    if getattr(problem, "resample", False) and logger is not None:
+    if _resampling_noise(problem) and logger is not None:
         logger.warning(
             "evaluation.timeout with dask evaluates a fresh copy of the problem per call: "
             "NoisyProblem(resample=True) cannot count re-evaluations, so a point re-evaluated draws the "

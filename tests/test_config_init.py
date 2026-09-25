@@ -69,5 +69,42 @@ def test_strategies_own_their_config():
     assert b.config.capacity != 123
 
 
+def test_parsed_sources_are_cached_per_file_version_and_copied(tmp_path, monkeypatch):
+    from panobbgo import config as cfg
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config.yaml").write_text("core:\n  max_eval: 77\nlogging:\n  level: 10\n")
+    c1, c2 = Config(testing_mode=True), Config(testing_mode=True)
+    assert c1.max_eval == c2.max_eval == 77
+    c1.yaml_config["core"]["max_eval"] = 1
+    c1.logging["level"] = 99
+    assert c2.yaml_config["core"]["max_eval"] == 77  # a private copy each
+    assert c2.logging["level"] == 10
+    assert Config(testing_mode=True).max_eval == 77
+
+    hits = cfg._parse_yaml.cache_info().hits
+    Config(testing_mode=True)
+    assert cfg._parse_yaml.cache_info().hits == hits + 1
+
+    # A new file version (size/mtime) is re-read.
+    (tmp_path / "config.yaml").write_text("core:\n  max_eval: 1234\n")
+    os.utime(tmp_path / "config.yaml", ns=(1, 1))
+    assert Config(testing_mode=True).max_eval == 1234
+
+
+def test_default_ini_is_written_atomically_into_a_new_directory(tmp_path):
+    from configparser import ConfigParser
+
+    from panobbgo.config import _write_default_ini
+
+    path = tmp_path / "a" / "b" / "config.ini"
+    _write_default_ini(str(path))
+    _write_default_ini(str(path))  # an existing file / directory is fine
+    cfgp = ConfigParser()
+    cfgp.read(path)
+    assert cfgp.getint("core", "max_eval") == 1000
+    assert sorted(p.name for p in path.parent.iterdir()) == ["config.ini"]  # no temp left
+
+
 if __name__ == "__main__":
     unittest.main()

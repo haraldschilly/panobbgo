@@ -29,6 +29,12 @@ via optional command-line arguments.
 .. inheritance-diagram:: panobbgo.configuration
 """
 
+from typing import Any, Callable, Dict, Optional, Tuple
+import copy
+import functools
+import logging
+import os
+
 _config = None
 
 _EPILOG = """\
@@ -39,8 +45,81 @@ Sources: https://github.com/haraldschilly/panobbgo
 """
 
 
-from typing import Any, Callable, Dict, Optional
-import logging
+def _file_key(path: str) -> Optional[Tuple[str, int, int]]:
+    """``(abspath, st_mtime_ns, st_size)`` of ``path``, ``None`` if it is not a file.
+
+    The cache key of the parsed-source caches below: an edited file gets a new
+    key, so a long-lived process still sees changes.
+    """
+    ap = os.path.abspath(path)
+    if not os.path.exists(ap):
+        return None
+    try:
+        st = os.stat(ap)
+    except OSError:
+        return None
+    return ap, st.st_mtime_ns, st.st_size
+
+
+@functools.lru_cache(maxsize=16)
+def _parse_yaml(key: Tuple[str, int, int]) -> Any:
+    import yaml
+
+    with open(key[0], "r") as f:
+        return yaml.safe_load(f) or {}
+
+
+@functools.lru_cache(maxsize=16)
+def _parse_ini(key: Tuple[str, int, int]) -> Dict[str, Dict[str, str]]:
+    from configparser import ConfigParser
+
+    cfgp = ConfigParser()
+    cfgp.read(key[0])
+    return {sec: dict(cfgp.items(sec, raw=True)) for sec in cfgp.sections()}
+
+
+def _load_yaml(path: str) -> Dict[str, Any]:
+    """Parsed YAML config at ``path`` (``{}`` if absent), a private deep copy."""
+    key = _file_key(path)
+    return copy.deepcopy(_parse_yaml(key)) if key is not None else {}
+
+
+def _load_ini(path: str) -> Dict[str, Dict[str, str]]:
+    """Sections of the INI file at ``path`` (``{}`` if absent), a private copy."""
+    key = _file_key(path)
+    return {sec: dict(items) for sec, items in _parse_ini(key).items()} if key is not None else {}
+
+
+def _write_default_ini(path: str) -> None:
+    """Write the default ``config.ini`` atomically (safe under ``pytest -n``)."""
+    import tempfile
+    from configparser import ConfigParser
+
+    cfgp = ConfigParser()
+    # create them in the reverse order
+    cfgp.add_section("db")  # database config
+    cfgp.add_section("heuristic")
+    cfgp.set("heuristic", "capacity", "20")
+    cfgp.add_section("core")  # core configuration
+    cfgp.set("core", "loglevel", "40")  # default: no debug mode
+    cfgp.set("core", "show_interval", "1.0")
+    cfgp.set("core", "max_eval", "1000")
+    cfgp.set("core", "discount", "0.95")
+    cfgp.set("core", "smooth", "0.5")
+
+    d = os.path.dirname(os.path.abspath(path))
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".config.ini.", dir=d, text=True)
+    try:
+        with os.fdopen(fd, "w") as configfile:
+            cfgp.write(configfile)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 class Config:
@@ -76,120 +155,33 @@ class Config:
         self._create()
 
     def _create(self) -> None:
-        import os
         from .utils import info, create_logger
 
         logger = create_logger("CONFG")
 
-        # create application data dir if necessary
-        if not os.path.exists(self._appdata_dir):
-            os.mkdir(self._appdata_dir)
-
-        # 1: parsing command-line arguments
-        from argparse import ArgumentParser
-
-        descr = "Panobbgo - Parallel Noisy Black-Box Global Optimizer."
-
-        epilog = _EPILOG
-
-        parser = ArgumentParser(description=descr, epilog=epilog)
-
-        parser.add_argument(
-            "-c",
-            "--config-file",
-            dest="config_file",
-            help="configuration file [default: %(default)s]",
-            default=self.config_fn,
-        )
-
-        from panobbgo import __version__
-
-        parser.add_argument("--version", action="version", version=__version__)
-
-        parser.add_argument("--max", dest="max_eval", help="maximum number of evaluations", type=int)
-
-        parser.add_argument(
-            "--smooth",
-            dest="smooth",
-            help="smoothing parameter for (additive or other) smoothing",
-            type=float,
-        )
-
-        parser.add_argument(
-            "--cap",
-            dest="capacity",
-            help="capacity for each queue in each heuristic",
-            type=int,
-        )
-
-        parser.add_argument(
-            "-v",
-            action="count",
-            dest="verbosity",
-            help="verbosity level: -v, -vv, or -vvv",
-        )
-
-        parser.add_argument(
-            "--lf",
-            "--log-focus",
-            dest="logger_focus",
-            action="append",
-            default=[],
-            help=" ".join(
-                [
-                    "List names of loggers, which should be shown verbosely.",
-                    "You can specify this option multiple times!",
-                    "e.g. --lf=CORE --lf=SPLIT",
-                ]
-            ),
-        )
-
+        # 1: parsing command-line arguments (the parser is only built when
+        # used: strategies are constructed per benchmark run)
         if self.parse_args:
-            args = parser.parse_args()
+            args = self._parse_command_line()
             logger.info("cmdln options: %s" % args)
             self.config_fn = args.config_file
         else:
-            # logger.info("Parsing command-line arguments is disabled.")
             args = None
 
-        import os
         from configparser import ConfigParser
 
         # 2/1: does config file exist?
         if not os.path.exists(self.config_fn):
-            cfgp = ConfigParser()
-            # create them in the reverse order
+            _write_default_ini(self.config_fn)
 
-            cfgp.add_section("db")  # database config
-            # cfgp.set('db', 'port', '37010')
-            # cfgp.set('db', 'host', 'localhost')
-
-            cfgp.add_section("heuristic")
-            cfgp.set("heuristic", "capacity", "20")
-
-            cfgp.add_section("core")  # core configuration
-            cfgp.set("core", "loglevel", "40")  # default: no debug mode
-            cfgp.set("core", "show_interval", "1.0")
-            cfgp.set("core", "max_eval", "1000")
-            cfgp.set("core", "discount", "0.95")
-            cfgp.set("core", "smooth", "0.5")
-
-            with open(self.config_fn, "w") as configfile:
-                cfgp.write(configfile)
-
-        # 2/2: reading the config file
+        # 2/2: reading the config file (parsed once per file version)
         cfgp = ConfigParser()
-        cfgp.read(self.config_fn)
+        cfgp.read_dict(_load_ini(self.config_fn))
 
         # 2/3: reading YAML config if it exists (takes precedence)
-        import yaml
-
-        self.yaml_config = {}
-        if os.path.exists(self.config_yaml):
-            with open(self.config_yaml, "r") as f:
-                self.yaml_config = yaml.safe_load(f) or {}
-            if not Config._config_logged:
-                logger.info("config.yaml loaded from: %s" % self.config_yaml)
+        self.yaml_config = _load_yaml(self.config_yaml)
+        if self.yaml_config and not Config._config_logged:
+            logger.info("config.yaml loaded from: %s" % self.config_yaml)
 
         # 3: override specific settings
         _cur_verb = cfgp.getint("core", "loglevel")
@@ -361,6 +353,67 @@ class Config:
                 logger.info("Dask cluster type: %s" % self.dask_cluster_type)
             logger.info("Environment: %s" % self.environment)
             Config._config_logged = True
+
+    def _parse_command_line(self) -> Any:
+        """Parse ``sys.argv`` (only with ``parse_args=True``)."""
+        from argparse import ArgumentParser
+
+        descr = "Panobbgo - Parallel Noisy Black-Box Global Optimizer."
+
+        epilog = _EPILOG
+
+        parser = ArgumentParser(description=descr, epilog=epilog)
+
+        parser.add_argument(
+            "-c",
+            "--config-file",
+            dest="config_file",
+            help="configuration file [default: %(default)s]",
+            default=self.config_fn,
+        )
+
+        from panobbgo import __version__
+
+        parser.add_argument("--version", action="version", version=__version__)
+
+        parser.add_argument("--max", dest="max_eval", help="maximum number of evaluations", type=int)
+
+        parser.add_argument(
+            "--smooth",
+            dest="smooth",
+            help="smoothing parameter for (additive or other) smoothing",
+            type=float,
+        )
+
+        parser.add_argument(
+            "--cap",
+            dest="capacity",
+            help="capacity for each queue in each heuristic",
+            type=int,
+        )
+
+        parser.add_argument(
+            "-v",
+            action="count",
+            dest="verbosity",
+            help="verbosity level: -v, -vv, or -vvv",
+        )
+
+        parser.add_argument(
+            "--lf",
+            "--log-focus",
+            dest="logger_focus",
+            action="append",
+            default=[],
+            help=" ".join(
+                [
+                    "List names of loggers, which should be shown verbosely.",
+                    "You can specify this option multiple times!",
+                    "e.g. --lf=CORE --lf=SPLIT",
+                ]
+            ),
+        )
+        return parser.parse_args()
 
     @property
     def debug(self) -> bool:

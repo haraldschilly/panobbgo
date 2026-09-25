@@ -106,8 +106,8 @@ on highly-multimodal landscapes where a swarm-wide attractor would lock
 all particles into the first decent basin, ``vonneumann`` between the
 two with a fixed 2-D geometry, and ``random`` as a structure-free
 alternative whose diffusion speed depends on the realised graph.
-Panobbgo's structural mutation catalog ships *all four* variants so the
-self-improvement loop can pick whichever helps on a given problem family.
+All four ship; pick the one that suits the problem family with
+``strategy.add(PSO, topology=...)``.
 
 Adaptive inertia (Shi-Eberhart 1998)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -52,8 +52,13 @@ def test_alm_update_logic():
     assert handler.mu == 10.0
     assert np.allclose(handler.lambdas, [10.0])
 
-    # 2nd update: Stagnation -> Increase mu
-    handler.on_new_results([r1])
+    # 2nd update: a new incumbent without enough cv progress -> Increase mu
+    # (an unchanged incumbent would leave mu alone, see
+    # test_augmented_lagrangian_stuck_incumbent_does_not_grow_mu)
+    r1b = Result(Point(np.array([0.5]), "t"), 0.0, cv_vec=np.array([1.0]))
+    strategy.best = r1b
+    strategy.results.append(r1b)
+    handler.on_new_results([r1b])
 
     # mu increases to 20.0
     assert handler.mu == 20.0

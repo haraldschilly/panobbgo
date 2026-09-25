@@ -65,8 +65,11 @@ class Sensitivity(Analyzer):
         self._update_interval = update_interval
         self._method = method
 
-        self._X: np.ndarray | None = None
-        self._y: np.ndarray | None = None
+        # Capacity-doubling buffers, so a batch appends in amortised O(batch)
+        # instead of copying the whole history (``_X``/``_y`` are the views).
+        self._Xbuf: np.ndarray | None = None
+        self._ybuf: np.ndarray | None = None
+        self._n = 0
         #: ranking keys, parallel to ``_y`` (see the class docstring)
         self._keys: list[tuple] = []
         self._count_since_update = 0
@@ -75,6 +78,16 @@ class Sensitivity(Analyzer):
     def __start__(self):
         dim = self.problem.dim
         self._min_samples = self._min_samples_cfg if self._min_samples_cfg is not None else 10 * dim
+
+    @property
+    def _X(self) -> np.ndarray | None:
+        """The accumulated points, ``(n, dim)``; a view into the buffer."""
+        return None if self._Xbuf is None else self._Xbuf[: self._n]
+
+    @property
+    def _y(self) -> np.ndarray | None:
+        """The accumulated surrogate values, parallel to :attr:`_X`."""
+        return None if self._ybuf is None else self._ybuf[: self._n]
 
     @property
     def importance(self) -> np.ndarray | None:
@@ -115,15 +128,24 @@ class Sensitivity(Analyzer):
             return
 
         self._keys.extend(new_keys)
-        batch_X = np.array(new_X)
-        batch_y = np.array(new_y)
+        batch_X = np.array(new_X, dtype=float)
+        batch_y = np.array(new_y, dtype=float)
 
-        if self._X is None or self._y is None:
-            self._X = batch_X
-            self._y = batch_y
-        else:
-            self._X = np.vstack([self._X, batch_X])
-            self._y = np.concatenate([self._y, batch_y])
+        n, k = self._n, len(batch_X)
+        if self._Xbuf is None or self._ybuf is None:
+            cap = max(k, 64)
+            self._Xbuf = np.empty((cap, batch_X.shape[1]), dtype=float)
+            self._ybuf = np.empty(cap, dtype=float)
+        elif n + k > len(self._Xbuf):
+            cap = max(2 * len(self._Xbuf), n + k)
+            grown_X = np.empty((cap, self._Xbuf.shape[1]), dtype=float)
+            grown_X[:n] = self._Xbuf[:n]
+            grown_y = np.empty(cap, dtype=float)
+            grown_y[:n] = self._ybuf[:n]
+            self._Xbuf, self._ybuf = grown_X, grown_y
+        self._Xbuf[n : n + k] = batch_X
+        self._ybuf[n : n + k] = batch_y
+        self._n = n + k
 
     def _compute_and_publish(self):
         assert self._X is not None and self._y is not None
@@ -167,6 +189,10 @@ class Sensitivity(Analyzer):
                 corr = float(result.statistic)  # type: ignore[union-attr]
                 raw[i] = abs(corr) if np.isfinite(corr) else 0.0
                 continue
+
+            # With an intercept: without one, a box away from the origin makes
+            # the constant part of y leak into every residual.
+            others = np.column_stack([others, np.ones(len(others))])
 
             # Least squares: y = others @ beta + residual_y
             beta_y, _, _, _ = np.linalg.lstsq(others, y, rcond=None)

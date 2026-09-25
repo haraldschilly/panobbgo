@@ -297,3 +297,35 @@ def test_check_convergence_handle_none_values():
     analyzer._check_convergence()
 
     assert not analyzer._converged
+
+
+def test_zero_settings_are_honoured_not_replaced_by_defaults():
+    """``threshold=0.0`` / ``min_evaluations=0`` used to fall back to 1e-6 / window."""
+    strategy = MockStrategy()
+    analyzer = Convergence(strategy, window_size=3, threshold=0.0, mode="std", min_evaluations=0)
+    assert analyzer.threshold == 0.0
+    assert analyzer.min_evaluations == 0
+
+    strategy.config.convergence_threshold = 0.0
+    strategy.config.convergence_min_evaluations = 0
+    analyzer = Convergence(strategy)
+    assert analyzer.threshold == 0.0
+    assert analyzer.min_evaluations == 0
+    assert analyzer.window_size == 5  # from the config
+
+
+def test_config_keys_set_to_none_mean_default():
+    strategy = MockStrategy()
+    strategy.config.convergence_window_size = None
+    strategy.config.convergence_threshold = None
+    strategy.config.convergence_min_evaluations = None
+    strategy.config.convergence_mode = None
+    analyzer = Convergence(strategy)
+    assert (analyzer.window_size, analyzer.threshold, analyzer.min_evaluations, analyzer.mode) == (50, 1e-6, 50, "std")
+
+
+def test_window_size_zero_is_rejected():
+    import pytest
+
+    with pytest.raises(ValueError, match="window_size"):
+        Convergence(MockStrategy(), window_size=0)

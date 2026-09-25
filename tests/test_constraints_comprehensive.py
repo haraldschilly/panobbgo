@@ -86,8 +86,11 @@ def test_alm_updates():
     expected_lambdas = np.maximum(0, 0 + 10.0 * r1.cv_vec)
     np.testing.assert_allclose(handler.lambdas, expected_lambdas)
 
-    # 2. Add same point (stagnation)
-    handler.on_new_results([r1])
+    # 2. A new incumbent without cv progress (a re-evaluation of the same point)
+    r1b = Result(Point(x1, "test"), problem.eval(x1), cv_vec=problem.eval_constraints(x1))
+    strategy.results.add_results([r1b])
+    strategy.best = r1b
+    handler.on_new_results([r1b])
 
     # mu should increase
     assert handler.mu == 20.0

@@ -132,7 +132,8 @@ def test_augmented_lagrangian_update_parameters():
     assert handler.last_cv_norm == 1.0
 
     # Trigger another update
-    # Assume best is still same (no progress in feasibility)
+    # A new incumbent with the same violation (no progress in feasibility)
+    strategy.best = Result(None, 9.0, cv_vec=np.array([1.0]))
     handler.on_new_results(results)
     handler.on_new_results(results)
 
@@ -230,3 +231,20 @@ def test_scan_history_for_new_best():
     # Expect P2 (fx=100) to be the new best
     assert best.fx == 100.0
     assert best.cv == 0.0
+
+
+def test_augmented_lagrangian_stuck_incumbent_does_not_grow_mu():
+    """An unchanged incumbent is no new subproblem solution: mu stays put.
+
+    Comparing the incumbent with itself always failed the 10%-decrease test,
+    so mu grew as rate^(n/update_interval) (2e10 after 5000 results).
+    The multipliers still take their linear step.
+    """
+    strategy = MockStrategy()
+    handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=2.0, rate=2.0, update_interval=1)
+    strategy.best = Result(None, 10.0, cv_vec=np.array([1.0]))
+    results = [Result(None, 11.0, cv_vec=np.array([1.0]))]
+    for _ in range(200):
+        handler.on_new_results(results)
+    assert handler.mu == 2.0
+    assert np.allclose(handler.lambdas, np.array([2.0 * 200]))

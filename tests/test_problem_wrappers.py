@@ -355,3 +355,28 @@ def test_bbob_noise_models_need_a_known_f_opt():
         DetNoisy(QuadraticProblem(dim=2), model, seed=0, f_opt=0.0)  # explicit: fine
     for model in (NoNoise(), AdditiveGaussianNoise(), MultiplicativeGaussianNoise()):
         DetNoisy(QuadraticProblem(dim=2), model, seed=0)
+
+
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+def test_legacy_noisy_fingerprint_differs_from_the_deterministic_one():
+    """Different values need different storage identities.
+
+    The legacy wrapper corrupts the raw value, the new one the precision
+    above ``f_opt``; with a multiplicative model and ``f_opt != 0`` they
+    disagree at the same (model, seed, point), yet both fingerprinted as
+    ``NoisyProblem(...)``, so one's database resumed under the other.
+    """
+    from panobbgo.lib.noise import MultiplicativeGaussianNoise, NoisyProblem as DetNoisy
+    from panobbgo.storage import problem_fingerprint
+
+    class Shifted(QuadraticProblem):
+        f_opt = 5.0
+
+        def eval(self, x):
+            return 5.0 + float(np.sum(np.asarray(x) ** 2))
+
+    legacy = NoisyProblem(Shifted(dim=2), noise_std=0.3, noise_type="multiplicative", seed=4)
+    new = DetNoisy(Shifted(dim=2), MultiplicativeGaussianNoise(sigma=0.3), seed=4, resample=True)
+    x = np.array([1.0, 1.0])
+    assert legacy.eval(x) != new.eval(x)
+    assert problem_fingerprint(legacy) != problem_fingerprint(new)

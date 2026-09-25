@@ -30,11 +30,17 @@ class Convergence(Analyzer):
     or if the standard deviation of the best values in the window is small enough,
     it publishes a ``converged`` event.
 
-    Configuration parameters (via ``strategy.config`` or kwargs):
-    - ``convergence.window_size`` (int): Number of recent best values to consider (default: 50).
-    - ``convergence.min_evaluations`` (int): Minimum number of evaluations before checking convergence (default: window_size).
-    - ``convergence.threshold`` (float): Threshold for relative improvement or std dev (default: 1e-6).
-    - ``convergence.mode`` (str): 'std' (standard deviation), 'improv' (relative improvement), or 'slope' (linear regression slope) (default: 'std').
+    Configuration parameters: a keyword argument wins; otherwise the
+    ``strategy.config`` attribute in parentheses is used when it exists and
+    is not ``None``; otherwise the default.  ``0`` / ``0.0`` are honoured.
+
+    - ``window_size`` (``convergence_window_size``, int >= 1): Number of recent best values to consider (default: 50).
+    - ``min_evaluations`` (``convergence_min_evaluations``, int): Minimum number of evaluations before
+      checking convergence (default: window_size).
+    - ``threshold`` (``convergence_threshold``, float): Threshold for relative improvement or std dev (default: 1e-6).
+    - ``mode`` (``convergence_mode``, str): 'std' (standard deviation), 'improv' (relative improvement),
+      or 'slope' (linear regression slope) (default: 'std').
+    - (``convergence_require_feasibility``, bool): only converge on a feasible incumbent (default: False).
 
     Events published:
     - ``converged``: When convergence criteria are met.
@@ -45,14 +51,23 @@ class Convergence(Analyzer):
         super(Convergence, self).__init__(strategy)
         self.logger = self.config.get_logger("CONVG")
 
-        # Configuration with fallbacks
-        self.window_size = int(window_size or getattr(self.config, "convergence_window_size", 50))
-        self.min_evaluations = int(
-            min_evaluations or getattr(self.config, "convergence_min_evaluations", self.window_size)
-        )
-        self.threshold = float(threshold or getattr(self.config, "convergence_threshold", 1e-6))
-        self.mode = mode or getattr(self.config, "convergence_mode", "std")
-        self.require_feasibility = getattr(self.config, "convergence_require_feasibility", False)
+        # kwarg, else config attribute, else default.  ``is None`` checks:
+        # ``threshold=0.0`` or ``min_evaluations=0`` are real settings, and
+        # ``or`` silently replaced them by the defaults.  A config key that
+        # is present but ``None`` also means "default".
+        def setting(value, key, default):
+            if value is not None:
+                return value
+            value = getattr(self.config, key, None)
+            return default if value is None else value
+
+        self.window_size = int(setting(window_size, "convergence_window_size", 50))
+        if self.window_size < 1:
+            raise ValueError(f"Convergence window_size must be >= 1, got {self.window_size}")
+        self.min_evaluations = int(setting(min_evaluations, "convergence_min_evaluations", self.window_size))
+        self.threshold = float(setting(threshold, "convergence_threshold", 1e-6))
+        self.mode = setting(mode, "convergence_mode", "std")
+        self.require_feasibility = bool(setting(None, "convergence_require_feasibility", False))
 
         self.history = deque(maxlen=self.window_size)
         self.cv_history = deque(maxlen=self.window_size)

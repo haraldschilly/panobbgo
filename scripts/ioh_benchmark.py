@@ -58,6 +58,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
+
 from panobbgo.benchmark import StrategySpec
 from panobbgo import local_run
 from panobbgo.harness import _make_quick_strategies, _make_standard_strategies
@@ -83,6 +85,7 @@ from panobbgo.harness_ioh import (
     paired_seed_stats,
     run_ioh_harness,
     run_ioh_harness_multi_seed,
+    t_ci,
 )
 
 
@@ -175,6 +178,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     family = _resolve_family_battery(args)
     if family is not None:
         name, instances, budget_multiplier = family
+        args.sync_eval = True if args.sync_eval is None else args.sync_eval
         dims = sorted({p.dim for _n, p in instances})
         print(
             f"Battery: {name}  instances={len(instances)}  dims={dims}  families={len({p.family for _n, p in instances})}"
@@ -206,6 +210,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             jobs=args.jobs,
         )
     else:
+        args.sync_eval = bool(args.sync_eval)
         battery = _resolve_battery(args)
         seeds = _resolve_seeds(args)
         print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
@@ -256,9 +261,38 @@ def _compare_single(before: IOHHarnessResult, after: IOHHarnessResult, fail_on_r
             d = a - b
             marker = "  +" if d > 0 else ("  -" if d < 0 else "  =")
         print(f"    {name:32s}  {b:.4f} -> {a:.4f}{marker}")
-    if fail_on_regression and delta < 0:
-        return 2
+    common, gate_delta = _common_cell_delta(before, after)
+    if not common == len(before.runs) == len(after.runs):
+        print(
+            f"\n  common (strategy, cell) runs: {common} of {len(before.runs)} before / {len(after.runs)} after; "
+            f"delta over them = {gate_delta:+.4f}"
+        )
+    if fail_on_regression:
+        if common == 0:
+            print("No (strategy, cell) run appears in both results; cannot gate.", file=sys.stderr)
+            return 2
+        if gate_delta < 0:
+            return 2
     return 0
+
+
+def _run_key(r: Any) -> Tuple[Any, ...]:
+    return (r.strategy_name, r.problem_kind, r.fid, r.dim, r.instance, r.rep)
+
+
+def _common_cell_delta(before: IOHHarnessResult, after: IOHHarnessResult) -> Tuple[int, float]:
+    """``(n, mean AOCC delta)`` over the (strategy, cell, rep) runs present on both sides.
+
+    The regression gate compares like with like: a strategy (e.g. a
+    baseline) or a cell that exists on one side only would otherwise move
+    the overall mean by its own level, not by a change.
+    """
+    b = {_run_key(r): r.aocc for r in before.runs}
+    a = {_run_key(r): r.aocc for r in after.runs}
+    keys = [k for k in b if k in a]
+    if not keys:
+        return 0, float("nan")
+    return len(keys), float(sum(a[k] - b[k] for k in keys) / len(keys))
 
 
 def _compare_multi(before: IOHMultiSeedResult, after: IOHMultiSeedResult, fail_on_regression: bool) -> int:
@@ -294,7 +328,20 @@ def _compare_multi(before: IOHMultiSeedResult, after: IOHMultiSeedResult, fail_o
     for name, st in stats.items():
         deltas = "  ".join(f"{s}:{d:+.4f}" for s, d in zip(st["seeds"], st["per_seed_delta"]))
         print(f"    {name:32s}  {deltas}")
-    if fail_on_regression and delta < 0:
+    # The gate: per common seed, the mean delta over the strategies present
+    # on both sides; regression iff the t-CI95 of those per-seed deltas lies
+    # below zero (the mean delta alone with a single common seed).
+    per_seed = [float(np.mean([st["per_seed_delta"][i] for st in stats.values()])) for i in range(len(common_seeds))]
+    pooled, half = t_ci(per_seed)
+    if len(per_seed) >= 2:
+        regressed = pooled + half < 0
+        print(
+            f"\n  pooled over common strategies: Δmean={pooled:+.4f}  CI95=[{pooled - half:+.4f},{pooled + half:+.4f}]"
+        )
+    else:
+        regressed = pooled < 0
+        print(f"\n  pooled over common strategies: Δmean={pooled:+.4f}  (one common seed: no CI)")
+    if fail_on_regression and regressed:
         return 2
     return 0
 
@@ -414,10 +461,13 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     )
     run_p.add_argument(
         "--sync-eval",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Synchronous-harvest evaluation: deterministic result batches, ~2x lower "
         "run-to-run noise for adaptive strategies. Use on BOTH sides of an A/B "
-        "(compare warns on a mode mismatch).",
+        "(compare warns on a mode mismatch).  Default: off on the MA-BBOB batteries "
+        "(historical comparability), on for the --families* track (nothing historical "
+        "to match; run_family_harness's own default).",
     )
     run_p.add_argument(
         "--timeout",
@@ -436,7 +486,13 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     cmp_p = sub.add_parser("compare", help="Compare two saved IOH harness results.")
     cmp_p.add_argument("before")
     cmp_p.add_argument("after")
-    cmp_p.add_argument("--fail-on-regression", action="store_true")
+    cmp_p.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="Exit 2 on a regression, judged on the strategies (and, single-seed, the cells) present on "
+        "both sides only.  Multi-seed: the t-CI95 of the per-seed mean delta lies below 0.  "
+        "Single-seed: the mean delta over the common runs is negative.",
+    )
     cmp_p.set_defaults(func=cmd_compare)
 
     local_run.add_arguments(p)

@@ -96,6 +96,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import pathlib
 import sys
 from datetime import datetime
@@ -129,6 +130,23 @@ def _resolve_extra_families(args: argparse.Namespace) -> Optional[list]:
     return None
 
 
+def _json_safe(obj):
+    """``obj`` with every non-finite float (``inf`` / ``NaN``) replaced by ``None``."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
+def _json_dumps(obj) -> str:
+    """Strict JSON for ``--json`` output: ``json.dumps`` would write ``Infinity`` / ``NaN``,
+    which JSON parsers other than Python's reject."""
+    return json.dumps(_json_safe(obj), indent=2, allow_nan=False, default=float)
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Execute benchmark runs and save the result."""
     from panobbgo.harness import BenchmarkHarness, HarnessConfig
@@ -150,6 +168,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     harness = BenchmarkHarness(config)
+    try:
+        # Resolve the battery up front: an unknown --problems / --strategies
+        # name is an error, not an empty run with composite 0.0.
+        harness.get_problems()
+        harness.get_strategies()
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     result = harness.run(verbose=not args.quiet)
 
     output = args.output or _default_output_path(mode)
@@ -200,7 +226,7 @@ def cmd_score(args: argparse.Namespace) -> int:
                 for psr in result.problem_strategy_results
             ],
         }
-        print(json.dumps(summary, indent=2))
+        print(_json_dumps(summary))
 
     return 0
 
@@ -274,6 +300,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
             "score_after": comparison.score_after,
             "delta": comparison.delta,
             "relative_delta_pct": comparison.relative_delta,
+            "common_delta": comparison.common_delta,
             "improved": [{"problem": p, "strategy": s, "before": b, "after": a} for p, s, b, a in comparison.improved],
             "degraded": [{"problem": p, "strategy": s, "before": b, "after": a} for p, s, b, a in comparison.degraded],
             "only_before": [{"problem": p, "strategy": s, "score": sc} for p, s, sc in comparison.only_before],
@@ -281,7 +308,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
         }
         if decision is not None:
             out["statistical"] = decision.to_dict()
-        print(json.dumps(out, indent=2))
+        print(_json_dumps(out))
 
     # Non-zero exit rules for scripted gating.
     # --statistical overrides the naive eps check when enabled.
@@ -295,12 +322,19 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-    elif args.fail_on_regression and comparison.delta < -args.eps:
-        print(
-            f"\nFAIL: composite score decreased by {comparison.delta:.4f}",
-            file=sys.stderr,
-        )
-        return 2
+    elif args.fail_on_regression:
+        # Judged on the (problem, strategy) pairs both sides measured: a pair
+        # present on one side only (e.g. --baselines on one run) would move
+        # the composite by its own level, not by the change under test.
+        if math.isnan(comparison.common_delta):
+            print("\nFAIL: no (problem, strategy) pair appears in both results", file=sys.stderr)
+            return 2
+        if comparison.common_delta < -args.eps:
+            print(
+                f"\nFAIL: score over the common pairs decreased by {comparison.common_delta:.4f}",
+                file=sys.stderr,
+            )
+            return 2
 
     return 0
 
@@ -433,8 +467,9 @@ def build_parser() -> argparse.ArgumentParser:
             " (Rosenbrock_HighDim, dim_choices=(2, 5)) to the randomized"
             " battery.  Only effective with --randomize.  Leaves the frozen"
             " 2-D default battery — and thus the historical composite"
-            " baseline — untouched; use --metric aocc for a responsive"
-            " signal on this hard family."
+            " baseline — untouched.  For a responsive signal in higher"
+            " dimensions use the AOCC track (scripts/ioh_benchmark.py run"
+            " --highdim)."
         ),
     )
     run_p.add_argument(
@@ -592,14 +627,14 @@ def _add_mode_group(parser: argparse.ArgumentParser) -> None:
         dest="mode",
         action="store_const",
         const="standard",
-        help="Standard mode: 8 problems, 3 strategies, 200 evals",
+        help="Standard mode: 7 problems, 8 strategies, 200 evals",
     )
     grp.add_argument(
         "--full",
         dest="mode",
         action="store_const",
         const="full",
-        help="Full mode: all problems and strategies, 500 evals",
+        help="Full mode: 10 problems, 12 strategies, 500 evals",
     )
     grp.add_argument(
         "--mode",

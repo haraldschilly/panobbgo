@@ -99,7 +99,7 @@ import threading
 import warnings
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -154,7 +154,7 @@ def _make_quick_problems() -> List[ProblemSpec]:
 
 
 def _make_standard_problems() -> List[ProblemSpec]:
-    """Eight representative problems across easy/medium/hard."""
+    """Seven representative problems (six 2-D, one 5-D) across easy/medium/hard."""
     from panobbgo.lib.classic import (
         Rosenbrock,
         Rastrigin,
@@ -285,7 +285,8 @@ def _make_quick_strategies() -> List[StrategySpec]:
     dimension importances to ``Nearby`` once enough evaluations have
     accumulated; ``update_interval=25`` was selected by the self-
     improvement loop as a small but reproducible gain over the earlier
-    ``20`` (see ``planning/done/self_improve_ledger.jsonl`` iter 6).
+    ``20`` (see ``planning/done/self_improve_ledger_2026-05-31.jsonl``,
+    iteration 6, accepted 2026-05-15).
 
     CMA-ES is intentionally excluded from the quick strategy: with only 75 evaluations
     its covariance adaptation has too little data to converge, and the population overhead
@@ -309,8 +310,8 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 # ``scramble=False`` codified 2026-05-31 from three independent
                 # self-improvement loop accepts (deltas +0.022 / +0.051 / +0.032,
                 # each with bootstrap-CI lower bound > 0 and no per-pair
-                # regression — see planning/done/self_improve_ledger.jsonl iter=9 /
-                # iter=15 / iter=17 in the 2026-05 ledger window).  At n=16 in
+                # regression — see planning/done/self_improve_ledger_2026-05-31.jsonl
+                # iterations 9 / 15 / 17, accepted 2026-05-25 / 05-22 / 05-30).  At n=16 in
                 # the quick-mode 2-D battery, the deterministic Sobol' grid is
                 # already optimally space-filling; Owen scrambling perturbs
                 # those grid points and slightly degrades the "first looks"
@@ -609,13 +610,6 @@ class _DejongProxy:
         return DeJong(dims=dims)
 
 
-# Patch Himmelblau into namespace for the _make_standard_problems function
-try:
-    from panobbgo.lib.classic import Himmelblau  # pyright: ignore[reportUnusedImport] # noqa: F401
-except ImportError:
-    Himmelblau = None  # type: ignore[assignment,misc]
-
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -763,7 +757,9 @@ class RunRecord:
         convergence: Ordered list of improvement events.
         heuristic_counts: Map from heuristic name to evaluation count.
         duration: Wall-clock time in seconds.
-        error: Error message if the run failed, else ``None``.
+        error: Error message if the run failed, else ``None``.  A run cut
+            off at ``timeout_per_run`` that stopped cleanly carries
+            ``"Run timed out after ..."`` here but keeps its measurements.
     """
 
     problem_name: str
@@ -1076,6 +1072,11 @@ class ComparisonResult:
         unchanged: Problem-strategy pairs with no significant change.
         only_before: Pairs present only in the baseline (not compared).
         only_after: Pairs present only in the candidate (not compared).
+        common_delta: Mean score change over the pairs present on both
+            sides (``NaN`` when there are none).  Equals ``delta`` when
+            both results hold the same pairs; unlike ``delta`` it is not
+            moved by a pair (e.g. a ``--baselines`` strategy) that exists
+            on one side only, so it is what a regression gate should read.
     """
 
     before: str
@@ -1089,6 +1090,7 @@ class ComparisonResult:
     unchanged: List[Tuple[str, str, float, float]]
     only_before: List[Tuple[str, str, float]] = field(default_factory=list)
     only_after: List[Tuple[str, str, float]] = field(default_factory=list)
+    common_delta: float = float("nan")
 
     def print_summary(self, width: int = 72) -> None:
         """Print a formatted comparison to stdout."""
@@ -1122,6 +1124,9 @@ class ComparisonResult:
             print(
                 f"  Only in candidate ({len(self.only_after)}): " + ", ".join(f"{p}/{s}" for p, s, _ in self.only_after)
             )
+        if self.only_before or self.only_after:
+            n_common = len(self.improved) + len(self.degraded) + len(self.unchanged)
+            print(f"  Delta over the {n_common} common pair(s): {self.common_delta:+.4f}")
 
         print(bar)
 
@@ -1203,6 +1208,9 @@ def compare(
 
     delta = after.composite_score - before.composite_score
     rel_delta = (delta / before.composite_score * 100.0) if before.composite_score > 0 else float("inf")
+    # The composite is the unweighted mean over pairs, so this is the
+    # composite delta restricted to the pairs both sides measured.
+    common_delta = float(np.mean([after_map[k] - before_map[k] for k in both_keys])) if both_keys else float("nan")
 
     return ComparisonResult(
         before=label_before,
@@ -1216,6 +1224,7 @@ def compare(
         unchanged=unchanged,
         only_before=only_before,
         only_after=only_after,
+        common_delta=common_delta,
     )
 
 
@@ -1423,8 +1432,9 @@ def statistical_accept(
             Default ``0.05``.
         n_boot: Number of bootstrap resamples.  Default ``10_000``.
         confidence: Confidence level for the bootstrap CI.  Default ``0.95``.
-        seed: Base RNG seed (derived per-pair via SHA-256 for independence).
-            Default ``42``.
+        seed: Seed of the single ``numpy.random.default_rng`` stream that
+            every pair's bootstrap resamples draw from, in sorted pair
+            order.  Default ``42``.
         paired: Bootstrap scheme for per-pair CIs.  Under
             ``--randomize`` (and any other run topology where reps are
             instance-aligned by index — same ``base_seed`` /
@@ -1666,6 +1676,20 @@ def statistical_accept(
 # ---------------------------------------------------------------------------
 
 
+def _filter_by_name(kind: str, specs: List[Any], names: Sequence[str]) -> List[Any]:
+    """Keep the specs named in ``names``; raise :class:`ValueError` on a name that matches none.
+
+    A typo would otherwise filter everything out and yield a composite of
+    0.0 from an empty battery, saved and exited with status 0.
+    """
+    available = [s.name for s in specs]
+    unknown = sorted(set(names) - set(available))
+    if unknown:
+        raise ValueError(f"Unknown {kind} name(s) {unknown} for this battery; available: {available}")
+    keep = set(names)
+    return [s for s in specs if s.name in keep]
+
+
 class BenchmarkHarness:
     """
     Reproducible benchmark harness for automated agent feedback loops.
@@ -1738,8 +1762,7 @@ class BenchmarkHarness:
                 specs = _make_full_problems()
 
         if self.config.problems:
-            keep = set(self.config.problems)
-            specs = [s for s in specs if s.name in keep]
+            specs = _filter_by_name("problem", specs, self.config.problems)
 
         # Override budget from config
         for spec in specs:
@@ -1779,8 +1802,7 @@ class BenchmarkHarness:
             specs = specs + make_baseline_strategies()
 
         if self.config.strategies:
-            keep = set(self.config.strategies)
-            specs = [s for s in specs if s.name in keep]
+            specs = _filter_by_name("strategy", specs, self.config.strategies)
 
         return specs
 
@@ -1962,9 +1984,12 @@ class BenchmarkHarness:
             # at construction time.
             strategy = strat_spec.create_strategy(problem, seed=seed, max_eval=budget)
 
-            # Configure evaluation budget and method
+            # Configure evaluation budget and method.  Threaded unless the
+            # spec asks for another method (e.g. ``"processes"``): the
+            # default only guards against a user config file selecting dask.
             strategy.config.max_eval = budget
-            strategy.config.evaluation_method = "threaded"
+            if "evaluation_method" not in strat_spec.config_overrides:
+                strategy.config.evaluation_method = "threaded"
             if self.config.sync_eval:
                 strategy.config.sync_evaluation = True
 
@@ -1973,6 +1998,9 @@ class BenchmarkHarness:
             # because SIGALRM can corrupt state in threaded evaluation workers.
             timeout = self.config.timeout_per_run
             run_error: Optional[Exception] = None
+            # Set when the run was cut off at its deadline but stopped
+            # cleanly: its evaluations up to the stop are still scored.
+            timeout_note: Optional[str] = None
 
             def _run_strategy() -> None:
                 nonlocal run_error
@@ -2015,9 +2043,12 @@ class BenchmarkHarness:
                     raise TimeoutError(
                         f"Run timed out after {timeout:.0f}s and hung (did not stop within {grace:.0f}s)"
                     )
-                raise TimeoutError(f"Run timed out after {timeout:.0f}s")
+                # Stopped cleanly: the results it produced until the stop
+                # are complete, so they are scored (a tolerance hit at eval
+                # 5 still counts) and the error only marks the cut-off.
+                timeout_note = f"Run timed out after {timeout:.0f}s"
 
-            if run_error is not None:
+            if run_error is not None and timeout_note is None:
                 raise run_error
 
             # Best result
@@ -2072,7 +2103,7 @@ class BenchmarkHarness:
                 convergence=convergence,
                 heuristic_counts=heuristic_counts,
                 duration=duration,
-                error=None,
+                error=timeout_note,
             )
             # Success is "tolerance met within the budget", the same event
             # the score and ERT are computed from — not ``strategy.best``,
@@ -2188,86 +2219,6 @@ class BenchmarkHarness:
             counts[who] = counts.get(who, 0) + 1
         return counts
 
-    # Keep backward-compatible static methods for external callers / tests
-    @staticmethod
-    def _extract_convergence(all_results: List[Any], f_opt: float) -> List[ConvergencePoint]:
-        """Build a convergence trace from itertuples NamedTuples.
-
-        .. deprecated::
-            Prefer :meth:`_build_convergence_from_arrays` when a raw
-            DataFrame is available.  This method exists for external callers
-            that hold pre-extracted itertuples results.
-
-        The NamedTuple field for ``fx`` depends on the pandas version and the
-        MultiIndex column naming (``"fx_0"`` after flattening ``("fx", 0)``).
-
-        Args:
-            all_results: Ordered NamedTuple rows from ``itertuples()``.
-            f_opt: True global optimum value.
-
-        Returns:
-            List of :class:`ConvergencePoint` objects.
-        """
-        trace: List[ConvergencePoint] = []
-        best_fx = float("inf")
-
-        for i, row in enumerate(all_results):
-            # NamedTuple field name for ("fx", 0) is "fx_0" in pandas
-            fx = None
-            for attr in ("fx_0", "fx"):
-                try:
-                    val = getattr(row, attr)
-                    if val is not None:
-                        fx = float(val)
-                        break
-                except (AttributeError, TypeError, ValueError):
-                    pass
-
-            if fx is None:
-                continue
-            if np.isnan(fx) or np.isinf(fx):
-                continue
-
-            if fx < best_fx:
-                best_fx = fx
-                trace.append(
-                    ConvergencePoint(
-                        eval_idx=i + 1,
-                        fx=float(best_fx),
-                        func_distance=abs(float(best_fx) - f_opt),
-                    )
-                )
-
-        return trace
-
-    @staticmethod
-    def _extract_heuristic_counts(all_results: List[Any]) -> Dict[str, int]:
-        """Count evaluations per heuristic from itertuples NamedTuples.
-
-        .. deprecated::
-            Prefer :meth:`_build_heuristic_counts_from_array`.
-
-        Args:
-            all_results: Ordered NamedTuple rows from ``itertuples()``.
-
-        Returns:
-            Dict mapping heuristic name to evaluation count.
-        """
-        counts: Dict[str, int] = {}
-        for row in all_results:
-            who = None
-            for attr in ("who_0", "who"):
-                try:
-                    val = getattr(row, attr)
-                    if val is not None:
-                        who = str(val)
-                        break
-                except AttributeError:
-                    pass
-            if who:
-                counts[who] = counts.get(who, 0) + 1
-        return counts
-
 
 # ---------------------------------------------------------------------------
 # Convenience helpers
@@ -2311,9 +2262,11 @@ def compute_ert(
     Args:
         runs: List of :class:`RunRecord` from a single (problem, strategy) pair.
         tolerance: Override the per-run tolerance.  ``None`` uses each run's own
-            ``tolerance`` field.
-        budget: Override the budget used as penalty for failed runs.  ``None``
-            uses each run's ``budget`` field.
+            ``tolerance`` field.  A run succeeds at the first evaluation of
+            its convergence trace within this tolerance.
+        budget: Override the budget: only a hit at or before this
+            evaluation counts, and it is the penalty for a failed run.
+            ``None`` uses each run's ``budget`` field.
 
     Returns:
         ERT in number of evaluations, or ``inf`` if no run succeeded.
@@ -2323,8 +2276,11 @@ def compute_ert(
     for run in runs:
         tol = tolerance if tolerance is not None else run.tolerance
         bud = budget if budget is not None else run.budget
-        hit = run.first_success_eval
-        if hit is not None and run.func_distance <= tol:
+        # The first hit at *this* tolerance and within *this* budget —
+        # ``run.first_success_eval`` is at ``run.tolerance`` and ignores an
+        # overridden budget.
+        hit = next((pt.eval_idx for pt in run.convergence if pt.func_distance <= tol), None)
+        if hit is not None and hit <= bud:
             total += hit
             n_success += 1
         else:

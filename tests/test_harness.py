@@ -246,6 +246,24 @@ class TestComputeErt:
         ert = compute_ert([run], tolerance=0.01, budget=100)
         assert math.isinf(ert)
 
+    def test_looser_tolerance_override_counts_the_first_hit_at_that_tolerance(self):
+        """Run tolerance 1e-3 never met; the override 0.5 was met at eval 10."""
+        run = _make_run(False, first_hit=None, func_distance=0.1, tolerance=1e-3)
+        run.convergence = [
+            ConvergencePoint(eval_idx=1, fx=2.0, func_distance=2.0),
+            ConvergencePoint(eval_idx=10, fx=0.3, func_distance=0.3),
+            ConvergencePoint(eval_idx=60, fx=0.1, func_distance=0.1),
+        ]
+        assert compute_ert([run]) == math.inf
+        assert compute_ert([run], tolerance=0.5) == pytest.approx(10.0)
+        assert compute_ert([run], tolerance=0.2) == pytest.approx(60.0)
+
+    def test_budget_override_drops_later_hits(self):
+        hit_late = _make_run(True, first_hit=80, budget=100)
+        hit_early = _make_run(True, first_hit=20, budget=100)
+        # Under a 50-eval budget the eval-80 hit is a failure costing 50.
+        assert compute_ert([hit_late, hit_early], budget=50) == pytest.approx((50 + 20) / 1)
+
 
 # ===========================================================================
 # 4. Unit tests – Serialisation (to_dict / save / load)
@@ -434,6 +452,67 @@ class TestCompare:
         assert cmp.only_before[0][0] == "P2"
         assert len(cmp.only_after) == 1
         assert cmp.only_after[0][0] == "P3"
+
+    def test_regression_gate_reads_the_common_pairs(self, tmp_path):
+        """A strategy on one side only (e.g. --baselines) must not trip --fail-on-regression."""
+        from benchmark_harness import main
+
+        def _psr(prob: str, strat: str, score: float) -> ProblemStrategyResult:
+            return ProblemStrategyResult(
+                problem_name=prob,
+                problem_dim=2,
+                strategy_name=strat,
+                f_opt=0.0,
+                tolerance=0.1,
+                budget=100,
+                runs=[_make_run(True, first_hit=1, budget=100)],
+                score=score,
+            )
+
+        def _res(pairs) -> HarnessResult:
+            psrs = [_psr(p, s, sc) for p, s, sc in pairs]
+            return HarnessResult(
+                config=HarnessConfig(mode="quick"),
+                timestamp="",
+                total_runs=len(psrs),
+                total_duration=0.0,
+                problem_strategy_results=psrs,
+                composite_score=float(np.mean([p.score for p in psrs])),
+            )
+
+        before = _res([("P1", "S1", 0.30), ("P1", "Baseline_Random", 0.90)])
+        after = _res([("P1", "S1", 0.35)])
+        cmp = compare(before, after)
+        assert cmp.delta == pytest.approx(0.35 - 0.60)
+        assert cmp.common_delta == pytest.approx(0.05)
+        paths = [str(tmp_path / "b.json"), str(tmp_path / "a.json")]
+        before.save(paths[0])
+        after.save(paths[1])
+        assert main(["compare", *paths, "--fail-on-regression"]) == 0
+        _res([("P1", "S1", 0.20)]).save(paths[1])
+        assert main(["compare", *paths, "--fail-on-regression"]) == 2
+
+
+class TestUnknownNames:
+    """A typo in --problems / --strategies is an error, not an empty battery scoring 0.0."""
+
+    def test_unknown_problem_raises(self):
+        harness = BenchmarkHarness(HarnessConfig(mode="quick", problems=["DeJong_2D", "Rosenbrok_2D"]))
+        with pytest.raises(ValueError, match="Rosenbrok_2D"):
+            harness.get_problems()
+
+    def test_unknown_strategy_raises(self):
+        harness = BenchmarkHarness(HarnessConfig(mode="quick", strategies=["RoundRobin_Randm"]))
+        with pytest.raises(ValueError, match="RoundRobin_Randm"):
+            harness.get_strategies()
+
+    def test_cli_exits_nonzero_without_writing(self, tmp_path, capsys):
+        from benchmark_harness import main
+
+        out = tmp_path / "r.json"
+        assert main(["run", "--quick", "--problems", "NoSuchProblem", "--output", str(out)]) == 1
+        assert not out.exists()
+        assert "NoSuchProblem" in capsys.readouterr().err
 
 
 # ===========================================================================
@@ -658,60 +737,6 @@ class TestBuildHeuristicCountsFromArray:
         assert "H1" in counts
         assert "H2" in counts
         assert None not in counts
-
-
-# ===========================================================================
-# 10b. Unit tests – legacy itertuples extraction helpers
-# ===========================================================================
-
-
-class TestExtractConvergenceLegacy:
-    """Test the backward-compatible _extract_convergence that works on NamedTuples.
-
-    The DataFrame MultiIndex flattens ("fx", 0) → "fx_0" in itertuples.
-    The legacy helper also accepts plain "fx" for external callers.
-    """
-
-    def _row(self, fx: float, field: str = "fx"):
-        from collections import namedtuple
-
-        Row = namedtuple("Row", [field, "who"])
-        return Row(**{field: fx, "who": "H1"})
-
-    def test_plain_fx_field(self):
-        """Accepts rows with plain 'fx' field (backward compat)."""
-        rows = [self._row(fx, field="fx") for fx in [5.0, 3.0, 8.0]]
-        trace = BenchmarkHarness._extract_convergence(rows, f_opt=0.0)
-        assert len(trace) == 2  # 5.0 and 3.0 are improvements
-
-    def test_fx_0_field(self):
-        """Accepts rows with 'fx_0' field (pandas MultiIndex flattening)."""
-        rows = [self._row(fx, field="fx_0") for fx in [5.0, 3.0, 8.0]]
-        trace = BenchmarkHarness._extract_convergence(rows, f_opt=0.0)
-        assert len(trace) == 2
-
-
-class TestExtractHeuristicCountsLegacy:
-    def _row(self, who: str, field: str = "who"):
-        from collections import namedtuple
-
-        Row = namedtuple("Row", ["fx", field])
-        return Row(fx=0.5, **{field: who})
-
-    def test_plain_who_field(self):
-        rows = [self._row("H1"), self._row("H2"), self._row("H1")]
-        counts = BenchmarkHarness._extract_heuristic_counts(rows)
-        assert counts["H1"] == 2
-        assert counts["H2"] == 1
-
-    def test_who_0_field(self):
-        rows = [self._row("H1", "who_0"), self._row("H2", "who_0")]
-        counts = BenchmarkHarness._extract_heuristic_counts(rows)
-        assert counts["H1"] == 1
-        assert counts["H2"] == 1
-
-    def test_empty(self):
-        assert BenchmarkHarness._extract_heuristic_counts([]) == {}
 
 
 # ===========================================================================
@@ -1011,6 +1036,20 @@ class TestHarnessSyncEval:
         assert "evaluation-mode mismatch" in capsys.readouterr().err
 
 
+def test_compare_json_is_strict_json(tmp_path, capsys):
+    """relative_delta is inf when the before score is 0; --json must still be valid JSON."""
+    from benchmark_harness import main
+
+    paths = [str(tmp_path / "b.json"), str(tmp_path / "a.json")]
+    _empty_result().save(paths[0])
+    _empty_result().save(paths[1])
+    assert main(["compare", *paths, "--json"]) == 0
+    out = capsys.readouterr().out
+    payload = json.loads(out[out.index("{\n") :], parse_constant=lambda c: pytest.fail(f"non-JSON constant {c}"))
+    assert payload["relative_delta_pct"] is None
+    assert payload["common_delta"] is None
+
+
 def _overshooting_strategy(batches):
     """A RoundRobin that bypasses the core budget clamp and emits fixed batches."""
     from panobbgo.lib import Point
@@ -1098,6 +1137,72 @@ class TestHarnessTimeout:
         n = len(strategy.results)
         time.sleep(0.1)
         assert len(strategy.results) == n < 50000
+
+    def test_timed_out_run_keeps_what_it_measured(self):
+        """A run cut off at its deadline still scores the evaluations it made."""
+        import time
+
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.heuristics import Random
+        from panobbgo.lib import Point
+        from panobbgo.strategies import StrategyRoundRobin
+
+        class OptimumThenSlow(StrategyRoundRobin):
+            calls = 0
+
+            def execute(self):
+                self.calls += 1
+                if self.calls == 1:
+                    return [Point(np.zeros(2), "Hit")]
+                time.sleep(0.02)
+                return [Point(np.full(2, 3.0), "Far")]
+
+        spec = StrategySpec(name="OptimumThenSlow", strategy_class=OptimumThenSlow, heuristics=[(Random, {})])
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=50000,
+            reps=1,
+            seed=0,
+            timeout_per_run=0.5,
+            sync_eval=True,
+            strategies_override=[spec],
+        )
+        result = BenchmarkHarness(cfg).run(verbose=False)
+        (run,) = _flat_runs(result)
+        assert run.error is not None and "timed out" in run.error and "hung" not in run.error
+        assert run.evaluations_used >= 1
+        assert run.first_success_eval == 1
+        assert run.success
+        assert run.best_fx == pytest.approx(0.0)
+        assert result.composite_score > 0.0
+
+
+class TestHarnessEvaluationMethod:
+    def test_spec_override_is_kept(self):
+        """The harness defaults to threaded evaluation but keeps a spec's own choice."""
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.strategies import StrategyRoundRobin
+
+        seen = []
+
+        class Recording(StrategyRoundRobin):
+            def start(self):  # record and return without evaluating
+                seen.append(self.config.evaluation_method)
+
+        def spec(name, **overrides):
+            return StrategySpec(name=name, strategy_class=Recording, heuristics=[], config_overrides=overrides)
+
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=10,
+            reps=1,
+            seed=0,
+            strategies_override=[spec("Default"), spec("Processes", evaluation_method="processes")],
+        )
+        BenchmarkHarness(cfg).run(verbose=False)
+        assert seen == ["threaded", "processes"]
 
 
 class TestHarnessProblemDim:

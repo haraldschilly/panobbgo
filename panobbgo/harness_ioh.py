@@ -37,9 +37,10 @@ Why a separate harness?
   competition draws from a documented instance distribution); they are
   not in Panobbgo's own problem registry and there is no need to mix the
   registries.
-* Forking the measurement track keeps the existing self-improvement
-  ledger (``planning/done/self_improve_ledger.jsonl``) honest: a change can be
-  good for ``composite_score`` and bad for AOCC, and we want to see both.
+* Forking the measurement track kept the self-improvement ledgers
+  honest (the loop was removed 2026-09-25; its dated ledgers are
+  ``planning/done/self_improve_ledger_*.jsonl``): a change can be good for
+  ``composite_score`` and bad for AOCC, and we want to see both.
 
 Public surface
 --------------
@@ -667,6 +668,12 @@ def make_ioh_strategies() -> List[StrategySpec]:
 # ---------------------------------------------------------------------------
 
 
+#: Start of ``IOHRunRecord.error`` for a run the tracker cut off at its
+#: deadline (still scored).  A wedged worker's ``TimeoutError: IOH worker did
+#: not answer in time`` is a crash, not this.
+TIMEOUT_ERROR_PREFIX = "TimeoutError: stopped after"
+
+
 @dataclass
 class IOHRunRecord:
     """Result of one (problem kind, fid, dim, instance, strategy, rep) run."""
@@ -712,6 +719,16 @@ class IOHRunRecord:
     def precision(self) -> float:
         return float(self.best_fx - self.f_opt)
 
+    @property
+    def timed_out(self) -> bool:
+        """Cut off at its wall-clock deadline; ``aocc`` is scored on the trace up to it."""
+        return self.error is not None and self.error.startswith(TIMEOUT_ERROR_PREFIX)
+
+    @property
+    def crashed(self) -> bool:
+        """Ended by an exception; ``aocc`` is then 0 (nothing was scored)."""
+        return self.error is not None and not self.timed_out
+
 
 @dataclass
 class IOHHarnessResult:
@@ -728,26 +745,35 @@ class IOHHarnessResult:
     #: ``ioh_benchmark.py compare`` warns on a mismatch.
     sync_eval: bool = False
 
+    # Every run counts, the way ``benchmarks/_screen.fold`` counts them: a
+    # timed-out run with its AOCC up to the deadline, a crashed run with
+    # AOCC 0.  Dropping them would reward a strategy that dies on its
+    # hardest cells and pair means over different cell sets.
+
     @property
     def mean_aocc(self) -> float:
-        scores = [r.aocc for r in self.runs if r.error is None]
+        """Mean AOCC over all runs (crashes score 0, timeouts their partial AOCC)."""
+        scores = [r.aocc for r in self.runs]
         return float(np.mean(scores)) if scores else 0.0
 
     def per_strategy_aocc(self) -> Dict[str, float]:
-        """Return ``{strategy_name: mean AOCC over all runs}``."""
-        by_strat: Dict[str, List[float]] = {}
+        """Return ``{strategy_name: mean AOCC over all runs}`` (crashes score 0)."""
+        return self._mean_aocc_by(lambda r: r.strategy_name)
+
+    def per_strategy_counts(self) -> Dict[str, Dict[str, int]]:
+        """``{strategy: {"n": runs, "crashed": ..., "timed_out": ...}}`` behind each mean."""
+        out: Dict[str, Dict[str, int]] = {}
         for r in self.runs:
-            if r.error is not None:
-                continue
-            by_strat.setdefault(r.strategy_name, []).append(r.aocc)
-        return {k: float(np.mean(v)) for k, v in by_strat.items()}
+            c = out.setdefault(r.strategy_name, {"n": 0, "crashed": 0, "timed_out": 0})
+            c["n"] += 1
+            c["crashed"] += int(r.crashed)
+            c["timed_out"] += int(r.timed_out)
+        return out
 
     def _mean_aocc_by(self, key_fn: Callable[[IOHRunRecord], Any]) -> Dict[Any, float]:
-        """Mean AOCC of the error-free runs, grouped by ``key_fn(run)``; a ``None`` key skips the run."""
+        """Mean AOCC of all runs grouped by ``key_fn(run)``; a ``None`` key skips the run."""
         by: Dict[Any, List[float]] = {}
         for r in self.runs:
-            if r.error is not None:
-                continue
             key = key_fn(r)
             if key is not None:
                 by.setdefault(key, []).append(r.aocc)
@@ -795,14 +821,21 @@ class IOHHarnessResult:
             print("  eval mode:    sync (deterministic result batches)")
         print(f"  log targets:  [10^{self.log_lo:.0f}, 10^{self.log_hi:.0f}]")
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.runs)} run(s)")
-        obs = [r.aocc_observed for r in self.runs if r.error is None and r.aocc_observed is not None]
+        n_crash = sum(r.crashed for r in self.runs)
+        n_timeout = sum(r.timed_out for r in self.runs)
+        if n_crash or n_timeout:
+            print(f"  incl.:        {n_crash} crashed (AOCC 0), {n_timeout} timed out (AOCC up to the deadline)")
+        obs = [r.aocc_observed for r in self.runs if r.aocc_observed is not None]
         if obs:
-            reco = [r.aocc_reco for r in self.runs if r.error is None and r.aocc_reco is not None]
+            reco = [r.aocc_reco for r in self.runs if r.aocc_reco is not None]
             print(f"  (noisy: AOCC is on the TRUE value; observed {float(np.mean(obs)):.4f}", end="")
             print(f", recommendation {float(np.mean(reco)):.4f})" if reco else ")")
         print("\n  per strategy:")
+        counts = self.per_strategy_counts()
         for name, val in sorted(self.per_strategy_aocc().items(), key=lambda kv: -kv[1]):
-            print(f"    {name:32s}  {val:.4f}")
+            c = counts[name]
+            bad = [f"{c[k]} {k.replace('_', ' ')}" for k in ("crashed", "timed_out") if c[k]]
+            print(f"    {name:32s}  {val:.4f}  (n={c['n']}{', ' + ', '.join(bad) if bad else ''})")
         per_dim = self.per_strategy_per_dim_aocc()
         dims = sorted({d for _, d in per_dim})
         if len(dims) > 1:
@@ -819,7 +852,7 @@ class IOHHarnessResult:
         if per_class:
             # Only the classes actually present in the run: a battery cut
             # to a few fids would otherwise print three columns of NaN.
-            classes = bbob_classes_present(r.fid for r in self.runs if r.fid is not None and r.error is None)
+            classes = bbob_classes_present(r.fid for r in self.runs if r.fid is not None)
             print("\n  per (strategy, COCO class):")
             print("    " + "strategy".ljust(32) + "  " + "  ".join(f"{c:>19s}" for c in classes))
             for s in sorted({s for s, _ in per_class}):
@@ -877,7 +910,7 @@ class IOHMultiSeedResult:
         """Return ``{strategy: [mean AOCC at base_seeds[i]]}``.
 
         Only strategies present in every per-seed result are returned —
-        a ragged strategy (all its runs errored at some seed) cannot be
+        a ragged strategy (missing from some seed's battery) cannot be
         paired and is dropped.
         """
         out: Dict[str, List[float]] = {}
@@ -1266,7 +1299,7 @@ def _run_tracked(
     if tracker.timed_out:
         # Scored above on the trajectory up to the deadline; the error
         # marks it so no table mistakes a cut-off run for a finished one.
-        out.error = f"TimeoutError: stopped after {timeout_s:g}s at {out.n_evals}/{budget} evals"
+        out.error = f"{TIMEOUT_ERROR_PREFIX} {timeout_s:g}s at {out.n_evals}/{budget} evals"
     return out
 
 

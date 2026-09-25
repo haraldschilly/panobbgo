@@ -92,3 +92,23 @@ def test_meta_screen_keeps_fids_apart(tmp_path):
     ]
     out = _run("meta_screen.py", tmp_path, rows)
     assert "cells: 6" in out
+
+
+def test_run_seeds_interrupt_keeps_the_finished_rows(tmp_path, monkeypatch):
+    """Ctrl-C while the rows file is rewritten must not destroy the rows already on disk."""
+    from benchmarks import _screen
+
+    out = tmp_path / "rows.json"
+    real_dump = json.dump
+    calls = {"n": 0}
+
+    def dump(obj, fp, *a, **kw):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise KeyboardInterrupt
+        return real_dump(obj, fp, *a, **kw)
+
+    monkeypatch.setattr(_screen.json, "dump", dump)
+    with pytest.raises(KeyboardInterrupt):
+        _screen.run_seeds([1, 2], str(out), lambda seed: [[{"seed": seed}]])
+    assert json.loads(out.read_text()) == [{"seed": 1}]

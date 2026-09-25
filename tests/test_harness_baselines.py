@@ -79,6 +79,20 @@ class TestBudgetGuard:
         with pytest.raises(_BudgetExhausted):
             objective(np.array([0.1, 0.2]))
 
+    def test_hard_ioh_tracker_stop_ends_a_baseline_cleanly(self):
+        """One _BudgetExhausted class: an IOHTracker(hard=True) stop inside a baseline is not a crash."""
+        from panobbgo.ioh_runner import IOHTracker
+
+        problem = _make_dejong_2d()
+        tracker = IOHTracker(problem, budget=7, hard=True)
+        try:
+            strategy = RandomSearchStrategy(problem, seed=0)
+            strategy.config.max_eval = 50
+            strategy.start()  # the tracker raises at evaluation 8
+        finally:
+            tracker.restore()
+        assert len(strategy.results.results) == 7
+
     def test_best_tracking_ignores_non_finite(self):
         log = _EvaluationLog(who="test", max_eval=10)
         log.record(np.array([1.0, 2.0]), float("inf"))

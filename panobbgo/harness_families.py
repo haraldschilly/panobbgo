@@ -100,10 +100,9 @@ from panobbgo.harness_ioh import (
     IOHHarnessResult,
     IOHRunRecord,
     IOHTracker,
-    _BudgetExhausted,
     _derive_seed,
-    _downsample_trajectory,
-    aocc,
+    _run_tracked,
+    _TrackedRun,
 )
 from panobbgo.lib.families import Family, FamilyConfig, FamilyLike, make_family_instances
 
@@ -144,19 +143,23 @@ class PenaltyTracker(IOHTracker):
     :attr:`IOHRunRecord.precision` must be computed from.
     """
 
-    def __init__(self, problem: Any, budget: int, *, rho: float = PENALTY_RHO, hard: bool = False) -> None:
-        super().__init__(problem, budget, hard=hard)
+    def __init__(
+        self,
+        problem: Any,
+        budget: int,
+        *,
+        rho: float = PENALTY_RHO,
+        hard: bool = False,
+        timeout_s: Optional[float] = None,
+    ) -> None:
+        super().__init__(problem, budget, hard=hard, timeout_s=timeout_s)
         self.rho = float(rho)
         #: Objective value at the best *penalty* point (for reporting).
         self.best_raw_fx: float = float("inf")
         #: Constraint violation at the best penalty point.
         self.best_cv: float = float("inf")
 
-    def _tracked_eval(self, x: np.ndarray) -> float:
-        if self.n_evals >= self.budget:
-            if self.hard:
-                raise _BudgetExhausted()
-            return self.best_fx if np.isfinite(self.best_fx) else float("inf")
+    def _measure(self, x: np.ndarray) -> Tuple[float, ...]:
         fx = float(self._orig_eval(x))
         cv_vec = self.problem.eval_constraints(x)
         if cv_vec is None:
@@ -165,15 +168,16 @@ class PenaltyTracker(IOHTracker):
             positive = np.asarray(cv_vec, dtype=np.float64)
             positive = positive[positive > 0.0]
             cv = float(np.linalg.norm(positive)) if positive.size else 0.0
-        phi = fx + self.rho * cv
-        self.n_evals += 1
+        return fx, fx + self.rho * cv, cv
+
+    def _record(self, x: np.ndarray, measured: Tuple[float, ...]) -> None:
+        fx, phi, cv = measured
         if np.isfinite(phi) and phi < self.best_fx:
             self.best_fx = phi
             self.best_raw_fx = fx
             self.best_cv = cv
             self.best_x = np.asarray(x, dtype=np.float64).copy()
         self.best_so_far.append(self.best_fx)
-        return fx
 
 
 # ---------------------------------------------------------------------------
@@ -273,43 +277,30 @@ def _run_one(
     log_lo: float,
     log_hi: float,
     sync_eval: bool,
+    timeout_s: Optional[float] = None,
 ) -> IOHRunRecord:
-    """Run one strategy on one family instance; mirror of ``harness_ioh._run_one``."""
+    """Run one strategy on one family instance; same driver as ``harness_ioh._run_one``."""
     t0 = time.time()
-    err: Optional[str] = None
-    n_evals = 0
-    best_fx = float("inf")
     f_opt = float(problem.f_opt)
-    trace_evals: List[int] = []
-    trace_fx: List[float] = []
-    score = 0.0
+    tracked = _TrackedRun(n_evals=0, best_fx=float("inf"), aocc=0.0, trace_evals=[], trace_fx=[])
 
     try:
-        np.random.seed(seed)
-        tracker = PenaltyTracker(problem, budget=budget)
-        try:
-            # Budget before construction: ``NP_init="auto"`` sizes itself
-            # from ``config.max_eval`` in the heuristic's constructor.
-            # The families are noiseless, so an oracle regime gate reads
-            # ``"clean"`` (constrained-or-not it reads off the problem).
-            strategy = strategy_spec.with_regime_class("clean").create_strategy(problem, seed=seed, max_eval=budget)
-            strategy.config.max_eval = budget
-            strategy.config.sync_evaluation = bool(sync_eval)
-            # Anytime metric: the tracker's budget is the only stop.
-            strategy.config.stop_on_convergence = False
-            try:
-                strategy.start()
-            except _BudgetExhausted:
-                pass
-        finally:
-            tracker.restore()
-
-        n_evals = tracker.n_evals
-        best_fx = tracker.best_fx
-        score = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
-        trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
+        # The families are noiseless, so an oracle regime gate reads
+        # ``"clean"`` (constrained-or-not it reads off the problem).
+        tracked = _run_tracked(
+            strategy_spec.with_regime_class("clean"),
+            problem,
+            PenaltyTracker(problem, budget=budget, timeout_s=timeout_s),
+            f_opt=f_opt,
+            budget=budget,
+            seed=seed,
+            sync_eval=sync_eval,
+            log_lo=log_lo,
+            log_hi=log_hi,
+            timeout_s=timeout_s,
+        )
     except Exception as e:  # noqa: BLE001 — record and continue, as the IOH track does
-        err = f"{type(e).__name__}: {e}"
+        tracked.error = f"{type(e).__name__}: {e}"
 
     return IOHRunRecord(
         problem_kind=problem.family,
@@ -318,15 +309,15 @@ def _run_one(
         strategy_name=strategy_spec.name,
         rep=rep,
         budget=budget,
-        n_evals=n_evals,
-        best_fx=best_fx,
+        n_evals=tracked.n_evals,
+        best_fx=tracked.best_fx,
         f_opt=f_opt,
-        aocc=score,
+        aocc=tracked.aocc,
         elapsed_s=time.time() - t0,
         seed=seed,
-        error=err,
-        trace_evals=trace_evals,
-        trace_fx=trace_fx,
+        error=tracked.error,
+        trace_evals=tracked.trace_evals,
+        trace_fx=tracked.trace_fx,
     )
 
 
@@ -347,6 +338,7 @@ def run_family_harness(
     log_hi: float = AOCC_LOG_HI,
     progress: bool = True,
     battery_name: str = "families",
+    timeout_s: Optional[float] = None,
 ) -> IOHHarnessResult:
     """Score every spec on every instance and return an AOCC result.
 
@@ -375,6 +367,11 @@ def run_family_harness(
         family-battery number to stay comparable with.
     reps
         Independent repetitions per (instance, spec).
+    timeout_s
+        Per-run wall-clock deadline, as in :func:`run_ioh_harness
+        <panobbgo.harness_ioh.run_ioh_harness>`: evaluations past it are
+        not counted, the strategy is stopped, and the run keeps its AOCC
+        up to the deadline but is recorded with a ``TimeoutError``.
 
     Returns
     -------
@@ -409,6 +406,7 @@ def run_family_harness(
                     log_lo=log_lo,
                     log_hi=log_hi,
                     sync_eval=sync_eval,
+                    timeout_s=timeout_s,
                 )
                 if progress:
                     tag = "ERR " if rec.error else ""

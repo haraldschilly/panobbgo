@@ -338,3 +338,32 @@ def test_harness_is_reproducible_and_paired_on_the_rng_identity():
     assert seeds["arm_a"] == seeds["arm_b"], "a shared seed_name must share the RNG stream"
     assert first.runs[0].seed == again.runs[0].seed
     assert first.runs[0].aocc == again.runs[0].aocc
+
+
+def test_penalty_tracker_is_thread_safe():
+    """Concurrent evaluations: exactly ``budget`` recorded, trace monotone."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    p = Family("sphere", dim=2, seed=3, n_constraints=1, constraint_kind="linear")
+    tracker = PenaltyTracker(p, budget=100)
+    rng = np.random.default_rng(1)
+    try:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(p.eval, rng.uniform(-5.0, 5.0, size=(300, 2))))
+    finally:
+        tracker.restore()
+    assert tracker.n_evals == len(tracker.best_so_far) == 100
+    assert np.all(np.diff(tracker.best_so_far) <= 0)
+
+
+def test_timeout_reaches_the_family_run():
+    """``timeout_s`` cuts the run off, stops the strategy, and says so."""
+    instances = make_families_battery(dims=(2,), n_instances=1)[:1]
+    specs = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"]
+    result = run_family_harness(specs, instances, budget_multiplier=500, base_seed=1, progress=False, timeout_s=0.0)
+    run = result.runs[0]
+    assert run.error is not None and run.error.startswith("TimeoutError"), run.error
+    assert run.n_evals < run.budget
+    # The strategy was stopped rather than left to spin through 1000 no-op
+    # evaluations; a zero deadline leaves the run with little wall time.
+    assert run.elapsed_s < 30.0

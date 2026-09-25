@@ -1146,6 +1146,98 @@ def _downsample_trajectory(traj: Sequence[float], budget: int, k: int = 32) -> T
 # ---------------------------------------------------------------------------
 
 
+@dataclass
+class _TrackedRun:
+    """What :func:`_run_tracked` measured; the caller wraps it in a record."""
+
+    n_evals: int
+    best_fx: float
+    aocc: float
+    trace_evals: List[int]
+    trace_fx: List[float]
+    aocc_observed: Optional[float] = None
+    aocc_reco: Optional[float] = None
+    error: Optional[str] = None
+
+
+def _run_tracked(
+    strategy_spec: StrategySpec,
+    problem: Any,
+    tracker: IOHTracker,
+    *,
+    f_opt: float,
+    budget: int,
+    seed: int,
+    sync_eval: bool,
+    log_lo: float,
+    log_hi: float,
+    timeout_s: Optional[float],
+) -> _TrackedRun:
+    """Run one strategy under an installed tracker and score its trace.
+
+    The one run driver of the AOCC tracks (IOH / MA-BBOB here, the
+    generated families in :mod:`panobbgo.harness_families`): strategy
+    construction with the budget, the anytime settings, the wall-clock
+    timeout, AOCC and trace downsampling.  ``tracker`` is already wrapped
+    around ``problem`` (an :class:`IOHTracker` or a subclass such as the
+    families' penalty tracker) and is restored here.  Exceptions
+    propagate; the caller records them.
+    """
+    np.random.seed(seed)
+    try:
+        # The budget must reach the config *before* the heuristics are
+        # constructed — budget-adaptive arms (``NP_init="auto"``) size
+        # themselves from ``config.max_eval`` in their constructor, and
+        # would otherwise read Config's default (1000) instead of the
+        # battery's ``budget_multiplier * dim``.
+        strategy = strategy_spec.create_strategy(problem, seed=seed, max_eval=budget)
+        # Harmless belt-and-braces: keeps the invariant for factory-built
+        # strategies that rebuild their own config.
+        strategy.config.max_eval = budget
+        # Deterministic result batches for the threaded evaluator —
+        # cuts adaptive-strategy measurement noise roughly in half
+        # (2026-08-09 repeat-sd experiment); opt-in via --sync-eval.
+        strategy.config.sync_evaluation = bool(sync_eval)
+        # IOH/AOCC is an anytime metric: stopping early on convergence
+        # leaves the remaining budget penalised at the final best-fx.
+        # Force the strategy to keep producing points until the
+        # tracker enforces the budget hard-stop.  (The `Convergence`
+        # analyzer still fires its event for any listeners; we simply
+        # tell the strategy not to honour it as a stop signal.)
+        strategy.config.stop_on_convergence = False
+        # Past the deadline the tracker stops counting; this also ends the
+        # main loop instead of letting it spin through no-op evaluations.
+        tracker.on_timeout = getattr(strategy, "request_stop", None)
+        try:
+            strategy.start()
+        except _BudgetExhausted:
+            pass
+    finally:
+        tracker.restore()
+
+    def score(trace: Sequence[float]) -> float:
+        return aocc(trace, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
+
+    out = _TrackedRun(n_evals=tracker.n_evals, best_fx=tracker.best_fx, aocc=0.0, trace_evals=[], trace_fx=[])
+    if tracker.has_true:
+        # BBOB-noisy convention: the metric is scored on the true,
+        # noise-free value; what the optimizer *observed* is a
+        # diagnostic (and an optimistically biased one).
+        out.best_fx = tracker.best_true_fx
+        out.aocc = score(tracker.best_so_far_true)
+        out.aocc_observed = score(tracker.best_so_far)
+        out.aocc_reco = score(tracker.best_so_far_reco)
+        out.trace_evals, out.trace_fx = _downsample_trajectory(tracker.best_so_far_true, budget=budget)
+    else:
+        out.aocc = score(tracker.best_so_far)
+        out.trace_evals, out.trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
+    if tracker.timed_out:
+        # Scored above on the trajectory up to the deadline; the error
+        # marks it so no table mistakes a cut-off run for a finished one.
+        out.error = f"TimeoutError: stopped after {timeout_s:g}s at {out.n_evals}/{budget} evals"
+    return out
+
+
 def _run_one(
     strategy_spec: StrategySpec,
     problem_kind: str,
@@ -1172,15 +1264,8 @@ def _run_one(
     worker_kind, noise_tag = resolve_problem_kind(problem_kind)
 
     t0 = time.time()
-    err: Optional[str] = None
-    n_evals = 0
-    best_fx = float("inf")
     f_opt = 0.0
-    trace_evals: List[int] = []
-    trace_fx: List[float] = []
-    score = 0.0
-    aocc_observed: Optional[float] = None
-    aocc_reco: Optional[float] = None
+    tracked = _TrackedRun(n_evals=0, best_fx=float("inf"), aocc=0.0, trace_evals=[], trace_fx=[])
     problem: Optional[Any] = None
 
     try:
@@ -1211,62 +1296,23 @@ def _run_one(
                 f_opt=f_opt,
             )
 
-        np.random.seed(seed)
-
-        tracker = IOHTracker(problem, budget=budget, timeout_s=timeout_s)
-        try:
-            # The budget must reach the config *before* the heuristics are
-            # constructed — budget-adaptive arms (``NP_init="auto"``) size
-            # themselves from ``config.max_eval`` in their constructor, and
-            # would otherwise read Config's default (1000) instead of the
-            # battery's ``budget_multiplier * dim``.
-            # A spec gated by ``regime_gate="oracle"`` learns the battery's
-            # noise class here — the one regime feature the strategy cannot
-            # read off the problem itself.
-            strategy = strategy_spec.with_regime_class(noise_class_of(problem_kind)).create_strategy(
-                problem, seed=seed, max_eval=budget
-            )
-            # Harmless belt-and-braces: keeps the invariant for factory-built
-            # strategies that rebuild their own config.
-            strategy.config.max_eval = budget
-            # Deterministic result batches for the threaded evaluator —
-            # cuts adaptive-strategy measurement noise roughly in half
-            # (2026-08-09 repeat-sd experiment); opt-in via --sync-eval.
-            strategy.config.sync_evaluation = bool(sync_eval)
-            # IOH/AOCC is an anytime metric: stopping early on convergence
-            # leaves the remaining budget penalised at the final best-fx.
-            # Force the strategy to keep producing points until the
-            # tracker enforces the budget hard-stop.  (The `Convergence`
-            # analyzer still fires its event for any listeners; we simply
-            # tell the strategy not to honour it as a stop signal.)
-            strategy.config.stop_on_convergence = False
-            try:
-                strategy.start()
-            except _BudgetExhausted:
-                pass
-        finally:
-            tracker.restore()
-
-        n_evals = tracker.n_evals
-        if tracker.has_true:
-            # BBOB-noisy convention: the metric is scored on the true,
-            # noise-free value; what the optimizer *observed* is a
-            # diagnostic (and an optimistically biased one).
-            best_fx = tracker.best_true_fx
-            score = aocc(tracker.best_so_far_true, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
-            aocc_observed = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
-            aocc_reco = aocc(tracker.best_so_far_reco, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
-            trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far_true, budget=budget)
-        else:
-            best_fx = tracker.best_fx
-            score = aocc(tracker.best_so_far, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
-            trace_evals, trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
-        if tracker.timed_out:
-            # Scored above on the trajectory up to the deadline; the error
-            # marks it so no table mistakes a cut-off run for a finished one.
-            err = f"TimeoutError: stopped after {timeout_s:g}s at {n_evals}/{budget} evals"
+        # A spec gated by ``regime_gate="oracle"`` learns the battery's
+        # noise class here — the one regime feature the strategy cannot
+        # read off the problem itself.
+        tracked = _run_tracked(
+            strategy_spec.with_regime_class(noise_class_of(problem_kind)),
+            problem,
+            IOHTracker(problem, budget=budget, timeout_s=timeout_s),
+            f_opt=f_opt,
+            budget=budget,
+            seed=seed,
+            sync_eval=sync_eval,
+            log_lo=log_lo,
+            log_hi=log_hi,
+            timeout_s=timeout_s,
+        )
     except Exception as e:  # noqa: BLE001  — record and continue
-        err = f"{type(e).__name__}: {e}"
+        tracked.error = f"{type(e).__name__}: {e}"
     finally:
         if problem is not None:
             try:
@@ -1281,18 +1327,18 @@ def _run_one(
         strategy_name=strategy_spec.name,
         rep=rep,
         budget=budget,
-        n_evals=n_evals,
-        best_fx=best_fx,
+        n_evals=tracked.n_evals,
+        best_fx=tracked.best_fx,
         f_opt=f_opt,
-        aocc=score,
+        aocc=tracked.aocc,
         elapsed_s=time.time() - t0,
         seed=seed,
-        error=err,
-        trace_evals=trace_evals,
-        trace_fx=trace_fx,
+        error=tracked.error,
+        trace_evals=tracked.trace_evals,
+        trace_fx=tracked.trace_fx,
         noise_seed=noise_seed,
-        aocc_observed=aocc_observed,
-        aocc_reco=aocc_reco,
+        aocc_observed=tracked.aocc_observed,
+        aocc_reco=tracked.aocc_reco,
         fid=fid,
     )
 

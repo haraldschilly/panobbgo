@@ -195,6 +195,10 @@ class IOHTracker:
         self.best_x: Optional[np.ndarray] = None
         self.best_so_far: List[float] = []
         self._lock = threading.Lock()
+        #: Called once, under the lock, when the deadline passes — a driver
+        #: points it at ``strategy.request_stop`` so a timed-out run ends
+        #: instead of spinning through no-op evaluations to ``max_eval``.
+        self.on_timeout: Optional[Callable[[], None]] = None
         #: Evaluations admitted against the budget: recorded plus in flight.
         self._reserved: int = 0
 
@@ -221,6 +225,8 @@ class IOHTracker:
         with self._lock:
             if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
                 self.timed_out = True
+                if self.on_timeout is not None:
+                    self.on_timeout()
             admitted = self._reserved < self.budget and not self.timed_out
             if admitted:
                 self._reserved += 1
@@ -232,29 +238,37 @@ class IOHTracker:
             # value" so the strategy treats it as a non-improvement.
             return last_best if np.isfinite(last_best) else float("inf")
         try:
-            if self._eval_pair is not None:
-                noisy, true_fx = self._eval_pair(x)
-                fx, tfx = float(noisy), float(true_fx)
-            else:
-                fx = float(self._orig_eval(x))
-                tfx = fx
+            measured = self._measure(x)
         except BaseException:
             with self._lock:
                 self._reserved -= 1  # the slot was never used
             raise
         with self._lock:
             self.n_evals += 1
-            if np.isfinite(fx) and fx < self.best_fx:
-                self.best_fx = fx
-                self.best_x = np.asarray(x, dtype=np.float64).copy()
-                self._incumbent_true = tfx
-            if np.isfinite(tfx) and tfx < self.best_true_fx:
-                self.best_true_fx = tfx
-            self.best_so_far.append(self.best_fx)
-            if self.has_true:
-                self.best_so_far_true.append(self.best_true_fx)
-                self.best_so_far_reco.append(self._incumbent_true)
-        return fx
+            self._record(x, measured)
+        return measured[0]
+
+    def _measure(self, x: np.ndarray) -> Tuple[float, ...]:
+        """Evaluate ``x`` (outside the lock); element 0 goes back to the strategy."""
+        if self._eval_pair is not None:
+            noisy, true_fx = self._eval_pair(x)
+            return float(noisy), float(true_fx)
+        fx = float(self._orig_eval(x))
+        return fx, fx
+
+    def _record(self, x: np.ndarray, measured: Tuple[float, ...]) -> None:
+        """Fold one admitted evaluation into the traces (called under the lock)."""
+        fx, tfx = measured
+        if np.isfinite(fx) and fx < self.best_fx:
+            self.best_fx = fx
+            self.best_x = np.asarray(x, dtype=np.float64).copy()
+            self._incumbent_true = tfx
+        if np.isfinite(tfx) and tfx < self.best_true_fx:
+            self.best_true_fx = tfx
+        self.best_so_far.append(self.best_fx)
+        if self.has_true:
+            self.best_so_far_true.append(self.best_true_fx)
+            self.best_so_far_reco.append(self._incumbent_true)
 
     def restore(self) -> None:
         """Restore the original ``eval`` so the problem can be reused."""

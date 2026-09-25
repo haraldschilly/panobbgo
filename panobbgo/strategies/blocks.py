@@ -180,10 +180,11 @@ and to jSO on constrained problems, and is level everywhere else
 (``planning/DISCOVERY_2026-09-09.md`` §42/§44), so on most batteries the
 gate means "CMA-ES alone".
 
-Every arm is **always constructed**, gate or no gate.  ``StrategyBase``
-spawns each module's RNG stream from the master generator in construction
-order, so an arm that is built lazily — or not at all — shifts every later
-stream and changes the run bit-for-bit.  The gate therefore only flips a
+Every arm is **always constructed**, gate or no gate, so the run holds
+the same modules in the same event-bus registration order either way.
+(Module RNG streams are keyed by the module's name since 2026-09-25 —
+:meth:`~panobbgo.core.StrategyBase.spawn_rng` — so building an arm or not
+no longer shifts another module's stream.)  The gate therefore only flips a
 per-arm ``enabled`` bit, read at exactly one place, the ``ready`` list of
 :meth:`~StrategyBlockBandit._select`, and filters the prologue at the
 moment the mask is set.  ``regime_gate=None`` is byte-identical to a run
@@ -192,8 +193,7 @@ without the feature, and a gate that enables every arm is byte-identical to
 
 A disabled arm is a paused arm (see above): it keeps receiving
 ``on_new_results`` and keeps topping its queue up, so its own stream
-advances, and the analyzers' streams are spawned one slot later than in a
-one-arm strategy.  "CMA-ES alone via the gate" is therefore not
+advances.  "CMA-ES alone via the gate" is therefore not
 *guaranteed* byte-identical to ``StrategyRoundRobin`` with CMA-ES — a
 warm start on a consecutive block (``not h.has_points`` at block open) or
 an analyzer that feeds the arm could in principle differ.  Measured, it
@@ -201,7 +201,7 @@ an analyzer that feeds the arm could in principle differ.  Measured, it
 every one of the 276 runs the gate reduced to CMA-ES was bit-identical to
 ``CMAES_alone``, and every one of the 360 runs it left both arms on
 (unif, gauss, 200·dim) was bit-identical to the ungated portfolio —
-because the enabled arm is the first RNG spawn in both specs, the masked
+because the enabled arm drew the same RNG stream in both specs, the masked
 arm never touches the run, and the warm start never fired on a
 self-refilling CMA-ES (``planning/results/2026-09-11/rg_*.json``).  Deterministic under
 ``sync_evaluation`` either way.

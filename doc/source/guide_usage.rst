@@ -1315,8 +1315,8 @@ handler's penalty value and **not** filtered by ``who``, so an arm that asks
 for a seed gets the best points in the run whoever produced them.
 
 It is **opt-in** — :meth:`~panobbgo.core.StrategyBase.initialize` does not add
-it, so a run without warm-started arms keeps exactly the module construction
-order, and therefore the RNG streams, it had before:
+it, so a run without warm-started arms keeps exactly the modules it had
+before:
 
 .. code-block:: python
 
@@ -1777,7 +1777,12 @@ make a run a pure function of that seed:
 
 Two such runs evaluate exactly the same points in the same order.  Every
 module derives its own :class:`numpy.random.Generator` from the master seed
-(``self.rng``), the event bus delivers events serially, the main loop
+and its name (``self.rng``: ``SeedSequence(seed, spawn_key=(crc32(name), n))``
+for the *n*-th module of that name, see
+:meth:`~panobbgo.core.StrategyBase.spawn_rng`), so adding, removing or
+reordering one module leaves every other module's stream unchanged; the
+strategy's own draws (Thompson sampling, phases) use a separate keyed
+stream, ``strategy.rng``.  The event bus delivers events serially, the main loop
 waits for all handlers before drawing new points, and each batch is
 evaluated sequentially in submission order (a thread pool would return
 results in completion order).  Without ``seed`` the

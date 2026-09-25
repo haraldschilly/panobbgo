@@ -201,6 +201,11 @@ Per-pair metrics: `success_rate`, `ert` (BBOB standard),
     overshoot by up to one batch), and composite `success` means
     "tolerance met within the budget" (was: final `strategy.best`).
     Re-baseline instead of comparing across that line (TODO.md T1).
+*   Module RNG streams are keyed by the master seed and the module's name
+    (`StrategyBase.spawn_rng`, since 2026-09-25): adding, removing or
+    reordering one module no longer shifts any other module's randomness.
+    This changed every seeded trajectory, so result files from before
+    2026-09-25 are not paired with newer ones — re-baseline.
 *   Seeded runs are bit-reproducible under `sync_eval` (since 2026-09-09;
     the harness default since 2026-09-25).
     But each run's RNG stream is derived from `StrategySpec.seed_name`

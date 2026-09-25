@@ -87,7 +87,7 @@ def strategy():
         # Modules derive their RNG from the strategy (see Module.__init__).
         strategy_mock.seed = 0
         strategy_mock.rng = np.random.default_rng(0)
-        strategy_mock.spawn_rng.side_effect = lambda: np.random.default_rng(0)
+        strategy_mock.spawn_rng.side_effect = lambda key="": np.random.default_rng(0)
         yield strategy_mock
 
 

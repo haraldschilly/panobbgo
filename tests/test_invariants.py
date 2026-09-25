@@ -27,10 +27,10 @@ Six families:
 #. :func:`test_generation_survives_a_small_queue` -- the output-queue
    contract of §5: a generation larger than ``config.capacity`` must not be
    silently truncated.
-#. :func:`test_construction_advances_master_rng_exactly_once` -- module RNG
-   streams are a function of *construction order*; a constructor that draws
-   from ``strategy.rng`` beyond its own :meth:`spawn_rng` shifts every later
-   module's stream.
+#. :func:`test_construction_leaves_strategy_rng_alone` -- module RNG
+   streams are keyed by name (:meth:`spawn_rng`); a constructor that draws
+   from the strategy-level ``strategy.rng`` shifts the strategy's own draws
+   (Thompson sampling, phases).
 #. :func:`test_event_handler_signature_matches_publisher` -- every ``on_*``
    handler must bind the payload its publisher sends.  A mismatch is
    invisible until the rare event fires, and
@@ -868,28 +868,26 @@ def test_generation_survives_a_small_queue(name: str) -> None:
 
 
 # --------------------------------------------------------------------------
-# 5. the constructor must not disturb the master RNG stream
+# 5. the constructor must not disturb the strategy-level RNG stream
 # --------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("name", sorted(HEURISTICS))
-def test_construction_advances_master_rng_exactly_once(name: str) -> None:
-    """Building a heuristic may consume exactly one :meth:`spawn_rng` draw.
+def test_construction_leaves_strategy_rng_alone(name: str) -> None:
+    """Building a heuristic must not draw from ``strategy.rng``.
 
-    Module streams are derived from ``strategy.rng`` in *construction
-    order*; a constructor that draws again from the master generator shifts
-    every module built after it, so an unrelated heuristic's run changes
-    when this one gains a feature.  Randomness a constructor needs belongs
-    to its own :attr:`Module.rng`.
+    Module streams come from :meth:`spawn_rng`, keyed by the module's name;
+    ``strategy.rng`` is the strategy's own stream (Thompson sampling,
+    phases).  A constructor drawing from it would shift those draws, so a
+    strategy's decisions change when an arm gains a feature.  Randomness a
+    constructor needs belongs to its own :attr:`Module.rng`.
     """
     reference = _strategy(probe_problem(), seed=42, max_eval=10)
     probe = _strategy(probe_problem(), seed=42, max_eval=10)
     try:
-        reference.spawn_rng()
         _make(name)(probe)
         assert probe.rng.bit_generator.state == reference.rng.bit_generator.state, (
-            "%s.__init__ drew from strategy.rng beyond its own spawn_rng(); every module "
-            "constructed after it would get a different stream" % name
+            "%s.__init__ drew from strategy.rng; the strategy-level draws would shift" % name
         )
     finally:
         reference._cleanup()

@@ -32,9 +32,9 @@ the noise class as given (the benchmark harness knows it; see
 ``NotImplementedError`` until the oracle has cleared its battery.
 
 Two contracts worth knowing.  **Every arm is always constructed**, gate or
-no gate: ``StrategyBase`` spawns each module's RNG stream in construction
-order, so building an arm lazily would shift every later stream and change
-the run bit-for-bit.  The gate is a per-arm *enabled* bit read at one
+no gate, so the run holds the same modules in the same event-bus order
+either way (module RNG streams are keyed by name, so building an arm or not
+would not shift another module's stream).  The gate is a per-arm *enabled* bit read at one
 place, the ``ready`` list of block selection, plus a filtered prologue —
 ``regime_gate=None`` is byte-identical to a run without the feature, and a
 gate that enables every arm is byte-identical to ``None``.  And a disabled

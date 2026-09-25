@@ -153,9 +153,9 @@ def test_region_ucb_alone_spends_its_budget():
 def test_region_ucb_on_start_fills_the_queue_from_its_own_rng():
     """The opening design is uniform in the problem box and uses ``self.rng``.
 
-    ``self.rng`` rather than ``strategy.rng``: module streams are derived in
-    construction order, so drawing from the master generator would shift
-    every module built afterwards.
+    ``self.rng`` rather than ``strategy.rng``: the strategy-level stream
+    belongs to the strategy's own draws (Thompson sampling, phases), which
+    a module drawing from it would shift.
     """
     import numpy as np
 

@@ -38,9 +38,8 @@ and are made a handful of times per run, so they are deliberately simple.
 
   This analyzer is **opt-in**: :meth:`~panobbgo.core.StrategyBase.initialize`
   does not add it.  Ship it via ``StrategySpec.analyzers`` (or
-  ``add_analyzer``) so a run without warm-started arms keeps the exact
-  module construction order — and therefore the exact RNG streams — it had
-  before.
+  ``add_analyzer``) so a run without warm-started arms keeps exactly the
+  modules — and the event-bus registration order — it had before.
 
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """

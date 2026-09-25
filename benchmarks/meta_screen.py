@@ -97,11 +97,10 @@ def main():
         """The meta arm, **last** in a heuristics list.
 
         Order matters and is the whole reason ``Meta_never`` can be a null:
-        modules draw their RNG stream from ``spawn_rng`` in construction order
-        (``benchmark.py`` adds heuristics in list order), and the name sorts
+        module RNG streams are keyed by name (``spawn_rng``), and the name sorts
         after ``CMAES``/``JSO``, so the event-bus registration order of the arms
         is preserved too.  Move it anywhere but last and every number below
-        becomes a stream shift rather than a mechanism (design §5, last row).
+        becomes an ordering effect rather than a mechanism (design §5, last row).
         """
         return (MetaAnalyst, kw)
 
@@ -243,7 +242,7 @@ def main():
         print(f"  NULL {verdict}  Meta_never == {REF} in all {k} shared cells")
         if not same:
             print("       the module is in the wrong place in the heuristics list;")
-            print("       every number above is a stream shift, not a mechanism.")
+            print("       every number above is an ordering effect, not a mechanism.")
     if "Meta_random_b25" in names and "Meta_b25" in names:
         d = delta(cells, "Meta_b25", "Meta_random_b25")
         print(f"  R1   Meta_b25 - Meta_random_b25 = {d:+.4f}   (|d| <= 0.01 ⇒ drop the scan as a point emitter)")

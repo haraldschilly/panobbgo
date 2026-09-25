@@ -24,12 +24,12 @@ the shared store, and turns that look into concrete next steps —
 
 Why a :class:`~panobbgo.core.Heuristic` and not an
 :class:`~panobbgo.core.Analyzer`: only a heuristic can emit points
-(``core.py``), and every extra module perturbs the per-module RNG streams
-(``spawn_rng`` is called once per module, in construction order).  **Append
-this module last** in a spec's heuristics list and give it a name that
-sorts after every arm's — ``"Meta"`` sorts after ``"CMAES"``, ``"JSO"``,
-``"LSHADE"`` — and both the construction order and the event-bus
-registration order of the arms are preserved bit for bit.  With
+(``core.py``).  Module RNG streams are keyed by name
+(:meth:`~panobbgo.core.StrategyBase.spawn_rng`), so adding this module does
+not change any arm's randomness.  **Append this module last** in a spec's
+heuristics list and give it a name that sorts after every arm's —
+``"Meta"`` sorts after ``"CMAES"``, ``"JSO"``, ``"LSHADE"`` — and the
+event-bus registration order of the arms is preserved bit for bit.  With
 ``trigger="never"`` the module is then provably inert: :meth:`on_new_results`
 returns before it touches anything.
 

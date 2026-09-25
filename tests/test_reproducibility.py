@@ -104,3 +104,76 @@ def test_modules_get_seeded_rng():
     t = StrategyRoundRobin(problem, parse_args=False, seed=11)
     g = Random(t)
     assert h.rng.random() == g.rng.random()
+
+
+# --------------------------------------------------------------------------
+# Keyed RNG streams (2026-09-25): a module's stream depends on the master
+# seed and its own name only, not on which other modules exist.
+# --------------------------------------------------------------------------
+
+
+def _strategy(seed=5):
+    from panobbgo.strategies import StrategyRoundRobin
+
+    return StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=seed)
+
+
+def test_unrelated_module_does_not_change_a_module_stream():
+    from panobbgo.heuristics import Nearby, Random
+    from panobbgo.analyzers import Archive
+
+    alone = _strategy()
+    crowded = _strategy()
+    Random(crowded)  # built before ...
+    Archive(crowded)
+    ref = Nearby(alone).rng.random(8)
+    got = Nearby(crowded).rng.random(8)
+    Random(crowded)  # ... and after: neither shifts Nearby's stream
+    np.testing.assert_array_equal(ref, got)
+
+
+def test_strategy_stream_is_independent_of_the_modules():
+    from panobbgo.heuristics import Nearby, Random
+
+    bare, busy = _strategy(), _strategy()
+    Random(busy)
+    Nearby(busy)
+    np.testing.assert_array_equal(bare.rng.random(8), busy.rng.random(8))
+
+
+def test_two_instances_of_one_class_get_distinct_streams():
+    from panobbgo.heuristics import Random
+
+    s = _strategy()
+    a, b = Random(s), Random(s)
+    ra, rb = a.rng.random(8), b.rng.random(8)
+    assert not np.array_equal(ra, rb)
+    # ... reproducibly: the n-th instance of a name always gets the same stream.
+    t = _strategy()
+    np.testing.assert_array_equal(Random(t).rng.random(8), ra)
+    np.testing.assert_array_equal(Random(t).rng.random(8), rb)
+    # A custom name is its own key.
+    u = _strategy()
+    assert not np.array_equal(Random(u, name="Other").rng.random(8), ra)
+
+
+def test_default_analyzers_do_not_shift_module_streams():
+    """Whether the on-demand Splitter is built changes no other stream."""
+    from panobbgo.heuristics import Random, WeightedAverage
+
+    streams = []
+    for extra in (False, True):
+        s = _strategy()
+        s.config.max_eval = 5
+        h = Random(s)
+        s.add_heuristic(h)
+        if extra:
+            s.add_heuristic(WeightedAverage(s))  # needs the Splitter
+        try:
+            s.initialize()
+            best = s.analyzer("Best")
+            streams.append((h.rng.random(4), best.rng.random(4), s.rng.random(4)))
+        finally:
+            s._cleanup()
+    for a, b in zip(*streams):
+        np.testing.assert_array_equal(a, b)

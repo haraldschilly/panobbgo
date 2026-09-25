@@ -59,6 +59,7 @@ from threading import Condition, RLock, Thread
 import multiprocessing
 import collections
 import heapq
+import zlib
 import re
 import threading
 from .logging.progress import ProgressContext
@@ -533,17 +534,39 @@ def max_eval_or_default(max_eval: Any, default: int) -> int:
     return default if budget is None else int(budget)
 
 
-def _module_rng(strategy: Any) -> np.random.Generator:
-    """The generator a :class:`Module` owned by ``strategy`` draws from.
+#: Stream key of the strategy-level generator (:attr:`StrategyBase.rng`).
+#: A one-element ``spawn_key`` cannot collide with a module stream, whose
+#: key has two elements.
+_STRATEGY_STREAM_KEY: Tuple[int, ...] = (zlib.crc32(b"panobbgo.strategy"),)
 
-    A fresh stream from :meth:`StrategyBase.spawn_rng`, which makes the
-    module's randomness a function of the strategy's seed.  A strategy
-    stand-in must provide ``spawn_rng`` too (the test suite's
+
+def rng_stream_key(name: str, occurrence: int) -> Tuple[int, int]:
+    """The ``SeedSequence`` ``spawn_key`` of the ``occurrence``-th module called ``name``."""
+    return (zlib.crc32(name.encode("utf-8")), int(occurrence))
+
+
+def keyed_rng(seed: int, spawn_key: Tuple[int, ...]) -> np.random.Generator:
+    """A generator derived from the master ``seed`` and a stable ``spawn_key``.
+
+    ``SeedSequence(seed, spawn_key=...)`` streams are independent for
+    distinct keys and depend on nothing else — not on how many other
+    streams were drawn before, nor in which order.
+    """
+    return np.random.default_rng(np.random.SeedSequence(int(seed), spawn_key=tuple(int(k) for k in spawn_key)))
+
+
+def _module_rng(strategy: Any, key: str) -> np.random.Generator:
+    """The generator a :class:`Module` named ``key`` owned by ``strategy`` draws from.
+
+    A stream from :meth:`StrategyBase.spawn_rng`, keyed by the module's
+    name, which makes the module's randomness a function of the strategy's
+    seed and of its own name only.  A strategy stand-in must provide
+    ``spawn_rng(key)`` too (the test suite's
     ``tests.support.StrategyDouble`` / ``attach_spawn_rng`` do): there is no
     unseeded fallback, which would silently make the module irreproducible.
     """
     spawn = getattr(strategy, "spawn_rng", None)
-    rng = spawn() if callable(spawn) else None
+    rng = spawn(key) if callable(spawn) else None
     if not isinstance(rng, np.random.Generator):
         raise TypeError(
             "%s.spawn_rng() must return a numpy Generator (got %r); modules draw their "
@@ -575,11 +598,12 @@ class Module:
         self._strategy: "StrategyBase" = strategy
         self.config = strategy.config
         self._name: str = name
-        #: Per-module random generator, seeded deterministically from the
-        #: strategy's master seed (see :meth:`StrategyBase.spawn_rng`).
+        #: Per-module random generator, keyed by the master seed and this
+        #: module's name (see :meth:`StrategyBase.spawn_rng`): adding,
+        #: removing or reordering *other* modules does not change it.
         #: Modules must draw randomness from here, never from the global
         #: ``np.random`` state.
-        self.rng: np.random.Generator = _module_rng(strategy)
+        self.rng: np.random.Generator = _module_rng(strategy, name)
         self._threads: List[Any] = []
         # implicit dependency check (only class references)
         self._depends_on: List[Any] = []
@@ -1825,20 +1849,14 @@ class EventBus:
             t.join(timeout=timeout)
 
 
-#: The default-analyzer slots :meth:`StrategyBase.initialize` walks, in
-#: order.  Until 2026-09 all four were constructed unconditionally, each
-#: drawing one :meth:`~StrategyBase.spawn_rng` stream from the master seed.
-#: Now ``Grid`` is gone, the ``Splitter`` is built only on demand, and an
-#: analyzer the user added already is skipped — but every slot that builds
-#: nothing still draws (and discards) its stream.  Strategies that draw from
-#: ``self.rng`` afterwards (Thompson, phased) and modules spawned later thus
-#: see the same numbers as before, which keeps seeded trajectories identical
-#: to older runs.  Do not reorder, add or remove entries without accepting
-#: that every seeded trajectory changes.
-_LEGACY_DEFAULT_ANALYZER_SLOTS: Tuple[str, ...] = ("Best", "Grid", "Splitter", "Convergence")
+#: The default analyzers :meth:`StrategyBase.initialize` installs, in
+#: construction order.  Their RNG streams are keyed by name
+#: (:meth:`StrategyBase.spawn_rng`), so which of them is built — the
+#: ``Splitter`` only on demand — changes no other module's randomness.
+_DEFAULT_ANALYZER_ORDER: Tuple[str, ...] = ("Best", "Splitter", "Convergence")
 
-#: The slots of :data:`_LEGACY_DEFAULT_ANALYZER_SLOTS` that still construct an analyzer.
-_DEFAULT_ANALYZERS = frozenset({"Best", "Splitter", "Convergence"})
+#: The analyzers of :data:`_DEFAULT_ANALYZER_ORDER`, as a set.
+_DEFAULT_ANALYZERS = frozenset(_DEFAULT_ANALYZER_ORDER)
 
 
 def _default_analyzer_classes() -> Dict[str, "type[Analyzer]"]:
@@ -1853,7 +1871,7 @@ def _default_analyzer_classes() -> Dict[str, "type[Analyzer]"]:
     from .analyzers.splitter import Splitter
 
     classes: Dict[str, "type[Analyzer]"] = {"Best": Best, "Splitter": Splitter, "Convergence": Convergence}
-    assert set(classes) == _DEFAULT_ANALYZERS <= set(_LEGACY_DEFAULT_ANALYZER_SLOTS)
+    assert set(classes) == _DEFAULT_ANALYZERS
     assert all(cls.__name__ == name for name, cls in classes.items())
     return classes
 
@@ -1938,9 +1956,12 @@ class StrategyBase:
         if seed is None:  # not ``or``: seed=0 is a valid seed
             seed = self.config.seed
         self.seed: int = int(seed) if seed is not None else int(np.random.randint(0, 2**31 - 1))
-        #: Master generator; every :class:`Module` derives its own stream
-        #: from it via :meth:`spawn_rng` in construction order.
-        self.rng: np.random.Generator = np.random.default_rng(self.seed)
+        #: Strategy-level generator (Thompson sampling, phase draws, ...):
+        #: its own keyed stream of :attr:`seed`, independent of the module
+        #: streams :meth:`spawn_rng` hands out, so neither shifts the other.
+        self.rng: np.random.Generator = keyed_rng(self.seed, _STRATEGY_STREAM_KEY)
+        #: How many module streams each name has received (:meth:`spawn_rng`).
+        self._rng_key_counts: Dict[str, int] = {}
 
         # Remaining kwargs override config attributes; anything else is a
         # typo (``max_evals=``) that used to be dropped silently.
@@ -2067,16 +2088,14 @@ class StrategyBase:
 
         # Default analyzers: ``Best`` and ``Convergence`` always, the
         # ``Splitter`` only when a module declares it (``requires_analyzers``).
-        # See _LEGACY_DEFAULT_ANALYZER_SLOTS for why every slot draws a seed.
+        # Module RNG streams are keyed by name, so building one or not
+        # changes no other module's randomness.
         default_classes = _default_analyzer_classes()
         needed = set(self._required_analyzers())
         new_analyzers = []
-        for name in _LEGACY_DEFAULT_ANALYZER_SLOTS:
-            cls = default_classes.get(name)
-            if cls is not None and name not in self._analyzers and (name != "Splitter" or name in needed):
-                new_analyzers.append(cls(self))
-            else:
-                self.spawn_rng()
+        for name in _DEFAULT_ANALYZER_ORDER:
+            if name not in self._analyzers and (name != "Splitter" or name in needed):
+                new_analyzers.append(default_classes[name](self))
         for a in new_analyzers:
             self.add_analyzer(a)
 
@@ -2141,14 +2160,22 @@ class StrategyBase:
         """The evaluation budget as an ``int``, or *default* when it is unknown (:meth:`Module.max_eval_or`)."""
         return max_eval_or_default(self.config.max_eval, default)
 
-    def spawn_rng(self) -> np.random.Generator:
-        """Return a fresh :class:`numpy.random.Generator` derived from the master seed.
+    def spawn_rng(self, key: str = "") -> np.random.Generator:
+        """Return the next generator for ``key`` derived from the master seed.
 
-        Streams are independent and reproducible: the *k*-th call always
-        yields the same generator for a given :attr:`seed`, so modules
-        constructed in the same order draw the same random numbers.
+        The stream of the *n*-th call with a given ``key`` is
+        ``SeedSequence(seed, spawn_key=(crc32(key), n))`` — a function of
+        :attr:`seed`, ``key`` and ``n`` only.  :class:`Module` passes its
+        name, so a module's randomness does not change when an unrelated
+        module is added, removed or reordered, and two instances of one class
+        (same name) still get distinct streams.  It never draws from
+        :attr:`rng`, the strategy-level stream.
         """
-        return np.random.default_rng(int(self.rng.integers(0, 2**63 - 1)))
+        # ``setdefault``: subclasses that skip ``__init__`` (test doubles) still work.
+        counts: Dict[str, int] = self.__dict__.setdefault("_rng_key_counts", {})
+        n = counts.get(key, 0)
+        counts[key] = n + 1
+        return keyed_rng(self.seed, rng_stream_key(key, n))
 
     def heuristic(self, who):
         """Look up a heuristic by its *who* tag.

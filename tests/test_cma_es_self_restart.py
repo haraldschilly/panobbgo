@@ -92,12 +92,18 @@ def test_self_restart_off_reproduces_the_pre_change_trajectory():
     update through ``y = (x_proj − m)/σ``; the optimum 0 sits near the lower
     bound −2, so this run does project).  Intermediate pin (λ fix only):
     min 3.559346295562978e-09, sum 744.6691896421944.
+
+    Re-pinned for keyed RNG streams, 2026-09-25: the CMA-ES stream is now
+    ``SeedSequence(seed, spawn_key=(crc32("CMAES"), 0))`` instead of the first
+    order-based spawn, so the same algorithm samples different offspring.
+    Previous pin: min 1.9189498767674838e-08, sum 734.0431816205088.
     """
     h, fx = _run(self_restart=False)
     assert h.n_restarts == 0
     assert len(fx) == 400
-    assert float(np.min(fx)) == pytest.approx(1.9189498767674838e-08, rel=1e-6)  # BLAS order differs across CPUs
-    assert float(np.sum(fx)) == pytest.approx(734.0431816205088, rel=1e-9)
+    # re-pinned for keyed RNG streams, 2026-09-25
+    assert float(np.min(fx)) == pytest.approx(4.365280023431884e-08, rel=1e-6)  # BLAS order differs across CPUs
+    assert float(np.sum(fx)) == pytest.approx(743.668903704016, rel=1e-9)
 
 
 def test_restart_event_still_restarts():

@@ -18,7 +18,7 @@ class TestNelderMeadReactive(unittest.TestCase):
         self.strategy.config.capacity = 6
         self.strategy.problem = Mock()
         self.strategy.problem.dim = 2
-        self.strategy.spawn_rng = lambda: np.random.default_rng(0)
+        self.strategy.spawn_rng = lambda key="": np.random.default_rng(0)
 
         self.heuristic = NelderMead(self.strategy)
         self.heuristic.emit = Mock()

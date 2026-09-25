@@ -21,16 +21,24 @@ from unittest import mock
 
 import numpy as np
 
+from panobbgo.core import keyed_rng, rng_stream_key
+
 
 def rng_spawner(seed=0):
-    """A ``spawn_rng`` callable: independent generators derived from ``seed``.
+    """A ``spawn_rng(key="")`` callable: keyed generators derived from ``seed``.
 
-    The *k*-th call always returns the same stream, like
-    :meth:`panobbgo.core.StrategyBase.spawn_rng`, so modules built against a
-    test double are reproducible.
+    The *n*-th call with a given ``key`` returns the same stream as
+    :meth:`panobbgo.core.StrategyBase.spawn_rng` would, so modules built
+    against a test double are reproducible and independent of each other.
     """
-    seq = np.random.SeedSequence(seed)
-    return lambda: np.random.default_rng(seq.spawn(1)[0])
+    counts = {}
+
+    def spawn(key=""):
+        n = counts.get(key, 0)
+        counts[key] = n + 1
+        return keyed_rng(seed, rng_stream_key(key, n))
+
+    return spawn
 
 
 def attach_spawn_rng(strategy, seed=0):
@@ -50,11 +58,11 @@ class StrategyDouble:
 
     seed = 0
 
-    def spawn_rng(self):
+    def spawn_rng(self, key=""):
         spawn = self.__dict__.get("_spawn_rng")
         if spawn is None:
             spawn = self.__dict__["_spawn_rng"] = rng_spawner(self.seed)
-        return spawn()
+        return spawn(key)
 
 
 def expected_failure(exptn, msg=None):

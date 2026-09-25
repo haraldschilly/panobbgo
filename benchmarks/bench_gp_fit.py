@@ -22,7 +22,7 @@ def run_benchmark():
             self.config = config
             self._seeds = np.random.SeedSequence(0)
 
-        def spawn_rng(self):
+        def spawn_rng(self, key=""):
             return np.random.default_rng(self._seeds.spawn(1)[0])
 
     strategy = MockStrategy()

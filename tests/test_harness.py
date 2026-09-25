@@ -823,9 +823,6 @@ class TestCLI:
 
     def test_run_quick(self, tmp_path):
         """--quick mode should produce a valid JSON file."""
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         output = str(tmp_path / "cli_result.json")
@@ -1003,9 +1000,6 @@ class TestHarnessSyncEval:
         assert run() == run()
 
     def test_compare_warns_on_mode_mismatch(self, tmp_path, capsys):
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         paths = []
@@ -1121,5 +1115,92 @@ class TestHarnessProblemDim:
             seed=0,
             sync_eval=True,
         )
-        runs = _flat_runs(BenchmarkHarness(cfg).run(verbose=False))
-        assert [r.problem_dim for r in runs] == [2, 5]
+        result = BenchmarkHarness(cfg).run(verbose=False)
+        assert [r.problem_dim for r in _flat_runs(result)] == [2, 5]
+        # The pair mixes dims, so it records no placeholder dim.
+        (psr,) = result.problem_strategy_results
+        assert psr.problem_dim is None
+        assert HarnessResult._from_dict(result.to_dict()).problem_strategy_results[0].problem_dim is None
+
+
+class TestHarnessTimeoutProtocol:
+    def test_baseline_stops_on_timeout(self):
+        import time
+
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.harness_baselines import RandomSearchStrategy
+
+        captured = []
+
+        class SlowRandom(RandomSearchStrategy):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                captured.append(self)
+                inner = self.problem.eval
+
+                def slow_eval(x):
+                    time.sleep(0.005)
+                    return inner(x)
+
+                self.problem.eval = slow_eval  # type: ignore[method-assign]
+
+        spec = StrategySpec(name="SlowRandom", strategy_class=SlowRandom, heuristics=[])
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=50000,
+            reps=1,
+            seed=0,
+            timeout_per_run=0.3,
+            strategies_override=[spec],
+        )
+        t0 = time.monotonic()
+        (run,) = _flat_runs(BenchmarkHarness(cfg).run(verbose=False))
+        assert run.error is not None and "timed out" in run.error and "hung" not in run.error
+        assert time.monotonic() - t0 < 10.0
+        (strategy,) = captured
+        n = len(strategy.results.results)
+        time.sleep(0.1)
+        assert len(strategy.results.results) == n < 50000  # start() returned; nothing runs on
+
+    def test_a_run_that_ignores_the_stop_is_abandoned_not_awaited(self, monkeypatch):
+        import threading
+        import time
+
+        import panobbgo.harness as harness_mod
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.strategies import StrategyRoundRobin
+
+        release = threading.Event()
+
+        class Wedged(StrategyRoundRobin):
+            def start(self):
+                release.wait(10.0)  # an objective that never returns
+
+        monkeypatch.setattr(harness_mod, "STOP_JOIN_MARGIN_S", 0.2)
+        spec = StrategySpec(
+            name="Wedged", strategy_class=Wedged, heuristics=[], config_overrides={"deadlock_seconds": 0.0}
+        )
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=10,
+            reps=1,
+            seed=0,
+            timeout_per_run=0.2,
+            strategies_override=[spec],
+        )
+        t0 = time.monotonic()
+        try:
+            (run,) = _flat_runs(BenchmarkHarness(cfg).run(verbose=False))
+        finally:
+            release.set()
+        assert time.monotonic() - t0 < 5.0
+        assert run.error is not None and "hung" in run.error
+
+
+def test_library_compare_warns_on_mode_mismatch():
+    from panobbgo.harness import EvaluationModeMismatchWarning
+
+    with pytest.warns(EvaluationModeMismatchWarning):
+        compare(_empty_result(sync_eval=False), _empty_result(sync_eval=True))

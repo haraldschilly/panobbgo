@@ -212,9 +212,13 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 def cmd_compare(args: argparse.Namespace) -> int:
     """Compare two result files and report improvements/regressions."""
+    import warnings
+
     from panobbgo.harness import (
+        EvaluationModeMismatchWarning,
         HarnessResult,
         compare as harness_compare,
+        evaluation_mode_mismatch,
         statistical_accept,
     )
 
@@ -225,21 +229,20 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     before = HarnessResult.load(args.before)
     after = HarnessResult.load(args.after)
-    if before.config.sync_eval != after.config.sync_eval:
-        print(
-            f"warning: evaluation-mode mismatch ({args.before} sync_eval={before.config.sync_eval}, "
-            f"{args.after} sync_eval={after.config.sync_eval}) — the two sides were measured under "
-            "different scheduling regimes; deltas are not decision-grade.",
-            file=sys.stderr,
-        )
+    mismatch = evaluation_mode_mismatch(before, after, args.before, args.after)
+    if mismatch:
+        print(f"warning: {mismatch}", file=sys.stderr)
 
-    comparison = harness_compare(
-        before,
-        after,
-        eps=args.eps,
-        label_before=args.before,
-        label_after=args.after,
-    )
+    with warnings.catch_warnings():
+        # Already printed above; the library's warning would repeat it.
+        warnings.simplefilter("ignore", EvaluationModeMismatchWarning)
+        comparison = harness_compare(
+            before,
+            after,
+            eps=args.eps,
+            label_before=args.before,
+            label_after=args.after,
+        )
     comparison.print_summary()
 
     decision = None

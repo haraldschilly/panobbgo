@@ -93,8 +93,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 import threading
+import warnings
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -105,6 +107,13 @@ from panobbgo.benchmark import ProblemSpec, StrategySpec
 
 if TYPE_CHECKING:
     from panobbgo.harness_randomized import ProblemFamily
+
+_log = logging.getLogger(__name__)
+
+#: Seconds, beyond the strategy's own deadlock backstop
+#: (``config.deadlock_seconds``), that a timed-out run may take to wind
+#: down after :meth:`~panobbgo.core.StrategyBase.request_stop`.
+STOP_JOIN_MARGIN_S: float = 30.0
 
 
 # ---------------------------------------------------------------------------
@@ -789,7 +798,8 @@ class ProblemStrategyResult:
 
     Args:
         problem_name: Problem name.
-        problem_dim: Dimensionality.
+        problem_dim: Dimensionality; ``None`` when the runs mixed dimensions
+            (a randomized family with several ``dim_choices``).
         strategy_name: Strategy name.
         f_opt: True global optimum value.
         tolerance: Success tolerance (same across all runs).
@@ -804,7 +814,7 @@ class ProblemStrategyResult:
     """
 
     problem_name: str
-    problem_dim: int
+    problem_dim: Optional[int]
     strategy_name: str
     f_opt: float
     tolerance: float
@@ -1137,6 +1147,23 @@ class ComparisonResult:
         print(bar)
 
 
+class EvaluationModeMismatchWarning(UserWarning):
+    """The two sides of a comparison were measured under different ``sync_eval`` modes."""
+
+
+def evaluation_mode_mismatch(
+    before: HarnessResult, after: HarnessResult, label_before: str = "before", label_after: str = "after"
+) -> Optional[str]:
+    """A warning text if ``before`` and ``after`` differ in ``sync_eval``, else ``None``."""
+    b, a = bool(before.config.sync_eval), bool(after.config.sync_eval)
+    if b == a:
+        return None
+    return (
+        f"evaluation-mode mismatch ({label_before} sync_eval={b}, {label_after} sync_eval={a}) — the two "
+        "sides were measured under different scheduling regimes; deltas are not decision-grade."
+    )
+
+
 def compare(
     before: HarnessResult,
     after: HarnessResult,
@@ -1161,6 +1188,10 @@ def compare(
     Returns:
         A :class:`ComparisonResult` with per-pair breakdown.
     """
+    mismatch = evaluation_mode_mismatch(before, after, label_before, label_after)
+    if mismatch:
+        warnings.warn(mismatch, EvaluationModeMismatchWarning, stacklevel=2)
+
     # Index results by (problem, strategy)
     before_map: Dict[Tuple[str, str], float] = {
         (psr.problem_name, psr.strategy_name): psr.score for psr in before.problem_strategy_results
@@ -1932,6 +1963,13 @@ class BenchmarkHarness:
                             f" [{status}]"
                         )
 
+                # A randomized family with several ``dim_choices`` mixes
+                # dims across reps; the spec's ``dims`` is then only a
+                # placeholder, so the pair records ``None`` (the per-run
+                # records carry the actual dims).
+                run_dims = {r.problem_dim for r in psr.runs}
+                if len(run_dims) > 1:
+                    psr.problem_dim = None
                 psr.compute_metrics()
                 all_psr.append(psr)
 
@@ -2056,9 +2094,26 @@ class BenchmarkHarness:
                 # Timed out — end the main loop and wait for it: a runner
                 # left behind keeps evaluating (and publishing on its bus)
                 # while the next run starts.  The loop checks the flag once
-                # per pass, and its own deadlock backstop bounds a wedged one.
-                strategy.request_stop()
-                runner.join()
+                # per pass; its own deadlock backstop bounds a wedged pass,
+                # and the join is bounded by that plus a margin so a wedged
+                # objective cannot hang the whole harness.
+                stop = getattr(strategy, "request_stop", None)
+                if callable(stop):
+                    stop()
+                grace = float(getattr(strategy.config, "deadlock_seconds", 600.0)) + STOP_JOIN_MARGIN_S
+                runner.join(timeout=grace)
+                if runner.is_alive():
+                    _log.error(
+                        "Run %s/%s rep %d did not stop %.0fs after its timeout; abandoning its thread "
+                        "(it may still evaluate while later runs proceed).",
+                        prob_spec.name,
+                        strat_spec.name,
+                        rep,
+                        grace,
+                    )
+                    raise TimeoutError(
+                        f"Run timed out after {timeout:.0f}s and hung (did not stop within {grace:.0f}s)"
+                    )
                 raise TimeoutError(f"Run timed out after {timeout:.0f}s")
 
             if run_error is not None:

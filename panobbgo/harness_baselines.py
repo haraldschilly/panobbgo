@@ -108,6 +108,10 @@ class _EvaluationLog:
     fxs: List[float] = field(default_factory=list)
     best_fx: float = float("inf")
     best_x: Optional[np.ndarray] = None
+    #: Set by :meth:`BaselineStrategy.request_stop` (from another thread):
+    #: the next objective call raises :class:`_BudgetExhausted` instead of
+    #: evaluating, which ends the external solver the same way the budget does.
+    stop_requested: bool = False
 
     def record(self, x: np.ndarray, fx: float) -> None:
         if len(self.fxs) >= self.max_eval:
@@ -126,6 +130,8 @@ def _make_objective(problem: Problem, log: _EvaluationLog) -> Callable[[np.ndarr
     problem, logs the result, and enforces the evaluation budget."""
 
     def objective(x: np.ndarray) -> float:
+        if log.stop_requested:
+            raise _BudgetExhausted()
         x_arr = np.asarray(x, dtype=np.float64)
         # Respect the problem's box — scipy solvers already pass candidates
         # inside bounds, but project defensively to cover edge cases with
@@ -214,6 +220,8 @@ class BaselineStrategy:
         self.results: _BaselineResults = _BaselineResults()
         self._best: Optional[Result] = None
         self._stopped: bool = False
+        self._stop_requested: bool = False
+        self._log: Optional[_EvaluationLog] = None
 
     def _run_seed(self) -> int:
         """Integer seed for this run: the harness-provided ``seed`` if any,
@@ -246,6 +254,10 @@ class BaselineStrategy:
         inside the external solver is a clean termination, not a crash.
         """
         log = _EvaluationLog(who=self.who, max_eval=max(1, int(self.config.max_eval)))
+        # Publish the log before reading the flag: a request_stop() racing
+        # with this start either sees the log or has already set the flag.
+        self._log = log
+        log.stop_requested = log.stop_requested or self._stop_requested
 
         try:
             self._optimize(log)
@@ -262,6 +274,17 @@ class BaselineStrategy:
 
         self.results.build(log)
         self._best = self._build_best_result(log)
+
+    def request_stop(self) -> None:
+        """End the run at the next objective call (same protocol as
+        :meth:`panobbgo.core.StrategyBase.request_stop`).
+
+        Thread-safe flag writes: the harness calls it from its timeout path
+        while :meth:`start` runs the external solver on another thread.
+        """
+        self._stop_requested = True
+        if self._log is not None:
+            self._log.stop_requested = True
 
     def _optimize(self, log: _EvaluationLog) -> None:
         """Subclass hook: run the actual optimizer, calling the objective

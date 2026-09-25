@@ -64,20 +64,62 @@ def test_task_pool_workers_are_niced():
         assert all(n >= 17 for n in pool.map(_niceness, [{}, {}]))
 
 
-def test_task_pool_does_not_rerun_an_unguarded_main_script(tmp_path):
-    """The benchmark screens are top-level scripts without a main guard; a
-    spawned worker must not execute them again."""
+_GUARDED = """
+from panobbgo.local_run import TaskPool
+
+
+def square(x):
+    return x * x
+
+
+def main():
+    open({marker!r}, "a").write("x")
+    with TaskPool(2, niceness=None, min_free_gb=0) as pool:
+        print(pool.map(square, [{{"x": 1}}, {{"x": 2}}, {{"x": 3}}]))
+
+
+if __name__ == "__main__":
+    main()
+"""
+
+
+@pytest.mark.parametrize("how", ["path", "module"])
+def test_task_pool_runs_a_guarded_script_once(tmp_path, how):
+    """The screens' shape: work under a main guard, the task defined in the
+    script itself.  Run as a path and with ``python -m``; the workers import
+    the module (as ``__mp_main__``) but must not run it."""
     marker = tmp_path / "ran"
-    script = tmp_path / "screen.py"
-    script.write_text(
-        f"open({str(marker)!r}, 'a').write('x')\n"
-        "from panobbgo.local_run import TaskPool\n"
-        "print(TaskPool(2, niceness=None, min_free_gb=0).map(dict, [{'x': 1}, {'y': 2}]))\n"
-    )
-    out = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
+    pkg = tmp_path / "screens"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "screen.py").write_text(_GUARDED.format(marker=str(marker)))
+    cmd = [sys.executable, str(pkg / "screen.py")] if how == "path" else [sys.executable, "-m", "screens.screen"]
+    out = subprocess.run(cmd, capture_output=True, text=True, timeout=120, cwd=str(tmp_path))
     assert out.returncode == 0, out.stderr
-    assert out.stdout.strip() == "[{'x': 1}, {'y': 2}]"
+    assert out.stdout.strip() == "[1, 4, 9]"
     assert marker.read_text() == "x"
+
+
+def test_task_pool_propagates_a_task_error_and_stays_usable():
+    with local_run.TaskPool(2, niceness=None, min_free_gb=0) as pool:
+        with pytest.raises(ValueError, match="boom"):
+            pool.map(_fail_on, [{"n": n} for n in range(6)])
+        assert pool.map(_slow_square, [{"n": 2}]) == [4]
+
+
+def test_a_dead_worker_does_not_poison_the_shared_pool():
+    from concurrent.futures.process import BrokenProcessPool
+
+    pool = local_run.shared_pool(2)
+    try:
+        with pytest.raises(BrokenProcessPool):
+            pool.map(_die, [{}, {}])
+        assert pool.broken
+        fresh = local_run.shared_pool(2)
+        assert fresh is not pool
+        assert fresh.map(_slow_square, [{"n": 3}]) == [9]
+    finally:
+        local_run._close_shared()
 
 
 def test_screen_jobs_parses_and_defaults():
@@ -98,3 +140,15 @@ def _niceness():
     import os
 
     return os.nice(0)
+
+
+def _fail_on(n):
+    if n == 1:
+        raise ValueError("boom")
+    return n
+
+
+def _die():
+    import os
+
+    os._exit(3)

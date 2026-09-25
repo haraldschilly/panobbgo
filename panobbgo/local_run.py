@@ -36,11 +36,11 @@ from __future__ import annotations
 
 import argparse
 import atexit
-import contextlib
 import multiprocessing
 import os
 import sys
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from concurrent.futures import wait as futures_wait
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
@@ -156,41 +156,21 @@ def _worker_init(niceness: Optional[int]) -> None:
         be_nice(niceness)
 
 
-@contextlib.contextmanager
-def _main_not_reimported():
-    """Keep spawned workers from re-running the caller's ``__main__`` script.
-
-    A ``spawn`` child re-executes the parent's main *script* (as
-    ``__mp_main__``) unless the main module's ``__spec__`` names a
-    ``__main__`` module — the case ``python -m pkg`` relies on.  The
-    benchmark screens are plain top-level scripts without a
-    ``if __name__ == "__main__"`` guard, so re-running them in every worker
-    would start the whole screen again.  The tasks this pool runs are
-    functions of importable ``panobbgo`` modules, so a worker needs nothing
-    from the script: the main module gets a ``__main__`` spec while a task is
-    submitted, which is when the executor starts the workers it needs.
-    """
-    main = sys.modules.get("__main__")
-    if main is None or getattr(main, "__spec__", None) is not None:
-        yield
-        return
-    import importlib.machinery
-
-    main.__spec__ = importlib.machinery.ModuleSpec("__main__", None)
-    try:
-        yield
-    finally:
-        main.__spec__ = None
-
-
 class TaskPool:
     """A ``spawn`` process pool for independent, deterministic runs.
 
     ``map(fn, tasks)`` runs ``fn(**task)`` for every task and returns the
     results **in task order**, whatever order they finish in — so a caller
     that folds them gets the same answer for every ``jobs``.  ``fn`` and the
-    task payloads must pickle by reference to importable modules (nothing
-    defined in a script's ``__main__``).
+    task payloads must pickle.  Workers are *spawned*, and a spawned worker
+    imports the caller's main module (as ``__mp_main__``), so the calling
+    script must be import-safe: its work belongs under
+    ``if __name__ == "__main__":``.
+
+    If a task raises, the tasks not yet started are cancelled and the
+    exception propagates.  A worker that dies breaks the pool
+    (``BrokenProcessPool``): it is shut down and :attr:`broken` is set, so
+    :func:`shared_pool` hands out a fresh one next time.
 
     Workers lower their priority to ``niceness`` (``None`` leaves it) and a
     new task is not handed out while less than ``min_free_gb`` GiB of memory
@@ -211,6 +191,8 @@ class TaskPool:
         self.niceness = niceness
         self.min_free_gb = float(min_free_gb)
         self._executor: Optional[ProcessPoolExecutor] = None
+        #: Set once a worker died; the pool runs nothing more.
+        self.broken = False
         if self.jobs > 1:
             ctx = multiprocessing.get_context("spawn")
             self._executor = ProcessPoolExecutor(
@@ -231,39 +213,65 @@ class TaskPool:
     ) -> List[Any]:
         """``[fn(**t) for t in tasks]``, in parallel; ``on_done(i, result)`` as each finishes."""
         results: List[Any] = [None] * len(tasks)
+        if self.broken:
+            raise BrokenProcessPool("this TaskPool lost a worker earlier; use a new one")
         if self._executor is None:
             for i, task in enumerate(tasks):
                 results[i] = fn(**task)
                 if on_done is not None:
                     on_done(i, results[i])
             return results
+        executor = self._executor
         pending: Dict[Future, int] = {}
         todo = list(enumerate(tasks))
         todo.reverse()
-        while todo or pending:
-            while todo and len(pending) < self.jobs and not (pending and self._memory_low()):
-                i, task = todo.pop()
-                # ``submit`` is where the executor starts a worker it needs.
-                with _main_not_reimported():
-                    pending[self._executor.submit(_call, fn, task)] = i
-            done, _ = futures_wait(list(pending), return_when=FIRST_COMPLETED)
-            for fut in done:
-                i = pending.pop(fut)
-                results[i] = fut.result()
-                if on_done is not None:
-                    on_done(i, results[i])
+        try:
+            while todo or pending:
+                while todo and len(pending) < self.jobs and not (pending and self._memory_low()):
+                    i, task = todo.pop()
+                    pending[executor.submit(_call, fn, task)] = i
+                done, _ = futures_wait(list(pending), return_when=FIRST_COMPLETED)
+                for fut in done:
+                    i = pending.pop(fut)
+                    results[i] = fut.result()
+                    if on_done is not None:
+                        on_done(i, results[i])
+        except BrokenProcessPool:
+            self.broken = True
+            self.close(wait=False)
+            raise
+        except BaseException:
+            for fut in pending:
+                fut.cancel()
+            raise
         return results
 
-    def close(self) -> None:
-        if self._executor is not None:
-            self._executor.shutdown(wait=True, cancel_futures=True)
-            self._executor = None
+    def close(self, wait: bool = True) -> None:
+        """Shut the workers down; queued tasks are cancelled.
+
+        ``wait=False`` does not wait for tasks still running: their workers
+        are terminated.
+        """
+        executor, self._executor = self._executor, None
+        if executor is None:
+            return
+        if wait:
+            executor.shutdown(wait=True, cancel_futures=True)
+            return
+        procs = list((getattr(executor, "_processes", None) or {}).values())
+        executor.shutdown(wait=False, cancel_futures=True)
+        for proc in procs:
+            try:
+                if proc.is_alive():
+                    proc.terminate()
+            except Exception:
+                pass
 
     def __enter__(self) -> "TaskPool":
         return self
 
-    def __exit__(self, *exc: Any) -> None:
-        self.close()
+    def __exit__(self, exc_type: Any, *exc: Any) -> None:
+        self.close(wait=exc_type is None)
 
 
 def _call(fn: Callable[..., Any], task: Dict[str, Any]) -> Any:
@@ -277,11 +285,14 @@ def shared_pool(jobs: int) -> TaskPool:
     """A process-wide :class:`TaskPool` with ``jobs`` workers, created on first use.
 
     Callers that run many batches (one per seed) reuse the same workers
-    instead of paying the interpreter start-up per batch; the pools are
-    closed at exit.
+    instead of paying the interpreter start-up per batch.  A pool that lost
+    a worker is replaced.  At exit the pools are closed without waiting for
+    tasks still running (their workers are terminated).
     """
     jobs = max(int(jobs), 1)
     pool = _SHARED.get(jobs)
+    if pool is not None and pool.broken:  # a dead worker must not poison later batches
+        pool = None
     if pool is None:
         pool = _SHARED[jobs] = TaskPool(jobs)
         if len(_SHARED) == 1:
@@ -291,5 +302,5 @@ def shared_pool(jobs: int) -> TaskPool:
 
 def _close_shared() -> None:
     for pool in _SHARED.values():
-        pool.close()
+        pool.close(wait=False)
     _SHARED.clear()

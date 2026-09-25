@@ -2,7 +2,7 @@
 # Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
 """Tests for ``benchmarks/portfolio_screen.py``'s function axis.
 
-The screen is a script, not a module: its analysis runs at import time on
+The screen is a script: its analysis runs in ``main()`` on
 ``sys.argv``.  So these tests drive it the way a user does — a synthetic
 rows file and ``from=...`` — and read the printed report.  That also
 covers the part a unit test of a helper could not: that a *rows file

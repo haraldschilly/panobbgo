@@ -1292,14 +1292,30 @@ class PipeBridgeHeuristic(Heuristic):
         proc = ctx.Process(target=target, args=(self.p2, self.out2) + tuple(args), name=name)
         proc.daemon = True
         proc.start()
+        # The child has its own copies now.  Holding ours kept the pipes open
+        # after the worker died, so ``p1`` never saw EOF and a dead worker was
+        # noticed only by the ``is_alive()`` poll.
+        self.p2.close()
+        self.out2.close()
         return proc
 
     def _bridge_stop_worker(self) -> None:
-        """Terminate the current worker before a respawn; a failed teardown is only logged."""
+        """Terminate the current worker and close our pipe ends before a respawn.
+
+        A failed teardown is only logged.  Closing here, not at garbage
+        collection, keeps a run with many restarts from piling up open pipes.
+        """
         try:
             terminate_process(self._bridge_process())
         except Exception as exc:
             self.logger.debug("%s: subprocess teardown on restart failed: %s" % (self.name, exc))
+        for end in (getattr(self, "p1", None), getattr(self, "out1", None)):
+            if end is None:
+                continue
+            try:
+                end.close()
+            except Exception:
+                pass
 
     def _bridge_box_bounds(self) -> List[Tuple[float, float]]:
         """The feasible box as a list of ``(low, high)`` tuples (SciPy's ``bounds``)."""

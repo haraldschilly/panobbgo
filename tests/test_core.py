@@ -714,3 +714,31 @@ def test_cleanup_closes_the_backend_that_was_set_up():
     with mock.patch.object(s._pool, "close", wraps=s._pool.close) as close:
         s._cleanup()
     assert close.call_count == 1
+
+
+def test_bridge_pipes_are_closed_in_the_parent():
+    """The parent kept the child's pipe ends (no EOF on a dead worker) and never closed replaced pipes."""
+    from panobbgo.core import terminate_process
+    from panobbgo.heuristics import LBFGSB
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    s.config.max_eval = 20
+    s.config.sync_evaluation = True
+    s.add_heuristic(LBFGSB(s))
+    s.initialize()
+    try:
+        h = s._heuristics["LBFGSB"]
+        assert h.p2.closed and h.out2.closed
+        old_p1, old_out1 = h.p1, h.out1
+        h._request_restart(None)
+        assert len(h.produce(1)) == 1  # respawned, and the new worker asks for a point
+        assert old_p1.closed and old_out1.closed
+        assert h.p2.closed and h.out2.closed
+        # A dead worker is now an EOF on the request pipe.
+        terminate_process(h.lbfgsb)
+        assert h.p1.poll(5.0)
+        with pytest.raises(EOFError):
+            h.p1.recv()
+    finally:
+        s._cleanup()

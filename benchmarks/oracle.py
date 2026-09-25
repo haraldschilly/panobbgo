@@ -48,17 +48,17 @@ import sys
 import json
 import dataclasses
 import statistics as st
-import time
 from collections import defaultdict
 from itertools import combinations
-from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
+from panobbgo.harness_ioh import make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
-from panobbgo.strategies import StrategyRoundRobin
+
+from _screen import IOH_FIELDS, base_spec, csv_of, fold, int_tuple, parse_argv, run_seeds, runs_to_rows, solo_spec
 
 
 def main():
-    BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
+    BASE = base_spec()
 
     # The currently tuned per-arm settings (Phase A sweeps).  One dict, so
     # that "which arms, with which knobs" is a single obvious edit.
@@ -71,18 +71,7 @@ def main():
     }
 
     # --- argv: `key=value` options, `--flag`s, `--from PATH`, then positionals ---
-    opts, flags, pos = {}, set(), []
-    _args = iter(sys.argv[1:])
-    for a in _args:
-        if a in ("--from", "--arms", "--dims", "--bm"):
-            opts[a[2:]] = next(_args)
-        elif a.startswith("--"):
-            flags.add(a[2:])
-        elif "=" in a:
-            k, _, val = a.partition("=")
-            opts[k] = val
-        else:
-            pos.append(a)
+    opts, flags, pos = parse_argv(sys.argv[1:], value_flags=("--from", "--arms", "--dims", "--bm"))
 
     JOBS = screen_jobs(opts) if not opts.get("from") else 1
     defaults = "defaults" in flags or opts.get("defaults", "0") not in ("0", "", "no", "false")
@@ -93,7 +82,7 @@ def main():
     if "dims" in opts or "bm" in opts:
         battery = dataclasses.replace(
             battery,
-            dims=tuple(int(d) for d in opts.get("dims", ",".join(str(d) for d in battery.dims)).split(",")),
+            dims=int_tuple(opts.get("dims", csv_of(battery.dims))),
             budget_multiplier=int(opts.get("bm", battery.budget_multiplier)),
         )
 
@@ -109,14 +98,7 @@ def main():
         # so a tuned run and its ``--defaults`` counterpart (and any future run that
         # relabels an arm) share the stream per (dim, inst, rep) cell and their
         # difference is the settings, not the run-to-run variance.
-        return dataclasses.replace(
-            BASE,
-            name=name,
-            seed_name=seed_name or ORACLE_SEED_NAME,
-            strategy_class=StrategyRoundRobin,
-            heuristics=[(cls, kw)],
-            analyzers=[],
-        )
+        return solo_spec(BASE, name, seed_name or ORACLE_SEED_NAME, (cls, kw))
 
     if src:
         rows = json.load(open(src))
@@ -131,35 +113,18 @@ def main():
         if unknown:
             sys.exit(f"unknown arm(s): {','.join(unknown)}  (known: {','.join(ARMS)})")
         specs = [solo(a, ARMS[a][0], {} if defaults else dict(ARMS[a][1])) for a in arms]
-        rows, t0 = [], time.perf_counter()
-        for seed in seeds:
+        #: The display name is the arm key.
+        fields = (("arm", "strategy_name"),) + IOH_FIELDS[1:]
+
+        def batches(seed):
             r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
-            rows += [
-                {
-                    "seed": seed,
-                    "arm": x.strategy_name,
-                    "fid": x.fid,
-                    "dim": x.dim,
-                    "inst": x.instance,
-                    "rep": x.rep,
-                    "aocc": x.aocc,
-                    "err": x.error,
-                }
-                for x in r.runs
-            ]
-            json.dump(rows, open(out, "w"))
-            print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
+            yield runs_to_rows(seed, r.runs, fields)
+
+        rows = run_seeds(seeds, out, batches)
 
     # --- fold rows into cells: (seed, fid, dim, inst) -> {arm: mean AOCC over reps} ---
     # ``fid`` is None without a function axis (and in files written before it).
-    raw, errs = defaultdict(lambda: defaultdict(list)), defaultdict(int)
-    for r in rows:
-        if r["arm"] not in arms:
-            continue
-        raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["arm"]].append(r["aocc"])
-        if r["err"]:
-            errs[r["arm"]] += 1
-    cells = {k: {a: st.mean(v) for a, v in d.items()} for k, d in raw.items()}
+    cells, errs, _ = fold(rows, arms, key="arm")
     full = {k: v for k, v in cells.items() if len(v) == len(arms)}
     dims = sorted({d for _, _, d, _ in full})
     n = len(seeds)
@@ -194,7 +159,7 @@ def main():
         wins[max(arms, key=lambda a: v[a])] += 1
     for a in sorted(arms, key=lambda a: -means[a]):
         per = "".join(f"  {mean_of(lambda v, a=a: v[a], d):8.4f}" for d in dims)
-        err = f"  errors={errs[a]}" if errs[a] else ""
+        err = f"  errors={len(errs[a])}" if errs[a] else ""
         mark = " <-- best single" if a == best else ""
         print(f"{a:10s} {means[a]:7.4f} " + per + f"  {oracle - means[a]:7.4f}  {wins[a]:5d}" + mark + err)
     per = "".join(f"  {mean_of(lambda v: max(v.values()), d):8.4f}" for d in dims)

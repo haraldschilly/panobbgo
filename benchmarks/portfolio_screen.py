@@ -62,11 +62,8 @@ than that are evidence.
 """
 
 import dataclasses
-import json
 import statistics as st
 import sys
-import time
-from collections import defaultdict
 
 from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import (
@@ -74,21 +71,23 @@ from panobbgo.harness_ioh import (
     bbob_classes_present,
     make_bbob_battery,
     make_highdim_battery,
-    make_ioh_strategies,
     make_noisy_battery,
     make_noisy_highdim_battery,
     make_standard_battery,
     noise_class_of,
     run_ioh_harness,
-    t_ci,
 )
 from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyBlockBandit, StrategyRewarding, StrategyRoundRobin
 
+import _screen
+from _screen import base_spec, csv_of, fold, int_tuple, ioh_label, load_rows, parse_argv, print_delta_table
+from _screen import print_means, print_run_health, run_seeds, runs_to_rows, select_names, table_spec
+
 
 def main():
-    BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
+    BASE = base_spec()
 
     #: The tuned Phase A arms.  One dict, so "which arm with which knobs" is a
     #: single obvious edit and every spec below quotes the same settings.
@@ -788,20 +787,11 @@ def main():
     WARM = [n for n in SPECS if "_warm" in n]
 
     # --- argv: `key=value` options, then positionals ---------------------------
-    opts, pos = {}, []
-    for a in sys.argv[1:]:
-        if "=" in a:
-            k, _, v = a.partition("=")
-            opts[k] = v
-        else:
-            pos.append(a)
+    opts, _, pos = parse_argv(sys.argv[1:])
 
     src = opts.get("from")
     JOBS = 1 if src else screen_jobs(opts)
-    names = [n for n in opts["specs"].split(",") if n] if opts.get("specs") else list(SPECS)
-    unknown = [n for n in names if n not in SPECS]
-    if unknown:
-        sys.exit(f"unknown spec(s): {','.join(unknown)}  (known: {','.join(SPECS)})")
+    names = select_names(opts, SPECS)
 
     #: ``kind=`` picks the regime the screen runs on.  The screen's whole
     #: question — does a *sharing* portfolio beat the best single arm? — was
@@ -829,41 +819,25 @@ def main():
     if "dims" in opts or "bm" in opts or "insts" in opts or "fids" in opts:
         battery = dataclasses.replace(
             battery,
-            dims=tuple(int(d) for d in opts.get("dims", ",".join(str(d) for d in battery.dims)).split(",")),
+            dims=int_tuple(opts.get("dims", csv_of(battery.dims))),
             budget_multiplier=int(opts.get("bm", battery.budget_multiplier)),
-            instances=tuple(int(i) for i in opts.get("insts", ",".join(str(i) for i in battery.instances)).split(",")),
+            instances=int_tuple(opts.get("insts", csv_of(battery.instances))),
             # ``fids=`` on a battery whose kind has no function axis is a
             # mistake, and ``IOHBatterySpec.__post_init__`` says so by name
             # rather than running a cube nobody asked for.
-            fids=tuple(int(f) for f in opts["fids"].split(",")) if "fids" in opts else battery.fids,
-        )
-
-    def spec(name):
-        cls, heuristics, kw, analyzers = SPECS[name]
-        return dataclasses.replace(
-            BASE,
-            name=name,
-            # One stream for the whole screen: every spec sees the identical
-            # (dim, inst, rep) seeds, so the comparison is paired on the stream.
-            seed_name="screen",
-            strategy_class=cls,
-            heuristics=[(c, dict(k)) for c, k in heuristics],
-            analyzers=[(c, dict(k)) for c, k in analyzers],
-            config_overrides=dict(kw),
+            fids=int_tuple(opts["fids"]) if "fids" in opts else battery.fids,
         )
 
     if src:
-        rows = json.load(open(src))
-        seeds = sorted({r["seed"] for r in rows})
-        have = {r["s"] for r in rows}
-        names = [n for n in names if n in have] if opts.get("specs") else [n for n in SPECS if n in have]
-        print(f"read {len(rows)} rows from {src}")
+        rows, seeds, names = load_rows(src, opts, names, SPECS)
     else:
         if len(pos) < 2:
             sys.exit(__doc__)
         out = pos[0]
         seeds = [int(x) for x in pos[1:]]
-        specs = [spec(n) for n in names]
+        # One stream for the whole screen: every spec sees the identical
+        # (dim, inst, rep) seeds, so the comparison is paired on the stream.
+        specs = [table_spec(BASE, n, SPECS[n]) for n in names]
         for sp in specs:
             if sp.config_overrides.get("regime_gate") == "oracle":
                 # Say what the harness will hand the gate on this battery, so the
@@ -873,54 +847,39 @@ def main():
                     f"(battery {battery.name}, dims {list(battery.dims)}, budget {battery.budget_multiplier}*d)",
                     flush=True,
                 )
-        rows, t0 = [], time.perf_counter()
-        for seed in seeds:
+        fields = (
+            ("s", "strategy_name"),
+            ("dim", "dim"),
+            ("inst", "instance"),
+            # ``None`` on every battery without a function axis, which
+            # is what every results file written before 2026-09-14 has
+            # (absent, read back as None) — the analysis below folds
+            # both shapes on the same key.
+            ("fid", "fid"),
+            ("aocc", "aocc"),
+            # noisy batteries only: AOCC is scored on the TRUE value
+            # above; this is what the optimizer's own observations
+            # would have said.  Kept so a re-analysis can see both.
+            ("obs", "aocc_observed"),
+            ("evals", "n_evals"),
+            ("budget", "budget"),
+            ("err", "error"),
+        )
+
+        def batches(seed):
             r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
-            rows += [
-                {
-                    "seed": seed,
-                    "s": x.strategy_name,
-                    "dim": x.dim,
-                    "inst": x.instance,
-                    # ``None`` on every battery without a function axis, which
-                    # is what every results file written before 2026-09-14 has
-                    # (absent, read back as None) — the analysis below folds
-                    # both shapes on the same key.
-                    "fid": x.fid,
-                    "aocc": x.aocc,
-                    # noisy batteries only: AOCC is scored on the TRUE value
-                    # above; this is what the optimizer's own observations
-                    # would have said.  Kept so a re-analysis can see both.
-                    "obs": x.aocc_observed,
-                    "evals": x.n_evals,
-                    "budget": x.budget,
-                    "err": x.error,
-                }
-                for x in r.runs
-            ]
-            json.dump(rows, open(out, "w"))
-            print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
+            yield runs_to_rows(seed, r.runs, fields)
+
+        rows = run_seeds(seeds, out, batches)
 
     # --- fold rows into cells: (seed, fid, dim, inst) -> {spec: mean AOCC} ------
     #
     # ``fid`` is ``None`` for every battery without a function axis, so a
     # results file written before 2026-09-14 (no ``fid`` key at all) folds into
     # exactly the cells it always did and every number below is unchanged.
-    raw = defaultdict(lambda: defaultdict(list))
-    errs, short = defaultdict(list), defaultdict(list)
-    for r in rows:
-        if r["s"] not in names:
-            continue
-        raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["s"]].append(r["aocc"])
-        if r["err"]:
-            errs[r["s"]].append(r["err"])
-        # A run that stops short of its budget did not spend what it was given
-        # -- a stall, an exhausted arm, or the strategy returning no points.
-        if r.get("budget") and r.get("evals", 0) < 0.98 * r["budget"]:
-            fid = r.get("fid")
-            cell = (f"f{fid}" if fid is not None else "") + f"d{r['dim']}i{r['inst']}"
-            short[r["s"]].append((cell, r["evals"], r["budget"]))
-    cells = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
+    # A run that stops short of its budget did not spend what it was given
+    # -- a stall, an exhausted arm, or the strategy returning no points.
+    cells, errs, short = fold(rows, names, short_label=ioh_label)
     dims = sorted({d for _, _, d, _ in cells})
     #: The COCO classes actually present, in COCO order.  Only those: a run cut
     #: to a handful of fids must not print three columns of NaN.
@@ -937,25 +896,15 @@ def main():
         return (dim is None or d == dim) and (cls is None or (f is not None and cls_of[f] == cls))
 
     def mean_of(name, dim=None, cls=None):
-        vals = [v[name] for (_, f, d, _), v in cells.items() if name in v and in_group(f, d, dim, cls)]
-        return st.mean(vals) if vals else float("nan")
+        return _screen.mean_of(cells, name, lambda k: in_group(k[1], k[2], dim, cls))
 
     def paired(a, b, dim=None, cls=None):
         """Per-seed mean of ``a - b`` over the cells where both have a result."""
-        ps = defaultdict(list)
-        for (seed, f, d, _), v in cells.items():
-            if a in v and b in v and in_group(f, d, dim, cls):
-                ps[seed].append(v[a] - v[b])
-        return [st.mean(x) for x in ps.values()]
-
-    def ci(ds):
-        """``(mean, halfwidth)`` of a 95% t-CI over the per-seed deltas."""
-        return t_ci(ds)
+        return _screen.paired(cells, a, b, lambda k: in_group(k[1], k[2], dim, cls))
 
     def delta(a, b):
         """Mean paired delta of ``a`` over ``b``, or ``nan`` if uncomparable."""
-        ds = paired(a, b)
-        return st.mean(ds) if ds else float("nan")
+        return _screen.delta(cells, a, b)
 
     setup = (
         f"from {src}"
@@ -968,34 +917,13 @@ def main():
     print(f"specs: {', '.join(names)}   cells: {len(cells)}")
 
     # (a) means, overall and per dimension.
-    print(f"\n{'spec':36s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
     order = sorted(names, key=lambda s: -mean_of(s))
-    for s in order:
-        per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
-        tail = f"  errors={len(errs[s])}" if errs[s] else ""
-        tail += f"  short={len(short[s])}" if short[s] else ""
-        print(f"{s:36s} {mean_of(s):7.4f} " + per + tail)
+    print_means(cells, order, dims, errs, short, width=36)
 
     # (b) paired deltas against each reference, overall CI + per-dimension means.
     for ref in REFS:
-        if ref not in names:
-            continue
-        print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
-        print(
-            f"{'spec':36s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} "
-            + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
-        )
-        for s in order:
-            if s == ref:
-                continue
-            ds = paired(s, ref)
-            if not ds:
-                continue
-            m, h = ci(ds)
-            band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
-            flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
-            per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-            print(f"{s:36s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        if ref in names:
+            print_delta_table(cells, order, ref, dims, width=36)
 
     # (b2) the same deltas, grouped by COCO class — the point of the fid axis.
     #
@@ -1087,16 +1015,7 @@ def main():
         print(f"  {tag} {'PASS' if ok else 'FAIL'}  {what:58s} {val:+.4f}  (need >= {thr:+.3f})")
 
     # (d) what the harness itself reported about the runs.
-    print("\n--- run health ---")
-    if not any(errs.values()) and not any(short.values()):
-        print("  no errored runs, every run spent its full budget")
-    for s in names:
-        if errs[s]:
-            seen = sorted(set(errs[s]))[:3]
-            print(f"  {s}: {len(errs[s])} errored run(s); first messages: {seen}")
-        if short[s]:
-            ex = ", ".join(f"{cell} {e}/{b}" for cell, e, b in short[s][:4])
-            print(f"  {s}: {len(short[s])} run(s) below budget: {ex}")
+    print_run_health(names, errs, short)
 
     print(
         "\nNull floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no\n"

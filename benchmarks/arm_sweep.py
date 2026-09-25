@@ -32,22 +32,21 @@ measured in evaluations, not wall time.
 """
 
 import sys
-import json
 import dataclasses
 import statistics as st
-import time
 from collections import defaultdict
-from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
+from panobbgo.harness_ioh import make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.local_run import screen_jobs
-from panobbgo.strategies import StrategyRoundRobin
+
+from _screen import base_spec, fold, int_tuple, match, mean_of, paired, parse_argv, run_seeds, runs_to_rows, solo_spec
 
 
 def main():
-    BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
+    BASE = base_spec()
     AUTO = {"NP_init": "auto"}
 
-    _opts = {k: v for k, _, v in (a.partition("=") for a in sys.argv[3:] if "=" in a)}
+    _opts, _, pos = parse_argv(sys.argv[1:])
     # ``grid=20,30,45`` overrides the NP_init grid, e.g. to probe a higher dimension.
     NP_GRID = {f"np_{n}": {"NP_init": int(n)} for n in _opts.get("grid", "4,6,8,10,12,15,20").split(",")}
 
@@ -96,17 +95,17 @@ def main():
         ),
     }
 
-    arm, out = sys.argv[1], sys.argv[2]
+    arm, out = pos[0], pos[1]
     opts = _opts
     JOBS = screen_jobs(opts)
-    seeds = [int(x) for x in sys.argv[3:] if "=" not in x]
+    seeds = [int(x) for x in pos[2:]]
     cls, base_kw, variants = ARMS[arm]
 
     battery = make_standard_battery()
     if "dims" in opts or "bm" in opts:
         battery = dataclasses.replace(
             battery,
-            dims=tuple(int(d) for d in opts.get("dims", "2,5").split(",")),
+            dims=int_tuple(opts.get("dims", "2,5")),
             budget_multiplier=int(opts.get("bm", battery.budget_multiplier)),
         )
 
@@ -117,73 +116,41 @@ def main():
         # changes nothing still shows a nonzero delta (proved on CMA-ES's
         # ``ipop_factor``): the paired delta would carry the full run-to-run
         # variance rather than the parameter's own effect.
-        return dataclasses.replace(
-            BASE,
-            name=name,
-            seed_name=arm,
-            strategy_class=StrategyRoundRobin,
-            heuristics=[(cls, kw)],
-            analyzers=[],
-        )
+        return solo_spec(BASE, name, arm, (cls, kw))
 
     specs = [solo("default", dict(base_kw))] + [solo(n, {**base_kw, **kw}) for n, kw in variants.items()]
-    rows, t0 = [], time.perf_counter()
-    for seed in seeds:
+
+    def batches(seed):
         r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
-        rows += [
-            {
-                "seed": seed,
-                "s": x.strategy_name,
-                "fid": x.fid,
-                "dim": x.dim,
-                "inst": x.instance,
-                "rep": x.rep,
-                "aocc": x.aocc,
-                "err": x.error,
-            }
-            for x in r.runs
-        ]
-        json.dump(rows, open(out, "w"))
-        print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
+        yield runs_to_rows(seed, r.runs)
+
+    rows = run_seeds(seeds, out, batches)
 
     # Cells are (seed, fid, dim, inst); reps fold into their mean.  ``fid`` is
     # None without a function axis, so the BBOB axis cannot merge cells.
-    tot, raw, errs = defaultdict(list), defaultdict(lambda: defaultdict(list)), defaultdict(int)
+    tot = defaultdict(list)
     for r in rows:
         tot[r["s"]].append(r["aocc"])
-        raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["s"]].append(r["aocc"])
-        if r["err"]:
-            errs[r["s"]] += 1
-    by = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
+    by, errs, _ = fold(rows)
     n = len(seeds)
     dims = sorted({r["dim"] for r in rows})
-
-    def paired(name, dim=None):
-        """Per-seed mean deltas of ``name`` against ``default``, optionally one dimension."""
-        ps = defaultdict(list)
-        for (seed, _, d, _), v in by.items():
-            if name in v and "default" in v and (dim is None or d == dim):
-                ps[seed].append(v[name] - v["default"])
-        return [st.mean(x) for x in ps.values()]
 
     print(f"\n=== {arm} ===  ({n} seeds, dims {dims}, budget {battery.budget_multiplier}*d)")
     head = f"{'variant':22s} {'mean':>7s}   {'delta vs default':>28s}"
     print(head + "".join(f"   {'d=' + str(d):>8s}" for d in dims))
     for s in sorted(tot, key=lambda k: -st.mean(tot[k])):
         line = f"{s:22s} {st.mean(tot[s]):7.4f}"
-        err = f"  errors={errs[s]}" if errs[s] else ""
+        err = f"  errors={len(errs[s])}" if errs[s] else ""
         if s == "default":
-            per = "".join(
-                f"   {st.mean([v[s] for (_, _, d, _), v in by.items() if s in v and d == dim]):8.4f}" for dim in dims
-            )
+            per = "".join(f"   {mean_of(by, s, match(dim=dim)):8.4f}" for dim in dims)
             print(line + f"{'(reference)':>31s}" + per + err)
             continue
-        ds = paired(s)
+        ds = paired(by, s, "default")
         if len(ds) < 2:
             continue
         m, h = t_ci(ds)
         flag = " <--" if (m - h > 0 or m + h < 0) else "   "
-        per = "".join(f"   {st.mean(paired(s, dim)):+8.4f}" for dim in dims)
+        per = "".join(f"   {st.mean(paired(by, s, 'default', match(dim=dim))):+8.4f}" for dim in dims)
         print(line + f"   {m:+.4f} [{m - h:+.4f},{m + h:+.4f}] {sum(d > 0 for d in ds)}/{len(ds)}{flag}" + per + err)
     print("\nPer-dimension columns are mean AOCC for `default`, mean delta for the rest.")
     print("`<--` marks a 95% t-CI on the pooled delta that excludes zero.")

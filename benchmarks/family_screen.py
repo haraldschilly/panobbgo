@@ -55,23 +55,20 @@ CMA-ES-containing spec drifts by up to +-0.05 for no reason at all
 and even then the 12-seed roster is what decides.
 """
 
-import dataclasses
-import json
-import statistics as st
 import sys
-import time
-from collections import defaultdict
 
 from panobbgo.analyzers import Archive
 from panobbgo.harness_families import make_constrained_battery, make_families_battery, run_family_harness
-from panobbgo.harness_ioh import make_ioh_strategies, t_ci
 from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
 
+from _screen import base_spec, fold, load_rows, match, mean_of, mean_or_nan, paired, parse_argv, print_delta_table
+from _screen import print_means, print_run_health, run_seeds, runs_to_rows, select_names, table_spec
+
 
 def main():
-    BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
+    BASE = base_spec()
 
     #: The tuned Phase A arms, verbatim from ``portfolio_screen.py``.
     #: ``NP_init="auto"`` is the accepted default (12/12), so the DE arms run
@@ -122,20 +119,11 @@ def main():
     PRESETS = {"free": make_families_battery, "constrained": make_constrained_battery}
 
     # --- argv: `key=value` options, then positionals ---------------------------
-    opts, pos = {}, []
-    for a in sys.argv[1:]:
-        if "=" in a:
-            k, _, v = a.partition("=")
-            opts[k] = v
-        else:
-            pos.append(a)
+    opts, _, pos = parse_argv(sys.argv[1:])
 
     src = opts.get("from")
     JOBS = 1 if src else screen_jobs(opts)
-    names = [n for n in opts["specs"].split(",") if n] if opts.get("specs") else list(SPECS)
-    unknown = [n for n in names if n not in SPECS]
-    if unknown:
-        sys.exit(f"unknown spec(s): {','.join(unknown)}  (known: {','.join(SPECS)})")
+    names = select_names(opts, SPECS)
 
     preset = opts.get("preset", "free")
     if preset not in PRESETS:
@@ -148,35 +136,19 @@ def main():
     if "ninst" in opts:
         kwargs["n_instances"] = int(opts["ninst"])
 
-    def spec(name):
-        cls, heuristics, kw, analyzers = SPECS[name]
-        return dataclasses.replace(
-            BASE,
-            name=name,
-            # One stream for the whole screen: every spec sees the identical
-            # (family, dim, instance) seeds, so the comparison is paired.
-            seed_name="screen",
-            strategy_class=cls,
-            heuristics=[(c, dict(k)) for c, k in heuristics],
-            analyzers=[(c, dict(k)) for c, k in analyzers],
-            config_overrides=dict(kw),
-        )
-
     if src:
-        rows = json.load(open(src))
-        seeds = sorted({r["seed"] for r in rows})
-        have = {r["s"] for r in rows}
-        names = [n for n in names if n in have] if opts.get("specs") else [n for n in SPECS if n in have]
+        rows, seeds, names = load_rows(src, opts, names, SPECS)
         preset = rows[0].get("preset", preset) if rows else preset
         bm = rows[0].get("bm", bm) if rows else bm
-        print(f"read {len(rows)} rows from {src}")
     else:
         if len(pos) < 2:
             sys.exit(__doc__)
         out = pos[0]
         seeds = [int(x) for x in pos[1:]]
         instances = PRESETS[preset](**kwargs)
-        specs = [spec(n) for n in names]
+        # One stream for the whole screen: every spec sees the identical
+        # (family, dim, instance) seeds, so the comparison is paired.
+        specs = [table_spec(BASE, n, SPECS[n]) for n in names]
         print(
             f"battery {preset}: {len(instances)} instances "
             f"({len({p.family for _n, p in instances})} families, dims "
@@ -184,8 +156,18 @@ def main():
             f"{len(specs)} specs, {len(seeds)} seeds",
             flush=True,
         )
-        rows, t0 = [], time.perf_counter()
-        for seed in seeds:
+        fields = (
+            ("s", "strategy_name"),
+            ("fam", "problem_kind"),
+            ("dim", "dim"),
+            ("inst", "instance"),
+            ("aocc", "aocc"),
+            ("evals", "n_evals"),
+            ("budget", "budget"),
+            ("err", "error"),
+        )
+
+        def batches(seed):
             r = run_family_harness(
                 specs,
                 instances,
@@ -196,38 +178,17 @@ def main():
                 timeout_s=timeout_s,
                 jobs=JOBS,
             )
-            rows += [
-                {
-                    "seed": seed,
-                    "preset": preset,
-                    "bm": bm,
-                    "s": x.strategy_name,
-                    "fam": x.problem_kind,
-                    "dim": x.dim,
-                    "inst": x.instance,
-                    "aocc": x.aocc,
-                    "evals": x.n_evals,
-                    "budget": x.budget,
-                    "err": x.error,
-                }
-                for x in r.runs
-            ]
-            json.dump(rows, open(out, "w"))
-            print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
+            yield runs_to_rows(seed, r.runs, fields, extra={"preset": preset, "bm": bm})
+
+        rows = run_seeds(seeds, out, batches)
 
     # --- fold rows into cells: (seed, family, dim, inst) -> {spec: mean AOCC} ---
-    raw = defaultdict(lambda: defaultdict(list))
-    errs, short = defaultdict(list), defaultdict(list)
-    for r in rows:
-        if r["s"] not in names:
-            continue
-        raw[(r["seed"], r["fam"], r["dim"], r["inst"])][r["s"]].append(r["aocc"])
-        if r["err"]:
-            errs[r["s"]].append(r["err"])
-        # A run that stops short of its budget did not spend what it was given.
-        if r.get("budget") and r.get("evals", 0) < 0.98 * r["budget"]:
-            short[r["s"]].append((r["fam"], r["dim"], r["evals"], r["budget"]))
-    cells = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
+    cells, errs, short = fold(
+        rows,
+        names,
+        cell=lambda r: (r["seed"], r["fam"], r["dim"], r["inst"]),
+        short_label=lambda r: f"{r['fam']} d{r['dim']}",
+    )
     if not cells:
         sys.exit("no rows for the selected specs — nothing to compare")
 
@@ -235,86 +196,40 @@ def main():
     fams = sorted({f for _, f, _, _ in cells})
     n = len(seeds)
 
-    def mean_of(name, dim=None, fam=None):
-        vals = [
-            v[name]
-            for (_, f, d, _), v in cells.items()
-            if name in v and (dim is None or d == dim) and (fam is None or f == fam)
-        ]
-        return st.mean(vals) if vals else float("nan")
-
-    def paired(a, b, dim=None, fam=None):
-        """Per-seed mean of ``a - b`` over the cells where both have a result."""
-        ps = defaultdict(list)
-        for (seed, f, d, _), v in cells.items():
-            if a in v and b in v and (dim is None or d == dim) and (fam is None or f == fam):
-                ps[seed].append(v[a] - v[b])
-        return [st.mean(x) for x in ps.values()]
-
-    def ci(ds):
-        """``(mean, halfwidth)`` of a 95% t-CI over the per-seed deltas."""
-        return t_ci(ds)
+    def score(name, dim=None, fam=None):
+        return mean_of(cells, name, match(dim=dim, group=fam))
 
     print(f"\n=== family screen ===  ({n} seeds, preset {preset}, budget {bm}*d, dims {dims})")
     print(f"specs: {', '.join(names)}   cells: {len(cells)}   families: {', '.join(fams)}")
 
     # (a) means, overall and per dimension.
-    print(f"\n{'spec':28s} {'mean':>7s} " + "".join(f"  {'d=' + str(d):>8s}" for d in dims))
-    order = sorted(names, key=lambda s: -mean_of(s))
-    for s in order:
-        per = "".join(f"  {mean_of(s, d):8.4f}" for d in dims)
-        tail = f"  errors={len(errs[s])}" if errs[s] else ""
-        tail += f"  short={len(short[s])}" if short[s] else ""
-        print(f"{s:28s} {mean_of(s):7.4f} " + per + tail)
+    order = sorted(names, key=lambda s: -score(s))
+    print_means(cells, order, dims, errs, short, width=28)
 
     # (b) means per family — the whole point of a multi-class battery.
     print(f"\n{'spec':28s} " + "".join(f"  {f[:14]:>15s}" for f in fams))
     for s in order:
-        print(f"{s:28s} " + "".join(f"  {mean_of(s, fam=f):15.4f}" for f in fams))
+        print(f"{s:28s} " + "".join(f"  {score(s, fam=f):15.4f}" for f in fams))
 
     # (c) paired deltas against each reference, overall CI + per-dimension means.
     for ref in REFS:
-        if ref not in names:
-            continue
-        print(f"\ndelta vs {ref} (paired per cell, t-CI over per-seed means)")
-        print(
-            f"{'spec':28s} {'delta':>8s} {'95% CI':>21s} {'seeds':>7s} "
-            + "".join(f"  {'d=' + str(d):>8s}" for d in dims)
-        )
-        for s in order:
-            if s == ref:
-                continue
-            ds = paired(s, ref)
-            if not ds:
-                continue
-            m, h = ci(ds)
-            band = f"[{m - h:+.4f},{m + h:+.4f}]" if h == h else "        (n<2)"
-            flag = " <--" if h == h and (m - h > 0 or m + h < 0) else ""
-            per = "".join(f"  {st.mean(paired(s, ref, d) or [float('nan')]):+8.4f}" for d in dims)
-            print(f"{s:28s} {m:+8.4f} {band:>21s} {sum(d > 0 for d in ds):3d}/{len(ds):<3d} " + per + flag)
+        if ref in names:
+            print_delta_table(cells, order, ref, dims, width=28)
 
     # (d) the portfolio against the best single arm *in this run*, per family.
-    best_ref = max((r for r in REFS if r in names), key=mean_of, default=None)
+    best_ref = max((r for r in REFS if r in names), key=score, default=None)
     port = [s for s in names if s.startswith("Blocks")]
     if best_ref and port:
         print(f"\nper-family delta of the portfolio vs the best single arm ({best_ref})")
         print(f"{'family':18s} " + "".join(f"  {p[:20]:>21s}" for p in port))
         for f in fams:
             print(
-                f"{f:18s} " + "".join(f"  {st.mean(paired(p, best_ref, fam=f) or [float('nan')]):+21.4f}" for p in port)
+                f"{f:18s} "
+                + "".join(f"  {mean_or_nan(paired(cells, p, best_ref, match(group=f))):+21.4f}" for p in port)
             )
 
     # (e) what the harness itself reported about the runs.
-    print("\n--- run health ---")
-    if not any(errs.values()) and not any(short.values()):
-        print("  no errored runs, every run spent its full budget")
-    for s in names:
-        if errs[s]:
-            seen = sorted(set(errs[s]))[:3]
-            print(f"  {s}: {len(errs[s])} errored run(s); first messages: {seen}")
-        if short[s]:
-            ex = ", ".join(f"{f} d{d} {e}/{b}" for f, d, e, b in short[s][:4])
-            print(f"  {s}: {len(short[s])} run(s) below budget: {ex}")
+    print_run_health(names, errs, short)
 
     print(
         "\nNull floor: on 3 seeds a CMA-ES-containing spec drifts by up to +-0.05 for no\n"

@@ -63,7 +63,7 @@ main package back; leave it alone until `ioh` ships newer wheels.
 
 ```bash
 uv sync --extra dev                       # install (pip: pip install -e ".[dev]")
-uv run pytest -q -n 4                     # full suite (~2000 tests, ~1 min)
+uv run pytest -q -n 4                     # full suite (~2300 tests, ~1 min)
 uv run pytest -q tests/test_core.py       # one file; serial `pytest` also works
 uv run ruff format .                      # format (CI gate: ruff format --check .)
 uv run ruff check --fix .                 # lint; ./codestyle.sh runs both
@@ -149,8 +149,8 @@ uv run python benchmark_harness.py compare before.json after.json --statistical 
 ### Modes
 
 *   `--quick`: 3 problems × 2 strategies × 3 reps × 75 evals (~30 s) — during development
-*   `--standard`: 8 problems × ~6 strategies × 5 reps × 200 evals (minutes) — before merging
-*   `--full`: 11 problems × ~10 strategies × 10 reps × 500 evals (~1 h) — thorough validation
+*   `--standard`: 7 problems × 8 strategies × 5 reps × 200 evals (minutes) — before merging
+*   `--full`: 10 problems × 12 strategies × 10 reps × 500 evals (~1 h) — thorough validation
 
 Useful flags (see the guide for details):
 

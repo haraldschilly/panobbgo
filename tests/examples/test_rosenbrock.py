@@ -16,7 +16,6 @@ from panobbgo.lib.classic import Rosenbrock
 from panobbgo.lib import Point
 from panobbgo.heuristics import Random, Nearby, NelderMead, LatinHypercube
 from panobbgo.strategies import StrategyRoundRobin
-from panobbgo.utils import evaluate_point_subprocess
 
 
 # Test configuration
@@ -55,7 +54,7 @@ def test_rosenbrock_manual_optimization():
     for i in range(50):
         x = problem.random_point()
         point = Point(x, f"manual_{i}")
-        result = evaluate_point_subprocess(problem, point)
+        result = problem(point)
 
         if result.fx < best_fx:
             best_fx = result.fx

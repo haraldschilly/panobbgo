@@ -325,20 +325,29 @@ def test_points_exactly_on_the_cut(rule):
     assert sp.max_depth <= Splitter.Box.MAX_DEPTH
 
 
-def test_can_split_is_cheap_on_a_degenerate_leaf():
+def test_can_split_is_cheap_on_a_degenerate_leaf(monkeypatch):
     """``_can_split`` must not re-scan the point cloud on every arrival.
 
     An unsplittable leaf sees ``_can_split`` on *every* result, so an
-    O(#results) predicate makes the degenerate case quadratic.
+    O(#results) predicate makes the degenerate case quadratic.  It used to
+    ask ``_split_dim`` (which, under ``split_rule="value"``, ranks the whole
+    cloud); it must answer from the running min/max alone.  Checked
+    structurally, since a wall-clock bound is flaky on a loaded machine; the
+    generous time limit only catches a hang.
     """
     _, sp = _splitter(10, 400, split_rule="value")
+
+    def no_scan(self):
+        raise AssertionError("_can_split scanned the point cloud (_split_dim)")
+
+    monkeypatch.setattr(Splitter.Box, "_split_dim", no_scan)
     x = np.zeros(10)
     n = 4000
     started = time.perf_counter()
     _feed(sp, [x.copy() for _ in range(n)], np.zeros(n))
     elapsed = time.perf_counter() - started
     assert sp.root.leaf
-    assert elapsed < 5.0, f"{n} identical points took {elapsed:.1f}s"
+    assert elapsed < 60.0, f"{n} identical points took {elapsed:.1f}s"
 
 
 # --- 5. through the consumers ----------------------------------------------

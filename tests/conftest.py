@@ -1,4 +1,40 @@
+import os
+from pathlib import Path
+
 import pytest
+
+# Resolved at import time, before any test changes HOME.
+_REAL_HOME = Path.home()
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_home_and_cwd(monkeypatch, tmp_path_factory):
+    """Run every test with a private ``HOME`` and working directory.
+
+    :class:`panobbgo.config.Config` reads (and, if missing, writes)
+    ``~/.panobbgo/config.ini`` and reads ``./config.yaml``.  Without this a
+    developer's own settings (say ``[storage] backend = sqlite``) or the
+    checked-in ``config.yaml`` would change what the tests run, and every run
+    would write into the real home directory.  The repository's
+    ``config.yaml`` only restates the built-in defaults, so the tests see the
+    same configuration as before.
+
+    Tools that tests start in subprocesses (``uv`` for the IOH worker,
+    matplotlib) keep using the real cache and data directories, so a private
+    ``HOME`` does not force a fresh download or font-cache rebuild.
+    Module-level code that builds a ``Config`` at import (collection) time
+    is not covered.
+    """
+    for var, default in (
+        ("XDG_CACHE_HOME", _REAL_HOME / ".cache"),
+        ("XDG_DATA_HOME", _REAL_HOME / ".local" / "share"),
+    ):
+        monkeypatch.setenv(var, os.environ.get(var, str(default)))
+    home = tmp_path_factory.mktemp("home")
+    # As on a machine where panobbgo has run before (some tests patch os.mkdir).
+    (home / ".panobbgo").mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(tmp_path_factory.mktemp("cwd"))
 
 
 @pytest.fixture

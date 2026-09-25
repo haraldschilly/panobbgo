@@ -67,7 +67,7 @@ package, so if they pass for you the installation is complete.
    >>> print(f"NumPy: {np.__version__}, SciPy: {scipy.__version__}")
    NumPy: ..., SciPy: ...
 
-To run the framework's own test suite (about 2000 tests, roughly a minute
+To run the framework's own test suite (about 2300 tests, roughly a minute
 with four workers):
 
 .. code-block:: bash
@@ -96,7 +96,7 @@ For large-scale distributed optimization, you can use a Dask cluster:
    .. code-block:: bash
 
       dask scheduler &
-      dask worker localhost:8786 --nprocs 4 &
+      dask worker localhost:8786 --nworkers 4 &
 
 3. **Configure Panobbgo**:
    Set ``evaluation: method: dask`` in your ``config.yaml``.
@@ -107,34 +107,52 @@ See `Dask distributed documentation <https://docs.dask.org/en/stable/deploying.h
 Configuration
 ~~~~~~~~~~~~~
 
-On first run, Panobbgo creates ``~/.panobbgo/config.ini``:
+Settings come, in decreasing precedence, from keyword arguments of the
+strategy (``max_eval=``, ``seed=``, config attribute names), ``config.yaml``
+in the working directory, ``~/.panobbgo/config.ini`` and the built-in
+defaults.  On first run Panobbgo writes a default ``config.ini``:
 
 .. code-block:: ini
 
-   [dask]
-   cluster_type = local                    # 'local' (auto-start) or 'remote'
-   local.n_workers = 2                    # Number of local workers (default: 2)
-   local.threads_per_worker = 1           # Threads per worker (default: 1)
-   local.memory_limit = 2GB               # Memory per worker (default: 2GB)
-   local.dashboard_address = :8787        # Dashboard port (default: :8787)
-   remote.scheduler_address = tcp://localhost:8786  # For remote clusters
-
-   [optimization]
-   max_evaluations = 1000    # Evaluation budget
-   queue_capacity = 20       # Heuristic queue size
-
-   [strategy]
-   smooth = 0.1              # Additive smoothing for bandit
-   discount = 0.95           # Performance decay factor
-   jobs_per_client = 5       # Batch size per engine
+   [heuristic]
+   capacity = 20             # heuristic output-queue size
 
    [core]
-   deadlock_seconds = 600    # error backstop for a wedged worker (see below)
+   loglevel = 40             # Python logging level (40 = ERROR)
+   show_interval = 1.0
+   max_eval = 1000           # evaluation budget
+   discount = 0.95           # performance decay factor
+   smooth = 0.5              # additive smoothing for the bandit
+   # also read from [core]: seed, stop_on_convergence, deadlock_seconds
+   # (see below), rewarding_credit, rewarding_explore
 
-   [logging]
-   level = INFO              # DEBUG, INFO, WARNING, ERROR
+   # [storage]
+   # backend = sqlite        # checkpoint/resume; uri defaults to panobbgo.db
 
-Edit this file to customize behavior.
+Everything above can also go in ``config.yaml`` (``core: max_eval: 500``,
+``heuristic: capacity: 20``, ...).  The evaluation, Dask, constraint and
+logging settings are **YAML only** — ``config.ini`` has no section for them:
+
+.. code-block:: yaml
+
+   evaluation:
+     method: threaded        # 'threaded', 'processes' or 'dask'
+     timeout: 60             # optional: seconds of running time per evaluation
+     sync: false             # true: bit-reproducible seeded runs
+   dask:
+     cluster_type: local     # 'local' (auto-start) or 'remote'
+     local:
+       n_workers: 2
+       threads_per_worker: 1
+       memory_limit: 2GB
+       dashboard_address: ':8787'
+     remote:
+       scheduler_address: tcp://localhost:8786
+   constraints:
+     handler: DefaultConstraintHandler
+     rho: 1.0
+
+Edit these files to customize behavior.
 
 .. note::
 
@@ -517,15 +535,15 @@ Subclass :class:`~panobbgo.lib.Problem`:
 .. code-block:: python
 
    import numpy as np
-   from panobbgo.lib import Problem, BoundingBox
+   from panobbgo.lib import Problem
 
    class Sphere(Problem):
        """Simple sphere function: f(x) = sum(x^2)"""
 
        def __init__(self, dim=5):
            # Define bounding box: each variable in [-10, 10]
-           box = BoundingBox(np.array([[-10.0, 10.0]] * dim))
-           super().__init__(dim, box)
+           box = [(-10.0, 10.0)] * dim
+           super().__init__(box)
 
        def eval(self, x):
            """Evaluate objective function"""
@@ -578,8 +596,8 @@ You can also add stochasticity directly in ``eval()``:
 
    class NoisySphere(Problem):
        def __init__(self, dim=5, noise_std=0.1):
-           box = BoundingBox(np.array([[-10.0, 10.0]] * dim))
-           super().__init__(dim, box)
+           box = [(-10.0, 10.0)] * dim
+           super().__init__(box)
            self.noise_std = noise_std
 
        def eval(self, x):
@@ -598,8 +616,8 @@ Override ``eval_constraints()`` to return violation vector:
    class ConstrainedProblem(Problem):
        def __init__(self):
            # 2D problem: x in [-5, 5], y in [-5, 5]
-           box = BoundingBox(np.array([[-5, 5], [-5, 5]]))
-           super().__init__(dim=2, box=box)
+           box = [(-5, 5), (-5, 5)]
+           super().__init__(box)
 
        def eval(self, x):
            """Objective: minimize (x-1)^2 + (y-2)^2"""
@@ -619,9 +637,9 @@ Override ``eval_constraints()`` to return violation vector:
    problem = ConstrainedProblem()
    strategy = StrategyRewarding(problem, max_evaluations=300)
 
-   # You can configure the constraint handling method in ~/.panobbgo/config.ini
-   # [optimization]
-   # constraint_handler = AugmentedLagrangianConstraintHandler
+   # The constraint handling method is set in config.yaml:
+   #   constraints:
+   #     handler: AugmentedLagrangianConstraintHandler
 
    strategy.add(Center)
    strategy.add(Random)
@@ -753,12 +771,12 @@ Wrap subprocess or external program:
    class ExternalSimulation(Problem):
        def __init__(self):
            # 3D problem
-           box = BoundingBox(np.array([
-               [0.0, 1.0],
-               [0.0, 1.0],
-               [0.0, 1.0]
-           ]))
-           super().__init__(dim=3, box=box)
+           box = [
+               (0.0, 1.0),
+               (0.0, 1.0),
+               (0.0, 1.0)
+           ]
+           super().__init__(box)
 
        def eval(self, x):
            """Call external simulation"""
@@ -2176,7 +2194,7 @@ Dask Cluster Not Found
 .. code-block:: bash
 
    dask scheduler &
-   dask worker localhost:8786 --nprocs 4 &
+   dask worker localhost:8786 --nworkers 4 &
 
 Function Evaluation Fails
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

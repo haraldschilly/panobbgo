@@ -328,6 +328,7 @@ def test_queued_tasks_with_nothing_running_are_not_progress():
 
     class FakePool:
         events = 5
+        processes = False
 
         def running(self):
             return 0
@@ -343,3 +344,71 @@ def test_queued_tasks_with_nothing_running_are_not_progress():
     s._pool.running = lambda: 1
     assert s._pool_progressed()
     real.close(time.time())
+
+
+class _CrashOnceAbove(Problem):
+    """The first evaluation with x[0] > 0.5 kills its worker (atomic marker file)."""
+
+    def __init__(self, marker):
+        self.marker = str(marker)
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        import os
+
+        if x[0] > 0.5:
+            try:
+                os.close(os.open(self.marker, os.O_CREAT | os.O_EXCL))
+            except FileExistsError:
+                pass
+            else:
+                os._exit(3)
+        return float(np.sum(x**2))
+
+
+@pytest.mark.parametrize("seed", range(5))
+def test_a_break_between_polls_does_not_escape_submit(seed, tmp_path):
+    """A worker dying between polls made the next submit() raise BrokenProcessPool out of start()."""
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(_CrashOnceAbove(tmp_path / "m"), parse_args=False, testing_mode=True, seed=seed)
+    s.config.evaluation_method = "processes"
+    s.config.dask_n_workers = 2
+    s.config.max_eval = 60
+    s.config.sync_evaluation = False
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.start()
+    assert (tmp_path / "m").exists()
+    assert len(s.results) == 59
+
+
+def test_submit_to_a_broken_pool_returns_a_failed_future():
+    from concurrent.futures.process import BrokenProcessPool
+
+    from panobbgo.lib import Point
+    from panobbgo.local_pool import LocalPool
+
+    pool = LocalPool(Rosenbrock(dim=2), 1, processes=True)
+    pool._pool._broken = "simulated"  # what the executor sets when a worker dies
+    f = pool._submit_future("t", Point(np.zeros(2), "t"))
+    assert isinstance(f.exception(), BrokenProcessPool)
+    pool.close(time.time())
+
+
+def test_processes_are_not_stopped_by_the_backstop_while_workers_spawn():
+    """Queued tasks while workers spawn are progress for processes (deadlock_seconds 0.01 gave 0/20)."""
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = "processes"
+    s.config.dask_n_workers = 2
+    s.config.max_eval = 20
+    s.config.sync_evaluation = False
+    s.config.deadlock_seconds = 0.01
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.start()
+    assert len(s.results) == 20

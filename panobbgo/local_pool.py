@@ -191,7 +191,15 @@ class LocalPool:
 
     def _submit_future(self, task_id: str, point: Any) -> Future:
         if self.processes:
-            return self._pool.submit(_process_worker_eval, task_id, point)
+            try:
+                return self._pool.submit(_process_worker_eval, task_id, point)
+            except BrokenProcessPool as exc:
+                # A worker died since the last poll: the executor refuses new
+                # work synchronously.  Hand back a failed future so the next
+                # poll() sees the break and recovers (and resubmits this task).
+                failed: Future = Future()
+                failed.set_exception(exc)
+                return failed
         return self._pool.submit(self._thread_eval, task_id, point)
 
     def _replace_pool(self, kill: bool) -> None:

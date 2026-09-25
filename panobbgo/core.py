@@ -2315,7 +2315,7 @@ class StrategyBase:
     def _pool_progressed(self) -> bool:
         """Is the in-flight work moving?
 
-        Dask: anything pending counts (as it always did).  Local pools: an
+        Dask and processes: anything pending counts.  Threads: an
         evaluation is running, or one started or finished since the last
         pass.  Tasks that sit queued with nothing running (every worker
         wedged) are *not* progress, so the deadlock backstop can fire.
@@ -2323,6 +2323,12 @@ class StrategyBase:
         pool = getattr(self, "_pool", None)
         if self.config.evaluation_method == "dask" or pool is None:
             return len(self.pending) > 0
+        if pool.processes:
+            # Queued work counts: workers may still be spawning (after start,
+            # or after a timeout killed the pool), and a timed-out worker is
+            # killed rather than left holding its slot, so processes cannot
+            # wedge the way threads can.
+            return len(pool) > 0
         events, last = pool.events, getattr(self, "_last_pool_events", None)
         self._last_pool_events = events
         return pool.running() > 0 or (last is not None and events != last)

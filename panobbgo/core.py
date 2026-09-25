@@ -954,7 +954,9 @@ class HeuristicSubprocess(Heuristic):
 
         ``daemon=True`` only reaps the worker when the *interpreter* exits; a
         long-lived process running many strategies leaked one per run.
+        Unsubscribes first, so no handler can touch the pipe while it closes.
         """
+        super().__stop__()
         for end in (self.pipe, self.pipe_child):
             try:
                 end.close()
@@ -967,7 +969,6 @@ class HeuristicSubprocess(Heuristic):
         if proc.is_alive():
             proc.kill()
             proc.join(1)
-        super().__stop__()
 
     @staticmethod
     def subprocess(pipe: Any) -> None:
@@ -1833,9 +1834,11 @@ class StrategyBase:
         self.logger.info("Strategy '%s' initialized" % self._name)
 
     def start(self):
-        self.initialize()
-
         try:
+            # Inside the ``try``: a failing initialize() (validate_setup, a
+            # dependency check) must still stop what the constructor and
+            # add() started — e.g. a HeuristicSubprocess worker.
+            self.initialize()
             if isinstance(self, threading.Thread):
                 raise Exception("change run() to start()")
             self._run()
@@ -2659,7 +2662,11 @@ class StrategyBase:
         # *Every* module, not ``self.heuristics`` — that property filters on
         # ``active``, so a heuristic that had already exhausted itself (the F1
         # shape) never got its ``__stop__`` and kept its subprocess alive.
-        for m in list(self._analyzers.values()) + list(self._heuristics.values()):
+        # Plus heuristics from add() that initialize() never registered (it raised).
+        modules = list(self._analyzers.values()) + list(self._heuristics.values())
+        seen = {id(m) for m in modules}
+        modules += [h for h in self._hs if id(h) not in seen]
+        for m in modules:
             try:
                 m.__stop__()
             except Exception as exc:

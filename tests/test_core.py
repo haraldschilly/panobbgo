@@ -381,6 +381,36 @@ def test_unknown_strategy_kwarg_is_a_type_error():
     assert StrategyUCB(Rosenbrock(dim=2), parse_args=False, testing_mode=True, ucb_c=0.2).ucb_c == 0.2
 
 
+def test_heuristic_subprocess_unsubscribes_before_closing_its_pipe(strategy):
+    from panobbgo.core import HeuristicSubprocess
+
+    h = HeuristicSubprocess(strategy)
+    strategy.eventbus.register(h)
+    subscribed_at_close = []
+    real_close = h.pipe.close
+
+    def close():
+        subscribed_at_close.append(strategy.eventbus.is_subscribed(h))
+        real_close()
+
+    h.pipe.close = close
+    h.__stop__()
+    assert subscribed_at_close == [False]
+
+
+def test_failing_initialize_still_stops_heuristic_subprocesses():
+    from panobbgo.core import HeuristicSubprocess
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    s.add(HeuristicSubprocess)
+    proc = s._hs[0]._HeuristicSubprocess__subprocess
+    s.config.max_eval = -1  # validate_setup() raises inside initialize()
+    with pytest.raises(ValueError, match="max_eval must be positive"):
+        s.start()
+    assert not proc.is_alive()
+
+
 def test_unstarted_strategy_owns_no_eventbus_thread():
     """The dispatcher thread starts with the first event, not in ``EventBus.__init__``."""
     import threading

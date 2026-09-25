@@ -701,6 +701,22 @@ class TestIOHBenchmarkCompareCLI:
         assert cli.main(["run", "--families-quick", "--quiet", "--no-sync-eval"]) == 0
         assert seen == [True, False]
 
+    def test_ioh_batteries_default_to_sync_eval(self, monkeypatch) -> None:
+        # Every battery measures synchronously unless --no-sync-eval opts out.
+        cli = self._cli()
+        seen: list = []
+
+        def fake_run(*args, **kwargs):
+            seen.append(kwargs["sync_eval"])
+            return SimpleNamespace(print_summary=lambda: None)
+
+        monkeypatch.setattr(cli, "run_ioh_harness", fake_run)
+        monkeypatch.setattr(cli, "run_ioh_harness_multi_seed", fake_run)
+        assert cli.main(["run", "--quick", "--quiet"]) == 0
+        assert cli.main(["run", "--quick", "--quiet", "--no-sync-eval"]) == 0
+        assert cli.main(["run", "--quick", "--quiet", "--seeds", "1", "2"]) == 0
+        assert seen == [True, False, True]
+
 
 # ---------------------------------------------------------------------------
 # Synchronous-harvest evaluation mode (--sync-eval / config.sync_evaluation)
@@ -777,13 +793,14 @@ class TestSyncEvalHarness:
         # The strategy must still run to (near) budget under sync harvest.
         assert rec.n_evals >= 0.9 * rec.budget, (rec.n_evals, rec.budget)
 
-    def test_default_run_is_untagged(self) -> None:
+    def test_default_run_is_sync(self) -> None:
+        # Measurements default to sync_eval (reproducibility) since 2026-09-25.
         baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
         battery = IOHBatterySpec(
-            name="ioh-sync-off", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
+            name="ioh-sync-default", problem_kind="MA-BBOB", dims=(2,), instances=(0,), reps=1, budget_multiplier=50
         )
         result = run_ioh_harness(baselines, battery, base_seed=42, progress=False)
-        assert result.sync_eval is False
+        assert result.sync_eval is True
 
     def test_timeout_marks_the_run(self) -> None:
         """``timeout_s`` reaches the run: a zero deadline cuts it off and says so."""

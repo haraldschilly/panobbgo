@@ -163,9 +163,12 @@ Useful flags (see the guide for details):
     line up (`panobbgo/harness_randomized.py`).
 *   `--seed S` changes the base seed; re-run at a second seed before
     trusting a small delta.
-*   `--sync-eval` evaluates synchronously, so a seeded run is
-    bit-reproducible (off by default to keep the historical baseline
-    comparable; `compare` warns when the two sides differ in mode).
+*   Evaluation is synchronous by default in every harness entry point
+    (`sync_eval`, since 2026-09-25) so a seeded run is bit-reproducible —
+    the reason is reproducibility, not speed.  `--no-sync-eval` opts into
+    the threaded evaluator; `compare` warns when the two sides differ in
+    mode, and result files from before 2026-09-25 were measured async.
+    The library default (`Config.sync_evaluation`) stays asynchronous.
 
 ### Score interpretation
 
@@ -198,7 +201,8 @@ Per-pair metrics: `success_rate`, `ert` (BBOB standard),
     overshoot by up to one batch), and composite `success` means
     "tolerance met within the budget" (was: final `strategy.best`).
     Re-baseline instead of comparing across that line (TODO.md T1).
-*   Seeded runs are bit-reproducible under `sync_eval` (since 2026-09-09).
+*   Seeded runs are bit-reproducible under `sync_eval` (since 2026-09-09;
+    the harness default since 2026-09-25).
     But each run's RNG stream is derived from `StrategySpec.seed_name`
     (default: the spec's `name`), so **variants of one arm must share a
     `seed_name`** or the A/B carries full run-to-run variance — a parameter

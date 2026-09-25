@@ -1009,6 +1009,16 @@ class TestHarnessSyncEval:
         del d["config"]["sync_eval"]
         assert HarnessResult._from_dict(d).config.sync_eval is False
 
+    def test_measurements_default_to_sync(self):
+        # Reproducibility, not speed: every harness entry point defaults to sync_eval.
+        assert HarnessConfig().sync_eval is True
+        from benchmark_harness import build_parser
+
+        parser = build_parser()
+        assert parser.parse_args(["run", "--quick"]).sync_eval is True
+        assert parser.parse_args(["run", "--quick", "--no-sync-eval"]).sync_eval is False
+        assert parser.parse_args(["run", "--quick", "--sync-eval"]).sync_eval is True
+
     def test_same_seed_is_bit_reproducible(self):
         def run() -> List[float]:
             cfg = HarnessConfig(

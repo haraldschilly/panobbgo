@@ -14,8 +14,8 @@ Examples::
     # Standard run with random + scipy DE baselines for context
     uv run python scripts/ioh_benchmark.py run --standard --baselines
 
-    # Save & diff (single seed — subject to the threaded-evaluation noise
-    # floor of ~0.015 sd per seed; prefer the paired multi-seed form below
+    # Save & diff (single seed; runs are synchronous by default, so a
+    # seeded run is reproducible — prefer the paired multi-seed form below
     # for decisions)
     uv run python scripts/ioh_benchmark.py run --quick --output before.json
     # ... make changes ...
@@ -24,11 +24,11 @@ Examples::
 
     # Paired multi-seed decision A/B (the 2026-08-03 protocol: N >= 12
     # paired quick seeds, mean/sd/CI95 per strategy, flat-control check).
-    # --sync-eval halves the scheduling-noise floor (2026-08-09 finding);
-    # use it on both sides.
-    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --sync-eval --output before.json
+    # Synchronous evaluation is the default (reproducible seeded runs);
+    # --no-sync-eval opts into the threaded evaluator — same mode on both sides.
+    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --output before.json
     # ... make changes ...
-    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --sync-eval --output after.json
+    uv run python scripts/ioh_benchmark.py run --quick --decision-seeds --output after.json
     uv run python scripts/ioh_benchmark.py compare before.json after.json
 
     # Standard battery with 5 replicates per (dim, instance) pair
@@ -37,16 +37,16 @@ Examples::
     # Generated problem families instead of MA-BBOB — many cheap classes,
     # including constrained ones, which no IOH battery covers.  Same AOCC,
     # same records, same --output format (panobbgo.harness_families).
-    uv run python scripts/ioh_benchmark.py run --families --sync-eval
-    uv run python scripts/ioh_benchmark.py run --families-constrained --sync-eval
-    uv run python scripts/ioh_benchmark.py run --families-quick --sync-eval   # smoke test
+    uv run python scripts/ioh_benchmark.py run --families
+    uv run python scripts/ioh_benchmark.py run --families-constrained
+    uv run python scripts/ioh_benchmark.py run --families-quick   # smoke test
 
     # The two regimes GOAL.md 2c asks for: noise, and dimension.  AOCC on a
     # noisy battery is scored on the TRUE value (panobbgo.lib.noise).
-    uv run python scripts/ioh_benchmark.py run --noisy gauss --sync-eval
-    uv run python scripts/ioh_benchmark.py run --noisy cauchy --noisy-severe --sync-eval
-    uv run python scripts/ioh_benchmark.py run --highdim --sync-eval          # d = 10, 20; slow
-    uv run python scripts/ioh_benchmark.py run --noisy-highdim gauss --sync-eval
+    uv run python scripts/ioh_benchmark.py run --noisy gauss
+    uv run python scripts/ioh_benchmark.py run --noisy cauchy --noisy-severe
+    uv run python scripts/ioh_benchmark.py run --highdim          # d = 10, 20; slow
+    uv run python scripts/ioh_benchmark.py run --noisy-highdim gauss
 """
 
 from __future__ import annotations
@@ -169,6 +169,13 @@ def _resolve_seeds(args: argparse.Namespace) -> Optional[List[int]]:
     return None
 
 
+def _print_eval_mode(sync_eval: bool) -> None:
+    if sync_eval:
+        print("Eval mode: sync (deterministic result batches; reproducible seeded runs)")
+    else:
+        print("Eval mode: async (--no-sync-eval; trajectories depend on thread scheduling)")
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     strategies = _resolve_strategies(args)
     if not strategies:
@@ -178,15 +185,13 @@ def cmd_run(args: argparse.Namespace) -> int:
     family = _resolve_family_battery(args)
     if family is not None:
         name, instances, budget_multiplier = family
-        args.sync_eval = True if args.sync_eval is None else args.sync_eval
         dims = sorted({p.dim for _n, p in instances})
         print(
             f"Battery: {name}  instances={len(instances)}  dims={dims}  families={len({p.family for _n, p in instances})}"
         )
         print(f"Strategies: {[s.name for s in strategies]}")
         print(f"Per-run budget: {[budget_multiplier * d for d in dims]} (dim={dims})")
-        if args.sync_eval:
-            print("Eval mode: sync (deterministic result batches; ~2x lower run-to-run noise)")
+        _print_eval_mode(args.sync_eval)
         if _resolve_seeds(args) is not None:
             # The multi-seed roster is an IOHBatterySpec construction;
             # ``benchmarks/family_screen.py`` is the multi-seed instrument
@@ -210,14 +215,12 @@ def cmd_run(args: argparse.Namespace) -> int:
             jobs=args.jobs,
         )
     else:
-        args.sync_eval = bool(args.sync_eval)
         battery = _resolve_battery(args)
         seeds = _resolve_seeds(args)
         print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
         print(f"Strategies: {[s.name for s in strategies]}")
         print(f"Per-run budget: {[battery.budget_for(d) for d in battery.dims]} (dim={battery.dims})")
-        if args.sync_eval:
-            print("Eval mode: sync (deterministic result batches; ~2x lower run-to-run noise)")
+        _print_eval_mode(args.sync_eval)
         if seeds is not None:
             print(f"Seeds ({len(seeds)}): {seeds}")
             result = run_ioh_harness_multi_seed(
@@ -462,12 +465,12 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     run_p.add_argument(
         "--sync-eval",
         action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Synchronous-harvest evaluation: deterministic result batches, ~2x lower "
-        "run-to-run noise for adaptive strategies. Use on BOTH sides of an A/B "
-        "(compare warns on a mode mismatch).  Default: off on the MA-BBOB batteries "
-        "(historical comparability), on for the --families* track (nothing historical "
-        "to match; run_family_harness's own default).",
+        default=True,
+        help="Synchronous-harvest evaluation (default: on, for every battery): "
+        "deterministic result batches, so a seeded run is reproducible.  "
+        "--no-sync-eval opts into the threaded evaluator, whose trajectory depends on "
+        "thread scheduling.  Use the same mode on BOTH sides of an A/B (compare warns "
+        "on a mismatch; result files from before 2026-09-25 default to async).",
     )
     run_p.add_argument(
         "--timeout",

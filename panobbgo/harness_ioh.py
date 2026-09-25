@@ -979,7 +979,7 @@ def run_ioh_harness_multi_seed(
     log_hi: float = AOCC_LOG_HI,
     timeout_s: Optional[float] = None,
     progress: bool = True,
-    sync_eval: bool = False,
+    sync_eval: bool = True,
     jobs: int = 1,
 ) -> IOHMultiSeedResult:
     """Run :func:`run_ioh_harness` once per seed in ``base_seeds``.
@@ -1259,9 +1259,10 @@ def _run_tracked(
         # Harmless belt-and-braces: keeps the invariant for factory-built
         # strategies that rebuild their own config.
         strategy.config.max_eval = budget
-        # Deterministic result batches for the threaded evaluator —
-        # cuts adaptive-strategy measurement noise roughly in half
-        # (2026-08-09 repeat-sd experiment); opt-in via --sync-eval.
+        # Deterministic result batches: a seeded run is reproducible
+        # (and adaptive-strategy measurement noise roughly halves,
+        # 2026-08-09 repeat-sd experiment).  The harness default since
+        # 2026-09-25; opt out with --no-sync-eval.
         strategy.config.sync_evaluation = bool(sync_eval)
         # IOH/AOCC is an anytime metric: stopping early on convergence
         # leaves the remaining budget penalised at the final best-fx.
@@ -1315,7 +1316,7 @@ def _run_one(
     log_lo: float,
     log_hi: float,
     timeout_s: Optional[float] = None,
-    sync_eval: bool = False,
+    sync_eval: bool = True,
     noise_seed: Optional[int] = None,
     noise_level: str = "moderate",
     noise_resample: bool = False,
@@ -1462,7 +1463,7 @@ def run_ioh_harness(
     log_hi: float = AOCC_LOG_HI,
     timeout_s: Optional[float] = None,
     progress: bool = True,
-    sync_eval: bool = False,
+    sync_eval: bool = True,
     jobs: int = 1,
 ) -> IOHHarnessResult:
     """Run every strategy against every (fid, dim, instance, rep) in ``battery``.
@@ -1474,10 +1475,12 @@ def run_ioh_harness(
     records are the same for every ``jobs`` and come back in cell order;
     only ``elapsed_s`` differs.
 
-    ``sync_eval=True`` enables the synchronous-harvest evaluation mode
-    (``config.sync_evaluation``) on every strategy: deterministic result
-    batches, roughly halving run-to-run measurement noise for adaptive
-    strategies.  Only compare results measured under the same mode.
+    ``sync_eval=True`` (the default) runs every strategy in the
+    synchronous-harvest evaluation mode (``config.sync_evaluation``):
+    deterministic result batches, so a seeded run is reproducible —
+    that, not speed, is why measurements default to it.  ``False`` opts
+    into the threaded evaluator, whose trajectory depends on thread
+    scheduling.  Only compare results measured under the same mode.
 
     ``timeout_s`` is a per-run wall-clock deadline, enforced by the
     tracker: evaluations past it are not counted, and the run keeps its

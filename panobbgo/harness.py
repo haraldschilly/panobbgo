@@ -663,12 +663,13 @@ class HarnessConfig:
             :attr:`strategies` (the name filter) and :attr:`include_baselines`
             still apply, but no fallback to the built-in mode strategies
             happens.
-        sync_eval: If True, every strategy runs with
-            ``config.sync_evaluation``: evaluations happen in submission
-            order on the strategy thread, so a seeded run is bit-reproducible.
-            ``False`` (default) keeps the threaded evaluator whose trajectory
-            depends on thread scheduling — the regime the historical
-            composite baseline was measured in.
+        sync_eval: If True (the default since 2026-09-25), every strategy
+            runs with ``config.sync_evaluation``: evaluations happen in
+            submission order on the strategy thread, so a seeded run is
+            bit-reproducible — the reason measurements default to it.
+            ``False`` opts into the threaded evaluator, whose trajectory
+            depends on thread scheduling (the regime of result files
+            written before 2026-09-25).
     """
 
     mode: str = "quick"
@@ -703,9 +704,10 @@ class HarnessConfig:
     #: Caller-supplied strategy list that overrides the mode's default
     #: registry.  ``None`` keeps the factories selected by ``mode``.
     strategies_override: Optional[List[StrategySpec]] = None
-    #: Synchronous evaluation (reproducible).  Old result files lack the
-    #: key and load as ``False`` — the mode they were measured in.
-    sync_eval: bool = False
+    #: Synchronous evaluation (reproducible); the default since 2026-09-25.
+    #: Old result files lack the key and load as ``False`` — the mode they
+    #: were measured in (see :meth:`HarnessResult._from_dict`).
+    sync_eval: bool = True
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -954,7 +956,8 @@ class HarnessResult:
 
     @classmethod
     def _from_dict(cls, data: Dict[str, Any]) -> "HarnessResult":
-        config_data = data["config"]
+        # A file without the key predates the flag and was measured async.
+        config_data = {"sync_eval": False, **data["config"]}
         config = HarnessConfig(**{k: v for k, v in config_data.items() if k in HarnessConfig.__dataclass_fields__})
 
         psr_list = []

@@ -66,8 +66,13 @@ def run_experiment(problem_class, problem_kwargs, problem_name, handler_name, ha
 
     # Initialize strategy with specific constraint handler
     # We pass handler name as string to config, StrategyBase will instantiate it
+    # Measurements run synchronously: reproducible result batches.
     strategy = StrategyRewarding(
-        problem, max_eval=EVALUATIONS, evaluation_method="threaded", constraint_handler=handler_class_str
+        problem,
+        max_eval=EVALUATIONS,
+        evaluation_method="threaded",
+        sync_evaluation=True,
+        constraint_handler=handler_class_str,
     )
 
     # Add heuristics

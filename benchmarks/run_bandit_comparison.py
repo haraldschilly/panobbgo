@@ -76,8 +76,8 @@ def run_experiment(problem_class, problem_kwargs, problem_name, strategy_class, 
     problem = problem_class(**problem_kwargs)
 
     # Initialize strategy
-    # Use threaded evaluation for speed and stability in benchmark script
-    strategy = strategy_class(problem, max_eval=EVALUATIONS, evaluation_method="threaded")
+    # Threaded evaluator, harvested synchronously: reproducible result batches.
+    strategy = strategy_class(problem, max_eval=EVALUATIONS, evaluation_method="threaded", sync_evaluation=True)
 
     # Add heuristics
     setup_heuristics(strategy, problem_class)

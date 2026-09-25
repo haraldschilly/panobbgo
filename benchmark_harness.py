@@ -475,12 +475,14 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument(
         "--sync-eval",
         dest="sync_eval",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help=(
-            "Evaluate synchronously (config.sync_evaluation): a seeded run is"
-            " bit-reproducible instead of depending on thread scheduling."
-            "  Off by default so the historical composite baseline stays"
-            " comparable; compare warns when before/after differ in mode."
+            "Evaluate synchronously (config.sync_evaluation; default: on): a"
+            " seeded run is bit-reproducible instead of depending on thread"
+            " scheduling.  --no-sync-eval opts into the threaded evaluator."
+            "  compare warns when before/after differ in mode (result files"
+            " from before 2026-09-25 were measured async)."
         ),
     )
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-run output")

@@ -156,6 +156,8 @@ def run_coco_benchmark(
             )
             strategy.config.max_eval = budget
             strategy.config.evaluation_method = "threaded"
+            # Measurements run synchronously: reproducible result batches.
+            strategy.config.sync_evaluation = True
 
             # Run optimization
             try:

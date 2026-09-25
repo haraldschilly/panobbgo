@@ -168,7 +168,8 @@ Each heuristic maintains:
 
 **Key methods:**
 
-- ``emit(point)`` or ``emit(points)``: Add points to output queue
+- ``emit(x)`` or ``emit([x1, x2, ...])``: queue coordinate vectors (numpy arrays; they are
+  projected into the box and wrapped in a ``Point``)
 - ``get_points(limit)``: Drain up to ``limit`` points from queue
 - ``active``: Property indicating if heuristic has more points
 
@@ -180,14 +181,14 @@ Each heuristic maintains:
        def on_start(self):
            # Generate initial points
            for i in range(10):
-               x = self.problem.random_point()
-               self.emit(Point(x, self.name))
+               x = self.problem.random_point(rng=self.rng)
+               self.emit(x)
 
        def on_new_best(self, best):
            # React to improvements
-           x_new = best.x + 0.1 * np.random.randn(self.problem.dim)
+           x_new = best.x + 0.1 * self.rng.standard_normal(self.problem.dim)
            x_new = self.problem.project(x_new)
-           self.emit(Point(x_new, self.name))
+           self.emit(x_new)
 
 Implemented Heuristics
 ~~~~~~~~~~~~~~~~~~~~~~

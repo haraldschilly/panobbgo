@@ -12,7 +12,6 @@ Basic Template
 .. code-block:: python
 
    from panobbgo.core import Heuristic
-   from panobbgo.lib import Point
    import numpy as np
 
    class MyHeuristic(Heuristic):
@@ -34,8 +33,8 @@ Basic Template
            Generate initial points here.
            """
            for i in range(10):
-               x = self.problem.random_point()
-               self.emit(Point(x, self.name))
+               x = self.problem.random_point(rng=self.rng)
+               self.emit(x)
 
        def on_new_best(self, best):
            """Called when a new best point is found.
@@ -45,9 +44,9 @@ Basic Template
            """
            # Generate points near the new best
            for i in range(5):
-               x = best.x + 0.1 * np.random.randn(self.problem.dim)
+               x = best.x + 0.1 * self.rng.standard_normal(self.problem.dim)
                x = self.problem.project(x)  # Ensure in bounding box
-               self.emit(Point(x, self.name))
+               self.emit(x)
 
 Two production contracts
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,6 +57,13 @@ points that implies, and let the scheduler drain the queue when it gets to
 you.  :attr:`~panobbgo.core.Heuristic.has_points` and
 :meth:`~panobbgo.core.Heuristic.get_points` are the queue's interface, and
 you need to do nothing to opt in.
+
+``emit()`` takes a coordinate vector (a :class:`numpy.ndarray`) or a list of
+them — not a :class:`~panobbgo.lib.Point`; it projects each vector into the
+box and wraps it in a ``Point`` tagged with the heuristic's name, and raises
+``TypeError`` for anything else.  Draw random numbers from ``self.rng`` (a
+per-module generator derived from the strategy's seed), not from
+``np.random``, so a seeded run stays reproducible.
 
 The other contract exists for arms that can only compute **one point at a
 time, and only once the previous one has been evaluated** — a sequential
@@ -81,7 +87,7 @@ answer would be a fabrication.  It sets
            if self._outstanding:             # we owe an answer we don't have
                return []                     # return instantly; never block
            x = self._solver_next_point()
-           self.emit(Point(x, self.name))
+           self.emit(x)
            self._outstanding = True
            return self.get_points(1)
 
@@ -147,8 +153,8 @@ A heuristic that approximates gradients using finite differences:
                ei[i] = self.epsilon
 
                # Forward and backward
-               self.emit(Point(best.x + ei, self.name))
-               self.emit(Point(best.x - ei, self.name))
+               self.emit(best.x + ei)
+               self.emit(best.x - ei)
 
        def on_new_results(self, results):
            """Approximate gradient and sample along it."""
@@ -183,7 +189,7 @@ A heuristic that approximates gradients using finite differences:
            for alpha in np.linspace(0.1, 2.0, self.num_samples):
                x_new = self.last_best_x - alpha * step_size * grad
                x_new = self.problem.project(x_new)
-               self.emit(Point(x_new, self.name))
+               self.emit(x_new)
 
 Example: Particle Swarm Component
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -210,14 +216,14 @@ Example: Particle Swarm Component
            """Initialize particle swarm."""
            # Random initial positions
            self.particles = np.array([
-               self.problem.random_point()
+               self.problem.random_point(rng=self.rng)
                for _ in range(self.n_particles)
            ])
 
            # Random initial velocities
            ranges = self.problem.ranges
            self.velocities = np.array([
-               np.random.uniform(-ranges, ranges) * 0.1
+               self.rng.uniform(-ranges, ranges) * 0.1
                for _ in range(self.n_particles)
            ])
 
@@ -226,7 +232,7 @@ Example: Particle Swarm Component
 
            # Emit initial positions for evaluation
            for x in self.particles:
-               self.emit(Point(x, self.name))
+               self.emit(x)
 
        def on_new_results(self, results):
            """Update particles based on new results."""
@@ -241,8 +247,8 @@ Example: Particle Swarm Component
            # Update velocities and positions
            for i in range(self.n_particles):
                # Random factors
-               r_cognitive = np.random.rand(self.problem.dim)
-               r_social = np.random.rand(self.problem.dim)
+               r_cognitive = self.rng.random(self.problem.dim)
+               r_social = self.rng.random(self.problem.dim)
 
                # Update velocity
                self.velocities[i] = (
@@ -256,7 +262,7 @@ Example: Particle Swarm Component
                self.particles[i] = self.problem.project(self.particles[i])
 
                # Emit new position
-               self.emit(Point(self.particles[i], self.name))
+               self.emit(self.particles[i])
 
 Registering Your Heuristic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -555,7 +561,7 @@ Problem with External Simulation
    import subprocess
    import tempfile
    import os
-   from panobbgo.lib import Problem, BoundingBox
+   from panobbgo.lib import Problem
 
    class CFDSimulation(Problem):
        """Aerodynamic optimization using CFD simulation."""
@@ -563,14 +569,14 @@ Problem with External Simulation
        def __init__(self):
            # 5 design parameters
            dim = 5
-           box = BoundingBox(np.array([
-               [0.1, 1.0],   # Parameter 1
-               [0.1, 1.0],   # Parameter 2
-               [0.0, 90.0],  # Parameter 3 (angle)
-               [10.0, 100.0],  # Parameter 4
-               [0.5, 2.0]    # Parameter 5
-           ]))
-           super().__init__(dim, box)
+           box = [
+               (0.1, 1.0),   # Parameter 1
+               (0.1, 1.0),   # Parameter 2
+               (0.0, 90.0),  # Parameter 3 (angle)
+               (10.0, 100.0),  # Parameter 4
+               (0.5, 2.0)    # Parameter 5
+           ]
+           super().__init__(box)
 
        def eval(self, x):
            """Run CFD simulation and return drag coefficient."""
@@ -616,8 +622,8 @@ Problem with Complex Constraints
 
        def __init__(self, max_stress=100.0, max_deflection=0.01):
            dim = 8  # 8 structural members
-           box = BoundingBox(np.array([[0.001, 0.1]] * dim))  # Cross-sections
-           super().__init__(dim, box)
+           box = [(0.001, 0.1)] * dim  # Cross-sections
+           super().__init__(box)
 
            self.max_stress = max_stress
            self.max_deflection = max_deflection
@@ -788,36 +794,40 @@ For Strategies
 Testing Your Extensions
 -----------------------
 
+``strategy.add()`` only registers a class; the instances exist after
+:meth:`~panobbgo.core.StrategyBase.initialize`, which also delivers the
+``start`` event, so ``on_start`` has already emitted its points.  Clean up
+with ``_cleanup()`` so the event bus and evaluator threads stop.
+
 .. code-block:: python
 
-   import pytest
+   from panobbgo.lib import Point
    from panobbgo.lib.classic import Rosenbrock
    from panobbgo.strategies.round_robin import StrategyRoundRobin
+
    from my_module import MyHeuristic
 
    def test_my_heuristic():
        """Test custom heuristic."""
-       problem = Rosenbrock(dim=3)
-       strategy = StrategyRoundRobin(problem, max_evaluations=100)
-
-       # Add heuristic
+       problem = Rosenbrock(dims=3)
+       strategy = StrategyRoundRobin(
+           problem, parse_args=False, testing_mode=True, seed=0, max_eval=100
+       )
        strategy.add(MyHeuristic, my_param=2.0)
+       try:
+           # Build the modules and deliver "start", without running the loop
+           strategy.initialize()
 
-       # Get heuristic instance
-       h = strategy.heuristics[0]
-       assert h.my_param == 2.0
+           h = strategy.heuristics[0]
+           assert h.my_param == 2.0
 
-       # Trigger start
-       h.__start__()
-
-       # Check point generation
-       points = h.get_points(10)
-       assert len(points) <= 10
-       assert all(isinstance(p, Point) for p in points)
-
-       # Check bounds
-       for p in points:
-           assert problem.box.contains(p.x)
+           # Points on_start() emitted
+           points = h.get_points(10)
+           assert 0 < len(points) <= 10
+           assert all(isinstance(p, Point) for p in points)
+           assert all(p in problem.box for p in points)
+       finally:
+           strategy._cleanup()
 
 Contributing Back
 -----------------

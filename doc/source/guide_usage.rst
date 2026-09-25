@@ -535,15 +535,15 @@ Subclass :class:`~panobbgo.lib.Problem`:
 .. code-block:: python
 
    import numpy as np
-   from panobbgo.lib import Problem, BoundingBox
+   from panobbgo.lib import Problem
 
    class Sphere(Problem):
        """Simple sphere function: f(x) = sum(x^2)"""
 
        def __init__(self, dim=5):
            # Define bounding box: each variable in [-10, 10]
-           box = BoundingBox(np.array([[-10.0, 10.0]] * dim))
-           super().__init__(dim, box)
+           box = [(-10.0, 10.0)] * dim
+           super().__init__(box)
 
        def eval(self, x):
            """Evaluate objective function"""
@@ -596,8 +596,8 @@ You can also add stochasticity directly in ``eval()``:
 
    class NoisySphere(Problem):
        def __init__(self, dim=5, noise_std=0.1):
-           box = BoundingBox(np.array([[-10.0, 10.0]] * dim))
-           super().__init__(dim, box)
+           box = [(-10.0, 10.0)] * dim
+           super().__init__(box)
            self.noise_std = noise_std
 
        def eval(self, x):
@@ -616,8 +616,8 @@ Override ``eval_constraints()`` to return violation vector:
    class ConstrainedProblem(Problem):
        def __init__(self):
            # 2D problem: x in [-5, 5], y in [-5, 5]
-           box = BoundingBox(np.array([[-5, 5], [-5, 5]]))
-           super().__init__(dim=2, box=box)
+           box = [(-5, 5), (-5, 5)]
+           super().__init__(box)
 
        def eval(self, x):
            """Objective: minimize (x-1)^2 + (y-2)^2"""
@@ -771,12 +771,12 @@ Wrap subprocess or external program:
    class ExternalSimulation(Problem):
        def __init__(self):
            # 3D problem
-           box = BoundingBox(np.array([
-               [0.0, 1.0],
-               [0.0, 1.0],
-               [0.0, 1.0]
-           ]))
-           super().__init__(dim=3, box=box)
+           box = [
+               (0.0, 1.0),
+               (0.0, 1.0),
+               (0.0, 1.0)
+           ]
+           super().__init__(box)
 
        def eval(self, x):
            """Call external simulation"""

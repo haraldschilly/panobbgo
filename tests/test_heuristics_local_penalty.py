@@ -302,7 +302,8 @@ class LocalPenaltySearchBranchTest(PanobbgoTestCase):
         h.parent_conn.recv.return_value = {"type": "eval", "x": np.array([0.3, 0.3])}
 
         points = h.produce(1)
-        assert h.parent_conn.send.call_args_list[0].args[0] == {"type": "result", "value": 2.5}
+        # Replies carry the descent id (0: no descent started in this test).
+        assert h.parent_conn.send.call_args_list[0].args[0] == {"type": "result", "value": 2.5, "id": 0}
         assert len(points) == 1
         np.testing.assert_allclose(points[0].x, [0.3, 0.3])
         assert h._outstanding and h._waiting_for_eval
@@ -363,3 +364,48 @@ def test_worker_unexpected_recv_error_exits():
     pipe = RecvBlowsUp(inbox=[{"type": "start", "x0": np.array([2.0])}])
     _run_worker(pipe)  # must return, not raise
     assert pipe.sent == []
+
+
+class LocalPenaltySearchDescentIdTest(PanobbgoTestCase):
+    """Regression: after abort + start, an "eval" of the aborted descent still in
+    the pipe was answered as the new descent's first point (protocol shifted by
+    one), and a stale "done" ended the new descent."""
+
+    def setUp(self):
+        from unittest import mock
+
+        from panobbgo.lib.classic import Rosenbrock
+
+        self.mock = mock
+        self.problem = Rosenbrock(2)
+        self.strategy = self.init_strategy()
+        self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+
+    def _running(self):
+        from panobbgo.heuristics.local_penalty_search import LocalPenaltySearch
+
+        h = LocalPenaltySearch(self.strategy)
+        h.parent_conn = self.mock.MagicMock()
+        h.process = self.mock.MagicMock()
+        h.process.is_alive.return_value = True
+        return h
+
+    def test_stale_eval_after_abort_is_dropped(self):
+        h = self._running()
+        h._start_optimization(np.array([0.0, 0.0]))
+        old_id = h._descent_id
+        h.on_restart(np.array([0.5, 0.5]), "restart")
+        # The old descent's request is still in the pipe, ahead of the new one's.
+        h.parent_conn.poll.return_value = True
+        h.parent_conn.recv.side_effect = [
+            {"type": "eval", "x": np.array([0.9, 0.9]), "id": old_id},
+            {"type": "done", "message": "old", "id": old_id},
+            {"type": "eval", "x": np.array([0.5, 0.5]), "id": old_id + 1},
+        ]
+        points = h.produce(1)
+        sent = [c.args[0] for c in h.parent_conn.send.call_args_list]
+        assert [m["type"] for m in sent[-2:]] == ["abort", "start"]
+        assert sent[-1]["id"] == old_id + 1 == h._descent_id
+        assert len(points) == 1
+        np.testing.assert_allclose(points[0].x, [0.5, 0.5])
+        assert h._optimization_active  # the stale "done" did not end the new descent

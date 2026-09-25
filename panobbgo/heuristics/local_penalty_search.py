@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2025 Panobbgo Contributors
+# Copyright 2025-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,10 +35,15 @@ def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
     except ImportError:
         return
 
+    # Id of the running descent, from its "start" command.  Every message the
+    # worker sends carries it, so the parent can drop leftovers of a descent it
+    # aborted (an "eval" or "done" already in the pipe when "abort" arrived).
+    descent = {"id": None}
+
     def objective_function(x):
         # 1. Send candidate point to parent for evaluation
         try:
-            pipe.send({"type": "eval", "x": x})
+            pipe.send({"type": "eval", "x": x, "id": descent["id"]})
         except Exception:
             raise StopIteration("Pipe closed")
 
@@ -53,6 +58,8 @@ def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
                 if pipe.poll(0.1):
                     msg = pipe.recv()
                     if msg["type"] == "result":
+                        if msg.get("id", descent["id"]) != descent["id"]:
+                            continue  # a reply meant for another descent
                         return msg["value"]
                     elif msg["type"] == "stop":
                         raise StopIteration("Stop requested")
@@ -71,19 +78,20 @@ def _local_penalty_search_worker(pipe, method, dim, bounds, max_iter=50):
 
                 if msg["type"] == "start":
                     x0 = msg["x0"]
+                    descent["id"] = msg.get("id")
                     # Run optimization
                     try:
                         options = {"maxiter": max_iter}
                         res = minimize(objective_function, x0, method=method, bounds=bounds, options=options)
                         # Notify parent we are done
-                        pipe.send({"type": "done", "success": res.success, "message": res.message})
+                        pipe.send({"type": "done", "success": res.success, "message": res.message, "id": descent["id"]})
                     except StopIteration:
                         # Optimization interrupted (e.g. by stop/abort or pipe close)
                         pass
                     except Exception as e:
                         # Optimization failed for other reasons
                         try:
-                            pipe.send({"type": "error", "message": str(e)})
+                            pipe.send({"type": "error", "message": str(e), "id": descent["id"]})
                         except Exception:
                             pass
         except (EOFError, OSError):
@@ -141,6 +149,10 @@ class LocalPenaltySearch(PipeBridgeHeuristic):
         self._pending_start: Optional[Any] = None
         self._pending_abort: bool = False
         self._pending_clear: bool = False
+        #: Id of the current descent; sent with "start" and echoed by the
+        #: worker on every message, so leftovers of an aborted descent (an
+        #: "eval" or "done" already in the pipe) are recognised and dropped.
+        self._descent_id: int = 0
 
     # ------------------------------------------------------------------
     # The pull bridge (see panobbgo.core.PipeBridgeHeuristic)
@@ -164,11 +176,17 @@ class LocalPenaltySearch(PipeBridgeHeuristic):
 
     def _bridge_send_fx(self, fx: float) -> None:
         """This worker's replies are tagged, not bare floats."""
-        self.parent_conn.send({"type": "result", "value": fx})
+        self.parent_conn.send({"type": "result", "value": fx, "id": self._descent_id})
 
     def _bridge_control(self, msg: Any) -> bool:
         """Consume everything that is not an evaluation request."""
         kind = msg.get("type") if isinstance(msg, dict) else None
+        if isinstance(msg, dict) and msg.get("id", self._descent_id) != self._descent_id:
+            # A leftover of an aborted descent: answering its "eval" would
+            # hand the new descent the value of the wrong point (and shift the
+            # protocol by one); its "done" would end the new descent.
+            self.logger.debug(f"LocalPenaltySearch: dropped stale {kind!r} of descent {msg.get('id')}")
+            return True
         if kind == "eval":
             self._pending_x = msg["x"]
             self._waiting_for_eval = True
@@ -273,7 +291,8 @@ class LocalPenaltySearch(PipeBridgeHeuristic):
     def _start_optimization(self, x0):
         if not self._optimization_active:
             try:
-                self.parent_conn.send({"type": "start", "x0": x0})
+                self._descent_id += 1
+                self.parent_conn.send({"type": "start", "x0": x0, "id": self._descent_id})
                 self._optimization_active = True
                 self._waiting_for_eval = False
                 self.logger.debug("Started local search optimization")

@@ -101,6 +101,70 @@ class TestAOCC:
     def test_empty_trajectory(self) -> None:
         assert aocc([]) == 0.0
 
+    def test_trace_longer_than_budget_is_truncated(self) -> None:
+        # Evaluations past the budget are never scored: a late perfect hit
+        # at eval 11 on a budget of 10 must not lift the score.
+        assert aocc([1e10] * 10 + [0.0], budget=10) == pytest.approx(0.0, abs=1e-9)
+        assert aocc([0.0] * 10 + [1e10] * 5, budget=10) == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# IOHTracker thread safety (fake problem — no worker)
+# ---------------------------------------------------------------------------
+
+
+class _SlowSphere:
+    """Stand-in for an IOH problem: ``eval`` yields the GIL mid-call."""
+
+    dim = 2
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def eval(self, x: np.ndarray) -> float:
+        import time
+
+        self.calls += 1
+        time.sleep(1e-4)
+        return float(np.sum(np.asarray(x) ** 2))
+
+
+class TestIOHTrackerThreads:
+    def test_concurrent_evals_respect_budget_and_stay_monotone(self) -> None:
+        from concurrent.futures import ThreadPoolExecutor
+
+        prob = _SlowSphere()
+        tracker = IOHTracker(prob, budget=200)
+        rng = np.random.default_rng(0)
+        xs = [rng.uniform(-5, 5, size=2) for _ in range(400)]
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            list(pool.map(prob.eval, xs))
+        tracker.restore()
+        # Exactly the budget reached the objective and was recorded.
+        assert prob.calls == 200
+        assert tracker.n_evals == 200
+        assert len(tracker.best_so_far) == 200
+        trace = np.asarray(tracker.best_so_far)
+        assert np.all(np.diff(trace) <= 0)
+        assert trace[-1] == tracker.best_fx
+
+    def test_failed_eval_releases_its_slot(self) -> None:
+        class Flaky(_SlowSphere):
+            def eval(self, x: np.ndarray) -> float:
+                if self.calls == 0:
+                    self.calls += 1
+                    raise RuntimeError("worker hiccup")
+                return super().eval(x)
+
+        prob = Flaky()
+        tracker = IOHTracker(prob, budget=3)
+        with pytest.raises(RuntimeError):
+            prob.eval(np.zeros(2))
+        for _ in range(5):
+            prob.eval(np.ones(2))
+        tracker.restore()
+        assert tracker.n_evals == 3
+
 
 # ---------------------------------------------------------------------------
 # Battery shape (pure Python — no worker)

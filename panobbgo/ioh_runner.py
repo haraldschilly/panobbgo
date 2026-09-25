@@ -30,6 +30,7 @@ the full benchmark machinery.
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
@@ -76,9 +77,12 @@ def aocc(
         right-padded with its last value to ``budget`` evaluations before
         the mean is taken.  This matches the IOH convention: an algorithm
         that stops early is held responsible for the remaining budget at
-        its final best value.
+        its final best value.  A trajectory *longer* than ``budget`` is
+        truncated to it: evaluations past the budget are never scored.
     """
     arr = np.asarray(best_so_far, dtype=np.float64)
+    if budget is not None and arr.size > budget:
+        arr = arr[: max(0, int(budget))]
     if arr.size == 0:
         return 0.0
     if budget is not None and arr.size < budget:
@@ -172,6 +176,12 @@ class IOHTracker:
     :attr:`timed_out` is set.  The trajectory up to the deadline is kept,
     so the run is still scored — penalised, like any run that stops
     early, at its final best-fx for the rest of the budget.
+
+    Thread-safe: an asynchronous strategy evaluates from a pool, so the
+    budget slot is *reserved* under a lock before the objective is called
+    (no evaluation past the budget ever reaches the problem) and the
+    best-so-far update is recorded under the same lock (the trace stays
+    monotone and exactly ``budget`` long at most).
     """
 
     def __init__(self, problem: Any, budget: int, *, hard: bool = False, timeout_s: Optional[float] = None) -> None:
@@ -184,6 +194,9 @@ class IOHTracker:
         self.best_fx: float = float("inf")
         self.best_x: Optional[np.ndarray] = None
         self.best_so_far: List[float] = []
+        self._lock = threading.Lock()
+        #: Evaluations admitted against the budget: recorded plus in flight.
+        self._reserved: int = 0
 
         # Noisy problems expose ``eval_pair(x) -> (noisy, true)``: both
         # values out of *one* inner evaluation, so the true trace costs no
@@ -205,31 +218,42 @@ class IOHTracker:
         problem.eval = self._tracked_eval  # type: ignore[method-assign]
 
     def _tracked_eval(self, x: np.ndarray) -> float:
-        if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
-            self.timed_out = True
-        if self.n_evals >= self.budget or self.timed_out:
+        with self._lock:
+            if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
+                self.timed_out = True
+            admitted = self._reserved < self.budget and not self.timed_out
+            if admitted:
+                self._reserved += 1
+            last_best = self.best_fx
+        if not admitted:
             if self.hard:
                 raise _BudgetExhausted()
             # Soft mode: don't fail the evaluation; just signal "no useful
             # value" so the strategy treats it as a non-improvement.
-            return self.best_fx if np.isfinite(self.best_fx) else float("inf")
-        if self._eval_pair is not None:
-            noisy, true_fx = self._eval_pair(x)
-            fx, tfx = float(noisy), float(true_fx)
-        else:
-            fx = float(self._orig_eval(x))
-            tfx = fx
-        self.n_evals += 1
-        if np.isfinite(fx) and fx < self.best_fx:
-            self.best_fx = fx
-            self.best_x = np.asarray(x, dtype=np.float64).copy()
-            self._incumbent_true = tfx
-        if np.isfinite(tfx) and tfx < self.best_true_fx:
-            self.best_true_fx = tfx
-        self.best_so_far.append(self.best_fx)
-        if self.has_true:
-            self.best_so_far_true.append(self.best_true_fx)
-            self.best_so_far_reco.append(self._incumbent_true)
+            return last_best if np.isfinite(last_best) else float("inf")
+        try:
+            if self._eval_pair is not None:
+                noisy, true_fx = self._eval_pair(x)
+                fx, tfx = float(noisy), float(true_fx)
+            else:
+                fx = float(self._orig_eval(x))
+                tfx = fx
+        except BaseException:
+            with self._lock:
+                self._reserved -= 1  # the slot was never used
+            raise
+        with self._lock:
+            self.n_evals += 1
+            if np.isfinite(fx) and fx < self.best_fx:
+                self.best_fx = fx
+                self.best_x = np.asarray(x, dtype=np.float64).copy()
+                self._incumbent_true = tfx
+            if np.isfinite(tfx) and tfx < self.best_true_fx:
+                self.best_true_fx = tfx
+            self.best_so_far.append(self.best_fx)
+            if self.has_true:
+                self.best_so_far_true.append(self.best_true_fx)
+                self.best_so_far_reco.append(self._incumbent_true)
         return fx
 
     def restore(self) -> None:
@@ -237,6 +261,10 @@ class IOHTracker:
         self.problem.eval = self._orig_eval  # type: ignore[method-assign]
 
     def trajectory(self) -> Trajectory:
+        with self._lock:
+            return self._trajectory_locked()
+
+    def _trajectory_locked(self) -> Trajectory:
         return Trajectory(
             best_so_far=list(self.best_so_far),
             n_evals=self.n_evals,

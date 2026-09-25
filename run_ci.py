@@ -34,7 +34,8 @@ from pathlib import Path
 
 import yaml
 
-WORKFLOWS_DIR = Path(".github/workflows")
+REPO_ROOT = Path(__file__).resolve().parent
+WORKFLOWS_DIR = REPO_ROOT / ".github" / "workflows"
 
 # Step names (lower-cased substrings) that only prepare a fresh runner.
 SKIP_STEP_NAMES = (

@@ -44,9 +44,7 @@ Quick Navigation
      - Read :doc:`guide_benchmarking` for the composite score, external baselines,
        parametrically randomised problems and the statistical acceptance rule.
        It explains which single number we track, how to run the harness before and
-       after a change, and when a delta is real rather than noise.  The autonomous
-       self-improvement loop that builds on it is documented in
-       ``planning/LOOP_REFERENCE.md`` in the repository (it is not currently in use).
+       after a change, and when a delta is real rather than noise.
 
 Guide Contents
 --------------

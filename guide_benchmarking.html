@@ -182,9 +182,7 @@ data-aria-dark="Switch to auto color mode">
 <h1>Benchmarking and the Composite Score<a class="headerlink" href="#benchmarking-and-the-composite-score" title="Link to this heading">#</a></h1>
 <p>This chapter explains <em>how we measure the quality of Panobbgo</em> — what number
 we track, what it means, how to compute it, and how to decide whether a
-change is an improvement.  The internals of the (currently dormant)
-autonomous self-improvement loop that builds on this harness are documented
-in <code class="docutils literal notranslate"><span class="pre">planning/LOOP_REFERENCE.md</span></code>.</p>
+change is an improvement.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#why-a-single-number" id="id2">Why a single number?</a></p></li>
@@ -405,13 +403,12 @@ scores worse.  Useful for CI gating and automated accept/revert loops.</p></li>
 <section id="statistical-acceptance-rule">
 <h2><a class="toc-backref" href="#id9" role="doc-backlink">Statistical acceptance rule</a><a class="headerlink" href="#statistical-acceptance-rule" title="Link to this heading">#</a></h2>
 <p>The naive <code class="docutils literal notranslate"><span class="pre">|Δ|</span> <span class="pre">&gt;</span> <span class="pre">eps</span></code> gate is fast but fragile — at quick-mode sample sizes
-a single lucky/unlucky run can flip it.  For rigorous gating (the kind an
-autonomous self-improvement loop needs), add the <code class="docutils literal notranslate"><span class="pre">--statistical</span></code> flag:</p>
+a single lucky/unlucky run can flip it.  For rigorous gating, add the <code class="docutils literal notranslate"><span class="pre">--statistical</span></code> flag:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>compare<span class="w"> </span>before.json<span class="w"> </span>after.json<span class="w"> </span><span class="se">\</span>
 </span><span data-line="2"><span class="w">    </span>--statistical<span class="w"> </span>--fail-on-regression
 </span></pre></div>
 </div>
-<p>The statistical rule follows <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> §6.2.
+<p>The statistical rule follows <code class="docutils literal notranslate"><span class="pre">planning/done/SELF_IMPROVEMENT_LOOP.md</span></code> §6.2.
 For every <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy)</span></code> pair present on both sides the per-run
 <strong>solve fractions</strong> — the same quantity averaged into the composite score —
 are bootstrap-resampled to produce a confidence interval on the mean
@@ -576,8 +573,7 @@ before accepting a <code class="docutils literal notranslate"><span class="pre">
 <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>) is great for A/B reproducibility but vulnerable to
 over-fitting: an agent that tunes a heuristic to the specific Rosenbrock
 valley at <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">1)</span></code> may regress on the next problem it encounters.  The
-harness therefore ships a <strong>parametric problem layer</strong> (Phase 3 of the
-self-improvement loop) that samples fresh transformed instances per
+harness therefore ships a <strong>parametric problem layer</strong> that samples fresh transformed instances per
 repetition, turning <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> into a Monte-Carlo estimate of
 <em>expected</em> performance on a problem family.</p>
 <section id="usage">
@@ -664,8 +660,7 @@ function’s sensible domain.</p>
 battery is measured at <strong>dimension 2</strong>.  This keeps the composite score a
 <strong>stable contract</strong> (historical comparisons depend on it), but it also
 means any optimizer improvement whose benefit only appears at higher
-dimensions is invisible to the composite metric, the anti-cherry-pick
-guard, and codify-scan.</p>
+dimensions is invisible to the composite metric.</p>
 </section>
 <section id="opt-in-extended-higher-dimensional-battery">
 <span id="opt-in-extended-battery"></span><h3><a class="toc-backref" href="#id17" role="doc-backlink">Opt-in extended (higher-dimensional) battery</a><a class="headerlink" href="#opt-in-extended-higher-dimensional-battery" title="Link to this heading">#</a></h3>
@@ -686,27 +681,22 @@ couples coordinates — the regime where curvature-aware local models pay
 off.</p></li>
 </ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmark_harness.py<span class="w"> </span>list<span class="w"> </span>--randomize<span class="w"> </span>--extra-highdim
-</span><span data-line="2"><span class="c1"># Loop path (composite metric only):</span>
-</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/self_improve.py<span class="w"> </span>run<span class="w"> </span>--metric<span class="w"> </span>composite<span class="w"> </span><span class="se">\</span>
-</span><span data-line="4"><span class="w">    </span>--registry<span class="w"> </span>loop<span class="w"> </span>--extra-highdim<span class="w"> </span>...
 </span></pre></div>
 </div>
 <p>Success on a rotated, ill-conditioned 5-D valley at quick-mode budgets is
 rare, so a <code class="docutils literal notranslate"><span class="pre">composite_score</span></code> A/B on this family can floor near zero.
-Prefer the anytime <strong>AOCC</strong> metric (<code class="docutils literal notranslate"><span class="pre">--metric</span> <span class="pre">aocc</span></code>) for a responsive
-signal — the same dead-zone argument behind the 2026-07-09 metric flip.
-The flag is inert on the AOCC metric path, whose battery is defined by
-<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_ioh</span></code>, not by randomized families.</p>
+Prefer the anytime <strong>AOCC</strong> metric (<code class="docutils literal notranslate"><span class="pre">scripts/ioh_benchmark.py</span></code>) for a
+responsive signal; its battery is defined by <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_ioh</span></code>,
+not by randomized families.</p>
 </section>
 <section id="stratified-dimension-sampling">
 <h3><a class="toc-backref" href="#id18" role="doc-backlink">Stratified dimension sampling</a><a class="headerlink" href="#stratified-dimension-sampling" title="Link to this heading">#</a></h3>
 <p>When a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemFamily</span></code> declares
 <code class="docutils literal notranslate"><span class="pre">dim_choices</span> <span class="pre">=</span> <span class="pre">(2,</span> <span class="pre">5,</span> <span class="pre">10)</span></code>, naive random selection would produce a
-different mix of dimensions on each loop iteration — and since
-higher-dim instances are systematically harder, that mix-noise
-contaminates the cross-iteration deltas the bootstrap CI in
-<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness.statistical_accept()</span></code> (§6.2 of the
-self-improvement loop) operates on.</p>
+different mix of dimensions on each run — and since higher-dim
+instances are systematically harder, that mix-noise contaminates the
+deltas the bootstrap CI in <code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.harness.statistical_accept()</span></code>
+operates on.</p>
 <p>The default <code class="docutils literal notranslate"><span class="pre">stratify_dims=True</span></code> flag eliminates that noise source by
 construction.
 <code class="xref py py-meth docutils literal notranslate"><span class="pre">stratified_dim_for_rep()</span></code>
@@ -747,7 +737,7 @@ is deterministically reproducible from the printed tuple:</p>
 </span><span data-line="9"><span class="n">params</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">last_sampled_params</span><span class="p">()</span>  <span class="c1"># dim, translation, rotation_trace, ...</span>
 </span></pre></div>
 </div>
-<p>Design details: <code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> §4.  Implementation:
+<p>Design details: <code class="docutils literal notranslate"><span class="pre">planning/done/SELF_IMPROVEMENT_LOOP.md</span></code> §4.  Implementation:
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_randomized</span></code>.  Tests:
 <code class="docutils literal notranslate"><span class="pre">tests/test_harness_randomized.py</span></code>.</p>
 </section>
@@ -1007,9 +997,6 @@ without an ADR — historical comparisons depend on its stability.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — harness test suite (60+ tests).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> — baseline adapter tests.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_stats.py</span></code> — statistical acceptance rule tests.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">planning/SELF_IMPROVEMENT_LOOP.md</span></code> — design of the autonomous
-improvement loop; <code class="docutils literal notranslate"><span class="pre">planning/LOOP_REFERENCE.md</span></code> — its flag and feature
-reference (the loop is not currently in use).</p></li>
 </ul>
 </section>
 </section>

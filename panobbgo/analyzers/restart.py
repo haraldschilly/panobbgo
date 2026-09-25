@@ -46,9 +46,14 @@ class Restart(Analyzer):
     """
     Detects search stagnation and publishes ``restart`` events.
 
-    Listens to ``new_results``, tracks the best penalty value in a sliding window,
-    and fires a ``restart`` event when no sufficient improvement is found within
-    ``patience`` evaluations.
+    Listens to ``new_results``, tracks the best penalty value of the current
+    *epoch* (the stretch since the last restart), and fires a ``restart`` event
+    when no sufficient improvement on it is found within ``patience``
+    evaluations.  The epoch best is reset on every restart: a fresh basin is
+    judged on its own progress, not on whether it already beats the global
+    incumbent (which it almost never can within ``patience`` evaluations — all
+    ``max_restarts`` would fire back to back).  As at the start of the run, the
+    first result of a new epoch establishes its baseline.
 
     Configuration parameters:
 
@@ -95,6 +100,7 @@ class Restart(Analyzer):
         self._max_restarts = max_restarts
         self._restart_strategy = restart_strategy
 
+        #: Best penalty of the current epoch (reset on every restart).
         self._best_penalty: float = float("inf")
         self._evals_since_improvement = 0
         self._restart_count = 0
@@ -114,26 +120,29 @@ class Restart(Analyzer):
 
         handler = getattr(self.strategy, "constraint_handler", None)
 
-        improved = False
+        # Count per result, not per batch: the counter restarts *at* the last
+        # improving result, so the results after it in the same batch still
+        # count as stagnation (otherwise the first batch of a new epoch — whose
+        # first result sets the baseline — would always reset the whole batch,
+        # and restart timing would depend on the evaluator's batch size).
         for r in results:
             if r.fx is None:
+                self._evals_since_improvement += 1
                 continue
             penalty = handler.get_penalty_value(r) if handler else r.fx
 
+            improved = False
             if penalty < self._best_penalty:
                 if self._best_penalty == float("inf"):
-                    self._best_penalty = penalty
                     improved = True
                 else:
                     rel_improvement = (self._best_penalty - penalty) / max(abs(self._best_penalty), 1e-12)
-                    if rel_improvement > self._improvement_threshold:
-                        self._best_penalty = penalty
-                        improved = True
-
-        if improved:
-            self._evals_since_improvement = 0
-        else:
-            self._evals_since_improvement += len(results)
+                    improved = rel_improvement > self._improvement_threshold
+            if improved:
+                self._best_penalty = penalty
+                self._evals_since_improvement = 0
+            else:
+                self._evals_since_improvement += 1
 
         if self._evals_since_improvement >= self._patience:
             self._trigger_restart()
@@ -142,6 +151,8 @@ class Restart(Analyzer):
         center = self._pick_new_center()
         self._restart_count += 1
         self._evals_since_improvement = 0
+        # New epoch: the next basin is measured against its own best.
+        self._best_penalty = float("inf")
         self._previous_centers.append(center)
 
         reason = f"No improvement for {self._patience} evaluations (restart {self._restart_count}/{self._max_restarts})"

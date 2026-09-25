@@ -160,8 +160,13 @@ def test_counter_resets_after_restart():
     r.on_new_results(_make_results(xs, problem))
     assert r.restart_count == 1
 
-    # Only 3 more stagnant — should NOT restart yet
-    xs2 = rng.uniform(-5, 5, (3, 2))
+    # A restart opens a new epoch whose best is reset, so — as at the start of
+    # the run — the first result after it sets the epoch baseline and the
+    # patience clock runs from there.  (This test used to count 3 + 2 results
+    # straight after the restart; that relied on the old bug that the global
+    # best was never reset, so the baseline result counted as stagnation.)
+    # Baseline + 3 stagnant — should NOT restart yet
+    xs2 = rng.uniform(-5, 5, (4, 2))
     r.on_new_results(_make_results(xs2, problem))
     assert r.restart_count == 1
 
@@ -169,6 +174,43 @@ def test_counter_resets_after_restart():
     xs3 = rng.uniform(-5, 5, (2, 2))
     r.on_new_results(_make_results(xs3, problem))
     assert r.restart_count == 2
+
+
+def test_new_basin_judged_against_epoch_best_not_global():
+    """After a restart the new basin only has to improve on *itself*.
+
+    Regression: the global best was never reset, so a basin that is worse than
+    the incumbent but still descending looked stagnant and every restart fired
+    back to back.
+    """
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+    r = Restart(strategy, patience=5, max_restarts=10)
+    r.__start__()
+
+    def feed(fx):
+        r.on_new_results([Result(Point(np.zeros(2), "t"), fx)])
+
+    feed(-100.0)  # a deep incumbent
+    for _ in range(5):
+        feed(0.0)
+    assert r.restart_count == 1
+
+    # The new basin sits far above the incumbent but improves steadily.
+    for i in range(30):
+        feed(50.0 - i)
+    assert r.restart_count == 1
+
+
+def test_batch_counts_results_after_the_last_improvement():
+    """Stagnant results after the improving one in the same batch count."""
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+    r = Restart(strategy, patience=5, max_restarts=10)
+    r.__start__()
+    results = [Result(Point(np.zeros(2), "t"), 1.0)] + [Result(Point(np.zeros(2), "t"), 2.0) for _ in range(5)]
+    r.on_new_results(results)
+    assert r.restart_count == 1
 
 
 def test_restart_ignore_none_fx():

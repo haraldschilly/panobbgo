@@ -65,6 +65,7 @@ import collections
 import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import wait as futures_wait
 from .logging.progress import ProgressContext
 from typing import TYPE_CHECKING, Any, Callable, cast, Optional, List, Dict, Union, Tuple
 
@@ -1567,6 +1568,7 @@ class StrategyBase:
         self._analyzers = collections.OrderedDict()
         self.problem = problem
         self._stop_requested = False
+        self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
 
         # Configure Constraint Handler
         rho = float(config.rho) if hasattr(config, "rho") else 100.0
@@ -2006,6 +2008,10 @@ class StrategyBase:
         sync = bool(self.config.sync_evaluation)
         max_eval_int = int(self.config.max_eval) if self.config.max_eval else 1000
         self._max_total_loops = max_eval_int * 10000  # Much more headroom
+        #: Evaluations charged against ``max_eval``: incremented when a point
+        #: is *dispatched*, so a failing evaluation (no result) is charged
+        #: too.  Results restored from storage count as dispatched.
+        self._dispatched = len(self.results)
 
         while True:
             self.loops += 1
@@ -2103,6 +2109,11 @@ class StrategyBase:
             # stopping criteria
             if len(self.results) >= self.config.max_eval:
                 break
+            # The whole budget is dispatched and nothing is in flight: no
+            # further evaluation can happen, even if some of them failed
+            # and left no result behind.
+            if self.config.max_eval and self._dispatched >= int(self.config.max_eval) and not self.pending:
+                break
 
             if self._stop_requested:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
@@ -2122,18 +2133,51 @@ class StrategyBase:
 
         ``max_eval`` is a hard cap (AGENTS.md "Domain context"), and this is
         the one place every evaluation mode passes through, so no strategy
-        has to size its batches against the budget itself.  Points already
-        in flight count against it: an asynchronous run may have ``pending``
-        evaluations whose results have not arrived yet.  Surplus points are
-        dropped — they are cheap, the evaluations are not.
+        has to size its batches against the budget itself.  The budget is
+        charged at *dispatch* (``_dispatched``), not when a result arrives:
+        a failing evaluation leaves no result but still cost a call, and an
+        asynchronous run has evaluations in flight.  ``len(results) +
+        len(pending)`` is a floor for the case where results arrive by
+        another path.
+
+        Surplus points go back to the queue of the heuristic that emitted
+        them (front of the queue, original order) rather than being
+        dropped.  The clamp can only bite on the batch that exhausts the
+        budget — after it nothing is ever dispatched again — so this does
+        not change which points a run evaluates; it keeps each heuristic's
+        queue honest about what was never evaluated.  Sizing the request
+        itself would mean threading ``room`` through every strategy's
+        ``execute`` and selector; the bandits' pull counts on that last
+        batch are the only state it would change.
         """
         if not self.config.max_eval:
+            self._dispatched += len(points)
             return points
-        room = max(0, int(self.config.max_eval) - len(self.results) - len(self.pending))
+        used = max(self._dispatched, len(self.results) + len(self.pending))
+        room = max(0, int(self.config.max_eval) - used)
         if len(points) > room:
             self.logger.debug("Budget clamp: dispatching %d of %d points." % (room, len(points)))
-            return list(points[:room])
+            self._return_to_queues(list(points[room:]))
+            points = list(points[:room])
+        self._dispatched = used + len(points)
         return points
+
+    def _return_to_queues(self, points):
+        """Put undispatched points back at the front of their heuristic's queue."""
+        by_owner: Dict[Any, List[Any]] = collections.OrderedDict()
+        for p in points:
+            try:
+                h = self.heuristic(p.who)
+            except (KeyError, AttributeError):
+                continue  # owner unknown (e.g. a test double): nothing to return to
+            by_owner.setdefault(h, []).append(p)
+        for h, pts in by_owner.items():
+            q = h._output
+            with q.mutex:
+                q.queue.extendleft(reversed(pts))
+                if 0 < q.maxsize < len(q.queue):
+                    q.maxsize = len(q.queue)
+                q.not_empty.notify_all()
 
     def request_stop(self):
         """Ask the main loop to end after the current pass.
@@ -2511,9 +2555,20 @@ with open('{result_file.name}', 'wb') as f:
                 except:
                     pass
         elif self.config.evaluation_method == "threaded":
-            # Shutdown thread pool
+            # Drop queued evaluations and wait (bounded) for the ones already
+            # running, so nothing of this run is still calling the objective
+            # when the caller starts the next one.
             if hasattr(self, "_thread_pool"):
-                self._thread_pool.shutdown(wait=False)
+                self._thread_pool.shutdown(wait=False, cancel_futures=True)
+                running = [f for f in getattr(self, "_futures", {}).values() if not f.done()]
+                if running:
+                    grace = float(getattr(self.config, "shutdown_grace_seconds", 60.0))
+                    _done, still = futures_wait(running, timeout=grace)
+                    if still:
+                        self.logger.error(
+                            "%d evaluation(s) still running %.0fs after shutdown; abandoning them."
+                            % (len(still), grace)
+                        )
 
         # Finalize progress reporting
         if hasattr(self, "panobbgo_logger"):

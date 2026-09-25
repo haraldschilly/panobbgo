@@ -75,12 +75,19 @@ def test_self_restart_off_reproduces_the_pre_change_trajectory():
     The three expected numbers were recorded with the *pre-change* module on
     2026-09-10 (commit c2e4b6f, seed 42, DeJong(3) on [-2, 8]^3, 400 evals):
     they are the regression pin for "one flag away from the old behaviour".
+
+    That run evaluated 406 points on the 400 budget (min 5.523971143576693e-09,
+    sum 701.12430982615172): the core dispatched the whole last CMA-ES
+    generation past ``max_eval``.  Since the T1 budget clamp (2026-09-25) the
+    run stops at exactly 400.  Checked then: the pre-clamp code still gave the
+    406-point pin above, and its first 400 fx values are bit-identical to the
+    clamped run's — so the pin below is the same trajectory, cut to the budget.
     """
     h, fx = _run(self_restart=False)
     assert h.n_restarts == 0
-    assert len(fx) == 406
+    assert len(fx) == 400
     assert float(np.min(fx)) == pytest.approx(5.523971143576693e-09, rel=1e-6)  # BLAS order differs across CPUs
-    assert float(np.sum(fx)) == pytest.approx(701.12430982615172, rel=1e-9)
+    assert float(np.sum(fx)) == pytest.approx(701.1243094765689, rel=1e-9)
 
 
 def test_restart_event_still_restarts():

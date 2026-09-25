@@ -765,7 +765,9 @@ class Splitter(Analyzer):
             """Dimension along which the objective separates most across the cut.
 
             For every candidate dimension the prospective cut is the same one
-            :meth:`split` would make (the mean coordinate), and the two halves
+            :meth:`split` would make (:meth:`_split_point`: the mean
+            coordinate, or the median boundary under ``cut_rule="median"``),
+            and the two halves
             are compared by the *rank* of their penalty values — scale-free,
             so it survives an objective spanning many orders of magnitude and
             a constraint handler whose penalty units are arbitrary::
@@ -799,7 +801,11 @@ class Splitter(Analyzer):
             if n > 1:
                 ranks /= n - 1.0
 
-            cuts = xs.mean(axis=0)
+            if self.splitter.cut_rule == "mean":
+                cuts = xs.mean(axis=0)
+            else:
+                # Score the cut that will be made, not the mean one.
+                cuts = np.array([self._split_point(int(d)) for d in cand])
             left = xs <= cuts
             n_l = left.sum(axis=0).astype(float)
             n_r = n - n_l

@@ -503,3 +503,25 @@ def test_a_contracting_search_keeps_its_leaves_bounded(rule):
         _feed(sp, [x], [float(np.sum((x - centre) ** 2))])
     for box_ in sp.leafs:
         assert len(box_) < sp.limit or box_.depth >= Splitter.Box.MAX_DEPTH
+
+
+def test_value_rule_scores_the_median_cut_under_cut_rule_median():
+    """With ``cut_rule="median"`` the value rule scores the cut ``split`` makes.
+
+    Axis 3 is skewed: 80 points near its low end, 20 near its high end, and
+    f follows x3 only inside the low cluster.  The mean cut (80 | 20) puts
+    the whole low cluster on one side and separates nothing; the median cut
+    (50 | 50) runs through the low cluster and separates perfectly.  The
+    rule used to score the mean cut whatever ``cut_rule`` said.
+    """
+    strategy, sp = _splitter(4, 400, split_rule="value", cut_rule="median", leaf_size=1000)
+    rng = np.random.default_rng(5)
+    xs = _uniform_cloud(strategy, 100, seed=21)
+    xs[:80, 3] = rng.uniform(-2.0, -1.9, 80)
+    xs[80:, 3] = rng.uniform(1.9, 2.0, 20)
+    fxs = np.empty(100)
+    fxs[:80] = xs[:80, 3]
+    fxs[80:] = rng.uniform(-2.0, -1.9, 20)
+    _feed(sp, xs, fxs)
+    assert sp.root.leaf
+    assert sp.root._split_dim() == 3

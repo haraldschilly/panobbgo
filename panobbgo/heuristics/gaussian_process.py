@@ -117,6 +117,16 @@ class GaussianProcessHeuristic(Heuristic):
 
         self.best_y = np.inf
 
+        # Seeds for sklearn's hyper-parameter restarts (``n_restarts_optimizer``),
+        # which otherwise draw from the global ``np.random`` state and make a
+        # seeded run irreproducible.  A spawned child stream: it does not
+        # consume ``self.rng``, so the acquisition draws are unaffected.
+        self._fit_rng: np.random.Generator = self.rng.spawn(1)[0]
+
+    def _fit_seed(self) -> int:
+        """A ``random_state`` for one GaussianProcessRegressor, from :attr:`_fit_rng`."""
+        return int(self._fit_rng.integers(0, 2**31 - 1))
+
     def on_start(self):
         """Initialize the heuristic at the start of optimization."""
         self.gp_model = None
@@ -293,6 +303,7 @@ class GaussianProcessHeuristic(Heuristic):
                 alpha=1e-6,
                 normalize_y=True,
                 n_restarts_optimizer=10,
+                random_state=self._fit_seed(),
             )
 
             if self.X_train is not None:
@@ -310,6 +321,7 @@ class GaussianProcessHeuristic(Heuristic):
                             alpha=1e-6,
                             normalize_y=True,
                             n_restarts_optimizer=10,
+                            random_state=self._fit_seed(),
                         )
                         self.gp_constraint.fit(self.X_train, self.y_cv_train)
                     else:

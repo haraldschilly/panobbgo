@@ -213,3 +213,30 @@ class TestHarnessStrategyRegistry:
         std_names = {s.name for s in _make_standard_strategies()}
         full_names = {s.name for s in _make_full_strategies()}
         assert std_names.issubset(full_names), "All standard strategies should be present in full mode"
+
+
+def test_gp_run_does_not_depend_on_the_global_numpy_state():
+    """Seeded GP runs are reproducible whatever ``np.random`` was seeded with.
+
+    sklearn's ``n_restarts_optimizer`` draws its restart points from
+    ``random_state``; without one it used the global state.
+    """
+    from panobbgo.heuristics import Random
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRoundRobin
+
+    def run(global_seed):
+        np.random.seed(global_seed)
+        s = StrategyRoundRobin(Rosenbrock(dims=2), parse_args=False, testing_mode=True, seed=5)
+        s.config.max_eval = 20
+        s.config.sync_evaluation = True
+        s.config.evaluation_method = "threaded"
+        s.config.stop_on_convergence = False
+        s.add(Random)
+        s.add(GaussianProcessHeuristic, n_restarts=2)
+        s.start()
+        return s.results.results["fx"].to_numpy(dtype=float).ravel()
+
+    a, b = run(1), run(2)
+    assert len(a) == 20
+    np.testing.assert_array_equal(a, b)

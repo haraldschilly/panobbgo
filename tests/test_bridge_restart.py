@@ -120,6 +120,40 @@ class BridgeRestartTests(PanobbgoTestCase):
                 respawn.assert_not_called()
 
 
+class _FakeCtx:
+    """Captures the worker ``Process`` arguments instead of spawning."""
+
+    def __init__(self):
+        self.seeds = []
+
+    def Pipe(self, duplex=True):
+        return mock.MagicMock(), mock.MagicMock()
+
+    def Process(self, target, args, name):
+        self.seeds.append(args[6])
+        return mock.MagicMock()
+
+
+class LBFGSBWorkerSeedTests(PanobbgoTestCase):
+    def _seeds(self, seed):
+        h = LBFGSB(self.init_strategy(), seed=seed)
+        ctx = _FakeCtx()
+        with mock.patch("panobbgo.heuristics.lbfgsb.multiprocessing.get_context", return_value=ctx):
+            h.__start__()
+            h._bridge_respawn(None)
+            h._bridge_respawn(None)
+        return h._worker_seed, ctx.seeds
+
+    def test_respawn_draws_a_fresh_worker_seed(self):
+        """Regression: the worker seed was fixed at construction, so every
+        restart replayed the first worker's multi-start ``x0`` sequence."""
+        for seed in (None, 7):
+            first, seeds = self._seeds(seed)
+            assert seeds[0] == first  # the first worker is unchanged
+            assert len(set(seeds)) == 3  # every respawn gets its own seed
+            assert self._seeds(seed)[1] == seeds  # ... reproducibly
+
+
 def test_result_point_roundtrip():
     """``Result.x`` is the emitted (projected) point, which the bridge matches on."""
     p = Point(np.array([0.25, 0.5]), "LBFGSB")

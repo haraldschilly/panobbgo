@@ -228,7 +228,8 @@ class LBFGSB(PipeBridgeHeuristic):
           the strategy's best incumbent.
         - The heuristic spawns one dedicated subprocess; ``on_restart``
           tears it down and relaunches it warm-started from the supplied
-          restart centre (matching :class:`~panobbgo.heuristics.cobyqa.COBYQA`).
+          restart centre (matching :class:`~panobbgo.heuristics.cobyqa.COBYQA`),
+          with a fresh worker seed for the later multi-start points.
         - Out-of-bounds proposals from the subprocess are projected onto the
           feasible box by :meth:`panobbgo.lib.Problem.project` before being
           emitted; the value the subprocess sees is therefore the objective
@@ -286,6 +287,12 @@ class LBFGSB(PipeBridgeHeuristic):
         # no explicit seed is given so the restart stream is pinned by the
         # strategy's master seed rather than fresh OS entropy.
         self._worker_seed: int = int(self.rng.integers(2**31)) if seed is None else int(seed)
+        # Seeds for *respawned* workers (restarts).  The first worker keeps
+        # ``_worker_seed``; every later one draws a fresh seed from this
+        # stream, so a restart does not replay the first worker's multi-start
+        # ``x0`` sequence, and the whole sequence is still pinned by the seed.
+        self._respawn_seeds = np.random.default_rng(self._worker_seed)
+        self._spawns: int = 0
 
         # Subprocess handles — populated by :meth:`__start__`.
         self.p1: Any = None  # parent end of the request pipe
@@ -315,6 +322,9 @@ class LBFGSB(PipeBridgeHeuristic):
         lb = np.asarray([b[0] for b in bounds], dtype=float)
         ub = np.asarray([b[1] for b in bounds], dtype=float)
 
+        worker_seed = self._worker_seed if self._spawns == 0 else int(self._respawn_seeds.integers(2**31))
+        self._spawns += 1
+
         self.lbfgsb = ctx.Process(
             target=self.worker,
             args=(
@@ -324,7 +334,7 @@ class LBFGSB(PipeBridgeHeuristic):
                 bounds,
                 lb,
                 ub,
-                self._worker_seed,
+                worker_seed,
                 self.max_starts,
                 self.maxfun,
                 self.epsilon,
@@ -481,7 +491,8 @@ class LBFGSB(PipeBridgeHeuristic):
         Mirrors :meth:`panobbgo.heuristics.cobyqa.COBYQA.on_restart`: the
         first descent of the relaunched worker starts from ``center``
         (clipped into the box) when one is supplied, falling back to the box
-        centre otherwise.  Subsequent descents resume random multi-start.
+        centre otherwise.  Subsequent descents resume random multi-start,
+        from a fresh worker seed.
 
         This handler runs on the event-bus thread, so it only records the
         request; :meth:`~panobbgo.core.PipeBridgeHeuristic.produce` performs

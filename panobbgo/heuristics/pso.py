@@ -190,7 +190,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from panobbgo.core import Heuristic
-from panobbgo.lib import Point, Result
+from panobbgo.heuristics._tagged import emit_tagged, own_results
+from panobbgo.lib import Result
 
 
 # Canonical Clerc-Kennedy (2002) constriction-coefficient parameters.
@@ -447,19 +448,10 @@ class PSO(Heuristic):
         Returns True if the point was queued, False otherwise.  The
         heuristic stops emitting once :attr:`_stopped` is set.
         """
-        if self._stopped:
+        emitted = emit_tagged(self, x, "PSO")
+        if emitted is None:
             return False
-        try:
-            x_proj = self.problem.project(x)
-        except Exception as exc:
-            self.logger.debug(f"PSO: projection failed: {exc}")
-            return False
-
-        # Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so
-        # ``Result.who`` tags are reproducible under a fixed seed.
-        who = self.new_who(self._rng)
-        req_id = who.split(":", 1)[1]
-        self._put(Point(x_proj, who))
+        x_proj, req_id = emitted
         self._pending[req_id] = particle_idx
         # Remember the actually-evaluated position so the velocity
         # update next time uses the projected coordinates (not the
@@ -863,17 +855,8 @@ class PSO(Heuristic):
         if self._positions is None or self._pbest_x is None:
             return  # not started yet
 
-        prefix = f"{self.name}:"
         handler = self.strategy.constraint_handler
-        for r in results:
-            who: str = getattr(r, "who", "") or ""
-            if not who.startswith(prefix):
-                continue
-            req_id = who[len(prefix) :]
-            particle_idx = self._pending.pop(req_id, None)
-            if particle_idx is None:
-                continue  # stale or unknown trial id
-
+        for r, particle_idx in own_results(self.name, results, self._pending):
             # Update personal best.
             current = self._pbest_result[particle_idx]
             if current is None or handler.is_better(current, r):

@@ -155,7 +155,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from panobbgo.core import Heuristic
-from panobbgo.lib import Point, Result
+from panobbgo.heuristics._tagged import emit_tagged, own_results
+from panobbgo.lib import Result
 from panobbgo.lib.constraints import result_key
 
 #: Changed population slots up to which :meth:`LSHADE._ranked_live` updates
@@ -676,19 +677,10 @@ class LSHADE(Heuristic):
         from the external archive (NL-SHADE-RSP adapts its archive-usage
         probability from that).
         """
-        if self._stopped:
+        emitted = emit_tagged(self, x, "LSHADE")
+        if emitted is None:
             return False
-        try:
-            x_proj = self.problem.project(x)
-        except Exception as exc:
-            self.logger.debug(f"LSHADE: projection failed: {exc}")
-            return False
-
-        # Request id drawn from the instance RNG (not ``uuid4``/OS entropy) so
-        # ``Result.who`` tags are reproducible under a fixed seed.
-        who = self.new_who(self._rng)
-        req_id = who.split(":", 1)[1]
-        self._put(Point(x_proj, who))
+        req_id = emitted[1]
         meta = self._make_trial_meta(slot_idx, F, CR)
         meta.from_archive = from_archive
         self._pending[req_id] = meta
@@ -947,28 +939,26 @@ class LSHADE(Heuristic):
         """``(M_CR[r], M_F[r])`` as the sampler sees them."""
         return float(self._M_CR[r]), float(self._M_F[r])
 
+    def _draw_CR(self, m_cr: float) -> float:
+        """``CR ~ Normal(m_cr, 0.1)`` clamped to ``[0, 1]``; the ``M_CR = −1`` sentinel gives ``CR = 0``."""
+        if m_cr < 0:
+            return 0.0
+        return float(np.clip(float(self._rng.normal(m_cr, _PARAM_SCALE)), 0.0, 1.0))
+
+    def _draw_F(self, m_f: float) -> float:
+        """``F ~ Cauchy(m_f, 0.1)``, redrawn while ``F ≤ 0``, clipped at 1 (0.5 if every redraw fails)."""
+        for _ in range(_F_MAX_REDRAWS):
+            f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
+            if f > 0.0:
+                return float(min(f, 1.0))
+        return 0.5
+
     def _sample_F_CR(self) -> tuple[float, float]:
         """Draw one ``(F, CR)`` pair from a random history bin."""
         r = int(self._rng.integers(0, self.H))
         m_cr, m_f = self._memory_bin(r)
-        # CR sampling: Normal(M_CR[r], 0.1), clamped to [0, 1].  The
-        # M_CR = -1 sentinel collapses to deterministic CR = 0.
-        if m_cr < 0:
-            CR = 0.0
-        else:
-            CR = float(self._rng.normal(m_cr, _PARAM_SCALE))
-            CR = float(np.clip(CR, 0.0, 1.0))
-        CR = self._apply_CR_floor(CR)
-
-        # F sampling: Cauchy(M_F[r], 0.1), regenerate while F <= 0,
-        # clip at 1.  Bounded redraws to prevent worst-case loops.
-        F = 0.5
-        for _ in range(_F_MAX_REDRAWS):
-            f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
-            if f > 0.0:
-                F = float(min(f, 1.0))
-                break
-        return self._apply_F_cap(F), CR
+        CR = self._apply_CR_floor(self._draw_CR(m_cr))
+        return self._apply_F_cap(self._draw_F(m_f)), CR
 
     def _reflect_bounds(self, v: np.ndarray, x_target: np.ndarray) -> np.ndarray:
         """Midpoint reflection bounds repair (Tanabe-Fukunaga §III-A)."""
@@ -1251,6 +1241,22 @@ class LSHADE(Heuristic):
         # (:meth:`warm_start_now`) appends on top of a live one.
         self._trim_archive()
 
+    def _reset_run(self) -> None:
+        """Fresh run state: an empty full-size population, empty archive, initial memory.
+
+        LPSR shrinks the ``NP_init`` slots again from scratch.  Shared by
+        :meth:`on_start` and :meth:`on_restart`.
+        """
+        self._population = [None] * self.NP_init
+        self._NP_current = self.NP_init
+        self._archive.clear()
+        self._init_memory()
+        self._mem_ptr = 0
+        self._gen_completed = 0
+        self._success_F.clear()
+        self._success_CR.clear()
+        self._success_delta.clear()
+
     # ------------------------------------------------------------------
     # Heuristic interface
     # ------------------------------------------------------------------
@@ -1263,16 +1269,8 @@ class LSHADE(Heuristic):
         ``warm_start=None`` — or an archive that has nothing to give — this
         is the cold start, statement for statement as before.
         """
-        self._population = [None] * self.NP_init
-        self._NP_current = self.NP_init
-        self._archive.clear()
         self._pending.clear()
-        self._init_memory()
-        self._mem_ptr = 0
-        self._gen_completed = 0
-        self._success_F.clear()
-        self._success_CR.clear()
-        self._success_delta.clear()
+        self._reset_run()
 
         if self.warm_start and self._warm_start_population():
             return
@@ -1303,16 +1301,8 @@ class LSHADE(Heuristic):
         if not self._population:
             return  # not started yet
 
-        prefix = f"{self.name}:"
         handler = self.strategy.constraint_handler
-        for r in results:
-            who: str = getattr(r, "who", "") or ""
-            if not who.startswith(prefix):
-                continue
-            req_id = who[len(prefix) :]
-            meta = self._pending.pop(req_id, None)
-            if meta is None:
-                continue  # stale or unknown trial id
+        for r, meta in own_results(self.name, results, self._pending):
             slot_idx = meta.slot_idx
 
             # Slot dropped by LPSR after we issued this trial — discard.
@@ -1370,16 +1360,7 @@ class LSHADE(Heuristic):
         if not self._population:
             return  # not started yet — nothing to reset
 
-        self._archive.clear()
-        self._init_memory()
-        self._mem_ptr = 0
-        self._gen_completed = 0
-        self._success_F.clear()
-        self._success_CR.clear()
-        self._success_delta.clear()
-        # Restore full-size population; LPSR will shrink it again from scratch.
-        self._population = [None] * self.NP_init
-        self._NP_current = self.NP_init
+        self._reset_run()
 
         # A warm-started arm re-seeds from the shared archive instead of
         # re-evaluating ``NP_init`` fresh points — the restart's ``center``

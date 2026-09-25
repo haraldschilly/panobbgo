@@ -155,7 +155,6 @@ from panobbgo.heuristics.lshade import (
     _DEFAULT_NP_MIN,
     _DEFAULT_P_BEST,
     _F_MAX_REDRAWS,
-    _PARAM_SCALE,
     LSHADE,
     _TrialMeta,
 )
@@ -386,21 +385,15 @@ class LSHADE_EpSin(LSHADE):
 
     def _sample_CR_from_bin(self) -> float:
         """Draw ``CR`` from a random SHADE memory bin (unchanged from L-SHADE)."""
-        r = int(self._rng.integers(0, self.H))
-        m_cr = float(self._M_CR[r])
-        if m_cr < 0:
-            return 0.0
-        return float(np.clip(self._rng.normal(m_cr, _PARAM_SCALE), 0.0, 1.0))
+        return self._draw_CR(float(self._M_CR[int(self._rng.integers(0, self.H))]))
 
     def _sample_F_cauchy_from_bin(self) -> float:
-        """Draw ``F`` from a random SHADE memory bin (Cauchy from M_F)."""
-        r = int(self._rng.integers(0, self.H))
-        m_f = float(self._M_F[r])
-        for _ in range(_F_MAX_REDRAWS):
-            f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
-            if f > 0.0:
-                return float(min(f, 1.0))
-        return 0.5
+        """Draw ``F`` from a random SHADE memory bin (Cauchy from M_F).
+
+        A bin of its own, drawn after the ``CR`` bin — not the ``CR`` bin
+        :meth:`LSHADE._sample_F_CR` would reuse.
+        """
+        return self._draw_F(float(self._M_F[int(self._rng.integers(0, self.H))]))
 
     # ------------------------------------------------------------------
     # Overrides
@@ -507,17 +500,19 @@ class LSHADE_EpSin(LSHADE):
     def on_start(self) -> None:
         """Allocate state and reset the ensemble bandit + frequency memory."""
         super().on_start()
-        self._mu_freq = float(self.mu_freq_init)
-        self._p_s = _DEFAULT_PS
-        self._ns1 = 0
-        self._ns2 = 0
-        self._gen_success_freq.clear()
-        self._gen_count = 0
-        self._last_sin = (_SIN_NONE, 0.0)
+        self._reset_ensemble()
 
     def on_restart(self, center, reason: str = "") -> None:
         """Reseed the population and reset the ensemble bandit + frequency memory."""
         super().on_restart(center, reason)
+        self._reset_ensemble()
+
+    def _reset_ensemble(self) -> None:
+        """Cold ensemble bandit and frequency memory.
+
+        Runs *after* the parent's start/restart, so a warm-started
+        population's first trials are still drawn from the previous state.
+        """
         self._mu_freq = float(self.mu_freq_init)
         self._p_s = _DEFAULT_PS
         self._ns1 = 0

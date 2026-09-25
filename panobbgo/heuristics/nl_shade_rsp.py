@@ -124,7 +124,7 @@ from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from panobbgo.heuristics.lshade import LSHADE, _F_MAX_REDRAWS, _PARAM_SCALE, _TrialMeta
+from panobbgo.heuristics.lshade import LSHADE, _PARAM_SCALE, _TrialMeta
 
 # Defaults from the reference code (``nlshade-original.cpp``).
 _DEFAULT_NP_MIN: int = 4
@@ -300,12 +300,7 @@ class NLSHADE_RSP(LSHADE):
         """
         if r is None:
             r = int(self._rng.integers(0, self.H))
-        m_f = float(self._M_F[r])
-        for _ in range(_F_MAX_REDRAWS):
-            f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
-            if f > 0.0:
-                return float(min(f, 1.0))
-        return 0.5
+        return self._draw_F(float(self._M_F[r]))
 
     def _sample_CR_for_rank(self, rank: int, n: int) -> Tuple[float, int]:
         """The ``rank``-th smallest of ``n`` draws ``CR ~ N(M_CR[r], 0.1)`` clipped to ``[0, 1]``.

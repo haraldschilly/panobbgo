@@ -16,8 +16,14 @@ import unittest
 import numpy as np
 import pytest
 
-from panobbgo.lib.classic import *
-from panobbgo.lib import *
+from panobbgo.lib.classic import (
+    Arwhead,
+    HelicalValley,
+    NesterovQuadratic,
+    Rosenbrock,
+    RosenbrockConstraint,
+)
+from panobbgo.lib import Point, Result
 from tests.support import expected_failure
 
 
@@ -291,7 +297,7 @@ class Classics(unittest.TestCase):
         hv = HelicalValley()
         x0 = np.array([1.0, 0.0, 0.0])
         x = Point(x0, "test")
-        r = hv(x)
+        hv(x)
         self.is_optimal(hv, x0)
         assert np.isclose(0.0, hv(x).fx)
 

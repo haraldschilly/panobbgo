@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.core import HeuristicSubprocess
+from panobbgo.core import HeuristicSubprocess, terminate_process
 import numpy as np
 from functools import reduce
 import operator
@@ -68,8 +68,9 @@ class QuadraticWlsModel(HeuristicSubprocess):
     on_demand = True
 
     #: Deadlock backstop for the synchronous wait in :meth:`produce`, in
-    #: seconds.  Not a scheduling parameter: a live worker is waited for as
-    #: long as its fit takes, and this only expires when it is wedged.
+    #: seconds.  Not a scheduling parameter: it only expires when the worker
+    #: is wedged or slower than ``fit_timeout``; the worker is then
+    #: terminated and the arm retires for the rest of the run.
     fit_timeout: float = 60.0
 
     #: Granularity of that wait: how quickly a *dead* worker is noticed.
@@ -88,6 +89,10 @@ class QuadraticWlsModel(HeuristicSubprocess):
         #: the event-bus thread and consumed by :meth:`produce`.
         self._pending_fit: Optional[tuple] = None
         self._pending_lock = threading.Lock()
+        #: The worker died, closed its pipe or was abandoned as wedged.  The
+        #: arm is then retired: nothing is ever sent to it again (a dead
+        #: worker's pipe buffer fills up and ``send`` would block forever).
+        self._dead = False
 
     @staticmethod
     def subprocess(pipe):
@@ -197,10 +202,15 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
     @property
     def can_produce(self) -> bool:
-        """A queued point, a recorded box to fit, or a fit on its way."""
+        """A queued point, a recorded box to fit, or a fit on its way.
+
+        ``True`` while a fit is in flight even though an asynchronous
+        :meth:`produce` may still return ``[]`` (the reply is not ready yet) —
+        the same convention as :class:`~panobbgo.core.PipeBridgeHeuristic`.
+        """
         if self.has_points:
             return True
-        if self._stopped or not self._worker_alive():
+        if self._stopped or self._dead or not self._worker_alive():
             return False
         return self._pending_fit is not None or self._inflight_id is not None
 
@@ -213,6 +223,9 @@ class QuadraticWlsModel(HeuristicSubprocess):
         """
         if self._stopped:
             return []
+        if self._dead or not self._worker_alive():
+            self._retire("worker process is not running")
+            return self.get_points(limit)
         try:
             self._collect_reply(wait=0.0)
             if self._inflight_id is None:
@@ -220,12 +233,29 @@ class QuadraticWlsModel(HeuristicSubprocess):
             if self._inflight_id is not None and self._sync():
                 self._collect_reply(wait=self.fit_timeout if timeout is None else timeout)
         except (EOFError, OSError) as e:
-            self.logger.warning("QuadraticWlsModel: worker pipe closed (%s)." % e)
-            self._inflight_id = None
+            self._retire("worker pipe closed (%s)" % e)
         except Exception as e:
             self.logger.error(f"Error communicating with QuadraticWlsModel subprocess: {e}")
             self._inflight_id = None
         return self.get_points(limit)
+
+    def _retire(self, reason: str, terminate: bool = False) -> None:
+        """Retire the arm for the rest of the run: forget pending work, never send again.
+
+        Logged once.  ``terminate``: also stop the (wedged but alive) worker.
+        """
+        self._inflight_id = None
+        with self._pending_lock:
+            self._pending_fit = None
+        if self._dead:
+            return
+        self._dead = True
+        self.logger.warning("QuadraticWlsModel: %s; the arm is retired." % reason)
+        if terminate:
+            try:
+                terminate_process(getattr(self, "_HeuristicSubprocess__subprocess", None))
+            except Exception as exc:
+                self.logger.debug("QuadraticWlsModel: terminating the worker failed: %s" % exc)
 
     def _sync(self) -> bool:
         return bool(getattr(self.config, "sync_evaluation", False))
@@ -254,8 +284,10 @@ class QuadraticWlsModel(HeuristicSubprocess):
         the id, every later emission would be the answer to the box before.
         A failure reply whose request could not be read (id ``None``) counts
         as the answer to the in-flight request, the only one outstanding.
-        With ``wait > 0`` an expired deadline abandons the request — a
-        wedged worker, logged as an error.
+        (Abandoning a request retires the arm, so no later request can be
+        confused with it.)  With ``wait > 0`` an expired deadline means a
+        wedged worker: logged as an error, the worker terminated and the arm
+        retired.
         """
         if self._inflight_id is None:
             return
@@ -266,15 +298,14 @@ class QuadraticWlsModel(HeuristicSubprocess):
                 if wait <= 0:
                     return  # async: not ready yet, try again on the next pull
                 if not self._worker_alive() and not self.pipe.poll(0):
-                    self.logger.warning("QuadraticWlsModel: worker process is not running.")
-                    self._inflight_id = None
+                    self._retire("worker process is not running")
                     return
                 if remaining <= 0:
                     self.logger.error(
-                        "QuadraticWlsModel: no reply from the worker for %.0fs; abandoning request %s. "
-                        "This is a bug, not a slow fit." % (wait, self._inflight_id)
+                        "QuadraticWlsModel: no reply from the worker for %.0fs (request %s); "
+                        "treating it as wedged." % (wait, self._inflight_id)
                     )
-                    self._inflight_id = None
+                    self._retire("worker wedged or slower than fit_timeout", terminate=True)
                     return
                 continue
             rid, sol = self.pipe.recv()

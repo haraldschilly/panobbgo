@@ -134,6 +134,13 @@ class TestQuadraticWLSModel(unittest.TestCase):
             assert wls_model.produce(1) == []
             err_mock.assert_called_once()
         assert wls_model._inflight_id is None
+        # Treated as dead: the worker is terminated and the arm retired.
+        assert not wls_model._worker_alive()
+        assert not wls_model.can_produce
+        wls_model.on_new_best_box(self._box(([1.0, 1.0], 2.0)))
+        assert not wls_model.can_produce
+        assert wls_model.produce(1) == []
+        wls_model.pipe.send.assert_called_once()  # nothing is sent to it again
 
     def test_send_exception_is_logged(self):
         wls_model = self._model()

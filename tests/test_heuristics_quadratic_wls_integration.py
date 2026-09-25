@@ -160,6 +160,30 @@ class TestQuadraticWlsPull(unittest.TestCase):
             wls.__stop__()
 
 
+class TestQuadraticWlsDeadWorker(unittest.TestCase):
+    def test_sync_pulls_after_the_worker_died_return_promptly(self):
+        """Regression: every pull sent the new box to a dead worker until the pipe buffer
+        filled and ``send`` blocked the main loop forever."""
+        from panobbgo.core import terminate_process
+
+        strategy = MockStrategy()
+        strategy.config.sync_evaluation = True
+        wls = QuadraticWlsModel(strategy)
+        wls.__start__()
+        try:
+            terminate_process(wls._HeuristicSubprocess__subprocess)
+            box = _box_of_random_results(n=50)
+            t0 = time.monotonic()
+            for _ in range(200):
+                wls.on_new_best_box(box)
+                self.assertEqual(wls.produce(10), [])
+            self.assertLess(time.monotonic() - t0, 5.0)
+            self.assertFalse(wls.can_produce)
+            self.assertEqual(wls._request_id, 0)  # nothing was ever sent
+        finally:
+            wls.__stop__()
+
+
 def _sync_run(wls_cls, seed=3, max_eval=60):
     """``(x, fx, who)`` of a seeded, synchronous round-robin run of ``Random`` + ``wls_cls``."""
     from panobbgo.strategies import StrategyRoundRobin

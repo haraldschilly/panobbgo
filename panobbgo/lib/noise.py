@@ -468,15 +468,18 @@ class NoisyProblem(Problem):
         """Corrupt a known true value at ``x`` — the pure ``(seed, x)`` map."""
         if not np.isfinite(true_fx):
             return true_fx
+        f_raw = max(0.0, true_fx - self._f_opt)
+        return self._f_opt + float(self.model.apply(f_raw, self._noise_rng(x)))
+
+    def _noise_rng(self, x: np.ndarray) -> np.random.Generator:
+        """The generator of the next evaluation at ``x``: ``(seed, x)``, plus the draw count if resampling."""
         xb = _x_bytes(x)
         draw = 0
         if self.resample:
             with self._counts_lock:
                 draw = self._counts.get(xb, 0)
                 self._counts[xb] = draw + 1
-        rng = _rng_for_bytes(self.noise_seed, xb, draw)
-        f_raw = max(0.0, true_fx - self._f_opt)
-        return self._f_opt + float(self.model.apply(f_raw, rng))
+        return _rng_for_bytes(self.noise_seed, xb, draw)
 
     def eval_constraints(self, x: np.ndarray) -> Optional[np.ndarray]:
         return self.inner.eval_constraints(x)

@@ -487,19 +487,28 @@ Instead of modifying your problem class, use composable wrappers from :mod:`pano
 
 .. code-block:: python
 
-   from panobbgo.lib.wrappers import NormalizedProblem, NoisyProblem, LogTransformProblem
+   from panobbgo.lib import NoisyProblem  # = panobbgo.lib.noise.NoisyProblem
+   from panobbgo.lib.noise import AdditiveGaussianNoise
+   from panobbgo.lib.wrappers import NormalizedProblem, LogTransformProblem
 
    # Normalize all dimensions to [0, 1]
    problem = NormalizedProblem(Rosenbrock(dims=5))
 
-   # Add noise for robustness testing (seed for reproducibility)
-   problem = NoisyProblem(Rosenbrock(dims=5), noise_std=0.1, seed=42)
+   # Add noise for robustness testing: a pure function of (seed, x), so
+   # runs are reproducible whatever the evaluation order or thread.
+   # resample=True draws fresh noise on each re-evaluation of the same x.
+   problem = NoisyProblem(Rosenbrock(dims=5), AdditiveGaussianNoise(sigma=0.1), seed=42)
 
    # Log-transform for objectives spanning orders of magnitude
    problem = LogTransformProblem(MyProblem(), offset=0.0)
 
    # Compose multiple wrappers
-   problem = NormalizedProblem(NoisyProblem(MyProblem(), noise_std=0.05))
+   problem = NormalizedProblem(NoisyProblem(MyProblem(), AdditiveGaussianNoise(sigma=0.05), seed=0))
+
+The noise is applied to the precision ``f(x) - f_opt`` (``f_opt`` defaults to the
+problem's ``optimum_y``, else 0); see :mod:`panobbgo.lib.noise` for the models.
+``panobbgo.lib.wrappers.NoisyProblem(problem, noise_std=..., seed=...)`` is a
+deprecated adapter for the old signature.
 
 Wrappers are transparent — the framework sees a standard :class:`~panobbgo.lib.Problem`
 with the transformed box and evaluation.

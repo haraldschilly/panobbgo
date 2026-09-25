@@ -13,7 +13,8 @@ Problem Wrappers:
 - **ProblemWrapper**: Base class for composable problem decorators
 - **NormalizedProblem**: Scales all dimensions to [0, 1]
 - **LogTransformProblem**: Applies log transform to objective
-- **NoisyProblem**: Adds controlled Gaussian noise
+- **NoisyProblem** (:mod:`panobbgo.lib.noise`): deterministic, seeded noise models (the
+  ``panobbgo.lib.wrappers.NoisyProblem`` adapter is deprecated)
 
 .. automodule:: panobbgo.lib
    :members:

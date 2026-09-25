@@ -30,8 +30,8 @@ from .wrappers import (
     ProblemWrapper,
     NormalizedProblem,
     LogTransformProblem,
-    NoisyProblem,
 )
+from .noise import NoisyProblem
 
 try:
     from .coco_wrapper import CocoProblem

@@ -157,6 +157,7 @@ def test_log_transform_preserves_constraints():
 # --- NoisyProblem ---
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_noisy_additive():
     p = QuadraticProblem(dim=2)
     n = NoisyProblem(p, noise_std=0.1, seed=42)
@@ -168,6 +169,7 @@ def test_noisy_additive():
     assert abs(np.std(vals) - 0.1) < 0.05
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_noisy_multiplicative():
     p = QuadraticProblem(dim=2)
     n = NoisyProblem(p, noise_std=0.1, noise_type="multiplicative", seed=42)
@@ -179,6 +181,7 @@ def test_noisy_multiplicative():
     assert abs(np.std(vals) - 0.5) < 0.1
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_noisy_seed_reproducibility():
     p = QuadraticProblem(dim=2)
     x = np.array([1.0, 2.0])
@@ -187,9 +190,46 @@ def test_noisy_seed_reproducibility():
     assert n1.eval(x) == n2.eval(x)
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+def test_legacy_noisy_is_thread_order_independent():
+    """One generator shared by all evaluator threads made the draws depend on scheduling."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    xs = [np.array([i * 0.1, -i * 0.2]) for i in range(40)]
+
+    def run(order, workers):
+        n = NoisyProblem(QuadraticProblem(dim=2), noise_std=1.0, seed=7)
+        with ThreadPoolExecutor(workers) as pool:
+            vals = dict(zip(order, pool.map(lambda i: n.eval(xs[i]), order)))
+        return [vals[i] for i in range(len(xs))]
+
+    fwd = run(list(range(40)), 1)
+    assert run(list(reversed(range(40))), 4) == fwd
+
+
+def test_legacy_noisy_is_deprecated_and_lib_exports_the_deterministic_one():
+    import panobbgo.lib
+    import panobbgo.lib.noise
+
+    assert panobbgo.lib.NoisyProblem is panobbgo.lib.noise.NoisyProblem
+    with pytest.warns(DeprecationWarning, match="panobbgo.lib.noise.NoisyProblem"):
+        n = NoisyProblem(QuadraticProblem(dim=2), noise_std=0.1, seed=1)
+    assert isinstance(n, panobbgo.lib.noise.NoisyProblem)
+    # Raw-value noise: a negative objective is not clamped to the f_opt floor.
+
+    class Neg(QuadraticProblem):
+        def eval(self, x):
+            return -100.0
+
+    with pytest.warns(DeprecationWarning):
+        m = NoisyProblem(Neg(), noise_std=0.1, seed=1)
+    assert abs(m.eval(np.zeros(2)) + 100.0) < 1.0
+
+
 # --- Composition ---
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_composition_normalized_noisy():
     p = AsymmetricProblem()
     wrapped = NormalizedProblem(NoisyProblem(p, noise_std=0.01, seed=0))

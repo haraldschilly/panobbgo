@@ -22,12 +22,20 @@ and transform inputs/outputs, without modifying the original problem.
 
 These are composable::
 
-    wrapped = NormalizedProblem(NoisyProblem(MyProblem()))
+    wrapped = NormalizedProblem(LogTransformProblem(MyProblem()))
 
 """
 
+import warnings
+
 import numpy as np
 from panobbgo.lib.lib import Problem, Result
+from panobbgo.lib.noise import (
+    AdditiveGaussianNoise,
+    MultiplicativeGaussianNoise,
+    NoiseModel,
+    NoisyProblem as _DeterministicNoisyProblem,
+)
 
 
 class ProblemWrapper(Problem):
@@ -98,15 +106,15 @@ class LogTransformProblem(ProblemWrapper):
         return np.log1p(fx - self.offset)
 
 
-class NoisyProblem(ProblemWrapper):
-    """
-    Adds controlled Gaussian noise to evaluations. Useful for robustness testing.
+class NoisyProblem(_DeterministicNoisyProblem):
+    """Deprecated: use :class:`panobbgo.lib.noise.NoisyProblem` (exported as ``panobbgo.lib.NoisyProblem``).
 
-    Args:
-        problem: The problem to wrap.
-        noise_std: Standard deviation of noise (default 0.1).
-        noise_type: ``"additive"`` or ``"multiplicative"`` (default ``"additive"``).
-        seed: Optional random seed for reproducibility.
+    Kept for the old signature.  Gaussian noise on the raw value —
+    ``f + noise_std·ε`` (``"additive"``) or ``f·(1 + noise_std·ε)``
+    (``"multiplicative"``) — with fresh noise per evaluation, now drawn from
+    the deterministic ``(seed, x, k)`` stream of the noise module instead of
+    one generator shared by every evaluator thread (whose draws depended on
+    thread scheduling).  ``seed=None`` picks a random seed.
     """
 
     def __init__(
@@ -116,14 +124,27 @@ class NoisyProblem(ProblemWrapper):
         noise_type: str = "additive",
         seed: int | None = None,
     ):
+        warnings.warn(
+            "panobbgo.lib.wrappers.NoisyProblem is deprecated; use panobbgo.lib.noise.NoisyProblem "
+            "(panobbgo.lib.NoisyProblem) with a NoiseModel.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if noise_type == "multiplicative":
+            model: NoiseModel = MultiplicativeGaussianNoise(sigma=noise_std)
+        elif noise_type == "additive":
+            model = AdditiveGaussianNoise(sigma=noise_std)
+        else:
+            raise ValueError("noise_type must be 'additive' or 'multiplicative', got %r" % (noise_type,))
+        if seed is None:
+            seed = int(np.random.SeedSequence().generate_state(1)[0])
         self.noise_std = noise_std
         self.noise_type = noise_type
-        self._rng = np.random.default_rng(seed)
-        super().__init__(problem)
+        super().__init__(problem, model, seed=seed, resample=True)
 
-    def eval(self, x):
-        fx = self._wrapped.eval(x)
-        if self.noise_type == "multiplicative":
-            return fx * (1 + self.noise_std * self._rng.standard_normal())
-        else:
-            return fx + self.noise_std * self._rng.standard_normal()
+    def apply_noise(self, x: np.ndarray, true_fx: float) -> float:
+        # The legacy wrapper corrupts the raw value, not the precision above
+        # f_opt (which would clamp every value below 0 to 0).
+        if not np.isfinite(true_fx):
+            return true_fx
+        return float(self.model.apply(true_fx, self._noise_rng(x)))

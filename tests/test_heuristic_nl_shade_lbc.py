@@ -478,11 +478,16 @@ class NLSHADELBCMemoryUpdateTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._M_CR[0] == pytest.approx(expected_CR, rel=1e-9)
 
     def test_no_CR_terminal_sentinel(self):
-        """Regression: all-zero CR successes no longer plant −1 (not in the paper); the CR bin stays."""
+        """Regression: all-zero CR successes no longer plant −1 (not in the paper).
+
+        The LBC mean is undefined then; the bin gets LBC's reset value 0.9 (the
+        analogue of NL-SHADE-RSP's 0.5 fallback).
+        """
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
 
         h = NLSHADE_LBC(self.strategy, H=4)
         h.on_start()
+        h._M_CR[0] = 0.3
         self._seed_success_buffer(h, [0.5, 0.7], [0.0, 0.0], [1.0, 1.0])
         h._update_memory()
         assert h._M_CR[0] == 0.9

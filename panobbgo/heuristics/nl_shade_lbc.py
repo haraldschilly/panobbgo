@@ -139,7 +139,8 @@ There is no terminal ``CR`` sentinel (none in the paper).  The LBC
 Lehmer mean is applied only to the strictly positive subset of the
 success CR vector, because at ``p_CR < m_lbc`` the denominator exponent
 goes negative and ``0^{negative} → ∞``; a generation whose successes all
-used ``CR = 0`` leaves the ``CR`` bin as it is.
+used ``CR = 0`` resets the ``CR`` bin to ``0.9`` (LBC's initial / reset value,
+the analogue of NL-SHADE-RSP's ``0.5`` fallback).
 
 References
 ----------
@@ -439,16 +440,21 @@ class NLSHADE_LBC(NLSHADE_RSP):
         Cauchy redraw, so no zero handling is needed.
         """
         p_F = self._lbc_exponent(self.p_F_init, self.p_F_final)
-        return self._weighted_lehmer(F_arr, w, p_F, self.m_lbc)
+        v = self._weighted_lehmer(F_arr, w, p_F, self.m_lbc)
+        return self.NO_SUCCESS_MEMORY[0] if v is None else v
 
     def _mean_CR(self, CR_arr: np.ndarray, w: np.ndarray) -> Optional[float]:
         """LBC Lehmer mean of the successful ``CR`` on the strictly positive subset.
 
         ``p_CR − m_lbc`` is negative for the default schedule, so
-        ``CR^(p − m)`` is never evaluated at zero.
+        ``CR^(p − m)`` is never evaluated at zero.  An undefined mean (every
+        successful ``CR`` is 0) gives LBC's own reset value ``0.9`` — the
+        analogue of NL-SHADE-RSP's ``0.5`` fallback (the MetaBox port returns
+        ``0.5`` for ``F`` and ``0.9`` for ``CR`` there).
         """
         p_CR = self._lbc_exponent(self.p_CR_init, self.p_CR_final)
-        return self._weighted_lehmer(CR_arr, w, p_CR, self.m_lbc, positive_only=True)
+        v = self._weighted_lehmer(CR_arr, w, p_CR, self.m_lbc, positive_only=True)
+        return self.NO_SUCCESS_MEMORY[1] if v is None else v
 
     def _crossover(self, v: np.ndarray, x_target: np.ndarray, CR: float) -> np.ndarray:
         """Binomial crossover only, with the fitness-sorted ``CR`` (no exponential, no ``CR_b``)."""

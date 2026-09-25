@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from panobbgo.core import PipeBridgeHeuristic
+from panobbgo.core import PipeBridgeHeuristic, terminate_process
 import multiprocessing
 import time
 from typing import Any, Optional
@@ -266,10 +266,7 @@ class LocalPenaltySearch(PipeBridgeHeuristic):
             self.process.join(timeout=1.0)
             if self.process.is_alive():
                 self.logger.warning("LocalPenaltySearch process did not exit gracefully, terminating...")
-                self.process.terminate()
-                self.process.join(timeout=0.1)
-                if self.process.is_alive():
-                    self.process.kill()
+                terminate_process(self.process, timeout=0.1)
 
         # Close pipes
         try:

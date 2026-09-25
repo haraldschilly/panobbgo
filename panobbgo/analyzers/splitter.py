@@ -522,6 +522,11 @@ class Splitter(Analyzer):
         def results(self, value):
             self._results = value
             self._n = len(value)
+            # A replaced root list invalidates the coordinate matrix even
+            # when its length is unchanged.
+            splitter = getattr(self, "splitter", None)
+            if splitter is not None and getattr(self, "parent", None) is None:
+                splitter._nX = -1
 
         @property
         def leaf(self):

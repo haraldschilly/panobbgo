@@ -156,6 +156,7 @@ import numpy as np
 
 from panobbgo.core import Heuristic, known_budget
 from panobbgo.heuristics._tagged import emit_tagged, own_failures, own_results
+from panobbgo.heuristics._warm_restart import restart_from_archive
 from panobbgo.lib import Result
 from panobbgo.lib.constraints import result_key
 
@@ -422,7 +423,10 @@ class LSHADE(Heuristic):
             starting costs zero evaluations; any shortfall is filled by the
             cold random path, and the next good points seed the external
             archive.  Needs points to exist: at ``t = 0`` the archive is
-            empty and the heuristic silently cold-starts.
+            empty and the heuristic silently cold-starts.  On a ``restart``
+            event the archive is used only when its best point lies outside
+            the stagnated basin (the bounding box of the live population);
+            otherwise the restart goes to the Restart analyzer's ``center``.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             uses the module's strategy-derived ``self.rng`` stream.
         name: Override the heuristic's display name.
@@ -1351,6 +1355,13 @@ class LSHADE(Heuristic):
         re-randomised in a small ball around ``center`` (or random in
         the box if ``center`` is ``None``), and a fresh round of
         initial-random trials emitted.
+
+        With ``warm_start`` set the population is re-seeded from the shared
+        archive instead — but only when the archive's best point lies outside
+        the stagnated basin, the bounding box of the live population
+        (``panobbgo.heuristics._warm_restart.restart_from_archive``).
+        Otherwise the archive would put the population straight back where it
+        stagnated, and the restart goes to ``center`` as the cold path does.
         """
         if self._stopped:
             return
@@ -1359,13 +1370,19 @@ class LSHADE(Heuristic):
         if not self._population:
             return  # not started yet — nothing to reset
 
+        # The stagnated basin is judged on the population *before* the reset
+        # wipes it.
+        from_archive = bool(self.warm_start) and restart_from_archive(
+            self, [r.x for r in self._population if isinstance(r, Result)]
+        )
+
         self._reset_run()
 
         # A warm-started arm re-seeds from the shared archive instead of
-        # re-evaluating ``NP_init`` fresh points — the restart's ``center``
-        # is the incumbent, and the archive's best points are around it
-        # anyway.  Design §2: the random re-emission below is pure waste.
-        if self.warm_start and self._warm_start_population():
+        # re-evaluating ``NP_init`` fresh points (design §2) — when the
+        # archive's best lies outside the stagnated basin.  Inside it the
+        # archive would only re-seed the basin the restart is leaving.
+        if from_archive and self._warm_start_population():
             return
 
         ranges = self.problem.box[:, 1] - self.problem.box[:, 0]

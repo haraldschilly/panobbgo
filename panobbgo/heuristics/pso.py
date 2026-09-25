@@ -191,6 +191,7 @@ import numpy as np
 
 from panobbgo.core import Heuristic
 from panobbgo.heuristics._tagged import emit_tagged, own_failures, own_results
+from panobbgo.heuristics._warm_restart import restart_from_archive
 from panobbgo.lib import Result
 
 
@@ -305,7 +306,10 @@ class PSO(Heuristic):
             ``0.5·(x_π(i) − x_i)`` over a random derangement ``π``, clipped
             to ``v_max``, so the swarm starts *moving between* known good
             points instead of from a standstill.  At ``t = 0`` the archive is
-            empty and the heuristic silently cold-starts.
+            empty and the heuristic silently cold-starts.  On a ``restart``
+            event the archive is used only when its best point lies outside
+            the stagnated basin (the bounding box of the live positions);
+            otherwise the restart goes to the Restart analyzer's ``center``.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             uses the module's strategy-derived ``self.rng`` stream.
         name: Override the heuristic's display name.
@@ -889,8 +893,12 @@ class PSO(Heuristic):
         wiped, particles are scattered around the suggested center, and
         the next evaluation cycle behaves as if the heuristic had just
         started — except the strategy keeps its accumulated history.
-        With ``warm_start`` set and a non-empty archive the swarm is
-        re-seeded from the archive instead (:meth:`_warm_start_swarm`).
+        With ``warm_start`` set the swarm is re-seeded from the archive
+        instead (:meth:`_warm_start_swarm`) — but only when the archive's
+        best point lies outside the stagnated basin, the bounding box of the
+        current positions (``panobbgo.heuristics._warm_restart.restart_from_archive``).
+        Otherwise the archive would put the swarm straight back where it
+        stagnated, and the restart goes to ``center`` as the cold path does.
         """
         if self._stopped:
             return
@@ -907,10 +915,11 @@ class PSO(Heuristic):
             self._init_random_adjacency()
 
         # A warm-started swarm re-seeds from the shared archive instead of
-        # re-evaluating NP fresh points around ``center`` (as L-SHADE does).
-        # The personal bests are dropped first: the seeds replace them, and a
-        # shortfall particle must not keep a stale pre-restart best.
-        if self.warm_start:
+        # re-evaluating NP fresh points around ``center`` (as L-SHADE does),
+        # unless the archive's best is inside the basin the swarm stagnated
+        # in.  The personal bests are dropped first: the seeds replace them,
+        # and a shortfall particle must not keep a stale pre-restart best.
+        if self.warm_start and restart_from_archive(self, self._positions):
             self._pbest_result = [None] * self.NP
             self._gbest_idx = None
             if self._warm_start_swarm():

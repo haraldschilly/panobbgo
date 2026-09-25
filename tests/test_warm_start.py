@@ -16,6 +16,9 @@ The properties pinned here:
   :class:`~panobbgo.lib.Result` objects **themselves** — no evaluation is
   requested for a point that was already paid for;
 * a warm-started PSO takes its personal bests from the seeds;
+* on a ``restart`` the archive is used only when its best point lies outside
+  the stagnated basin (the live population's bounding box); otherwise the
+  restart goes to the analyzer's ``center``;
 * a warm-started CMA-ES fits ``m`` / ``σ`` / ``C`` to the seed cloud — saving
   no evaluations, but starting in the right basin at the right scale;
 * and the reproducibility contract: ``warm_start=None`` — explicit or
@@ -307,7 +310,36 @@ def test_pso_warm_start_honours_the_region_box():
         assert np.all(r.x >= box[:, 0]) and np.all(r.x <= box[:, 1])
 
 
-def test_pso_warm_start_reseeds_the_swarm_on_restart():
+def _far_from_best(s, a, *, frac=0.9, jitter=0.02, n=4, seed=11):
+    """``n`` positions clustered near the box corner opposite the archive's best."""
+    lo, hi = s.problem.box[:, 0], s.problem.box[:, 1]
+    best = np.asarray(a.top_k(1)[0].x, dtype=float)
+    mid = 0.5 * (lo + hi)
+    corner = np.where(best < mid, lo + frac * (hi - lo), lo + (1 - frac) * (hi - lo))
+    rng = np.random.default_rng(seed)
+    pts = corner + jitter * (hi - lo) * rng.uniform(-1, 1, size=(n, s.problem.dim))
+    box = _basin_box(s.problem, pts)
+    assert box is not None and not np.all((best >= box[:, 0]) & (best <= box[:, 1]))
+    return pts
+
+
+def _around_best(s, a, *, jitter=0.05, n=4, seed=12):
+    """``n`` positions whose bounding box contains the archive's best."""
+    lo, hi = s.problem.box[:, 0], s.problem.box[:, 1]
+    best = np.asarray(a.top_k(1)[0].x, dtype=float)
+    offsets = jitter * (hi - lo) * np.random.default_rng(seed).uniform(-1, 1, size=(n, s.problem.dim))
+    offsets[0] = -jitter * (hi - lo)  # make the box straddle ``best`` on every axis
+    offsets[1] = jitter * (hi - lo)
+    return best + offsets
+
+
+def _basin_box(problem, pts):
+    from panobbgo.heuristics._warm_restart import basin_box
+
+    return basin_box(problem, pts)
+
+
+def test_pso_warm_restart_seeds_from_the_archive_when_its_best_is_outside_the_basin():
     """Regression: ``on_restart`` ignored ``warm_start`` and always scattered fresh points."""
     from panobbgo.heuristics import PSO
 
@@ -318,10 +350,95 @@ def test_pso_warm_start_reseeds_the_swarm_on_restart():
 
     a = _archive_of(s, _results(s.problem, 24))
     seeds = a.top_k(4)
-    assert h.archive_seed(4, mode="archive"), "the archive has points to give after the restart"
-    h.on_restart(center=np.zeros(s.problem.dim), reason="test")
+    assert h._positions is not None
+    h._positions[:] = _far_from_best(s, a)  # the swarm stagnated elsewhere
+    h.on_restart(center=np.asarray(s.problem.box[:, 1], dtype=float), reason="test")
     assert [id(r) for r in h._pbest_result] == [id(r) for r in seeds]
     assert h._gbest_idx == 0
+
+
+def test_pso_warm_restart_goes_to_center_when_the_archive_best_is_in_the_basin():
+    """The archive's best is where the swarm stagnated: restart around ``center``."""
+    from panobbgo.heuristics import PSO
+
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 24))
+    h = PSO(s, NP=4, warm_start="archive")
+    h.on_start()
+    h.get_points()
+    assert h._positions is not None
+    h._positions[:] = _around_best(s, a)
+
+    center = np.array([1.5, -1.5])
+    h.on_restart(center=center, reason="test")
+    assert all(r is None for r in h._pbest_result), "no archive seed may survive the restart"
+    points = h.get_points()
+    assert len(points) == 4
+    v_max = h._v_max()
+    for p in points:
+        assert np.all(np.abs(p.x - center) <= v_max + 1e-12), "the swarm must scatter around center"
+
+
+def test_warm_restart_rule_edge_cases():
+    """No live positions: nothing to avoid, use the archive; empty archive: ``center``."""
+    from panobbgo.heuristics import PSO
+    from panobbgo.heuristics._warm_restart import BASIN_MARGIN, restart_from_archive
+
+    s = _strategy()
+    h = PSO(s, NP=4, warm_start="archive")
+    assert restart_from_archive(h, np.zeros((0, s.problem.dim))) is False  # no archive yet
+    a = _archive_of(s, _results(s.problem, 24))
+    assert restart_from_archive(h, []) is True
+    best = np.asarray(a.top_k(1)[0].x, dtype=float)
+    assert restart_from_archive(h, [best]) is False  # a one-point population is its own basin
+
+    # the margin is relative to the problem box, per side
+    box = _basin_box(s.problem, [best])
+    assert box is not None
+    ranges = s.problem.box[:, 1] - s.problem.box[:, 0]
+    np.testing.assert_allclose(box[:, 1] - box[:, 0], 2 * BASIN_MARGIN * ranges)
+
+
+def _lshade_family():
+    from panobbgo.heuristics import JSO, LSHADE, NLSHADE_LBC, NLSHADE_RSP, LSHADE_EpSin
+
+    return (LSHADE, JSO, NLSHADE_RSP, NLSHADE_LBC, LSHADE_EpSin)
+
+
+@pytest.mark.parametrize("idx", range(5))
+def test_lshade_warm_restart_goes_to_center_when_the_archive_best_is_in_the_basin(idx):
+    """A population seeded from the archive holds the archive's best: restart to ``center``."""
+    cls = _lshade_family()[idx]
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 24))
+    h = cls(s, NP_init=6, warm_start="archive")
+    h.on_start()  # population = top_k(6), so the archive's best is inside it
+    h.get_points()
+
+    center = np.array([1.5, -1.5])
+    h.on_restart(center=center, reason="test")
+    assert all(slot is None for slot in h._population), cls.__name__
+    points = h.get_points()
+    assert len(points) == 6
+    ball = 0.1 * (s.problem.box[:, 1] - s.problem.box[:, 0])
+    for p in points:
+        assert np.all(np.abs(p.x - center) <= ball + 1e-12), cls.__name__
+    assert a.top_k(1)  # the archive had something to give; it was deliberately not used
+
+
+@pytest.mark.parametrize("idx", range(5))
+def test_lshade_warm_restart_seeds_from_the_archive_when_its_best_is_outside_the_basin(idx):
+    cls = _lshade_family()[idx]
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 24))
+    h = cls(s, NP_init=6, warm_start="archive")
+    h.on_start()
+    h.get_points()
+    far = _far_from_best(s, a, n=6)
+    h._population = [Result(Point(x, "elsewhere"), 1.0) for x in far]
+
+    h.on_restart(center=np.array([1.5, -1.5]), reason="test")
+    assert [id(r) for r in h._population] == [id(r) for r in a.top_k(6)], cls.__name__
 
 
 def test_pso_cold_restart_is_unchanged_without_warm_start():

@@ -41,8 +41,10 @@ Remove an item when it is done; record the result in the planning log, not here.
 - [ ] **Probe / regime detector** — now the main line (was parked in §45.2):
       target +0.015…+0.039 (§53), signal observable early — how fast the
       first arm progresses (§52.4).
-- [ ] **Hand-over without covariance reset** — keep the arm's adapted C and
-      only move m/σ (`_reset_covariance` sets C = I today).
+- [ ] **Hand-over without covariance reset** — the simple form (keep the
+      arm's own C, move only m/σ) was measured in §51.1 and lost everywhere;
+      only a new form (e.g. scaling the kept C with the move, or blending)
+      or a re-test on the re-baselined instrument is worth a run.
 - [ ] **Surrogate pre-selection** (lq-CMA-ES) as a new building block.
 - [ ] `block_evals="auto"` for the low-budget table row and the portfolio
       spec; fixed-block crossover at 300 or 500·dim (§46).
@@ -76,41 +78,18 @@ followed (#331–#334).  Details in the PR descriptions and commit messages.
       selection is clean since 2026-09-25) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.
 
-## Questions for Harald
+## Decisions (2026-09-25)
 
-- [ ] **`sync_eval=True` as the harness default** (`run_ioh_harness`,
-      `scripts/ioh_benchmark.py`, composite `HarnessConfig.sync_eval`).
-      Every screen already passes it; flipping the default moves the
-      recorded baselines (one re-baseline, see above).
-- [ ] **Order-independent RNG streams per module.**  `StrategyBase.initialize`
-      still draws one seed per legacy default-analyzer slot
-      (`_LEGACY_DEFAULT_ANALYZER_SLOTS`) so trajectories stayed bit-identical
-      when Grid/Splitter became optional.  Switching to keyed streams
-      (e.g. `SeedSequence(seed, spawn_key=(crc32(name), n))`) removes that
-      coupling but changes every trajectory — do it at the next deliberate
-      break (e.g. together with the re-baseline)?
-- [ ] **Old storage databases without a fingerprint** are refused by default
-      now (escape hatch: `storage.adopt_legacy` / `SQLiteStorage.adopt`).
-      OK as the default?
-- [ ] **Warm restart ignores the Restart analyzer's center** (PSO, L-SHADE
-      family): with `warm_start` set, a restart re-seeds from the archive's
-      top points — usually the stagnated basin itself — so "diverse"/"sphere"
-      restart strategies have no effect.  Mix the center in, or seed only
-      when the archive best lies outside the stagnated basin?
-- [ ] **QuadraticWlsModel on the pull-bridge model.**  Its fit still blocks
-      the event-bus thread up to 10 s, and a timeout makes sync runs
-      timing-dependent.  Moving it onto `PipeBridgeHeuristic` fixes both;
-      worth it?
-- [ ] **Block-bandit credit in async mode**: a result counts for whichever
-      block is open when it arrives.  Credit by `who` prefix instead?  Changes
-      the reward definition.
-- [ ] **Accept the new defaults?**  (a) The deadlock backstop ends a run when a
-      single evaluation runs longer than `core.deadlock_seconds` (600 s)
-      with nothing else happening.  (b) DynamicPenalty / ALM default to their
-      class rho of 10, Default/Penalty/Epsilon to 100 — or one flat 100?
-      (c) ALM keeps growing its multipliers linearly while the incumbent is
-      stuck (only mu growth was stopped).
-- [ ] **`--fail-on-regression` multi-seed gate** fails only when the pooled
-      t-CI95 lies below 0; also fail when a single strategy's CI does?
-- [ ] **`planning/GOAL.md` §2** is still the 2026-09-10 snapshot; folding in
-      DISCOVERY §32–§53 is a research-summary call.
+Settled with Harald and implemented (#337–#339): harness measurements run
+synchronously by default; RNG streams are keyed per module; the deadlock
+backstop never cuts an outstanding evaluation, and `evaluation.timeout`
+(unset by default) is a per-call limit in every backend whose firing records
+a NaN result; warm restarts use the archive only outside the stagnated
+basin; QuadraticWLS fits on the pull path.  Kept as they are: old storage
+databases without a fingerprint are refused (escape hatch
+`storage.adopt_legacy`); block-bandit async credit unchanged; DynamicPenalty /
+ALM keep their own rho default (10), ALM multipliers grow linearly while the
+incumbent is stuck; the multi-seed regression gate stays pooled.
+
+- [ ] **Re-baseline** (see the backlog item above) — run when the machine is
+      free; everything measured before 2026-09-25 is not comparable.

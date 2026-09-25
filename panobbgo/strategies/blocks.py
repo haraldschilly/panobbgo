@@ -895,7 +895,7 @@ class StrategyBlockBandit(StrategyBase):
     def _apply_pending_region(self, h: Heuristic) -> bool:
         """Hand ``h`` the box it was assigned, if any.  Main thread only.
 
-        Sets the arm's ``warm_start_box`` — consulted by ``CMAES``'s and the
+        Sets the arm's ``warm_start_box`` — consulted by ``CMAES``'s, ``PSO``'s and the
         L-SHADE family's ``archive_seed`` calls — and forces
         :meth:`_should_warm_start`, so the arm is actually re-seeded rather
         than left to the gap rule.  The two ``warm_start_only_if_*`` guards

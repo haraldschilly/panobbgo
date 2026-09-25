@@ -180,7 +180,7 @@ References
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -394,6 +394,12 @@ class PSO(Heuristic):
         #: cold start.  A *string*, deliberately not a callable: the trigger
         #: is :meth:`warm_start_now`.
         self.warm_start: Optional[str] = warm_start
+        #: Region the next warm start is restricted to, or ``None`` for the
+        #: whole archive — the one-shot hand-off
+        #: :meth:`panobbgo.strategies.blocks.StrategyBlockBandit._apply_pending_region`
+        #: writes from :class:`~panobbgo.heuristics.meta.MetaAnalyst`.  Anything
+        #: :meth:`~panobbgo.core.Heuristic.archive_seed` accepts as ``box``.
+        self.warm_start_box: Any = None
         self._rng: np.random.Generator = self.derive_rng(seed)
 
         # Per-particle state.  Sized once on_start() runs (we need
@@ -750,7 +756,7 @@ class PSO(Heuristic):
         if not self.warm_start:
             return False
         assert self._positions is not None and self._velocities is not None and self._pbest_x is not None
-        seeds = self.archive_seed(self.NP, mode=self.warm_start)
+        seeds = self.archive_seed(self.NP, mode=self.warm_start, box=self.warm_start_box)
         if not seeds:
             return False  # empty archive: the caller falls back to the cold path
 

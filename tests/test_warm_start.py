@@ -283,6 +283,30 @@ def test_pso_warm_start_takes_its_swarm_from_the_seeds():
     assert len(h.get_points()) == NP  # one move each, zero evaluations for the seeds
 
 
+def test_pso_warm_start_honours_the_region_box():
+    """Regression: a MetaAnalyst region hand-off restricts PSO's seeds to the box.
+
+    ``_warm_start_swarm`` used to call ``archive_seed`` without
+    ``box=self.warm_start_box``, so the hand-off was silently unrestricted.
+    """
+    from panobbgo.heuristics import PSO
+
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 60))
+    lo, hi = s.problem.box[:, 0], s.problem.box[:, 1]
+    box = np.column_stack([lo + 0.6 * (hi - lo), hi])  # away from the best (origin) points
+    inside = a.top_k(64, box=box)
+    assert 0 < len(inside) < 60 and all(r not in inside for r in a.top_k(3))
+
+    h = PSO(s, NP=4, warm_start="archive")
+    h.warm_start_box = box
+    h.on_start()
+    seeded = [r for r in h._pbest_result if r is not None]
+    assert seeded, "the box holds archive points, so the swarm must be seeded"
+    for r in seeded:
+        assert np.all(r.x >= box[:, 0]) and np.all(r.x <= box[:, 1])
+
+
 def test_pso_warm_start_validates_its_mode():
     from panobbgo.heuristics import PSO
 

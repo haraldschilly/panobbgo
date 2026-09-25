@@ -432,6 +432,34 @@ def test_region_forces_a_warm_start_the_gap_rule_would_skip():
     assert len(h.seen) == 1
 
 
+class Flagged(Boxed):
+    """A truthy, non-callable ``warm_start`` without a ``warm_start_now`` override."""
+
+    warm_start_now = Heuristic.warm_start_now  # type: ignore[assignment]
+
+
+def test_region_is_only_offered_to_arms_the_scheduler_will_warm_start():
+    """Regression: ``_accepts_region`` uses ``_can_warm_start``'s override test.
+
+    An arm with a truthy non-callable ``warm_start`` but the base-class
+    ``warm_start_now`` (e.g. ``LBFGSB(warm_start=True)``) used to be picked as
+    the recipient, and the scheduler then dropped the region.
+    """
+    from panobbgo.heuristics import LBFGSB
+
+    s, boxed = _scheduler()
+    flagged = Flagged(s, name="Flagged")
+    s.add_heuristic(flagged)
+    m = MetaAnalyst(s, trigger=budget_fraction(0.25), mode="none", region=True, min_leafs=1)
+    s.add_heuristic(m)
+    assert m._accepts_region(boxed)
+    assert not m._accepts_region(flagged)
+    assert not m._accepts_region(LBFGSB(s, warm_start=True))
+    assert s._can_warm_start(boxed) and not s._can_warm_start(flagged)
+    # "Flagged" sorts after "Boxed", so the old name tie-break picked it.
+    assert m._region_recipient() is boxed
+
+
 def test_meta_publishes_a_region_for_a_supported_leaf():
     s = StrategyBlockBandit(
         Rosenbrock(dim=2),

@@ -664,8 +664,17 @@ class MetaAnalyst(Heuristic):
 
         The callable ``warm_start(results)`` hook takes results, not a
         region, so an arm that only has that one cannot be handed a box.
+        The mode-string arm must also override
+        :meth:`~panobbgo.core.Heuristic.warm_start_now` — the same test
+        :meth:`~panobbgo.strategies.blocks.StrategyBlockBandit._can_warm_start`
+        applies — or the scheduler drops the region (e.g. ``LBFGSB`` with
+        ``warm_start=True``, a flag that picks its x0 generator, not an
+        archive selector).
         """
-        return bool(getattr(h, "warm_start", None)) and not callable(getattr(h, "warm_start", None))
+        ws = getattr(h, "warm_start", None)
+        if not ws or callable(ws):
+            return False
+        return type(h).warm_start_now is not Heuristic.warm_start_now
 
     def _region_recipient(self) -> Optional[Any]:
         """The arm to hand the region to — furthest behind, ties by name.

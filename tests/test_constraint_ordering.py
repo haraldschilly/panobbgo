@@ -179,3 +179,38 @@ def test_archive_queries_do_not_lose_concurrent_admissions():
         a.top_k(3)
     t.join()
     assert len(a) == n
+
+
+@pytest.mark.parametrize("cls", HANDLERS)
+def test_missing_objective_ranks_last(cls):
+    """``result_key`` of fx=None is padded to the key length: it used to be
+    ``(inf,)``, which sorts before ``(inf, x)``."""
+    from panobbgo.lib.constraints import result_key
+
+    strategy = mock.MagicMock()
+    strategy.results = []
+    h = cls(strategy=strategy)
+    missing = Result(Point(np.zeros(2), "t"), None)
+    worst = _r(float("inf"), float("inf"))
+    assert len(result_key(h, missing)) == len(h.rank_key(_r(0.0, 0.0))) == h.rank_key_size
+    assert not result_key(h, missing) < result_key(h, worst)
+
+
+def test_epsilon_nan_violation_is_not_feasible():
+    strategy = mock.MagicMock()
+    strategy.results = []
+    h = EpsilonConstraintHandler(strategy=strategy, epsilon_start=0.0)
+    # ``Result.cv`` itself drops NaN entries of ``cv_vec``; a NaN ``cv`` reaches
+    # the handler from results that compute it otherwise.
+    nan_cv = mock.MagicMock(fx=-100.0, cv=float("nan"))
+    assert h._phi(nan_cv) == float("inf")
+    assert h.is_better(nan_cv, _r(5.0, 0.0))
+
+
+def test_time_invariance_flags():
+    assert DefaultConstraintHandler.time_invariant
+    assert PenaltyConstraintHandler.time_invariant
+    assert FilterConstraintHandler.time_invariant  # static ordering; only the reward uses the filter
+    assert not DynamicPenaltyConstraintHandler.time_invariant
+    assert not EpsilonConstraintHandler.time_invariant
+    assert not AugmentedLagrangianConstraintHandler.time_invariant

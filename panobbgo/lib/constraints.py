@@ -26,7 +26,11 @@ tuple, lower is better).  :meth:`~ConstraintHandler.is_better` and
 :meth:`~ConstraintHandler.calculate_improvement` are derived from it in the
 base class, and every consumer that *ranks* results (``Best``, ``Archive``,
 ``Restart``, the ``Splitter``, ``RegionUCB``, ...) goes through it — so the
-incumbent and the rankings cannot disagree.
+incumbent and the rankings cannot disagree.  One explicit exception:
+:meth:`FilterConstraintHandler.calculate_improvement` rewards *any* point the
+filter accepts (not dominated), which is the filter method's point; its
+:meth:`~FilterConstraintHandler.rank_key`, and hence ``is_better``, is the
+ordinary feasibility rule.
 
 :meth:`~ConstraintHandler.get_penalty_value` is something else: a *scalar
 surrogate* for consumers that need one number to minimise or regress on
@@ -59,10 +63,12 @@ def _finite_or_inf(v) -> float:
 def result_key(handler, result) -> tuple:
     """The ranking key of ``result`` under ``handler`` (plain ``fx`` without one).
 
-    Lower is better; a missing result or objective ranks last.
+    Lower is better; a missing result or objective ranks last — its key is
+    ``+inf`` padded to the handler's :attr:`~ConstraintHandler.rank_key_size`,
+    since a shorter tuple would sort *before* ``(inf, x)``.
     """
     if result is None or result.fx is None:
-        return (float("inf"),)
+        return (float("inf"),) * int(getattr(handler, "rank_key_size", 1) or 1)
     if handler is None:
         return (_finite_or_inf(result.fx),)
     rank_key = getattr(handler, "rank_key", None)
@@ -99,6 +105,10 @@ class ConstraintHandler:
     #: ``True`` when :meth:`rank_key` and :meth:`get_penalty_value` of a given
     #: result never change during a run, so consumers may cache them.
     time_invariant = False
+
+    #: Length of the tuples :meth:`rank_key` returns (used to pad the key of a
+    #: result without an objective, see :func:`result_key`).
+    rank_key_size = 1
 
     def __init__(self, strategy=None, **kwargs):
         """
@@ -217,6 +227,7 @@ class DefaultConstraintHandler(ConstraintHandler):
     """
 
     time_invariant = True
+    rank_key_size = 2
 
     def __init__(self, strategy=None, rho=100.0, **kwargs):
         """
@@ -622,6 +633,8 @@ class EpsilonConstraintHandler(ConstraintHandler):
     epsilon(t) = epsilon_start * (1 - t / cutoff)^cp
     """
 
+    rank_key_size = 2
+
     def __init__(self, strategy=None, epsilon_start=1.0, cp=5.0, cutoff=100, rho=100.0, **kwargs):
         super().__init__(strategy, **kwargs)
         self.epsilon_start = epsilon_start
@@ -647,6 +660,9 @@ class EpsilonConstraintHandler(ConstraintHandler):
         if result is None:
             return float("inf")
         cv = result.cv if result.cv is not None else 0.0
+        # NaN violation is unknown, not zero: ``max(0.0, nan)`` would be 0.0,
+        # i.e. "feasible".
+        cv = _finite_or_inf(cv)
         eps = self._get_current_epsilon()
         return max(0.0, cv - eps)
 
@@ -688,7 +704,15 @@ class FilterConstraintHandler(ConstraintHandler):
 
     A point is accepted (and considered an improvement) if it is not dominated
     by any point in the current filter.
+
+    The *ordering* (:meth:`rank_key`, hence ``is_better`` and every ranking)
+    is the standard feasibility rule; only the *reward*
+    (:meth:`calculate_improvement`) is filter-based — the one handler whose
+    reward is not derived from its ordering.
     """
+
+    time_invariant = True
+    rank_key_size = 2
 
     def __init__(self, strategy=None, **kwargs):
         super().__init__(strategy, **kwargs)
@@ -743,6 +767,14 @@ class FilterConstraintHandler(ConstraintHandler):
         return True
 
     def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
+        """Reward for a point the filter accepts (not dominated), whether or not it
+        beats the incumbent.
+
+        The explicit exception to "improvement is derived from the ordering"
+        (see the module docstring): the filter method's point is to reward
+        every non-dominated (fx, cv) trade-off, so this can be positive when
+        :meth:`is_better` is ``False``.
+        """
         # Check if new_best is accepted by the filter logic.
         # We simulate adding to filter (without modifying it here, rely on on_new_results for update).
         # Actually, since calculate_improvement is usually called BEFORE or concurrently with on_new_results

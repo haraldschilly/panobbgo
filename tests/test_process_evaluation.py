@@ -307,12 +307,14 @@ def test_an_evaluation_whose_worker_is_sigtermed_is_not_retried_forever():
 
 
 class _WedgeFirstTwo(Problem):
-    """The first two evaluations hang for 3 s; the rest are instant."""
+    """The first two evaluations hang until ``release`` is set; the rest are instant."""
 
-    def __init__(self):
+    def __init__(self, release):
         import itertools
         import threading
 
+        self.release = release
+        self.wedged_returned = 0
         self._calls = itertools.count()
         self._lock = threading.Lock()
         super().__init__([(-1, 1), (-1, 1)])
@@ -321,16 +323,30 @@ class _WedgeFirstTwo(Problem):
         with self._lock:
             n = next(self._calls)
         if n < 2:
-            time.sleep(3.0)
+            self.release.wait(60.0)
+            with self._lock:
+                self.wedged_returned += 1
         return float(np.sum(x**2))
 
 
 def test_timed_out_threads_do_not_starve_the_queue():
-    """Two wedged threads held both slots of a 2-worker executor; the rest waited behind them."""
-    t0 = time.time()
-    s = _run(_WedgeFirstTwo(), 10, False, timeout=0.3, method="threaded")
-    assert len(s.results) == 8
-    assert time.time() - t0 < 2.5
+    """Two wedged threads held both slots of a 2-worker executor; the rest waited behind them.
+
+    Asserted on ordering, not wall time: the run must finish all eight other
+    evaluations while both wedged ones are still hanging.  (It used to
+    require the run to end in 2.5 s against a 3 s wedge -- a 0.5 s margin
+    that a loaded machine can eat.)
+    """
+    import threading
+
+    release = threading.Event()
+    problem = _WedgeFirstTwo(release)
+    try:
+        s = _run(problem, 10, False, timeout=0.3, method="threaded")
+        assert len(s.results) == 8
+        assert problem.wedged_returned == 0
+    finally:
+        release.set()
 
 
 def test_sync_threaded_timeout_is_ignored_with_one_warning():

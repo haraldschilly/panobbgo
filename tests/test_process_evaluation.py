@@ -381,7 +381,11 @@ def test_a_break_between_polls_does_not_escape_submit(seed, tmp_path):
     s.add(Random)
     s.start()
     assert (tmp_path / "m").exists()
-    assert len(s.results) == 59
+    # The crashing task fails when its dead worker is identified (59); when
+    # the exit code is lost it only takes a strike and its retry succeeds,
+    # because the marker makes the crash one-off (60).  Either way the run
+    # finishes inside the budget.
+    assert len(s.results) in (59, 60)
 
 
 def test_submit_to_a_broken_pool_returns_a_failed_future():

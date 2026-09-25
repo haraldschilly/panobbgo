@@ -99,12 +99,20 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
 
     # Helper function to evaluate a point using the problem
     def evaluate_point(problem, point):
-        """Evaluate a single point; returns ``(result, walltime in seconds)``."""
+        """Evaluate one point; returns ``(result, walltime in seconds, error)``.
+
+        A raising objective is reported as ``(None, walltime, repr(exc))``
+        rather than raised, so its walltime is booked like the local pool
+        books a failed task's.
+        """
         import time
 
         t0 = time.perf_counter()
-        result = problem(point)
-        return result, time.perf_counter() - t0
+        try:
+            result = problem(point)
+        except Exception as exc:
+            return None, time.perf_counter() - t0, repr(exc)
+        return result, time.perf_counter() - t0, None
 
     # distribute work using Dask futures
     # Submit each point as a separate task
@@ -127,14 +135,18 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
         future = strategy.pending.pop(future_id, None)
         if future is not None:
             try:
-                result, walltime = future.result()
-                strategy.record_walltime(walltime)
-                if isinstance(result, list):
-                    new_results.extend(result)
-                else:
-                    new_results.append(result)
+                result, walltime, error = future.result()
             except Exception as e:
+                # Lost worker, cancellation, ...: no timing to book.
                 strategy.logger.error("Task failed with error: %s" % e)
+                continue
+            strategy.record_walltime(walltime)
+            if error is not None:
+                strategy.logger.error("Evaluation failed: %s" % error)
+            elif isinstance(result, list):
+                new_results.extend(result)
+            else:
+                new_results.append(result)
 
     return new_results
 

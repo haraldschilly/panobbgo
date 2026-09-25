@@ -135,41 +135,11 @@ References
 
 from __future__ import annotations
 
-import multiprocessing
 from typing import Any, Optional
 
 import numpy as np
 
-from panobbgo.core import PipeBridgeHeuristic
-
-
-def _make_pipe_objective(pipe: Any):
-    """Build an objective callable that round-trips ``x`` / ``f(x)`` over a pipe.
-
-    Mirrors :func:`panobbgo.heuristics.cobyqa._make_pipe_objective`.  The
-    callable raises ``SystemExit`` on a closed pipe so the worker can shut
-    down cleanly when the parent terminates it.
-    """
-
-    def f(x: np.ndarray) -> float:
-        pipe.send(np.asarray(x, dtype=float))
-        try:
-            fx = pipe.recv()
-        except (EOFError, OSError):
-            raise SystemExit(0)
-        if fx is None or not np.isfinite(fx):
-            return float("inf")
-        return float(fx)
-
-    return f
-
-
-def _safe_send(output: Any, payload: Any) -> None:
-    """Send ``payload`` over the result pipe, swallowing parent-side teardowns."""
-    try:
-        output.send(payload)
-    except Exception:
-        pass
+from panobbgo.core import PipeBridgeHeuristic, pipe_objective, safe_send, terminate_process
 
 
 # A large per-start evaluation cap; the strategy budget (which terminates the
@@ -301,11 +271,11 @@ class LBFGSB(PipeBridgeHeuristic):
 
     def _box_bounds(self) -> list:
         """Return the feasible box as a list of ``(low, high)`` tuples."""
-        return [tuple(row) for row in self.problem.box.box]
+        return self._bridge_box_bounds()
 
     def _box_center(self, bounds: list) -> np.ndarray:
         """Midpoint of every box axis — the deterministic first start point."""
-        return np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
+        return self._bridge_x0(None, bounds)
 
     def _respawn_seed(self, restart_index: int) -> int:
         """Worker seed for the worker spawned for restart ``restart_index``.
@@ -324,25 +294,16 @@ class LBFGSB(PipeBridgeHeuristic):
 
     def _spawn(self, x0_first: np.ndarray, bounds: list) -> None:
         """Launch a fresh worker subprocess starting from ``x0_first``."""
-        ctx = multiprocessing.get_context("spawn")
-        self.p1, self.p2 = ctx.Pipe()
-        self.out1, self.out2 = ctx.Pipe(False)
-
         lb = np.asarray([b[0] for b in bounds], dtype=float)
         ub = np.asarray([b[1] for b in bounds], dtype=float)
-
-        worker_seed = self._respawn_seed(self._restart_index)
-
-        self.lbfgsb = ctx.Process(
-            target=self.worker,
-            args=(
-                self.p2,
-                self.out2,
+        self.lbfgsb = self._bridge_spawn(
+            self.worker,
+            (
                 np.asarray(x0_first, dtype=float),
                 bounds,
                 lb,
                 ub,
-                worker_seed,
+                self._respawn_seed(self._restart_index),
                 self.max_starts,
                 self.maxfun,
                 self.epsilon,
@@ -350,8 +311,6 @@ class LBFGSB(PipeBridgeHeuristic):
             ),
             name=f"{self.name}-LBFGS",
         )
-        self.lbfgsb.daemon = True
-        self.lbfgsb.start()
 
     def __start__(self) -> None:
         try:
@@ -390,7 +349,7 @@ class LBFGSB(PipeBridgeHeuristic):
         """
         from scipy.optimize import fmin_l_bfgs_b
 
-        f = _make_pipe_objective(pipe)
+        f = pipe_objective(pipe)
         rng = np.random.default_rng(seed)
         kwargs: dict = {"bounds": bounds, "approx_grad": True}
         if maxfun is not None:
@@ -427,7 +386,7 @@ class LBFGSB(PipeBridgeHeuristic):
                 starts += 1
         except SystemExit:
             return
-        _safe_send(output, {"done": starts})
+        safe_send(output, {"done": starts})
 
     # ------------------------------------------------------------------
     # The pull bridge (see panobbgo.core.PipeBridgeHeuristic)
@@ -487,11 +446,7 @@ class LBFGSB(PipeBridgeHeuristic):
 
     def __stop__(self) -> None:
         super(LBFGSB, self).__stop__()
-        if self.lbfgsb is not None and self.lbfgsb.is_alive():
-            self.lbfgsb.terminate()
-            self.lbfgsb.join(timeout=1.0)
-            if self.lbfgsb.is_alive():
-                self.lbfgsb.kill()
+        terminate_process(self.lbfgsb)
 
     def on_restart(self, center, reason: str = "") -> None:
         """Relaunch the subprocess warm-started at ``center``.
@@ -511,21 +466,6 @@ class LBFGSB(PipeBridgeHeuristic):
 
     def _bridge_respawn(self, center) -> None:
         """Terminate the current worker and spawn a new one at ``center``."""
-        try:
-            if self.lbfgsb is not None and self.lbfgsb.is_alive():
-                self.lbfgsb.terminate()
-                self.lbfgsb.join(timeout=1.0)
-                if self.lbfgsb.is_alive():
-                    self.lbfgsb.kill()
-        except Exception as exc:
-            self.logger.debug(f"LBFGSB: subprocess teardown on restart failed: {exc}")
-
+        self._bridge_stop_worker()
         bounds = self._box_bounds()
-        if center is None:
-            x0 = self._box_center(bounds)
-        else:
-            center = np.asarray(center, dtype=float)
-            lo = np.asarray([b[0] for b in bounds], dtype=float)
-            hi = np.asarray([b[1] for b in bounds], dtype=float)
-            x0 = np.clip(center, lo, hi)
-        self._spawn(x0, bounds)
+        self._spawn(self._bridge_x0(center, bounds), bounds)

@@ -98,34 +98,11 @@ References
 
 from __future__ import annotations
 
-import multiprocessing
 from typing import Any, Optional
 
 import numpy as np
 
-from panobbgo.core import PipeBridgeHeuristic
-
-
-def _make_pipe_objective(pipe: Any):
-    """Build an objective callable that round-trips ``x`` / ``f(x)`` over a pipe.
-
-    Extracted from :meth:`COBYQA.worker` to keep the subprocess entry
-    point's cyclomatic complexity small.  The callable raises
-    ``SystemExit`` on a closed pipe so the worker can shut down
-    cleanly when the parent terminates it.
-    """
-
-    def f(x: np.ndarray) -> float:
-        pipe.send(x)
-        try:
-            fx = pipe.recv()
-        except (EOFError, OSError):
-            raise SystemExit(0)
-        if fx is None or not np.isfinite(fx):
-            return float("inf")
-        return float(fx)
-
-    return f
+from panobbgo.core import PipeBridgeHeuristic, pipe_objective, safe_send, terminate_process
 
 
 def _build_cobyqa_options(
@@ -143,15 +120,6 @@ def _build_cobyqa_options(
     if maxfev is not None:
         options["maxfev"] = maxfev
     return options
-
-
-def _safe_send(output: Any, payload: Any) -> None:
-    """Send ``payload`` over the result pipe, swallowing parent-side teardowns."""
-    try:
-        output.send(payload)
-    except Exception:
-        # Parent already terminated us; nothing to report.
-        pass
 
 
 # Sensible defaults: ``1e-6`` is the COBYQA library default for final TR
@@ -267,32 +235,24 @@ class COBYQA(PipeBridgeHeuristic):
         # so COBYQA does not declare success on the first step.
         return max(radius, 10.0 * self.final_tr_radius)
 
+    def _spawn(self, x0: np.ndarray) -> None:
+        """Launch a fresh worker subprocess starting from ``x0``."""
+        self.cobyqa = self._bridge_spawn(
+            self.worker,
+            (
+                x0,
+                self._bridge_box_bounds(),
+                self._resolve_initial_tr(self.problem.box.box),
+                self.final_tr_radius,
+                self.maxfev,
+                self.scale,
+            ),
+            name=f"{self.name}-COBYQA",
+        )
+
     def __start__(self) -> None:
         try:
-            ctx = multiprocessing.get_context("spawn")
-            self.p1, self.p2 = ctx.Pipe()
-            self.out1, self.out2 = ctx.Pipe(False)
-
-            bounds = [tuple(row) for row in self.problem.box.box]
-            x0 = np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
-            initial_tr = self._resolve_initial_tr(self.problem.box.box)
-
-            self.cobyqa = ctx.Process(
-                target=self.worker,
-                args=(
-                    self.p2,
-                    self.out2,
-                    x0,
-                    bounds,
-                    initial_tr,
-                    self.final_tr_radius,
-                    self.maxfev,
-                    self.scale,
-                ),
-                name=f"{self.name}-COBYQA",
-            )
-            self.cobyqa.daemon = True
-            self.cobyqa.start()
+            self._spawn(self._bridge_x0(None, self._bridge_box_bounds()))
         except Exception as e:
             raise RuntimeError(
                 f"Failed to start COBYQA subprocess for heuristic '{self.name}'. "
@@ -315,16 +275,16 @@ class COBYQA(PipeBridgeHeuristic):
         """Subprocess entry point: drive scipy's COBYQA via pipe-based f(x)."""
         from scipy.optimize import minimize
 
-        f = _make_pipe_objective(pipe)
+        f = pipe_objective(pipe)
         options = _build_cobyqa_options(initial_tr_radius, final_tr_radius, maxfev, scale)
         try:
             solution = minimize(f, x0, method="COBYQA", bounds=bounds, options=options)
         except SystemExit:
             return
         except Exception as exc:
-            _safe_send(output, {"error": repr(exc)})
+            safe_send(output, {"error": repr(exc)})
             return
-        _safe_send(output, solution)
+        safe_send(output, solution)
 
     def _bridge_process(self) -> Any:
         """The worker process, for :class:`~panobbgo.core.PipeBridgeHeuristic`.
@@ -336,11 +296,7 @@ class COBYQA(PipeBridgeHeuristic):
 
     def __stop__(self) -> None:
         super(COBYQA, self).__stop__()
-        if self.cobyqa is not None and self.cobyqa.is_alive():
-            self.cobyqa.terminate()
-            self.cobyqa.join(timeout=1.0)
-            if self.cobyqa.is_alive():
-                self.cobyqa.kill()
+        terminate_process(self.cobyqa)
 
     def on_restart(self, center, reason) -> None:
         """Restart the subprocess around ``center``.
@@ -359,47 +315,6 @@ class COBYQA(PipeBridgeHeuristic):
         self._request_restart(center)
 
     def _bridge_respawn(self, center) -> None:
-        """Terminate the current worker and spawn a new one at ``center``."""
-        try:
-            if self.cobyqa is not None and self.cobyqa.is_alive():
-                self.cobyqa.terminate()
-                self.cobyqa.join(timeout=1.0)
-                if self.cobyqa.is_alive():
-                    self.cobyqa.kill()
-        except Exception as exc:
-            self.logger.debug(f"COBYQA: subprocess teardown on restart failed: {exc}")
-
-        ctx = multiprocessing.get_context("spawn")
-        self.p1, self.p2 = ctx.Pipe()
-        self.out1, self.out2 = ctx.Pipe(False)
-
-        bounds = [tuple(row) for row in self.problem.box.box]
-        if center is None:
-            x0 = np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
-        else:
-            # Clip the suggested center into the box — the strategy
-            # may emit a center sitting on the boundary, and COBYQA
-            # tolerates equality but not strict violation.
-            center = np.asarray(center, dtype=float)
-            lo = np.asarray([b[0] for b in bounds], dtype=float)
-            hi = np.asarray([b[1] for b in bounds], dtype=float)
-            x0 = np.clip(center, lo, hi)
-
-        initial_tr = self._resolve_initial_tr(self.problem.box.box)
-
-        self.cobyqa = ctx.Process(
-            target=self.worker,
-            args=(
-                self.p2,
-                self.out2,
-                x0,
-                bounds,
-                initial_tr,
-                self.final_tr_radius,
-                self.maxfev,
-                self.scale,
-            ),
-            name=f"{self.name}-COBYQA",
-        )
-        self.cobyqa.daemon = True
-        self.cobyqa.start()
+        """Terminate the current worker and spawn a new one at ``center`` (clipped into the box)."""
+        self._bridge_stop_worker()
+        self._spawn(self._bridge_x0(center, self._bridge_box_bounds()))

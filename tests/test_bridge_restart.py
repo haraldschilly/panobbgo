@@ -138,7 +138,7 @@ class LBFGSBWorkerSeedTests(PanobbgoTestCase):
     def _seeds(self, seed, restarts=(1, 2)):
         h = LBFGSB(self.init_strategy(), seed=seed)
         ctx = _FakeCtx()
-        with mock.patch("panobbgo.heuristics.lbfgsb.multiprocessing.get_context", return_value=ctx):
+        with mock.patch("panobbgo.core.multiprocessing.get_context", return_value=ctx):
             h.__start__()
             for n in restarts:
                 h._restart_index = n

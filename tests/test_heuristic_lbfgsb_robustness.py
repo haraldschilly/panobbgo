@@ -26,7 +26,8 @@ from unittest import mock
 
 import numpy as np
 
-from panobbgo.heuristics.lbfgsb import LBFGSB, _make_pipe_objective
+from panobbgo.core import pipe_objective
+from panobbgo.heuristics.lbfgsb import LBFGSB
 from tests.support import PanobbgoTestCase
 
 
@@ -51,15 +52,15 @@ class _RecordingPipe:
 
 class PipeObjectiveTests(PanobbgoTestCase):
     def test_non_finite_reply_becomes_inf(self):
-        f = _make_pipe_objective(_RecordingPipe([float("nan")]))
+        f = pipe_objective(_RecordingPipe([float("nan")]))
         assert f(np.array([0.0, 0.0])) == float("inf")
 
     def test_none_reply_becomes_inf(self):
-        f = _make_pipe_objective(_RecordingPipe([None]))
+        f = pipe_objective(_RecordingPipe([None]))
         assert f(np.array([0.0, 0.0])) == float("inf")
 
     def test_closed_pipe_raises_systemexit(self):
-        f = _make_pipe_objective(_RecordingPipe([]))  # recv -> EOFError
+        f = pipe_objective(_RecordingPipe([]))  # recv -> EOFError
         try:
             f(np.array([0.0, 0.0]))
             assert False, "expected SystemExit"
@@ -67,7 +68,7 @@ class PipeObjectiveTests(PanobbgoTestCase):
             pass
 
     def test_finite_reply_passthrough(self):
-        f = _make_pipe_objective(_RecordingPipe([2.5]))
+        f = pipe_objective(_RecordingPipe([2.5]))
         assert f(np.array([0.0, 0.0])) == 2.5
 
 

@@ -1039,6 +1039,46 @@ class Heuristic(Module):
         return bool(bus.is_subscribed(self)) if bus is not None else True
 
 
+def pipe_objective(pipe: Any) -> Callable[[np.ndarray], float]:
+    """Worker side of a :class:`PipeBridgeHeuristic`: ``f(x)`` as a pipe round trip.
+
+    Sends ``x`` (as a float array), blocks for the value and maps ``None`` or
+    a non-finite value to ``inf``.  A closed pipe raises ``SystemExit`` so the
+    worker shuts down cleanly when the parent terminates it.
+    """
+
+    def f(x: np.ndarray) -> float:
+        pipe.send(np.asarray(x, dtype=float))
+        try:
+            fx = pipe.recv()
+        except (EOFError, OSError):
+            raise SystemExit(0)
+        if fx is None or not np.isfinite(fx):
+            return float("inf")
+        return float(fx)
+
+    return f
+
+
+def safe_send(output: Any, payload: Any) -> None:
+    """Worker side: send ``payload`` over the status pipe, ignoring a parent that already went away."""
+    try:
+        output.send(payload)
+    except Exception:
+        pass
+
+
+def terminate_process(proc: Any, timeout: float = 1.0) -> None:
+    """Terminate a worker process if it is alive; kill it if it ignores that."""
+    if proc is None or not proc.is_alive():
+        return
+    proc.terminate()
+    proc.join(timeout)
+    if proc.is_alive():
+        proc.kill()
+        proc.join(timeout)
+
+
 class HeuristicSubprocess(Heuristic):
     r"""
     This Heuristic is a subclass of :class:`.Heuristic`, which is additionally starting
@@ -1228,7 +1268,7 @@ class PipeBridgeHeuristic(Heuristic):
         """Hand the value of our outstanding point back to the worker.
 
         The default is a bare float, which is what
-        :func:`panobbgo.heuristics.lbfgsb._make_pipe_objective` expects.  A
+        :func:`panobbgo.core.pipe_objective` expects.  A
         worker with a tagged protocol wraps it here.
         """
         self.p1.send(fx)
@@ -1254,6 +1294,48 @@ class PipeBridgeHeuristic(Heuristic):
         afterwards.  Only arms that restart need to implement it.
         """
         raise NotImplementedError
+
+    # -- worker plumbing shared by the subclasses ---------------------------
+
+    def _bridge_spawn(self, target: Callable[..., None], args: Tuple[Any, ...], name: str) -> Any:
+        """Create fresh pipes and start ``target(p2, out2, *args)`` in a ``"spawn"`` subprocess.
+
+        Binds ``p1``/``p2`` (request pipe) and ``out1``/``out2`` (status
+        pipe, one-way) and returns the started daemon process; the subclass
+        keeps it and returns it from :meth:`_bridge_process`.  ``"spawn"``,
+        not ``fork``: forking a multi-threaded process can deadlock.
+        """
+        ctx = multiprocessing.get_context("spawn")
+        self.p1, self.p2 = ctx.Pipe()
+        self.out1, self.out2 = ctx.Pipe(False)
+        proc = ctx.Process(target=target, args=(self.p2, self.out2) + tuple(args), name=name)
+        proc.daemon = True
+        proc.start()
+        return proc
+
+    def _bridge_stop_worker(self) -> None:
+        """Terminate the current worker before a respawn; a failed teardown is only logged."""
+        try:
+            terminate_process(self._bridge_process())
+        except Exception as exc:
+            self.logger.debug("%s: subprocess teardown on restart failed: %s" % (self.name, exc))
+
+    def _bridge_box_bounds(self) -> List[Tuple[float, float]]:
+        """The feasible box as a list of ``(low, high)`` tuples (SciPy's ``bounds``)."""
+        return [tuple(row) for row in self.problem.box.box]
+
+    @staticmethod
+    def _bridge_x0(center: Any, bounds: List[Tuple[float, float]]) -> np.ndarray:
+        """Start point of a (re)spawned worker: ``center`` clipped into the box, else the box centre.
+
+        Clipped because a restart centre may sit on or past the boundary,
+        which the solvers tolerate only as equality.
+        """
+        if center is None:
+            return np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
+        lo = np.asarray([b[0] for b in bounds], dtype=float)
+        hi = np.asarray([b[1] for b in bounds], dtype=float)
+        return np.clip(np.asarray(center, dtype=float), lo, hi)
 
     def _request_restart(self, center: Any) -> None:
         """Record a restart; safe to call from an event handler.

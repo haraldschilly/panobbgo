@@ -19,7 +19,34 @@ from __future__ import unicode_literals
 import numpy as np
 
 from panobbgo.core import StrategyBase
-from panobbgo.strategies._bandit import collect_pulls, discount_factor, near_best_rewards, rewarding_select
+from panobbgo.strategies._bandit import (
+    collect_pulls,
+    discount_factor,
+    ema_credit,
+    ema_discount,
+    ema_select,
+    init_rewarding,
+    near_best_rewards,
+    rewarding_select,
+)
+
+
+#: Credit-assignment modes of :class:`StrategyRewarding`.
+REWARDING_CREDITS = ("legacy", "ema")
+
+
+def rewarding_params(config, credit=None, explore=None):
+    """``(credit, explore)`` of a Rewarding policy: the arguments, else the config, else ``"ema"`` / 0.2.
+
+    Shared by :class:`StrategyRewarding` and a Rewarding phase of
+    :class:`~.phased.StrategyPhased`, so both resolve the same defaults.
+    Raises ``ValueError`` for an unknown *credit*.
+    """
+    credit = str(credit if credit is not None else getattr(config, "rewarding_credit", "ema"))
+    if credit not in REWARDING_CREDITS:
+        raise ValueError("credit must be 'legacy' or 'ema', got %r" % credit)
+    explore = float(explore if explore is not None else getattr(config, "rewarding_explore", 0.2))
+    return credit, explore
 
 
 class StrategyRewarding(StrategyBase):
@@ -58,23 +85,15 @@ class StrategyRewarding(StrategyBase):
     def __init__(self, problem, credit=None, explore=None, **kwargs):
         self.last_best = None
         StrategyBase.__init__(self, problem, **kwargs)
-        self.credit = str(credit if credit is not None else getattr(self.config, "rewarding_credit", "legacy"))
-        if self.credit not in ("legacy", "ema"):
-            raise ValueError("credit must be 'legacy' or 'ema', got %r" % self.credit)
-        self.explore = float(explore if explore is not None else getattr(self.config, "rewarding_explore", 0.1))
+        self.credit, self.explore = rewarding_params(self.config, credit, explore)
         self._ema_alpha = 1.0 - self._discount_factor()
 
     def _discount_factor(self):
-        try:
-            d = float(self.config.discount)
-        except (ValueError, TypeError):
-            d = 0.95
-        return d if 0.0 < d < 1.0 else 0.95
+        return ema_discount(self.config.discount)
 
     def add_heuristic(self, h):
         StrategyBase.add_heuristic(self, h)
-        h.performance = 1.0
-        h.n_evals = 0
+        init_rewarding(h)
 
     def discount(self, heur, discount=None, times=1):
         """
@@ -148,23 +167,7 @@ class StrategyRewarding(StrategyBase):
 
     def _credit_ema(self, results):
         """Update each emitter's EMA reward-per-evaluation with this batch."""
-        a = self._ema_alpha
-        for r in results:
-            try:
-                h = self.heuristic(r.who)
-            except KeyError:
-                continue
-            if self.last_best is None:
-                reward = 1.0
-                self.last_best = r
-            elif self.constraint_handler.is_better(self.last_best, r):
-                improvement = self.constraint_handler.calculate_improvement(self.last_best, r)
-                reward = max(0.0, 1.0 - float(np.exp(-improvement)))
-                self.last_best = r
-            else:
-                reward = 0.0
-            h.n_evals += 1
-            h.performance = (1.0 - a) * h.performance + a * reward
+        self.last_best = ema_credit(self.constraint_handler, self.heuristic, self.last_best, results, self._ema_alpha)
 
     def execute(self):
         try:
@@ -182,17 +185,4 @@ class StrategyRewarding(StrategyBase):
 
     def _select_ema(self, heurs, target):
         """Probability matching with an exploration floor over heuristics that have points."""
-        ready = [h for h in heurs if h.can_produce]
-        if not ready:
-            return []
-        perf = np.array([max(0.0, float(h.performance)) for h in ready])
-        n = len(ready)
-        if perf.sum() <= 0.0:
-            probs = np.full(n, 1.0 / n)
-        else:
-            probs = (1.0 - self.explore) * perf / perf.sum() + self.explore / n
-        batch = []
-        for h, p in zip(ready, probs):
-            nb_h = max(1, int(round(target * p)))
-            batch.extend(h.produce(nb_h))
-        return batch
+        return ema_select(heurs, target, self.explore)

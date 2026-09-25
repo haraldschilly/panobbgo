@@ -40,10 +40,11 @@ A block closes when it has spent ``block_evals`` evaluations **and** the
 owner's output queue ran empty on the last draw (``has_points`` is
 ``False``), with a hard cap of ``2 * block_evals``.  That single rule is
 what keeps a generation from ever being cut in half — the defect
-``StrategyPhased`` has at its phase edges (``phased.py:556``).  ``n_blocks
-= 50`` keeps the number of *decisions* constant across dimension and
-budget and coincides with the synchronous main-loop batch
-``max_eval / 50`` (``core.py:1616``).
+``StrategyPhased`` has at its phase edges (``StrategyPhased.execute`` cuts
+the batch at the phase budget).  ``n_blocks = 50`` keeps the number of
+*decisions* constant across dimension and budget and coincides with the
+synchronous main-loop batch ``max_eval / 50`` (``jobs_per_client`` in
+``StrategyBase``).
 
 The budget form is not the *right* parametrisation, though.  The
 block-length screen (``planning/DISCOVERY_2026-09-09.md`` §26) found an
@@ -56,8 +57,10 @@ generations pay that toll too often; much longer ones stop being decisions.
 ``block_evals="auto"`` therefore sizes a block as **four reference
 generations**, ``max(2*dim, 4*lambda_ref)``, where ``lambda_ref`` is the
 largest generation size the arms report (``_lam`` on CMA-ES, ``NP_init`` /
-the current NP on the DE family, ``NP`` on PSO) and 20 when none of them
-does.  ``n_blocks`` remains the default until the screen says otherwise.
+the current NP on the DE family, ``NP`` on PSO) and
+:attr:`~StrategyBlockBandit.LAMBDA_REF_DEFAULT` = 5 (a 20-evaluation block)
+when none of them does.  ``n_blocks`` remains the default until the
+screen says otherwise.
 
 Reward: AOCC area per evaluation, in decades
 --------------------------------------------

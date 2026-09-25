@@ -279,9 +279,10 @@ def test_rosenbrock_modified_function():
     global_min_point = Point([-1.0, -1.0], "global_min")
     result = problem(global_min_point)
     print(f"Rosenbrock Modified at global minimum {global_min_point.x} -> f(x) = {result.fx}")
-    # Note: The paper claims f(-1,-1) = 0, but calculation gives ~78.
-    # This might be a paper error or different formulation. Accept the computed value.
-    assert isinstance(result.fx, (int, float)), "Function should return numeric value"
+    # The survey's f(-1,-1) = 0 is wrong for this formula: it is 78, and the
+    # global minimum is ~34.04 near (-0.9096, -0.9506) (RosenbrockModified.x_opt).
+    assert result.fx == pytest.approx(78.0)
+    assert problem.eval(np.array(problem.x_opt)) == pytest.approx(problem.f_opt)
 
     # Test another point (1, 1) - the paper mentions this has a local minimum due to the Gaussian
     local_min_point = Point([1.0, 1.0], "local_min")

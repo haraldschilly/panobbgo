@@ -227,8 +227,9 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
                 global_min = 0.0
                 global_opt = np.array([420.9687, 420.9687]) + shift
             elif problem_name == "RosenbrockModified":
-                global_min = 0.0
-                global_opt = np.array([-1.0, -1.0]) + shift
+                # Not f(-1, -1) = 0 (that point is 78): see RosenbrockModified.x_opt / f_opt.
+                global_min = RosenbrockModified.f_opt
+                global_opt = np.array(RosenbrockModified.x_opt) + shift
             elif (
                 problem_name == "Ackley"
                 or problem_name == "Rastrigin"
@@ -274,8 +275,8 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
         if problem_name == "HelicalValley":
             global_opt = np.array([1.0, 0.0, 0.0])
         elif problem_name == "Box":
-            # Box has multiple solutions typically or specific ones based on m
-            pass
+            # One of several minimisers (a line x1 = x2, x3 = 0; also (1, 10, 1)).
+            global_opt = np.array(Box.x_opt)
 
         case = BenchmarkCase(
             problem_name=problem_name,

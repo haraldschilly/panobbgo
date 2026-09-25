@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,22 @@ Classic Problems
 This file contains the basic objects to build a problem and to do a single evaluation.
 
 .. inheritance-diagram:: panobbgo_lib.classic
+
+Known optima
+------------
+A problem whose global minimum is known declares it as ``x_opt`` (a point
+in the default box) and ``f_opt`` (the value there) — class attributes for
+fixed-dimension problems, properties where they depend on ``dim``.  A
+problem constructed with a non-default ``box`` or parameters may not keep
+them; they describe the defaults.  ``tests/test_classic_optima.py`` checks
+``f(x_opt) == f_opt`` for every declaration and runs a DE search that must
+not beat ``f_opt``.
+
+References
+----------
+.. [JY13] M. Jamil, X.-S. Yang, *A literature survey of benchmark functions
+   for global optimization problems*, Int. J. Mathematical Modelling and
+   Numerical Optimisation 4(2), 150-194 (2013). DOI: 10.1504/IJMMNO.2013.055204
 
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
@@ -73,6 +89,12 @@ class Rosenbrock(Problem):
 
     >>> problem = Rosenbrock(optimum=[24, -12], box=[(-100, 100), (-100, 100)])
     """
+
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.asarray(self.optimum, dtype=np.float64)
 
     def __init__(
         self,
@@ -217,6 +239,12 @@ class RosenbrockAbs(Problem):
 
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.ones(self.dim)
+
     def __init__(self, dims: int, par1: float = 100, **kwargs: Any):
         box = [(-5.0, 5.0)] * dims
         box[0] = (0, 2)  # for cornercases + testing
@@ -264,18 +292,28 @@ class RosenbrockStochastic(Problem):
        f(x) = \sum_i (\mathit{par}_1 \mathit{eps}_i (x_{i+1} - x_i^2)^2 + (1-x_i)^2)
 
     where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
-    vector in :math:`\left[0, 1\right)^{n-1}`.
+    vector in :math:`\left[0, \mathit{jitter}\right)^{n-1}`, drawn from the
+    instance's own generator (``seed``; it used numpy's global state).
+    Since :math:`\mathit{eps} \geq 0`, the minimum is 0 at
+    :math:`(1, \dots, 1)` for every draw.
     """
 
-    def __init__(self, dims: int, par1: float = 100, jitter: float = 0.1, **kwargs: Any):
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.ones(self.dim)
+
+    def __init__(self, dims: int, par1: float = 100, jitter: float = 0.1, seed: Optional[int] = None, **kwargs: Any):
         box = [(-5.0, 5.0)] * dims
         box[0] = (-1, 2)  # for cornercases + testing
         self.par1 = par1
         self.jitter = jitter
+        self._rng = np.random.default_rng(seed)
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        eps = self.jitter * np.random.rand(self.dim - 1)
+        eps = self.jitter * self._rng.random(self.dim - 1)
         ret = sum(self.par1 * eps * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
         return ret
 
@@ -288,6 +326,10 @@ class Himmelblau(Problem):
 
       f(x,y) = (x^2+y-11)^2 + (x+y^2-7)^2
     """
+
+    #: One of the four global minima (all have f = 0).
+    x_opt = (3.0, 2.0)
+    f_opt = 0.0
 
     def __init__(self, **kwargs: Any):
         Problem.__init__(self, [(-5.0, 5.0)] * 2, **kwargs)
@@ -306,6 +348,12 @@ class Rastrigin(Problem):
       f(x) = \mathit{par}_1 \cdot n + \sum_i (x_i^2 - 10 \cos(2 \pi x_i) )
 
     """
+
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.full(self.dim, float(self.offset))
 
     def __init__(
         self,
@@ -344,6 +392,12 @@ class Ackley(Problem):
     .. [Ackley] https://en.wikipedia.org/wiki/Ackley_function
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * dims
         Problem.__init__(self, box, **kwargs)
@@ -378,6 +432,12 @@ class Griewank(Problem):
     .. [Griewank] https://en.wikipedia.org/wiki/Griewank_function
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-600.0, 600.0)] * dims  # Common bounds for Griewank
         Problem.__init__(self, box, **kwargs)
@@ -411,6 +471,17 @@ class StyblinskiTang(Problem):
     .. [StyblinskiTang] https://en.wikipedia.org/wiki/Styblinski%E2%80%93Tang_function
     """
 
+    #: Root of 4x^3 - 32x + 5 = 0 near -2.9 (the per-coordinate minimiser).
+    _X1 = -2.903534027771178
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.full(self.dim, self._X1)
+
+    @property
+    def f_opt(self) -> float:
+        return 0.5 * self.dim * (self._X1**4 - 16 * self._X1**2 + 5 * self._X1)
+
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * dims
         Problem.__init__(self, box, **kwargs)
@@ -442,6 +513,18 @@ class Schwefel(Problem):
     .. [Schwefel] https://en.wikipedia.org/wiki/Schwefel_function
     """
 
+    #: With the rounded constant 418.9829 the minimum is ~1.3e-5 per
+    #: dimension above 0 — f_opt is the value, not the rounded label.
+    _X1 = 420.968746
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.full(self.dim, self._X1)
+
+    @property
+    def f_opt(self) -> float:
+        return float(self.dim * (418.9829 - self._X1 * np.sin(np.sqrt(self._X1))))
+
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-500.0, 500.0)] * dims  # Common bounds for Schwefel
         Problem.__init__(self, box, **kwargs)
@@ -466,7 +549,7 @@ class DixonPrice(Problem):
     The function creates a valley that becomes increasingly narrow as the dimension increases,
     making it difficult for optimization algorithms to follow the valley to the minimum.
 
-    Global minimum: :math:`f(2^{(\frac{2^i-2}{2^i})}, \dots, 2^{(\frac{2^D-2}{2^D})}) = 0`
+    Global minimum: :math:`f(x^*) = 0` at :math:`x^*_i = 2^{-\frac{2^i-2}{2^i}}`, :math:`i = 1, \dots, D`
 
     References
     ----------
@@ -476,6 +559,13 @@ class DixonPrice(Problem):
                     Vol.~4, No.~2, pp. 150--194 (2013).
                     DOI: 10.1504/IJMMNO.2013.055204
     """
+
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        i = np.arange(1, self.dim + 1, dtype=np.float64)
+        return 2.0 ** (-(2.0**i - 2.0) / 2.0**i)
 
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-10.0, 10.0)] * dims
@@ -516,6 +606,12 @@ class Zakharov(Problem):
                    Vol.~4, No.~2, pp. 150--194 (2013).
                    DOI: 10.1504/IJMMNO.2013.055204
     """
+
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
 
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 10.0)] * dims
@@ -559,6 +655,12 @@ class Salomon(Problem):
                  DOI: 10.1504/IJMMNO.2013.055204
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-100.0, 100.0)] * dims
         Problem.__init__(self, box, **kwargs)
@@ -577,7 +679,9 @@ class Sargan(Problem):
 
     .. math::
 
-      f(\mathbf{x}) = \sum_{i=1}^D \left(x_i^2 + 0.4 \sum_{j \neq i} x_i x_j\right)
+      f(\mathbf{x}) = \sum_{i=1}^D D \left(x_i^2 + 0.4 \sum_{j \neq i} x_i x_j\right)
+
+    (Jamil & Yang [JY13]_ no. 107 — the factor :math:`D` was missing.)
 
     Global minimum: :math:`f(0, \dots, 0) = 0`
 
@@ -590,6 +694,12 @@ class Sargan(Problem):
                 DOI: 10.1504/IJMMNO.2013.055204
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims, box=None, **kwargs):
         box = box or [(-100, 100)] * dims
         Problem.__init__(self, box, **kwargs)
@@ -600,7 +710,7 @@ class Sargan(Problem):
         # sum_{j!=i} x_i x_j = x_i * (sum(x) - x_i)
 
         sum_x = np.sum(x)
-        return np.sum(x**2 + 0.4 * x * (sum_x - x))
+        return self.dim * np.sum(x**2 + 0.4 * x * (sum_x - x))
 
 
 class RosenbrockModified(Problem):
@@ -614,10 +724,13 @@ class RosenbrockModified(Problem):
 
       f(\mathbf{x}) = 74 + 100(x_2 - x_1^2)^2 + (1 - x_1)^2 - 400 \exp\left(-\frac{(x_1 + 1)^2 + (x_2 + 1)^2}{0.1}\right)
 
-    The Gaussian term creates a local minimum at (1,1) while the global minimum remains at (-1,-1).
-    This makes the function difficult to optimize because the local minimum has a larger basin of attraction.
+    The Gaussian bump centred at :math:`(-1, -1)` digs the global minimum
+    :math:`f \approx 34.0402` at :math:`(-0.90955, -0.95057)` (not
+    :math:`f(-1,-1) = 0`: :math:`f(-1,-1) = 78`); the Rosenbrock valley keeps a
+    local minimum :math:`f(1,1) = 74` with the far larger basin of attraction.
+    Computed numerically (Nelder-Mead from Jamil & Yang's approximate location).
 
-    Global minimum: :math:`f(-1,-1) = 0`
+    Global minimum: :math:`f(-0.90955374, -0.95057171) \approx 34.0402431`
 
     References
     ----------
@@ -627,6 +740,9 @@ class RosenbrockModified(Problem):
                             Vol.~4, No.~2, pp. 150--194 (2013).
                             DOI: 10.1504/IJMMNO.2013.055204
     """
+
+    x_opt = (-0.90955374, -0.95057171)
+    f_opt = 34.04024310664056
 
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-2.0, 2.0), (-2.0, 2.0)]
@@ -662,6 +778,9 @@ class RotatedEllipse(Problem):
                         DOI: 10.1504/IJMMNO.2013.055204
     """
 
+    x_opt = (0.0, 0.0)
+    f_opt = 0.0
+
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-500.0, 500.0), (-500.0, 500.0)]
         Problem.__init__(self, box, **kwargs)
@@ -696,6 +815,9 @@ class RotatedEllipse2(Problem):
                          DOI: 10.1504/IJMMNO.2013.055204
     """
 
+    x_opt = (0.0, 0.0)
+    f_opt = 0.0
+
     def __init__(self, box=None, **kwargs):
         box = box or [(-500, 500), (-500, 500)]
         Problem.__init__(self, box, **kwargs)
@@ -729,6 +851,9 @@ class Ripple1(Problem):
                  Vol.~4, No.~2, pp. 150--194 (2013).
                  DOI: 10.1504/IJMMNO.2013.055204
     """
+
+    x_opt = (0.1, 0.1)
+    f_opt = -2.2
 
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(0.0, 1.0), (0.0, 1.0)]
@@ -769,6 +894,9 @@ class Ripple25(Problem):
                   Vol.~4, No.~2, pp. 150--194 (2013).
                   DOI: 10.1504/IJMMNO.2013.055204
     """
+
+    x_opt = (0.1, 0.1)
+    f_opt = -2.0
 
     def __init__(self, box=None, **kwargs):
         box = box or [(0, 1), (0, 1)]
@@ -869,6 +997,12 @@ class DeJong(Problem):
     with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims: int, c: float = 1, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * dims
         self.c = c
@@ -889,6 +1023,12 @@ class Quadruple(Problem):
     with defaults :math:`c = 1` and :math:`dx = \vec{0}`.
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims: int, c: float = 1, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-10.0, 10.0)] * dims
         self.c = c
@@ -900,48 +1040,57 @@ class Quadruple(Problem):
 
 class Powell(Problem):
     r"""
-    Powell singular function [UncTest]_
+    Powell singular function, Moré-Garbow-Hillstrom [UncTest]_ no. 13
 
     .. math::
         P(x) = (x_1 + 10 x_2)^2 +
                5 (x_3 - x_4)^2 +
-               ((x_2 + 2 x_3)^2)^2 +
-               10 ((x_1 - x_4)^2)^2
+               (x_2 - 2 x_3)^4 +
+               10 (x_1 - x_4)^4
+
+    Global minimum: :math:`P(0, 0, 0, 0) = 0` (singular Hessian there).
     """
+
+    x_opt = (0.0, 0.0, 0.0, 0.0)
+    f_opt = 0.0
 
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-10.0, 10.0)] * 4
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        f = (x[0] + 10 * x[1]) ** 2 + 5 * (x[2] - x[3]) ** 2 + ((x[1] - 2 * x[2]) ** 2) ** 2 + 10 * (x[0] - x[3]) ** 2
-        return f
+        return (x[0] + 10 * x[1]) ** 2 + 5 * (x[2] - x[3]) ** 2 + (x[1] - 2 * x[2]) ** 4 + 10 * (x[0] - x[3]) ** 4
 
 
 class Trigonometric(Problem):
     r"""
-    Trigonometric function [UncTest]_
+    Trigonometric function, Moré-Garbow-Hillstrom [UncTest]_ no. 26
 
     .. math::
 
-        f_i(x) = n - \sum_{j=1}^{n} \cos x_j  + i (1-\cos x_i)-\sin x_i
+        f_i(x) = n - \sum_{j=1}^{n} \cos x_j  + i (1-\cos x_i)-\sin x_i, \quad i = 1, \dots, n
 
-        f(x, n) = \sum_{i=1}^{m} f_i^2
+        f(x, n) = \sum_{i=1}^{n} f_i^2
 
-    with :math:`n = m`.
+    (``i`` is 1-based and is not multiplied by ``n``.)  Global minimum
+    :math:`f(0) = 0`.
     """
+
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
 
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-1.0, 1.0)] * dims
         Problem.__init__(self, box, **kwargs)
-        self.indices = np.arange(dims, dtype=np.float64)
+        self.indices = np.arange(1, dims + 1, dtype=np.float64)
 
     def eval(self, x):
         n = self.dim
         cos_x = np.cos(x)
-        sum_cos_x = np.sum(cos_x)
-        tmp = self.indices * (1 - cos_x) - np.sin(x)
-        fi = n - sum_cos_x + n * tmp
+        fi = n - np.sum(cos_x) + self.indices * (1 - cos_x) - np.sin(x)
         return np.sum(fi**2)
 
 
@@ -954,6 +1103,12 @@ class SumDifferentPower(Problem):
         F(x) = \sum_{i=1}^n |x_i|^{i+1}
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
+
     def __init__(self, dims: int, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * dims
         Problem.__init__(self, box, **kwargs)
@@ -964,37 +1119,51 @@ class SumDifferentPower(Problem):
 
 class Step(Problem):
     r"""
-    Step function [CompStudy]_
+    Step function [CompStudy]_ (Step 2 in Jamil & Yang [JY13]_)
 
-    .. :math:
+    .. math::
 
-        F(x) = \sum_{i=1}^n |x_i + 0.5|^2
+        F(x) = \sum_{i=1}^n \lfloor x_i + 0.5 \rfloor^2
+
+    Piecewise constant (the floor was missing, which made it a smooth
+    sphere); minimum 0 on :math:`[-0.5, 0.5)^n`.
     """
+
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        return np.zeros(self.dim)
 
     def __init__(self, dims, box=None, **kwargs):
         box = box or [(-5, 5)] * dims
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        return np.sum(np.abs(x + 0.5) ** 2)
+        return np.sum(np.floor(x + 0.5) ** 2)
 
 
 class Box(Problem):
     r"""
-    Box function [UncTest]_
+    Box three-dimensional function, Moré-Garbow-Hillstrom [UncTest]_ no. 12
 
-    .. :math:
+    .. math::
 
-        F(x) = \sum_{i=1}^m \left(e^{-t_i x_1} - e^{-t_i x_2} - x_3(e^{-t_i} - e^{-10 t_i}\right)^2
+        F(x) = \sum_{i=1}^m \left(e^{-t_i x_1} - e^{-t_i x_2} - x_3(e^{-t_i} - e^{-10 t_i})\right)^2,
+        \quad t_i = i / 10
 
-        \text{where}
-
-        t_i = i / 10
+    Global minimum 0 at :math:`(1, 10, 1)`, :math:`(10, 1, -1)` and on the
+    line :math:`x_1 = x_2, x_3 = 0`.  (The first exponent had the wrong
+    sign, and ``m = 1`` left the problem under-determined.)
     """
 
-    def __init__(self, m: int = 1, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
+    #: On the degenerate line of minimisers; (1, 10, 1) is outside the default box.
+    x_opt = (1.0, 1.0, 0.0)
+    f_opt = 0.0
+
+    def __init__(self, m: int = 10, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         """
-        :param int m: positive integer (default 1)
+        :param int m: number of residuals, ``m >= 3`` (default 10, as in [UncTest]_)
         """
         box = box or [(-5.0, 5.0)] * 3
         self.m = m
@@ -1004,22 +1173,30 @@ class Box(Problem):
         ret = 0.0
         for i in range(1, self.m + 1):
             ti = i / 10.0
-            tmp = np.exp(ti * x[0]) - np.exp(-ti * x[1]) - x[2] * (np.exp(-ti) - np.exp(-10 * ti))
+            tmp = np.exp(-ti * x[0]) - np.exp(-ti * x[1]) - x[2] * (np.exp(-ti) - np.exp(-10 * ti))
             ret += tmp**2
         return ret
 
 
 class Wood(Problem):
     r"""
-    Wood function [UncTest]_
+    Wood function, Moré-Garbow-Hillstrom [UncTest]_ no. 14
 
-     .. math::
+    .. math::
 
         F(x) = 100 (x_2 - x_1^2)^2 + (1-x_1)^2 +
             90 (x_4-x_3^2)^2 + (1-x_3)^2 +
-            10 (x_2 + x_4 - 2)^2 + 10 (x_2-x_4)^2
+            10 (x_2 + x_4 - 2)^2 + 0.1 (x_2-x_4)^2
 
+    the sum of squares of MGH's residuals :math:`10(x_2 - x_1^2)`,
+    :math:`1 - x_1`, :math:`\sqrt{90}(x_4 - x_3^2)`, :math:`1 - x_3`,
+    :math:`\sqrt{10}(x_2 + x_4 - 2)`, :math:`10^{-1/2}(x_2 - x_4)`.  (The
+    implementation had lost the squares and was unbounded below.)  Global
+    minimum :math:`F(1, 1, 1, 1) = 0`.
     """
+
+    x_opt = (1.0, 1.0, 1.0, 1.0)
+    f_opt = 0.0
 
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * 4
@@ -1027,12 +1204,12 @@ class Wood(Problem):
 
     def eval(self, x):
         return (
-            10 * (x[1] - x[0] ** 2)
+            100 * (x[1] - x[0] ** 2) ** 2
             + (1 - x[0]) ** 2
-            + 90 * (x[3] - x[2] ** 2)
+            + 90 * (x[3] - x[2] ** 2) ** 2
             + (1 - x[2]) ** 2
             + 10 * (x[1] + x[3] - 2) ** 2
-            + 10 * (x[1] - x[3])
+            + 0.1 * (x[1] - x[3]) ** 2
         )
 
 
@@ -1056,6 +1233,9 @@ class HelicalValley(Problem):
             \end{cases}
 
     """
+
+    x_opt = (1.0, 0.0, 0.0)
+    f_opt = 0.0
 
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * 3
@@ -1090,6 +1270,9 @@ class Beale(Problem):
         y_1 = 1.5, \, y_2 = 2.25, \, y_3 = 2.625
     """
 
+    x_opt = (3.0, 0.5)
+    f_opt = 0.0
+
     def __init__(self, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         box = box or [(-5.0, 5.0)] * 2
         Problem.__init__(self, box, **kwargs)
@@ -1116,21 +1299,32 @@ class NesterovQuadratic(Problem):
         A: Any = None,
         b: Any = None,
         nonsmooth: bool = True,
+        seed: Optional[int] = None,
         **kwargs: Any,
     ):
         r"""
+        :param int dim: dimension when neither ``A`` nor ``b`` is given
+            (default: ``len(box)``, else 2) — it used to be ignored
         :param boolean nonsmooth: add the nonsmooth :math:`\lVert x\rVert_1` part (default: True)
+        :param int seed: seed for the random ``A`` / ``b`` that are not
+            given (they came from numpy's global state)
         """
         self.nonsmooth = nonsmooth
-        if A is None and b is None:
-            dim_val = 2
-            A = np.random.randn(dim_val, dim_val)
-            b = np.random.randn(dim_val)
-        else:
-            assert b is not None, "b must be provided if A is provided"
+        if dim is None and "dims" in kwargs:
+            dim = kwargs.pop("dims")
+        rng = np.random.default_rng(seed)
+        if b is not None:
+            b = np.asarray(b, dtype=np.float64)
             dim_val = int(b.shape[0])
-            if A is None:
-                A = np.random.randn(dim_val, dim_val)
+        elif A is not None:
+            A = np.asarray(A, dtype=np.float64)
+            dim_val = int(A.shape[0])
+        else:
+            dim_val = int(dim) if dim is not None else (len(box) if box else 2)
+        if A is None:
+            A = rng.standard_normal((dim_val, dim_val))
+        if b is None:
+            b = rng.standard_normal(dim_val)
         box = box or [(-5.0, 5.0)] * dim_val
         self.A, self.b = A, b
         Problem.__init__(self, box, **kwargs)
@@ -1150,6 +1344,14 @@ class Arwhead(Problem):
         F(x) = \sum_{i=1}^{n-1} \left( (x_i^2 + x_n^2)^2 - 4 x_i + 3 \right)
     """
 
+    f_opt = 0.0
+
+    @property
+    def x_opt(self) -> np.ndarray:
+        x = np.ones(self.dim)
+        x[-1] = 0.0
+        return x
+
     def __init__(self, dim: Optional[int] = None, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
         if dim is None:
             dim = len(box) if box else 3
@@ -1168,7 +1370,14 @@ class Branin(Problem):
         F(X) = a(x_2 - b x_1^2 + c x_1 - r)^2 + s(1-t) \cos(x_1) + s
 
         a = 1,\,b = 5.1 ⁄ (4 π^2),\, c = 5 ⁄ π,\, r = 6,\, s = 10 and t = 1 ⁄ (8π)
+
+    Global minimum :math:`5/(4\pi) \approx 0.397887` at :math:`(-\pi, 12.275)`,
+    :math:`(\pi, 2.275)` and :math:`(3\pi, 2.475)`.  (The default ``t`` was
+    1, which cancels the cosine term.)
     """
+
+    x_opt = (np.pi, 2.275)
+    f_opt = 5.0 / (4.0 * np.pi)
 
     def __init__(
         self,
@@ -1177,7 +1386,7 @@ class Branin(Problem):
         c: float = 5 / np.pi,
         r: float = 6,
         s: float = 10,
-        t: float = 1,
+        t: float = 1 / (8 * np.pi),
         **kwargs: Any,
     ):
         box = [(-5.0, 10.0), (0.0, 15.0)]
@@ -1205,6 +1414,9 @@ class GoldsteinPrice(Problem):
         f(x,y) = \left(1+\left(x+y+1\right)^{2}\left(19-14x+3x^{2}-14y+6xy+3y^{2}\right)\right)
                  \left(30+\left(2x-3y\right)^{2}\left(18-32x+12x^{2}+48y-36xy+27y^{2}\right)\right)
     """
+
+    x_opt = (0.0, -1.0)
+    f_opt = 3.0
 
     def __init__(self, **kwargs: Any):
         box = [(-2.0, 2.0), (-2.0, 2.0)]

@@ -258,17 +258,20 @@ class BoundingBox:
         dx: Optional[np.ndarray] = None,
         immutable: bool = True,
     ) -> None:
-        self.box: np.ndarray = np.asarray(box, dtype=np.float64)
+        # A copy: the caller's array is neither shifted nor frozen.
+        self.box: np.ndarray = np.array(box, dtype=np.float64)
         assert self.box.shape[1] == 2, "converting box to n x 2 array failed"
 
         if dx is not None:
-            self.box += dx
+            # dx[i] shifts both bounds of dimension i (a bare ``+= dx`` broadcast
+            # along the *columns*: lower bounds by dx[0], upper by dx[1]).
+            self.box += np.asarray(dx, dtype=np.float64).reshape(-1, 1)
 
         self.ranges: np.ndarray = np.ptp(self.box, axis=1)  # type: ignore # self._box[:,1] - self._box[:,0]
         self.center: np.ndarray = self.box[:, 0] + self.ranges / 2.0
 
         if immutable:
-            for arr in [self.box, dx, self.ranges, self.center]:
+            for arr in [self.box, self.ranges, self.center]:
                 if arr is not None:
                     try:
                         arr.setflags(write=False)  # type: ignore
@@ -309,8 +312,13 @@ class Problem:
         r"""
         :param list box: list of tuples for the bounding box with length n,
                           e.g.: :math:`\left[ (-1,1), (-100, 0), (0, 0.01) \right]`.
-        :param list dx: translational offset which also affects the box,
-                   n-dimensional vector (default: None)
+        :param list dx: translation of the whole problem, an n-dimensional
+                   vector (default: None).  The search box becomes
+                   ``box + dx`` and the objective is evaluated at ``x - dx``,
+                   i.e. the problem seen by the optimiser is
+                   :math:`g(x) = f(x - dx)` and a minimiser :math:`x^*` of
+                   :math:`f` moves to :math:`x^* + dx`.  Every point the
+                   objective sees lies in the original ``box``.
         """
         assert isinstance(box, (list, tuple)), "box argument must be a list or tuple"
 
@@ -429,11 +437,11 @@ class Problem:
         """
         x = np.asarray(self.center, dtype=np.float64)
         if self.dx is not None:
-            x = x + self.dx
+            x = x - self.dx
         return self.eval_constraints(x) is not None
 
     def __call__(self, point: Point) -> Result:
-        x = point.x + self.dx if self.dx is not None and point.x is not None else point.x
+        x = point.x - self.dx if self.dx is not None and point.x is not None else point.x
         if x is None:
             raise ValueError("Point coordinates cannot be None during evaluation")
         fx = self.eval(x)

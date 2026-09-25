@@ -87,7 +87,7 @@ class LogTransformProblem(ProblemWrapper):
         super().__init__(problem)
 
     def __call__(self, point):
-        x = point.x + self.dx if self.dx is not None else point.x
+        x = point.x - self.dx if self.dx is not None else point.x
         fx = self._wrapped.eval(x)
         cv = self._wrapped.eval_constraints(x)
         fx_transformed = np.log1p(fx - self.offset)

@@ -77,11 +77,13 @@ class Lib(unittest.TestCase):
         assert np.allclose(rbrk.ranges, [2.0, 4.0, 4.0, 4.0])
 
         # with dx
+        # dx translates the problem once: box + dx, minimiser (1, 1) + dx.
         rbrk = Rosenbrock(2, dx=[2.41, 3.14])
-        assert np.allclose(rbrk.box.box, [[2.41, 5.14], [0.41, 5.14]])
+        assert np.allclose(rbrk.box.box, [[2.41, 4.41], [1.14, 5.14]])
         p2 = Point([1.0, 1.0], "nose")
-        assert rbrk(p2).fx > 5000.0
-        p = Point([-1.41, -2.14], "nose")
+        assert rbrk(p2).fx > 1000.0
+        p = Point([3.41, 4.14], "nose")
+        assert p in rbrk.box
         assert np.isclose(rbrk(p).fx, 0.0)
 
         # Test random_point uniform (default)
@@ -107,7 +109,31 @@ class Lib(unittest.TestCase):
         assert "Problem 'Rosenbrock': 2 dims, params: " in r
         assert "'par1': 100" in r
         assert "'dx': array([2.41, 3.14])" in r
-        assert "box: [[2.41 5.14], [0.41 5.14]]" in r
+        assert "box: [[2.41 4.41], [1.14 5.14]]" in r
+
+    def test_problem_dx_shifts_once_and_copies(self):
+        """dx used to shift the box by +dx *and* evaluate at x + dx, and mutated the caller's box."""
+        from panobbgo.lib.lib import BoundingBox
+
+        seen = []
+
+        class Rec(Rosenbrock):
+            def eval(self, x):
+                seen.append(np.array(x))
+                return super().eval(x)
+
+        dx = np.array([10.0, -20.0])
+        prob = Rec(2, dx=dx)
+        orig = Rosenbrock(2).box.box
+        for _ in range(20):
+            prob(Point(prob.random_point(rng=np.random.default_rng(_)), "t"))
+        for x in seen:
+            assert np.all(x >= orig[:, 0]) and np.all(x <= orig[:, 1])
+        assert np.array_equal(dx, [10.0, -20.0]) and dx.flags.writeable
+
+        box = np.array([[0.0, 1.0], [2.0, 3.0]])
+        BoundingBox(box, dx=np.array([5.0, 5.0]))
+        assert np.array_equal(box, [[0.0, 1.0], [2.0, 3.0]]) and box.flags.writeable
 
     @expected_failure(ValueError, "assignment destination is read-only")
     def test_problem_dx_assign(self):

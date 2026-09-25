@@ -584,8 +584,9 @@ def test_warm_start_none_equals_omitted(name: str) -> None:
 #: ``NLSHADE_RSP`` and ``NLSHADE_LBC`` lived here until commit ``4d58531``:
 #: ``LSHADE._warm_start_population`` called ``self._archive_cap()`` one line
 #: *before* the ``if not pool: return False`` bail-out, and the RSP override
-#: of that method draws from ``self._rng`` (``adaptive_archive=True`` by
-#: default), so merely setting ``warm_start=`` consumed an RNG draw even when
+#: of that method then drew from ``self._rng`` (the randomised archive cap,
+#: removed 2026-09 for the paper's fixed ``2.1·NP``), so merely setting
+#: ``warm_start=`` consumed an RNG draw even when
 #: the warm start was abandoned and shifted the entire initial population --
 #: which made every paired "warm vs cold" A/B on those two arms a comparison
 #: of two different RNG streams (the ``DISCOVERY`` §18 failure mode).

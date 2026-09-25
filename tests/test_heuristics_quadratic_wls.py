@@ -4,10 +4,14 @@ import unittest.mock as mock
 import numpy as np
 import time
 
-from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
+from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel, rank_weights
 
 
 class TestQuadraticWLSModel(unittest.TestCase):
+    def test_rank_weights_favour_the_nearest_point(self):
+        """Regression: argsort indices were used as ranks, so [5, 1, 3] weighted the farthest point 1."""
+        np.testing.assert_allclose(rank_weights(np.array([5.0, 1.0, 3.0])), [1 / 3, 1.0, 1 / 2])
+
     def test_subprocess_loop(self):
         pipe_mock = mock.MagicMock()
 

@@ -19,6 +19,17 @@ from functools import reduce
 import operator
 
 
+def rank_weights(distances):
+    """WLS weights ``1 / (1 + rank)``: the nearest point gets 1, the next 1/2, ...
+
+    ``rank`` is each point's position when sorted by distance (ties keep
+    input order).  ``np.argsort`` alone gives the *indices* in sorted order,
+    not ranks, and used as ranks it weights the points arbitrarily.
+    """
+    ranks = np.argsort(np.argsort(distances, kind="stable"), kind="stable")
+    return 1.0 / (1 + ranks)
+
+
 class QuadraticWlsModel(HeuristicSubprocess):
     """
     This heuristic uses an quadratic OLS model to find an approximate new best point
@@ -80,7 +91,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
                 # Optimized distance calculation using axis parameter instead of apply_along_axis
                 distances = np.linalg.norm(points - best_point, axis=1)
-                weights = 1.0 / (1 + np.argsort(distances))
+                weights = rank_weights(distances)
 
                 model = sm.WLS(y, X, weights=weights)  # type: ignore
                 result = model.fit()

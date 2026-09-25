@@ -245,6 +245,34 @@ class Splitter(Analyzer):
         # ``new_biggest_*`` events had no consumer and were dropped: they cost
         # O(depth) memory per result and an O(#leafs) scan per split.
         self.result2leaf = {}
+        # The root's coordinates as a matrix, row ``i`` = ``root.results[i]``
+        # (capacity doubling), so :meth:`_results_in` is one vectorised mask.
+        self._X = np.empty((64, self.dim), dtype=float)
+        self._nX = 0
+
+    def _record_x(self, x):
+        """Append one root arrival's coordinates to :attr:`_X`."""
+        n = self._nX
+        if n < 0:  # out of sync (a hand-made root list); rebuilt on demand
+            return
+        row = np.asarray(x, dtype=float)
+        if row.shape != (self._X.shape[1],):
+            self._nX = -1
+            return
+        if n == self._X.shape[0]:
+            grown = np.empty((2 * n, self._X.shape[1]), dtype=float)
+            grown[:n] = self._X
+            self._X = grown
+        self._X[n] = row
+        self._nX = n + 1
+
+    def _root_coords(self, pool):
+        """:attr:`_X` for ``pool`` (the root's list), rebuilt if it fell out of sync."""
+        n = len(pool)
+        if self._nX != n:
+            xs = np.vstack([np.asarray(r.x, dtype=float) for r in pool])
+            self._X, self._nX = xs, n
+        return self._X[:n]
 
     def _replace_leaf(self, parent, children):
         """``parent`` stopped being a leaf; ``children`` became ones."""
@@ -265,16 +293,18 @@ class Splitter(Analyzer):
         those of its parent's that its box contains", and a child's box lies
         inside its parent's, so filtering the root's list by ``contains``
         reproduces the dropped list element for element, in the same order.
-        O(n) — only for the rare reader of a box that has been split since it
-        was handed out (e.g. a ``best_box`` delivered after the next split).
+        One vectorised mask over the root's coordinate matrix (kept as the
+        results arrive) plus O(k) for the ``k`` results returned — readers of
+        a split box (``NelderMead`` walking ``best_box.parent``, a late
+        ``best_box``) call this once per best-box event.
         """
         pool = self.root.results
         if not pool:
             return []
         box_array = box.box.box if hasattr(box.box, "box") else np.asarray(box.box)
-        xs = np.vstack([np.asarray(r.x, dtype=float) for r in pool])
+        xs = self._root_coords(pool)
         inside = ((box_array[:, 0] <= xs) & (box_array[:, 1] >= xs)).all(axis=1)
-        return [r for r, keep in zip(pool, inside) if keep]
+        return [pool[i] for i in np.flatnonzero(inside)]
 
     def get_box(self, point):
         """
@@ -456,6 +486,8 @@ class Splitter(Analyzer):
             self.best = None  # best point
             # ``None`` once a non-root box is split: see :attr:`results`.
             self._results = []
+            #: Number of results registered here (kept when the list is dropped).
+            self._n = 0
             self.children = []
             self.split_dim = None
             # The coordinate of the cut along ``split_dim`` (set by
@@ -479,7 +511,7 @@ class Splitter(Analyzer):
 
             A leaf and the root hold their list; any other box drops it when
             it is split and recomputes it on demand
-            (:meth:`Splitter._results_in`, O(n)).
+            (:meth:`Splitter._results_in`).  ``len(box)`` never rebuilds it.
             """
             res = self._results
             if res is not None:
@@ -489,6 +521,7 @@ class Splitter(Analyzer):
         @results.setter
         def results(self, value):
             self._results = value
+            self._n = len(value)
 
         @property
         def leaf(self):
@@ -568,6 +601,9 @@ class Splitter(Analyzer):
             results = self._results
             if results is not None:
                 results.append(result)
+            self._n += 1
+            if self.parent is None and self is getattr(self.splitter, "root", None):
+                self.splitter._record_x(result.x)
 
             if leaf:
                 # Only a leaf is ever split, so only a leaf needs the running
@@ -814,7 +850,10 @@ class Splitter(Analyzer):
             return self
 
         def __len__(self):
-            return len(self.results)
+            # O(1): a split box does not rebuild its list to be counted (this
+            # is also the box's truthiness and part of its ``repr``).
+            res = self._results
+            return len(res) if res is not None else self._n
 
         def _split_point(self, dim):
             """Where to cut along ``dim``.

@@ -190,9 +190,26 @@ class TestSplitterCoverage(PanobbgoTestCase):
             self.assertEqual([id(r) for r in b.results], [id(r) for r in expected])
             if b.parent is not None and not b.leaf:
                 self.assertIsNone(b._results)
+            self.assertEqual(len(b), len(expected))
         for r in results:
             leaf = splitter.get_leaf(r)
             self.assertTrue(leaf.leaf and leaf.contains(r.x))
+
+        # ``len``/truthiness/``repr`` of a split box never rebuild its list.
+        calls = []
+        orig = splitter._results_in
+        splitter._results_in = lambda box: calls.append(box) or orig(box)
+        for b in interior:
+            self.assertTrue(len(b) > 0 and bool(b) and "Box-" in repr(b))
+        self.assertEqual(calls, [])
+
+        # A root list edited by hand (tests do) is detected and the
+        # coordinate matrix rebuilt.
+        extra = Result(Point(lo + 0.5 * rg, "p"), 0.0)
+        splitter.root.results.append(extra)
+        b = interior[0]
+        want = [r for r in splitter.root.results if b.contains(r.x)]
+        self.assertEqual([id(r) for r in orig(b)], [id(r) for r in want])
 
     def test_splitter_on_new_split_update_branches(self):
         splitter = Splitter(self.strategy)

@@ -22,8 +22,11 @@ class TestPanobbgoLogger:
 
         root = logging.getLogger("panobbgo")
         saved_handlers, saved_level = root.handlers[:], root.level
+        real_root = logging.getLogger()
+        saved_root_handlers = real_root.handlers[:]
         try:
             root.handlers.clear()
+            real_root.handlers.clear()  # pytest's capture handlers would count as a user setup
             root.setLevel(logging.NOTSET)
             PanobbgoLogger()
             PanobbgoLogger()
@@ -39,6 +42,31 @@ class TestPanobbgoLogger:
         finally:
             root.handlers[:] = saved_handlers
             root.setLevel(saved_level)
+            real_root.handlers[:] = saved_root_handlers
+
+    def test_no_default_handler_when_the_application_configured_logging(self):
+        """Regression: a configured root logger got a second stderr handler and a WARNING cap."""
+        import logging
+
+        lib = logging.getLogger("panobbgo")
+        real_root = logging.getLogger()
+        saved = lib.handlers[:], lib.level, real_root.handlers[:], real_root.level
+        try:
+            lib.handlers.clear()
+            lib.setLevel(logging.NOTSET)
+            stream = StringIO()
+            real_root.handlers[:] = [logging.StreamHandler(stream)]
+            real_root.setLevel(logging.INFO)
+            PanobbgoLogger()
+            assert lib.handlers == []
+            assert lib.level == logging.NOTSET
+            logging.getLogger("panobbgo.test").info("hello once")
+            assert stream.getvalue().count("hello once") == 1
+        finally:
+            lib.handlers[:] = saved[0]
+            lib.setLevel(saved[1])
+            real_root.handlers[:] = saved[2]
+            real_root.setLevel(saved[3])
 
 
 class TestProgressReporter:

@@ -33,18 +33,26 @@ class PanobbgoLogger:
         """Give the ``panobbgo`` logger a stderr handler at WARNING, once per process.
 
         Every strategy builds a :class:`PanobbgoLogger`, so this must be
-        idempotent and must not undo the caller's own setup: it does nothing
-        when the ``panobbgo`` logger already has a handler (ours or the
-        user's), and it only sets the level when none was configured.
+        idempotent and must not undo the caller's own setup.  It does nothing
+        when the ``panobbgo`` logger **or the root logger** already has a
+        handler: an application that configured logging (e.g.
+        ``logging.basicConfig(level=logging.INFO)``) before building a
+        strategy keeps full control — no second stderr handler that would
+        print every warning twice, and no WARNING level on ``panobbgo`` that
+        would swallow its INFO records.  Only an unconfigured process gets
+        the fallback handler, and the level is set only when none was.
+        Logging configured *after* the first strategy was built still sees
+        the fallback handler; remove it with
+        ``logging.getLogger("panobbgo").handlers.clear()``.
         """
-        root_logger = logging.getLogger("panobbgo")
-        if root_logger.handlers:
+        lib_logger = logging.getLogger("panobbgo")
+        if lib_logger.handlers or logging.getLogger().handlers:
             return
         handler = logging.StreamHandler(sys.stderr)
         handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
-        root_logger.addHandler(handler)
-        if root_logger.level == logging.NOTSET:
-            root_logger.setLevel(logging.WARNING)  # Default to quiet
+        lib_logger.addHandler(handler)
+        if lib_logger.level == logging.NOTSET:
+            lib_logger.setLevel(logging.WARNING)  # Default to quiet
 
     def _load_config(self):
         """Load logging configuration."""

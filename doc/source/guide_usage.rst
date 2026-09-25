@@ -2060,6 +2060,15 @@ Logging
    import logging
    logging.getLogger('panobbgo').setLevel(logging.DEBUG)
 
+Handlers.  Panobbgo only installs its own fallback handler (stderr, level
+``WARNING`` on the ``panobbgo`` logger) when neither the ``panobbgo`` logger
+nor the root logger has a handler at the moment the first strategy is built.
+An application that configures logging first — e.g.
+``logging.basicConfig(level=logging.INFO)`` — gets panobbgo's records through
+its own handlers exactly once, at its own level.  If you configure logging
+only *after* building a strategy, drop the fallback with
+``logging.getLogger('panobbgo').handlers.clear()``.
+
 Persistent Storage & Resuming
 -----------------------------
 

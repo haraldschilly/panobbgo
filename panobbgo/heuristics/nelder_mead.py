@@ -144,8 +144,8 @@ class NelderMead(Heuristic):
             diff = worst_val - v
             weights.append(np.log1p(abs(diff)))
 
-        if not weights or np.sum(weights) < 1e-4:
-            weights = None  # fall back to normal average
+        if not weights or not np.all(np.isfinite(weights)) or np.sum(weights) < 1e-4:
+            weights = None  # fall back to normal average (also for an infinite penalty)
 
         # Calculate centroid of other points
         centroid = np.average(others_x, axis=0, weights=weights)

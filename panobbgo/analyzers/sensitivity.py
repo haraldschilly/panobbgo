@@ -105,6 +105,8 @@ class Sensitivity(Analyzer):
                 y_val = handler.get_penalty_value(r)
             else:
                 y_val = r.fx
+            if not np.isfinite(y_val):
+                continue  # e.g. a NaN constraint: cv (and the penalty) is inf
             new_X.append(r.x)
             new_y.append(y_val)
             new_keys.append(result_key(handler, r))

@@ -89,6 +89,8 @@ class ConstraintGradient(Heuristic):
         """
         x = best.x
         dim = self.problem.dim
+        if best.cv is not None and not np.isfinite(best.cv):
+            return  # unknown violation (a NaN constraint): no gradient to estimate from it
 
         # Collect candidate points from history for gradient estimation
         results_container = self.strategy.results
@@ -145,8 +147,14 @@ class ConstraintGradient(Heuristic):
         diffs = X_candidates - x
         dists = np.linalg.norm(diffs, axis=1)
 
-        # Exclude the point itself (dist <= 1e-9) to identify neighbors
+        # Exclude the point itself (dist <= 1e-9) to identify neighbors, and
+        # neighbors with an unknown (NaN -> inf) violation.
         mask = dists > 1e-9
+        mask &= np.isfinite(np.asarray(cv_candidates, dtype=float))
+        if cv_vec_candidates is not None:
+            cvv = np.asarray(cv_vec_candidates, dtype=float)
+            if cvv.ndim == 2 and cvv.shape[0] == len(mask):
+                mask &= np.all(np.isfinite(cvv), axis=1)
 
         valid_dists = dists[mask]
         valid_X = X_candidates[mask]

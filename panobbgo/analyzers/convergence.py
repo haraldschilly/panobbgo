@@ -111,7 +111,7 @@ class Convergence(Analyzer):
             # Check relative improvement in CV
             start_cv = cv_values[0]
             end_cv = cv_values[-1]
-            if start_cv > 1e-6:
+            if np.isfinite(start_cv) and np.isfinite(end_cv) and start_cv > 1e-6:
                 cv_improv = (start_cv - end_cv) / start_cv
                 if cv_improv > self.threshold:
                     # Significant CV improvement, reset/delay convergence

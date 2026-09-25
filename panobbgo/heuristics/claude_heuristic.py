@@ -111,9 +111,12 @@ class ClaudeHeuristic(Heuristic):
         new_X = []
         new_y = []
         for r in results:
-            if r.fx is not None and np.isfinite(r.fx):
+            if r.fx is None or not np.isfinite(r.fx):
+                continue
+            y = get_val(r)
+            if np.isfinite(y):  # an infinite penalty (e.g. a NaN constraint) would poison the fit
                 new_X.append(r.x)
-                new_y.append(get_val(r))
+                new_y.append(y)
 
         if not new_X:
             return False

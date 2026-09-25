@@ -246,6 +246,20 @@ def test_alm_nan_constraint_is_infeasible():
     assert published[-1]["candidates"][0].fx == 5.0
 
 
+def test_default_reward_is_finite_for_unknown_violation():
+    """``Result.cv`` is ``inf`` for a NaN constraint; the default handler's reward
+    stays finite and positive (``calculate_improvement`` maps an infinite
+    magnitude to 1.0) — pinned by the cv audit of 2026-09."""
+    h = DefaultConstraintHandler(strategy=mock.MagicMock(results=[]))
+    unknown = Result(Point(np.zeros(2), "t"), 1.0, cv_vec=np.array([np.nan]))
+    feasible = _r(5.0, 0.0)
+    infeasible = _r(5.0, 2.0)
+    assert h.is_better(unknown, feasible) and h.is_better(unknown, infeasible)
+    for new in (feasible, infeasible):
+        imp = h.calculate_improvement(unknown, new)
+        assert np.isfinite(imp) and imp > 0
+
+
 def test_time_invariance_flags():
     assert DefaultConstraintHandler.time_invariant
     assert PenaltyConstraintHandler.time_invariant

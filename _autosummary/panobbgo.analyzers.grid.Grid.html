@@ -138,7 +138,10 @@ data-aria-dark="Switch to auto color mode">
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.grid.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid" title="Link to this definition">#</a></dt>
-<dd><p>packs nearby points into grid boxes</p>
+<dd><p>Packs nearby points into grid boxes.</p>
+<p>Experimental: not installed by default, since no heuristic reads it
+(until 2026-09 it was, and stored every result for nothing).  Add it with
+<code class="docutils literal notranslate"><span class="pre">strategy.add_analyzer(Grid(strategy))</span></code> to use <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.grid.Grid.in_same_grid" title="panobbgo.analyzers.grid.Grid.in_same_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_same_grid()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

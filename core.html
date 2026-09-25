@@ -133,6 +133,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.on_demand"><code class="docutils literal notranslate"><span class="pre">Heuristic.on_demand</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.performance"><code class="docutils literal notranslate"><span class="pre">Heuristic.performance</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.produce"><code class="docutils literal notranslate"><span class="pre">Heuristic.produce()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Heuristic.required_analyzers"><code class="docutils literal notranslate"><span class="pre">Heuristic.required_analyzers()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Heuristic.warm_start_now"><code class="docutils literal notranslate"><span class="pre">Heuristic.warm_start_now()</span></code></a></li>
 </ul>
 </li>
@@ -147,6 +148,8 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.Module.eventbus"><code class="docutils literal notranslate"><span class="pre">Module.eventbus</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.name"><code class="docutils literal notranslate"><span class="pre">Module.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.problem"><code class="docutils literal notranslate"><span class="pre">Module.problem</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Module.required_analyzers"><code class="docutils literal notranslate"><span class="pre">Module.required_analyzers()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.Module.requires_analyzers"><code class="docutils literal notranslate"><span class="pre">Module.requires_analyzers</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.results"><code class="docutils literal notranslate"><span class="pre">Module.results</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.rng"><code class="docutils literal notranslate"><span class="pre">Module.rng</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Module.spawn_thread"><code class="docutils literal notranslate"><span class="pre">Module.spawn_thread()</span></code></a></li>
@@ -197,7 +200,9 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.initialize"><code class="docutils literal notranslate"><span class="pre">StrategyBase.initialize()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.record_walltime"><code class="docutils literal notranslate"><span class="pre">StrategyBase.record_walltime()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.request_stop"><code class="docutils literal notranslate"><span class="pre">StrategyBase.request_stop()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.requires_analyzers"><code class="docutils literal notranslate"><span class="pre">StrategyBase.requires_analyzers</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.rng"><code class="docutils literal notranslate"><span class="pre">StrategyBase.rng</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.seed"><code class="docutils literal notranslate"><span class="pre">StrategyBase.seed</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng"><code class="docutils literal notranslate"><span class="pre">StrategyBase.spawn_rng()</span></code></a></li>
@@ -648,6 +653,16 @@ whether the run reports a wedged worker.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Heuristic.required_analyzers">
+<span class="sig-name descname"><span class="pre">required_analyzers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.required_analyzers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.required_analyzers" title="Link to this definition">#</a></dt>
+<dd><p>Also the <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> when this heuristic warm-starts.</p>
+<p><a class="reference internal" href="#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> reads <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> leaves for <code class="docutils literal notranslate"><span class="pre">&quot;archive_leaf&quot;</span></code>
+and falls back to the <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> root without an <code class="docutils literal notranslate"><span class="pre">Archive</span></code>; a
+<code class="docutils literal notranslate"><span class="pre">warm_start_box</span></code> is a <code class="docutils literal notranslate"><span class="pre">Splitter</span></code> box.  Every heuristic with a
+warm start stores its mode in <code class="docutils literal notranslate"><span class="pre">self.warm_start</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.Heuristic.warm_start_now">
 <span class="sig-name descname"><span class="pre">warm_start_now</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Heuristic.warm_start_now"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Heuristic.warm_start_now" title="Link to this definition">#</a></dt>
 <dd><p>Re-seed this heuristic from the shared archive, right now.</p>
@@ -747,6 +762,23 @@ parameterized heuristics or analyzers!</p>
 <dt class="sig sig-object py" id="panobbgo.core.Module.problem">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">problem</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><span class="pre">Problem</span></a></span><a class="headerlink" href="#panobbgo.core.Module.problem" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.Module.required_analyzers">
+<span class="sig-name descname"><span class="pre">required_analyzers</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#Module.required_analyzers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Module.required_analyzers" title="Link to this definition">#</a></dt>
+<dd><p>Analyzer names this instance needs; defaults to <a class="reference internal" href="#panobbgo.core.Module.requires_analyzers" title="panobbgo.core.Module.requires_analyzers"><code class="xref py py-attr docutils literal notranslate"><span class="pre">requires_analyzers</span></code></a>.</p>
+<p>Override when the need depends on constructor arguments.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.Module.requires_analyzers">
+<span class="sig-name descname"><span class="pre">requires_analyzers</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">()</span></span><a class="headerlink" href="#panobbgo.core.Module.requires_analyzers" title="Link to this definition">#</a></dt>
+<dd><p>Names of the analyzers this module reads (<code class="docutils literal notranslate"><span class="pre">strategy.analyzer(name)</span></code>)
+or whose events it subscribes to, e.g. <code class="docutils literal notranslate"><span class="pre">(&quot;Splitter&quot;,)</span></code>.
+<a class="reference internal" href="#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase.initialize()</span></code></a> installs a default analyzer that is
+only needed on demand (the <code class="docutils literal notranslate"><span class="pre">Splitter</span></code>) exactly when some module
+declares it here; see <a class="reference internal" href="#panobbgo.core.Module.required_analyzers" title="panobbgo.core.Module.required_analyzers"><code class="xref py py-meth docutils literal notranslate"><span class="pre">required_analyzers()</span></code></a>.</p>
+</dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.Module.results">
@@ -1077,8 +1109,9 @@ given maximum number of search points evaluated.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.avg_time_per_task">
-<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">avg_time_per_task</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.avg_time_per_task" title="Link to this definition">#</a></dt>
-<dd><p>average time per task</p>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">avg_time_per_task</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#panobbgo.core.StrategyBase.avg_time_per_task" title="Link to this definition">#</a></dt>
+<dd><p>average walltime per finished task, <code class="docutils literal notranslate"><span class="pre">NaN</span></code> before the first one.</p>
+<p>O(1): a running count and sum, since the main loop reads it every pass.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>return float</p>
@@ -1161,12 +1194,24 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.record_walltime">
+<span class="sig-name descname"><span class="pre">record_walltime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seconds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.record_walltime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.record_walltime" title="Link to this definition">#</a></dt>
+<dd><p>Book the walltime of one finished task (for <a class="reference internal" href="#panobbgo.core.StrategyBase.avg_time_per_task" title="panobbgo.core.StrategyBase.avg_time_per_task"><code class="xref py py-attr docutils literal notranslate"><span class="pre">avg_time_per_task</span></code></a>).</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.request_stop">
 <span class="sig-name descname"><span class="pre">request_stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.request_stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.request_stop" title="Link to this definition">#</a></dt>
 <dd><p>Ask the main loop to end after the current pass.</p>
 <p>Thread-safe (a single flag write): a harness enforcing a wall-clock
 timeout calls it from another thread, then joins the runner thread.
 In-flight evaluations of an asynchronous run are abandoned.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.requires_analyzers">
+<span class="sig-name descname"><span class="pre">requires_analyzers</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">()</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.requires_analyzers" title="Link to this definition">#</a></dt>
+<dd><p>Analyzer names the strategy itself reads (see <a class="reference internal" href="#panobbgo.core.Module.requires_analyzers" title="panobbgo.core.Module.requires_analyzers"><code class="xref py py-attr docutils literal notranslate"><span class="pre">Module.requires_analyzers</span></code></a>).</p>
 </dd></dl>
 
 <dl class="py attribute">

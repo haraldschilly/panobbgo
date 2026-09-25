@@ -294,7 +294,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Convergence</strong>: Monitors optimization progress; publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event using <code class="docutils literal notranslate"><span class="pre">std</span></code> or <code class="docutils literal notranslate"><span class="pre">improv</span></code> mode</p></li>
 <li><p><strong>Sensitivity</strong>: Estimates per-dimension importance via rank correlation; enables sensitivity-aware perturbations in <code class="docutils literal notranslate"><span class="pre">Nearby</span></code></p></li>
 <li><p><strong>Restart</strong>: Detects stagnation (no improvement within <code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations) and triggers multi-start restarts; pairs with CMAES for IPOP-CMA-ES</p></li>
-<li><p><strong>Grid</strong>: Simple spatial grid grouping of nearby points</p></li>
+<li><p><strong>Grid</strong>: Simple spatial grid grouping of nearby points (experimental, not installed by default)</p></li>
 <li><p><strong>Dedensifyer</strong>: Hierarchical grid that avoids point clustering by keeping only min/max representatives per region</p></li>
 <li><p><strong>Splitter</strong>: Adaptive hierarchical box-decomposition of the search space; publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> and identifies the best leaf box.  Resolution scales with the evaluation budget (<code class="docutils literal notranslate"><span class="pre">leaf_size</span></code> / <code class="docutils literal notranslate"><span class="pre">min_leaf_size</span></code> / <code class="docutils literal notranslate"><span class="pre">max_leaves</span></code>); <code class="docutils literal notranslate"><span class="pre">split_rule</span></code> and <code class="docutils literal notranslate"><span class="pre">cut_rule</span></code> select the cut, <code class="docutils literal notranslate"><span class="pre">legacy=True</span></code> restores the fixed-resolution tree</p></li>
 <li><p><strong>Archive</strong>: Opt-in bounded top-K of the <em>shared</em> result stream, ranked by penalty and unfiltered by <code class="docutils literal notranslate"><span class="pre">who</span></code>; the query layer heuristics warm-start from</p></li>
@@ -589,7 +589,10 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 <dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.grid.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>packs nearby points into grid boxes</p>
+<p>Packs nearby points into grid boxes.</p>
+<p>Experimental: not installed by default, since no heuristic reads it
+(until 2026-09 it was, and stored every result for nothing).  Add it with
+<code class="docutils literal notranslate"><span class="pre">strategy.add_analyzer(Grid(strategy))</span></code> to use <a class="reference internal" href="#panobbgo.analyzers.grid.Grid.in_same_grid" title="panobbgo.analyzers.grid.Grid.in_same_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_same_grid()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -1247,7 +1250,10 @@ the minimal and maximal representants for that region.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.Grid">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>packs nearby points into grid boxes</p>
+<p>Packs nearby points into grid boxes.</p>
+<p>Experimental: not installed by default, since no heuristic reads it
+(until 2026-09 it was, and stored every result for nothing).  Add it with
+<code class="docutils literal notranslate"><span class="pre">strategy.add_analyzer(Grid(strategy))</span></code> to use <a class="reference internal" href="#panobbgo.analyzers.Grid.in_same_grid" title="panobbgo.analyzers.Grid.in_same_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_same_grid()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

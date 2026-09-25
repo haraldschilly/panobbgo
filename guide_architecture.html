@@ -590,7 +590,14 @@ them back into the feasible region using nearest-feasible-point logic.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_pareto</span></code>: Pareto front updated</p></li>
 </ul>
 <p><strong>Splitter</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> manages hierarchical box decomposition:</p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.splitter.Splitter" title="panobbgo.analyzers.splitter.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Splitter</span></code></a> manages hierarchical box decomposition.
+<code class="docutils literal notranslate"><span class="pre">Best</span></code> and <code class="docutils literal notranslate"><span class="pre">Convergence</span></code> are installed by every strategy; the <code class="docutils literal notranslate"><span class="pre">Splitter</span></code>
+only when a module declares that it reads it, via the class attribute
+<code class="docutils literal notranslate"><span class="pre">requires_analyzers</span> <span class="pre">=</span> <span class="pre">(&quot;Splitter&quot;,)</span></code> (<code class="docutils literal notranslate"><span class="pre">Random</span></code>, <code class="docutils literal notranslate"><span class="pre">NelderMead</span></code>,
+<code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>, <code class="docutils literal notranslate"><span class="pre">WeightedAverage</span></code>, <code class="docutils literal notranslate"><span class="pre">RegionUCB</span></code>, <code class="docutils literal notranslate"><span class="pre">MetaAnalyst</span></code>) or,
+for heuristics whose need depends on arguments, by overriding
+<code class="docutils literal notranslate"><span class="pre">required_analyzers()</span></code> (every heuristic with a <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> does).  A custom
+module that calls <code class="docutils literal notranslate"><span class="pre">strategy.analyzer(&quot;Splitter&quot;)</span></code> must declare it too.</p>
 <ul class="simple">
 <li><p>Maintains tree of boxes splitting the search space</p></li>
 <li><p>Splits boxes when they contain sufficient points — the threshold is derived
@@ -607,7 +614,8 @@ effect on the consumers that read the tree.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code>: A box was split into children</p></li>
 </ul>
 <p><strong>Grid</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid" title="panobbgo.analyzers.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a> maintains a simple spatial grid for grouping nearby points.</p>
+<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid" title="panobbgo.analyzers.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a> maintains a simple spatial grid for grouping nearby points.
+Experimental and not installed by default (nothing reads it); add it explicitly.</p>
 <p><strong>Dedensifyer</strong></p>
 <p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a> maintains a hierarchical grid to avoid
 clustering, keeping only min/max representatives per region.</p>

@@ -135,7 +135,7 @@ data-aria-dark="Switch to auto color mode">
 <span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">division</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">unicode_literals</span>
 </span><span data-line="3"><span class="c1"># -*- coding: utf8 -*-</span>
-</span><span data-line="4"><span class="c1"># Copyright 2012 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="4"><span class="c1"># Copyright 2012-2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
 </span><span data-line="5"><span class="c1">#</span>
 </span><span data-line="6"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
 </span><span data-line="7"><span class="c1"># you may not use this file except in compliance with the License.</span>
@@ -156,49 +156,53 @@ data-aria-dark="Switch to auto color mode">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.grid.Grid">[docs]</a>
 </span><span data-line="21"><span class="k">class</span><span class="w"> </span><span class="nc">Grid</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
 </span><span data-line="22"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="23"><span class="sd">    packs nearby points into grid boxes</span>
-</span><span data-line="24"><span class="sd">    """</span>
-</span><span data-line="25">
+</span><span data-line="23"><span class="sd">    Packs nearby points into grid boxes.</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="sd">    Experimental: not installed by default, since no heuristic reads it</span>
+</span><span data-line="26"><span class="sd">    (until 2026-09 it was, and stored every result for nothing).  Add it with</span>
+</span><span data-line="27"><span class="sd">    ``strategy.add_analyzer(Grid(strategy))`` to use :meth:`in_same_grid`.</span>
+</span><span data-line="28"><span class="sd">    """</span>
+</span><span data-line="29">
 <div class="viewcode-block" id="Grid.__init__">
 <a class="viewcode-back" href="../../../_autosummary/panobbgo.analyzers.grid.Grid.html#panobbgo.analyzers.grid.Grid.__init__">[docs]</a>
-</span><span data-line="26">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
-</span><span data-line="27">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span></div>
+</span><span data-line="30">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">):</span>
+</span><span data-line="31">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">)</span></div>
 
-</span><span data-line="28">
-</span><span data-line="29">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="30">        <span class="c1"># grid for storing points which are nearby.</span>
-</span><span data-line="31">        <span class="c1"># maps from rounded coordinates tuple to point</span>
-</span><span data-line="32">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
-</span><span data-line="33">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid_div</span> <span class="o">=</span> <span class="mf">5.0</span>
-</span><span data-line="34">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid_lengths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_div</span><span class="p">)</span>
-</span><span data-line="35">
+</span><span data-line="32">
+</span><span data-line="33">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="34">        <span class="c1"># grid for storing points which are nearby.</span>
+</span><span data-line="35">        <span class="c1"># maps from rounded coordinates tuple to point</span>
+</span><span data-line="36">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+</span><span data-line="37">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid_div</span> <span class="o">=</span> <span class="mf">5.0</span>
+</span><span data-line="38">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid_lengths</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_div</span><span class="p">)</span>
+</span><span data-line="39">
 <div class="viewcode-block" id="Grid.in_same_grid">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.grid.Grid.in_same_grid">[docs]</a>
-</span><span data-line="36">    <span class="k">def</span><span class="w"> </span><span class="nf">in_same_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="37">        <span class="n">key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_mapping</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="p">))</span>
-</span><span data-line="38">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span></div>
+</span><span data-line="40">    <span class="k">def</span><span class="w"> </span><span class="nf">in_same_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+</span><span data-line="41">        <span class="n">key</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_grid_mapping</span><span class="p">(</span><span class="n">point</span><span class="o">.</span><span class="n">x</span><span class="p">))</span>
+</span><span data-line="42">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span></div>
 
-</span><span data-line="39">
-</span><span data-line="40">    <span class="k">def</span><span class="w"> </span><span class="nf">_grid_mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-</span><span data-line="41">        <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">floor</span>
-</span><span data-line="42">
-</span><span data-line="43">        <span class="n">l</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_lengths</span>
-</span><span data-line="44">        <span class="c1"># m = self._problem.box[:,0]</span>
-</span><span data-line="45">        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">l</span><span class="p">)</span> <span class="o">*</span> <span class="n">l</span><span class="p">)</span>
+</span><span data-line="43">
+</span><span data-line="44">    <span class="k">def</span><span class="w"> </span><span class="nf">_grid_mapping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+</span><span data-line="45">        <span class="kn">from</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">floor</span>
 </span><span data-line="46">
-</span><span data-line="47">    <span class="k">def</span><span class="w"> </span><span class="nf">_grid_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
-</span><span data-line="48">        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_mapping</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="49">        <span class="n">box</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span>
-</span><span data-line="50">        <span class="n">box</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-</span><span data-line="51">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">box</span>
-</span><span data-line="52">        <span class="c1"># print ' '.join('%2s' % str(len(self._grid[k])) for k in</span>
-</span><span data-line="53">        <span class="c1"># sorted(self._grid.keys()))</span>
-</span><span data-line="54">
+</span><span data-line="47">        <span class="n">l</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_lengths</span>
+</span><span data-line="48">        <span class="c1"># m = self._problem.box[:,0]</span>
+</span><span data-line="49">        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">l</span><span class="p">)</span> <span class="o">*</span> <span class="n">l</span><span class="p">)</span>
+</span><span data-line="50">
+</span><span data-line="51">    <span class="k">def</span><span class="w"> </span><span class="nf">_grid_add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="52">        <span class="n">key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid_mapping</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="53">        <span class="n">box</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">[])</span>
+</span><span data-line="54">        <span class="n">box</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="55">        <span class="bp">self</span><span class="o">.</span><span class="n">_grid</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">box</span>
+</span><span data-line="56">        <span class="c1"># print ' '.join('%2s' % str(len(self._grid[k])) for k in</span>
+</span><span data-line="57">        <span class="c1"># sorted(self._grid.keys()))</span>
+</span><span data-line="58">
 <div class="viewcode-block" id="Grid.on_new_results">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.grid.Grid.on_new_results">[docs]</a>
-</span><span data-line="55">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="56">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
-</span><span data-line="57">            <span class="bp">self</span><span class="o">.</span><span class="n">_grid_add</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+</span><span data-line="59">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="60">        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="61">            <span class="bp">self</span><span class="o">.</span><span class="n">_grid_add</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

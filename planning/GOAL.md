@@ -2,9 +2,9 @@
 
 **Audience**: any agent (or human) picking up this repository with the standing
 instruction "improve panobbgo". This file is the durable goal contract; read it
-first, then act through the operating loop below. Everything referenced here
-already exists and is tested — no setup beyond `uv sync --extra dev` and
-`cd tools/ioh_worker && uv sync`.
+first, then act through the operating loop below. The code referenced here
+exists and is tested unless it is marked removed — no setup beyond
+`uv sync --extra dev` and `cd tools/ioh_worker && uv sync`.
 
 ---
 
@@ -39,6 +39,10 @@ legacy contract — keep it green, don't optimize for it.
 ## 2. State snapshot (2026-09-10 — update when it materially changes)
 
 All section references are to `planning/DISCOVERY_2026-09-09.md`.
+This snapshot covers §1–§31.  The later results (§32–§53, through
+2026-09-14: the Splitter rework, the families / constrained / noisy /
+high-dimension / plain-BBOB batteries, the budget series and the oracle
+regime gate) are not folded in yet; read them there.
 
 * **Population size was the single largest effect on this codebase.**
   The L-SHADE family shipped `18·dim` populations — roughly five times
@@ -146,18 +150,25 @@ measured at all.  In order:
    **dimension-gated spec** — portfolio for *d* ≥ 5, single arm below
    (`gate_min_dim` already exists).  Ship the gate, then measure at
    *d* = 10 / 20 and at `2000·d`.
+   *Status 2026-09-14:* a regime gate shipped as
+   `StrategyBlockBandit(regime_gate="oracle:<class>")` (§45; the in-run
+   probe `"table-v1"` is not implemented); *d* = 10 / 20 at `2000·d` is
+   in §38, the budget series 100…2000·dim in §44 and §46.
 2. **Do not spend more on the selection policy.**  The `tail_frac` /
    block-length / pair screen is done and came back empty (§31): tune
    nothing there without a new mechanism to point at.  The standing rule
    it leaves behind applies to everything below — the best spec of a
-   screen is a **candidate only**, its screen CI carries no weight, and
-   only its 12-seed roster CI does.  §30 is what happens when that rule
-   is skipped.
+   screen is a *selected maximum*; re-check it on fresh seeds before
+   believing its margin (AGENTS.md).  §30 is what happens when that is
+   skipped.
 3. **Constrained and noisy problems remain unmeasured.**  Every number
    in §2 is continuous, box-constrained MA-BBOB.  Panobbgo's constraint
    machinery, the noisy-objective path and the plain-BBOB suite (§5.4)
    have no battery at all, and a portfolio may well pay where a single
    arm's assumptions break.
+   *Status 2026-09-14:* all three batteries exist now, with first
+   results — constrained families §34 and §44, noise §38 and §42,
+   plain BBOB (`kind=bbob`, 24 functions) §52 and §53.
 4. **The composite registry's three CMA-ES specs remain a frozen
    contract**, pending Harald's decision.  Do not touch them to chase an
    AOCC number.
@@ -208,9 +219,9 @@ Ordered by expected value; each item should enter through the loop above.
    the loop's first 34 nights yielded one +0.005 change.  Deliverables in
    order: (a) per-dim cells in the accept rule — **shipped, #302**;
    (b) budget-phase cells (needs AOCC recomputed on trajectory slices, which
-   `trace_evals`/`trace_fx` already support); (c) teach codify-scan to read
-   the per-cell breakdown so it can propose a *gated* arm rather than an
-   unconditional one; (d) dimension-gated arm activation — **shipped
+   `trace_evals`/`trace_fx` already support); (c) ~~teach codify-scan to
+   read the per-cell breakdown~~ — moot, codify-scan was removed with the
+   loop on 2026-09-25; (d) dimension-gated arm activation — **shipped
    2026-08-12** (`gate_min_dim`/`gate_max_dim` in `StrategySpec`;
    NLSHADE_LBC gated to d≥5 in `Rewarding_Restart`, pooled d5 evidence
    +0.0070 [+0.0027, +0.0112]); budget-gating and the CMA-ES arm at d5
@@ -223,7 +234,7 @@ Ordered by expected value; each item should enter through the loop above.
    portfolio's entire advantage is at *d* = 5.  Dimension is known before
    the first evaluation, so this is directly actionable — a
    dimension-gated portfolio spec is item 1 of the plan of record (§2c).
-   Deliverables (b), (c) and budget-gating remain open.
+   Deliverable (b) and budget-gating remain open.
 2. **CMA-ES arm** — ~~*shipped 2026-08-06*~~ **retracted 2026-09-09.**  The
    original item recorded that adding the `CMAES` heuristic to
    `Rewarding_Restart` was flat on a 12-seed paired quick-2-D A/B
@@ -244,6 +255,8 @@ Ordered by expected value; each item should enter through the loop above.
 4. **Plain-BBOB cross-validation battery** — 24 BBOB functions, dims
    {2, 3, 5, 10}, as an opt-in hold-out suite (the `ioh` package already
    provides them through the same worker protocol).
+   *Shipped 2026-09-14* as `IOHBatterySpec.fids` / `portfolio_screen.py
+   kind=bbob`, first measured at dims 2 and 5 (§52, §53).
 5. **Anytime-aware strategy scheduling** — AOCC rewards early descent;
    panobbgo's rewarding strategy re-weights on "new best" events only.
    Explore time-decayed rewards / explicit budget-phase schedules.
@@ -280,8 +293,7 @@ Ordered by expected value; each item should enter through the loop above.
      policy weights — no backprop through the optimization run needed.
      Fitness = mean AOCC over a stratified batch of randomized instances
      (`harness_randomized` families / MA-BBOB instances); hold-out
-     base seeds catch policy overfit exactly as they do for the mutation
-     loop.  A few thousand policy evaluations × quick-battery cost is
+     base seeds catch policy overfit.  A few thousand policy evaluations × quick-battery cost is
      feasible on the existing parallel harness.
    * **Deliverable path**: (a) feature extractor as an analyzer publishing
      a `progress_features` event, (b) `StrategyLearned` consuming it with

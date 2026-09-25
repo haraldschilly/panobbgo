@@ -58,6 +58,7 @@ from queue import Empty, Queue
 from threading import Condition, RLock, Thread
 import multiprocessing
 import collections
+import heapq
 import re
 import threading
 from .logging.progress import ProgressContext
@@ -66,6 +67,42 @@ from typing import TYPE_CHECKING, Any, Callable, cast, Optional, List, Dict, Uni
 if TYPE_CHECKING:
     from .lib import Problem, Result
     from .core import EventBus
+
+
+class _RankTracker:
+    """Running minimum and ``int(frac * n)``-th smallest value of a stream.
+
+    Two heaps: ``_low`` (a max-heap, negated) holds the ``int(frac * n) + 1``
+    smallest values, ``_high`` the rest, so :meth:`threshold` is ``O(1)`` and
+    :meth:`push` ``O(log n)``.  NaNs are ignored.
+    """
+
+    def __init__(self, frac: float = 0.1) -> None:
+        self.frac = frac
+        self.n = 0
+        self.min = float("inf")
+        self._low: List[float] = []
+        self._high: List[float] = []
+
+    def push(self, v: float) -> None:
+        if v != v:  # NaN
+            return
+        self.n += 1
+        if v < self.min:
+            self.min = v
+        if self._low and v < -self._low[0]:
+            heapq.heappush(self._low, -v)
+        else:
+            heapq.heappush(self._high, v)
+        target = int(self.n * self.frac) + 1
+        while len(self._low) > target:
+            heapq.heappush(self._high, -heapq.heappop(self._low))
+        while len(self._low) < target and self._high:
+            heapq.heappush(self._low, -heapq.heappop(self._high))
+
+    def threshold(self) -> float:
+        """The ``int(frac * n)``-th smallest value (0-based) pushed so far."""
+        return -self._low[0]
 
 
 class Results:
@@ -92,7 +129,12 @@ class Results:
         self._buffer: List["Result"] = []
         self._best_fx: float = float("inf")
         self._last_nb: int = 0  # for logging
-        self._cached_min_fx: float = np.inf
+        # Order statistics of past fx for the progress reporter, built lazily
+        # the first time a batch arrives with the reporter on; ``_fed`` is the
+        # ``len(self)`` they cover, so a gap (reporter toggled, frame replaced)
+        # triggers a rebuild instead of silently going stale.
+        self._progress_ranks: Optional[_RankTracker] = None
+        self._progress_ranks_fed: int = -1
         self._lock: RLock = RLock()
 
         # Initialize storage backend if configured
@@ -142,6 +184,7 @@ class Results:
             self._results_df = value
             self._unmerged_dfs = []
             self._buffer = []
+            self._progress_ranks_fed = -1
             # Update best_fx from new results
             if value is not None and not value.empty:
                 try:
@@ -234,41 +277,13 @@ class Results:
 
         assert all([isinstance(_, Result) for _ in new_results])
 
-        # Prepare stats for progress reporting.  Computed *before* the batch
-        # lands in the buffer below, so "previous best" keeps its meaning.
-        progress_stats = {}
-        if len(self) > 0:
-            try:
-                # Collect fx values without triggering concat
-                fx_values = []
-                if self._results_df is not None and not self._results_df.empty:
-                    fx_values.extend(self._results_df.xs(0, level=1, axis=1)["fx"].dropna().tolist())
-                for df in self._unmerged_dfs:
-                    if not df.empty:
-                        fx_values.extend(df.xs(0, level=1, axis=1)["fx"].dropna().tolist())
-                for r in self._buffer:
-                    if r.fx is not None:
-                        fx_values.append(float(r.fx))
-
-                # Use cached min fx if available, or calculate it
-                if self._cached_min_fx is None or np.isinf(self._cached_min_fx) or np.isnan(self._cached_min_fx):
-                    if fx_values:
-                        self._cached_min_fx = float(min(fx_values))
-
-                progress_stats["current_best_fx"] = self._cached_min_fx
-
-                # Only compute other stats if we have enough data
-                if len(fx_values) > 1:
-                    if len(fx_values) > 10:
-                        sorted_fx = sorted(fx_values)
-                        threshold_idx = int(len(sorted_fx) * 0.1)
-                        if threshold_idx > 0:
-                            progress_stats["threshold"] = sorted_fx[threshold_idx]
-
-                    # min of history excluding last element (general improvement baseline)
-                    progress_stats["prev_best"] = float(min(fx_values[:-1]))
-            except Exception:
-                pass
+        # Progress stats are computed *before* the batch lands in the buffer
+        # below, so "previous best" keeps its meaning.  All of this is skipped
+        # when the progress reporter is off (the default without a TTY).
+        reporting = self._progress_reporting()
+        progress_stats: Dict[str, float] = {}
+        if reporting:
+            progress_stats = self._progress_stats()
 
         # The batch must be *in* the store before anyone is told about it.
         # ``publish`` hands the event to the bus thread, which runs the
@@ -287,26 +302,19 @@ class Results:
         with self._lock:
             self._buffer.extend(new_results)
 
-            # Update cached min fx with new results
-            try:
-                # Calculate min of new results efficiently
-                new_min = min((r.fx for r in new_results if r.fx is not None), default=None)
-                if new_min is not None:
-                    if (
-                        self._cached_min_fx is None
-                        or np.isinf(self._cached_min_fx)
-                        or np.isnan(self._cached_min_fx)
-                        or new_min < self._cached_min_fx
-                    ):
-                        self._cached_min_fx = float(new_min)
-            except Exception:
-                pass
+            for r in new_results:
+                if r.fx is not None and r.fx < self._best_fx:
+                    self._best_fx = r.fx
 
-        # Report progress for each result
-        for result in new_results:
-            if result.fx is not None and result.fx < self._best_fx:
-                self._best_fx = result.fx
-            self._report_evaluation_progress(result, stats=progress_stats)
+        if reporting:
+            ranks = self._progress_ranks
+            assert ranks is not None  # built by _progress_stats
+            for r in new_results:
+                if r.fx is not None:
+                    ranks.push(float(r.fx))
+            self._progress_ranks_fed = len(self)
+            for result in new_results:
+                self._report_evaluation_progress(result, stats=progress_stats)
 
         if len(self) // 100 > self._last_nb // 100:
             self.info()
@@ -401,6 +409,50 @@ class Results:
             "error": error,
         }
 
+    def _progress_reporting(self) -> bool:
+        """Whether per-evaluation progress output is on for this strategy."""
+        logger = getattr(self.strategy, "panobbgo_logger", None)
+        return logger is not None and bool(logger.progress_reporter.enabled)
+
+    def _progress_stats(self) -> Dict[str, float]:
+        """Statistics of the results stored so far, for :meth:`_report_evaluation_progress`.
+
+        ``current_best_fx`` and ``prev_best`` are the best fx so far;
+        ``threshold`` is the ``int(0.1 * n)``-th smallest of the ``n`` finite
+        fx so far (only once ``n > 10``).  O(log n) per result via
+        :class:`_RankTracker`; a full rebuild happens only when the tracker does
+        not cover the current history.
+        """
+        if self._progress_ranks is None or self._progress_ranks_fed != len(self):
+            ranks = _RankTracker()
+            try:
+                for fx in self._all_fx():
+                    ranks.push(fx)
+            except Exception:
+                ranks = _RankTracker()
+            self._progress_ranks = ranks
+            self._progress_ranks_fed = len(self)
+        ranks = self._progress_ranks
+        stats: Dict[str, float] = {}
+        if len(self) > 0:
+            stats["current_best_fx"] = ranks.min
+        if ranks.n > 0:
+            stats["prev_best"] = ranks.min
+        if ranks.n > 10:
+            stats["threshold"] = ranks.threshold()
+        return stats
+
+    def _all_fx(self) -> List[float]:
+        """Every stored fx, oldest first, without concatenating the frames."""
+        with self._lock:
+            fx_values: List[float] = []
+            frames = ([self._results_df] if self._results_df is not None else []) + list(self._unmerged_dfs)
+            for df in frames:
+                if not df.empty:
+                    fx_values.extend(df.xs(0, level=1, axis=1)["fx"].dropna().tolist())
+            fx_values.extend(float(r.fx) for r in self._buffer if r.fx is not None)
+            return fx_values
+
     def _report_evaluation_progress(self, result: "Result", stats: Optional[Dict[str, float]] = None) -> None:
         """
         Report progress for a single evaluation result.
@@ -421,42 +473,15 @@ class Results:
         # Only analyze if we have valid fx
         if result.fx is not None:
             try:
-                # Check if this is a new global best
-                # Use pre-calculated stats if available (more efficient)
-                if stats and "current_best_fx" in stats:
-                    if result.fx < stats["current_best_fx"]:
-                        context.is_global_best = True
-                elif self._best_fx < float("inf") and result.fx <= self._best_fx:
-                    # Fallback to cached _best_fx (updated in add_results)
+                # Stats describe the history *before* this batch.
+                stats = stats or {}
+                if "current_best_fx" in stats and result.fx < stats["current_best_fx"]:
                     context.is_global_best = True
-
-                # Check for significant improvement (top 10% of results)
-                # Use pre-calculated threshold if available
-                if stats and "threshold" in stats:
-                    if result.fx < stats["threshold"]:
-                        context.is_significant_improvement = True
-                elif self._results_df is not None and len(self._results_df) > 10:
-                    # Use _results_df directly to avoid flushing buffer
-                    # Apply astype(float) to avoid string comparison bug
-                    fx_series = self._results_df.xs(0, level=1, axis=1)["fx"]
-                    sorted_fx = sorted([float(x) for x in fx_series.astype(float).dropna()])
-                    threshold_idx = int(len(sorted_fx) * 0.1)  # top 10%
-                    if threshold_idx > 0:
-                        threshold = sorted_fx[threshold_idx]
-                        if result.fx < threshold:
-                            context.is_significant_improvement = True
-
-                # Check for general improvement over previous results
-                if stats and "prev_best" in stats:
-                    if result.fx < stats["prev_best"]:
-                        context.is_improvement = True
-                elif self._results_df is not None and len(self._results_df) > 1:
-                    # Use _results_df directly to avoid flushing buffer
-                    # Apply astype(float) to avoid string comparison bug
-                    fx_series = self._results_df.xs(0, level=1, axis=1)["fx"]
-                    prev_best = min([float(x) for x in fx_series.astype(float).dropna()])
-                    if result.fx < prev_best:
-                        context.is_improvement = True
+                # Significant: within the top 10 % of the results so far.
+                if "threshold" in stats and result.fx < stats["threshold"]:
+                    context.is_significant_improvement = True
+                if "prev_best" in stats and result.fx < stats["prev_best"]:
+                    context.is_improvement = True
             except (ValueError, TypeError, KeyError):
                 # If we can't determine improvement status, skip it
                 pass

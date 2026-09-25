@@ -430,3 +430,59 @@ def test_unstarted_strategy_owns_no_eventbus_thread():
     s.config.max_eval = 5
     s.start()
     assert s.eventbus._thread is not None and not s.eventbus._thread.is_alive()
+
+
+def test_rank_tracker_matches_sorted_order():
+    from panobbgo.core import _RankTracker
+
+    rng = np.random.default_rng(3)
+    t = _RankTracker()
+    seen = []
+    for v in rng.normal(size=500):
+        t.push(float(v))
+        seen.append(float(v))
+        s = sorted(seen)
+        assert t.n == len(s) and t.min == s[0]
+        assert t.threshold() == s[int(len(s) * 0.1)]
+    t.push(float("nan"))
+    assert t.n == 500
+
+
+def _progress_contexts(batches, toggle_at=None):
+    """Run batches through ``Results`` with the reporter on; return the contexts."""
+    s = StrategyBase(Rosenbrock(dim=2), parse_args=False)
+    rep = s.panobbgo_logger.progress_reporter
+    rep.enabled = toggle_at is None
+    ctxs = []
+    rep.report_evaluation = lambda result, context=None: ctxs.append(context)
+    r = Results(s)
+    for i, fxs in enumerate(batches):
+        if i == toggle_at:
+            rep.enabled = True
+        r.add_results([Result(Point(np.zeros(2), "t"), fx) for fx in fxs])
+    return ctxs
+
+
+def test_progress_context_is_relative_to_history_before_the_batch():
+    rng = np.random.default_rng(4)
+    batches = [list(rng.exponential(size=int(k))) for k in rng.integers(1, 5, size=60)]
+    ctxs = _progress_contexts(batches)
+    prior: list = []
+    got = iter(ctxs)
+    for b in batches:
+        srt = sorted(prior)
+        for fx in b:
+            c = next(got)
+            best = bool(srt) and fx < srt[0]
+            assert c.is_global_best == best
+            # prev_best is the best of *all* earlier results (was: all but the last).
+            assert c.is_improvement == best
+            assert c.is_significant_improvement == (len(srt) > 10 and fx < srt[int(len(srt) * 0.1)])
+        prior.extend(b)
+
+
+def test_progress_reporter_off_skips_stats_and_rebuilds_when_enabled_later():
+    batches = [[5.0], [4.0], [3.0], [6.0], [2.5]]
+    ctxs = _progress_contexts(batches, toggle_at=3)
+    # Only the batches after the toggle are reported, against the full history.
+    assert [c.is_global_best for c in ctxs] == [False, True]

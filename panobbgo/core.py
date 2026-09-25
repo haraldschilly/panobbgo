@@ -951,6 +951,26 @@ class HeuristicSubprocess(Heuristic):
         self.__subprocess.daemon = True
         self.__subprocess.start()
 
+    def __stop__(self) -> None:
+        """Close both pipe ends and terminate the worker process, then stop as usual.
+
+        ``daemon=True`` only reaps the worker when the *interpreter* exits; a
+        long-lived process running many strategies leaked one per run.
+        """
+        for end in (self.pipe, self.pipe_child):
+            try:
+                end.close()
+            except Exception:
+                pass
+        proc = self.__subprocess
+        if proc.is_alive():
+            proc.terminate()
+        proc.join(1)
+        if proc.is_alive():
+            proc.kill()
+            proc.join(1)
+        super().__stop__()
+
     @staticmethod
     def subprocess(pipe: Any) -> None:
         """

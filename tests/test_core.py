@@ -304,3 +304,15 @@ def test_alive_is_false_only_when_nothing_can_change_it():
             assert not strategy._alive()
         finally:
             strategy._cleanup()
+
+
+def test_heuristic_subprocess_stop_terminates_the_worker(strategy):
+    """``HeuristicSubprocess`` had no ``__stop__``: its worker lived until interpreter exit."""
+    from panobbgo.core import HeuristicSubprocess
+
+    h = HeuristicSubprocess(strategy)
+    proc = h._HeuristicSubprocess__subprocess
+    assert proc.is_alive()
+    h.__stop__()
+    assert not proc.is_alive()
+    assert h.pipe.closed and h.pipe_child.closed

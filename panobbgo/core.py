@@ -148,9 +148,6 @@ class Results:
         self._results_df: Optional["DataFrame"] = None
         self._unmerged_dfs: List["DataFrame"] = []
         self._buffer: List["Result"] = []
-        #: Width of ``cv_vec`` of the first real (not timed-out) result, ``0``
-        #: for an unconstrained problem, ``None`` before one arrived.
-        self.cv_width: Optional[int] = None
         self._last_nb: int = 0  # for logging
         # Order statistics of past fx for the progress reporter, built lazily
         # the first time a batch arrives with the reporter on; ``_fed`` is the
@@ -224,8 +221,7 @@ class Results:
                 return
 
             # The ``cv_vec`` width comes from a *real* result: an
-            # evaluation.timeout placeholder only carries a guessed-length
-            # all-NaN vector (StrategyBase._timeout_cv_vec).
+            # evaluation.timeout placeholder has ``cv_vec = None`` (unknown).
             real = next((r for r in self._buffer if not getattr(r, "timed_out", False)), None)
             real_width = None if real is None else _cv_len(real.cv_vec)
             frame_width = None if self._results_df is None else _frame_cv_width(self._results_df)
@@ -234,12 +230,7 @@ class Results:
             if self._results_df is None:
                 r = self._buffer[0]
                 dim = r.x.size if hasattr(r.x, "size") else len(r.x)  # pyright: ignore
-                if real_width is not None:
-                    width = real_width
-                elif self.cv_width is not None:
-                    width = self.cv_width
-                else:
-                    width = _cv_len(r.cv_vec)
+                width = real_width if real_width is not None else _cv_len(r.cv_vec)
                 self._results_df = DataFrame(columns=_frame_columns(dim, width))
             elif real_width is not None and real_width != frame_width and self._only_placeholders():
                 # The frame so far holds nothing but placeholders, laid out
@@ -321,10 +312,6 @@ class Results:
         Add one single or a list of new @Result objects.
         Then, publish a ``new_result`` event.
         """
-        if self.cv_width is None:
-            real = next((r for r in new_results if not getattr(r, "timed_out", False)), None)
-            if real is not None:
-                self.cv_width = _cv_len(real.cv_vec)
         # Persist to storage backend if enabled
         if self.backend and save_to_storage:
             self.backend.save(new_results)
@@ -2879,29 +2866,11 @@ class StrategyBase:
         t = getattr(self.config, "evaluation_timeout", None)
         return float(t) if t else None
 
-    def _timeout_cv_vec(self) -> np.ndarray:
-        """All-``NaN`` constraint violations for a timed-out point — never ``None``.
-
-        ``None`` would count as feasible; ``NaN`` entries are an *unknown*
-        violation, so :attr:`~panobbgo.lib.Result.cv` is ``inf`` (infeasible).
-        The length is taken from what is already known, without evaluating
-        anything (a constraint evaluation may take as long as the objective,
-        hang, or only work on the cluster): the width of an earlier real
-        result's ``cv_vec`` (:attr:`Results.cv_width`), else a declared
-        integer ``problem.n_constraints``, else 1.  The results frame
-        re-sizes a placeholder's vector to its own width
-        (:meth:`Results._flush_buffer`), so a guessed length is harmless.
-        """
-        n = getattr(self.results, "cv_width", None)
-        if not n:
-            declared = getattr(self.problem, "n_constraints", None)
-            n = declared if isinstance(declared, (int, np.integer)) and declared > 0 else 1
-        return np.full(int(n), np.nan)
-
     def _timed_out_result(self, point, seconds: Optional[float] = None) -> Result:
         """The regular :class:`~panobbgo.lib.Result` booked for an evaluation past ``evaluation.timeout``.
 
-        ``fx = NaN`` (and ``NaN`` violations on a constrained problem), marked
+        ``fx = NaN``, ``cv_vec = None`` and ``cv = inf`` (nothing is evaluated
+        to learn the constraint count), marked
         :attr:`~panobbgo.lib.Result.timed_out`: it is recorded in the results,
         charged once against the budget and published through
         ``new_results`` like any result, so heuristics see a bad point and
@@ -2912,7 +2881,7 @@ class StrategyBase:
             "Evaluation of %s timed out%s (evaluation.timeout): recorded as fx=NaN."
             % (getattr(point, "who", "?"), "" if seconds is None else " after %.1fs" % seconds)
         )
-        return Result(point, float("nan"), cv_vec=self._timeout_cv_vec(), timed_out=True)
+        return Result(point, float("nan"), cv_vec=None, timed_out=True)
 
     def _harvest(self, outcomes, new_results, failed):
         """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``.

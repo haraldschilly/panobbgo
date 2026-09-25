@@ -115,8 +115,9 @@ class Result:
         - ``cv_vec``: the constraint violation vector
         - ``cv_norm``: the norm used to calculate :attr:`.cv`.
           (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)
-        - ``timed_out``: the evaluation hit ``evaluation.timeout``; ``fx``
-          (and every ``cv_vec`` entry) is then ``NaN`` — see :attr:`timed_out`.
+        - ``timed_out``: the evaluation hit ``evaluation.timeout``; ``fx`` is
+          then ``NaN``, ``cv_vec`` ``None`` and :attr:`cv` ``inf`` — see
+          :attr:`timed_out`.
         """
         if point is not None and not isinstance(point, Point):
             raise ValueError("point must be an instance of lib.Point")
@@ -185,7 +186,9 @@ class Result:
         except AttributeError:  # unpickled from before the memo existed
             cv = None
         if cv is None:
-            if self._cv_vec is None:
+            if getattr(self, "_timed_out", False):
+                cv = float("inf")  # an evaluation.timeout placeholder: unknown, i.e. infeasible
+            elif self._cv_vec is None:
                 cv = 0.0
             elif np.isnan(self._cv_vec).any():
                 cv = float("inf")
@@ -223,10 +226,11 @@ class Result:
         """``True`` iff this is the placeholder of an evaluation that hit ``evaluation.timeout``.
 
         Such a result is a regular one — recorded, charged once against the
-        budget, published through ``new_results`` — with ``fx = NaN`` (and
-        ``NaN`` constraint violations on a constrained problem, i.e.
-        infeasible), so every ranking puts it last and heuristics see a bad
-        point.
+        budget, published through ``new_results`` — with ``fx = NaN``,
+        ``cv_vec = None`` (the violations are unknown; its length is not
+        guessed) and :attr:`cv` ``inf`` (infeasible), so every ranking puts
+        it last and heuristics see a bad point.  The results frame writes
+        ``NaN`` into its ``cv_vec`` columns for such a row.
         """
         return self._timed_out
 

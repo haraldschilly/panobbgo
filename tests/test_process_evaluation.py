@@ -434,10 +434,9 @@ def test_a_timed_out_constrained_evaluation_is_infeasible():
     assert len(seen) == 1  # published through new_results like any result
     r = seen[0]
     assert np.isnan(r.fx) and r.cv == float("inf")
-    # Never None (that would count as feasible).  The first evaluation timed
-    # out before any real result, and the constraints are not evaluated for
-    # it, so its length is a guess; the frame lays it out at the real width.
-    assert r.cv_vec is not None and np.isnan(r.cv_vec).all()
+    # Unknown violations: no guessed vector, but cv = inf (infeasible); the
+    # frame writes NaN into its cv_vec columns for the row.
+    assert r.cv_vec is None and r.timed_out
     df = s.results.results
     assert sum(1 for c in df.columns if c[0] == "cv_vec") == 2
     assert np.isnan(df["cv_vec"].to_numpy(dtype=float)[0]).all()
@@ -930,7 +929,7 @@ def test_placeholders_earn_no_first_point_credit_and_are_never_best():
     from panobbgo.lib import Point, Result
     from panobbgo.strategies._bandit import ema_credit, linucb_observe
 
-    ph = Result(Point(np.zeros(2), "A"), float("nan"), cv_vec=np.full(1, np.nan), timed_out=True)
+    ph = Result(Point(np.zeros(2), "A"), float("nan"), timed_out=True)
     real = Result(Point(np.ones(2), "B"), 3.0)
     a, b = SimpleNamespace(performance=1.0), SimpleNamespace(performance=1.0)
     best = ema_credit(None, {"A": a, "B": b}.__getitem__, None, [ph, real], alpha=0.5)
@@ -947,7 +946,7 @@ def test_best_skips_a_timed_out_first_result():
     s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
     try:
         best = Best(s)
-        ph = Result(Point(np.zeros(2), "A"), float("nan"), cv_vec=np.full(1, np.nan), timed_out=True)
+        ph = Result(Point(np.zeros(2), "A"), float("nan"), timed_out=True)
         best.on_new_results([ph])
         assert best.best is None
         real = Result(Point(np.ones(2), "B"), 3.0)

@@ -158,8 +158,9 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
 limit that applies to every evaluation in every backend and is enforced
 where the evaluation runs.  The clock starts when the call starts — time
 spent queued never counts.  An evaluation past the limit becomes a regular
-result with ``fx = NaN`` (and ``NaN`` constraint violations, i.e.
-infeasible), marked ``Result.timed_out`` and in the ``("timed_out", 0)``
+result with ``fx = NaN`` and ``cv = inf`` (infeasible; the violations are
+unknown, so ``cv_vec`` is ``None`` and the frame's ``cv_vec`` columns are
+``NaN``), marked ``Result.timed_out`` and in the ``("timed_out", 0)``
 column of the results frame; it is recorded, charged once against
 ``max_eval`` and published through ``new_results`` like any result, so
 heuristics see a bad point and every ranking puts it last.

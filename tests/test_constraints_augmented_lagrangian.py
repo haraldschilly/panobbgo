@@ -14,8 +14,10 @@
 # limitations under the License.
 
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
-from panobbgo.lib import Result
 import numpy as np
+import pytest
+
+from panobbgo.lib import Point, Result
 
 
 class MockStrategy:
@@ -274,3 +276,18 @@ def test_scan_history_ranks_a_nan_fx_last():
     results_mock.history["fx"] = np.array([np.nan, np.nan])
     handler._scan_history_for_new_best()
     assert strategy.eventbus.published == []
+
+
+def test_an_early_placeholder_does_not_break_the_penalty():
+    """A timed-out result first must not initialise the multipliers (it has no cv_vec)."""
+    strategy = MockStrategy()
+    handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=10.0)
+    ph = Result(Point(np.zeros(1), "t"), float("nan"), timed_out=True)
+    assert handler.get_penalty_value(ph) == float("inf")
+    strategy.best = ph
+    handler._update_parameters()
+    assert handler.lambdas is None
+    real = Result(Point(np.zeros(1), "r"), 1.0, cv_vec=np.array([0.5, -1.0]))
+    # L = f + 1/(2 mu) * sum(max(0, mu*g)^2) with lambda = 0: 1 + (10*0.5)^2 / 20
+    assert handler.get_penalty_value(real) == pytest.approx(1.0 + 25.0 / 20.0)
+    assert handler.lambdas.shape == (2,)

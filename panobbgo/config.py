@@ -342,7 +342,7 @@ class Config:
         # Per-call evaluation limit in seconds (YAML only), for every backend,
         # enforced where the evaluation runs and counted from the call's
         # start (queue time never counts).  An evaluation past it becomes a
-        # regular Result with fx = NaN (NaN cv_vec: infeasible), marked
+        # regular Result with fx = NaN, cv = inf (cv_vec None: unknown), marked
         # Result.timed_out, recorded and charged once, published through
         # new_results.  'processes' kills only the worker running that call;
         # 'dask' runs the call in a child process on the dask worker and

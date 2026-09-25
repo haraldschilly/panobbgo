@@ -392,8 +392,8 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # Here we approximate by taking the current global best.
 
         best = self.strategy.best if self.strategy else None
-        if best is None:
-            return
+        if best is None or getattr(best, "timed_out", False):
+            return  # multipliers are initialised from real results only
 
         if best.cv_vec is None:
             return
@@ -607,7 +607,9 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         return float(val)
 
     def _calculate_lagrangian(self, result: Result):
-        if result is None:
+        if result is None or getattr(result, "timed_out", False):
+            # An evaluation.timeout placeholder: unknown value, ranks last —
+            # and never initialises the multipliers.
             return float("inf")
         if result.cv_vec is None:
             return result.fx

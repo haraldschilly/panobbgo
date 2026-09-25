@@ -96,6 +96,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import pathlib
 import sys
 from datetime import datetime
@@ -274,6 +275,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
             "score_after": comparison.score_after,
             "delta": comparison.delta,
             "relative_delta_pct": comparison.relative_delta,
+            "common_delta": comparison.common_delta,
             "improved": [{"problem": p, "strategy": s, "before": b, "after": a} for p, s, b, a in comparison.improved],
             "degraded": [{"problem": p, "strategy": s, "before": b, "after": a} for p, s, b, a in comparison.degraded],
             "only_before": [{"problem": p, "strategy": s, "score": sc} for p, s, sc in comparison.only_before],
@@ -295,12 +297,19 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-    elif args.fail_on_regression and comparison.delta < -args.eps:
-        print(
-            f"\nFAIL: composite score decreased by {comparison.delta:.4f}",
-            file=sys.stderr,
-        )
-        return 2
+    elif args.fail_on_regression:
+        # Judged on the (problem, strategy) pairs both sides measured: a pair
+        # present on one side only (e.g. --baselines on one run) would move
+        # the composite by its own level, not by the change under test.
+        if math.isnan(comparison.common_delta):
+            print("\nFAIL: no (problem, strategy) pair appears in both results", file=sys.stderr)
+            return 2
+        if comparison.common_delta < -args.eps:
+            print(
+                f"\nFAIL: score over the common pairs decreased by {comparison.common_delta:.4f}",
+                file=sys.stderr,
+            )
+            return 2
 
     return 0
 

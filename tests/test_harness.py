@@ -435,6 +435,45 @@ class TestCompare:
         assert len(cmp.only_after) == 1
         assert cmp.only_after[0][0] == "P3"
 
+    def test_regression_gate_reads_the_common_pairs(self, tmp_path):
+        """A strategy on one side only (e.g. --baselines) must not trip --fail-on-regression."""
+        from benchmark_harness import main
+
+        def _psr(prob: str, strat: str, score: float) -> ProblemStrategyResult:
+            return ProblemStrategyResult(
+                problem_name=prob,
+                problem_dim=2,
+                strategy_name=strat,
+                f_opt=0.0,
+                tolerance=0.1,
+                budget=100,
+                runs=[_make_run(True, first_hit=1, budget=100)],
+                score=score,
+            )
+
+        def _res(pairs) -> HarnessResult:
+            psrs = [_psr(p, s, sc) for p, s, sc in pairs]
+            return HarnessResult(
+                config=HarnessConfig(mode="quick"),
+                timestamp="",
+                total_runs=len(psrs),
+                total_duration=0.0,
+                problem_strategy_results=psrs,
+                composite_score=float(np.mean([p.score for p in psrs])),
+            )
+
+        before = _res([("P1", "S1", 0.30), ("P1", "Baseline_Random", 0.90)])
+        after = _res([("P1", "S1", 0.35)])
+        cmp = compare(before, after)
+        assert cmp.delta == pytest.approx(0.35 - 0.60)
+        assert cmp.common_delta == pytest.approx(0.05)
+        paths = [str(tmp_path / "b.json"), str(tmp_path / "a.json")]
+        before.save(paths[0])
+        after.save(paths[1])
+        assert main(["compare", *paths, "--fail-on-regression"]) == 0
+        _res([("P1", "S1", 0.20)]).save(paths[1])
+        assert main(["compare", *paths, "--fail-on-regression"]) == 2
+
 
 # ===========================================================================
 # 6. Unit tests – HarnessConfig

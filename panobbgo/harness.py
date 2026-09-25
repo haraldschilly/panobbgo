@@ -1078,6 +1078,11 @@ class ComparisonResult:
         unchanged: Problem-strategy pairs with no significant change.
         only_before: Pairs present only in the baseline (not compared).
         only_after: Pairs present only in the candidate (not compared).
+        common_delta: Mean score change over the pairs present on both
+            sides (``NaN`` when there are none).  Equals ``delta`` when
+            both results hold the same pairs; unlike ``delta`` it is not
+            moved by a pair (e.g. a ``--baselines`` strategy) that exists
+            on one side only, so it is what a regression gate should read.
     """
 
     before: str
@@ -1091,6 +1096,7 @@ class ComparisonResult:
     unchanged: List[Tuple[str, str, float, float]]
     only_before: List[Tuple[str, str, float]] = field(default_factory=list)
     only_after: List[Tuple[str, str, float]] = field(default_factory=list)
+    common_delta: float = float("nan")
 
     def print_summary(self, width: int = 72) -> None:
         """Print a formatted comparison to stdout."""
@@ -1124,6 +1130,9 @@ class ComparisonResult:
             print(
                 f"  Only in candidate ({len(self.only_after)}): " + ", ".join(f"{p}/{s}" for p, s, _ in self.only_after)
             )
+        if self.only_before or self.only_after:
+            n_common = len(self.improved) + len(self.degraded) + len(self.unchanged)
+            print(f"  Delta over the {n_common} common pair(s): {self.common_delta:+.4f}")
 
         print(bar)
 
@@ -1205,6 +1214,9 @@ def compare(
 
     delta = after.composite_score - before.composite_score
     rel_delta = (delta / before.composite_score * 100.0) if before.composite_score > 0 else float("inf")
+    # The composite is the unweighted mean over pairs, so this is the
+    # composite delta restricted to the pairs both sides measured.
+    common_delta = float(np.mean([after_map[k] - before_map[k] for k in both_keys])) if both_keys else float("nan")
 
     return ComparisonResult(
         before=label_before,
@@ -1218,6 +1230,7 @@ def compare(
         unchanged=unchanged,
         only_before=only_before,
         only_after=only_after,
+        common_delta=common_delta,
     )
 
 

@@ -17,6 +17,10 @@ from panobbgo.core import HeuristicSubprocess
 import numpy as np
 from functools import reduce
 import operator
+import time
+
+#: Sentinel: no reply within :attr:`QuadraticWlsModel.reply_timeout`.
+_TIMED_OUT = object()
 
 
 def rank_weights(distances):
@@ -41,9 +45,15 @@ class QuadraticWlsModel(HeuristicSubprocess):
     #: Reads Splitter boxes / subscribes to its events (installed on demand).
     requires_analyzers = ("Splitter",)
 
+    #: Seconds :meth:`on_new_best_box` waits for the worker's fit.
+    reply_timeout = 10.0
+
     def __init__(self, strategy):
         HeuristicSubprocess.__init__(self, strategy)
         self.logger = self.config.get_logger("H:WLS")
+        #: Id of the last request sent; every reply echoes the id it answers,
+        #: so a late reply to a timed-out request is recognised and dropped.
+        self._request_id = 0
 
     @staticmethod
     def subprocess(pipe):
@@ -53,14 +63,18 @@ class QuadraticWlsModel(HeuristicSubprocess):
         from scipy.optimize import fmin_l_bfgs_b
         import traceback
 
+        # Protocol: request ``(req_id, points, bounds, best_point, fx_vals)``,
+        # reply ``(req_id, solution_or_None)``.  ``req_id`` is ``None`` in a
+        # failure reply when the request itself could not be read.
         while True:
+            req_id = None
             try:
                 # Wait for input
                 if not pipe.poll(1.0):
                     continue
 
                 payload = pipe.recv()
-                points, bounds, best_point, fx_vals = payload
+                req_id, points, bounds, best_point, fx_vals = payload
                 dim = points.shape[1]
 
                 # Build data dictionary in the correct order for statsmodels (Intercept first)
@@ -115,7 +129,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
                 sol, _, _ = fmin_l_bfgs_b(predict, np.zeros(dim), bounds=bounds, approx_grad=True)
 
-                pipe.send(sol)
+                pipe.send((req_id, sol))
             except EOFError:
                 break
             except Exception:
@@ -123,8 +137,8 @@ class QuadraticWlsModel(HeuristicSubprocess):
                 traceback.print_exc()
                 # Send None to indicate failure and prevent parent from hanging indefinitely
                 try:
-                    pipe.send(None)
-                except:
+                    pipe.send((req_id, None))
+                except Exception:
                     pass
 
     def on_new_best_box(self, best_box):
@@ -143,17 +157,35 @@ class QuadraticWlsModel(HeuristicSubprocess):
             # Send bounds as list of tuples for scipy compatibility
             # self.problem.box is a BoundingBox object which might not be fully compatible
             bounds = [tuple(row) for row in self.problem.box.box]
-            self.pipe.send((pointarray, bounds, best_box.best.x, fx_vals))
+            self._request_id += 1
+            req_id = self._request_id
+            self.pipe.send((req_id, pointarray, bounds, best_box.best.x, fx_vals))
 
-            # Use poll with timeout to prevent hanging if subprocess crashes/hangs
-            if self.pipe.poll(10.0):
-                sol = self.pipe.recv()
-                if sol is not None:
-                    # print 'solution:', sol
-                    self.emit(sol)
-                else:
-                    self.logger.warning("QuadraticWlsModel subprocess returned None (error occurred).")
-            else:
+            reply = self._await_reply(req_id)
+            if reply is _TIMED_OUT:
                 self.logger.warning("QuadraticWlsModel subprocess timed out waiting for solution.")
+            elif reply is not None:
+                self.emit(reply)
+            else:
+                self.logger.warning("QuadraticWlsModel subprocess returned None (error occurred).")
         except Exception as e:
             self.logger.error(f"Error communicating with QuadraticWlsModel subprocess: {e}")
+
+    def _await_reply(self, req_id):
+        """The worker's answer to request *req_id*, or :data:`_TIMED_OUT`.
+
+        Replies to earlier requests (which timed out here, and whose answer
+        arrived late) are read and dropped: without the id, every later
+        emission would be the answer to the box before.  A failure reply
+        whose request could not be read (id ``None``) counts as the answer
+        to *req_id*, the only request that can be outstanding.
+        """
+        deadline = time.monotonic() + self.reply_timeout
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not self.pipe.poll(remaining):
+                return _TIMED_OUT
+            rid, sol = self.pipe.recv()
+            if rid == req_id or rid is None:
+                return sol
+            self.logger.debug("QuadraticWlsModel: dropping a stale reply to request %s." % rid)

@@ -293,7 +293,7 @@ def test_noisy_problem_pickles_and_keeps_its_draw_counts():
 
     from panobbgo.lib.noise import GaussianNoise, NoisyProblem as DetNoisy
 
-    n = DetNoisy(QuadraticProblem(dim=2), GaussianNoise(beta=0.5), seed=4, resample=True)
+    n = DetNoisy(QuadraticProblem(dim=2), GaussianNoise(beta=0.5), seed=4, resample=True, f_opt=0.0)
     x = np.array([1.0, 2.0])
     n.eval(x)
     m = pickle.loads(pickle.dumps(n))
@@ -335,3 +335,23 @@ def test_unseeded_stochastic_classics_follow_the_global_numpy_seed():
     b, nb = RosenbrockStochastic(dims=3), NesterovQuadratic(dim=3)
     assert a.eval(x) == b.eval(x)
     assert np.array_equal(na.A, nb.A)
+
+
+def test_bbob_noise_models_need_a_known_f_opt():
+    """On a raw value UniformNoise went complex for f < 0, GaussianNoise flipped direction."""
+    from panobbgo.lib.noise import (
+        AdditiveGaussianNoise,
+        CauchyNoise,
+        GaussianNoise,
+        MultiplicativeGaussianNoise,
+        NoNoise,
+        NoisyProblem as DetNoisy,
+        UniformNoise,
+    )
+
+    for model in (GaussianNoise(), UniformNoise(), CauchyNoise()):
+        with pytest.raises(ValueError, match="f_opt"):
+            DetNoisy(QuadraticProblem(dim=2), model, seed=0)
+        DetNoisy(QuadraticProblem(dim=2), model, seed=0, f_opt=0.0)  # explicit: fine
+    for model in (NoNoise(), AdditiveGaussianNoise(), MultiplicativeGaussianNoise()):
+        DetNoisy(QuadraticProblem(dim=2), model, seed=0)

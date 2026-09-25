@@ -436,6 +436,10 @@ def make_noise_model(kind: str, *, dim: int, level: str = "moderate") -> NoiseMo
 # ---------------------------------------------------------------------------
 
 
+#: Models that are meaningful on a raw objective value (unknown ``f_opt``).
+_RAW_VALUE_MODELS: Tuple[type, ...] = (NoNoise, AdditiveGaussianNoise, MultiplicativeGaussianNoise)
+
+
 class NoisyProblem(Problem):
     """Wrap ``problem`` so ``eval`` returns a noisy value and the true one stays reachable.
 
@@ -463,7 +467,10 @@ class NoisyProblem(Problem):
         ``optimum_y``, else its ``f_opt`` (the classic functions declare
         one).  If neither is known the noise is applied to the raw value
         ``f`` without the ``max(0, ·)`` clamp — a guessed ``f_opt = 0``
-        would flatten every objective value below 0.
+        would flatten every objective value below 0.  Only
+        :class:`NoNoise`, :class:`AdditiveGaussianNoise` and
+        :class:`MultiplicativeGaussianNoise` make sense on a raw value; the
+        BBOB models then raise ``ValueError`` and need an explicit ``f_opt``.
 
     Notes
     -----
@@ -492,6 +499,14 @@ class NoisyProblem(Problem):
         if f_opt is None:
             f_opt = getattr(problem, "f_opt", None)
         self._f_opt: Optional[float] = None if f_opt is None else float(f_opt)
+        if self._f_opt is None and not isinstance(model, _RAW_VALUE_MODELS):
+            # The BBOB models are defined on a non-negative precision: on a raw
+            # value UniformNoise goes complex for f < 0, GaussianNoise flips
+            # direction and CauchyNoise adds its 1e3 outliers to any value.
+            raise ValueError(
+                "%s acts on the precision f - f_opt, but the optimum of %r is unknown: pass f_opt=..., "
+                "or use AdditiveGaussianNoise / MultiplicativeGaussianNoise / NoNoise." % (model.describe(), problem)
+            )
         self._draws = PointDraws()
 
     # ------------------------------------------------------------------

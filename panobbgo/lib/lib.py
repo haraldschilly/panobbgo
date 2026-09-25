@@ -123,6 +123,9 @@ class Result:
         self._cv_vec: Optional[np.ndarray] = cv_vec
         self._cv_norm: Optional[Union[int, float, str]] = cv_norm
         self._time: float = time.time()
+        # :attr:`cv` memo: ``cv_vec`` and ``cv_norm`` never change after
+        # construction, and rankers ask for ``cv`` on every comparison.
+        self._cv: Optional[float] = None
 
     @property
     def x(self) -> Optional[np.ndarray]:
@@ -173,11 +176,19 @@ class Result:
             feasible.  (``cv_vec > 0.0`` is ``False`` for ``NaN``, so the
             entry used to be silently dropped.)
         """
-        if self._cv_vec is None:
-            return 0.0
-        if np.isnan(self._cv_vec).any():
-            return float("inf")
-        return float(norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm))  # type: ignore
+        try:
+            cv = self._cv
+        except AttributeError:  # unpickled from before the memo existed
+            cv = None
+        if cv is None:
+            if self._cv_vec is None:
+                cv = 0.0
+            elif np.isnan(self._cv_vec).any():
+                cv = float("inf")
+            else:
+                cv = float(norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm))  # type: ignore
+            self._cv = cv
+        return cv
 
     @property
     def pp(self) -> np.ndarray:

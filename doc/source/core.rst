@@ -21,7 +21,7 @@ Local Evaluation Pool
 Backend of ``evaluation_method = "threaded"`` and ``"processes"``.
 
 .. automodule:: panobbgo.local_pool
-   :members: LocalPool, Outcome
+   :members: LocalPool, ProcessPool, Outcome
 
 Dask Evaluation Backend
 -----------------------
@@ -33,3 +33,11 @@ imported lazily so the core carries no Dask dependency. Install the
 .. automodule:: panobbgo.dask_evaluation
    :members:
    :undoc-members:
+
+Per-call timeout in a child process
+-----------------------------------
+
+How ``evaluation.timeout`` is enforced on a dask worker.
+
+.. automodule:: panobbgo.timeout_call
+   :members: call_with_timeout, TimedCall

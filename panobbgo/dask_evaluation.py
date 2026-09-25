@@ -30,7 +30,7 @@ attributes, which tests and external code set/inspect directly.
 from __future__ import annotations
 
 import time as time_module
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 if TYPE_CHECKING:
     from .core import StrategyBase
@@ -89,32 +89,55 @@ class DaskEvaluators:
         return 0
 
 
+def evaluate_point(problem: Any, point: Any, timeout: Optional[float] = None) -> Tuple[Any, float, Any, bool]:
+    """The dask task: evaluate one point; returns ``(result, walltime in seconds, error, timed_out)``.
+
+    A raising objective is reported as ``(None, walltime, repr(exc), False)``
+    rather than raised, so its walltime is booked like the local pool books a
+    failed task's.
+
+    With ``timeout`` (``evaluation.timeout``) the limit is enforced **here, on
+    the worker, per call**: the objective runs in a child process
+    (:func:`panobbgo.timeout_call.call_with_timeout`) whose clock starts when
+    the call starts — queue time on the cluster never counts — and which is
+    killed on expiry, so a hung objective never holds its dask worker.  The
+    task then returns ``(None, walltime, None, True)`` and the client books a
+    ``NaN`` placeholder.  Without ``timeout`` the objective runs in the
+    worker itself, as before (no subprocess overhead).
+    """
+    import time
+
+    if timeout is None:
+        t0 = time.perf_counter()
+        try:
+            result = problem(point)
+        except Exception as exc:
+            return None, time.perf_counter() - t0, repr(exc), False
+        return result, time.perf_counter() - t0, None, False
+
+    from panobbgo.timeout_call import call_with_timeout
+
+    call = call_with_timeout(problem, point, timeout)
+    return call.result, call.seconds, call.error, call.timed_out
+
+
 def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
     """
     Run evaluation using Dask distributed computing.
 
     Submits each point as a Dask future, updates the strategy's task
     accounting, and returns the newly finished results.
+
+    ``evaluation.timeout`` is enforced on the worker (:func:`evaluate_point`);
+    the client does not expire futures itself.  A worker that dies loses its
+    task to dask's own recovery (it reruns elsewhere, or the future fails and
+    the evaluation is booked as failed), and a task that cannot run because
+    the cluster has no workers is reported by the strategy's waiting WARNING
+    — neither needs a client-side clock, which would charge queue time.
     """
-
-    # Helper function to evaluate a point using the problem
-    def evaluate_point(problem, point):
-        """Evaluate one point; returns ``(result, walltime in seconds, error)``.
-
-        A raising objective is reported as ``(None, walltime, repr(exc))``
-        rather than raised, so its walltime is booked like the local pool
-        books a failed task's.
-        """
-        import time
-
-        t0 = time.perf_counter()
-        try:
-            result = problem(point)
-        except Exception as exc:
-            return None, time.perf_counter() - t0, repr(exc)
-        return result, time.perf_counter() - t0, None
-
     _warn_ignored_options(strategy)
+    t = getattr(strategy.config, "evaluation_timeout", None)
+    timeout = float(t) if t else None
 
     # distribute work using Dask futures
     # Submit each point as a separate task; remember its point so a failure
@@ -127,6 +150,7 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
             evaluate_point,
             strategy._problem_future,
             point,
+            timeout,
             pure=False,  # Function may have side effects
         )
         points_by_key[future.key] = point
@@ -145,7 +169,7 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
         submitted_at.pop(future_id, None)
         if future is not None:
             try:
-                result, walltime, error = future.result()
+                result, walltime, error, timed_out = future.result()
             except Exception as e:
                 # Lost worker, cancellation, ...: no timing to book.
                 strategy.logger.error("Task failed with error: %s" % e)
@@ -153,7 +177,10 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
                     failed.append(point)
                 continue
             strategy.record_walltime(walltime)
-            if error is not None:
+            if timed_out:
+                if point is not None:
+                    new_results.append(strategy._timed_out_result(point, walltime))
+            elif error is not None:
                 strategy.logger.error("Evaluation failed: %s" % error)
                 if point is not None:
                     failed.append(point)
@@ -162,51 +189,15 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
             else:
                 new_results.append(result)
 
-    new_results.extend(_expire_timed_out(strategy, points_by_key, submitted_at))
     strategy._publish_failures(failed)
     return new_results
-
-
-def _expire_timed_out(strategy: "StrategyBase", points_by_key: dict, submitted_at: dict) -> List[Any]:
-    """``evaluation.timeout`` for dask: book outstanding futures past it as ``NaN`` results.
-
-    The client cannot observe when a worker *starts* a task, so the clock
-    runs from **submission** (queue time on the cluster counts).  An expired
-    future is released (``cancel``) and its point booked through
-    :meth:`~panobbgo.core.StrategyBase._timed_out_result` — a regular result
-    with ``fx = NaN``, charged once.  Dask cannot interrupt a task that is
-    already running on a worker: it runs to completion there and its
-    result is discarded.
-    """
-    t = getattr(strategy.config, "evaluation_timeout", None)
-    if not t:
-        return []
-    timeout = float(t)
-    now = time_module.time()
-    out = []
-    for key, future in list(strategy.pending.items()):
-        t0 = submitted_at.get(key)
-        if t0 is None or now - t0 <= timeout or future.done():
-            continue
-        del strategy.pending[key]
-        submitted_at.pop(key, None)
-        point = points_by_key.pop(key, None)
-        try:
-            future.cancel()
-        except Exception:  # pragma: no cover - a client already gone
-            pass
-        strategy.n_finished += 1
-        strategy.record_walltime(now - t0)
-        if point is not None:
-            out.append(strategy._timed_out_result(point, now - t0))
-    return out
 
 
 def _warn_ignored_options(strategy: "StrategyBase") -> None:
     """Warn once that ``evaluation.sync`` does not apply to dask.
 
     Results arrive in completion order; the option used to be dropped
-    silently.  (``evaluation.timeout`` does apply: see :func:`_expire_timed_out`.)
+    silently.  (``evaluation.timeout`` does apply: see :func:`evaluate_point`.)
     """
     if getattr(strategy, "_warned_dask_options", False):
         return

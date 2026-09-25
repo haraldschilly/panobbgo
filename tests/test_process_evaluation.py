@@ -557,19 +557,71 @@ def test_a_long_outstanding_dask_future_is_never_cut_by_the_backstop(monkeypatch
     assert len(s.results) == 2  # both futures resolved after 1.5 s > deadlock_seconds
 
 
-def test_dask_timeout_books_nan_results_and_the_run_goes_on(monkeypatch):
-    """evaluation.timeout applies to dask: a future that never finishes becomes a NaN result."""
+class _HangOnce(Problem):
+    """The first evaluation (atomic marker file) hangs for ``hang`` seconds; the rest are instant."""
+
+    def __init__(self, marker, hang=60.0):
+        self.marker = str(marker)
+        self.hang = hang
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        import os
+
+        try:
+            os.close(os.open(self.marker, os.O_CREAT | os.O_EXCL))
+        except FileExistsError:
+            return float(np.sum(x**2))
+        time.sleep(self.hang)
+        return float(np.sum(x**2))
+
+
+class _ThreadFuture:
+    """A dask-like future whose task runs on a thread — a stand-in dask worker."""
+
+    _keys = iter(range(10**6))
+
+    def __init__(self, fn, args):
+        import threading
+
+        self.key = "thr-%d" % next(self._keys)
+        self._value = self._exc = None
+        self._thread = threading.Thread(target=self._run, args=(fn, args), daemon=True)
+        self._thread.start()
+
+    def _run(self, fn, args):
+        try:
+            self._value = fn(*args)
+        except BaseException as exc:  # noqa: BLE001
+            self._exc = exc
+
+    def done(self):
+        return not self._thread.is_alive()
+
+    def result(self):
+        if self._exc is not None:
+            raise self._exc
+        return self._value
+
+    def cancel(self):
+        pass
+
+
+def test_dask_timeout_is_enforced_on_the_worker_per_call(monkeypatch, tmp_path):
+    """evaluation.timeout on dask: the worker kills the hung call and returns a NaN placeholder.
+
+    The task really runs (here on a thread standing in for a dask worker):
+    the hung call's child process is killed after the limit, measured from
+    the call's start, and the worker is free again.
+    """
     import panobbgo.dask_evaluation as dask_evaluation
     from panobbgo.heuristics import Random
     from panobbgo.strategies import StrategyRoundRobin
 
     def fake_setup(strategy, problem):
-        calls = iter(range(10**6))
-
         class Client:
             def submit(self, fn, *args, pure=False):
-                # The first task hangs on the "cluster"; the others take 50 ms.
-                return _FakeDaskFuture(fn, args, delay=1e9 if next(calls) == 0 else 0.05)
+                return _ThreadFuture(fn, args)
 
             def close(self):
                 pass
@@ -578,13 +630,15 @@ def test_dask_timeout_books_nan_results_and_the_run_goes_on(monkeypatch):
         strategy._problem_future = problem
 
     monkeypatch.setattr(dask_evaluation, "setup_cluster", fake_setup)
-    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s = StrategyRoundRobin(_HangOnce(tmp_path / "m"), parse_args=False, testing_mode=True, seed=3)
     s.config.evaluation_method = "dask"
     s.config.max_eval = 4
-    s.config.evaluation_timeout = 0.3
+    s.config.evaluation_timeout = 2.0
     s.config.stop_on_convergence = False
     s.add(Random)
+    t0 = time.time()
     s.start()
+    assert time.time() - t0 < 45  # the 60 s hang was cut
     assert len(s.results) == 4 and s._dispatched == 4
     _assert_timed_out(s, 1)
 

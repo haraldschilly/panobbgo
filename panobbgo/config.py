@@ -339,17 +339,17 @@ class Config:
         # supported by 'dask' (ignored with a warning).
         self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
 
-        # Per-call evaluation limit in seconds (YAML only), for every backend:
-        # 'threaded' and 'processes' count running time, 'dask' counts from
-        # submission (the client cannot see a task start).  An evaluation
-        # past it becomes a regular Result with fx = NaN (NaN cv_vec on a
-        # constrained problem: infeasible), marked Result.timed_out, recorded
-        # and charged once, published through new_results.  Processes kill
-        # only the worker running that call; threads cannot be killed and
-        # abandon it (it runs on in the background — use processes/dask for
-        # objectives that can hang; see panobbgo/local_pool.py); dask: see
-        # panobbgo/dask_evaluation.py.  Threaded evaluation under
-        # evaluation.sync goes through the pool when this is set.  An
+        # Per-call evaluation limit in seconds (YAML only), for every backend,
+        # enforced where the evaluation runs and counted from the call's
+        # start (queue time never counts).  An evaluation past it becomes a
+        # regular Result with fx = NaN (NaN cv_vec: infeasible), marked
+        # Result.timed_out, recorded and charged once, published through
+        # new_results.  'processes' kills only the worker running that call;
+        # 'dask' runs the call in a child process on the dask worker and
+        # kills that child (panobbgo/timeout_call.py); 'threaded' cannot kill
+        # a thread and abandons the call (it runs on in the background — use
+        # processes/dask for objectives that can hang).  Threaded evaluation
+        # under evaluation.sync goes through the pool when this is set.  An
         # objective that raises is still a failed evaluation.  Unset/0 = no
         # limit (the default).
         self.evaluation_timeout = get_config("evaluation.timeout", None, None, None, float)

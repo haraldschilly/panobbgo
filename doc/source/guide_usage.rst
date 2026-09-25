@@ -149,28 +149,38 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
      remote:
        scheduler_address: tcp://localhost:8786
 
-``evaluation.timeout`` (seconds, default unset = no limit) is a **per-call**
-limit that applies to every evaluation in every backend.  ``threaded`` and
-``processes`` measure *running* time (the clock starts when a worker picks
-the task up); ``dask`` measures from *submission*, because the client cannot
-observe when a worker starts a task.  An evaluation past the limit becomes a
-regular result with ``fx = NaN`` (and ``NaN`` constraint violations on a
-constrained problem, i.e. infeasible), marked ``Result.timed_out`` and in the
-``("timed_out", 0)`` column of the results frame; it is recorded, charged
-once against ``max_eval`` and published through ``new_results`` like any
-result, so heuristics see a bad point and every ranking puts it last.
-Processes kill exactly the worker running that call (a fresh one replaces
-it; every other in-flight evaluation keeps running).  Threads cannot be
-killed: a timed-out call is *abandoned* — it keeps running in the background
-and its result is discarded; abandoned threads are counted and warned about.
-Use ``processes`` or dask for objectives that can hang.  Dask: see below.  With ``evaluation.sync`` and
-threads, a timeout routes each batch through the thread pool, harvested in
-submission order.  An objective that *raises* is still a failed evaluation
-(no result, ``failed_evaluations`` event).
    constraints:
      handler: DefaultConstraintHandler
      # rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's
      # own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)
+
+``evaluation.timeout`` (seconds, default unset = no limit) is a **per-call**
+limit that applies to every evaluation in every backend and is enforced
+where the evaluation runs.  The clock starts when the call starts — time
+spent queued never counts.  An evaluation past the limit becomes a regular
+result with ``fx = NaN`` (and ``NaN`` constraint violations, i.e.
+infeasible), marked ``Result.timed_out`` and in the ``("timed_out", 0)``
+column of the results frame; it is recorded, charged once against
+``max_eval`` and published through ``new_results`` like any result, so
+heuristics see a bad point and every ranking puts it last.
+
+* ``processes``: exactly the worker process running that call is killed
+  (a fresh one replaces it); every other in-flight evaluation keeps running.
+* ``dask``: the task on the dask worker runs the objective in a child
+  process (:func:`panobbgo.timeout_call.call_with_timeout`) and kills that
+  child when the call runs too long, so a hung objective never holds its
+  worker.  The problem must be importable in a fresh interpreter on the
+  worker.  Without a timeout the objective runs in the worker itself, as
+  before.
+* ``threaded``: a thread cannot be killed — a timed-out call is
+  *abandoned*: it keeps running in the background and its result is
+  discarded; abandoned threads are counted and warned about.  Use
+  ``processes`` or dask for objectives that can hang.  With
+  ``evaluation.sync``, a timeout routes each batch through the thread pool,
+  harvested in submission order.
+
+An objective that *raises* is still a failed evaluation (no result,
+``failed_evaluations`` event).
 
 Edit these files to customize behavior.
 

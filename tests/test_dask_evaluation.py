@@ -82,35 +82,51 @@ def test_no_warning_without_the_options():
     dask_evaluation.run_evaluation(s, ["a"])
 
 
-class _Hanging:
-    """A future that never finishes (a task stuck on the cluster)."""
+class _Sleeper:
+    """Picklable objective (module level): sleeps ``x`` seconds, raises for ``x < 0``."""
 
-    def __init__(self, fn, *args):
-        self.key = "h%d" % id(self)
-        self.cancelled = False
+    def __call__(self, point):
+        import time
 
-    def done(self):
-        return False
-
-    def cancel(self):
-        self.cancelled = True
+        if point < 0:
+            raise ValueError("negative")
+        time.sleep(point)
+        return "slept-%s" % point
 
 
-def test_timeout_books_an_outstanding_future_as_a_nan_placeholder():
-    """evaluation.timeout for dask: measured from submission, released, booked once."""
+def test_evaluate_point_enforces_the_timeout_per_call_in_a_child():
     import time
 
+    t0 = time.time()
+    result, walltime, error, timed_out = dask_evaluation.evaluate_point(_Sleeper(), 30, timeout=1.0)
+    assert timed_out and result is None and error is None
+    assert 1.0 <= walltime < 5.0 and time.time() - t0 < 25
+    assert dask_evaluation.evaluate_point(_Sleeper(), 0, timeout=10.0)[0] == "slept-0"
+    _, _, error, timed_out = dask_evaluation.evaluate_point(_Sleeper(), -1, timeout=10.0)
+    assert not timed_out and "negative" in error
+
+
+def test_evaluate_point_without_a_timeout_runs_in_the_worker():
+    result, _, error, timed_out = dask_evaluation.evaluate_point(lambda p: p * 2, 21)  # a lambda: no pickling
+    assert (result, error, timed_out) == (42, None, False)
+
+
+def test_a_timed_out_task_is_booked_as_a_placeholder():
     s = _strategy(lambda point: point)
-    s._client = SimpleNamespace(submit=lambda fn, *args, **kw: _Hanging(fn, *args))
-    s.config = SimpleNamespace(show_interval=1e9, evaluation_timeout=0.05, sync_evaluation=False)
-    s.logger = SimpleNamespace(error=s.errors.append, warning=lambda msg: None)
+    s._client = SimpleNamespace(submit=lambda fn, *args, **kw: _Done((None, 1.5, None, True)))
     booked = []
-    s._timed_out_result = lambda point, seconds=None: booked.append(point) or ("nan-result", point)
-    assert dask_evaluation.run_evaluation(s, ["slow"]) == []  # not yet past the limit
-    [future] = s.pending.values()
-    time.sleep(0.1)
-    out = dask_evaluation.run_evaluation(s, [])
-    assert out == [("nan-result", "slow")]
-    assert booked == ["slow"] and future.cancelled
-    assert not s.pending and s.n_finished == 1 and len(s.walltimes) == 1
-    assert dask_evaluation.run_evaluation(s, []) == []  # booked once
+    s._timed_out_result = lambda point, seconds=None: booked.append((point, seconds)) or ("nan-result", point)
+    assert dask_evaluation.run_evaluation(s, ["slow"]) == [("nan-result", "slow")]
+    assert booked == [("slow", 1.5)] and s.walltimes == [1.5] and not s.pending and s.failed == []
+
+
+class _Done:
+    def __init__(self, value):
+        self.key = "d%d" % id(self)
+        self._value = value
+
+    def done(self):
+        return True
+
+    def result(self):
+        return self._value

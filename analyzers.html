@@ -316,7 +316,9 @@ paid for (<code class="docutils literal notranslate"><span class="pre">planning/
 only replays the last <em>n</em> rows as floats, <code class="docutils literal notranslate"><span class="pre">Best</span></code> collapses to a single
 incumbent, and <code class="docutils literal notranslate"><span class="pre">Splitter.root.results</span></code> is a complete but unsorted,
 unbounded <code class="docutils literal notranslate"><span class="pre">list[Result]</span></code>.  This analyzer keeps the <em>K</em> best results seen so
-far, ranked by the constraint handler’s penalty value and <strong>not filtered by
+far, ranked by the constraint handler’s ordering
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">rank_key()</span></code>, the one <code class="docutils literal notranslate"><span class="pre">Best</span></code>
+uses) and <strong>not filtered by
 ``who``</strong> — an arm that asks for a seed gets the best points in the run,
 whoever produced them.</p>
 <p>Cost: one heap operation per result, <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code>.  Queries are <code class="docutils literal notranslate"><span class="pre">O(K</span> <span class="pre">log</span> <span class="pre">K)</span></code>
@@ -334,7 +336,17 @@ before.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.archive.</span></span><span class="sig-name descname"><span class="pre">Archive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>Bounded top-K of the shared result stream, ranked by penalty value.</p>
+<p>Bounded top-K of the shared result stream, ranked by the constraint
+handler’s ordering (<code class="docutils literal notranslate"><span class="pre">rank_key</span></code>).</p>
+<p>With a time-varying handler (<code class="docutils literal notranslate"><span class="pre">time_invariant</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, e.g.
+dynamic penalty or augmented Lagrangian) the retained entries are re-ranked
+under the current ordering before a batch or a query whenever the number
+of results has changed since the last re-rank (the time these handlers
+move with), so the heap order does not go stale; which results were
+<em>admitted</em> earlier still reflects the ordering at the time.</p>
+<p>Thread-safety: results arrive on the event-bus thread, queries come from
+heuristics on the main thread; one lock covers every read and write of
+the heap.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -366,13 +378,16 @@ units of a dimension.  This is the selector that hands a second arm a
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.on_new_results" title="Link to this definition">#</a></dt>
-<dd><p>Fold every result into the bounded top-K.  <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code> per result.</p>
+<dd><p>Fold every result into the bounded top-K.  <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code> per result
+(plus an <code class="docutils literal notranslate"><span class="pre">O(K)</span></code> re-rank per batch for a time-varying handler).</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.archive.Archive.penalty_of">
 <span class="sig-name descname"><span class="pre">penalty_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.penalty_of"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.archive.Archive.penalty_of" title="Link to this definition">#</a></dt>
-<dd><p>Penalty value of <code class="docutils literal notranslate"><span class="pre">r</span></code>, <code class="docutils literal notranslate"><span class="pre">inf</span></code> when it cannot be evaluated.</p>
+<dd><p>Scalar penalty value of <code class="docutils literal notranslate"><span class="pre">r</span></code>, <code class="docutils literal notranslate"><span class="pre">inf</span></code> when it cannot be evaluated.</p>
+<p>A magnitude, not the ranking: with a lexicographic handler it can
+order two results differently from <a class="reference internal" href="#panobbgo.analyzers.archive.Archive.top_k" title="panobbgo.analyzers.archive.Archive.top_k"><code class="xref py py-meth docutils literal notranslate"><span class="pre">top_k()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -403,7 +418,8 @@ points from <em>different</em> basins by construction.</p>
 <li><p><strong>exclude_who</strong> – a <code class="docutils literal notranslate"><span class="pre">who</span></code> tag, or an iterable of them, to skip.
 Matching is by heuristic name, so <code class="docutils literal notranslate"><span class="pre">&quot;PSO&quot;</span></code> also drops
 <code class="docutils literal notranslate"><span class="pre">&quot;PSO:1a2b…&quot;</span></code>.</p></li>
-<li><p><strong>fx_max</strong> – keep only results whose penalty is <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">fx_max</span></code>.</p></li>
+<li><p><strong>fx_max</strong> – keep only results whose scalar penalty
+(<a class="reference internal" href="#panobbgo.analyzers.archive.Archive.penalty_of" title="panobbgo.analyzers.archive.Archive.penalty_of"><code class="xref py py-meth docutils literal notranslate"><span class="pre">penalty_of()</span></code></a>) is <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">fx_max</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -948,7 +964,17 @@ matches what a run actually builds.</p>
 <dt class="sig sig-object py" id="panobbgo.analyzers.Archive">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Archive</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">256</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>Bounded top-K of the shared result stream, ranked by penalty value.</p>
+<p>Bounded top-K of the shared result stream, ranked by the constraint
+handler’s ordering (<code class="docutils literal notranslate"><span class="pre">rank_key</span></code>).</p>
+<p>With a time-varying handler (<code class="docutils literal notranslate"><span class="pre">time_invariant</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>, e.g.
+dynamic penalty or augmented Lagrangian) the retained entries are re-ranked
+under the current ordering before a batch or a query whenever the number
+of results has changed since the last re-rank (the time these handlers
+move with), so the heap order does not go stale; which results were
+<em>admitted</em> earlier still reflects the ordering at the time.</p>
+<p>Thread-safety: results arrive on the event-bus thread, queries come from
+heuristics on the main thread; one lock covers every read and write of
+the heap.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -975,13 +1001,16 @@ units of a dimension.  This is the selector that hands a second arm a
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Archive.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Iterable" title="(in Python v3.14)"><span class="pre">Iterable</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.on_new_results" title="Link to this definition">#</a></dt>
-<dd><p>Fold every result into the bounded top-K.  <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code> per result.</p>
+<dd><p>Fold every result into the bounded top-K.  <code class="docutils literal notranslate"><span class="pre">O(log</span> <span class="pre">K)</span></code> per result
+(plus an <code class="docutils literal notranslate"><span class="pre">O(K)</span></code> re-rank per batch for a time-varying handler).</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Archive.penalty_of">
 <span class="sig-name descname"><span class="pre">penalty_of</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">r</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/archive.html#Archive.penalty_of"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Archive.penalty_of" title="Link to this definition">#</a></dt>
-<dd><p>Penalty value of <code class="docutils literal notranslate"><span class="pre">r</span></code>, <code class="docutils literal notranslate"><span class="pre">inf</span></code> when it cannot be evaluated.</p>
+<dd><p>Scalar penalty value of <code class="docutils literal notranslate"><span class="pre">r</span></code>, <code class="docutils literal notranslate"><span class="pre">inf</span></code> when it cannot be evaluated.</p>
+<p>A magnitude, not the ranking: with a lexicographic handler it can
+order two results differently from <a class="reference internal" href="#panobbgo.analyzers.Archive.top_k" title="panobbgo.analyzers.Archive.top_k"><code class="xref py py-meth docutils literal notranslate"><span class="pre">top_k()</span></code></a>.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1012,7 +1041,8 @@ points from <em>different</em> basins by construction.</p>
 <li><p><strong>exclude_who</strong> – a <code class="docutils literal notranslate"><span class="pre">who</span></code> tag, or an iterable of them, to skip.
 Matching is by heuristic name, so <code class="docutils literal notranslate"><span class="pre">&quot;PSO&quot;</span></code> also drops
 <code class="docutils literal notranslate"><span class="pre">&quot;PSO:1a2b…&quot;</span></code>.</p></li>
-<li><p><strong>fx_max</strong> – keep only results whose penalty is <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">fx_max</span></code>.</p></li>
+<li><p><strong>fx_max</strong> – keep only results whose scalar penalty
+(<a class="reference internal" href="#panobbgo.analyzers.Archive.penalty_of" title="panobbgo.analyzers.Archive.penalty_of"><code class="xref py py-meth docutils literal notranslate"><span class="pre">penalty_of()</span></code></a>) is <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">fx_max</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -1244,9 +1274,19 @@ the minimal and maximal representants for that region.</p>
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">improvement_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'random'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Detects search stagnation and publishes <code class="docutils literal notranslate"><span class="pre">restart</span></code> events.</p>
-<p>Listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code>, tracks the best penalty value in a sliding window,
-and fires a <code class="docutils literal notranslate"><span class="pre">restart</span></code> event when no sufficient improvement is found within
-<code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations.</p>
+<p>Listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code>, tracks the best result of the current
+<em>epoch</em> (the stretch since the last restart), and fires a <code class="docutils literal notranslate"><span class="pre">restart</span></code> event
+when no sufficient improvement on it is found within <code class="docutils literal notranslate"><span class="pre">patience</span></code>
+evaluations.  The epoch best is reset on every restart: a fresh basin is
+judged on its own progress, not on whether it already beats the global
+incumbent (which it almost never can within <code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations — all
+<code class="docutils literal notranslate"><span class="pre">max_restarts</span></code> would fire back to back).  As at the start of the run, the
+first result of a new epoch establishes its baseline.  That result is simply
+the next one to arrive — possibly a point proposed <em>before</em> the restart and
+still in flight, i.e. from the old basin.  It is not filtered out: an
+old-basin baseline is at worst a bit too good, so the new basin gets
+<code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations to beat it rather than to beat itself, which is
+the pre-epoch behaviour for those few evaluations and no worse.</p>
 <p>Configuration parameters:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">patience</span></code> (int): Evaluations without improvement before restart (default: 5 * dim).</p></li>
@@ -1301,8 +1341,13 @@ boundary; biases the restart cloud toward the centroid.</p></li>
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Sensitivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_interval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spearman'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/sensitivity.html#Sensitivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Sensitivity" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
 <p>Estimates per-dimension sensitivity from evaluation history.</p>
-<p>Listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events, accumulates X and y (penalty values),
-and periodically computes importance scores for each dimension.</p>
+<p>Listens to <code class="docutils literal notranslate"><span class="pre">new_results</span></code> events, accumulates X and y, and periodically
+computes importance scores for each dimension.</p>
+<p><code class="docutils literal notranslate"><span class="pre">&quot;spearman&quot;</span></code> only needs the <em>order</em> of the results, and takes it from the
+constraint handler’s ranking key (<code class="docutils literal notranslate"><span class="pre">rank_key</span></code>, the ordering <code class="docutils literal notranslate"><span class="pre">Best</span></code>
+uses).  <code class="docutils literal notranslate"><span class="pre">&quot;partial&quot;</span></code> regresses on magnitudes, so it uses the scalar
+<code class="docutils literal notranslate"><span class="pre">get_penalty_value</span></code> surrogate.  Both are recorded when a result arrives;
+with a time-varying handler they reflect the ordering at that time.</p>
 <p>Configuration parameters:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">min_samples</span></code> (int): Minimum evaluations before first analysis (default: 10 * dim).</p></li>

@@ -626,15 +626,22 @@ a simple version yourself:</p>
 <section id="implementing-constraint-handlers">
 <h3>Implementing Constraint Handlers<a class="headerlink" href="#implementing-constraint-handlers" title="Link to this heading">#</a></h3>
 <p>You can implement custom constraint handling logic by subclassing <cite>ConstraintHandler</cite>.
-This allows you to define how solutions are compared (<cite>is_better</cite>) and how improvement is calculated.</p>
+A handler defines <strong>one</strong> ordering, <code class="docutils literal notranslate"><span class="pre">rank_key</span></code> (a tuple, lower is better);
+<code class="docutils literal notranslate"><span class="pre">is_better</span></code> and <code class="docutils literal notranslate"><span class="pre">calculate_improvement</span></code> are derived from it, and every
+analyzer that ranks results (<code class="docutils literal notranslate"><span class="pre">Best</span></code>, <code class="docutils literal notranslate"><span class="pre">Archive</span></code>, <code class="docutils literal notranslate"><span class="pre">Restart</span></code>, <code class="docutils literal notranslate"><span class="pre">Splitter</span></code>,
+…) uses it.  Override <code class="docutils literal notranslate"><span class="pre">_improvement</span></code> for the reward magnitude and
+<code class="docutils literal notranslate"><span class="pre">get_penalty_value</span></code> for the scalar surrogate that local solvers minimise.
+Set <code class="docutils literal notranslate"><span class="pre">time_invariant</span> <span class="pre">=</span> <span class="pre">True</span></code> only if the ordering never changes during a run
+(consumers may then cache keys and penalty values).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConstraintHandler</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="k">class</span><span class="w"> </span><span class="nc">MyConstraintHandler</span><span class="p">(</span><span class="n">ConstraintHandler</span><span class="p">):</span>
-</span><span data-line="4">    <span class="k">def</span><span class="w"> </span><span class="nf">is_better</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">old_best</span><span class="p">,</span> <span class="n">new_result</span><span class="p">):</span>
-</span><span data-line="5">        <span class="c1"># Custom logic, e.g., tolerance-based comparison</span>
-</span><span data-line="6">        <span class="k">if</span> <span class="n">new_result</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="mf">1e-6</span> <span class="ow">and</span> <span class="n">old_best</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">:</span>
-</span><span data-line="7">            <span class="k">return</span> <span class="n">new_result</span><span class="o">.</span><span class="n">fx</span> <span class="o">&lt;</span> <span class="n">old_best</span><span class="o">.</span><span class="n">fx</span>
-</span><span data-line="8">        <span class="k">return</span> <span class="n">new_result</span><span class="o">.</span><span class="n">cv</span> <span class="o">&lt;</span> <span class="n">old_best</span><span class="o">.</span><span class="n">cv</span>
+</span><span data-line="4">    <span class="n">time_invariant</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="5">
+</span><span data-line="6">    <span class="k">def</span><span class="w"> </span><span class="nf">rank_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="7">        <span class="c1"># Tolerance-based feasibility first, then the objective.</span>
+</span><span data-line="8">        <span class="n">cv</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">cv</span> <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">cv</span> <span class="o">&gt;=</span> <span class="mf">1e-6</span> <span class="k">else</span> <span class="mf">0.0</span>
+</span><span data-line="9">        <span class="k">return</span> <span class="p">(</span><span class="n">cv</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">fx</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>

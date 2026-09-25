@@ -364,300 +364,316 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="228"><span class="sd">          the strategy's best incumbent.</span>
 </span><span data-line="229"><span class="sd">        - The heuristic spawns one dedicated subprocess; ``on_restart``</span>
 </span><span data-line="230"><span class="sd">          tears it down and relaunches it warm-started from the supplied</span>
-</span><span data-line="231"><span class="sd">          restart centre (matching :class:`~panobbgo.heuristics.cobyqa.COBYQA`).</span>
-</span><span data-line="232"><span class="sd">        - Out-of-bounds proposals from the subprocess are projected onto the</span>
-</span><span data-line="233"><span class="sd">          feasible box by :meth:`panobbgo.lib.Problem.project` before being</span>
-</span><span data-line="234"><span class="sd">          emitted; the value the subprocess sees is therefore the objective</span>
-</span><span data-line="235"><span class="sd">          at the projected (feasible) point.</span>
-</span><span data-line="236"><span class="sd">        - The subprocess uses the ``"spawn"`` start method to avoid the</span>
-</span><span data-line="237"><span class="sd">          deadlocks that ``fork`` triggers in multi-threaded processes.</span>
-</span><span data-line="238"><span class="sd">    """</span>
-</span><span data-line="239">
-</span><span data-line="240">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="241">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="242">        <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="243">        <span class="n">max_starts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_MAX_STARTS</span><span class="p">,</span>
-</span><span data-line="244">        <span class="n">maxfun</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_MAXFUN</span><span class="p">,</span>
-</span><span data-line="245">        <span class="n">epsilon</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_EPSILON</span><span class="p">,</span>
-</span><span data-line="246">        <span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-</span><span data-line="247">        <span class="n">warm_start_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
-</span><span data-line="248">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="249">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="250">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="251">        <span class="k">if</span> <span class="n">max_starts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="252">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_starts</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_starts</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="253">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: max_starts must be an integer or None, got </span><span class="si">{</span><span class="n">max_starts</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="254">            <span class="k">if</span> <span class="n">max_starts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="255">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: max_starts must be &gt; 0, got </span><span class="si">{</span><span class="n">max_starts</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="256">        <span class="k">if</span> <span class="n">maxfun</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="257">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxfun</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxfun</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="258">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: maxfun must be an integer or None, got </span><span class="si">{</span><span class="n">maxfun</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="259">            <span class="k">if</span> <span class="n">maxfun</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="260">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: maxfun must be &gt; 0, got </span><span class="si">{</span><span class="n">maxfun</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="261">        <span class="k">if</span> <span class="n">epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="262">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span> <span class="ow">or</span> <span class="n">epsilon</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="263">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: epsilon must be a positive finite float or None, got </span><span class="si">{</span><span class="n">epsilon</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="264">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">warm_start</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="265">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: warm_start must be a bool, got </span><span class="si">{</span><span class="n">warm_start</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="266">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">warm_start_sigma</span><span class="p">)</span> <span class="ow">or</span> <span class="n">warm_start_sigma</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="267">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: warm_start_sigma must be a non-negative finite float, got </span><span class="si">{</span><span class="n">warm_start_sigma</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="268">
-</span><span data-line="269">        <span class="n">PipeBridgeHeuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"LBFGSB"</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="270">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"LBFGS"</span><span class="p">)</span>
-</span><span data-line="271">        <span class="bp">self</span><span class="o">.</span><span class="n">max_starts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_starts</span>
-</span><span data-line="272">        <span class="bp">self</span><span class="o">.</span><span class="n">maxfun</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfun</span>
-</span><span data-line="273">        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">epsilon</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span>
-</span><span data-line="274">        <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">warm_start</span>
-</span><span data-line="275">        <span class="bp">self</span><span class="o">.</span><span class="n">warm_start_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warm_start_sigma</span><span class="p">)</span>
-</span><span data-line="276">        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
-</span><span data-line="277">
-</span><span data-line="278">        <span class="c1"># Best incumbent tracked parent-side for warm-started restarts; updated</span>
-</span><span data-line="279">        <span class="c1"># by :meth:`on_new_best`.  ``None`` until the strategy's first result.</span>
-</span><span data-line="280">        <span class="bp">self</span><span class="o">.</span><span class="n">_best_x</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="281">        <span class="c1"># Parent-side RNG for the warm-start perturbation / fallback draw.  Kept</span>
-</span><span data-line="282">        <span class="c1"># distinct from the worker's restart RNG (which lives in the subprocess)</span>
-</span><span data-line="283">        <span class="c1"># so the two streams never share state across the process boundary.</span>
-</span><span data-line="284">        <span class="bp">self</span><span class="o">.</span><span class="n">_warm_rng</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="285">        <span class="c1"># Seed handed to the worker subprocess; derived from ``self.rng`` when</span>
-</span><span data-line="286">        <span class="c1"># no explicit seed is given so the restart stream is pinned by the</span>
-</span><span data-line="287">        <span class="c1"># strategy's master seed rather than fresh OS entropy.</span>
-</span><span data-line="288">        <span class="bp">self</span><span class="o">.</span><span class="n">_worker_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">))</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="289">
-</span><span data-line="290">        <span class="c1"># Subprocess handles — populated by :meth:`__start__`.</span>
-</span><span data-line="291">        <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the request pipe</span>
-</span><span data-line="292">        <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the request pipe</span>
-</span><span data-line="293">        <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the status pipe</span>
-</span><span data-line="294">        <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the status pipe</span>
-</span><span data-line="295">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the Process itself</span>
-</span><span data-line="296">
-</span><span data-line="297">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="298">    <span class="c1"># Subprocess plumbing</span>
-</span><span data-line="299">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="300">
-</span><span data-line="301">    <span class="k">def</span><span class="w"> </span><span class="nf">_box_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-</span><span data-line="302"><span class="w">        </span><span class="sd">"""Return the feasible box as a list of ``(low, high)`` tuples."""</span>
-</span><span data-line="303">        <span class="k">return</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
-</span><span data-line="304">
-</span><span data-line="305">    <span class="k">def</span><span class="w"> </span><span class="nf">_box_center</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="306"><span class="w">        </span><span class="sd">"""Midpoint of every box axis — the deterministic first start point."""</span>
-</span><span data-line="307">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">low</span> <span class="o">+</span> <span class="n">high</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="308">
-</span><span data-line="309">    <span class="k">def</span><span class="w"> </span><span class="nf">_spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0_first</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="310"><span class="w">        </span><span class="sd">"""Launch a fresh worker subprocess starting from ``x0_first``."""</span>
-</span><span data-line="311">        <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"spawn"</span><span class="p">)</span>
-</span><span data-line="312">        <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
-</span><span data-line="313">        <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-</span><span data-line="314">
-</span><span data-line="315">        <span class="n">lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="316">        <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="317">
-</span><span data-line="318">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
-</span><span data-line="319">            <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span>
-</span><span data-line="320">            <span class="n">args</span><span class="o">=</span><span class="p">(</span>
-</span><span data-line="321">                <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">,</span>
-</span><span data-line="322">                <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">,</span>
-</span><span data-line="323">                <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x0_first</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
-</span><span data-line="324">                <span class="n">bounds</span><span class="p">,</span>
-</span><span data-line="325">                <span class="n">lb</span><span class="p">,</span>
-</span><span data-line="326">                <span class="n">ub</span><span class="p">,</span>
-</span><span data-line="327">                <span class="bp">self</span><span class="o">.</span><span class="n">_worker_seed</span><span class="p">,</span>
-</span><span data-line="328">                <span class="bp">self</span><span class="o">.</span><span class="n">max_starts</span><span class="p">,</span>
-</span><span data-line="329">                <span class="bp">self</span><span class="o">.</span><span class="n">maxfun</span><span class="p">,</span>
-</span><span data-line="330">                <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">,</span>
-</span><span data-line="331">                <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span>
-</span><span data-line="332">            <span class="p">),</span>
-</span><span data-line="333">            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-LBFGS"</span><span class="p">,</span>
-</span><span data-line="334">        <span class="p">)</span>
-</span><span data-line="335">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="336">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</span><span data-line="337">
-</span><span data-line="338">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="339">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="340">            <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_bounds</span><span class="p">()</span>
-</span><span data-line="341">            <span class="bp">self</span><span class="o">.</span><span class="n">_spawn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_box_center</span><span class="p">(</span><span class="n">bounds</span><span class="p">),</span> <span class="n">bounds</span><span class="p">)</span>
-</span><span data-line="342">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="343">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-</span><span data-line="344">                <span class="sa">f</span><span class="s2">"Failed to start LBFGSB subprocess for heuristic '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">'. "</span>
-</span><span data-line="345">                <span class="sa">f</span><span class="s2">"This usually indicates a multiprocessing issue. "</span>
-</span><span data-line="346">                <span class="sa">f</span><span class="s2">"Make sure multiprocessing is supported on this system. "</span>
-</span><span data-line="347">                <span class="sa">f</span><span class="s2">"Original error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span>
-</span><span data-line="348">            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-</span><span data-line="349">
+</span><span data-line="231"><span class="sd">          restart centre (matching :class:`~panobbgo.heuristics.cobyqa.COBYQA`),</span>
+</span><span data-line="232"><span class="sd">          with a fresh worker seed for the later multi-start points.</span>
+</span><span data-line="233"><span class="sd">        - Out-of-bounds proposals from the subprocess are projected onto the</span>
+</span><span data-line="234"><span class="sd">          feasible box by :meth:`panobbgo.lib.Problem.project` before being</span>
+</span><span data-line="235"><span class="sd">          emitted; the value the subprocess sees is therefore the objective</span>
+</span><span data-line="236"><span class="sd">          at the projected (feasible) point.</span>
+</span><span data-line="237"><span class="sd">        - The subprocess uses the ``"spawn"`` start method to avoid the</span>
+</span><span data-line="238"><span class="sd">          deadlocks that ``fork`` triggers in multi-threaded processes.</span>
+</span><span data-line="239"><span class="sd">    """</span>
+</span><span data-line="240">
+</span><span data-line="241">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="242">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="243">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="244">        <span class="n">max_starts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_MAX_STARTS</span><span class="p">,</span>
+</span><span data-line="245">        <span class="n">maxfun</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_MAXFUN</span><span class="p">,</span>
+</span><span data-line="246">        <span class="n">epsilon</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_EPSILON</span><span class="p">,</span>
+</span><span data-line="247">        <span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="248">        <span class="n">warm_start_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+</span><span data-line="249">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="250">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="251">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="252">        <span class="k">if</span> <span class="n">max_starts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="253">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_starts</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">max_starts</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+</span><span data-line="254">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: max_starts must be an integer or None, got </span><span class="si">{</span><span class="n">max_starts</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="255">            <span class="k">if</span> <span class="n">max_starts</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="256">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: max_starts must be &gt; 0, got </span><span class="si">{</span><span class="n">max_starts</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="257">        <span class="k">if</span> <span class="n">maxfun</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="258">            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxfun</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">maxfun</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+</span><span data-line="259">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: maxfun must be an integer or None, got </span><span class="si">{</span><span class="n">maxfun</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="260">            <span class="k">if</span> <span class="n">maxfun</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="261">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: maxfun must be &gt; 0, got </span><span class="si">{</span><span class="n">maxfun</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="262">        <span class="k">if</span> <span class="n">epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="263">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span> <span class="ow">or</span> <span class="n">epsilon</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="264">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: epsilon must be a positive finite float or None, got </span><span class="si">{</span><span class="n">epsilon</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="265">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">warm_start</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+</span><span data-line="266">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: warm_start must be a bool, got </span><span class="si">{</span><span class="n">warm_start</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="267">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">warm_start_sigma</span><span class="p">)</span> <span class="ow">or</span> <span class="n">warm_start_sigma</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="268">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: warm_start_sigma must be a non-negative finite float, got </span><span class="si">{</span><span class="n">warm_start_sigma</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="269">
+</span><span data-line="270">        <span class="n">PipeBridgeHeuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"LBFGSB"</span><span class="p">,</span> <span class="n">cap</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="271">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get_logger</span><span class="p">(</span><span class="s2">"LBFGS"</span><span class="p">)</span>
+</span><span data-line="272">        <span class="bp">self</span><span class="o">.</span><span class="n">max_starts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_starts</span>
+</span><span data-line="273">        <span class="bp">self</span><span class="o">.</span><span class="n">maxfun</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfun</span>
+</span><span data-line="274">        <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">epsilon</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">epsilon</span><span class="p">)</span>
+</span><span data-line="275">        <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">warm_start</span>
+</span><span data-line="276">        <span class="bp">self</span><span class="o">.</span><span class="n">warm_start_sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">warm_start_sigma</span><span class="p">)</span>
+</span><span data-line="277">        <span class="bp">self</span><span class="o">.</span><span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
+</span><span data-line="278">
+</span><span data-line="279">        <span class="c1"># Best incumbent tracked parent-side for warm-started restarts; updated</span>
+</span><span data-line="280">        <span class="c1"># by :meth:`on_new_best`.  ``None`` until the strategy's first result.</span>
+</span><span data-line="281">        <span class="bp">self</span><span class="o">.</span><span class="n">_best_x</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="282">        <span class="c1"># Parent-side RNG for the warm-start perturbation / fallback draw.  Kept</span>
+</span><span data-line="283">        <span class="c1"># distinct from the worker's restart RNG (which lives in the subprocess)</span>
+</span><span data-line="284">        <span class="c1"># so the two streams never share state across the process boundary.</span>
+</span><span data-line="285">        <span class="bp">self</span><span class="o">.</span><span class="n">_warm_rng</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span data-line="286">        <span class="c1"># Seed handed to the worker subprocess; derived from ``self.rng`` when</span>
+</span><span data-line="287">        <span class="c1"># no explicit seed is given so the restart stream is pinned by the</span>
+</span><span data-line="288">        <span class="c1"># strategy's master seed rather than fresh OS entropy.</span>
+</span><span data-line="289">        <span class="bp">self</span><span class="o">.</span><span class="n">_worker_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">))</span> <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span data-line="290">
+</span><span data-line="291">        <span class="c1"># Subprocess handles — populated by :meth:`__start__`.</span>
+</span><span data-line="292">        <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the request pipe</span>
+</span><span data-line="293">        <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the request pipe</span>
+</span><span data-line="294">        <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># parent end of the status pipe</span>
+</span><span data-line="295">        <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># child end of the status pipe</span>
+</span><span data-line="296">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the Process itself</span>
+</span><span data-line="297">
+</span><span data-line="298">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="299">    <span class="c1"># Subprocess plumbing</span>
+</span><span data-line="300">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="301">
+</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">_box_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+</span><span data-line="303"><span class="w">        </span><span class="sd">"""Return the feasible box as a list of ``(low, high)`` tuples."""</span>
+</span><span data-line="304">        <span class="k">return</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">row</span><span class="p">)</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span><span class="p">]</span>
+</span><span data-line="305">
+</span><span data-line="306">    <span class="k">def</span><span class="w"> </span><span class="nf">_box_center</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="307"><span class="w">        </span><span class="sd">"""Midpoint of every box axis — the deterministic first start point."""</span>
+</span><span data-line="308">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">low</span> <span class="o">+</span> <span class="n">high</span><span class="p">)</span> <span class="o">/</span> <span class="mf">2.0</span> <span class="k">for</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="309">
+</span><span data-line="310">    <span class="k">def</span><span class="w"> </span><span class="nf">_respawn_seed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">restart_index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="311"><span class="w">        </span><span class="sd">"""Worker seed for the worker spawned for restart ``restart_index``.</span>
+</span><span data-line="312">
+</span><span data-line="313"><span class="sd">        ``0`` (the initial worker) is ``_worker_seed`` itself, so runs without</span>
+</span><span data-line="314"><span class="sd">        restarts are unchanged.  Restart *n* gets child *n* of</span>
+</span><span data-line="315"><span class="sd">        ``SeedSequence(_worker_seed)``: a restart does not replay the first</span>
+</span><span data-line="316"><span class="sd">        worker's multi-start ``x0`` sequence, and the seed depends on *which*</span>
+</span><span data-line="317"><span class="sd">        restart it is (counted on the event bus), not on how many respawns</span>
+</span><span data-line="318"><span class="sd">        timing happened to coalesce.</span>
+</span><span data-line="319"><span class="sd">        """</span>
+</span><span data-line="320">        <span class="k">if</span> <span class="n">restart_index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="321">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_worker_seed</span>
+</span><span data-line="322">        <span class="n">ss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">SeedSequence</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_worker_seed</span><span class="p">,</span> <span class="n">spawn_key</span><span class="o">=</span><span class="p">(</span><span class="n">restart_index</span><span class="p">,))</span>
+</span><span data-line="323">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">ss</span><span class="o">.</span><span class="n">generate_state</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="324">
+</span><span data-line="325">    <span class="k">def</span><span class="w"> </span><span class="nf">_spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0_first</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="326"><span class="w">        </span><span class="sd">"""Launch a fresh worker subprocess starting from ``x0_first``."""</span>
+</span><span data-line="327">        <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"spawn"</span><span class="p">)</span>
+</span><span data-line="328">        <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">p2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">()</span>
+</span><span data-line="329">        <span class="bp">self</span><span class="o">.</span><span class="n">out1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out2</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Pipe</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="330">
+</span><span data-line="331">        <span class="n">lb</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="332">        <span class="n">ub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="333">
+</span><span data-line="334">        <span class="n">worker_seed</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_respawn_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_restart_index</span><span class="p">)</span>
+</span><span data-line="335">
+</span><span data-line="336">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span>
+</span><span data-line="337">            <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">worker</span><span class="p">,</span>
+</span><span data-line="338">            <span class="n">args</span><span class="o">=</span><span class="p">(</span>
+</span><span data-line="339">                <span class="bp">self</span><span class="o">.</span><span class="n">p2</span><span class="p">,</span>
+</span><span data-line="340">                <span class="bp">self</span><span class="o">.</span><span class="n">out2</span><span class="p">,</span>
+</span><span data-line="341">                <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x0_first</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+</span><span data-line="342">                <span class="n">bounds</span><span class="p">,</span>
+</span><span data-line="343">                <span class="n">lb</span><span class="p">,</span>
+</span><span data-line="344">                <span class="n">ub</span><span class="p">,</span>
+</span><span data-line="345">                <span class="n">worker_seed</span><span class="p">,</span>
+</span><span data-line="346">                <span class="bp">self</span><span class="o">.</span><span class="n">max_starts</span><span class="p">,</span>
+</span><span data-line="347">                <span class="bp">self</span><span class="o">.</span><span class="n">maxfun</span><span class="p">,</span>
+</span><span data-line="348">                <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span><span class="p">,</span>
+</span><span data-line="349">                <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span>
+</span><span data-line="350">            <span class="p">),</span>
+</span><span data-line="351">            <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">-LBFGS"</span><span class="p">,</span>
+</span><span data-line="352">        <span class="p">)</span>
+</span><span data-line="353">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">daemon</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="354">        <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="355">
+</span><span data-line="356">    <span class="k">def</span><span class="w"> </span><span class="nf">__start__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="357">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="358">            <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_bounds</span><span class="p">()</span>
+</span><span data-line="359">            <span class="bp">self</span><span class="o">.</span><span class="n">_spawn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_box_center</span><span class="p">(</span><span class="n">bounds</span><span class="p">),</span> <span class="n">bounds</span><span class="p">)</span>
+</span><span data-line="360">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="361">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+</span><span data-line="362">                <span class="sa">f</span><span class="s2">"Failed to start LBFGSB subprocess for heuristic '</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">'. "</span>
+</span><span data-line="363">                <span class="sa">f</span><span class="s2">"This usually indicates a multiprocessing issue. "</span>
+</span><span data-line="364">                <span class="sa">f</span><span class="s2">"Make sure multiprocessing is supported on this system. "</span>
+</span><span data-line="365">                <span class="sa">f</span><span class="s2">"Original error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span>
+</span><span data-line="366">            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+</span><span data-line="367">
 <div class="viewcode-block" id="LBFGSB.worker">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LBFGSB.worker">[docs]</a>
-</span><span data-line="350">    <span class="nd">@staticmethod</span>
-</span><span data-line="351">    <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span>
-</span><span data-line="352">        <span class="n">pipe</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-</span><span data-line="353">        <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
-</span><span data-line="354">        <span class="n">x0_first</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-</span><span data-line="355">        <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
-</span><span data-line="356">        <span class="n">lb</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-</span><span data-line="357">        <span class="n">ub</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-</span><span data-line="358">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span data-line="359">        <span class="n">max_starts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span data-line="360">        <span class="n">maxfun</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
-</span><span data-line="361">        <span class="n">epsilon</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
-</span><span data-line="362">        <span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-</span><span data-line="363">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="364"><span class="w">        </span><span class="sd">"""Subprocess entry point: run multi-start L-BFGS-B over the pipe.</span>
-</span><span data-line="365">
-</span><span data-line="366"><span class="sd">        When ``warm_start`` is set, restart points (after the first box-centre</span>
-</span><span data-line="367"><span class="sd">        descent) are requested from the parent — a perturbation of the</span>
-</span><span data-line="368"><span class="sd">        strategy's best incumbent — instead of drawn from the local uniform</span>
-</span><span data-line="369"><span class="sd">        RNG.  The request is a single :data:`_X0_REQUEST` sentinel over the</span>
-</span><span data-line="370"><span class="sd">        same pipe used for ``f(x)`` round-trips; a closed pipe raises</span>
-</span><span data-line="371"><span class="sd">        ``SystemExit`` so the worker shuts down cleanly on parent teardown.</span>
-</span><span data-line="372"><span class="sd">        """</span>
-</span><span data-line="373">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">fmin_l_bfgs_b</span>
-</span><span data-line="374">
-</span><span data-line="375">        <span class="n">f</span> <span class="o">=</span> <span class="n">_make_pipe_objective</span><span class="p">(</span><span class="n">pipe</span><span class="p">)</span>
-</span><span data-line="376">        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-</span><span data-line="377">        <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"bounds"</span><span class="p">:</span> <span class="n">bounds</span><span class="p">,</span> <span class="s2">"approx_grad"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
-</span><span data-line="378">        <span class="k">if</span> <span class="n">maxfun</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="379">            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"maxfun"</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfun</span>
-</span><span data-line="380">        <span class="k">if</span> <span class="n">epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="381">            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"epsilon"</span><span class="p">]</span> <span class="o">=</span> <span class="n">epsilon</span>
-</span><span data-line="382">
-</span><span data-line="383">        <span class="k">def</span><span class="w"> </span><span class="nf">_request_warm_x0</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="384"><span class="w">            </span><span class="sd">"""Ask the parent for a warm-start ``x0`` (perturbed incumbent)."""</span>
-</span><span data-line="385">            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">_X0_REQUEST</span><span class="p">)</span>
-</span><span data-line="386">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="387">                <span class="n">x0</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
-</span><span data-line="388">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-</span><span data-line="389">                <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-</span><span data-line="390">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
-</span><span data-line="391">
-</span><span data-line="392">        <span class="n">starts</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="393">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="394">            <span class="k">while</span> <span class="n">max_starts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">starts</span> <span class="o">&lt;</span> <span class="n">max_starts</span><span class="p">:</span>
-</span><span data-line="395">                <span class="k">if</span> <span class="n">starts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="396">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x0_first</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="397">                <span class="k">elif</span> <span class="n">warm_start</span><span class="p">:</span>
-</span><span data-line="398">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">_request_warm_x0</span><span class="p">()</span>
-</span><span data-line="399">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="400">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
-</span><span data-line="401">                <span class="k">try</span><span class="p">:</span>
-</span><span data-line="402">                    <span class="n">fmin_l_bfgs_b</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-</span><span data-line="403">                <span class="k">except</span> <span class="ne">SystemExit</span><span class="p">:</span>
-</span><span data-line="404">                    <span class="k">return</span>
-</span><span data-line="405">                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="406">                    <span class="c1"># A single descent failed numerically (e.g. a non-finite</span>
-</span><span data-line="407">                    <span class="c1"># gradient); fall through to the next restart.</span>
-</span><span data-line="408">                    <span class="k">pass</span>
-</span><span data-line="409">                <span class="n">starts</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="410">        <span class="k">except</span> <span class="ne">SystemExit</span><span class="p">:</span>
-</span><span data-line="411">            <span class="k">return</span>
-</span><span data-line="412">        <span class="n">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">{</span><span class="s2">"done"</span><span class="p">:</span> <span class="n">starts</span><span class="p">})</span></div>
+</span><span data-line="368">    <span class="nd">@staticmethod</span>
+</span><span data-line="369">    <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span>
+</span><span data-line="370">        <span class="n">pipe</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="371">        <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="372">        <span class="n">x0_first</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+</span><span data-line="373">        <span class="n">bounds</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+</span><span data-line="374">        <span class="n">lb</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+</span><span data-line="375">        <span class="n">ub</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+</span><span data-line="376">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="377">        <span class="n">max_starts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="378">        <span class="n">maxfun</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+</span><span data-line="379">        <span class="n">epsilon</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+</span><span data-line="380">        <span class="n">warm_start</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="381">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="382"><span class="w">        </span><span class="sd">"""Subprocess entry point: run multi-start L-BFGS-B over the pipe.</span>
+</span><span data-line="383">
+</span><span data-line="384"><span class="sd">        When ``warm_start`` is set, restart points (after the first box-centre</span>
+</span><span data-line="385"><span class="sd">        descent) are requested from the parent — a perturbation of the</span>
+</span><span data-line="386"><span class="sd">        strategy's best incumbent — instead of drawn from the local uniform</span>
+</span><span data-line="387"><span class="sd">        RNG.  The request is a single :data:`_X0_REQUEST` sentinel over the</span>
+</span><span data-line="388"><span class="sd">        same pipe used for ``f(x)`` round-trips; a closed pipe raises</span>
+</span><span data-line="389"><span class="sd">        ``SystemExit`` so the worker shuts down cleanly on parent teardown.</span>
+</span><span data-line="390"><span class="sd">        """</span>
+</span><span data-line="391">        <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">fmin_l_bfgs_b</span>
+</span><span data-line="392">
+</span><span data-line="393">        <span class="n">f</span> <span class="o">=</span> <span class="n">_make_pipe_objective</span><span class="p">(</span><span class="n">pipe</span><span class="p">)</span>
+</span><span data-line="394">        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+</span><span data-line="395">        <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"bounds"</span><span class="p">:</span> <span class="n">bounds</span><span class="p">,</span> <span class="s2">"approx_grad"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+</span><span data-line="396">        <span class="k">if</span> <span class="n">maxfun</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="397">            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"maxfun"</span><span class="p">]</span> <span class="o">=</span> <span class="n">maxfun</span>
+</span><span data-line="398">        <span class="k">if</span> <span class="n">epsilon</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="399">            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"epsilon"</span><span class="p">]</span> <span class="o">=</span> <span class="n">epsilon</span>
+</span><span data-line="400">
+</span><span data-line="401">        <span class="k">def</span><span class="w"> </span><span class="nf">_request_warm_x0</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="402"><span class="w">            </span><span class="sd">"""Ask the parent for a warm-start ``x0`` (perturbed incumbent)."""</span>
+</span><span data-line="403">            <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">_X0_REQUEST</span><span class="p">)</span>
+</span><span data-line="404">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="405">                <span class="n">x0</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+</span><span data-line="406">            <span class="k">except</span> <span class="p">(</span><span class="ne">EOFError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+</span><span data-line="407">                <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="408">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
+</span><span data-line="409">
+</span><span data-line="410">        <span class="n">starts</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="411">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="412">            <span class="k">while</span> <span class="n">max_starts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">starts</span> <span class="o">&lt;</span> <span class="n">max_starts</span><span class="p">:</span>
+</span><span data-line="413">                <span class="k">if</span> <span class="n">starts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="414">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x0_first</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="415">                <span class="k">elif</span> <span class="n">warm_start</span><span class="p">:</span>
+</span><span data-line="416">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">_request_warm_x0</span><span class="p">()</span>
+</span><span data-line="417">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="418">                    <span class="n">x0</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">lb</span><span class="p">,</span> <span class="n">ub</span><span class="p">)</span>
+</span><span data-line="419">                <span class="k">try</span><span class="p">:</span>
+</span><span data-line="420">                    <span class="n">fmin_l_bfgs_b</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="421">                <span class="k">except</span> <span class="ne">SystemExit</span><span class="p">:</span>
+</span><span data-line="422">                    <span class="k">return</span>
+</span><span data-line="423">                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="424">                    <span class="c1"># A single descent failed numerically (e.g. a non-finite</span>
+</span><span data-line="425">                    <span class="c1"># gradient); fall through to the next restart.</span>
+</span><span data-line="426">                    <span class="k">pass</span>
+</span><span data-line="427">                <span class="n">starts</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="428">        <span class="k">except</span> <span class="ne">SystemExit</span><span class="p">:</span>
+</span><span data-line="429">            <span class="k">return</span>
+</span><span data-line="430">        <span class="n">_safe_send</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="p">{</span><span class="s2">"done"</span><span class="p">:</span> <span class="n">starts</span><span class="p">})</span></div>
 
-</span><span data-line="413">
-</span><span data-line="414">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="415">    <span class="c1"># The pull bridge (see panobbgo.core.PipeBridgeHeuristic)</span>
-</span><span data-line="416">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="417">
-</span><span data-line="418">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_process</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-</span><span data-line="419">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span>
-</span><span data-line="420">
-</span><span data-line="421">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="422"><span class="w">        </span><span class="sd">"""Answer the warm-start ``x0`` request inline.</span>
-</span><span data-line="423">
-</span><span data-line="424"><span class="sd">        The only non-point message the worker sends over the request pipe is</span>
-</span><span data-line="425"><span class="sd">        :data:`_X0_REQUEST`; a string can never be mistaken for a search</span>
-</span><span data-line="426"><span class="sd">        point.  Answering it here keeps the whole protocol on one thread.</span>
-</span><span data-line="427"><span class="sd">        """</span>
-</span><span data-line="428">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-</span><span data-line="429">            <span class="k">if</span> <span class="n">msg</span> <span class="o">==</span> <span class="n">_X0_REQUEST</span><span class="p">:</span>
-</span><span data-line="430">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_x0</span><span class="p">())</span>
-</span><span data-line="431">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="432">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">: unexpected control message </span><span class="si">%r</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">msg</span><span class="p">))</span>
-</span><span data-line="433">            <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="434">        <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="431">
+</span><span data-line="432">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="433">    <span class="c1"># The pull bridge (see panobbgo.core.PipeBridgeHeuristic)</span>
+</span><span data-line="434">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="435">
+</span><span data-line="436">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_process</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="437">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span>
+</span><span data-line="438">
+</span><span data-line="439">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_control</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="440"><span class="w">        </span><span class="sd">"""Answer the warm-start ``x0`` request inline.</span>
+</span><span data-line="441">
+</span><span data-line="442"><span class="sd">        The only non-point message the worker sends over the request pipe is</span>
+</span><span data-line="443"><span class="sd">        :data:`_X0_REQUEST`; a string can never be mistaken for a search</span>
+</span><span data-line="444"><span class="sd">        point.  Answering it here keeps the whole protocol on one thread.</span>
+</span><span data-line="445"><span class="sd">        """</span>
+</span><span data-line="446">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="447">            <span class="k">if</span> <span class="n">msg</span> <span class="o">==</span> <span class="n">_X0_REQUEST</span><span class="p">:</span>
+</span><span data-line="448">                <span class="bp">self</span><span class="o">.</span><span class="n">p1</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_x0</span><span class="p">())</span>
+</span><span data-line="449">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="450">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">: unexpected control message </span><span class="si">%r</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">msg</span><span class="p">))</span>
+</span><span data-line="451">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="452">        <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="453">
 <div class="viewcode-block" id="LBFGSB.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LBFGSB.on_new_best">[docs]</a>
-</span><span data-line="436">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="437"><span class="w">        </span><span class="sd">"""Track the strategy's best incumbent for warm-started restarts.</span>
-</span><span data-line="438">
-</span><span data-line="439"><span class="sd">        A no-op unless ``warm_start`` is enabled; the parent-side</span>
-</span><span data-line="440"><span class="sd">        :meth:`_warm_start_x0` reads :attr:`_best_x` when the worker requests a</span>
-</span><span data-line="441"><span class="sd">        restart point.  Mirrors :meth:`panobbgo.heuristics.nearby.Nearby.on_new_best`.</span>
-</span><span data-line="442"><span class="sd">        """</span>
-</span><span data-line="443">        <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="444">            <span class="k">return</span>
-</span><span data-line="445">        <span class="n">x</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="446">        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="447">            <span class="k">return</span>
-</span><span data-line="448">        <span class="bp">self</span><span class="o">.</span><span class="n">_best_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></div>
+</span><span data-line="454">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="455"><span class="w">        </span><span class="sd">"""Track the strategy's best incumbent for warm-started restarts.</span>
+</span><span data-line="456">
+</span><span data-line="457"><span class="sd">        A no-op unless ``warm_start`` is enabled; the parent-side</span>
+</span><span data-line="458"><span class="sd">        :meth:`_warm_start_x0` reads :attr:`_best_x` when the worker requests a</span>
+</span><span data-line="459"><span class="sd">        restart point.  Mirrors :meth:`panobbgo.heuristics.nearby.Nearby.on_new_best`.</span>
+</span><span data-line="460"><span class="sd">        """</span>
+</span><span data-line="461">        <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="462">            <span class="k">return</span>
+</span><span data-line="463">        <span class="n">x</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="464">        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="465">            <span class="k">return</span>
+</span><span data-line="466">        <span class="bp">self</span><span class="o">.</span><span class="n">_best_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></div>
 
-</span><span data-line="449">
-</span><span data-line="450">    <span class="k">def</span><span class="w"> </span><span class="nf">_warm_start_x0</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="451"><span class="w">        </span><span class="sd">"""Return a restart point: a perturbed best incumbent, or a uniform draw.</span>
-</span><span data-line="452">
-</span><span data-line="453"><span class="sd">        Called on the parent side in :meth:`on_start` when the warm-start</span>
-</span><span data-line="454"><span class="sd">        worker requests an ``x0``.  With a known incumbent the point is</span>
-</span><span data-line="455"><span class="sd">        ``clip(best + N(0, sigma·range), box)``; before the first result (no</span>
-</span><span data-line="456"><span class="sd">        incumbent yet) it is a uniform-random draw over the box, so a</span>
-</span><span data-line="457"><span class="sd">        warm-started worker degrades to classic multi-start until the portfolio</span>
-</span><span data-line="458"><span class="sd">        produces something to polish.</span>
-</span><span data-line="459"><span class="sd">        """</span>
-</span><span data-line="460">        <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_bounds</span><span class="p">()</span>
-</span><span data-line="461">        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="462">        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="463">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_x</span>
-</span><span data-line="464">        <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="465">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
-</span><span data-line="466">        <span class="n">ranges</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
-</span><span data-line="467">        <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start_sigma</span> <span class="o">*</span> <span class="n">ranges</span><span class="p">)</span>
-</span><span data-line="468">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
-</span><span data-line="469">
-</span><span data-line="470">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="471">        <span class="nb">super</span><span class="p">(</span><span class="n">LBFGSB</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
-</span><span data-line="472">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="473">            <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
-</span><span data-line="474">            <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="475">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="476">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-</span><span data-line="477">
+</span><span data-line="467">
+</span><span data-line="468">    <span class="k">def</span><span class="w"> </span><span class="nf">_warm_start_x0</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="469"><span class="w">        </span><span class="sd">"""Return a restart point: a perturbed best incumbent, or a uniform draw.</span>
+</span><span data-line="470">
+</span><span data-line="471"><span class="sd">        Called on the parent side in :meth:`on_start` when the warm-start</span>
+</span><span data-line="472"><span class="sd">        worker requests an ``x0``.  With a known incumbent the point is</span>
+</span><span data-line="473"><span class="sd">        ``clip(best + N(0, sigma·range), box)``; before the first result (no</span>
+</span><span data-line="474"><span class="sd">        incumbent yet) it is a uniform-random draw over the box, so a</span>
+</span><span data-line="475"><span class="sd">        warm-started worker degrades to classic multi-start until the portfolio</span>
+</span><span data-line="476"><span class="sd">        produces something to polish.</span>
+</span><span data-line="477"><span class="sd">        """</span>
+</span><span data-line="478">        <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_bounds</span><span class="p">()</span>
+</span><span data-line="479">        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="480">        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="481">        <span class="n">best</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_x</span>
+</span><span data-line="482">        <span class="k">if</span> <span class="n">best</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="483">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="484">        <span class="n">ranges</span> <span class="o">=</span> <span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span>
+</span><span data-line="485">        <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start_sigma</span> <span class="o">*</span> <span class="n">ranges</span><span class="p">)</span>
+</span><span data-line="486">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="487">
+</span><span data-line="488">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="489">        <span class="nb">super</span><span class="p">(</span><span class="n">LBFGSB</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__stop__</span><span class="p">()</span>
+</span><span data-line="490">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="491">            <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+</span><span data-line="492">            <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="493">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="494">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="495">
 <div class="viewcode-block" id="LBFGSB.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LBFGSB.on_restart">[docs]</a>
-</span><span data-line="478">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="479"><span class="w">        </span><span class="sd">"""Tear down and relaunch the subprocess warm-started at ``center``.</span>
-</span><span data-line="480">
-</span><span data-line="481"><span class="sd">        Mirrors :meth:`panobbgo.heuristics.cobyqa.COBYQA.on_restart`: the</span>
-</span><span data-line="482"><span class="sd">        first descent of the relaunched worker starts from ``center``</span>
-</span><span data-line="483"><span class="sd">        (clipped into the box) when one is supplied, falling back to the box</span>
-</span><span data-line="484"><span class="sd">        centre otherwise.  Subsequent descents resume random multi-start.</span>
-</span><span data-line="485"><span class="sd">        """</span>
-</span><span data-line="486">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="487">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="488">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
-</span><span data-line="489">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="490">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="491">                    <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-</span><span data-line="492">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="493">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: subprocess teardown on restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="494">
-</span><span data-line="495">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="496">
-</span><span data-line="497">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="498">            <span class="k">return</span>
-</span><span data-line="499">
-</span><span data-line="500">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="501">            <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_bounds</span><span class="p">()</span>
-</span><span data-line="502">            <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="503">                <span class="n">x0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_center</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span>
-</span><span data-line="504">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="505">                <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="506">                <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="507">                <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="508">                <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
-</span><span data-line="509">            <span class="bp">self</span><span class="o">.</span><span class="n">_spawn</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span>
-</span><span data-line="510">            <span class="c1"># A fresh worker owes us nothing and we owe it nothing: drop any</span>
-</span><span data-line="511">            <span class="c1"># value the old one's last point produced, or the new worker would</span>
-</span><span data-line="512">            <span class="c1"># be answered with a reply to a question it never asked.</span>
-</span><span data-line="513">            <span class="bp">self</span><span class="o">.</span><span class="n">_bridge_reset</span><span class="p">()</span>
-</span><span data-line="514">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="515">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: subprocess restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span></div>
-</div>
+</span><span data-line="496">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="497"><span class="w">        </span><span class="sd">"""Relaunch the subprocess warm-started at ``center``.</span>
+</span><span data-line="498">
+</span><span data-line="499"><span class="sd">        Mirrors :meth:`panobbgo.heuristics.cobyqa.COBYQA.on_restart`: the</span>
+</span><span data-line="500"><span class="sd">        first descent of the relaunched worker starts from ``center``</span>
+</span><span data-line="501"><span class="sd">        (clipped into the box) when one is supplied, falling back to the box</span>
+</span><span data-line="502"><span class="sd">        centre otherwise.  Subsequent descents resume random multi-start,</span>
+</span><span data-line="503"><span class="sd">        from a fresh worker seed.</span>
+</span><span data-line="504">
+</span><span data-line="505"><span class="sd">        This handler runs on the event-bus thread, so it only records the</span>
+</span><span data-line="506"><span class="sd">        request; :meth:`~panobbgo.core.PipeBridgeHeuristic.produce` performs</span>
+</span><span data-line="507"><span class="sd">        it (:meth:`_bridge_respawn`) on the main loop's thread.  A worker that</span>
+</span><span data-line="508"><span class="sd">        already finished (``max_starts`` reached) is revived too.</span>
+</span><span data-line="509"><span class="sd">        """</span>
+</span><span data-line="510">        <span class="bp">self</span><span class="o">.</span><span class="n">_request_restart</span><span class="p">(</span><span class="n">center</span><span class="p">)</span></div>
+
+</span><span data-line="511">
+</span><span data-line="512">    <span class="k">def</span><span class="w"> </span><span class="nf">_bridge_respawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="513"><span class="w">        </span><span class="sd">"""Terminate the current worker and spawn a new one at ``center``."""</span>
+</span><span data-line="514">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="515">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="516">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+</span><span data-line="517">                <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="518">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
+</span><span data-line="519">                    <span class="bp">self</span><span class="o">.</span><span class="n">lbfgsb</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="520">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="521">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LBFGSB: subprocess teardown on restart failed: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="522">
+</span><span data-line="523">        <span class="n">bounds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_bounds</span><span class="p">()</span>
+</span><span data-line="524">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="525">            <span class="n">x0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_box_center</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span>
+</span><span data-line="526">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="527">            <span class="n">center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="528">            <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="529">            <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">b</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="530">            <span class="n">x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="531">        <span class="bp">self</span><span class="o">.</span><span class="n">_spawn</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

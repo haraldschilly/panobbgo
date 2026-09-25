@@ -752,12 +752,16 @@ deadlocks that <code class="docutils literal notranslate"><span class="pre">fork
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.COBYQA.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cobyqa.html#COBYQA.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.COBYQA.on_restart" title="Link to this definition">#</a></dt>
-<dd><p>Tear down and restart the subprocess around <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
+<dd><p>Restart the subprocess around <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
 <p>COBYQA’s interpolation set is built from scratch on construction;
 the cleanest restart strategy is to terminate the subprocess and
 start a fresh one with <code class="docutils literal notranslate"><span class="pre">center</span></code> (when provided) as the new
 starting point.  When <code class="docutils literal notranslate"><span class="pre">center</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> we fall back to the
 box centre, matching <code class="xref py py-meth docutils literal notranslate"><span class="pre">__start__()</span></code>.</p>
+<p>This handler runs on the event-bus thread, so it only records the
+request; <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> performs
+it (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_bridge_respawn()</span></code>) on the main loop’s thread.  A solve that
+already converged is restarted too.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1269,7 +1273,8 @@ points in the box, or — under <code class="docutils literal notranslate"><span
 the strategy’s best incumbent.</p></li>
 <li><p>The heuristic spawns one dedicated subprocess; <code class="docutils literal notranslate"><span class="pre">on_restart</span></code>
 tears it down and relaunches it warm-started from the supplied
-restart centre (matching <a class="reference internal" href="#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>).</p></li>
+restart centre (matching <a class="reference internal" href="#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>),
+with a fresh worker seed for the later multi-start points.</p></li>
 <li><p>Out-of-bounds proposals from the subprocess are projected onto the
 feasible box by <a class="reference internal" href="lib.html#panobbgo.lib.Problem.project" title="panobbgo.lib.Problem.project"><code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.lib.Problem.project()</span></code></a> before being
 emitted; the value the subprocess sees is therefore the objective
@@ -1298,11 +1303,16 @@ restart point.  Mirrors <code class="xref py py-meth docutils literal notranslat
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.LBFGSB.on_restart">
 <span class="sig-name descname"><span class="pre">on_restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">center</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reason</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/lbfgsb.html#LBFGSB.on_restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.LBFGSB.on_restart" title="Link to this definition">#</a></dt>
-<dd><p>Tear down and relaunch the subprocess warm-started at <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
+<dd><p>Relaunch the subprocess warm-started at <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p>
 <p>Mirrors <code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.heuristics.cobyqa.COBYQA.on_restart()</span></code>: the
 first descent of the relaunched worker starts from <code class="docutils literal notranslate"><span class="pre">center</span></code>
 (clipped into the box) when one is supplied, falling back to the box
-centre otherwise.  Subsequent descents resume random multi-start.</p>
+centre otherwise.  Subsequent descents resume random multi-start,
+from a fresh worker seed.</p>
+<p>This handler runs on the event-bus thread, so it only records the
+request; <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> performs
+it (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_bridge_respawn()</span></code>) on the main loop’s thread.  A worker that
+already finished (<code class="docutils literal notranslate"><span class="pre">max_starts</span></code> reached) is revived too.</p>
 </dd></dl>
 
 <dl class="py method">

@@ -154,6 +154,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.active"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.active</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.bridge_timeout"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.bridge_timeout</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.can_produce"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.can_produce</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.on_demand"><code class="docutils literal notranslate"><span class="pre">PipeBridgeHeuristic.on_demand</span></code></a></li>
@@ -800,6 +801,17 @@ seed.  See <code class="docutils literal notranslate"><span class="pre">planning
 <p>Subclasses provide the subprocess and the pipes (<code class="docutils literal notranslate"><span class="pre">p1</span></code> = parent end of
 the request pipe, <code class="docutils literal notranslate"><span class="pre">out1</span></code> = parent end of the status pipe), and may
 intercept control messages by overriding <code class="xref py py-meth docutils literal notranslate"><span class="pre">_bridge_control()</span></code>.</p>
+<p><strong>Restarts</strong> follow the same rule.  An <code class="docutils literal notranslate"><span class="pre">on_restart</span></code> handler runs on the
+event-bus thread, so it only <em>records</em> the request
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">_request_restart()</span></code>); the next <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.produce" title="panobbgo.core.PipeBridgeHeuristic.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> replaces the worker
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">_bridge_respawn()</span></code>) on the main loop’s thread.  Respawning from the
+bus thread used to rebind <code class="docutils literal notranslate"><span class="pre">p1</span></code> under a <code class="docutils literal notranslate"><span class="pre">produce</span></code> that was mid-<code class="docutils literal notranslate"><span class="pre">recv</span></code>.
+A worker that <em>finished</em> (converged, hit <code class="docutils literal notranslate"><span class="pre">max_starts</span></code>) is only
+<code class="docutils literal notranslate"><span class="pre">_bridge_done</span></code>, not stopped: a later restart revives it.</p>
+<p>Only the value of the point we are <em>currently</em> waiting on is handed to the
+worker: <a class="reference internal" href="#panobbgo.core.PipeBridgeHeuristic.on_new_results" title="panobbgo.core.PipeBridgeHeuristic.on_new_results"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_new_results()</span></code></a> matches the result’s <code class="docutils literal notranslate"><span class="pre">x</span></code> against it.  A
+point emitted by a replaced worker (or an aborted descent) may still be in
+flight, and its value must not answer the new worker’s first <code class="docutils literal notranslate"><span class="pre">f(x)</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -809,6 +821,12 @@ intercept control messages by overriding <code class="xref py py-meth docutils l
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.active">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">active</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.active" title="Link to this definition">#</a></dt>
+<dd><p>A finished worker drops out of the rotation until a restart revives it.</p>
+</dd></dl>
+
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.PipeBridgeHeuristic.bridge_timeout">
 <span class="sig-name descname"><span class="pre">bridge_timeout</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60.0</span></span><a class="headerlink" href="#panobbgo.core.PipeBridgeHeuristic.bridge_timeout" title="Link to this definition">#</a></dt>

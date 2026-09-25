@@ -248,3 +248,90 @@ def test_composition_log_normalized():
     x_norm = np.array([0.5, 0.5])
     expected = np.log1p(25.0)  # log(1 + 5^2 + 0^2)
     assert wrapped.eval(x_norm) == pytest.approx(expected)
+
+
+# --- review of #326: dx, f_opt, pickling, per-point noise ---
+
+
+def test_wrappers_evaluate_a_dx_shifted_problem_at_its_shifted_optimum():
+    """Wrappers copied the shifted box but evaluated the inner problem without undoing dx."""
+    from panobbgo.harness_randomized import TransformedProblem
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.lib.noise import NoisyProblem as DetNoisy, NoNoise
+
+    inner = Rosenbrock(2, dx=[0.5, 0.5])
+    x_star = np.array([1.5, 1.5])  # (1, 1) + dx
+    assert inner(Point(x_star, "t")).fx == pytest.approx(0.0)
+    assert LogTransformProblem(inner).eval(x_star) == pytest.approx(0.0)
+    assert ProblemWrapper(inner)(Point(x_star, "t")).fx == pytest.approx(0.0)
+    norm = NormalizedProblem(inner)
+    assert norm.eval((x_star - inner.box[:, 0]) / inner.ranges) == pytest.approx(0.0)
+    assert DetNoisy(inner, NoNoise(), seed=0).eval(x_star) == pytest.approx(0.0)
+    assert TransformedProblem(inner, x_star=[0.0, 0.0], y_base_star=x_star).eval(np.zeros(2)) == pytest.approx(0.0)
+
+
+def test_noisy_problem_f_opt_fallbacks_and_no_clamp_when_unknown():
+    from panobbgo.lib.classic import StyblinskiTang
+    from panobbgo.lib.noise import AdditiveGaussianNoise, NoisyProblem as DetNoisy
+
+    st = StyblinskiTang(dims=2)
+    n = DetNoisy(st, AdditiveGaussianNoise(sigma=1e-3), seed=1)
+    assert n.f_opt == n.optimum_y == pytest.approx(st.f_opt)
+    assert n.eval(np.asarray(st.x_opt)) == pytest.approx(st.f_opt, abs=0.01)  # was clamped to ~0
+
+    class Unknown(QuadraticProblem):
+        def eval(self, x):
+            return -100.0 + float(np.sum(x**2))
+
+    u = DetNoisy(Unknown(), AdditiveGaussianNoise(sigma=1e-3), seed=1)
+    assert u.f_opt is None and u.optimum_y is None
+    assert u.eval(np.array([1.0, 0.0])) == pytest.approx(-99.0, abs=0.01)
+
+
+def test_noisy_problem_pickles_and_keeps_its_draw_counts():
+    import pickle
+
+    from panobbgo.lib.noise import GaussianNoise, NoisyProblem as DetNoisy
+
+    n = DetNoisy(QuadraticProblem(dim=2), GaussianNoise(beta=0.5), seed=4, resample=True)
+    x = np.array([1.0, 2.0])
+    n.eval(x)
+    m = pickle.loads(pickle.dumps(n))
+    assert m.eval(x) == n.eval(x)  # both at draw k=1
+
+
+def _thread_order_values(make, xs):
+    from concurrent.futures import ThreadPoolExecutor
+
+    def run(order, workers):
+        p = make()
+        with ThreadPoolExecutor(workers) as pool:
+            vals = dict(zip(order, pool.map(lambda i: p.eval(xs[i]), order)))
+        return [vals[i] for i in range(len(xs))]
+
+    return run(list(range(len(xs))), 1), run(list(reversed(range(len(xs)))), 4)
+
+
+def test_stochastic_classics_and_transformed_noise_are_thread_order_independent():
+    from panobbgo.harness_randomized import TransformedProblem
+    from panobbgo.lib.classic import Rosenbrock, RosenbrockStochastic
+
+    xs = [np.array([0.1 * i, -0.2 * i, 0.05 * i]) for i in range(30)]
+    a, b = _thread_order_values(lambda: RosenbrockStochastic(dims=3, seed=5), xs)
+    assert a == b
+    a, b = _thread_order_values(
+        lambda: TransformedProblem(Rosenbrock(dims=3), x_star=np.zeros(3), noise_sigma=0.5, noise_seed=9), xs
+    )
+    assert a == b
+
+
+def test_unseeded_stochastic_classics_follow_the_global_numpy_seed():
+    from panobbgo.lib.classic import NesterovQuadratic, RosenbrockStochastic
+
+    x = np.array([0.3, -0.2, 0.9])
+    np.random.seed(11)
+    a, na = RosenbrockStochastic(dims=3), NesterovQuadratic(dim=3)
+    np.random.seed(11)
+    b, nb = RosenbrockStochastic(dims=3), NesterovQuadratic(dim=3)
+    assert a.eval(x) == b.eval(x)
+    assert np.array_equal(na.A, nb.A)

@@ -426,15 +426,20 @@ class Problem:
         :meth:`__call__` applies.  That is one constraint evaluation and no
         objective evaluation; it does not touch any evaluation counter.
         """
-        x = np.asarray(self.center, dtype=np.float64)
-        if self.dx is not None:
-            x = x - self.dx
-        return self.eval_constraints(x) is not None
+        return self.eval_constraints(self._untranslate(np.asarray(self.center, dtype=np.float64))) is not None
+
+    def _untranslate(self, x: np.ndarray) -> np.ndarray:
+        """Map a point of the (``dx``-shifted) search box to the coordinates :meth:`eval` takes.
+
+        Wrappers that copy this problem's box must evaluate it through this
+        (``inner.eval(inner._untranslate(x))``), as :meth:`__call__` does.
+        """
+        return x - self.dx if self.dx is not None else x
 
     def __call__(self, point: Point) -> Result:
-        x = point.x - self.dx if self.dx is not None and point.x is not None else point.x
-        if x is None:
+        if point.x is None:
             raise ValueError("Point coordinates cannot be None during evaluation")
+        x = self._untranslate(point.x)
         fx = self.eval(x)
         cv = self.eval_constraints(x)
         return Result(point, fx, cv_vec=cv)

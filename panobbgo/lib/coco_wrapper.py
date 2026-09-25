@@ -97,5 +97,9 @@ class CocoProblem(Problem):
         cv[cv < 0] = 0.0
         return cv
 
+    def fingerprint(self) -> str:
+        """Storage identity: the COCO id encodes suite, function, instance and dimension."""
+        return f"CocoProblem({self.coco_id})"
+
     def __repr__(self):
         return f"CocoProblem({self.coco_id}, dim={self.dim})"

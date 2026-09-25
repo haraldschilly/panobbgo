@@ -42,7 +42,8 @@ part of a function is non-negative by construction and the noise models
 are (mostly) multiplicative — applying them to a value that has been
 shifted by an arbitrary ``f_opt`` would make the noise level depend on
 the shift.  ``f_opt`` is taken from the inner problem's ``optimum_y``
-when it has one, else it is ``0.0``, and may be overridden.
+or ``f_opt`` when it has one, and may be overridden; when it is unknown
+the model is applied to the raw value ``f(x)`` (no clamp).
 
 Determinism: noise is a pure function of ``(seed, x)``
 ------------------------------------------------------
@@ -141,6 +142,53 @@ def _rng_for_bytes(seed: int, xb: bytes, draw: int) -> np.random.Generator:
     key = (int(seed) & 0xFFFFFFFFFFFFFFFF).to_bytes(8, "little")
     digest = hashlib.blake2b(xb + int(draw).to_bytes(8, "little"), digest_size=16, key=key).digest()
     return np.random.default_rng(int.from_bytes(digest, "little"))
+
+
+class PointDraws:
+    """How often each point has been evaluated — the ``k`` of resampled noise ``(seed, x, k)``.
+
+    Thread-safe and picklable (the lock is recreated on unpickling).  It
+    keeps one entry per distinct point ever evaluated, so it grows with the
+    run; :meth:`clear` resets it.  Under ``evaluation_method="processes"``
+    every worker holds its own copy, so the *k*-th evaluation of the same
+    ``x`` in two different workers draws the same noise — resampling is
+    exact only in-process (threads, sync evaluation).
+    """
+
+    def __init__(self) -> None:
+        self._counts: Dict[bytes, int] = {}
+        self._lock = threading.Lock()
+
+    def next(self, x: np.ndarray) -> Tuple[bytes, int]:
+        """``(key of x, draw index)`` for the next evaluation of ``x``."""
+        xb = _x_bytes(x)
+        with self._lock:
+            draw = self._counts.get(xb, 0)
+            self._counts[xb] = draw + 1
+        return xb, draw
+
+    def clear(self) -> None:
+        with self._lock:
+            self._counts.clear()
+
+    def __len__(self) -> int:
+        return len(self._counts)
+
+    def __getstate__(self) -> Dict[str, Any]:
+        with self._lock:
+            return {"_counts": dict(self._counts)}
+
+    def __setstate__(self, state: Dict[str, Any]) -> None:
+        self._counts = state["_counts"]
+        self._lock = threading.Lock()
+
+
+def point_rng(seed: int, x: np.ndarray, draws: Optional[PointDraws] = None) -> np.random.Generator:
+    """Generator for one evaluation at ``x``: frozen ``(seed, x)``, or ``(seed, x, k)`` with ``draws``."""
+    if draws is None:
+        return rng_for_point(seed, x)
+    xb, k = draws.next(x)
+    return _rng_for_bytes(seed, xb, k)
 
 
 # ---------------------------------------------------------------------------
@@ -410,8 +458,12 @@ class NoisyProblem(Problem):
         ``x`` draws fresh noise from ``(seed, x, k)``.  See the module
         docstring for why the default is the frozen one.
     f_opt
-        Override the value the precision is measured against.  Defaults
-        to the inner problem's ``optimum_y``, else ``0.0``.
+        The value the precision is measured against: the models corrupt
+        ``max(0, f - f_opt)``.  Defaults to the inner problem's
+        ``optimum_y``, else its ``f_opt`` (the classic functions declare
+        one).  If neither is known the noise is applied to the raw value
+        ``f`` without the ``max(0, ·)`` clamp — a guessed ``f_opt = 0``
+        would flatten every objective value below 0.
 
     Notes
     -----
@@ -436,19 +488,42 @@ class NoisyProblem(Problem):
         self.noise_seed: int = int(seed)
         self.resample: bool = bool(resample)
         if f_opt is None:
-            f_opt = float(getattr(problem, "optimum_y", 0.0))
-        self._f_opt: float = float(f_opt)
-        self._counts: Dict[bytes, int] = {}
-        self._counts_lock = threading.Lock()
+            f_opt = getattr(problem, "optimum_y", None)
+        if f_opt is None:
+            f_opt = getattr(problem, "f_opt", None)
+        self._f_opt: Optional[float] = None if f_opt is None else float(f_opt)
+        self._draws = PointDraws()
 
     # ------------------------------------------------------------------
     # panobbgo.Problem API
     # ------------------------------------------------------------------
 
     @property
-    def optimum_y(self) -> float:
-        """The inner problem's optimum — noise leaves it where it was."""
+    def optimum_y(self) -> Optional[float]:
+        """The inner problem's optimum — noise leaves it where it was (``None``: unknown)."""
         return self._f_opt
+
+    @property
+    def f_opt(self) -> Optional[float]:
+        """Same as :attr:`optimum_y` (the name the classic functions use)."""
+        return self._f_opt
+
+    @property
+    def wrapped(self) -> Problem:
+        """The inner problem (the name :class:`~panobbgo.lib.wrappers.ProblemWrapper` uses)."""
+        return self.inner
+
+    def fingerprint(self) -> str:
+        """Storage identity: noise model, seed, resampling and the inner problem's fingerprint."""
+        from panobbgo.storage import problem_fingerprint
+
+        return "NoisyProblem(%s, seed=%d, resample=%s, f_opt=%r)<%s>" % (
+            self.model.describe(),
+            self.noise_seed,
+            self.resample,
+            self._f_opt,
+            problem_fingerprint(self.inner),
+        )
 
     def eval(self, x: np.ndarray) -> float:
         """The noisy value — what an optimizer running on this problem sees."""
@@ -456,33 +531,29 @@ class NoisyProblem(Problem):
 
     def true_eval(self, x: np.ndarray) -> float:
         """The noiseless value.  Costs one inner evaluation."""
-        return float(self.inner.eval(np.asarray(x, dtype=np.float64)))
+        return float(self.inner.eval(self.inner._untranslate(np.asarray(x, dtype=np.float64))))
 
     def eval_pair(self, x: np.ndarray) -> Tuple[float, float]:
         """Return ``(noisy, true)`` from a *single* inner evaluation."""
         x = np.asarray(x, dtype=np.float64)
-        true_fx = float(self.inner.eval(x))
+        true_fx = float(self.inner.eval(self.inner._untranslate(x)))
         return self.apply_noise(x, true_fx), true_fx
 
     def apply_noise(self, x: np.ndarray, true_fx: float) -> float:
         """Corrupt a known true value at ``x`` — the pure ``(seed, x)`` map."""
         if not np.isfinite(true_fx):
             return true_fx
+        if self._f_opt is None:
+            return float(self.model.apply(true_fx, self._noise_rng(x)))
         f_raw = max(0.0, true_fx - self._f_opt)
         return self._f_opt + float(self.model.apply(f_raw, self._noise_rng(x)))
 
     def _noise_rng(self, x: np.ndarray) -> np.random.Generator:
         """The generator of the next evaluation at ``x``: ``(seed, x)``, plus the draw count if resampling."""
-        xb = _x_bytes(x)
-        draw = 0
-        if self.resample:
-            with self._counts_lock:
-                draw = self._counts.get(xb, 0)
-                self._counts[xb] = draw + 1
-        return _rng_for_bytes(self.noise_seed, xb, draw)
+        return point_rng(self.noise_seed, x, self._draws if self.resample else None)
 
     def eval_constraints(self, x: np.ndarray) -> Optional[np.ndarray]:
-        return self.inner.eval_constraints(x)
+        return self.inner.eval_constraints(self.inner._untranslate(np.asarray(x, dtype=np.float64)))
 
     # ------------------------------------------------------------------
     # Lifecycle passthrough (IOHProblem owns a subprocess)
@@ -497,8 +568,7 @@ class NoisyProblem(Problem):
         reset = getattr(self.inner, "reset", None)
         if callable(reset):
             reset()
-        with self._counts_lock:
-            self._counts.clear()
+        self._draws.clear()
 
     def __getattr__(self, item: str) -> Any:
         # Only called when normal lookup fails, so this never shadows the

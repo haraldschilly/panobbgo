@@ -161,9 +161,10 @@ class TransformedProblem(Problem):
             ``None`` disables scaling.
         noise_sigma: Standard deviation of additive Gaussian noise on
             each evaluation.  ``0`` disables noise.
-        noise_seed: Seed for the per-instance noise generator.  Each
-            instance carries its own RNG so noise is reproducible within
-            a run (modulo evaluation order in threaded execution).
+        noise_seed: Seed of the noise.  The noise of the *k*-th
+            evaluation of ``x`` is a pure function of ``(noise_seed, x, k)``
+            (:func:`panobbgo.lib.noise.point_rng`), so it does not depend on
+            evaluation order or thread scheduling.
         box: Bounding box for the transformed problem.  Defaults to the
             base problem's box.
         name: Optional name string recorded for debugging.
@@ -177,7 +178,8 @@ class TransformedProblem(Problem):
     _Q: Optional[np.ndarray]
     _scale: Optional[np.ndarray]
     _noise_sigma: float
-    _noise_rng: np.random.Generator
+    _noise_seed: int
+    _draws: Any
     _transform_name: str
 
     def __init__(
@@ -238,7 +240,10 @@ class TransformedProblem(Problem):
         self._Q = Q_arr
         self._scale = scale_arr
         self._noise_sigma = float(noise_sigma)
-        self._noise_rng = np.random.default_rng(noise_seed)
+        from panobbgo.lib.noise import PointDraws
+
+        self._noise_seed = int(noise_seed)
+        self._draws = PointDraws()
         self._transform_name = name
 
         # Public attributes used by the sampler / harness bookkeeping.
@@ -259,11 +264,32 @@ class TransformedProblem(Problem):
         return y
 
     def eval(self, x: np.ndarray) -> float:
-        y = self.transform_input(np.asarray(x, dtype=np.float64))
-        fx = float(self._base.eval(y))
+        x = np.asarray(x, dtype=np.float64)
+        y = self.transform_input(x)
+        # ``y`` lives in the base problem's search box; undo its ``dx``.
+        fx = float(self._base.eval(self._base._untranslate(y)))
         if self._noise_sigma > 0.0:
-            fx = fx + float(self._noise_sigma * self._noise_rng.standard_normal())
+            from panobbgo.lib.noise import point_rng
+
+            fx = fx + float(self._noise_sigma * point_rng(self._noise_seed, x, self._draws).standard_normal())
         return fx
+
+    def fingerprint(self) -> str:
+        """Storage identity: every transform parameter plus the base problem's fingerprint."""
+        import hashlib
+
+        from panobbgo.storage import problem_fingerprint
+
+        h = hashlib.blake2b(digest_size=16)
+        for arr in (self._x_star, self._y_base_star, self._Q, self._scale):
+            h.update(b"-" if arr is None else np.ascontiguousarray(arr, dtype=np.float64).tobytes())
+        return "TransformedProblem(%s, sigma=%r, seed=%d, %s)<%s>" % (
+            self._transform_name,
+            self._noise_sigma,
+            self._noise_seed,
+            h.hexdigest(),
+            problem_fingerprint(self._base),
+        )
 
     def eval_constraints(self, x: np.ndarray) -> Optional[np.ndarray]:
         # Most classical test problems have no constraints, and mixing

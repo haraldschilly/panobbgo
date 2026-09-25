@@ -87,13 +87,51 @@ def test_storage_refuses_another_problems_results(storage_uri):
             MockStrategy(other, max_eval=5, testing_mode=True, storage_backend="sqlite", storage_uri=storage_uri)
 
 
-def test_legacy_storage_without_fingerprint_checks_the_dimension(storage_uri):
+def test_legacy_storage_without_fingerprint_is_refused(storage_uri):
+    """Results written before fingerprints (and before the classic formula fixes) cannot be verified."""
     from panobbgo.storage import SQLiteStorage, StorageMismatchError, problem_fingerprint
 
     legacy = SQLiteStorage(storage_uri)  # no fingerprint: a pre-fingerprint database
     legacy.save([Result(Point(np.zeros(2), "R"), 1.0)])
     legacy.close()
-    with pytest.raises(StorageMismatchError, match="2-dimensional"):
-        SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=3)))
-    ok = SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=2)))
-    assert ok.count() == 1
+    with pytest.raises(StorageMismatchError, match="without a problem fingerprint"):
+        SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=2)))
+
+
+def test_fingerprint_distinguishes_wrapped_parametrised_and_noisy_problems():
+    from panobbgo.lib.classic import Rastrigin
+    from panobbgo.lib.noise import AdditiveGaussianNoise, GaussianNoise, NoisyProblem
+    from panobbgo.lib.wrappers import NormalizedProblem
+    from panobbgo.storage import problem_fingerprint as fp
+
+    assert fp(NormalizedProblem(Rosenbrock(dims=2))) != fp(NormalizedProblem(Rastrigin(dims=2)))
+    assert fp(Rosenbrock(dims=2)) != fp(Rosenbrock(dims=2, par1=50))
+    assert fp(Rosenbrock(dims=2)) == fp(Rosenbrock(dims=2))
+    base = Rosenbrock(dims=2)
+    a = NoisyProblem(base, GaussianNoise(beta=0.1), seed=1)
+    assert fp(a) != fp(NoisyProblem(base, GaussianNoise(beta=0.1), seed=2))
+    assert fp(a) != fp(NoisyProblem(base, GaussianNoise(beta=1.0), seed=1))
+    assert fp(a) != fp(NoisyProblem(base, AdditiveGaussianNoise(sigma=0.1), seed=1))
+    assert fp(a) == fp(NoisyProblem(Rosenbrock(dims=2), GaussianNoise(beta=0.1), seed=1))
+
+
+def test_fingerprint_distinguishes_rotations_and_formula_versions():
+    from panobbgo.harness_randomized import TransformedProblem
+    from panobbgo.lib.classic import Wood
+    from panobbgo.storage import problem_fingerprint as fp
+
+    q = np.array([[0.0, 1.0], [1.0, 0.0]])
+    plain = TransformedProblem(Rosenbrock(dims=2), x_star=[0.5, 0.5])
+    assert fp(plain) != fp(TransformedProblem(Rosenbrock(dims=2), x_star=[0.5, 0.5], Q=q))
+    assert '"formula_version": 2' in fp(Wood())  # corrected formula: older databases do not match
+
+
+def test_clear_keeps_the_fingerprint_of_an_open_store(storage_uri):
+    from panobbgo.lib.classic import Rastrigin
+    from panobbgo.storage import SQLiteStorage, StorageMismatchError, problem_fingerprint
+
+    s = SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=2)))
+    s.save([Result(Point(np.zeros(2), "R"), 1.0)])
+    s.clear()
+    with pytest.raises(StorageMismatchError):
+        SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rastrigin(dims=2)))

@@ -293,10 +293,17 @@ class RosenbrockStochastic(Problem):
 
     where :math:`\mathit{eps}_i` is a uniformly random (n-1)-dimensional
     vector in :math:`\left[0, \mathit{jitter}\right)^{n-1}`, drawn from the
-    instance's own generator (``seed``; it used numpy's global state).
+    stream that is a pure function of ``(seed, x, k)`` for the *k*-th
+    evaluation of ``x`` (:func:`panobbgo.lib.noise.point_rng`), so it does
+    not depend on thread scheduling.  ``seed=None`` draws the seed from
+    numpy's global state at construction, so ``np.random.seed`` before
+    creating the problem still reproduces it.
     Since :math:`\mathit{eps} \geq 0`, the minimum is 0 at
     :math:`(1, \dots, 1)` for every draw.
     """
+
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
 
     f_opt = 0.0
 
@@ -309,11 +316,16 @@ class RosenbrockStochastic(Problem):
         box[0] = (-1, 2)  # for cornercases + testing
         self.par1 = par1
         self.jitter = jitter
-        self._rng = np.random.default_rng(seed)
+        from .noise import PointDraws
+
+        self.seed = int(seed) if seed is not None else int(np.random.randint(0, 2**31 - 1))
+        self._draws = PointDraws()
         Problem.__init__(self, box, **kwargs)
 
     def eval(self, x):
-        eps = self.jitter * self._rng.random(self.dim - 1)
+        from .noise import point_rng
+
+        eps = self.jitter * point_rng(self.seed, x, self._draws).random(self.dim - 1)
         ret = sum(self.par1 * eps * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
         return ret
 
@@ -694,6 +706,9 @@ class Sargan(Problem):
                 DOI: 10.1504/IJMMNO.2013.055204
     """
 
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
+
     f_opt = 0.0
 
     @property
@@ -1051,6 +1066,9 @@ class Powell(Problem):
     Global minimum: :math:`P(0, 0, 0, 0) = 0` (singular Hessian there).
     """
 
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
+
     x_opt = (0.0, 0.0, 0.0, 0.0)
     f_opt = 0.0
 
@@ -1075,6 +1093,9 @@ class Trigonometric(Problem):
     (``i`` is 1-based and is not multiplied by ``n``.)  Global minimum
     :math:`f(0) = 0`.
     """
+
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
 
     f_opt = 0.0
 
@@ -1129,6 +1150,9 @@ class Step(Problem):
     sphere); minimum 0 on :math:`[-0.5, 0.5)^n`.
     """
 
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
+
     f_opt = 0.0
 
     @property
@@ -1156,6 +1180,9 @@ class Box(Problem):
     line :math:`x_1 = x_2, x_3 = 0`.  (The first exponent had the wrong
     sign, and ``m = 1`` left the problem under-determined.)
     """
+
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
 
     #: On the degenerate line of minimisers; (1, 10, 1) is outside the default box.
     x_opt = (1.0, 1.0, 0.0)
@@ -1194,6 +1221,9 @@ class Wood(Problem):
     implementation had lost the squares and was unbounded below.)  Global
     minimum :math:`F(1, 1, 1, 1) = 0`.
     """
+
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
 
     x_opt = (1.0, 1.0, 1.0, 1.0)
     f_opt = 0.0
@@ -1292,6 +1322,9 @@ class NesterovQuadratic(Problem):
             F(x) = \frac{1}{2} \lVert A x - b \rVert_2^2 + \lVert x \rVert_1
     """
 
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
+
     def __init__(
         self,
         dim: Optional[int] = None,
@@ -1307,12 +1340,13 @@ class NesterovQuadratic(Problem):
             (default: ``len(box)``, else 2) — it used to be ignored
         :param boolean nonsmooth: add the nonsmooth :math:`\lVert x\rVert_1` part (default: True)
         :param int seed: seed for the random ``A`` / ``b`` that are not
-            given (they came from numpy's global state)
+            given; ``None`` draws it from numpy's global state, so
+            ``np.random.seed`` before construction reproduces them
         """
         self.nonsmooth = nonsmooth
         if dim is None and "dims" in kwargs:
             dim = kwargs.pop("dims")
-        rng = np.random.default_rng(seed)
+        rng = np.random.default_rng(seed if seed is not None else int(np.random.randint(0, 2**31 - 1)))
         if b is not None:
             b = np.asarray(b, dtype=np.float64)
             dim_val = int(b.shape[0])
@@ -1375,6 +1409,9 @@ class Branin(Problem):
     :math:`(\pi, 2.275)` and :math:`(3\pi, 2.475)`.  (The default ``t`` was
     1, which cancels the cosine term.)
     """
+
+    #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
+    formula_version = 2
 
     x_opt = (np.pi, 2.275)
     f_opt = 5.0 / (4.0 * np.pi)

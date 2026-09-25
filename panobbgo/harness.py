@@ -2041,8 +2041,9 @@ class BenchmarkHarness:
         tolerance = prob_spec.tolerance
 
         # Seed the global numpy RNG: the external baselines
-        # (``harness_baselines``) and a few legacy test functions draw from
-        # it.  Panobbgo's own heuristics use the strategy's ``seed``.  Runs
+        # (``harness_baselines``) draw from it, and test functions built
+        # without a seed (``RosenbrockStochastic``, ``NesterovQuadratic``)
+        # derive theirs from it at construction.  Panobbgo's own heuristics use the strategy's ``seed``.  Runs
         # are bit-reproducible only under ``HarnessConfig.sync_eval``.
         np.random.seed(seed)
 

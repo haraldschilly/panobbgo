@@ -29,7 +29,7 @@ These are composable::
 import warnings
 
 import numpy as np
-from panobbgo.lib.lib import Problem, Result
+from panobbgo.lib.lib import Problem
 from panobbgo.lib.noise import (
     AdditiveGaussianNoise,
     MultiplicativeGaussianNoise,
@@ -51,11 +51,22 @@ class ProblemWrapper(Problem):
         """The underlying wrapped problem."""
         return self._wrapped
 
+    def _inner_x(self, x):
+        """Wrapper coordinates -> the wrapped problem's :meth:`eval` coordinates (undoing its ``dx``)."""
+        return self._wrapped._untranslate(np.asarray(x, dtype=np.float64))
+
     def eval(self, x):
-        return self._wrapped.eval(x)
+        return self._wrapped.eval(self._inner_x(x))
 
     def eval_constraints(self, x):
-        return self._wrapped.eval_constraints(x)
+        return self._wrapped.eval_constraints(self._inner_x(x))
+
+    def fingerprint(self) -> str:
+        """Storage identity: the wrapper class, its parameters and the wrapped problem's fingerprint."""
+        from panobbgo.storage import problem_fingerprint
+
+        params = {k: v for k, v in vars(self).items() if not k.startswith("_") and k != "dx"}
+        return "%s(%r)<%s>" % (type(self).__qualname__, sorted(params.items()), problem_fingerprint(self._wrapped))
 
 
 class NormalizedProblem(ProblemWrapper):
@@ -76,10 +87,10 @@ class NormalizedProblem(ProblemWrapper):
         return x_normalized * self._ranges + self._lower
 
     def eval(self, x):
-        return self._wrapped.eval(self._denormalize(x))
+        return self._wrapped.eval(self._inner_x(self._denormalize(x)))
 
     def eval_constraints(self, x):
-        return self._wrapped.eval_constraints(self._denormalize(x))
+        return self._wrapped.eval_constraints(self._inner_x(self._denormalize(x)))
 
 
 class LogTransformProblem(ProblemWrapper):
@@ -94,15 +105,8 @@ class LogTransformProblem(ProblemWrapper):
         self.offset = offset
         super().__init__(problem)
 
-    def __call__(self, point):
-        x = point.x - self.dx if self.dx is not None else point.x
-        fx = self._wrapped.eval(x)
-        cv = self._wrapped.eval_constraints(x)
-        fx_transformed = np.log1p(fx - self.offset)
-        return Result(point, fx_transformed, cv_vec=cv)
-
     def eval(self, x):
-        fx = self._wrapped.eval(x)
+        fx = self._wrapped.eval(self._inner_x(x))
         return np.log1p(fx - self.offset)
 
 

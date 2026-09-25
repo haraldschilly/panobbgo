@@ -406,6 +406,10 @@ class IOHProblem(Problem):
         except Exception:
             pass
 
+    def fingerprint(self) -> str:
+        """Storage identity: suite kind, function id, instance and dimension."""
+        return f"IOHProblem(kind={self.kind!r}, id={self.ioh_problem_id}, instance={self.ioh_instance}, dim={self.dim})"
+
     def __repr__(self) -> str:
         return (
             f"IOHProblem(kind={self.kind!r}, id={self.ioh_problem_id}, "

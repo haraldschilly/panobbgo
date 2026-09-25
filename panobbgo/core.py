@@ -1737,6 +1737,23 @@ _LEGACY_DEFAULT_ANALYZER_SLOTS: Tuple[str, ...] = ("Best", "Grid", "Splitter", "
 _DEFAULT_ANALYZERS = frozenset({"Best", "Splitter", "Convergence"})
 
 
+def _default_analyzer_classes() -> Dict[str, "type[Analyzer]"]:
+    """The classes behind :data:`_DEFAULT_ANALYZERS`, imported by module path.
+
+    Resolved explicitly rather than by ``getattr(panobbgo.analyzers, name)``,
+    which silently built nothing once a class was renamed or dropped from
+    the package namespace.  Imported lazily: the analyzers import this module.
+    """
+    from .analyzers.best import Best
+    from .analyzers.convergence import Convergence
+    from .analyzers.splitter import Splitter
+
+    classes: Dict[str, "type[Analyzer]"] = {"Best": Best, "Splitter": Splitter, "Convergence": Convergence}
+    assert set(classes) == _DEFAULT_ANALYZERS <= set(_LEGACY_DEFAULT_ANALYZER_SLOTS)
+    assert all(cls.__name__ == name for name, cls in classes.items())
+    return classes
+
+
 def _config_keys(config: Any) -> set:
     """Public, non-callable attributes of a :class:`Config` — the settable keys."""
     return {k for k, v in vars(config).items() if not k.startswith("_") and not callable(v)}
@@ -1940,12 +1957,11 @@ class StrategyBase:
         # Default analyzers: ``Best`` and ``Convergence`` always, the
         # ``Splitter`` only when a module declares it (``requires_analyzers``).
         # See _LEGACY_DEFAULT_ANALYZER_SLOTS for why every slot draws a seed.
-        from . import analyzers
-
+        default_classes = _default_analyzer_classes()
         needed = set(self._required_analyzers())
         new_analyzers = []
         for name in _LEGACY_DEFAULT_ANALYZER_SLOTS:
-            cls = getattr(analyzers, name, None) if name in _DEFAULT_ANALYZERS else None
+            cls = default_classes.get(name)
             if cls is not None and name not in self._analyzers and (name != "Splitter" or name in needed):
                 new_analyzers.append(cls(self))
             else:

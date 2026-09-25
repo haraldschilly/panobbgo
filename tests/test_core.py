@@ -619,3 +619,25 @@ def test_budget_progress_and_max_eval_or_on_module_and_strategy():
     strategy.config.max_eval = 4
     strategy.results.add_results([Result(Point(np.zeros(2), "t"), float(i)) for i in range(6)])
     assert m.budget_progress() == strategy.budget_progress() == 1.0  # clipped
+
+
+def test_default_analyzers_do_not_depend_on_the_package_namespace(monkeypatch):
+    """Regression: the slot loop resolved ``getattr(panobbgo.analyzers, name, None)``.
+
+    A class renamed or dropped from ``panobbgo.analyzers`` then silently built
+    no default analyzer at all.
+    """
+    import panobbgo.analyzers
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    monkeypatch.delattr(panobbgo.analyzers, "Best")
+    monkeypatch.delattr(panobbgo.analyzers, "Convergence")
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, seed=1)
+    s.config.max_eval = 4
+    s.add_heuristic(Random(s))
+    try:
+        s.initialize()
+        assert {"Best", "Convergence"} <= set(s._analyzers)
+    finally:
+        s._cleanup()

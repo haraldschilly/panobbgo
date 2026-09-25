@@ -1967,7 +1967,9 @@ class BenchmarkHarness:
                 # dims across reps; the spec's ``dims`` is then only a
                 # placeholder, so the pair records ``None`` (the per-run
                 # records carry the actual dims).
-                run_dims = {r.problem_dim for r in psr.runs}
+                # Errored reps may carry the placeholder, so only runs that
+                # completed count.
+                run_dims = {r.problem_dim for r in psr.runs if r.error is None}
                 if len(run_dims) > 1:
                     psr.problem_dim = None
                 psr.compute_metrics()
@@ -2100,7 +2102,13 @@ class BenchmarkHarness:
                 stop = getattr(strategy, "request_stop", None)
                 if callable(stop):
                     stop()
-                grace = float(getattr(strategy.config, "deadlock_seconds", 600.0)) + STOP_JOIN_MARGIN_S
+                # A stopping run may still spend its cleanup grace
+                # (``shutdown_grace_seconds``) after the deadlock backstop.
+                grace = (
+                    float(getattr(strategy.config, "deadlock_seconds", 600.0))
+                    + float(getattr(strategy.config, "shutdown_grace_seconds", 60.0))
+                    + STOP_JOIN_MARGIN_S
+                )
                 runner.join(timeout=grace)
                 if runner.is_alive():
                     _log.error(

@@ -2025,7 +2025,13 @@ class StrategyBase:
                 break
 
             # execute the actual strategy
-            points = self._clamp_to_budget(self.execute())
+            # Once the whole budget is dispatched, only in-flight results
+            # are awaited; asking the strategy for more points would just
+            # hand them back to the heuristics every pass.
+            if self.config.max_eval and self._dispatched >= self.config.max_eval:
+                points = []
+            else:
+                points = self._clamp_to_budget(self.execute())
 
             # Update progress status
             self._update_progress_status()
@@ -2562,7 +2568,7 @@ with open('{result_file.name}', 'wb') as f:
                 self._thread_pool.shutdown(wait=False, cancel_futures=True)
                 running = [f for f in getattr(self, "_futures", {}).values() if not f.done()]
                 if running:
-                    grace = float(getattr(self.config, "shutdown_grace_seconds", 60.0))
+                    grace = float(self.config.shutdown_grace_seconds)
                     _done, still = futures_wait(running, timeout=grace)
                     if still:
                         self.logger.error(

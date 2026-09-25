@@ -1179,7 +1179,10 @@ class TestHarnessTimeoutProtocol:
 
         monkeypatch.setattr(harness_mod, "STOP_JOIN_MARGIN_S", 0.2)
         spec = StrategySpec(
-            name="Wedged", strategy_class=Wedged, heuristics=[], config_overrides={"deadlock_seconds": 0.0}
+            name="Wedged",
+            strategy_class=Wedged,
+            heuristics=[],
+            config_overrides={"deadlock_seconds": 0.0, "shutdown_grace_seconds": 0.0},
         )
         cfg = HarnessConfig(
             mode="quick",

@@ -288,6 +288,11 @@ class Config:
         # legitimate slow-arm regime; a smaller value reintroduces the
         # truncation of F4 at a larger constant.
         self.deadlock_seconds = get_config("core.deadlock_seconds", "core", "deadlock_seconds", 600.0, float)
+        # How long cleanup waits for evaluations already running when a run
+        # ends (queued ones are cancelled).
+        self.shutdown_grace_seconds = get_config(
+            "core.shutdown_grace_seconds", "core", "shutdown_grace_seconds", 60.0, float
+        )
         # Deprecated: the wall-clock stall guard this configured was replaced
         # by the evaluation-counted liveness predicate
         # (planning/DESIGN_pump_and_stall_2026-09-11.md §2).  Still accepted so

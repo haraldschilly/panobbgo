@@ -461,8 +461,8 @@ class CMAES(Heuristic):
         self._inject = bool(inject)
 
         # Budget-relative stagnation bookkeeping.  ``_total_evals`` counts the
-        # results this heuristic has consumed over the *whole* run (it survives
-        # restarts, unlike ``_counteval``); ``_stag_ref_fx`` is the best value
+        # evaluations this heuristic's own offspring cost over the *whole* run
+        # (it survives restarts, unlike ``_counteval``); ``_stag_ref_fx`` is the best value
         # that still counts as "the last real improvement".
         self._total_evals: int = 0
         self._stag_ref_fx: float = float("inf")
@@ -958,8 +958,16 @@ class CMAES(Heuristic):
             return False
         if self._m is None or self._w is None or self._ranges is None:
             return False  # not started yet — on_start will do the seeding
+        # Charge the abandoned generation before the re-fit reads
+        # ``_counteval`` (two branches anchor ``_eigeneval`` to it) — and take
+        # it back if the re-fit fails: then nothing is dropped, and the
+        # generation's own ``_update`` will charge it.
+        spent = self._abandoned_evaluations()
+        self._counteval += spent
         if not self._warm_start_distribution():
+            self._counteval -= spent
             return False
+        self._total_evals += spent
 
         self._pending.clear()
         self._gen_results.clear()
@@ -1008,6 +1016,7 @@ class CMAES(Heuristic):
                     # The repaired position: the evaluated point unless the
                     # boundary repair clipped its step — consistent with "y".
                     "x": np.array(info["x"], dtype=float),
+                    "x_eval": np.array(info["x_eval"], dtype=float),
                     "y": info["y"],
                 }
             )
@@ -1037,6 +1046,23 @@ class CMAES(Heuristic):
                 else:
                     self._emit_generation()
                 break
+
+    def _abandoned_evaluations(self) -> int:
+        """Evaluated offspring of the open generations a flush would drop.
+
+        A generation that never reaches its quorum — because
+        :meth:`warm_start_now` or an external :meth:`on_restart` replaces the
+        distribution mid-flight — is flushed without an :meth:`_update`, so
+        its offspring never reached ``_counteval``.  The ones already
+        *evaluated* (in the bucket) cost real evaluations: without charging
+        them the BIPOP regime budgets and the h_σ generation counter
+        undercount.  Offspring still queued or in flight are not counted —
+        :meth:`clear_output` drops the queued ones, and a late result for a
+        flushed generation is ignored.  The callers charge this to
+        ``_counteval`` and the stagnation clock ``_total_evals`` right before
+        the flush.
+        """
+        return sum(len(bucket) for bucket in self._gen_results.values())
 
     @staticmethod
     def _clip_injected(y: np.ndarray, B: np.ndarray, D: np.ndarray, c_y: float) -> np.ndarray:
@@ -1083,7 +1109,9 @@ class CMAES(Heuristic):
         c_y = float(np.sqrt(n) + 2.0 * n / (n + 2.0))
         x_f = np.asarray(r.x, dtype=float)
         y = self._clip_injected((x_f - self._m) / self._sigma, self._B, self._D, c_y)
-        entry = {"penalty": penalty, "x": self._m + self._sigma * y, "y": y}
+        # "x" is the clipped position the update uses; "x_eval" the foreign
+        # point whose f this is — the only one best tracking may record.
+        entry = {"penalty": penalty, "x": self._m + self._sigma * y, "x_eval": x_f.copy(), "y": y}
 
         gen = min(self._gen_results.keys())
         bucket = self._injected.setdefault(gen, [])
@@ -1122,6 +1150,10 @@ class CMAES(Heuristic):
             # on_start() has not been called yet — ignore
             return
 
+        # Before the BIPOP regime budget reads ``_counteval``.
+        spent = self._abandoned_evaluations()
+        self._counteval += spent
+        self._total_evals += spent
         if self._restart_mode == "bipop":
             self._restart_bipop(center, reason)
         else:
@@ -1331,7 +1363,7 @@ class CMAES(Heuristic):
         # that only rediscovers the old optimum still counts as stagnation.
         self._last_improve_evals = self._total_evals
 
-    def _record_generation(self, collected: List[dict]) -> None:
+    def _record_generation(self, collected: List[dict], n_offspring: Optional[int] = None) -> None:
         """Fold one finished generation into the termination histories.
 
         ``collected`` is already sorted ascending by penalty, so its first
@@ -1344,6 +1376,12 @@ class CMAES(Heuristic):
         injection can therefore make ``best`` improve, ``fx_hist``/``med_hist``
         move, and ``tolfun``/``tolfunhist``/``stagnation`` see it exactly as
         they would a real offspring.
+
+        ``n_offspring`` is the number of own offspring emitted for the
+        generation — what the stagnation clock ``_total_evals`` advances by,
+        exactly like ``_counteval``: injected foreign points were paid for by
+        another arm, and offspring arriving after the quorum were still
+        evaluated.  ``None`` (direct callers) falls back to ``len(collected)``.
         """
         penalties = [float(d["penalty"]) for d in collected]
         best = penalties[0]
@@ -1356,11 +1394,14 @@ class CMAES(Heuristic):
 
         if np.isfinite(best) and best < self._best_fx:
             self._best_fx = best
-            self._best_x = np.asarray(collected[0]["x"], dtype=float).copy()
+            # The *evaluated* point, not the repaired/clipped update position:
+            # only it is paired with ``best`` (and ``restart_from="best"``
+            # restarts there).
+            self._best_x = np.asarray(collected[0].get("x_eval", collected[0]["x"]), dtype=float).copy()
 
         # Budget-relative stagnation clock.  ``_total_evals`` is the run-long
         # evaluation count (``_counteval`` restarts at 0 on every restart).
-        self._total_evals += len(penalties)
+        self._total_evals += len(penalties) if n_offspring is None else int(n_offspring)
         if np.isfinite(best) and best < self._stag_ref_fx - self._stagnation_rel_tol * abs(self._stag_ref_fx):
             self._stag_ref_fx = best
             self._last_improve_evals = self._total_evals
@@ -1558,7 +1599,11 @@ class CMAES(Heuristic):
             # Put directly to bypass emit()'s ndarray-only check,
             # preserving the custom 'who' tag needed for generation tracking.
             self._put(Point(x, who))
-            self._pending[who] = {"gen": gen, "i": i, "y": y, "x": x_upd}
+            # "x" is the repaired position the update recombines; "x_eval" is
+            # the point actually evaluated.  They differ when the Mahalanobis
+            # clip shortens the repaired step, and only "x_eval" may be paired
+            # with the returned f (best tracking, ``restart_from="best"``).
+            self._pending[who] = {"gen": gen, "i": i, "y": y, "x": x_upd, "x_eval": x}
             emitted += 1
 
         self._gen_emitted[gen] = emitted
@@ -1604,7 +1649,7 @@ class CMAES(Heuristic):
 
         # Sort by penalty (ascending = minimise)
         collected.sort(key=lambda d: d["penalty"])
-        self._record_generation(collected)
+        self._record_generation(collected, n_offspring)
         selected = collected[: self._mu]
 
         # Recombination weights (may use fewer than μ if fewer arrived)

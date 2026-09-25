@@ -262,6 +262,97 @@ class TestCMAES(PanobbgoTestCase):
                 np.testing.assert_allclose(info["y"], (x - cma._m) / cma._sigma)
         assert n_projected > 0, "setup must push some offspring past the wall"
 
+    def _emit_with_one_far_offspring(self, cma):
+        """Emit a generation whose offspring 0 overshoots the wall so far that
+        its repaired step is Mahalanobis-clipped (``x_upd`` ≠ evaluated ``x``)."""
+        box = self.problem.box.box
+        cma._m = 0.5 * (box[:, 0] + box[:, 1])
+        cma._sigma = 0.01 * float(np.mean(box[:, 1] - box[:, 0]))
+        cma.clear_output()
+        cma._pending.clear()
+        cma._gen_results.clear()
+        cma._gen_emitted.clear()
+        real = cma.rng
+        n = self.problem.dim
+
+        class _FarFirst:
+            calls = 0
+
+            def standard_normal(self, size):
+                _FarFirst.calls += 1
+                return np.full(size, 1e4) if _FarFirst.calls == 1 else real.standard_normal(size)
+
+        cma.rng = _FarFirst()
+        try:
+            cma._emit_generation()
+        finally:
+            cma.rng = real
+        points = cma.get_points(100)
+        far = next(p for p in points if p.who.endswith(":i0"))
+        info = cma._pending[far.who]
+        assert not np.allclose(info["x"], far.x), "setup: the Mahalanobis clip must fire"
+        assert far.x.shape == (n,)
+        return points, far
+
+    def test_best_x_is_the_evaluated_point_not_the_repaired_one(self):
+        """Regression: ``_best_x`` was the repaired ``x_upd`` of a clipped offspring.
+
+        That position was never evaluated, yet it was paired with f(x_proj)
+        and ``restart_from="best"`` restarted there.
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_from="best")
+        cma.on_start()
+        points, far = self._emit_with_one_far_offspring(cma)
+        cma.on_new_results([Result(p, -1e6 if p is far else float(np.sum(p.x**2))) for p in points])
+        assert cma._best_fx == -1e6
+        np.testing.assert_allclose(cma._best_x, far.x)
+        np.testing.assert_allclose(cma._restart_center("best"), far.x)
+
+    def test_stagnation_clock_counts_emitted_offspring_not_bucket_size(self):
+        """Regression: ``_total_evals`` advanced by ``len(collected)``.
+
+        That missed offspring still in flight at the quorum (and, with
+        ``inject=True``, counted foreign points another arm paid for).  It now
+        advances by the emitted λ, exactly like ``_counteval``.
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, min_results_fraction=0.5)
+        cma.on_start()
+        points = cma.get_points(100)
+        quorum = max(2, int(cma._lam * 0.5))
+        assert quorum < cma._lam
+        cma.on_new_results([Result(p, float(np.sum(p.x**2))) for p in points[:quorum]])
+        assert cma._total_evals == cma._lam
+
+    def test_warm_start_now_charges_the_abandoned_generations_evaluations(self):
+        """Regression: a generation dropped by ``warm_start_now`` was never charged.
+
+        Its already-evaluated offspring cost real evaluations; queued ones
+        are dropped and not charged.  A failed re-fit drops nothing and
+        charges nothing (the generation's own update will).
+        """
+        from panobbgo.analyzers import Archive
+        from panobbgo.heuristics import CMAES
+
+        archive = Archive(self.strategy)
+        self.strategy.analyzer.side_effect = lambda name: archive if name == "Archive" else None
+        cma = CMAES(self.strategy, warm_start="archive", popsize=8, min_results_fraction=1.0)
+        cma.on_start()
+        points = cma.get_points(100)
+        cma.on_new_results([Result(p, float(np.sum(p.x**2))) for p in points[:3]])  # below quorum
+        assert cma._counteval == 0 and cma._total_evals == 0
+
+        assert cma.warm_start_now() is False  # empty archive: nothing dropped
+        assert cma._counteval == 0 and cma._total_evals == 0
+
+        archive.on_new_results([Result(Point(np.array([0.2, 0.2]), "SEED:%d" % i), float(i)) for i in range(6)])
+        assert cma.warm_start_now() is True
+        assert cma._counteval == 3
+        assert cma._total_evals == 3
+
     def test_sigma_does_not_inflate_against_the_wall(self):
         """With the optimum in a box corner, σ must shrink, not blow up to its clamp."""
         from panobbgo.heuristics import CMAES
@@ -892,6 +983,24 @@ class TestCMAESBIPOP(PanobbgoTestCase):
         # 30 evals credited to large; small has 0 → small picked next
         assert cma.bipop_evals_large == 30
         assert cma.bipop_regime == "small"
+
+    def test_external_restart_charges_the_abandoned_generations_evaluations(self):
+        """Regression: an external ``on_restart`` mid-generation lost its evaluations.
+
+        The generation is flushed without an update, so its evaluated
+        offspring never reached ``_counteval`` and the BIPOP large-regime
+        budget undercounted.
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, restart_mode="bipop", popsize=8, min_results_fraction=1.0)
+        cma.on_start()
+        points = cma.get_points(100)
+        cma.on_new_results([Result(p, float(np.sum(p.x**2))) for p in points[:3]])  # below quorum
+        assert cma._counteval == 0
+        cma.on_restart(self.problem.random_point(), "analyzer")
+        assert cma.bipop_evals_large == 3
+        assert cma._total_evals == 3
 
     def test_bipop_regime_alternation_balances_budget(self):
         """Repeated restarts should approximately balance large and small evals."""

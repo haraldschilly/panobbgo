@@ -188,6 +188,30 @@ class TestCMAESInject(PanobbgoTestCase):
         d1 = float(np.linalg.norm(cma._m - target))
         assert d1 < d0, "the mean must move toward the injected point"
 
+    def test_best_x_is_the_foreign_point_not_its_clipped_position(self):
+        """Regression: a clipped injected entry recorded its update position as ``_best_x``.
+
+        That position was never evaluated; the foreign ``x_f`` is the point
+        whose f was paired with ``_best_fx``.
+        """
+        cma = self._make(popsize=6, min_results_fraction=0.5)
+        cma.on_start()
+        pts = cma.get_points()
+        cma._sigma = 1e-4  # makes a box-corner foreign point Mahalanobis-far
+        box = cma.problem.box.box
+        target = box[:, 1].astype(float).copy()
+        cma.on_new_results([Result(Point(target, "OTHER:x"), -1e6)])
+        gen = min(cma._gen_results.keys())
+        assert not np.allclose(cma._injected[gen][0]["x"], target), "setup: the clip must fire"
+
+        for i, p in enumerate(pts):
+            cma.on_new_results([Result(p, 100.0 + i)])
+            if gen not in cma._gen_results:
+                break
+
+        assert cma._best_fx == pytest.approx(-1e6)
+        np.testing.assert_allclose(cma._best_x, target)
+
     def test_non_finite_and_infinite_penalty_foreign_points_are_ignored(self):
         cma = self._make(popsize=8)
         cma.on_start()

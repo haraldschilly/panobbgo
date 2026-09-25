@@ -190,8 +190,10 @@ def test_augmented_lagrangian_handler_updates():
     assert handler.mu == 2.0
     assert handler.last_cv_norm == 1.0
 
-    # 3. Add more results, still high violation
+    # 3. Add more results, still high violation; r2 becomes the incumbent
+    # (an unchanged incumbent is no new solution and would leave mu alone)
     # Trigger another update
+    strategy.best = r2
     handler.on_new_results([r1, r2])
 
     # Now last_cv_norm is 1.0. Current is 1.0.

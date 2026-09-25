@@ -346,7 +346,7 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
 
     Parameters update:
        lambda_i <- max(0, lambda_i + mu * g_i(x))
-       mu <- mu * rate (if violation not decreasing sufficiently)
+       mu <- mu * rate (if a new incumbent did not decrease the violation sufficiently)
     """
 
     def __init__(self, strategy=None, rho=10.0, rate=2.0, update_interval=20, **kwargs):
@@ -364,6 +364,8 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         self.lambdas = None  # Will be initialized on first result
         self.counter = 0
         self.last_cv_norm = float("inf")
+        #: the incumbent the previous update looked at (see ``_update_parameters``)
+        self._last_update_best = None
 
         # Logging
         if strategy:
@@ -408,8 +410,18 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # Store current mu for lambda update
         current_mu = self.mu
 
+        # The "did cv drop by 10%" test compares two successive subproblem
+        # solutions.  When the incumbent has not changed since the previous
+        # update there is no new solution to judge: comparing it with itself
+        # always says "no progress", and mu grew geometrically (rate^(n/20))
+        # on any stretch without a new incumbent.  The multipliers below still
+        # take their (linear) step, so a stuck infeasible incumbent keeps
+        # losing ground to the feasible points in the history scan.
+        stuck = best is self._last_update_best
+        self._last_update_best = best
+
         # We only increase penalty if we are still infeasible
-        if current_cv_norm > 0:
+        if current_cv_norm > 0 and not stuck:
             # Initialize last_cv_norm if it's the first time
             if self.last_cv_norm == float("inf"):
                 self.last_cv_norm = current_cv_norm

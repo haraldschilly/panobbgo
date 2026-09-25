@@ -343,15 +343,23 @@ class COBYQA(PipeBridgeHeuristic):
                 self.cobyqa.kill()
 
     def on_restart(self, center, reason) -> None:
-        """Tear down and restart the subprocess around ``center``.
+        """Restart the subprocess around ``center``.
 
         COBYQA's interpolation set is built from scratch on construction;
         the cleanest restart strategy is to terminate the subprocess and
         start a fresh one with ``center`` (when provided) as the new
         starting point.  When ``center`` is ``None`` we fall back to the
         box centre, matching :meth:`__start__`.
+
+        This handler runs on the event-bus thread, so it only records the
+        request; :meth:`~panobbgo.core.PipeBridgeHeuristic.produce` performs
+        it (:meth:`_bridge_respawn`) on the main loop's thread.  A solve that
+        already converged is restarted too.
         """
-        # Tear down the current subprocess.
+        self._request_restart(center)
+
+    def _bridge_respawn(self, center) -> None:
+        """Terminate the current worker and spawn a new one at ``center``."""
         try:
             if self.cobyqa is not None and self.cobyqa.is_alive():
                 self.cobyqa.terminate()
@@ -361,49 +369,37 @@ class COBYQA(PipeBridgeHeuristic):
         except Exception as exc:
             self.logger.debug(f"COBYQA: subprocess teardown on restart failed: {exc}")
 
-        self.clear_output()
+        ctx = multiprocessing.get_context("spawn")
+        self.p1, self.p2 = ctx.Pipe()
+        self.out1, self.out2 = ctx.Pipe(False)
 
-        if self._stopped:
-            return
+        bounds = [tuple(row) for row in self.problem.box.box]
+        if center is None:
+            x0 = np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
+        else:
+            # Clip the suggested center into the box — the strategy
+            # may emit a center sitting on the boundary, and COBYQA
+            # tolerates equality but not strict violation.
+            center = np.asarray(center, dtype=float)
+            lo = np.asarray([b[0] for b in bounds], dtype=float)
+            hi = np.asarray([b[1] for b in bounds], dtype=float)
+            x0 = np.clip(center, lo, hi)
 
-        try:
-            ctx = multiprocessing.get_context("spawn")
-            self.p1, self.p2 = ctx.Pipe()
-            self.out1, self.out2 = ctx.Pipe(False)
+        initial_tr = self._resolve_initial_tr(self.problem.box.box)
 
-            bounds = [tuple(row) for row in self.problem.box.box]
-            if center is None:
-                x0 = np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
-            else:
-                # Clip the suggested center into the box — the strategy
-                # may emit a center sitting on the boundary, and COBYQA
-                # tolerates equality but not strict violation.
-                center = np.asarray(center, dtype=float)
-                lo = np.asarray([b[0] for b in bounds], dtype=float)
-                hi = np.asarray([b[1] for b in bounds], dtype=float)
-                x0 = np.clip(center, lo, hi)
-
-            initial_tr = self._resolve_initial_tr(self.problem.box.box)
-
-            self.cobyqa = ctx.Process(
-                target=self.worker,
-                args=(
-                    self.p2,
-                    self.out2,
-                    x0,
-                    bounds,
-                    initial_tr,
-                    self.final_tr_radius,
-                    self.maxfev,
-                    self.scale,
-                ),
-                name=f"{self.name}-COBYQA",
-            )
-            self.cobyqa.daemon = True
-            self.cobyqa.start()
-            # A fresh worker owes us nothing and we owe it nothing: drop any
-            # value the old one's last point produced, or the new worker would
-            # be answered with a reply to a question it never asked.
-            self._bridge_reset()
-        except Exception as exc:
-            self.logger.warning(f"COBYQA: subprocess restart failed: {exc}")
+        self.cobyqa = ctx.Process(
+            target=self.worker,
+            args=(
+                self.p2,
+                self.out2,
+                x0,
+                bounds,
+                initial_tr,
+                self.final_tr_radius,
+                self.maxfev,
+                self.scale,
+            ),
+            name=f"{self.name}-COBYQA",
+        )
+        self.cobyqa.daemon = True
+        self.cobyqa.start()

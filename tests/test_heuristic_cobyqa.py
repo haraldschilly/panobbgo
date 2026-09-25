@@ -199,8 +199,13 @@ class COBYQAPipeTests(PanobbgoTestCase):
                 self.fx = fx
 
         results = [_R("COBYQA", 7.5), _R("Other", 1.0)]
+        for r in results:
+            r.x = np.zeros(2)
         self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
         cobyqa._outstanding = True
+        # Only the value of the point the worker waits on is accepted (set by
+        # produce when it emits); it used to accept any result tagged "COBYQA".
+        cobyqa._outstanding_x = np.zeros(2)
         cobyqa.on_new_results(results)
         cobyqa.p1.send.assert_not_called()
         assert cobyqa._fx_inbox.get_nowait() == 7.5
@@ -244,7 +249,9 @@ class COBYQAPipeTests(PanobbgoTestCase):
         cobyqa = _live_bridge(COBYQA(self.strategy))
         cobyqa.p1.poll.side_effect = EOFError()
         assert cobyqa.produce(1) == []
-        assert cobyqa._bridge_done and cobyqa._stopped
+        # Finished, but not stopped: a later restart must still revive it
+        # (it used to set ``_stopped`` too, which made restarts no-ops).
+        assert cobyqa._bridge_done and not cobyqa._stopped
 
     def test_produce_ends_the_bridge_when_the_solver_converged(self):
         """COBYQA does not multi-start: a finished worker ends the arm."""
@@ -281,6 +288,12 @@ class COBYQARestartTests(PanobbgoTestCase):
             # Restart at a specific in-box point.
             center = np.array([0.5, -0.5])
             cobyqa.on_restart(center=center, reason="test")
+            # on_restart runs on the event-bus thread and only records the restart;
+            # produce() applies it on the main thread (it used to respawn in place,
+            # racing a produce() that was mid-recv on the old pipe).
+            assert cobyqa.cobyqa is old_proc
+            assert cobyqa.can_produce
+            cobyqa._apply_pending_restart()
             assert cobyqa.cobyqa is not None
             assert cobyqa.cobyqa is not old_proc
             assert cobyqa.cobyqa.is_alive()
@@ -295,6 +308,7 @@ class COBYQARestartTests(PanobbgoTestCase):
         cobyqa.__start__()
         try:
             cobyqa.on_restart(center=None, reason="test")
+            cobyqa._apply_pending_restart()
             assert cobyqa.cobyqa is not None
             assert cobyqa.cobyqa.is_alive()
         finally:
@@ -308,6 +322,7 @@ class COBYQARestartTests(PanobbgoTestCase):
             # Way outside the Rosenbrock box (which is roughly [-2, 2]^2):
             far_center = np.array([1000.0, -1000.0])
             cobyqa.on_restart(center=far_center, reason="test")
+            cobyqa._apply_pending_restart()
             assert cobyqa.cobyqa is not None
             assert cobyqa.cobyqa.is_alive()
         finally:
@@ -322,6 +337,7 @@ class COBYQARestartTests(PanobbgoTestCase):
         # No subprocess after stop+restart_when_stopped — restart sees the
         # flag and returns without spawning a new process.
         cobyqa.on_restart(center=np.array([0.0, 0.0]), reason="test")
+        cobyqa._apply_pending_restart()
         # The old proc was terminated by __stop__; the restart must not
         # have spawned a fresh live process.
         # (cobyqa.cobyqa is still the old, terminated handle.)

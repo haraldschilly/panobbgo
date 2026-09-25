@@ -173,8 +173,13 @@ class LBFGSBPipeTests(PanobbgoTestCase):
                 self.fx = fx
 
         results = [_R("LBFGSB", 5.0), _R("Other", 3.0)]
+        for r in results:
+            r.x = np.zeros(2)
         self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
         h._outstanding = True
+        # Only the value of the point the worker waits on is accepted (set by
+        # produce when it emits); it used to accept any result tagged "LBFGSB".
+        h._outstanding_x = np.zeros(2)
         h.on_new_results(results)
         # Stored, not sent: the bus thread must not do I/O.
         h.p1.send.assert_not_called()
@@ -219,7 +224,9 @@ class LBFGSBPipeTests(PanobbgoTestCase):
         h = _live_bridge(LBFGSB(self.strategy))
         h.p1.poll.side_effect = EOFError()
         assert h.produce(1) == []
-        assert h._bridge_done and h._stopped
+        # Finished, but not stopped: a later restart must still revive it
+        # (it used to set ``_stopped`` too, which made restarts no-ops).
+        assert h._bridge_done and not h._stopped
 
     def test_produce_ends_the_bridge_when_the_worker_exited(self):
         h = _live_bridge(LBFGSB(self.strategy))
@@ -481,6 +488,12 @@ class LBFGSBRestartTests(PanobbgoTestCase):
         old_proc = h.lbfgsb
         try:
             h.on_restart(center=np.array([0.5, -0.5]), reason="test")
+            # on_restart runs on the event-bus thread and only records the restart;
+            # produce() applies it on the main thread (it used to respawn in place,
+            # racing a produce() that was mid-recv on the old pipe).
+            assert h.lbfgsb is old_proc
+            assert h.can_produce
+            h._apply_pending_restart()
             assert h.lbfgsb is not None
             assert h.lbfgsb is not old_proc
             assert h.lbfgsb.is_alive()
@@ -494,6 +507,7 @@ class LBFGSBRestartTests(PanobbgoTestCase):
         h.__start__()
         try:
             h.on_restart(center=None, reason="test")
+            h._apply_pending_restart()
             assert h.lbfgsb is not None
             assert h.lbfgsb.is_alive()
         finally:
@@ -505,6 +519,7 @@ class LBFGSBRestartTests(PanobbgoTestCase):
         h.__start__()
         try:
             h.on_restart(center=np.array([1000.0, -1000.0]), reason="test")
+            h._apply_pending_restart()
             assert h.lbfgsb is not None
             assert h.lbfgsb.is_alive()
         finally:
@@ -517,6 +532,7 @@ class LBFGSBRestartTests(PanobbgoTestCase):
         h.__stop__()
         h._stopped = True
         h.on_restart(center=np.array([0.0, 0.0]), reason="test")
+        h._apply_pending_restart()
         assert not h.lbfgsb.is_alive()
 
 

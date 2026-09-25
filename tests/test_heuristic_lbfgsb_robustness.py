@@ -151,6 +151,8 @@ class StartFailureTests(PanobbgoTestCase):
             with mock.patch.object(h.lbfgsb, "terminate", side_effect=OSError("nope")):
                 old = h.lbfgsb
                 h.on_restart(center=None, reason="test")
+                # Recorded on the bus thread, applied by produce (main thread).
+                h._apply_pending_restart()
                 assert h.lbfgsb is not old
                 assert h.lbfgsb.is_alive()
         finally:

@@ -476,13 +476,22 @@ class LBFGSB(PipeBridgeHeuristic):
                 self.lbfgsb.kill()
 
     def on_restart(self, center, reason: str = "") -> None:
-        """Tear down and relaunch the subprocess warm-started at ``center``.
+        """Relaunch the subprocess warm-started at ``center``.
 
         Mirrors :meth:`panobbgo.heuristics.cobyqa.COBYQA.on_restart`: the
         first descent of the relaunched worker starts from ``center``
         (clipped into the box) when one is supplied, falling back to the box
         centre otherwise.  Subsequent descents resume random multi-start.
+
+        This handler runs on the event-bus thread, so it only records the
+        request; :meth:`~panobbgo.core.PipeBridgeHeuristic.produce` performs
+        it (:meth:`_bridge_respawn`) on the main loop's thread.  A worker that
+        already finished (``max_starts`` reached) is revived too.
         """
+        self._request_restart(center)
+
+    def _bridge_respawn(self, center) -> None:
+        """Terminate the current worker and spawn a new one at ``center``."""
         try:
             if self.lbfgsb is not None and self.lbfgsb.is_alive():
                 self.lbfgsb.terminate()
@@ -492,24 +501,12 @@ class LBFGSB(PipeBridgeHeuristic):
         except Exception as exc:
             self.logger.debug(f"LBFGSB: subprocess teardown on restart failed: {exc}")
 
-        self.clear_output()
-
-        if self._stopped:
-            return
-
-        try:
-            bounds = self._box_bounds()
-            if center is None:
-                x0 = self._box_center(bounds)
-            else:
-                center = np.asarray(center, dtype=float)
-                lo = np.asarray([b[0] for b in bounds], dtype=float)
-                hi = np.asarray([b[1] for b in bounds], dtype=float)
-                x0 = np.clip(center, lo, hi)
-            self._spawn(x0, bounds)
-            # A fresh worker owes us nothing and we owe it nothing: drop any
-            # value the old one's last point produced, or the new worker would
-            # be answered with a reply to a question it never asked.
-            self._bridge_reset()
-        except Exception as exc:
-            self.logger.warning(f"LBFGSB: subprocess restart failed: {exc}")
+        bounds = self._box_bounds()
+        if center is None:
+            x0 = self._box_center(bounds)
+        else:
+            center = np.asarray(center, dtype=float)
+            lo = np.asarray([b[0] for b in bounds], dtype=float)
+            hi = np.asarray([b[1] for b in bounds], dtype=float)
+            x0 = np.clip(center, lo, hi)
+        self._spawn(x0, bounds)

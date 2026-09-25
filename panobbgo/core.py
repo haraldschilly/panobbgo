@@ -1002,6 +1002,19 @@ class PipeBridgeHeuristic(Heuristic):
     Subclasses provide the subprocess and the pipes (``p1`` = parent end of
     the request pipe, ``out1`` = parent end of the status pipe), and may
     intercept control messages by overriding :meth:`_bridge_control`.
+
+    **Restarts** follow the same rule.  An ``on_restart`` handler runs on the
+    event-bus thread, so it only *records* the request
+    (:meth:`_request_restart`); the next :meth:`produce` replaces the worker
+    (:meth:`_bridge_respawn`) on the main loop's thread.  Respawning from the
+    bus thread used to rebind ``p1`` under a ``produce`` that was mid-``recv``.
+    A worker that *finished* (converged, hit ``max_starts``) is only
+    ``_bridge_done``, not stopped: a later restart revives it.
+
+    Only the value of the point we are *currently* waiting on is handed to the
+    worker: :meth:`on_new_results` matches the result's ``x`` against it.  A
+    point emitted by a replaced worker (or an aborted descent) may still be in
+    flight, and its value must not answer the new worker's first ``f(x)``.
     """
 
     on_demand = True
@@ -1033,8 +1046,16 @@ class PipeBridgeHeuristic(Heuristic):
         #: is set and the inbox is empty, :meth:`produce` returns ``[]``
         #: *immediately* instead of waiting for an arm that is waiting for us.
         self._outstanding: bool = False
-        #: The worker finished (converged, hit its cap, or died).
+        #: The worker finished (converged, hit its cap, or died).  Not
+        #: ``_stopped``: a restart can still respawn it.
         self._bridge_done: bool = False
+        #: The (projected) point whose value the worker is waiting for; only a
+        #: result at this ``x`` answers it.
+        self._outstanding_x: Optional[np.ndarray] = None
+        #: ``(center,)`` recorded by :meth:`_request_restart` on the event-bus
+        #: thread and applied by :meth:`produce` on the main thread.
+        self._pending_restart: Optional[tuple] = None
+        self._restart_lock = threading.Lock()
 
     # -- subclass hooks ----------------------------------------------------
 
@@ -1080,12 +1101,49 @@ class PipeBridgeHeuristic(Heuristic):
         """
         return True
 
+    def _bridge_respawn(self, center: Any) -> None:
+        """Replace the worker with a fresh one started at ``center``.
+
+        Called from :meth:`produce` (main thread) for a restart recorded by
+        :meth:`_request_restart`.  Terminate the old process, spawn the new
+        one and rebind the pipes; the base class resets the round-trip state
+        afterwards.  Only arms that restart need to implement it.
+        """
+        raise NotImplementedError
+
+    def _request_restart(self, center: Any) -> None:
+        """Record a restart; safe to call from an event handler.
+
+        The last request before the next :meth:`produce` wins.
+        """
+        if self._stopped:
+            return
+        with self._restart_lock:
+            self._pending_restart = (center,)
+
+    def _apply_pending_restart(self) -> None:
+        """Perform a recorded restart.  Main thread only (see :meth:`produce`)."""
+        with self._restart_lock:
+            pending, self._pending_restart = self._pending_restart, None
+        if pending is None or self._stopped:
+            return
+        self.clear_output()
+        try:
+            self._bridge_respawn(pending[0])
+        except Exception as exc:
+            self.logger.warning("%s: worker restart failed: %s" % (self.name, exc))
+            return
+        # A fresh worker owes us nothing and we owe it nothing: drop any value
+        # the old one's last point produced.
+        self._bridge_reset()
+
     def _bridge_alive(self) -> bool:
         proc = self._bridge_process()
         return proc is not None and proc.is_alive()
 
     def _bridge_reset(self) -> None:
         """Forget the in-flight round trip; call after respawning a worker."""
+        self._outstanding_x = None
         while True:
             try:
                 self._fx_inbox.get_nowait()
@@ -1097,10 +1155,27 @@ class PipeBridgeHeuristic(Heuristic):
     # -- the Heuristic contract -------------------------------------------
 
     @property
+    def active(self) -> bool:
+        """A finished worker drops out of the rotation until a restart revives it."""
+        if self._output.qsize() > 0:
+            return True
+        if self._stopped:
+            return False
+        if self._pending_restart is not None:
+            return True
+        if self._bridge_done:
+            return False
+        return super().active
+
+    @property
     def can_produce(self) -> bool:
         if self.has_points:
             return True
-        if self._stopped or self._bridge_done:
+        if self._stopped:
+            return False
+        if self._pending_restart is not None:
+            return True  # produce() will respawn the worker
+        if self._bridge_done:
             return False
         if not self._bridge_alive():
             return False
@@ -1110,6 +1185,7 @@ class PipeBridgeHeuristic(Heuristic):
         return self._bridge_pending_request()
 
     def produce(self, limit: Optional[int] = None, timeout: Optional[float] = None) -> List["Point"]:
+        self._apply_pending_restart()
         if self.has_points:
             return self.get_points(limit)
         if self._stopped or self._bridge_done:
@@ -1141,9 +1217,17 @@ class PipeBridgeHeuristic(Heuristic):
         """
         if not self._outstanding:
             return
+        x_out = self._outstanding_x
         for result in results:
-            if result.who == self.name:
-                self._fx_inbox.put(self.strategy.constraint_handler.get_penalty_value(result))
+            if result.who != self.name or x_out is None:
+                continue
+            if not np.array_equal(np.asarray(result.x, dtype=float), x_out):
+                # Ours by name, but not the point the worker is waiting on: a
+                # leftover of a replaced worker or an aborted descent.
+                continue
+            self._outstanding_x = None  # answer it exactly once
+            self._fx_inbox.put(self.strategy.constraint_handler.get_penalty_value(result))
+            return
 
     # -- internals ---------------------------------------------------------
 
@@ -1190,7 +1274,11 @@ class PipeBridgeHeuristic(Heuristic):
                 return []
             if self._bridge_control(msg):
                 continue
-            self.emit(self._bridge_point(msg))
+            x = self._bridge_point(msg)
+            # ``emit`` projects the point; the result will carry that ``x``.
+            # Recorded before the point can be dispatched for evaluation.
+            self._outstanding_x = np.asarray(self.problem.project(x), dtype=float)
+            self.emit(x)
             self._outstanding = True
             return self.get_points(limit)
 
@@ -1205,8 +1293,10 @@ class PipeBridgeHeuristic(Heuristic):
             pass
 
     def _bridge_finished(self, reason: str) -> None:
+        # Only ``_bridge_done``: ``_stopped`` is the run's end, and a finished
+        # worker (a converged COBYQA, an L-BFGS-B at ``max_starts``) must
+        # still honour a later restart.
         self._bridge_done = True
-        self._stopped = True
         self.logger.debug("%s: bridge finished (%s)" % (self.name, reason))
 
 

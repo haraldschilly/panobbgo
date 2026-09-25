@@ -285,6 +285,8 @@ class LocalPenaltySearchBranchTest(PanobbgoTestCase):
         h = self.make_heuristic()
         h._outstanding = True
         h._waiting_for_eval = True
+        # Only the value of the point the worker waits on is accepted.
+        h._outstanding_x = np.array([0.5, 0.5])
         r = Result(Point(np.array([0.5, 0.5]), h.name), 2.5)
         h.on_new_results([r])
 

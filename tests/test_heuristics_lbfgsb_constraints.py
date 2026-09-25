@@ -45,6 +45,8 @@ class TestLBFGSBConstraints(unittest.TestCase):
 
         # A value is only collected while an evaluation of ours is in flight.
         self.heuristic._outstanding = True
+        # ... and only for the point the worker is waiting on (set by produce).
+        self.heuristic._outstanding_x = np.array([1.0, 2.0])
         self.heuristic.on_new_results([result])
 
         self.strategy.constraint_handler.get_penalty_value.assert_called_with(result)
@@ -57,6 +59,8 @@ class TestLBFGSBConstraints(unittest.TestCase):
         result = Result(point, 100.0)
 
         self.heuristic._outstanding = True
+        # ... and only for the point the worker is waiting on (set by produce).
+        self.heuristic._outstanding_x = np.array([1.0, 2.0])
         self.heuristic.on_new_results([result])
 
         assert self.heuristic._fx_inbox.empty()

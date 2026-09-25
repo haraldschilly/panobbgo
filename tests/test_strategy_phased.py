@@ -380,6 +380,24 @@ class TestStrategyPhasedLinUCB(PanobbgoTestCase):
         # the phase reads the same default
         assert "LINUCB_ALPHA" in inspect.getsource(StrategyPhased._execute_linucb)
 
+    def test_result_from_an_earlier_linucb_phase_does_not_update_the_model(self):
+        strategy, _ = self._run()
+        strategy._init_phase_stats(1)
+        h = strategy.heuristic("H_First")
+        better = Result(Point(np.array([0.0]), "H_First"), strategy.last_best.fx - 1.0)
+        better.point.context_vector = np.array([1.0, 0.5, 0.0])
+        better.point.context_phase = 0  # picked under an earlier phase's (reset) model
+        strategy.on_new_results([better])
+        assert np.allclose(h.linucb_A, np.eye(3)) and np.all(h.linucb_b == 0)
+        assert h.linucb_count == 0
+
+    def test_new_phase_resets_linucb_counters(self):
+        strategy, _ = self._run()
+        h = strategy.heuristic("H_First")
+        assert h.linucb_count > 0
+        strategy._init_phase_stats(1)
+        assert h.linucb_count == 0 and h.linucb_reward == 0.0
+
 
 class QueueHeuristic(Heuristic):
     """Emits through the output queue (unlike :class:`SimpleHeuristic`) and counts what it emitted."""
@@ -501,3 +519,29 @@ class TestStrategyPhasedRewarding(PanobbgoTestCase):
     def test_legacy_credit_on_request(self):
         strategy = self._run({"credit": "legacy"})
         assert all(strategy.heuristic(n).n_evals == 0 for n in ("H_A", "H_B"))
+
+
+class TestStrategyPhasedDedupWarning(PanobbgoTestCase):
+    def test_duplicate_with_different_kwargs_warns(self):
+        import unittest.mock as mock
+
+        problem = TrackingProblem()
+
+        class KwHeuristic(SimpleHeuristic):
+            def __init__(self, strategy, name="H_Kw", flavour=0, **kwargs):
+                super().__init__(strategy, name=name)
+
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {"pct": 50, "strategy": (StrategyRoundRobin, {}), "heuristics": [(KwHeuristic, {"flavour": 1})]},
+                {"strategy": (StrategyRoundRobin, {}), "heuristics": [(KwHeuristic, {"flavour": 2})]},
+            ],
+            parse_args=False,
+            seed=1,
+        )
+        strategy.config.max_eval = 20
+        strategy.config.sync_evaluation = True
+        with mock.patch.object(strategy.logger, "warning") as warn:
+            strategy.start()
+        assert any("different kwargs" in str(c.args[0]) for c in warn.call_args_list)

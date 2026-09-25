@@ -65,10 +65,17 @@ def init_thompson(h) -> None:
 
 
 def init_linucb(h, d: int = LINUCB_DIM) -> None:
-    """Fresh disjoint-LinUCB model: ``A = I``, ``b = 0``."""
+    """Fresh disjoint-LinUCB model: ``A = I``, ``b = 0``, and zeroed update counters.
+
+    The counters ``linucb_count`` / ``linucb_reward`` belong to the model,
+    so a later LinUCB phase of :class:`~.phased.StrategyPhased` starts them
+    from zero along with ``A`` and ``b``.
+    """
     h.linucb_A = np.eye(d)
     h.linucb_b = np.zeros(d)
     h.linucb_A_inv = np.eye(d)
+    h.linucb_count = 0
+    h.linucb_reward = 0.0
 
 
 def init_rewarding(h) -> None:

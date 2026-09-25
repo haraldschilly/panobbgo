@@ -215,6 +215,7 @@ class StrategyPhased(StrategyBase):
             self._phase_cutoffs.append(cutoff)
 
         # Instantiate all heuristics for all phases, tracking which belong where
+        first_kwargs: dict[str, dict] = {}
         for cfg in self._phase_configs:
             phase_names: set[str] = set()
             strat_cls, strat_kwargs = cfg["strategy"]
@@ -227,6 +228,13 @@ class StrategyPhased(StrategyBase):
                 # filled by StrategyBase.start() below.
                 if h.name not in {x.name for x in self._hs}:
                     self._hs.append(h)
+                    first_kwargs[h.name] = dict(heur_kwargs)
+                elif dict(heur_kwargs) != first_kwargs.get(h.name, dict(heur_kwargs)):
+                    self.logger.warning(
+                        f"Heuristic {h.name!r} is listed in several phases with different kwargs; "
+                        f"the first instance {first_kwargs[h.name]} is shared and {dict(heur_kwargs)} "
+                        "is ignored (give it a distinct name= to run both)."
+                    )
                 phase_names.add(h.name)
 
             self._phase_heuristic_names.append(phase_names)
@@ -267,12 +275,12 @@ class StrategyPhased(StrategyBase):
         names = self._phase_heuristic_names[phase_idx]
         self.total_selections = 0
 
-        for h in self.heuristics:
-            if h.name in names:
-                self._init_phase_heuristic(h, phase_idx)
-
-        # Reset phase-level state
+        # Under the lock: ``on_new_results`` (event-bus thread) updates the
+        # same per-heuristic statistics and phase state.
         with self._lock:
+            for h in self.heuristics:
+                if h.name in names:
+                    self._init_phase_heuristic(h, phase_idx)
             info["state"] = {}
             policy = _policy(info["cls"])
             if policy == "linucb":
@@ -404,6 +412,8 @@ class StrategyPhased(StrategyBase):
                 x_t = getattr(result.point, "context_vector", None)
                 if x_t is None:
                     continue  # not picked by LinUCB (e.g. an earlier phase's point)
+                if getattr(result.point, "context_phase", self._current_phase) != self._current_phase:
+                    continue  # picked by an earlier LinUCB phase, whose model was reset
                 try:
                     h = self.heuristic(result.who)
                 except KeyError:
@@ -465,7 +475,10 @@ class StrategyPhased(StrategyBase):
         alpha = float(strat_kwargs.get("linucb_alpha", LINUCB_ALPHA))
         with self._lock:
             context = linucb_context(len(self.results), self.config.max_eval, self._linucb_state()["recent_rewards"])
-        return collect_pulls(self, lambda _target: linucb_select(phase_heurs, context, alpha))
+        points = collect_pulls(self, lambda _target: linucb_select(phase_heurs, context, alpha))
+        for p in points:
+            p.context_phase = self._current_phase  # results of another phase must not update this model
+        return points
 
     # ── Main execute dispatch ──
 

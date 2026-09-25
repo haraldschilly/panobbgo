@@ -425,7 +425,12 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         # lambda_{k+1} = max(0, lambda_k + mu_k * g(x_k))
         # Note: cv_vec > 0 means violation, so g(x) corresponds to cv_vec
         # WE use the mu that was active during the optimization (current_mu), not the new one.
-        if self.lambdas.shape == cv.shape:
+        if np.isnan(cv).any():
+            # Unknown violation (``Result.cv`` is ``inf``): no finite multiplier
+            # step can be derived from it, so the multipliers stay as they are.
+            if hasattr(self, "logger"):
+                self.logger.warning("ALM: NaN in the incumbent's cv_vec, multipliers not updated.")
+        elif self.lambdas.shape == cv.shape:
             new_lambdas = np.maximum(0, self.lambdas + current_mu * cv)
             self.lambdas = new_lambdas
         else:
@@ -532,21 +537,22 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
                     # Fallback to fx if shapes don't align
                     return
 
-            # Check for NaNs
             if cv_vec_all is not None:
-                if np.isnan(cv_vec_all).any():
-                    if hasattr(self, "logger"):
-                        self.logger.warning("ALM: NaNs detected in constraint history, using 0.0 for those values.")
-                    cv_vec_all = np.nan_to_num(cv_vec_all)
+                # A NaN constraint value is an *unknown* violation, i.e.
+                # infeasible — the same policy as :attr:`Result.cv` (``inf``).
+                # Such a row gets ``L = +inf`` so it can never become the
+                # best; it used to be ``nan_to_num``-ed to 0.0 ("satisfied").
+                nan_rows = np.isnan(cv_vec_all).any(axis=1)
+                cv_clean = np.where(np.isnan(cv_vec_all), 0.0, cv_vec_all)
 
                 # term = max(0, lambda + mu * cv_vec)
                 # Broadcasting: lambdas (k,) + scalar * (N, k) -> (N, k)
-                term = np.maximum(0, self.lambdas + self.mu * cv_vec_all)
+                term = np.maximum(0, self.lambdas + self.mu * cv_clean)
                 sum_term_sq = np.sum(term**2, axis=1)
                 sum_lambdas_sq = np.sum(self.lambdas**2)
 
                 penalty_term = (1.0 / (2.0 * self.mu)) * (sum_term_sq - sum_lambdas_sq)
-                L_values = fx_all + penalty_term
+                L_values = np.where(nan_rows, np.inf, fx_all + penalty_term)
             else:
                 L_values = fx_all
 
@@ -606,6 +612,11 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
         else:
             cv_vec = result.cv_vec
             lambdas = self.lambdas
+
+        # A NaN constraint value is an unknown violation: infeasible, the
+        # same policy as :attr:`Result.cv` (``inf``).
+        if np.isnan(cv_vec).any():
+            return float("inf")
 
         # L = f(x) + (1/2mu) * sum( max(0, lambda + mu*g)^2 - lambda^2 )
         # term = max(0, lambda + mu * g)

@@ -350,6 +350,9 @@ class Config:
         # Storage configuration
         self.storage_backend = get_config("storage.backend", "storage", "backend", None, str)
         self.storage_uri = get_config("storage.uri", "storage", "uri", "panobbgo.db", str)
+        # Resume a database written before problem fingerprints existed
+        # (refused by default: its results cannot be verified).
+        self.storage_adopt_legacy = get_config("storage.adopt_legacy", "storage", "adopt_legacy", False, bool)
 
         # Only log configuration info once per session to avoid spam
         if not Config._config_logged:

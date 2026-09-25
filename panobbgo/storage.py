@@ -144,10 +144,13 @@ class SQLiteStorage(StorageBackend):
             fingerprint -- or one that holds results but no fingerprint --
             raises :class:`StorageMismatchError` instead of resuming another
             problem's results.  ``None`` skips the check.
+        adopt_legacy: accept a database that holds results but no
+            fingerprint and record ``fingerprint`` for it (see :meth:`adopt`).
     """
 
-    def __init__(self, uri: str = "panobbgo.db", fingerprint: Optional[str] = None):
+    def __init__(self, uri: str = "panobbgo.db", fingerprint: Optional[str] = None, adopt_legacy: bool = False):
         self.uri = uri
+        self.adopt_legacy = bool(adopt_legacy)
         self._lock = threading.RLock()
         # Open connection once and keep it open.
         # check_same_thread=False allows using the connection from multiple threads,
@@ -168,14 +171,15 @@ class SQLiteStorage(StorageBackend):
                 row = self._conn.execute("SELECT value FROM meta WHERE key = 'problem'").fetchone()
                 if row is None:
                     has_rows = self._conn.execute("SELECT 1 FROM results LIMIT 1").fetchone() is not None
-                    if has_rows:
+                    if has_rows and not self.adopt_legacy:
                         # Written before fingerprints existed -- and before the
                         # classic functions' formulas were corrected: nothing
                         # can show these results belong to this problem.
                         raise StorageMismatchError(
                             "Storage %r holds results without a problem fingerprint (written by an older "
                             "panobbgo); they cannot be verified to belong to this problem. Use another "
-                            "storage_uri, or clear the database." % (self.uri,)
+                            "storage_uri, clear the database, or -- if you know they belong to this problem "
+                            "-- adopt them (config storage.adopt_legacy: true, or SQLiteStorage.adopt())." % (self.uri,)
                         )
                     # Two runs opening a new database at once: the first
                     # insert wins, both then compare against what is stored.
@@ -186,6 +190,18 @@ class SQLiteStorage(StorageBackend):
                     "Storage %r holds results of a different problem:\n  stored:  %s\n  current: %s\n"
                     "Use another storage_uri, or clear the database." % (self.uri, row[0], fingerprint)
                 )
+
+    def adopt(self, fingerprint: str) -> None:
+        """Declare the stored results to be ``fingerprint``'s, overwriting any stored fingerprint.
+
+        The escape hatch for a database written before fingerprints existed
+        (or by a formula version that has since been corrected) whose results
+        you know belong to this problem.
+        """
+        with self._lock:
+            assert self._conn is not None
+            with self._conn:
+                self._conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('problem', ?)", (fingerprint,))
 
     def _init_db(self):
         with self._lock:

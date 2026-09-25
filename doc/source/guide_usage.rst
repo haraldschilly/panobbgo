@@ -2047,6 +2047,14 @@ continuing from where it left off.
    strategy.start()
    # Strategy runs for another 100 evals (total 200)
 
+The database records a fingerprint of the problem (class, formula version,
+dimension, box and parameters; wrappers include the wrapped problem).  A run on
+a *different* problem refuses to open it (``StorageMismatchError``) instead of
+resuming foreign results.  A database written before fingerprints existed is
+refused too, since its results cannot be verified; if you know they belong to
+the problem, set ``storage: adopt_legacy: true`` for one run (or call
+``SQLiteStorage(uri).adopt(problem_fingerprint(problem))``).
+
 Accessing Stored Data
 ~~~~~~~~~~~~~~~~~~~~~
 

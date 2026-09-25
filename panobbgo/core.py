@@ -102,7 +102,11 @@ class Results:
 
             # The fingerprint keeps a run from resuming another problem's
             # results (the default URI is a shared ``panobbgo.db`` in the cwd).
-            self.backend = SQLiteStorage(strategy.config.storage_uri, fingerprint=problem_fingerprint(self.problem))
+            self.backend = SQLiteStorage(
+                strategy.config.storage_uri,
+                fingerprint=problem_fingerprint(self.problem),
+                adopt_legacy=bool(getattr(strategy.config, "storage_adopt_legacy", False)),
+            )
             self.logger.info(f"Using SQLite storage backend: {strategy.config.storage_uri}")
 
     def load_from_storage(self) -> int:

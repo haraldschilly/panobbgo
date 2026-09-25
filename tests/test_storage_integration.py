@@ -98,6 +98,37 @@ def test_legacy_storage_without_fingerprint_is_refused(storage_uri):
         SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rosenbrock(dims=2)))
 
 
+def test_legacy_storage_can_be_adopted_explicitly(storage_uri):
+    from panobbgo.lib.classic import Rastrigin
+    from panobbgo.storage import SQLiteStorage, StorageMismatchError, problem_fingerprint
+
+    legacy = SQLiteStorage(storage_uri)
+    legacy.save([Result(Point(np.zeros(2), "R"), 1.0)])
+    legacy.close()
+    fp = problem_fingerprint(Rosenbrock(dims=2))
+    SQLiteStorage(storage_uri, fingerprint=fp, adopt_legacy=True).close()
+    assert SQLiteStorage(storage_uri, fingerprint=fp).count() == 1  # adopted: now it just matches
+    with pytest.raises(StorageMismatchError):
+        SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rastrigin(dims=2)))
+    SQLiteStorage(storage_uri).adopt(problem_fingerprint(Rastrigin(dims=2)))  # the method form
+    assert SQLiteStorage(storage_uri, fingerprint=problem_fingerprint(Rastrigin(dims=2))).count() == 1
+
+    # Through the strategy config.
+    legacy2 = SQLiteStorage(storage_uri + "3")
+    legacy2.save([Result(Point(np.zeros(2), "R"), 1.0)])
+    legacy2.close()
+    s2 = MockStrategy(
+        Rosenbrock(dims=2),
+        max_eval=3,
+        testing_mode=True,
+        storage_backend="sqlite",
+        storage_uri=storage_uri + "3",
+        storage_adopt_legacy=True,
+    )
+    assert s2.results.backend.count() == 1
+    s2.results.close()
+
+
 def test_fingerprint_distinguishes_wrapped_parametrised_and_noisy_problems():
     from panobbgo.lib.classic import Rastrigin
     from panobbgo.lib.noise import AdditiveGaussianNoise, GaussianNoise, NoisyProblem

@@ -1235,3 +1235,67 @@ class LSHADERankingOrderTests(_MockStrategyMixin, PanobbgoTestCase):
         for cls in (LSHADE, JSO, NLSHADE_RSP):
             h = cls(self.strategy)
             assert h._rank_of(feasible) < h._rank_of(infeasible)
+
+
+# ----------------------------------------------------------------------
+# Rank-order memo (_ranked_live / _live_indices)
+# ----------------------------------------------------------------------
+
+
+class LSHADERankMemoTests(_MockStrategyMixin, PanobbgoTestCase):
+    """The memoised population order must equal a fresh stable sort, always."""
+
+    def _reference(self, h):
+        live = [i for i, s in enumerate(h._population) if hasattr(s, "fx")]
+        return sorted(live, key=lambda i: h._rank_of(h._population[i]))
+
+    def test_matches_a_fresh_sort_under_random_replacements(self):
+        from panobbgo.heuristics.lshade import _DROPPED, LSHADE
+        from panobbgo.lib import Point, Result
+
+        rng = np.random.default_rng(1)
+        h = LSHADE(self.strategy, NP_init=30, NP_min=4, seed=0)
+        h.on_start()
+
+        def fresh(fx, cv=0.0):
+            x = self.problem.random_point()
+            return Result(Point(x, "fake"), fx, cv_vec=np.array([cv]))
+
+        # Ties on purpose: fx drawn from a handful of values, some infeasible.
+        h._population = [fresh(float(rng.integers(0, 5)), float(rng.integers(0, 2))) for _ in range(30)]
+        assert h._ranked_live() == self._reference(h)
+        for step in range(300):
+            k = int(rng.integers(1, 12))  # sometimes above the in-place update limit
+            for i in rng.choice(30, size=k, replace=False):
+                roll = rng.random()
+                if roll < 0.1:
+                    h._population[i] = _DROPPED
+                elif roll < 0.15:
+                    h._population[i] = None
+                else:
+                    h._population[i] = fresh(float(rng.integers(0, 5)), float(rng.integers(0, 2)))
+            if step % 37 == 0:  # a whole new list, not an in-place edit
+                h._population = list(h._population)
+            assert h._ranked_live() == self._reference(h)
+            assert h._live_indices() == sorted(self._reference(h))
+
+    def test_time_varying_handler_is_resorted_every_call(self):
+        from panobbgo.heuristics.lshade import LSHADE
+        from panobbgo.lib import Point, Result
+
+        h = LSHADE(self.strategy, NP_init=6, NP_min=4, seed=0)
+        h.on_start()
+        h._population = [Result(Point(self.problem.random_point(), "f"), float(i)) for i in range(6)]
+
+        class Flip:
+            time_invariant = False
+            sign = 1.0
+
+            def rank_key(self, r):
+                return (self.sign * r.fx,)
+
+        handler = Flip()
+        self.strategy.constraint_handler = handler
+        assert h._ranked_live() == [0, 1, 2, 3, 4, 5]
+        handler.sign = -1.0  # same population, new order
+        assert h._ranked_live() == [5, 4, 3, 2, 1, 0]

@@ -149,6 +149,7 @@ References
 
 from __future__ import annotations
 
+import bisect
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -156,6 +157,24 @@ import numpy as np
 from panobbgo.core import Heuristic
 from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import result_key
+
+#: Changed population slots up to which :meth:`LSHADE._ranked_live` updates
+#: its order in place instead of re-sorting (a batch of returns replaces a
+#: handful of slots; LPSR or a restart replaces many).
+_RANK_UPDATE_MAX: int = 8
+
+
+def _totally_ordered(key: Any) -> bool:
+    """``False`` if a ranking key holds a NaN-like (self-unequal) component.
+
+    Keys from :func:`~panobbgo.lib.constraints.result_key` map non-finite
+    values to ``+inf``, so this only guards a custom ``rank_key``: with an
+    unordered component the stable sort and a bisection may disagree.
+    """
+    try:
+        return all(v == v for v in key)
+    except TypeError:  # not iterable
+        return bool(key == key)
 
 
 # Default tuning constants — match the values from Tanabe & Fukunaga
@@ -508,6 +527,10 @@ class LSHADE(Heuristic):
         # Ranking-key memo, see :meth:`_rank_of`.
         self._rank_cache: Dict[int, tuple] = {}
         self._rank_keep: List[Result] = []
+        # Population-order memos, see :meth:`_live_indices` and
+        # :meth:`_ranked_live` (each holds a snapshot of ``_population``).
+        self._live_memo: Optional[Tuple[list, List[int]]] = None
+        self._ranked_memo: Optional[Tuple[Any, list, list, Dict[int, Any], List[int]]] = None
 
         # Success-history memory, planted by :meth:`_init_memory` (0.5 / 0.5
         # per the SHADE paper; subclasses plant their own initial values).
@@ -672,12 +695,79 @@ class LSHADE(Heuristic):
         return True
 
     def _live_indices(self) -> List[int]:
-        """Indices of currently-filled, non-dropped population slots."""
+        """Indices of currently-filled, non-dropped population slots.
+
+        Memoised against a shallow copy of ``_population``: list equality
+        tests each slot by identity first (``Result`` has no ``__eq__``), so
+        any assignment to a slot or of the whole list — in place or not —
+        invalidates it, and the copy keeps the slot objects alive so an
+        ``id`` cannot be recycled.  The returned list is shared: do not
+        mutate it.
+        """
+        pop = self._population
+        memo = self._live_memo
+        if memo is not None and memo[0] == pop:
+            return memo[1]
         out: List[int] = []
-        for i, slot in enumerate(self._population):
+        for i, slot in enumerate(pop):
             if isinstance(slot, Result):
                 out.append(i)
+        self._live_memo = (list(pop), out)
         return out
+
+    def _ranked_live(self) -> List[int]:
+        """Live slot indices, best first, by the constraint handler's ranking key.
+
+        ``sorted`` is stable over the ascending :meth:`_live_indices`, so ties
+        keep index order — the order is exactly that of the pairs
+        ``(key, index)``.  The population is ranked on every trial, so for a
+        ``time_invariant`` handler (see :meth:`_rank_of`) the order is kept
+        between calls against a snapshot of ``_population`` (compared slot
+        by slot, by identity) and *updated* when a few slots changed: the old
+        pair is deleted and the new one inserted by bisection, which is the
+        position the stable sort would give it.  A dynamic penalty re-keys
+        the *same* population over time, so it is re-sorted on every call,
+        exactly as before.  The returned list is shared: do not mutate it.
+        """
+        pop = self._population
+        handler = getattr(self.strategy, "constraint_handler", None)
+        rank_of = self._rank_of
+        if not (handler is None or bool(getattr(handler, "time_invariant", False))):
+            self._ranked_memo = None
+            return sorted(self._live_indices(), key=lambda i: rank_of(pop[i]))  # type: ignore[arg-type]
+        memo = self._ranked_memo
+        if memo is not None and memo[0] is handler:
+            _, snap, pairs, keys, ranked = memo
+            if snap == pop:
+                return ranked
+            if len(snap) == len(pop):
+                changed = [i for i, (a, b) in enumerate(zip(snap, pop)) if a is not b]
+                if len(changed) <= _RANK_UPDATE_MAX:
+                    for i in changed:
+                        if i in keys:
+                            j = bisect.bisect_left(pairs, (keys[i], i))
+                            del pairs[j]
+                            del keys[i]
+                        slot = pop[i]
+                        if isinstance(slot, Result):
+                            k = rank_of(slot)
+                            if not _totally_ordered(k):
+                                break  # NaN-like key: only ``sorted`` defines the order
+                            keys[i] = k
+                            bisect.insort(pairs, (k, i))
+                    else:
+                        ranked = [i for _, i in pairs]
+                        self._ranked_memo = (handler, list(pop), pairs, keys, ranked)
+                        return ranked
+        live = self._live_indices()
+        keys = {i: rank_of(pop[i]) for i in live}  # type: ignore[arg-type]
+        ranked = sorted(live, key=keys.__getitem__)
+        if all(_totally_ordered(k) for k in keys.values()):
+            pairs = [(keys[i], i) for i in ranked]
+            self._ranked_memo = (handler, list(pop), pairs, keys, ranked)
+        else:
+            self._ranked_memo = None
+        return ranked
 
     def _rank_of(self, r: Result) -> tuple:
         """Ranking key of ``r`` — the constraint handler's ``rank_key``, the
@@ -787,19 +877,18 @@ class LSHADE(Heuristic):
 
         Returns ``(x_r2, from_archive)`` or ``None`` when the union is empty.
         """
-        union: List[np.ndarray] = []
-        for i in live:
-            if i == target_idx or i == r1:
-                continue
-            slot_i = self._population[i]
-            if isinstance(slot_i, Result):
-                union.append(np.asarray(slot_i.x, dtype=float))
-        n_pop = len(union)
-        union.extend(self._archive)
-        if not union:
+        pop = self._population
+        # The union is never materialised: one draw over its size, then the
+        # population part or the archive is indexed in place.
+        members = [i for i in live if i != target_idx and i != r1 and isinstance(pop[i], Result)]
+        n_pop = len(members)
+        n_union = n_pop + len(self._archive)
+        if n_union == 0:
             return None
-        j = int(self._rng.integers(0, len(union)))
-        return union[j], j >= n_pop
+        j = int(self._rng.integers(0, n_union))
+        if j < n_pop:
+            return np.asarray(pop[members[j]].x, dtype=float), False  # type: ignore[union-attr]
+        return self._archive[j - n_pop], True
 
     def _mutation_vectors(
         self, target_idx: int, live: List[int], sorted_live: List[int]
@@ -917,7 +1006,7 @@ class LSHADE(Heuristic):
             return
 
         # Best first, by the constraint handler's ranking key.
-        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
+        sorted_live = self._ranked_live()
         F, CR = self._trial_F_CR(target_idx, sorted_live)
         x_target = np.asarray(slot.x, dtype=float)
 
@@ -1049,7 +1138,7 @@ class LSHADE(Heuristic):
             self._NP_current = target
             self._trim_archive()
             return
-        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
+        sorted_live = self._ranked_live()
         n_drop = self._NP_current - target
         for j in sorted_live[-n_drop:]:  # worst n_drop
             self._population[j] = _DROPPED  # type: ignore[assignment]

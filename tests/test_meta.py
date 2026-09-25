@@ -460,6 +460,23 @@ def test_region_is_only_offered_to_arms_the_scheduler_will_warm_start():
     assert m._region_recipient() is boxed
 
 
+def test_region_is_not_offered_when_the_scheduler_warm_starts_nobody():
+    """Regression: ``_accepts_region`` ignored ``warm_start_on_resume``.
+
+    With it off, ``_can_warm_start`` is ``False`` for every arm and the
+    scheduler drops every region — so no arm may be picked as the recipient.
+    """
+    s = StrategyBlockBandit(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=5)
+    assert s.warm_start_on_resume is False
+    boxed = Boxed(s)
+    s.add_heuristic(boxed)
+    m = MetaAnalyst(s, trigger=budget_fraction(0.25), mode="none", region=True, min_leafs=1)
+    s.add_heuristic(m)
+    assert not s._can_warm_start(boxed)
+    assert not m._accepts_region(boxed)
+    assert m._region_recipient() is None
+
+
 def test_meta_publishes_a_region_for_a_supported_leaf():
     s = StrategyBlockBandit(
         Rosenbrock(dim=2),

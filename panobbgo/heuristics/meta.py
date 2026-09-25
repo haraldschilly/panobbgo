@@ -670,10 +670,18 @@ class MetaAnalyst(Heuristic):
         applies — or the scheduler drops the region (e.g. ``LBFGSB`` with
         ``warm_start=True``, a flag that picks its x0 generator, not an
         archive selector).
+
+        When the strategy has that test, it is asked directly — the single
+        source of truth, which also honours its ``warm_start_on_resume``:
+        with that off the scheduler warm-starts nobody and drops every
+        region, so no arm may be offered one.
         """
         ws = getattr(h, "warm_start", None)
         if not ws or callable(ws):
             return False
+        can_warm_start = getattr(self.strategy, "_can_warm_start", None)
+        if callable(can_warm_start):
+            return bool(can_warm_start(h))
         return type(h).warm_start_now is not Heuristic.warm_start_now
 
     def _region_recipient(self) -> Optional[Any]:

@@ -39,8 +39,12 @@ from panobbgo.core import StrategyBase
 from panobbgo.strategies._bandit import (
     LINUCB_ALPHA,
     collect_pulls,
+    ema_credit,
+    ema_discount,
+    ema_select,
     improvement_reward,
     init_linucb,
+    init_rewarding,
     init_thompson,
     init_ucb,
     linucb_context,
@@ -54,7 +58,7 @@ from panobbgo.strategies._bandit import (
     ucb_select,
 )
 from panobbgo.strategies.contextual import StrategyLinUCB
-from panobbgo.strategies.rewarding import StrategyRewarding
+from panobbgo.strategies.rewarding import REWARDING_CREDITS, StrategyRewarding, rewarding_params
 from panobbgo.strategies.round_robin import StrategyRoundRobin
 from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.strategies.ucb import StrategyUCB
@@ -67,6 +71,16 @@ _POLICIES = (
     (StrategyUCB, "ucb"),
     (StrategyRewarding, "rewarding"),
 )
+
+
+#: The strategy kwargs a phase of each policy reads; anything else is rejected.
+_POLICY_KWARGS = {
+    "round_robin": {"size"},
+    "linucb": {"linucb_alpha"},
+    "thompson": set(),
+    "ucb": {"ucb_c"},
+    "rewarding": {"credit", "explore", "discount"},
+}
 
 
 def _policy(strat_cls) -> str | None:
@@ -144,6 +158,20 @@ class StrategyPhased(StrategyBase):
             strat = phase["strategy"]
             if not isinstance(strat, tuple) or len(strat) != 2:
                 raise ValueError(f"Phase {i} 'strategy' must be a (StrategyClass, kwargs_dict) tuple")
+            strat_cls, strat_kwargs = strat
+            policy = _policy(strat_cls) if isinstance(strat_cls, type) else None
+            if policy is None:
+                supported = ", ".join(cls.__name__ for cls, _ in _POLICIES)
+                raise ValueError(f"Phase {i}: unsupported strategy {strat_cls!r} (supported: {supported})")
+            unknown = set(strat_kwargs or {}) - _POLICY_KWARGS[policy]
+            if unknown:
+                raise ValueError(
+                    f"Phase {i}: {strat_cls.__name__} kwargs {sorted(unknown)} are not supported inside a phase "
+                    f"(supported: {sorted(_POLICY_KWARGS[policy])})"
+                )
+            credit = (strat_kwargs or {}).get("credit")
+            if credit is not None and credit not in REWARDING_CREDITS:
+                raise ValueError(f"Phase {i}: credit must be one of {REWARDING_CREDITS}, got {credit!r}")
 
             # Validate heuristics
             if "heuristics" not in phase:
@@ -187,6 +215,7 @@ class StrategyPhased(StrategyBase):
             self._phase_cutoffs.append(cutoff)
 
         # Instantiate all heuristics for all phases, tracking which belong where
+        first_kwargs: dict[str, dict] = {}
         for cfg in self._phase_configs:
             phase_names: set[str] = set()
             strat_cls, strat_kwargs = cfg["strategy"]
@@ -199,6 +228,13 @@ class StrategyPhased(StrategyBase):
                 # filled by StrategyBase.start() below.
                 if h.name not in {x.name for x in self._hs}:
                     self._hs.append(h)
+                    first_kwargs[h.name] = dict(heur_kwargs)
+                elif dict(heur_kwargs) != first_kwargs.get(h.name, dict(heur_kwargs)):
+                    self.logger.warning(
+                        f"Heuristic {h.name!r} is listed in several phases with different kwargs; "
+                        f"the first instance {first_kwargs[h.name]} is shared and {dict(heur_kwargs)} "
+                        "is ignored (give it a distinct name= to run both)."
+                    )
                 phase_names.add(h.name)
 
             self._phase_heuristic_names.append(phase_names)
@@ -239,15 +275,18 @@ class StrategyPhased(StrategyBase):
         names = self._phase_heuristic_names[phase_idx]
         self.total_selections = 0
 
-        for h in self.heuristics:
-            if h.name in names:
-                self._init_phase_heuristic(h, phase_idx)
-
-        # Reset phase-level state
+        # Under the lock: ``on_new_results`` (event-bus thread) updates the
+        # same per-heuristic statistics and phase state.
         with self._lock:
+            for h in self.heuristics:
+                if h.name in names:
+                    self._init_phase_heuristic(h, phase_idx)
             info["state"] = {}
-            if _policy(info["cls"]) == "linucb":
+            policy = _policy(info["cls"])
+            if policy == "linucb":
                 self._init_linucb_state(info["state"])
+            elif policy == "rewarding":
+                self._init_ema_state(info["state"])
 
     def _init_linucb_state(self, state):
         """Fresh LinUCB phase state: empty reward window, best seeded with the run's best.
@@ -265,6 +304,25 @@ class StrategyPhased(StrategyBase):
             self._init_linucb_state(state)
         return state
 
+    def _init_ema_state(self, state):
+        """Fresh EMA-Rewarding phase state: the running best, seeded with the run's best."""
+        state["ema_best"] = self.last_best
+
+    def _ema_state(self):
+        """The current phase's EMA-Rewarding state, created on first use."""
+        state = self._phase_strategy_info[self._current_phase]["state"]
+        if "ema_best" not in state:
+            self._init_ema_state(state)
+        return state
+
+    def _rewarding_params(self, strat_kwargs):
+        """``(credit, explore, discount)`` of a Rewarding phase, resolved as :class:`StrategyRewarding` does."""
+        credit, explore = rewarding_params(self.config, strat_kwargs.get("credit"), strat_kwargs.get("explore"))
+        discount = strat_kwargs.get("discount", None)
+        if discount is None:
+            discount = self.config.discount
+        return credit, explore, discount
+
     def add_heuristic(self, h):
         """Override to initialize stats for the first phase's strategy."""
         StrategyBase.add_heuristic(self, h)
@@ -278,7 +336,7 @@ class StrategyPhased(StrategyBase):
         """Initialize a single heuristic's selection stats for a given phase."""
         policy = _policy(self._phase_strategy_info[phase_idx]["cls"])
         if policy == "rewarding":
-            h.performance = 1.0
+            init_rewarding(h)
         elif policy == "ucb":
             init_ucb(h)
         elif policy == "thompson":
@@ -303,7 +361,9 @@ class StrategyPhased(StrategyBase):
             return
 
         if policy == "rewarding":
-            h.performance += reward
+            if self._rewarding_params(info["kwargs"])[0] == "legacy":
+                h.performance += reward
+            # "ema" credits every result in on_new_results instead
         elif policy == "ucb":
             if hasattr(h, "ucb_total_reward"):
                 h.ucb_total_reward += reward
@@ -325,14 +385,22 @@ class StrategyPhased(StrategyBase):
         policy = _policy(strat_cls)
         if policy == "linucb":
             self._linucb_on_new_results(results)
-
-        # Rewarding strategy gives small rewards for points near best
-        if policy == "rewarding" and self.last_best is not None:
-            for r, reward in near_best_rewards(self.constraint_handler, self.problem, self.last_best, results):
-                try:
-                    self.heuristic(r.who).performance += reward
-                except KeyError:
-                    pass
+        elif policy == "rewarding":
+            credit, _explore, discount = self._rewarding_params(info["kwargs"])
+            if credit == "ema":
+                alpha = 1.0 - ema_discount(discount)
+                with self._lock:
+                    state = self._ema_state()
+                    state["ema_best"] = ema_credit(
+                        self.constraint_handler, self.heuristic, state["ema_best"], results, alpha
+                    )
+            elif self.last_best is not None:
+                # Legacy Rewarding gives small rewards for points near best
+                for r, reward in near_best_rewards(self.constraint_handler, self.problem, self.last_best, results):
+                    try:
+                        self.heuristic(r.who).performance += reward
+                    except KeyError:
+                        pass
 
     def _linucb_on_new_results(self, results):
         """LinUCB update of the current phase (same rule as :class:`StrategyLinUCB`)."""
@@ -344,6 +412,8 @@ class StrategyPhased(StrategyBase):
                 x_t = getattr(result.point, "context_vector", None)
                 if x_t is None:
                     continue  # not picked by LinUCB (e.g. an earlier phase's point)
+                if getattr(result.point, "context_phase", self._current_phase) != self._current_phase:
+                    continue  # picked by an earlier LinUCB phase, whose model was reset
                 try:
                     h = self.heuristic(result.who)
                 except KeyError:
@@ -379,14 +449,14 @@ class StrategyPhased(StrategyBase):
         return points
 
     def _execute_rewarding(self, phase_heurs, strat_kwargs):
-        """Rewarding (probability-based) selection logic."""
+        """Rewarding selection logic: EMA probability matching, or the legacy rule (``credit="legacy"``)."""
+        credit, explore, discount = self._rewarding_params(strat_kwargs)
+        if credit == "ema":
+            return collect_pulls(self, lambda target: ema_select(phase_heurs, target, explore), count_outstanding=False)
         try:
             s = float(self.config.smooth)
         except (ValueError, TypeError):
             s = 0.5
-        discount = strat_kwargs.get("discount", None)
-        if discount is None:
-            discount = self.config.discount
         return collect_pulls(
             self, lambda target: rewarding_select(phase_heurs, target, s, discount), count_outstanding=False
         )
@@ -405,7 +475,10 @@ class StrategyPhased(StrategyBase):
         alpha = float(strat_kwargs.get("linucb_alpha", LINUCB_ALPHA))
         with self._lock:
             context = linucb_context(len(self.results), self.config.max_eval, self._linucb_state()["recent_rewards"])
-        return collect_pulls(self, lambda _target: linucb_select(phase_heurs, context, alpha))
+        points = collect_pulls(self, lambda _target: linucb_select(phase_heurs, context, alpha))
+        for p in points:
+            p.context_phase = self._current_phase  # results of another phase must not update this model
+        return points
 
     # ── Main execute dispatch ──
 
@@ -430,11 +503,17 @@ class StrategyPhased(StrategyBase):
             return []
 
         policy = _policy(strat_cls)
-        if policy is None:
+        if policy is None:  # _validate_phases rejects these; kept as a guard
             raise ValueError(f"Unknown strategy class: {strat_cls}")
         points = getattr(self, f"_execute_{policy}")(phase_heurs, strat_kwargs)
 
-        return points[:remaining]
+        if len(points) > remaining:
+            # Surplus goes back to its heuristic's queue, never dropped: a
+            # tagged trial (LSHADE/jSO/PSO) or an on-demand bridge point
+            # that is never evaluated freezes its slot/worker for good.
+            self._return_to_queues(list(points[remaining:]))
+            points = list(points[:remaining])
+        return points
 
     def _get_status_info(self):
         """Return strategy-specific status info."""

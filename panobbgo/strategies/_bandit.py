@@ -65,10 +65,23 @@ def init_thompson(h) -> None:
 
 
 def init_linucb(h, d: int = LINUCB_DIM) -> None:
-    """Fresh disjoint-LinUCB model: ``A = I``, ``b = 0``."""
+    """Fresh disjoint-LinUCB model: ``A = I``, ``b = 0``, and zeroed update counters.
+
+    The counters ``linucb_count`` / ``linucb_reward`` belong to the model,
+    so a later LinUCB phase of :class:`~.phased.StrategyPhased` starts them
+    from zero along with ``A`` and ``b``.
+    """
     h.linucb_A = np.eye(d)
     h.linucb_b = np.zeros(d)
     h.linucb_A_inv = np.eye(d)
+    h.linucb_count = 0
+    h.linucb_reward = 0.0
+
+
+def init_rewarding(h) -> None:
+    """Fresh Rewarding statistics: ``performance = 1``, no evaluations credited."""
+    h.performance = 1.0
+    h.n_evals = 0
 
 
 # ── Rewards ──
@@ -129,6 +142,43 @@ def discount_factor(val) -> float:
         return float(val)
     except (ValueError, TypeError):
         return 0.95
+
+
+def ema_discount(val) -> float:
+    """The discount behind the EMA Rewarding credit: ``float(val)`` in (0, 1), else 0.95."""
+    try:
+        d = float(val)
+    except (ValueError, TypeError):
+        d = 0.95
+    return d if 0.0 < d < 1.0 else 0.95
+
+
+def ema_credit(constraint_handler, lookup, last_best, results, alpha: float):
+    """EMA Rewarding credit: update each emitter's reward per evaluation; returns the new best.
+
+    ``performance ← (1 - alpha)·performance + alpha·reward`` where the reward
+    is ``1 - exp(-improvement)`` over *last_best* when the result improves
+    it (1.0 for the first result), else 0.  ``lookup(who)`` finds the
+    emitter; a result whose emitter it does not know (``KeyError``) is
+    skipped entirely.
+    """
+    for r in results:
+        try:
+            h = lookup(r.who)
+        except KeyError:
+            continue
+        if last_best is None:
+            reward = 1.0
+            last_best = r
+        elif constraint_handler.is_better(last_best, r):
+            improvement = constraint_handler.calculate_improvement(last_best, r)
+            reward = max(0.0, 1.0 - float(np.exp(-improvement)))
+            last_best = r
+        else:
+            reward = 0.0
+        h.n_evals = getattr(h, "n_evals", 0) + 1
+        h.performance = (1.0 - alpha) * h.performance + alpha * reward
+    return last_best
 
 
 def near_best_rewards(constraint_handler, problem, last_best, results):
@@ -265,6 +315,29 @@ def linucb_select(heurs, context: np.ndarray, alpha: float, d: int = LINUCB_DIM)
                 p.context_vector = context
             return new_points
     return []
+
+
+def ema_select(heurs, target: int, explore: float) -> list:
+    """One EMA Rewarding round: probability matching with an exploration floor.
+
+    Over the heuristics that can produce, each emits ``≈ target · p`` points
+    (at least one) with ``p = (1 - explore)·perf/Σperf + explore/n``, or
+    uniform when no performance is positive.
+    """
+    ready = [h for h in heurs if h.can_produce]
+    if not ready:
+        return []
+    perf = np.array([max(0.0, float(h.performance)) for h in ready])
+    n = len(ready)
+    if perf.sum() <= 0.0:
+        probs = np.full(n, 1.0 / n)
+    else:
+        probs = (1.0 - explore) * perf / perf.sum() + explore / n
+    batch = []
+    for h, p in zip(ready, probs):
+        nb_h = max(1, int(round(target * p)))
+        batch.extend(h.produce(nb_h))
+    return batch
 
 
 def rewarding_select(heurs, target: int, smooth: float, discount):

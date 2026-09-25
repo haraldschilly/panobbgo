@@ -412,6 +412,7 @@ def test_open_block_applies_the_region_exactly_once():
     assert s._pending_region == {}
     assert s._regions_applied == {"Boxed": 1}
 
+    s._block_n = 1  # as if execute() had dispatched a point: an empty block is not recorded
     s._close_block()
     assert s._blocks[-1]["region"] is True
     s._open_block(h)  # a consecutive block, no new request

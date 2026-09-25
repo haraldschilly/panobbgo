@@ -115,3 +115,14 @@ def test_ema_end_to_end_is_reproducible():
     fa, fb = run(), run()
     assert len(fa) >= 60
     np.testing.assert_array_equal(fa, fb)
+
+
+def test_rewarding_params_fallback_matches_the_config_defaults():
+    """Regression: without the config keys StrategyRewarding fell back to 'legacy' / 0.1, not 'ema' / 0.2."""
+    from types import SimpleNamespace
+
+    from panobbgo.strategies.rewarding import rewarding_params
+
+    assert rewarding_params(SimpleNamespace()) == ("ema", 0.2)
+    assert rewarding_params(SimpleNamespace(rewarding_credit="legacy", rewarding_explore=0.3)) == ("legacy", 0.3)
+    assert rewarding_params(SimpleNamespace(), credit="legacy", explore=0.0) == ("legacy", 0.0)

@@ -28,6 +28,10 @@ class SimpleHeuristic(Heuristic):
     def active(self):
         return True
 
+    @property
+    def can_produce(self):
+        return True  # get_points makes points on demand, the queue stays empty
+
     def get_points(self, limit=None):
         limit = limit or 1
         points = []
@@ -375,3 +379,169 @@ class TestStrategyPhasedLinUCB(PanobbgoTestCase):
         assert inspect.signature(StrategyLinUCB.__init__).parameters["linucb_alpha"].default == LINUCB_ALPHA == 2.0
         # the phase reads the same default
         assert "LINUCB_ALPHA" in inspect.getsource(StrategyPhased._execute_linucb)
+
+    def test_result_from_an_earlier_linucb_phase_does_not_update_the_model(self):
+        strategy, _ = self._run()
+        strategy._init_phase_stats(1)
+        h = strategy.heuristic("H_First")
+        better = Result(Point(np.array([0.0]), "H_First"), strategy.last_best.fx - 1.0)
+        better.point.context_vector = np.array([1.0, 0.5, 0.0])
+        better.point.context_phase = 0  # picked under an earlier phase's (reset) model
+        strategy.on_new_results([better])
+        assert np.allclose(h.linucb_A, np.eye(3)) and np.all(h.linucb_b == 0)
+        assert h.linucb_count == 0
+
+    def test_new_phase_resets_linucb_counters(self):
+        strategy, _ = self._run()
+        h = strategy.heuristic("H_First")
+        assert h.linucb_count > 0
+        strategy._init_phase_stats(1)
+        assert h.linucb_count == 0 and h.linucb_reward == 0.0
+
+
+class QueueHeuristic(Heuristic):
+    """Emits through the output queue (unlike :class:`SimpleHeuristic`) and counts what it emitted."""
+
+    def __init__(self, strategy, name="QueueH", **kwargs):
+        super().__init__(strategy, name=name)
+        self.emitted = 0
+
+    def on_start(self):
+        self._top_up(10)
+
+    def _top_up(self, n):
+        self.emit([self.problem.random_point() for _ in range(n)])
+        self.emitted += n
+
+    def get_points(self, limit=None):
+        points = super().get_points(limit)
+        self._top_up(len(points))  # keep the queue stocked, so the arm stays alive
+        return points
+
+
+class TestStrategyPhasedSurplus(PanobbgoTestCase):
+    def test_surplus_over_phase_budget_goes_back_to_the_queue(self):
+        """Regression: points cut at the phase cutoff were dropped, not returned to their queue.
+
+        A dropped tagged trial (LSHADE, jSO, PSO) stays in the arm's
+        ``_pending`` forever and freezes its population slot.
+        """
+        problem = TrackingProblem()
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                # cutoff 30 = 4 * 7 + 2: the fifth pull of 7 is cut to 2
+                {
+                    "pct": 30,
+                    "strategy": (StrategyRoundRobin, {"size": 7}),
+                    "heuristics": [(QueueHeuristic, {"name": "H_A"})],
+                },
+                {
+                    "strategy": (StrategyRoundRobin, {"size": 7}),
+                    "heuristics": [(QueueHeuristic, {"name": "H_B"})],
+                },
+            ],
+            parse_args=False,
+            seed=1,
+        )
+        strategy.config.max_eval = 100
+        strategy.config.sync_evaluation = True
+        strategy.config.stop_on_convergence = False
+        strategy.start()
+        h = strategy.heuristic("H_A")
+        evaluated = problem.call_counts.get("H_A", 0)
+        assert evaluated == 30
+        # every emitted point was either evaluated or is still queued (5 were dropped before the fix)
+        assert h._output.qsize() == h.emitted - evaluated
+
+
+class TestStrategyPhasedValidationOfStrategies(PanobbgoTestCase):
+    """Unsupported strategies and kwargs fail at construction, not at the first execute()."""
+
+    def _phases(self, strategy):
+        return [
+            {"pct": 50, "strategy": (StrategyRoundRobin, {}), "heuristics": [(SimpleHeuristic, {"name": "H1"})]},
+            {"strategy": strategy, "heuristics": [(SimpleHeuristic, {"name": "H2"})]},
+        ]
+
+    def test_unsupported_strategy_class_rejected(self):
+        from panobbgo.strategies.blocks import StrategyBlockBandit
+
+        with pytest.raises(ValueError, match="unsupported strategy"):
+            StrategyPhased(TrackingProblem(), phases=self._phases((StrategyBlockBandit, {})), parse_args=False)
+
+    def test_unknown_kwarg_rejected(self):
+        with pytest.raises(ValueError, match="not supported inside a phase"):
+            StrategyPhased(TrackingProblem(), phases=self._phases((StrategyUCB, {"ucb_cc": 2.0})), parse_args=False)
+
+    def test_unknown_credit_rejected(self):
+        with pytest.raises(ValueError, match="credit"):
+            StrategyPhased(
+                TrackingProblem(), phases=self._phases((StrategyRewarding, {"credit": "bogus"})), parse_args=False
+            )
+
+
+class TestStrategyPhasedRewarding(PanobbgoTestCase):
+    """A Rewarding phase runs the credit rule StrategyRewarding runs (default: EMA)."""
+
+    def _run(self, kwargs):
+        problem = TrackingProblem()
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 20,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_RR"})],
+                },
+                {
+                    "strategy": (StrategyRewarding, kwargs),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_A"}), (SimpleHeuristic, {"name": "H_B"})],
+                },
+            ],
+            parse_args=False,
+            seed=2,
+        )
+        strategy.config.max_eval = 80
+        strategy.config.sync_evaluation = True
+        strategy.config.stop_on_convergence = False
+        strategy.start()
+        return strategy
+
+    def test_default_credit_is_ema(self):
+        """Regression: the phase always ran the legacy rule, ignoring credit / config.rewarding_credit."""
+        strategy = self._run({})
+        assert strategy.config.rewarding_credit == "ema"
+        credited = sum(strategy.heuristic(n).n_evals for n in ("H_A", "H_B"))
+        assert credited > 0  # EMA counts every credited evaluation; legacy never does
+        assert all(0.0 <= strategy.heuristic(n).performance <= 1.0 for n in ("H_A", "H_B"))
+
+    def test_legacy_credit_on_request(self):
+        strategy = self._run({"credit": "legacy"})
+        assert all(strategy.heuristic(n).n_evals == 0 for n in ("H_A", "H_B"))
+
+
+class TestStrategyPhasedDedupWarning(PanobbgoTestCase):
+    def test_duplicate_with_different_kwargs_warns(self):
+        import unittest.mock as mock
+
+        problem = TrackingProblem()
+
+        class KwHeuristic(SimpleHeuristic):
+            def __init__(self, strategy, name="H_Kw", flavour=0, **kwargs):
+                super().__init__(strategy, name=name)
+
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {"pct": 50, "strategy": (StrategyRoundRobin, {}), "heuristics": [(KwHeuristic, {"flavour": 1})]},
+                {"strategy": (StrategyRoundRobin, {}), "heuristics": [(KwHeuristic, {"flavour": 2})]},
+            ],
+            parse_args=False,
+            seed=1,
+        )
+        strategy.config.max_eval = 20
+        strategy.config.sync_evaluation = True
+        with mock.patch.object(strategy.logger, "warning") as warn:
+            strategy.start()
+        assert any("different kwargs" in str(c.args[0]) for c in warn.call_args_list)

@@ -40,10 +40,11 @@ A block closes when it has spent ``block_evals`` evaluations **and** the
 owner's output queue ran empty on the last draw (``has_points`` is
 ``False``), with a hard cap of ``2 * block_evals``.  That single rule is
 what keeps a generation from ever being cut in half — the defect
-``StrategyPhased`` has at its phase edges (``phased.py:556``).  ``n_blocks
-= 50`` keeps the number of *decisions* constant across dimension and
-budget and coincides with the synchronous main-loop batch
-``max_eval / 50`` (``core.py:1616``).
+``StrategyPhased`` has at its phase edges (``StrategyPhased.execute`` cuts
+the batch at the phase budget).  ``n_blocks = 50`` keeps the number of
+*decisions* constant across dimension and budget and coincides with the
+synchronous main-loop batch ``max_eval / 50`` (``jobs_per_client`` in
+``StrategyBase``).
 
 The budget form is not the *right* parametrisation, though.  The
 block-length screen (``planning/DISCOVERY_2026-09-09.md`` §26) found an
@@ -56,8 +57,10 @@ generations pay that toll too often; much longer ones stop being decisions.
 ``block_evals="auto"`` therefore sizes a block as **four reference
 generations**, ``max(2*dim, 4*lambda_ref)``, where ``lambda_ref`` is the
 largest generation size the arms report (``_lam`` on CMA-ES, ``NP_init`` /
-the current NP on the DE family, ``NP`` on PSO) and 20 when none of them
-does.  ``n_blocks`` remains the default until the screen says otherwise.
+the current NP on the DE family, ``NP`` on PSO) and
+:attr:`~StrategyBlockBandit.LAMBDA_REF_DEFAULT` = 5 (a 20-evaluation block)
+when none of them does.  ``n_blocks`` remains the default until the
+screen says otherwise.
 
 Reward: AOCC area per evaluation, in decades
 --------------------------------------------
@@ -231,6 +234,7 @@ from __future__ import annotations
 import heapq
 import operator
 import re
+import threading
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
@@ -534,6 +538,9 @@ class StrategyBlockBandit(StrategyBase):
         self._blocks_closed: int = 0
         self._prologue: Optional[List[str]] = None
         self._prologue_pick: bool = False
+        #: the owner of the last block if that block spent no evaluation:
+        #: kept out of the next selection unless it can produce by then
+        self._empty_owner: Optional[str] = None
 
         #: warm-start bookkeeping: arms that have owned a block at least
         #: once (only those can be *re*-acquired), and per-arm counters of
@@ -559,6 +566,13 @@ class StrategyBlockBandit(StrategyBase):
         self._phis: List[float] = []
         self._top: List[Tuple[float, int, Result]] = []
         self._top_seq: int = 0
+
+        #: Guards the block and archive state above: ``on_new_results`` runs
+        #: on the event-bus thread, the block life cycle on the main loop's.
+        #: Without it an asynchronous run could interleave a result with a
+        #: block switch (trace reset, ``_phi0``, reward).  Uncontended under
+        #: ``sync_evaluation``.
+        self._block_lock = threading.RLock()
 
         StrategyBase.__init__(self, problem, **kwargs)
 
@@ -592,9 +606,16 @@ class StrategyBlockBandit(StrategyBase):
     LAMBDA_REF_DEFAULT: int = 5
 
     def _lambda_ref(self) -> int:
-        """Largest generation size the arms report, else :attr:`LAMBDA_REF_DEFAULT`."""
+        """Largest generation size the *enabled* arms report, else :attr:`LAMBDA_REF_DEFAULT`.
+
+        An arm the regime gate disabled never owns a block, so its
+        generation size must not set the block length.  The gate runs in
+        :meth:`execute` before the first :attr:`block_evals` access.
+        """
         best = 0
         for h in self._heuristics.values():
+            if not self._is_enabled(h):
+                continue
             for attr in self.GENERATION_ATTRS:
                 value = getattr(h, attr, None)
                 if isinstance(value, (int, np.integer)) and not isinstance(value, bool) and value > 0:
@@ -707,23 +728,29 @@ class StrategyBlockBandit(StrategyBase):
         deterministic function of the schedule.  The log terms themselves
         are only formed at :meth:`_close_block`: the anchor they need does
         not exist until the first block ends.
+
+        With asynchronous evaluation a result is credited to whichever block
+        is open when it *arrives*, so the previous owner's late results can
+        land in the next block; the lock only keeps each result and each
+        block switch atomic.
         """
-        for r in results:
-            phi = self._penalty(r)
-            if phi is None:
-                continue  # inf / nan / failed evaluation: no information
-            if self._owner is not None and self._phi0 is None:
-                # first evaluation of the very first block: nothing was
-                # known before it, so it *is* best(t0).
-                self._phi0 = phi
-            self._phis.append(phi)
-            if phi < self._best_phi:
-                self._best_phi = phi
-            self._credit_arm_best(phi, r)
-            self._remember_top(phi, r)
-            self._reanchor_if_needed()
-            if self._owner is not None:
-                self._trace.append(self._best_phi)
+        with self._block_lock:
+            for r in results:
+                phi = self._penalty(r)
+                if phi is None:
+                    continue  # inf / nan / failed evaluation: no information
+                if self._owner is not None and self._phi0 is None:
+                    # first evaluation of the very first block: nothing was
+                    # known before it, so it *is* best(t0).
+                    self._phi0 = phi
+                self._phis.append(phi)
+                if phi < self._best_phi:
+                    self._best_phi = phi
+                self._credit_arm_best(phi, r)
+                self._remember_top(phi, r)
+                self._reanchor_if_needed()
+                if self._owner is not None:
+                    self._trace.append(self._best_phi)
 
     def _penalty(self, r: Result) -> Optional[float]:
         """The scalar the constraint handler minimises, or ``None`` if unusable."""
@@ -780,7 +807,8 @@ class StrategyBlockBandit(StrategyBase):
             heapq.heapreplace(self._top, item)
 
     def _top_results(self) -> List[Result]:
-        return [r for _, _, r in sorted(self._top, key=lambda t: -t[0])]
+        with self._block_lock:
+            return [r for _, _, r in sorted(self._top, key=lambda t: -t[0])]
 
     # -- reward ------------------------------------------------------------
 
@@ -800,6 +828,10 @@ class StrategyBlockBandit(StrategyBase):
     # -- the block life cycle ----------------------------------------------
 
     def _close_block(self) -> None:
+        with self._block_lock:
+            self._close_block_locked()
+
+    def _close_block_locked(self) -> None:
         owner = self._owner
         if owner is None:
             return
@@ -807,6 +839,17 @@ class StrategyBlockBandit(StrategyBase):
             # The anchor is defined by the first block's own data, so that
             # block is scored on the same scale as every later one.
             self._anchor = self._spread_anchor()
+        self._last_owner = owner
+        self._owner = None
+        if self._block_n == 0:
+            # Nothing was spent (a warm-startable arm whose warm start was
+            # skipped or refilled nothing): there is nothing to score, and a
+            # 0-reward block would distort n/S/N.  The arm sits out the next
+            # selection, or a flat Q table picks it again and again.
+            self._empty_owner = owner
+            self.logger.debug("block of %s closed without an evaluation; not scored" % owner)
+            return
+        self._empty_owner = None
         reward = self._block_reward()
 
         g = self.gamma
@@ -827,21 +870,21 @@ class StrategyBlockBandit(StrategyBase):
             }
         )
         self._blocks_closed += 1
-        self._last_owner = owner
-        self._owner = None
         self.logger.debug(
             "block %d closed: %s spent %d/%d evals, r=%.4f (Q=%.4f)"
             % (self._blocks_closed, owner, self._block_n, self._block_size, reward, self._q(owner))
         )
 
     def _open_block(self, h: Heuristic) -> None:
-        self._owner = h.name
-        self._block_n = 0
-        self._block_drained = False
-        self._block_is_prologue = self._prologue_pick
-        self._block_size = max(1, self.block_evals // 2) if self._prologue_pick else self.block_evals
-        self._trace = []
-        self._phi0 = self._best_phi if np.isfinite(self._best_phi) else None
+        block_size = max(1, self.block_evals // 2) if self._prologue_pick else self.block_evals
+        with self._block_lock:
+            self._owner = h.name
+            self._block_n = 0
+            self._block_drained = False
+            self._block_is_prologue = self._prologue_pick
+            self._block_size = block_size
+            self._trace = []
+            self._phi0 = self._best_phi if np.isfinite(self._best_phi) else None
         self._block_region = self._apply_pending_region(h)
         self._block_warm_started = self._warm_start(h)
         # The box is a *one-shot* hand-off: whatever the warm start made of
@@ -925,7 +968,7 @@ class StrategyBlockBandit(StrategyBase):
         else, so the override check is what keeps an un-opted-in arm out of
         the ``ready`` list.
         """
-        if not self.warm_start_on_resume:
+        if not self.warm_start_on_resume or h._stopped:
             return False
         if callable(getattr(h, "warm_start", None)):
             return True
@@ -1058,7 +1101,13 @@ class StrategyBlockBandit(StrategyBase):
         # The regime gate's mask is honoured here and nowhere else: every
         # other path that touches an arm (warm start, region hand-off,
         # prologue) only runs for an arm this list returned.
-        ready = [h for h in self.heuristics if self._is_enabled(h) and (h.can_produce or self._can_warm_start(h))]
+        # An arm whose last block spent nothing waits until it can produce
+        # on its own (see _close_block).
+        ready = [
+            h
+            for h in self.heuristics
+            if self._is_enabled(h) and (h.can_produce or (self._can_warm_start(h) and h.name != self._empty_owner))
+        ]
         if not ready:
             return None
 

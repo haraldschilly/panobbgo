@@ -36,9 +36,9 @@ This heuristic fills a clear gap in Panobbgo's portfolio.  Before it,
 derivative-free local refinement step; the other local optimizer
 (:class:`~panobbgo.heuristics.lbfgsb.LBFGSB`) requires a smooth gradient
 approximation that breaks on noisy objectives.  COBYQA provides a
-derivative-free *and* curvature-aware local refinement step that the
-structural mutation catalog can swap into a portfolio whenever the
-problem's local geometry has structure Nelder-Mead cannot exploit.
+derivative-free *and* curvature-aware local refinement step to add to a
+portfolio (``strategy.add(COBYQA)``) whenever the problem's local geometry
+has structure Nelder-Mead cannot exploit.
 
 On-demand execution (the pull bridge)
 -------------------------------------

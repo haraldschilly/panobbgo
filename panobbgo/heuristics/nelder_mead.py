@@ -29,7 +29,7 @@ class NelderMead(Heuristic):
     Algorithm:
 
     * If there are enough result points available, it tries to find a
-      subset of points, which are linear independent (hence, suiteable for NM)
+      subset of ``dim + 1`` points, which are affinely independent (hence, span a simplex)
       and have the best (so far) function values, and are
       close (in the same :class:`Box <panobbgo.analyzers.Splitter>`).
 
@@ -54,19 +54,21 @@ class NelderMead(Heuristic):
 
     def gram_schmidt(self, dim, results, tol=1e-4):
         """
-        Tries to calculate an orthogonal base of dimension `dim`
-        with given list of :class:`Results <panobbgo.lib.Result>` points.
-        Retuns `None`, if not enough points or impossible.
-        The actual basis is not important, only the points for it are.
-        They are used in :meth:`~.nelder_mead`.
-        """
-        # start empty, and append in each iteration
-        # sort points ascending by fx -> calc gs -> skip if <= tol
-        import numpy as np
+        Pick ``dim + 1`` affinely independent :class:`Results <panobbgo.lib.Result>`
+        to span a simplex, best first.
 
-        base = []  # orthogonal system basis
-        ret = []  # list of results, which will be returned
-        if len(results) < dim:
+        The results are sorted best first; the best one is the simplex's
+        origin, and each further result is accepted iff its offset
+        ``p.x - first.x`` keeps a component above ``tol`` after Gram-Schmidt
+        against the offsets accepted so far.  Working on offsets (affine
+        independence) rather than on the absolute positions makes the
+        choice translation-invariant: collinear points such as ``(1, 0),
+        (1, 1), (1, 2)`` never pass as a basis, wherever the origin lies.
+        Returns ``None`` if there are not enough such points.  The actual
+        basis is not important, only the points for it are; they are used
+        in :meth:`~.nelder_mead`.
+        """
+        if len(results) < dim + 1:
             return None
 
         def compare(a, b):
@@ -80,40 +82,21 @@ class NelderMead(Heuristic):
 
         results = sorted(results, key=cmp_to_key(compare))
 
-        # better? randomize results to diversify
-        # from random import shuffle
-        # shuffle(results)
         first = results.pop(0)
-        base.append(first.x)
-        # Cache squared norms of basis vectors
-        base_norms_sq = [first.x.dot(first.x)]
-        ret.append(first)
+        ret = [first]  # the simplex's vertices, best first
+        base = []  # orthogonal basis of the accepted offsets
+        base_norms_sq = []
         for p in results:
-            # Avoid division by zero or near-zero in Gram-Schmidt orthogonalization
-            # Start with original vector and subtract projections
-            w = p.x.copy()
-
-            for i, v in enumerate(base):
-                v_norm_sq = base_norms_sq[i]
-                if abs(v_norm_sq) > 1e-12:  # Check for near-zero norms
-                    # Project p.x onto v: (v . p.x / |v|^2) * v
-                    # Standard Gram-Schmidt uses original vector p.x in dot product
-                    coeff = v.dot(p.x) / v_norm_sq
-                    w -= coeff * v
-                else:
-                    # Skip degenerate vectors
-                    continue
-
+            d = np.asarray(p.x, dtype=float) - first.x
+            w = d.copy()
+            for v, v_norm_sq in zip(base, base_norms_sq):
+                w -= (v.dot(d) / v_norm_sq) * v
             if np.any(np.abs(w) > tol):
                 base.append(w)
                 base_norms_sq.append(w.dot(w))
                 ret.append(p)
-                if len(ret) >= dim:
+                if len(ret) >= dim + 1:
                     return ret
-            else:
-                # self.logger.info("below tol: %s (base: %s)" % (np.abs(w),
-                # base))
-                pass
         return None
 
     def nelder_mead_init(self, base):

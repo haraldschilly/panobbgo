@@ -44,6 +44,21 @@ class LocalPenaltySearchTest(PanobbgoTestCase):
         time.sleep(0.5)
         assert not h.process.is_alive()
 
+    def test_stop_terminates_a_worker_that_ignores_the_stop_message(self):
+        """__stop__ falls back to the shared core.terminate_process (terminate, then kill)."""
+        from unittest import mock
+
+        from panobbgo.heuristics import local_penalty_search as lps
+
+        h = lps.LocalPenaltySearch(self.strategy)
+        proc = mock.Mock()
+        proc.is_alive.return_value = True  # never exits on its own
+        h.process = proc
+        with mock.patch.object(lps, "terminate_process") as term:
+            h.__stop__()
+        proc.join.assert_called_once_with(timeout=1.0)  # the graceful wait comes first
+        term.assert_called_once_with(proc, timeout=0.1)
+
     def test_optimization_flow(self):
         """One full round trip against the real subprocess, pull-style.
 

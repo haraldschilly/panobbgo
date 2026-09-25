@@ -1535,12 +1535,21 @@ class EventBus:
         if not subscribed:
             return  # unsubscribed after the event was queued
         try:
-            new_points = None
-            try:
-                new_points = getattr(target, "on_%s" % key)(**event._kwargs)
-            except TypeError:
-                if not event.terminate:
-                    raise
+            handler = getattr(target, "on_%s" % key)
+            if event.terminate:
+                # A one-shot lifecycle event (``start``, ``finished``) goes to
+                # every module that has the handler, whatever its signature;
+                # one that cannot take this payload is skipped.  Checked
+                # *before* the call, so a TypeError raised inside the handler
+                # body is reported like any other exception instead of being
+                # mistaken for a signature mismatch and swallowed.
+                try:
+                    inspect.signature(handler).bind(**event._kwargs)
+                except TypeError:
+                    raise StopHeuristic("signature does not accept %s" % sorted(event._kwargs))
+                except ValueError:
+                    pass  # no introspectable signature: just call it
+            new_points = handler(**event._kwargs)
             # heuristics might call self.emit and/or return a list
             if new_points is not None:
                 target.emit(new_points)
@@ -1553,6 +1562,8 @@ class EventBus:
             # A failing handler must not take the dispatcher down; report
             # loudly and keep serving the other modules.
             self.logger.critical("Exception in %s/on_%s: %r" % (target, key, e), exc_info=True)
+            if event.terminate:
+                self.unsubscribe(key, target)  # a one-shot subscription ends either way
 
     @property
     def inflight(self) -> int:

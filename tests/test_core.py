@@ -317,6 +317,35 @@ def test_heuristic_subprocess_stop_terminates_the_worker(strategy):
     assert h.pipe.closed and h.pipe_child.closed
 
 
+def test_type_error_inside_a_terminate_handler_is_reported(strategy):
+    """A TypeError from a lifecycle handler's *body* used to be swallowed as a signature mismatch."""
+    bus = strategy.eventbus
+
+    class Mod:
+        name = "Mod"
+
+        def __init__(self):
+            self.calls = []
+
+        def on_start(self):
+            self.calls.append("start")
+            raise TypeError("bug in the body")
+
+        def on_finished(self, unexpected):  # cannot take the payload-less event
+            self.calls.append("finished")
+
+    m = Mod()
+    bus.register(m)
+    with mock.patch.object(bus.logger, "critical") as crit:
+        bus.publish("start", terminate=True)
+        bus.publish("finished", terminate=True)
+        assert bus.wait_idle(timeout=5)
+    assert m.calls == ["start"]
+    assert crit.call_count == 1 and "bug in the body" in crit.call_args[0][0]
+    assert not bus.is_subscribed(m)  # both one-shot subscriptions ended
+    bus.shutdown()
+
+
 def test_unknown_strategy_kwarg_is_a_type_error():
     """``max_evals=`` (typo) used to be dropped silently."""
     from panobbgo.strategies import StrategyRoundRobin, StrategyUCB

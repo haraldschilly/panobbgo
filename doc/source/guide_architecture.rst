@@ -752,7 +752,11 @@ fires only when there is nothing to wait for: no evaluation outstanding
 anywhere, yet the run reports itself alive (a heuristic claims a point it
 never gives, an event handler never returns, queued evaluations have no live
 worker) and nothing has changed for that long.  Tripping it is logged at
-``ERROR`` level and ends the run.
+``ERROR`` level and ends the run.  Waiting is not silent either: while
+evaluations are outstanding and none finishes, a ``WARNING`` every
+``deadlock_seconds`` reports how many are outstanding, how long ago the
+oldest started (or was submitted) and the ``evaluation.timeout`` setting;
+for dask it also warns when the cluster reports zero workers.
 
 The heuristic queue size can be set in either file (YAML
 ``heuristic: capacity: 20``, or in ``config.ini``):

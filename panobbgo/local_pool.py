@@ -120,6 +120,7 @@ class _Task:
     point: Any
     future: Future
     strikes: int = 0
+    submitted: float = field(default_factory=time.time)
 
 
 @dataclass
@@ -257,6 +258,13 @@ class LocalPool:
 
     def task_ids(self) -> List[str]:
         return list(self._tasks)
+
+    def ages(self, now: Optional[float] = None) -> Tuple[int, Optional[float], Optional[float]]:
+        """``(outstanding, oldest running age, oldest queued age)`` in seconds (``None``: none such)."""
+        now = time.time() if now is None else now
+        running = [now - self._started[tid][1] for tid in self._tasks if tid in self._started]
+        queued = [now - task.submitted for tid, task in self._tasks.items() if tid not in self._started]
+        return len(self._tasks), max(running, default=None), max(queued, default=None)
 
     def waiting(self) -> bool:
         """``True`` while an outstanding task is legitimately being waited for.

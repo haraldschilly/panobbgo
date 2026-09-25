@@ -2653,12 +2653,12 @@ class StrategyBase:
             # outstanding evaluation (running, queued for live workers, any
             # dask future) counts as progress for as long as it takes.
             current_results_count = len(self.results)
-            progressed = (
-                len(points) > 0
-                or current_results_count != self._last_results_count
+            finished_moved = (
+                current_results_count != self._last_results_count
                 or self.n_finished != self._last_n_finished  # a failed evaluation is progress too
-                or self._pool_progressed()
             )
+            self._warn_while_waiting(finished_moved)
+            progressed = len(points) > 0 or finished_moved or self._pool_progressed()
             now = time_module.time()
             if progressed:
                 self._dead_loops = 0
@@ -2724,6 +2724,63 @@ class StrategyBase:
         # Final forced update to ensure UI shows 100% or final results
         self._update_progress_status(force=True)
         self._cleanup()
+
+    def _outstanding_ages(self, now: float) -> Tuple[int, Optional[float], Optional[float]]:
+        """``(outstanding, oldest running age, oldest queued/submitted age)`` for the active backend."""
+        if self.config.evaluation_method == "dask":
+            submitted = self.__dict__.get("_dask_submitted", {})
+            ages = [now - submitted[k] for k in self.pending if k in submitted]
+            # The client cannot tell queued from running: report submission age.
+            return len(self.pending), None, max(ages, default=None)
+        pool = getattr(self, "_pool", None)
+        ages_of = getattr(pool, "ages", None)
+        if not callable(ages_of):
+            return 0, None, None
+        return ages_of(now)
+
+    def _warn_while_waiting(self, finished_moved: bool) -> None:
+        """Log a WARNING every ``deadlock_seconds`` while evaluations are outstanding and none finishes.
+
+        Waiting is never an error (see :meth:`_pool_progressed`), but it must
+        not be silent: an hours-long evaluation, a dead cluster or a hung
+        objective without ``evaluation.timeout`` all look like this.  For
+        dask the cluster's worker count is checked too.
+        """
+        now = time_module.time()
+        n, running_age, queued_age = self._outstanding_ages(now)
+        if finished_moved or n == 0 or getattr(self, "_quiet_since", None) is None:
+            self._quiet_since = now
+            self._last_wait_warning = now
+            return
+        every = float(getattr(self, "_deadlock_seconds", getattr(self.config, "deadlock_seconds", 600.0)))
+        if now - self._last_wait_warning < every:
+            return
+        self._last_wait_warning = now
+        timeout = self._eval_timeout()
+
+        def age(v: Optional[float]) -> str:
+            return "-" if v is None else "%.0fs ago" % v
+
+        self.logger.warning(
+            "Waiting: %d evaluation(s) outstanding, none finished for %.0fs; oldest running started %s, "
+            "oldest queued/submitted %s; evaluation.timeout %s."
+            % (
+                n,
+                now - self._quiet_since,
+                age(running_age),
+                age(queued_age),
+                "unset" if timeout is None else "%gs" % timeout,
+            )
+        )
+        if self.config.evaluation_method == "dask":
+            try:
+                n_workers = len(self._client.scheduler_info().get("workers", {}))
+            except Exception:  # pragma: no cover - a client that cannot answer
+                return
+            if n_workers == 0:
+                self.logger.warning(
+                    "Waiting: the dask cluster reports zero workers — the %d outstanding evaluation(s) cannot run." % n
+                )
 
     def _pool_progressed(self) -> bool:
         """Is an evaluation outstanding, or did the pool move since the last pass?
@@ -2932,8 +2989,10 @@ class StrategyBase:
                 deadlock = float(getattr(self, "_deadlock_seconds", self.config.deadlock_seconds))
                 events, moved_at = pool.events, time_module.time()
                 while len(pool):
-                    for o in pool.poll(timeout):
+                    harvested = pool.poll(timeout)
+                    for o in harvested:
                         outcomes[o.task_id] = o
+                    self._warn_while_waiting(bool(harvested))
                     now = time_module.time()
                     if pool.events != events or pool.waiting():  # moving, running, or queued for live workers
                         events, moved_at = pool.events, now

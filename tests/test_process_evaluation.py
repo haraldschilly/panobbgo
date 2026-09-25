@@ -850,3 +850,67 @@ def test_n_timed_out_is_restored_from_storage(tmp_path):
     t.config.max_eval = 2  # the restored results already fill the budget
     t.start()
     assert t.n_timed_out == 2 and len(t.results) == 2
+
+
+def test_waiting_on_a_long_evaluation_is_not_silent():
+    """A WARNING every deadlock_seconds while evaluations are outstanding and none finishes."""
+    import threading
+    from unittest import mock
+
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    release = threading.Event()
+    problem = _BlockFirst(release, 2.0)
+    s = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, seed=3)
+    s.config.max_eval = 1
+    s.config.sync_evaluation = False
+    s.config.deadlock_seconds = 0.4
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    try:
+        with mock.patch.object(s.logger, "warning") as warn:
+            s.start()
+    finally:
+        release.set()
+    msgs = [c.args[0] for c in warn.call_args_list if c.args[0].startswith("Waiting:")]
+    assert 2 <= len(msgs) <= 6, msgs  # ~every 0.4 s over a 2 s evaluation
+    assert "1 evaluation(s) outstanding" in msgs[0] and "evaluation.timeout unset" in msgs[0]
+    assert "oldest running started" in msgs[0]
+    assert len(s.results) == 1
+
+
+def test_waiting_on_dask_warns_about_a_cluster_without_workers(monkeypatch):
+    from unittest import mock
+
+    import panobbgo.dask_evaluation as dask_evaluation
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    def fake_setup(strategy, problem):
+        class Client:
+            def submit(self, fn, *args, pure=False):
+                return _FakeDaskFuture(fn, args, delay=1.2)
+
+            def scheduler_info(self):
+                return {"workers": {}}
+
+            def close(self):
+                pass
+
+        strategy._client = Client()
+        strategy._problem_future = problem
+
+    monkeypatch.setattr(dask_evaluation, "setup_cluster", fake_setup)
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = "dask"
+    s.config.max_eval = 1
+    s.config.deadlock_seconds = 0.3
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    with mock.patch.object(s.logger, "warning") as warn:
+        s.start()
+    msgs = [c.args[0] for c in warn.call_args_list]
+    assert any(m.startswith("Waiting:") and "oldest queued/submitted" in m for m in msgs)
+    assert any("zero workers" in m for m in msgs)
+    assert len(s.results) == 1

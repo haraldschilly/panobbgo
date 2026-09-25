@@ -1723,21 +1723,19 @@ a population method) if you want the rest of the budget spent.
    strategy = StrategyRewarding(problem, max_evaluations=500)
 
    # Check progress during optimization
-   print(f"Budget used: {len(strategy.results)} / {strategy.config.max_evaluations}")
+   print(f"Budget used: {len(strategy.results)} / {strategy.config.max_eval}")
 
 Parallel Evaluation
 ~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   # Control batch size
-   strategy = StrategyRewarding(
-       problem,
-       size=10,               # Jobs per client
-       jobs_per_client=5      # Batch size
-   )
+   # The number of parallel evaluators is a config setting (also used by
+   # the local 'threaded'/'processes' pools); the batch size per pass is
+   # sized automatically from the budget and the measured evaluation time.
+   strategy = StrategyRewarding(problem, dask_n_workers=4)
 
-   # With 4 Dask workers, evaluates up to 4*5 = 20 points simultaneously
+   # Unknown keyword arguments raise TypeError (they used to be ignored).
 
 Multi-start Optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~

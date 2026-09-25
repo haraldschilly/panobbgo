@@ -39,10 +39,12 @@ class StrategyLinUCB(StrategyBase):
     where $A_a = \\sum x_s x_s^T + I$ and $b_a = \\sum r_s x_s$.
     """
 
-    def __init__(self, problem, **kwargs):
+    def __init__(self, problem, linucb_alpha: float = 2.0, **kwargs):
         self.local_best = None  # Track best internally to avoid event bus race conditions
-        # Default alpha increased to 2.0 to encourage exploration
-        self.alpha = kwargs.get("linucb_alpha", 2.0)
+        #: Exploration weight (default 2.0 to encourage exploration).  An
+        #: explicit parameter: read from ``**kwargs`` it was also forwarded
+        #: to StrategyBase, which rejects keys that are not config attributes.
+        self.alpha = float(linucb_alpha)
         self._lock = threading.RLock()
 
         # LinUCB state per heuristic: A (d x d), b (d), theta (d)

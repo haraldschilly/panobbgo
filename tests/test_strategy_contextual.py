@@ -100,10 +100,10 @@ class TestStrategyContextual(PanobbgoTestCase):
         max_eval = 400
         problem = MockContextualProblem(switch_point=switch_point)
 
-        strategy = StrategyLinUCB(problem, parse_args=False)
+        # Moderate exploration to allow switching (was set on the config, where nothing read it).
+        strategy = StrategyLinUCB(problem, parse_args=False, linucb_alpha=1.0)
         strategy.config.evaluation_method = "threaded"
         strategy.config.max_eval = max_eval
-        strategy.config.linucb_alpha = 1.0  # Moderate exploration to allow switching
         # Disable convergence check to ensure we run full budget
         strategy.config.stop_on_convergence = False
 
@@ -168,3 +168,12 @@ class TestStrategyContextual(PanobbgoTestCase):
         strategy.start()
 
         assert len(strategy.results) >= 50
+
+
+def test_linucb_alpha_is_a_constructor_parameter():
+    """Documented as StrategyLinUCB(problem, linucb_alpha=...); strict kwargs broke it."""
+    from panobbgo.lib.classic import Rosenbrock
+
+    s = StrategyLinUCB(Rosenbrock(dims=2), parse_args=False, testing_mode=True, max_evaluations=10, linucb_alpha=0.7)
+    assert s.alpha == 0.7 and s.config.max_eval == 10
+    assert StrategyLinUCB(Rosenbrock(dims=2), parse_args=False, testing_mode=True).alpha == 2.0

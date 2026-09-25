@@ -14,7 +14,10 @@
 # limitations under the License.
 
 from panobbgo.core import Analyzer
+from panobbgo.lib import Result
 from panobbgo.utils import memoize
+
+import logging
 
 import numpy as np
 
@@ -108,6 +111,10 @@ CUT_RULES = ("mean", "median")
 #: :meth:`Splitter.Box._split_point`) and ``RegionUCB``, the one consumer
 #: that reads every leaf, is the case worth revisiting on a 12-seed roster.
 DEFAULT_CUT_RULE = "mean"
+
+
+#: Sentinel: "look the constraint handler up yourself".
+_UNSET = object()
 
 
 class Splitter(Analyzer):
@@ -221,77 +228,53 @@ class Splitter(Analyzer):
         self.dim = self.problem.dim
         self.limit = self._resolve_limit()
         self.logger.debug(
-            "limit = %s (rule=%s, legacy=%s, target leafs ~ %.0f)"
-            % (self.limit, self.split_rule, self.legacy, self.target_leaves())
+            "limit = %s (rule=%s, legacy=%s, target leafs ~ %.0f)",
+            self.limit,
+            self.split_rule,
+            self.legacy,
+            self.target_leaves(),
         )
         self.root = Splitter.Box(None, self, self.problem.box.copy())
         self.leafs.append(self.root)
-        # leafs bucketed by depth — same insertion order as ``leafs``, so
-        # ``big_by_depth`` picks the identical box the O(#leafs) filter did.
-        from collections import defaultdict
-
-        self._leafs_by_depth = defaultdict(list)
-        self._leafs_by_depth[self.root.depth].append(self.root)
-        # big boxes
-        self.biggest_leaf = self.root
-        self.big_by_depth = dict()
-        self.big_by_depth[self.root.depth] = self.root
         self.max_depth = self.root.depth
         # best box (with best f(x))
         self.best_box = None
-        # in which box (a list!) is each point?
-        self.result2boxes = defaultdict(list)
+        # The leaf each result currently sits in (``Result`` hashes by
+        # identity).  The per-result list of *all* boxes on its path and the
+        # "biggest leaf" / "biggest box per depth" bookkeeping with its
+        # ``new_biggest_*`` events had no consumer and were dropped: they cost
+        # O(depth) memory per result and an O(#leafs) scan per split.
         self.result2leaf = {}
 
     def _replace_leaf(self, parent, children):
         """``parent`` stopped being a leaf; ``children`` became ones."""
         self.leafs.remove(parent)
-        try:
-            self._leafs_by_depth[parent.depth].remove(parent)
-        except ValueError:  # a hand-built box that never entered the buckets
-            pass
-        for c in children:
-            self.leafs.append(c)
-            self._leafs_by_depth[c.depth].append(c)
+        self.leafs.extend(children)
 
     def _new_box(self, new_box):
+        """Called for each new box when there is a split."""
+        if new_box.depth > self.max_depth:
+            self.max_depth = new_box.depth
+
+    def _results_in(self, box):
+        """Results inside ``box``, in arrival order, recomputed from the root.
+
+        A split box other than the root drops its own result list (every
+        ancestor used to keep a full copy: O(depth·n) memory nothing reads).
+        Registration is exactly "the root takes every result, a child takes
+        those of its parent's that its box contains", and a child's box lies
+        inside its parent's, so filtering the root's list by ``contains``
+        reproduces the dropped list element for element, in the same order.
+        O(n) — only for the rare reader of a box that has been split since it
+        was handed out (e.g. a ``best_box`` delivered after the next split).
         """
-        Called for each new box when there is a split.
-        E.g. it updates the ``biggest`` box and related
-        information for each depth level.
-        """
-        self.max_depth = max(new_box.depth, self.max_depth)
-
-        old_biggest_leaf = self.biggest_leaf
-        # A child is contained in its parent, so it can never be larger than
-        # the incumbent; the only way the biggest leaf changes is that it was
-        # the box just split.  ``max`` keeps the first of equal volumes and
-        # children are appended at the end, so this is exactly what a full
-        # rescan returns — at O(1) instead of O(#leafs) per new box.
-        if not old_biggest_leaf.leaf:
-            self.biggest_leaf = max(self.leafs, key=lambda l: l.log_volume)
-        if old_biggest_leaf is not self.biggest_leaf:
-            self.eventbus.publish("new_biggest_leaf", box=new_box)
-
-        dpth = new_box.depth
-        # also consider the parent depth level
-        for d in [dpth - 1, dpth]:
-            old_big_by_depth = self.big_by_depth.get(d, None)
-            if old_big_by_depth is None:
-                self.big_by_depth[d] = new_box
-            else:
-                leafs_at_depth = self._leafs_by_depth.get(d, ())
-                if len(leafs_at_depth) > 0:
-                    self.big_by_depth[d] = max(leafs_at_depth, key=lambda l: l.log_volume)
-
-            if self.big_by_depth[d] is not old_big_by_depth:
-                self.eventbus.publish("new_biggest_by_depth", depth=d, box=self.big_by_depth[d])
-
-    def on_new_biggest_leaf(self, box):
-        self.logger.debug("biggest leaf at depth %d -> %s" % (box.depth, box))
-
-    def on_new_biggest_by_depth(self, depth, box):
-        self.logger.debug("big by depth: %d -> %s" % (depth, box))
+        pool = self.root.results
+        if not pool:
+            return []
+        box_array = box.box.box if hasattr(box.box, "box") else np.asarray(box.box)
+        xs = np.vstack([np.asarray(r.x, dtype=float) for r in pool])
+        inside = ((box_array[:, 0] <= xs) & (box_array[:, 1] >= xs)).all(axis=1)
+        return [r for r, keep in zip(pool, inside) if keep]
 
     def get_box(self, point):
         """
@@ -302,21 +285,10 @@ class Splitter(Analyzer):
             box = box.get_child_boxes(point)[0]
         return box
 
-    def get_all_boxes(self, result):
-        """
-        return all boxes, where point is contained in
-        """
-        from panobbgo.lib import Result
-
-        assert isinstance(result, Result)
-        return self.result2boxes[result]
-
     def get_leaf(self, result):
         """
         returns the leaf box, where given result is currently sitting in
         """
-        from panobbgo.lib import Result
-
         assert isinstance(result, Result)
         # The eventbus delivers events serially, so a result published
         # before this call is already registered.  Never block here: a
@@ -363,9 +335,10 @@ class Splitter(Analyzer):
         # assert self.get_all_boxes(result)[-1] == self.get_leaf(result)
 
     def on_new_split(self, box, children, dim):
-        self.logger.debug("Split: %s" % box)
-        for i, chld in enumerate(children):
-            self.logger.debug(" +ch%d: %s" % (i, chld))
+        if self.logger.isEnabledFor(logging.DEBUG):  # the reprs are not free
+            self.logger.debug("Split: %s", box)
+            for i, chld in enumerate(children):
+                self.logger.debug(" +ch%d: %s", i, chld)
         # logger.info("children: %s" % map(lambda x:(x.depth, len(x)),
         # children))
 
@@ -389,9 +362,9 @@ class Splitter(Analyzer):
                 self.best_box = new_box
                 continue
 
-            is_better = False
-            if hasattr(self.strategy, "constraint_handler") and self.strategy.constraint_handler:
-                is_better = self.strategy.constraint_handler.is_better(self.best_box.best, new_box.best)
+            ch = getattr(self.strategy, "constraint_handler", None)
+            if ch:
+                is_better = ch.is_better(self.best_box.best, new_box.best)
             else:
                 is_better = new_box.fx < self.best_box.fx
 
@@ -475,15 +448,20 @@ class Splitter(Analyzer):
         def __init__(self, parent, splitter, box):
             self.parent = parent
             self.logger = splitter.logger
-            self.depth = parent.depth + 1 if parent else 0
+            self.depth = parent.depth + 1 if parent is not None else 0  # not truthiness: an empty box has len 0
             self.box = box
             self.splitter = splitter
             self.limit = splitter.limit
             self.dim = splitter.dim
             self.best = None  # best point
-            self.results = []
+            # ``None`` once a non-root box is split: see :attr:`results`.
+            self._results = []
             self.children = []
             self.split_dim = None
+            # The coordinate of the cut along ``split_dim`` (set by
+            # :meth:`split`): child 0 holds ``x[split_dim] <= _cut``, child 1
+            # ``x[split_dim] >= _cut``.
+            self._cut = None
             self.id = splitter._id
             splitter._id += 1
             # Running component-wise min/max of the results in this box.
@@ -494,6 +472,23 @@ class Splitter(Analyzer):
             # every arrival and the degenerate case costs O(n²).
             self._xmin = None
             self._xmax = None
+
+        @property
+        def results(self):
+            """The results in this box, in arrival order.
+
+            A leaf and the root hold their list; any other box drops it when
+            it is split and recomputes it on demand
+            (:meth:`Splitter._results_in`, O(n)).
+            """
+            res = self._results
+            if res is not None:
+                return res
+            return self.splitter._results_in(self)
+
+        @results.setter
+        def results(self, value):
+            self._results = value
 
         @property
         def leaf(self):
@@ -558,43 +553,50 @@ class Splitter(Analyzer):
 
             return cast(Any, self).__volume()
 
-        def _register_result(self, result):
+        def _register_result(self, result, handler=_UNSET):
             """
             This updates the splitter and box specific datatypes,
-            i.e. the maps from a result to the corresponding boxes or leafs.
+            i.e. the map from a result to its leaf and this box's ``best``.
+
+            ``handler`` is the strategy's constraint handler, resolved once per
+            :meth:`add_result` by the caller (looked up here if omitted).
             """
-            from panobbgo.lib import Result
-
             assert isinstance(result, Result)
-            self.results.append(result)
+            if handler is _UNSET:
+                handler = getattr(self.splitter.strategy, "constraint_handler", None)
+            leaf = not self.children
+            results = self._results
+            if results is not None:
+                results.append(result)
 
-            x = np.asarray(result.x, dtype=float)
-            xmin, xmax = self._xmin, self._xmax
-            if xmin is None or xmax is None:
-                self._xmin = x.copy()
-                self._xmax = x.copy()
-            else:
-                np.minimum(xmin, x, out=xmin)
-                np.maximum(xmax, x, out=xmax)
+            if leaf:
+                # Only a leaf is ever split, so only a leaf needs the running
+                # min/max that ``_can_split`` reads.
+                x = np.asarray(result.x, dtype=float)
+                xmin, xmax = self._xmin, self._xmax
+                if xmin is None or xmax is None:
+                    self._xmin = x.copy()
+                    self._xmax = x.copy()
+                else:
+                    np.minimum(xmin, x, out=xmin)
+                    np.maximum(xmax, x, out=xmax)
 
             # new best result in box? (for best fx value, too)
-            if self.best is not None:
-                is_better = False
-                if hasattr(self.splitter.strategy, "constraint_handler") and self.splitter.strategy.constraint_handler:
-                    is_better = self.splitter.strategy.constraint_handler.is_better(self.best, result)
+            best = self.best
+            if best is not None:
+                if handler:
+                    is_better = handler.is_better(best, result)
+                elif result.fx is None or best.fx is None:
+                    is_better = False
                 else:
-                    if result.fx is None or self.best.fx is None:
-                        is_better = False
-                    else:
-                        is_better = result.fx < self.best.fx
+                    is_better = result.fx < best.fx
 
                 if is_better:
                     self.best = result
             else:
                 self.best = result
 
-            self.splitter.result2boxes[result].append(self)
-            if self.leaf:
+            if leaf:
                 self.splitter.result2leaf[result] = self
 
         def add_result(self, result):
@@ -610,11 +612,43 @@ class Splitter(Analyzer):
 
               ``box += result`` is fine, too.
             """
-            self._register_result(result)
-            if not self.leaf:
-                for child in self.get_child_boxes(result.x):
-                    child += result  # recursive
-            elif self.leaf and len(self.results) >= self.limit and self._can_split():
+            handler = getattr(self.splitter.strategy, "constraint_handler", None)
+            x = result.x
+            if self.children and not self.contains(x):
+                # Outside this box: registered here, and no child contains it
+                # (``get_child_boxes`` raises) — the historical semantics.
+                self._register_result(result, handler)
+                for child in self.get_child_boxes(x):
+                    child._add(result, x, handler)
+                return
+            self._add(result, x, handler)
+
+        def _add(self, result, x, handler):
+            """:meth:`add_result` for a point known to lie inside this box.
+
+            The children differ from this box only along ``split_dim``, so for
+            a point inside this box ``child.contains(x)`` is exactly
+            ``x[d] <= cut`` (child 0) and ``x[d] >= cut`` (child 1) — the very
+            comparisons ``contains`` makes, without two full vector checks per
+            level.  A point on the cut still goes into both.
+            """
+            self._register_result(result, handler)
+            children = self.children
+            if children:
+                cut = self._cut
+                if cut is None:  # hand-built children: no known cut
+                    for child in self.get_child_boxes(x):
+                        child._add(result, x, handler)
+                    return
+                xd = x[self.split_dim]
+                lo = xd <= cut
+                hi = xd >= cut
+                assert lo or hi, "no child box containing %s found!" % (x,)
+                if lo:
+                    children[0]._add(result, x, handler)
+                if hi:
+                    children[1]._add(result, x, handler)
+            elif len(self._results) >= self.limit and self._can_split():
                 self.split()
 
         #: A box deeper than this is never split again.  Depth grows by one
@@ -873,21 +907,46 @@ class Splitter(Analyzer):
             split_point = self._split_point(dim)
             b1.box[dim, 1] = split_point
             b2.box[dim, 0] = split_point
+            # Read back from the box, so the descent compares against the very
+            # value ``contains`` would.
+            cut = self._cut = b1.box[dim, 1]
             self.children.extend([b1, b2])
             self.splitter._replace_leaf(self, self.children)
-            for c in self.children:
+            handler = getattr(self.splitter.strategy, "constraint_handler", None)
+            results = self.results
+            # Every result lies inside this box unless it entered through the
+            # root from outside the problem box (the root registers
+            # unconditionally); the running min/max tells which.
+            box_array = self.box.box if hasattr(self.box, "box") else np.asarray(self.box)
+            inside = (
+                self._xmin is not None
+                and self._xmax is not None
+                and bool((box_array[:, 0] <= self._xmin).all())
+                and bool((box_array[:, 1] >= self._xmax).all())
+            )
+            for i, c in enumerate(self.children):
                 self.splitter._new_box(c)
-                for r in self.results:
-                    if c.contains(r.x):
-                        c._register_result(r)
+                if not inside:
+                    members = [r for r in results if c.contains(r.x)]
+                elif i == 0:
+                    members = [r for r in results if r.x[dim] <= cut]
+                else:
+                    members = [r for r in results if r.x[dim] >= cut]
+                for r in members:
+                    c._register_result(r, handler)
+            if self.parent is not None:
+                # Results are stored in leaves and the root only; see
+                # :attr:`results`.
+                self._results = None
+            self._xmin = self._xmax = None
             self.splitter.eventbus.publish("new_split", box=self, children=self.children, dim=dim)
 
         def contains(self, point):
             """
             true, if given point is inside this box (including boundaries).
             """
-            l, u = self.box[:, 0], self.box[:, 1]
-            return (l <= point).all() and (u >= point).all()
+            lo, hi = self.box[:, 0], self.box[:, 1]
+            return (lo <= point).all() and (hi >= point).all()
 
         def get_child_boxes(self, point):
             """
@@ -900,7 +959,7 @@ class Splitter(Analyzer):
 
         def __repr__(self):
             v = self.volume
-            l = ",leaf" if self.leaf else ""
-            l = "(%d,%.3f%s) " % (len(self), v, l)
+            tag = ",leaf" if self.leaf else ""
+            info = "(%d,%.3f%s) " % (len(self), v, tag)
             b = ",".join("%s" % _ for _ in self.box)
-            return "Box-%d %s[%s]" % (self.id, l, b)
+            return "Box-%d %s[%s]" % (self.id, info, b)

@@ -18,16 +18,14 @@ class TestSplitterCoverage(PanobbgoTestCase):
         p = Point(self.problem.center, "p")
         self.assertEqual(splitter.get_box(p.x), splitter.root)
 
-    def test_splitter_get_all_boxes(self):
+    def test_splitter_get_leaf_before_registration(self):
         splitter = Splitter(self.strategy)
         splitter.__start__()
 
-        p = Point(self.problem.center, "p")
-        r = Result(p, 1.0)
-        self.assertEqual(splitter.get_all_boxes(r), [])
-
+        r = Result(Point(self.problem.center, "p"), 1.0)
+        self.assertIsNone(splitter.get_leaf(r))
         splitter.on_new_results([r])
-        self.assertEqual(splitter.get_all_boxes(r), [splitter.root])
+        self.assertIs(splitter.get_leaf(r), splitter.root)
 
     def test_box_properties(self):
         splitter = Splitter(self.strategy)
@@ -74,13 +72,8 @@ class TestSplitterCoverage(PanobbgoTestCase):
 
         # Manually force split
         splitter.root.split()
-
-        # Test finding leaf at depth
-        # self.assertIn(1, splitter.big_by_depth)
-
-        # Trigger some coverage points
-        splitter.on_new_biggest_leaf(splitter.root)
-        splitter.on_new_biggest_by_depth(0, splitter.root)
+        self.assertEqual(len(splitter.leafs), 2)
+        self.assertEqual(splitter.max_depth, 1)
 
     def test_splitter_best_box_updates(self):
         splitter = Splitter(self.strategy)
@@ -148,11 +141,10 @@ class TestSplitterCoverage(PanobbgoTestCase):
         splitter.root._register_result(r3)
         self.assertIs(splitter.root.best, r2)
 
-    def test_splitter_get_all_boxes_result_in_leaf(self):
+    def test_splitter_result_in_leaf_after_split(self):
         splitter = Splitter(self.strategy)
         splitter.__start__()
 
-        # Test get_all_boxes logic when there's depth
         # add points to force a split
         for i in range(int(splitter.limit) + 1):
             r = Result(Point(self.problem.center + np.random.randn(2) * 0.01, f"p{i}"), 10.0)
@@ -161,9 +153,46 @@ class TestSplitterCoverage(PanobbgoTestCase):
         r_new = Result(Point(self.problem.center, "p_new"), 1.0)
         splitter.on_new_results([r_new])
 
-        boxes = splitter.get_all_boxes(r_new)
-        self.assertTrue(len(boxes) > 1)  # root + at least one child
-        self.assertEqual(boxes[0], splitter.root)
+        leaf = splitter.get_leaf(r_new)
+        self.assertTrue(leaf.leaf)
+        self.assertGreater(leaf.depth, 0)
+        self.assertIn(r_new, leaf.results)
+        self.assertIn(r_new, splitter.root.results)
+
+    def test_interior_boxes_recompute_their_results(self):
+        """Only leaves and the root store results; a split box's list is
+        rebuilt from the root and must equal the list it used to keep —
+        same objects, same (arrival) order — including points on a cut."""
+        splitter = Splitter(self.strategy)
+        splitter.__start__()
+        rng = np.random.default_rng(0)
+        box = np.asarray(self.problem.box.box)
+        lo, rg = box[:, 0], box[:, 1] - box[:, 0]
+        results = []
+        for i in range(20 * int(splitter.limit)):
+            x = lo + rg * rng.random(2)
+            if i % 7 == 0 and results:
+                x = results[-1].x.copy()  # duplicates, some of which end up on a cut
+            r = Result(Point(x, "p"), float(rng.random()))
+            results.append(r)
+            splitter.on_new_results([r])
+
+        def walk(b):
+            yield b
+            for c in b.children:
+                yield from walk(c)
+
+        boxes = list(walk(splitter.root))
+        interior = [b for b in boxes if not b.leaf and b.parent is not None]
+        self.assertTrue(interior, "the cloud must build a tree of depth >= 2")
+        for b in boxes:
+            expected = [r for r in results if b is splitter.root or b.contains(r.x)]
+            self.assertEqual([id(r) for r in b.results], [id(r) for r in expected])
+            if b.parent is not None and not b.leaf:
+                self.assertIsNone(b._results)
+        for r in results:
+            leaf = splitter.get_leaf(r)
+            self.assertTrue(leaf.leaf and leaf.contains(r.x))
 
     def test_splitter_on_new_split_update_branches(self):
         splitter = Splitter(self.strategy)

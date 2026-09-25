@@ -15,11 +15,8 @@
    
       ~Splitter.__init__
       ~Splitter.check_dependencies
-      ~Splitter.get_all_boxes
       ~Splitter.get_box
       ~Splitter.get_leaf
-      ~Splitter.on_new_biggest_by_depth
-      ~Splitter.on_new_biggest_leaf
       ~Splitter.on_new_results
       ~Splitter.on_new_split
    

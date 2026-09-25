@@ -70,6 +70,9 @@ class RegionUCB(Heuristic):
             ranges (default 0.25).
     """
 
+    #: Reads Splitter boxes / subscribes to its events (installed on demand).
+    requires_analyzers = ("Splitter",)
+
     def __init__(self, strategy, ucb_c=1.0, n_candidates=5, gauss_fraction=0.5, gauss_scale=0.25, name=None):
         name = "RegionUCB" if name is None else name
         Heuristic.__init__(self, strategy, name=name)

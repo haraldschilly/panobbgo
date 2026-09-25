@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,9 @@ class QuadraticWlsModel(HeuristicSubprocess):
 
     The actual calculation is performed out of process.
     """
+
+    #: Reads Splitter boxes / subscribes to its events (installed on demand).
+    requires_analyzers = ("Splitter",)
 
     def __init__(self, strategy):
         HeuristicSubprocess.__init__(self, strategy)

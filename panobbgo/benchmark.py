@@ -135,9 +135,9 @@ class StrategySpec:
             ``gate_min_dim <= problem.dim <= gate_max_dim`` (either bound may
             be absent).
         analyzers: Optional list of ``(AnalyzerClass, kwargs)`` pairs added via
-            :meth:`~panobbgo.core.StrategyBase.add_analyzer`.  The four required
-            analyzers (``Best``, ``Grid``, ``Splitter``, ``Convergence``) are always
-            added automatically by the strategy; only supply *extra* analyzers here.
+            :meth:`~panobbgo.core.StrategyBase.add_analyzer`.  ``Best`` and
+            ``Convergence`` are always added by the strategy, ``Splitter`` whenever a
+            module declares it (``requires_analyzers``); only supply *extra* analyzers here.
         config_overrides: Key/value pairs applied to ``strategy.config`` before the
             run starts.
         seed_name: Optional RNG identity for the harnesses' per-run seed

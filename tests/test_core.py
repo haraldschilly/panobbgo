@@ -495,3 +495,46 @@ def test_avg_time_per_task_is_a_running_mean_defined_from_one_task():
     assert s.avg_time_per_task == 0.5  # was NaN below two tasks
     s.record_walltime(1.5)
     assert s.avg_time_per_task == 1.0
+
+
+def _installed_analyzers(*heuristics, analyzers=()):
+    """Initialize a seeded strategy; return its analyzer names and the next master draw."""
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=11)
+    for a in analyzers:
+        s.add_analyzer(a(s))
+    for h in heuristics:
+        s.add_heuristic(h(s))
+    try:
+        s.initialize()
+        return sorted(a.name for a in s.analyzers), int(s.rng.integers(2**62))
+    finally:
+        s._cleanup()
+
+
+def test_splitter_is_installed_only_on_demand_and_grid_never():
+    from panobbgo.analyzers import Archive
+    from panobbgo.heuristics import CMAES, Nearby, NelderMead, Random, RegionUCB
+
+    names, draw = _installed_analyzers(CMAES, Nearby)
+    assert names == ["Best", "Convergence"]
+    for consumer in (Random, NelderMead, RegionUCB):
+        names_c, draw_c = _installed_analyzers(consumer, Nearby)
+        assert names_c == ["Best", "Convergence", "Splitter"], consumer
+        # Every skipped default slot still consumes its seed: the master
+        # stream after initialize() does not depend on what was installed.
+        assert draw_c == draw
+    # A warm start reads Splitter leaves / root (Heuristic.archive_seed).
+    names_w, draw_w = _installed_analyzers(lambda s: CMAES(s, warm_start="archive"), analyzers=[Archive])
+    assert names_w == ["Archive", "Best", "Convergence", "Splitter"]
+
+
+def test_missing_analyzer_lookup_names_the_declaration():
+    from panobbgo.heuristics import CMAES
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    s.add_heuristic(CMAES(s))
+    with pytest.raises(KeyError, match="requires_analyzers"):
+        s.analyzer("Splitter")

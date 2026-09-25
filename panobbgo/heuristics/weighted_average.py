@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,9 @@ class WeightedAverage(Heuristic):
     This strategy calculates the weighted average of all points
     in the box around the best point of the :class:`~panobbgo.analyzers.Splitter`.
     """
+
+    #: Reads Splitter boxes / subscribes to its events (installed on demand).
+    requires_analyzers = ("Splitter",)
 
     def __init__(self, strategy, k=0.1):
         Heuristic.__init__(self, strategy)

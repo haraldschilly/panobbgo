@@ -28,6 +28,9 @@ class Random(Heuristic):
     function of its :attr:`rng` and the events it receives.
     """
 
+    #: Reads Splitter boxes / subscribes to its events (installed on demand).
+    requires_analyzers = ("Splitter",)
+
     def __init__(self, strategy, cap=None, name=None):
         name = "Random" if name is None else name
         self.leaf = None

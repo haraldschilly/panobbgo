@@ -80,6 +80,9 @@ class StrategyPerRegionBandit(StrategyBase):
     handling, and event-bus integration from StrategyBase.
     """
 
+    #: Reads Splitter leaves (installed on demand, see Module.requires_analyzers).
+    requires_analyzers = ("Splitter",)
+
     def __init__(self, problem, **kwargs):
         """
         Initialize the per-region bandit strategy.

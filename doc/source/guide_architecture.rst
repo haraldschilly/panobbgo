@@ -417,7 +417,15 @@ Implemented Analyzers
 
 **Splitter**
 
-:class:`~panobbgo.analyzers.splitter.Splitter` manages hierarchical box decomposition:
+:class:`~panobbgo.analyzers.splitter.Splitter` manages hierarchical box decomposition.
+``Best`` and ``Convergence`` are installed by every strategy; the ``Splitter``
+only when a module declares that it reads it, via the class attribute
+``requires_analyzers = ("Splitter",)`` (``Random``, ``NelderMead``,
+``QuadraticWlsModel``, ``WeightedAverage``, ``RegionUCB``, ``MetaAnalyst``) or,
+for heuristics whose need depends on arguments, by overriding
+``required_analyzers()`` (every heuristic with a ``warm_start`` does).  A custom
+module that calls ``strategy.analyzer("Splitter")`` must declare it too.
+
 
 - Maintains tree of boxes splitting the search space
 - Splits boxes when they contain sufficient points — the threshold is derived
@@ -437,6 +445,7 @@ effect on the consumers that read the tree.
 **Grid**
 
 :class:`~panobbgo.analyzers.grid.Grid` maintains a simple spatial grid for grouping nearby points.
+Experimental and not installed by default (nothing reads it); add it explicitly.
 
 **Dedensifyer**
 

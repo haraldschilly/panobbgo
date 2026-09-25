@@ -519,6 +519,13 @@ class Module:
     :class:`.Heuristic` and :class:`.Analyzer`.
     """
 
+    #: Names of the analyzers this module reads (``strategy.analyzer(name)``)
+    #: or whose events it subscribes to, e.g. ``("Splitter",)``.
+    #: :meth:`StrategyBase.initialize` installs a default analyzer that is
+    #: only needed on demand (the ``Splitter``) exactly when some module
+    #: declares it here; see :meth:`required_analyzers`.
+    requires_analyzers: Tuple[str, ...] = ()
+
     def __init__(self, strategy: "StrategyBase", name: Optional[str] = None) -> None:
         """
         :param StrategyBase strategy:
@@ -607,6 +614,13 @@ class Module:
         and heuristics.
         """
         return True
+
+    def required_analyzers(self) -> Tuple[str, ...]:
+        """Analyzer names this instance needs; defaults to :attr:`requires_analyzers`.
+
+        Override when the need depends on constructor arguments.
+        """
+        return tuple(self.requires_analyzers)
 
     def __start__(self) -> None:
         """
@@ -759,6 +773,19 @@ class Heuristic(Module):
     #: default of every ``warm_start=`` constructor argument) means "cold
     #: start", i.e. do not call :meth:`archive_seed` at all.
     WARM_START_MODES: Tuple[str, ...] = ("archive", "archive_diverse", "archive_leaf")
+
+    def required_analyzers(self) -> Tuple[str, ...]:
+        """Also the ``Splitter`` when this heuristic warm-starts.
+
+        :meth:`archive_seed` reads ``Splitter`` leaves for ``"archive_leaf"``
+        and falls back to the ``Splitter`` root without an ``Archive``; a
+        ``warm_start_box`` is a ``Splitter`` box.  Every heuristic with a
+        warm start stores its mode in ``self.warm_start``.
+        """
+        req = Module.required_analyzers(self)
+        if getattr(self, "warm_start", None) or getattr(self, "warm_start_box", None) is not None:
+            req += ("Splitter",)
+        return req
 
     def archive_seed(self, k: int, *, mode: Optional[str] = None, box: Any = None) -> List["Result"]:
         """Up to ``k`` good points from the *shared* archive, best first.
@@ -1832,13 +1859,33 @@ class StrategyBase:
         for h in sorted(self._hs, key=lambda h: h.name):
             self.add_heuristic(h)
 
-        # analyzers
-        from .analyzers import Best, Grid, Splitter, Convergence
+        # Default analyzers: ``Best`` and ``Convergence`` always, the
+        # ``Splitter`` only when a module declares it (``requires_analyzers``).
+        # The loop walks the four historical slots — Best, Grid, Splitter,
+        # Convergence — and every slot that constructs nothing (``Grid``, which
+        # nothing reads, an unneeded ``Splitter``, an analyzer the user added
+        # already) still draws its seed from the master stream, exactly as the
+        # unconditional construction of all four did.  Strategies that draw
+        # from ``self.rng`` afterwards (Thompson, phased) and modules spawned
+        # later therefore see the same numbers as before, which keeps seeded
+        # trajectories comparable with older runs.
+        from .analyzers import Best, Convergence, Splitter
 
-        new_analyzers = [Best(self), Grid(self), Splitter(self), Convergence(self)]
+        needed = set(self._required_analyzers())
+        slots: List[Tuple[str, Any]] = [
+            ("Best", Best),
+            ("Grid", None),
+            ("Splitter", Splitter),
+            ("Convergence", Convergence),
+        ]
+        new_analyzers = []
+        for name, cls in slots:
+            if cls is not None and name not in self._analyzers and (name != "Splitter" or name in needed):
+                new_analyzers.append(cls(self))
+            else:
+                self.spawn_rng()
         for a in new_analyzers:
-            if a.name not in self._analyzers:
-                self.add_analyzer(a)
+            self.add_analyzer(a)
 
         self.check_dependencies()
 
@@ -1918,7 +1965,13 @@ class StrategyBase:
         raise KeyError(who)
 
     def analyzer(self, who):
-        return self._analyzers[who]
+        try:
+            return self._analyzers[who]
+        except KeyError:
+            raise KeyError(
+                f"analyzer {who!r} is not installed; a module that reads it must list it in "
+                f"its ``requires_analyzers`` (the Splitter is only installed on demand)"
+            ) from None
 
     def add_heuristic(self, h):
         """
@@ -1968,6 +2021,20 @@ class StrategyBase:
                 f"Original error: {e}"
             ) from e
 
+    #: Analyzer names the strategy itself reads (see :attr:`Module.requires_analyzers`).
+    requires_analyzers: Tuple[str, ...] = ()
+
+    def _required_analyzers(self) -> List[str]:
+        """Union of the analyzer names declared by the strategy and every registered module."""
+        names: List[str] = list(self.requires_analyzers)
+        for m in list(self._heuristics.values()) + list(self._analyzers.values()):
+            req = getattr(m, "required_analyzers", None)
+            if callable(req):
+                for n in req():
+                    if n not in names:
+                        names.append(n)
+        return names
+
     def check_dependencies(self):
         """
         This method is called in self.start() (and only there)
@@ -2009,7 +2076,7 @@ class StrategyBase:
             )
 
         # Check for required analyzers
-        required_analyzers = ["Best", "Grid", "Splitter", "Convergence"]
+        required_analyzers = ["Best", "Convergence"] + sorted(set(self._required_analyzers()) - {"Best", "Convergence"})
         missing_analyzers = []
         for analyzer_name in required_analyzers:
             if analyzer_name not in self._analyzers:
@@ -2018,8 +2085,9 @@ class StrategyBase:
         if missing_analyzers:
             errors.append(
                 f"Missing required analyzers: {', '.join(missing_analyzers)}.\n"
-                "These analyzers are automatically added by StrategyBase.initialize() or StrategyBase.start(). "
-                "Ensure you call strategy.initialize() or strategy.start() before accessing results."
+                "Best, Convergence and (when a module declares it in ``requires_analyzers``) Splitter "
+                "are added by StrategyBase.initialize() or StrategyBase.start(); any other required "
+                "analyzer has to be added with strategy.add_analyzer() before starting."
             )
 
         # Check configuration validity

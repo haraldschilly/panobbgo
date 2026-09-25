@@ -1,7 +1,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,6 +41,9 @@ class NelderMead(Heuristic):
     :class:`~panobbgo.analyzers.Splitter` publishes a new best box and tops
     its output queue up on every result batch.  It never sleeps or polls.
     """
+
+    #: Reads Splitter boxes / subscribes to its events (installed on demand).
+    requires_analyzers = ("Splitter",)
 
     def __init__(self, strategy):
         Heuristic.__init__(self, strategy, name="Nelder Mead")

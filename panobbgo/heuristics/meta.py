@@ -395,6 +395,9 @@ class MetaAnalyst(Heuristic):
     #: what keeps the arms' registration order untouched (module docstring).
     DEFAULT_NAME = "Meta"
 
+    #: Reads Splitter boxes / subscribes to its events (installed on demand).
+    requires_analyzers = ("Splitter",)
+
     def __init__(
         self,
         strategy,

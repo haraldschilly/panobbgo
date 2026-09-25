@@ -1,7 +1,7 @@
 from __future__ import division
 from __future__ import unicode_literals
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,11 @@ from panobbgo.core import Analyzer
 
 class Grid(Analyzer):
     """
-    packs nearby points into grid boxes
+    Packs nearby points into grid boxes.
+
+    Experimental: not installed by default, since no heuristic reads it
+    (until 2026-09 it was, and stored every result for nothing).  Add it with
+    ``strategy.add_analyzer(Grid(strategy))`` to use :meth:`in_same_grid`.
     """
 
     def __init__(self, strategy):

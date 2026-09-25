@@ -2736,7 +2736,8 @@ class StrategyBase:
         ages_of = getattr(pool, "ages", None)
         if not callable(ages_of):
             return 0, None, None
-        return ages_of(now)
+        n, running_age, queued_age = ages_of(now)
+        return int(n), running_age, queued_age
 
     def _warn_while_waiting(self, finished_moved: bool) -> None:
         """Log a WARNING every ``deadlock_seconds`` while evaluations are outstanding and none finishes.

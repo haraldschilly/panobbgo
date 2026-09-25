@@ -159,9 +159,11 @@ constrained problem, i.e. infeasible), marked ``Result.timed_out`` and in the
 ``("timed_out", 0)`` column of the results frame; it is recorded, charged
 once against ``max_eval`` and published through ``new_results`` like any
 result, so heuristics see a bad point and every ranking puts it last.
-Processes kill (and replace) the worker; threads abandon the call (it runs
-to completion in the background); dask releases the future (a task already
-running on a worker is not interrupted).  With ``evaluation.sync`` and
+Processes kill exactly the worker running that call (a fresh one replaces
+it; every other in-flight evaluation keeps running).  Threads cannot be
+killed: a timed-out call is *abandoned* — it keeps running in the background
+and its result is discarded; abandoned threads are counted and warned about.
+Use ``processes`` or dask for objectives that can hang.  Dask: see below.  With ``evaluation.sync`` and
 threads, a timeout routes each batch through the thread pool, harvested in
 submission order.  An objective that *raises* is still a failed evaluation
 (no result, ``failed_evaluations`` event).

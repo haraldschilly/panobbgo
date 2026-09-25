@@ -345,8 +345,10 @@ class Config:
         # past it becomes a regular Result with fx = NaN (NaN cv_vec on a
         # constrained problem: infeasible), marked Result.timed_out, recorded
         # and charged once, published through new_results.  Processes kill
-        # the worker, threads abandon the call (see panobbgo/local_pool.py),
-        # dask releases the future.  Threaded evaluation under
+        # only the worker running that call; threads cannot be killed and
+        # abandon it (it runs on in the background — use processes/dask for
+        # objectives that can hang; see panobbgo/local_pool.py); dask: see
+        # panobbgo/dask_evaluation.py.  Threaded evaluation under
         # evaluation.sync goes through the pool when this is set.  An
         # objective that raises is still a failed evaluation.  Unset/0 = no
         # limit (the default).

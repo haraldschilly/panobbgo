@@ -17,48 +17,43 @@
 Local evaluation pool
 =====================
 
-The backend of ``evaluation_method = "threaded"`` and ``"processes"``:
-evaluations are submitted by task id and harvested without blocking by
-:meth:`LocalPool.poll`, which reports every task exactly once, as a result
-or as a failure.
+The backend of ``evaluation_method = "threaded"`` (:class:`LocalPool`) and
+``"processes"`` (:class:`ProcessPool`): evaluations are submitted by task
+id and harvested without blocking by :meth:`LocalPool.poll`, which reports
+every task exactly once, as a result or as a failure.
 
 What it guarantees beyond a bare executor:
 
 * **A timed-out task is reported with** ``Outcome.timed_out``; the
   strategy books it as a ``NaN`` result (``Result.timed_out``), not a
-  failure.
+  failure.  ``evaluation.timeout`` is a limit on *one call*.
 * **The timeout counts running time only.**  The clock of a task starts
   when a worker picks it up (a thread records it; a worker process reports
-  it through a queue), so time spent queued behind other evaluations never
+  it over its pipe), so time spent queued behind other evaluations never
   times a task out.
-* **Processes: a timed-out evaluation is killed, not abandoned.**  The
-  pool's workers are killed and a fresh pool takes over; the other
-  in-flight tasks are resubmitted (they lose their progress, not their
-  place in the budget).
+* **Processes: only the timed-out call dies.**  :class:`ProcessPool` runs
+  its own worker processes, one task at a time each, and kills exactly the
+  worker whose call ran past the limit; a fresh worker replaces it.  Every
+  other in-flight evaluation keeps running undisturbed.
 * **Threads: a timed-out evaluation is abandoned** — a thread cannot be
-  interrupted, so it runs to completion in the background.  So that it
-  cannot hold a worker slot forever, the executor is retired
-  (``shutdown(wait=False)``) and the tasks that had not started yet move to
-  a fresh ``ThreadPoolExecutor``.  ``ThreadPoolExecutor`` threads are not
-  daemon threads: an abandoned evaluation that never returns keeps the
-  interpreter from exiting.  Use ``"processes"`` for objectives that can
-  hang.
+  killed, so the call runs to completion in the background and its result
+  is discarded.  So that it cannot hold a worker slot forever, the
+  executor is retired (``shutdown(wait=False)``) and the tasks that had not
+  started yet move to a fresh ``ThreadPoolExecutor``.  ``ThreadPoolExecutor``
+  threads are not daemon threads: an abandoned evaluation that never
+  returns keeps the interpreter from exiting.  Abandoned threads are
+  counted and warned about.  **Use** ``"processes"`` **(or dask) for
+  objectives that can hang.**
 * **Processes: a crashing evaluation does not end the run.**  A worker
-  that dies (``os._exit``, a segfault, the OOM killer) breaks a
-  ``ProcessPoolExecutor`` and fails every in-flight future with
-  ``BrokenProcessPool``.  The task whose worker died is reported failed;
-  the ones merely caught in the break are resubmitted to a fresh pool, and
-  every task that was running during a break gets a strike — after
-  :data:`MAX_BREAK_STRIKES` it is failed too, whatever the exit codes say,
-  so a task cannot be retried forever.  A task that had *finished* in the
-  worker but whose result had not arrived yet is evaluated again: the
-  budget is charged once, but side effects of the objective happen twice.
+  that dies (``os._exit``, a segfault, the OOM killer, a signal) while
+  evaluating fails exactly its own task — attribution is exact, because a
+  worker runs one task at a time.  A task whose worker died before the
+  call *started* (still loading the problem) is re-queued, not failed.
 * **Processes: workers that cannot load the problem are an error.**  If
-  the pool breaks before any evaluation started (the problem does not
-  unpickle in a fresh interpreter — a class defined in ``__main__`` or a
-  notebook, a ``__setstate__`` that raises), rebuilding cannot help:
-  :class:`WorkerInitError` is raised after :data:`MAX_IDLE_BREAKS` such
-  breaks in a row.
+  :data:`MAX_IDLE_BREAKS` workers in a row die before any evaluation
+  started (the problem does not unpickle in a fresh interpreter — a class
+  defined in ``__main__`` or a notebook, a ``__setstate__`` that raises),
+  respawning cannot help: :class:`WorkerInitError` is raised.
 * **Closing is bounded and leaves nothing running** (:meth:`close`): queued
   tasks are cancelled, running ones get until the deadline, then worker
   processes are killed.
@@ -71,54 +66,33 @@ caller's object.
 
 from __future__ import annotations
 
-import os
+import collections
+import multiprocessing
 import pickle
-import signal
 import threading
 import time
-from concurrent.futures import CancelledError, Future, ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from concurrent.futures import wait as futures_wait
-from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from multiprocessing.connection import wait as connection_wait
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
-import multiprocessing
-
-#: Breaks a task may be caught in (running at the time) before it is failed.
-MAX_BREAK_STRIKES = 3
-#: Consecutive pool breaks with no evaluation started before giving up.
+#: Consecutive worker deaths with no evaluation started before giving up.
 MAX_IDLE_BREAKS = 2
+
+#: Abandoned (timed-out) evaluation threads still running before every
+#: further timeout is reported at ``ERROR`` level; see :class:`LocalPool`.
+ABANDONED_THREADS_WARN = 4
 
 
 class WorkerInitError(RuntimeError):
     """Worker processes die before evaluating anything: the problem cannot be loaded in them."""
 
 
-#: The problem a worker process evaluates and the queue it reports task
-#: starts on; set once per worker by :func:`_process_worker_init`.
-_WORKER_PROBLEM: Any = None
-_WORKER_STARTS: Any = None
-
-
-def _process_worker_init(payload: bytes, starts: Any) -> None:
-    """Pool initializer: unpickle the problem once per worker process."""
-    global _WORKER_PROBLEM, _WORKER_STARTS
-    _WORKER_PROBLEM = pickle.loads(payload)
-    _WORKER_STARTS = starts
-
-
-def _process_worker_eval(task_id: str, point: Any) -> Any:
-    """Report the start (task id, pid, wall time), then evaluate ``point``."""
-    # SimpleQueue writes synchronously: the start is on the pipe before the
-    # objective runs, even if the objective then kills the process.
-    _WORKER_STARTS.put((task_id, os.getpid(), time.time()))
-    return _WORKER_PROBLEM(point)
-
-
 @dataclass
 class _Task:
     point: Any
-    future: Future
+    future: Any = None
     strikes: int = 0
     submitted: float = field(default_factory=time.time)
 
@@ -144,109 +118,54 @@ class Outcome:
 
 
 class LocalPool:
-    """Threads or spawned worker processes evaluating ``problem`` (see the module docstring).
+    """Threads evaluating ``problem`` (see the module docstring).
+
+    ``LocalPool(..., processes=True)`` returns a :class:`ProcessPool`.
 
     Not thread-safe: one thread (the strategy's main loop) submits, polls
     and closes.
     """
 
-    def __init__(self, problem: Any, n_workers: int, processes: bool, logger: Any = None) -> None:
+    def __new__(cls, problem: Any, n_workers: int, processes: bool = False, logger: Any = None):
+        if processes and cls is LocalPool:
+            return super().__new__(ProcessPool)
+        return super().__new__(cls)
+
+    def __init__(self, problem: Any, n_workers: int, processes: bool = False, logger: Any = None) -> None:
         self.problem = problem
         self.n_workers = max(1, int(n_workers))
-        self.processes = bool(processes)
+        self.processes = False
         self.logger = logger
         self._tasks: Dict[str, _Task] = {}
-        #: task id -> (worker pid or thread ident, start wall time)
+        #: task id -> (thread ident, start wall time)
         self._started: Dict[str, Tuple[int, float]] = {}
-        self._procs: Dict[int, Any] = {}
-        self._payload: Optional[bytes] = None
-        self._starts: Any = None
         #: Starts and finishes seen: the caller's liveness check reads it.
         self.events = 0
-        self._idle_breaks = 0
-        if self.processes:
-            try:
-                self._payload = pickle.dumps(problem)
-            except Exception as exc:
-                raise TypeError(
-                    "evaluation_method='processes' needs a picklable problem (defined at module level, "
-                    f"no lambdas/closures): {exc!r}"
-                ) from exc
-            try:  # cheap probe; a spawned worker can still fail (e.g. a class from __main__)
-                pickle.loads(self._payload)
-            except Exception as exc:
-                raise TypeError(f"evaluation_method='processes': the problem does not unpickle: {exc!r}") from exc
-        self._pool: Any = self._make_pool()
-
-    # -- pool lifecycle ------------------------------------------------------
-
-    def _make_pool(self) -> Any:
-        if not self.processes:
-            return ThreadPoolExecutor(max_workers=self.n_workers)
-        ctx = multiprocessing.get_context("spawn")
-        # A fresh queue per pool: a worker killed mid-``put`` may leave the
-        # old one's lock held.
-        self._starts = ctx.SimpleQueue()
-        payload: bytes = self._payload or b""
-        initargs: Tuple[Any, ...] = (payload, self._starts)
-        return ProcessPoolExecutor(
-            max_workers=self.n_workers,
-            mp_context=ctx,
-            initializer=_process_worker_init,
-            initargs=initargs,
-        )
+        #: Futures of timed-out calls whose thread is still running.
+        self._abandoned: List[Future] = []
+        self._pool: Any = ThreadPoolExecutor(max_workers=self.n_workers)
 
     def _thread_eval(self, task_id: str, point: Any) -> Any:
         self._started[task_id] = (threading.get_ident(), time.time())
         self.events += 1
         return self.problem(point)
 
-    def _submit_future(self, task_id: str, point: Any) -> Future:
-        if self.processes:
-            try:
-                return self._pool.submit(_process_worker_eval, task_id, point)
-            except BrokenProcessPool as exc:
-                # A worker died since the last poll: the executor refuses new
-                # work synchronously.  Hand back a failed future so the next
-                # poll() sees the break and recovers (and resubmits this task).
-                failed: Future = Future()
-                failed.set_exception(exc)
-                return failed
-        return self._pool.submit(self._thread_eval, task_id, point)
-
-    def _replace_pool(self, kill: bool) -> None:
-        """Retire the current pool and move tasks to a fresh one.
-
-        Processes: every task is resubmitted (the old workers are killed or
-        already dead).  Threads: only the tasks that had not started move;
-        the ones running finish in the retired executor's threads.
-        """
+    def _replace_executor(self) -> None:
+        """Retire the executor; tasks that had not started move to a fresh one."""
         old = self._pool
-        if kill:
-            old.kill_workers()
-        else:
-            old.shutdown(wait=False, cancel_futures=True)
-        self._pool = self._make_pool()
-        self._procs = {}
+        old.shutdown(wait=False, cancel_futures=True)
+        self._pool = ThreadPoolExecutor(max_workers=self.n_workers)
         for tid, task in self._tasks.items():
-            if not self.processes and not task.future.cancelled():
+            if not task.future.cancelled():
                 continue  # running (or done) in the old executor: leave it there
             self._started.pop(tid, None)
-            task.future = self._submit_future(tid, task.point)
+            task.future = self._pool.submit(self._thread_eval, tid, task.point)
 
     # -- public API ----------------------------------------------------------
 
     def submit(self, task_id: str, point: Any) -> None:
         """Queue one evaluation."""
-        self._tasks[task_id] = _Task(point, self._submit_future(task_id, point))
-        self._snapshot_procs()
-
-    def _snapshot_procs(self) -> None:
-        # Keep our own handles on the worker processes: a broken executor
-        # drops its table, and the exit codes are how a crash is attributed.
-        procs = getattr(self._pool, "_processes", None)
-        if procs:
-            self._procs.update(procs)
+        self._tasks[task_id] = _Task(point, self._pool.submit(self._thread_eval, task_id, point))
 
     def __len__(self) -> int:
         """Tasks queued or running."""
@@ -271,10 +190,9 @@ class LocalPool:
 
         A task is running (a worker picked it up and it has not been
         harvested), or it is queued on a pool whose workers can still pick it
-        up: worker processes alive (or not spawned yet), a thread executor not
-        shut down.  How long a task runs is limited only by
-        ``evaluation.timeout``; the caller's deadlock backstop reads this so
-        that it never cuts a running evaluation.
+        up.  How long a task runs is limited only by ``evaluation.timeout``;
+        the caller's deadlock backstop reads this so that it never cuts a
+        running evaluation.
         """
         if not self._tasks:
             return False
@@ -283,27 +201,13 @@ class LocalPool:
         return self._workers_alive()
 
     def _workers_alive(self) -> bool:
-        pool = self._pool
-        if getattr(pool, "_broken", False):
-            return False  # poll() recovers a broken pool; until then nothing can start
-        if self.processes:
-            procs = getattr(pool, "_processes", None) or {}
-            # No process yet: the executor spawns its workers on submit.
-            return not procs or any(proc.is_alive() for proc in procs.values())
-        return not getattr(pool, "_shutdown", False)
+        return not getattr(self._pool, "_shutdown", False)
 
-    def _drain_starts(self) -> None:
-        if not self.processes or self._starts is None:
-            return
-        try:
-            while not self._starts.empty():
-                tid, pid, t = self._starts.get()
-                if tid in self._tasks:
-                    self._started[tid] = (pid, t)
-                    self.events += 1
-        except (OSError, EOFError):  # pragma: no cover - queue torn down
-            pass
-        self._snapshot_procs()
+    @property
+    def abandoned(self) -> int:
+        """Timed-out evaluation threads that are still running."""
+        self._abandoned = [f for f in self._abandoned if not f.done()]
+        return len(self._abandoned)
 
     def poll(self, timeout: Optional[float] = None) -> List[Outcome]:
         """Harvest finished, failed and timed-out tasks without blocking.
@@ -311,10 +215,8 @@ class LocalPool:
         ``timeout`` is the per-evaluation limit in seconds of *running* time
         (``None``: no limit).
         """
-        self._drain_starts()
         out: List[Outcome] = []
         now = time.time()
-        broken = False
         timed_out: List[str] = []
         for tid, task in list(self._tasks.items()):
             f = task.future
@@ -324,15 +226,10 @@ class LocalPool:
                     exc = f.exception()
                 except CancelledError as ce:
                     exc = ce
-                if isinstance(exc, BrokenProcessPool):
-                    broken = True
-                    continue
                 del self._tasks[tid]
                 self._started.pop(tid, None)
                 self.events += 1
                 t0 = started[1] if started else None
-                if started is not None:
-                    self._idle_breaks = 0  # an evaluation ran: the workers can load the problem
                 if exc is not None:
                     out.append(Outcome(tid, False, error=repr(exc), started=t0, point=task.point))
                 else:
@@ -342,86 +239,38 @@ class LocalPool:
         for tid in timed_out:
             task = self._tasks.pop(tid)
             task.future.cancel()
+            self._abandoned.append(task.future)
             t0 = self._started.pop(tid)[1]
-            action = "killed" if self.processes else "abandoned (a thread cannot be interrupted)"
             out.append(
                 Outcome(
                     tid,
                     False,
-                    error="timed out after %.1fs; %s" % (timeout or 0.0, action),
+                    error="timed out after %.1fs; abandoned (a thread cannot be interrupted)" % (timeout or 0.0),
                     started=t0,
                     point=task.point,
                     timed_out=True,
                 )
             )
-        if timed_out and not broken:
-            # Processes: kill the timed-out worker (with the pool).  Threads:
-            # the abandoned thread keeps its slot, so move the waiting tasks
+        if timed_out:
+            # The abandoned thread keeps its slot, so move the waiting tasks
             # to a fresh executor rather than let n wedged threads starve them.
-            self._replace_pool(kill=self.processes)
-        if broken:
-            out.extend(self._recover_broken())
+            self._replace_executor()
+            self._warn_abandoned()
         return out
 
-    def _recover_broken(self) -> List[Outcome]:
-        """The pool broke: report the task whose worker died, resubmit the rest to a fresh pool."""
-        self._drain_starts()
-        # Give the executor a moment to reap its processes so exit codes are set.
-        for p in self._procs.values():
-            try:
-                p.join(1.0)
-            except Exception:  # pragma: no cover
-                pass
-        out: List[Outcome] = []
-        # Started and unfinished when the pool broke: one of them killed it.
-        suspects = []
-        for tid, task in self._tasks.items():
-            f = task.future
-            if f.done() and not f.cancelled() and f.exception() is None:
-                continue  # finished just before the break: harvested next poll
-            if tid in self._started:
-                suspects.append(tid)
-        if not suspects:
-            # Nothing was running: the workers died loading the problem.
-            self._idle_breaks += 1
-            if self._idle_breaks >= MAX_IDLE_BREAKS:
-                raise WorkerInitError(
-                    "Worker processes cannot initialise the problem: the process pool broke %d times before "
-                    "any evaluation started. Is the problem class importable in a fresh interpreter (not "
-                    "defined in __main__ or a notebook), and does it unpickle without errors?" % self._idle_breaks
-                )
+    def _warn_abandoned(self) -> None:
+        n = self.abandoned
+        if self.logger is None or n == 0:
+            return
+        msg = (
+            "%d timed-out evaluation thread(s) still running in the background (a thread cannot be killed; "
+            "their results are discarded). Use evaluation.method 'processes' or 'dask' for objectives that "
+            "can hang." % n
+        )
+        if n >= ABANDONED_THREADS_WARN * self.n_workers:
+            self.logger.error(msg)
         else:
-            self._idle_breaks = 0
-        codes = {tid: getattr(self._procs.get(self._started[tid][0]), "exitcode", None) for tid in suspects}
-        for tid in suspects:
-            code = codes[tid]
-            task = self._tasks[tid]
-            task.strikes += 1  # caught in a break: capped whatever the exit code says
-            if code is not None and code != -signal.SIGTERM:
-                culprit = True  # its worker died on its own
-            elif code is None and len(suspects) == 1:
-                culprit = True  # the only evaluation that was running
-            else:
-                culprit = task.strikes >= MAX_BREAK_STRIKES
-            if culprit:
-                del self._tasks[tid]
-                t0 = self._started.pop(tid)[1]
-                out.append(
-                    Outcome(
-                        tid,
-                        False,
-                        error="worker process died (exit code %s, break %d) evaluating it" % (code, task.strikes),
-                        started=t0,
-                        point=task.point,
-                    )
-                )
-        if self.logger is not None:
-            self.logger.error(
-                "Process pool broke (a worker died); %d evaluation(s) failed, resubmitting %d."
-                % (len(out), len(self._tasks))
-            )
-        self._replace_pool(kill=False)
-        return out
+            self.logger.warning(msg)
 
     def wait(self, deadline: Optional[float] = None, poll_interval: float = 1e-3) -> None:
         """Block until a task can be harvested (or ``deadline``)."""
@@ -436,7 +285,7 @@ class LocalPool:
         """Cancel queued tasks, give running ones until ``deadline``, then stop the workers.
 
         Returns the number of evaluations still running at the deadline
-        (killed for processes, abandoned for threads).
+        (abandoned: a thread cannot be killed).
         """
         for task in self._tasks.values():
             task.future.cancel()
@@ -445,11 +294,315 @@ class LocalPool:
         if running:
             _done, still = futures_wait(running, timeout=max(0.0, deadline - time.time()))
         self._tasks.clear()
-        if self.processes:
-            if still:
-                self._pool.kill_workers()
-            else:
-                self._pool.shutdown(wait=True, cancel_futures=True)
-        else:
-            self._pool.shutdown(wait=False, cancel_futures=True)
+        self._pool.shutdown(wait=False, cancel_futures=True)
         return len(still)
+
+
+# ---------------------------------------------------------------------------
+# processes
+# ---------------------------------------------------------------------------
+
+
+def _worker_main(conn: Any, payload: bytes) -> None:
+    """A worker process: load the problem once, then evaluate one task at a time.
+
+    Protocol (over ``conn``): receives ``(task_id, point)`` or ``None``
+    (exit); sends ``("start", task_id, t)`` before each call — synchronously,
+    so the start is on the pipe even if the objective then kills the
+    process — and ``("ok", task_id, result)`` / ``("err", task_id, message)``
+    after it.
+    """
+    problem = pickle.loads(payload)  # an exception here ends the process: a failed init
+    while True:
+        try:
+            msg = conn.recv()
+        except (EOFError, OSError):
+            return
+        if msg is None:
+            return
+        task_id, point = msg
+        conn.send(("start", task_id, time.time()))
+        try:
+            result = problem(point)
+        except BaseException as exc:  # noqa: BLE001 - reported to the parent, the worker lives on
+            conn.send(("err", task_id, repr(exc)))
+            continue
+        try:
+            conn.send(("ok", task_id, result))
+        except Exception as exc:  # an unpicklable result
+            conn.send(("err", task_id, "result could not be sent: %r" % exc))
+
+
+class _Worker:
+    """One worker process of a :class:`ProcessPool`."""
+
+    def __init__(self, ctx: Any, payload: bytes) -> None:
+        self.conn, child = ctx.Pipe(duplex=True)
+        # Not a daemon: an objective may start processes of its own.  The
+        # pool kills its workers on close; ``_kill_all_at_exit`` covers an
+        # interpreter that exits without closing it.
+        self.proc = ctx.Process(target=_worker_main, args=(child, payload), daemon=False)
+        self.proc.start()
+        child.close()
+        self.task: Optional[str] = None
+        #: The pipe broke on send: reap it at the next poll.
+        self.broken = False
+        #: Reported the start of at least one evaluation (it loaded the problem).
+        self.started_any = False
+        _LIVE_WORKERS.add(self)
+
+    @property
+    def pid(self) -> int:
+        return int(self.proc.pid or 0)
+
+    def kill(self) -> None:
+        try:
+            if self.proc.is_alive():
+                self.proc.kill()
+            self.proc.join(1.0)
+        except Exception:  # pragma: no cover
+            pass
+        try:
+            self.conn.close()
+        except Exception:  # pragma: no cover
+            pass
+        _LIVE_WORKERS.discard(self)
+
+
+_LIVE_WORKERS: "set[_Worker]" = set()
+
+
+def _kill_all_at_exit() -> None:  # pragma: no cover - interpreter shutdown
+    for w in list(_LIVE_WORKERS):
+        w.kill()
+
+
+import atexit  # noqa: E402
+
+atexit.register(_kill_all_at_exit)
+
+
+class ProcessPool(LocalPool):
+    """Spawned worker processes evaluating ``problem``, each one task at a time.
+
+    The pool owns its workers (no ``ProcessPoolExecutor``), so a timed-out
+    call is killed by killing exactly its worker, and a crash is attributed
+    exactly to the task that worker was running.  Workers are spawned on
+    demand, up to ``n_workers``, and replaced when they die.
+    """
+
+    def __init__(self, problem: Any, n_workers: int, processes: bool = True, logger: Any = None) -> None:
+        self.problem = problem
+        self.n_workers = max(1, int(n_workers))
+        self.processes = True
+        self.logger = logger
+        self._tasks: Dict[str, _Task] = {}
+        #: task id -> (worker pid, start wall time)
+        self._started: Dict[str, Tuple[int, float]] = {}
+        self.events = 0
+        self._abandoned = []
+        self._idle_breaks = 0
+        self._queue: Deque[str] = collections.deque()
+        self._workers: List[_Worker] = []
+        #: Outcomes found outside :meth:`poll` (an unsendable point), reported by the next poll.
+        self._pending_outcomes: List[Outcome] = []
+        self._ctx = multiprocessing.get_context("spawn")
+        try:
+            self._payload: bytes = pickle.dumps(problem)
+        except Exception as exc:
+            raise TypeError(
+                "evaluation_method='processes' needs a picklable problem (defined at module level, "
+                f"no lambdas/closures): {exc!r}"
+            ) from exc
+        try:  # cheap probe; a spawned worker can still fail (e.g. a class from __main__)
+            pickle.loads(self._payload)
+        except Exception as exc:
+            raise TypeError(f"evaluation_method='processes': the problem does not unpickle: {exc!r}") from exc
+        self._pool = None  # no executor: see _workers
+
+    # -- workers ---------------------------------------------------------------
+
+    def _dispatch(self) -> None:
+        """Hand queued tasks to idle workers, spawning workers up to ``n_workers``."""
+        while self._queue:
+            worker = next((w for w in self._workers if w.task is None and not w.broken), None)
+            if worker is None:
+                if len(self._workers) >= self.n_workers:
+                    return
+                worker = _Worker(self._ctx, self._payload)
+                self._workers.append(worker)
+            tid = self._queue.popleft()
+            task = self._tasks[tid]
+            try:
+                worker.conn.send((tid, task.point))
+            except (BrokenPipeError, EOFError, OSError):
+                self._queue.appendleft(tid)  # the worker is gone: requeue, reap it in poll
+                worker.broken = True
+                continue
+            except Exception as exc:  # an unpicklable point: fail the task, keep the worker
+                del self._tasks[tid]
+                self._pending_outcomes.append(
+                    Outcome(tid, False, error="point could not be sent: %r" % exc, point=task.point)
+                )
+                continue
+            worker.task = tid
+
+    def _read(self, worker: _Worker, out: List[Outcome]) -> bool:
+        """Drain ``worker``'s pipe into ``out``; ``False`` if the worker is gone."""
+        try:
+            while worker.conn.poll(0):
+                kind, tid, payload = worker.conn.recv()
+                if kind == "start":
+                    worker.started_any = True
+                    self._idle_breaks = 0  # an evaluation ran: the workers can load the problem
+                    if tid in self._tasks:
+                        self._started[tid] = (worker.pid, float(payload))
+                        self.events += 1
+                    continue
+                worker.task = None
+                task = self._tasks.pop(tid, None)
+                started = self._started.pop(tid, None)
+                if task is None:
+                    continue
+                self.events += 1
+                t0 = started[1] if started else None
+                if kind == "ok":
+                    out.append(Outcome(tid, True, result=payload, started=t0, point=task.point))
+                else:
+                    out.append(Outcome(tid, False, error=str(payload), started=t0, point=task.point))
+        except (EOFError, OSError, pickle.UnpicklingError, ValueError, TypeError):
+            return False
+        return worker.proc.is_alive()
+
+    def _reap(self, worker: _Worker, out: List[Outcome]) -> None:
+        """``worker`` died: fail the task it was evaluating, or re-queue one that never started."""
+        worker.kill()
+        code = worker.proc.exitcode
+        self._workers.remove(worker)
+        tid = worker.task
+        if tid is not None and tid in self._tasks and tid in self._started:
+            task = self._tasks.pop(tid)
+            t0 = self._started.pop(tid)[1]
+            self.events += 1
+            out.append(
+                Outcome(
+                    tid,
+                    False,
+                    error="worker process died (exit code %s) evaluating it" % code,
+                    started=t0,
+                    point=task.point,
+                )
+            )
+            if self.logger is not None:
+                self.logger.error("A worker process died (exit code %s) evaluating %s; the run goes on." % (code, tid))
+            return
+        if tid is not None and tid in self._tasks:
+            self._queue.appendleft(tid)  # never started: not its fault
+        if worker.started_any:
+            return  # an idle worker that had evaluated before: just replace it
+        # Died before evaluating anything: loading the problem failed?
+        self._idle_breaks += 1
+        if self._idle_breaks >= MAX_IDLE_BREAKS:
+            raise WorkerInitError(
+                "Worker processes cannot initialise the problem: %d worker processes died before any evaluation "
+                "started. Is the problem class importable in a fresh interpreter (not defined in __main__ or a "
+                "notebook), and does it unpickle without errors?" % self._idle_breaks
+            )
+
+    # -- public API ----------------------------------------------------------
+
+    def submit(self, task_id: str, point: Any) -> None:
+        """Queue one evaluation."""
+        self._tasks[task_id] = _Task(point)
+        self._queue.append(task_id)
+        self._dispatch()
+
+    def waiting(self) -> bool:
+        """Outstanding tasks are always waited for: the pool spawns the workers it needs."""
+        return bool(self._tasks)
+
+    def _workers_alive(self) -> bool:
+        return True
+
+    def poll(self, timeout: Optional[float] = None) -> List[Outcome]:
+        """Harvest finished, failed and timed-out tasks without blocking.
+
+        ``timeout`` is the per-evaluation limit in seconds of *running* time
+        (``None``: no limit); a call past it is killed with its worker, and
+        only that call.
+        """
+        out: List[Outcome] = self._pending_outcomes
+        self._pending_outcomes = []
+        for worker in list(self._workers):
+            if not self._read(worker, out) or worker.broken:
+                self._read(worker, out)  # the process is gone: whatever it wrote is complete now
+                self._reap(worker, out)
+        if timeout is not None:
+            now = time.time()
+            for worker in list(self._workers):
+                tid = worker.task
+                started = self._started.get(tid) if tid is not None else None
+                if started is None or now - started[1] <= timeout:
+                    continue
+                task = self._tasks.pop(tid)  # type: ignore[arg-type]
+                self._started.pop(tid)  # type: ignore[arg-type]
+                worker.task = None
+                worker.kill()
+                self._workers.remove(worker)
+                self.events += 1
+                out.append(
+                    Outcome(
+                        tid,  # type: ignore[arg-type]
+                        False,
+                        error="timed out after %.1fs; its worker process was killed" % timeout,
+                        started=started[1],
+                        point=task.point,
+                        timed_out=True,
+                    )
+                )
+        self._dispatch()
+        return out
+
+    def wait(self, deadline: Optional[float] = None, poll_interval: float = 1e-3) -> None:
+        """Block until a worker reports something or dies (or ``deadline``)."""
+        if not self._tasks:
+            return
+        rest = None if deadline is None else max(0.0, deadline - time.time())
+        rest = poll_interval * 50 if rest is None else min(rest, poll_interval * 50)
+        handles: List[Any] = []
+        for w in self._workers:
+            handles.extend([w.conn, w.proc.sentinel])
+        if handles:
+            connection_wait(handles, timeout=rest)
+        else:
+            time.sleep(rest)
+
+    def close(self, deadline: float) -> int:
+        """Cancel queued tasks, give running ones until ``deadline``, then kill the workers.
+
+        Returns the number of evaluations still running at the deadline.
+        """
+        for tid in list(self._queue):
+            self._tasks.pop(tid, None)
+        self._queue.clear()
+        while any(w.task is not None for w in self._workers) and time.time() < deadline:
+            sink: List[Outcome] = []
+            for w in list(self._workers):
+                if w.task is not None and not self._read(w, sink):
+                    w.task = None
+            self.wait(deadline)
+        still = sum(1 for w in self._workers if w.task is not None)
+        for w in self._workers:
+            if w.task is None:
+                try:
+                    w.conn.send(None)  # a clean exit
+                except Exception:
+                    pass
+        for w in self._workers:
+            if w.task is None:
+                w.proc.join(0.5)
+            w.kill()
+        self._workers = []
+        self._tasks.clear()
+        self._started.clear()
+        return still

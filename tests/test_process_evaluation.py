@@ -755,24 +755,101 @@ def test_a_break_between_polls_does_not_escape_submit(seed, tmp_path):
     s.add(Random)
     s.start()
     assert (tmp_path / "m").exists()
-    # The crashing task fails when its dead worker is identified (59); when
-    # the exit code is lost it only takes a strike and its retry succeeds,
-    # because the marker makes the crash one-off (60).  Either way the run
-    # finishes inside the budget.
-    assert len(s.results) in (59, 60)
+    # A worker runs one task at a time, so the crash is attributed exactly:
+    # the crashing task fails, nothing else is lost or retried.
+    assert len(s.results) == 59
 
 
-def test_submit_to_a_broken_pool_returns_a_failed_future():
-    from concurrent.futures.process import BrokenProcessPool
-
+def test_submit_to_a_dead_worker_does_not_raise():
+    """A worker that died between polls: submit() re-queues, the next poll replaces the worker."""
     from panobbgo.lib import Point
-    from panobbgo.local_pool import LocalPool
+    from panobbgo.local_pool import LocalPool, ProcessPool
 
     pool = LocalPool(Rosenbrock(dim=2), 1, processes=True)
-    pool._pool._broken = "simulated"  # what the executor sets when a worker dies
-    f = pool._submit_future("t", Point(np.zeros(2), "t"))
-    assert isinstance(f.exception(), BrokenProcessPool)
-    pool.close(time.time())
+    assert isinstance(pool, ProcessPool)
+    try:
+        pool.submit("a", Point(np.zeros(2), "t"))
+        out = []
+        deadline = time.time() + 30
+        while not out and time.time() < deadline:
+            pool.wait()
+            out = pool.poll()
+        assert [o.ok for o in out] == [True]
+        [w] = pool._workers
+        w.proc.kill()
+        w.proc.join(5)
+        pool.submit("b", Point(np.ones(2), "t"))  # must not raise
+        out = []
+        deadline = time.time() + 30
+        while not out and time.time() < deadline:
+            pool.wait()
+            out = pool.poll()
+        assert [(o.task_id, o.ok) for o in out] == [("b", True)]  # never started: re-queued, not failed
+    finally:
+        pool.close(time.time())
+
+
+class _SleepPerPoint(Problem):
+    """Sleeps ``x[0]`` seconds (as a pid-stamped file records), then returns."""
+
+    def __init__(self, pid_dir):
+        self.pid_dir = str(pid_dir)
+        super().__init__([(0, 30), (0, 1)])
+
+    def eval(self, x):
+        import os
+
+        open(os.path.join(self.pid_dir, "%d-%g" % (os.getpid(), x[0])), "w").close()
+        time.sleep(float(x[0]))
+        return float(x[0])
+
+
+@pytest.mark.skipif(not __import__("os").path.isdir("/proc"), reason="needs /proc")
+def test_a_timeout_kills_only_that_call(tmp_path):
+    """Owner decision: the timed-out call dies, an evaluation in flight on another worker lives on.
+
+    ``slow`` (1.8 s) starts ~1 s after ``hang``, so it is mid-flight when
+    ``hang`` hits the 2 s limit; it must finish, evaluated exactly once.
+    """
+    from panobbgo.lib import Point
+    from panobbgo.local_pool import ProcessPool
+
+    pool = ProcessPool(_SleepPerPoint(tmp_path), 2)
+
+    def harvest(n, until=60.0):
+        got = {}
+        deadline = time.time() + until
+        while len(got) < n and time.time() < deadline:
+            pool.wait()
+            for o in pool.poll(timeout=2.0):
+                got[o.task_id] = o
+        return got
+
+    try:
+        pool.submit("warm1", Point(np.array([0.0, 0.0]), "t"))
+        pool.submit("warm2", Point(np.array([0.0, 0.0]), "t"))
+        assert len(harvest(2)) == 2  # both workers up
+        pool.submit("hang", Point(np.array([25.0, 0.0]), "t"))
+        deadline = time.time() + 10
+        while pool.running() == 0 and time.time() < deadline:
+            pool.wait()
+            assert pool.poll(timeout=2.0) == []
+        time.sleep(1.0)
+        pool.submit("slow", Point(np.array([1.8, 0.0]), "t"))
+        outcomes = harvest(2)
+        assert outcomes["hang"].timed_out and not outcomes["hang"].ok
+        assert outcomes["slow"].ok and outcomes["slow"].result.fx == 1.8
+        stamps = sorted(p.name for p in tmp_path.iterdir())
+        assert len([n for n in stamps if n.endswith("-1.8")]) == 1  # evaluated once, not restarted
+        hang_pid = int(next(n for n in stamps if n.endswith("-25")).split("-")[0])
+        slow_pid = int(next(n for n in stamps if n.endswith("-1.8")).split("-")[0])
+        assert hang_pid != slow_pid and _proc_alive(slow_pid)
+        deadline = time.time() + 5
+        while _proc_alive(hang_pid) and time.time() < deadline:
+            time.sleep(0.05)
+        assert not _proc_alive(hang_pid)
+    finally:
+        pool.close(time.time())
 
 
 def test_processes_are_not_stopped_by_the_backstop_while_workers_spawn():
@@ -914,3 +991,34 @@ def test_waiting_on_dask_warns_about_a_cluster_without_workers(monkeypatch):
     assert any(m.startswith("Waiting:") and "oldest queued/submitted" in m for m in msgs)
     assert any("zero workers" in m for m in msgs)
     assert len(s.results) == 1
+
+
+def test_abandoned_timed_out_threads_are_counted_and_warned_about():
+    """Threads cannot be killed: a timed-out call is abandoned, counted, and the user told to use processes."""
+    import threading
+    from unittest import mock
+
+    from panobbgo.lib import Point
+    from panobbgo.local_pool import LocalPool
+
+    release = threading.Event()
+    logger = mock.Mock()
+    pool = LocalPool(_BlockFirst(release, 10.0), 1, processes=False, logger=logger)
+    try:
+        pool.submit("a", Point(np.zeros(2), "t"))
+        deadline = time.time() + 5
+        while pool.running() == 0 and time.time() < deadline:
+            time.sleep(1e-3)
+        time.sleep(0.15)
+        [o] = pool.poll(timeout=0.1)
+        assert o.timed_out and "abandoned" in o.error
+        assert pool.abandoned == 1
+        [msg] = [c.args[0] for c in logger.warning.call_args_list]
+        assert "1 timed-out evaluation thread(s) still running" in msg and "'processes'" in msg
+    finally:
+        release.set()
+        pool.close(time.time() + 5)
+    deadline = time.time() + 5
+    while pool.abandoned and time.time() < deadline:
+        time.sleep(0.01)
+    assert pool.abandoned == 0  # the call returned in the background; its result was discarded

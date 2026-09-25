@@ -121,6 +121,35 @@ def evaluate_point(problem: Any, point: Any, timeout: Optional[float] = None) ->
     return call.result, call.seconds, call.error, call.timed_out
 
 
+def check_timeout_problem(problem: Any, logger: Any = None) -> None:
+    """Check once, before any task is submitted, that ``problem`` works under ``evaluation.timeout``.
+
+    With a timeout every call runs in a child interpreter
+    (:mod:`panobbgo.timeout_call`), so the problem must serialize — failing
+    here with a clear :class:`TypeError` beats failing point by point on the
+    workers.  Also warns that a :class:`~panobbgo.lib.noise.NoisyProblem`
+    with ``resample=True`` loses its per-point draw counter between calls
+    (each call evaluates a fresh copy), so its noise becomes frozen per point.
+    """
+    if problem is None:
+        return
+    from panobbgo.timeout_call import dumps
+
+    try:
+        dumps(problem)
+    except Exception as exc:
+        raise TypeError(
+            "evaluation.timeout with evaluation.method 'dask' runs every call in a child process, so the "
+            "problem must be serializable (cloudpickle): %r" % exc
+        ) from exc
+    if getattr(problem, "resample", False) and logger is not None:
+        logger.warning(
+            "evaluation.timeout with dask evaluates a fresh copy of the problem per call: "
+            "NoisyProblem(resample=True) cannot count re-evaluations, so a point re-evaluated draws the "
+            "same noise (as with resample=False)."
+        )
+
+
 def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
     """
     Run evaluation using Dask distributed computing.
@@ -138,6 +167,9 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
     _warn_ignored_options(strategy)
     t = getattr(strategy.config, "evaluation_timeout", None)
     timeout = float(t) if t else None
+    if timeout is not None and not getattr(strategy, "_dask_timeout_checked", False):
+        check_timeout_problem(getattr(strategy, "problem", None), strategy.logger)
+        setattr(strategy, "_dask_timeout_checked", True)
 
     # distribute work using Dask futures
     # Submit each point as a separate task; remember its point so a failure

@@ -1075,3 +1075,45 @@ def test_abandoned_timed_out_threads_are_counted_and_warned_about():
     while pool.abandoned and time.time() < deadline:
         time.sleep(0.01)
     assert pool.abandoned == 0  # the call returned in the background; its result was discarded
+
+
+class _SpawnsASleeper(Problem):
+    """Starts ``sleep 60`` as a subprocess (records its pid), then hangs."""
+
+    def __init__(self, pid_file):
+        self.pid_file = str(pid_file)
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        import subprocess
+
+        proc = subprocess.Popen(["sleep", "60"])
+        with open(self.pid_file, "w") as f:
+            f.write(str(proc.pid))
+        time.sleep(60)
+        return 0.0
+
+
+@pytest.mark.skipif(not __import__("os").path.isdir("/proc"), reason="needs /proc")
+def test_a_timeout_also_kills_the_objectives_own_subprocesses(tmp_path):
+    """Workers run in their own process group; killing one kills what its objective started."""
+    from panobbgo.lib import Point
+    from panobbgo.local_pool import ProcessPool
+
+    pid_file = tmp_path / "pid"
+    pool = ProcessPool(_SpawnsASleeper(pid_file), 1)
+    try:
+        pool.submit("a", Point(np.zeros(2), "t"))
+        out = []
+        deadline = time.time() + 60
+        while not out and time.time() < deadline:
+            pool.wait()
+            out = pool.poll(timeout=1.5)
+        assert [o.timed_out for o in out] == [True]
+        sleeper = int(pid_file.read_text())
+        deadline = time.time() + 5
+        while _proc_alive(sleeper) and time.time() < deadline:
+            time.sleep(0.05)
+        assert not _proc_alive(sleeper)
+    finally:
+        pool.close(time.time())

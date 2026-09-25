@@ -68,7 +68,9 @@ from __future__ import annotations
 
 import collections
 import multiprocessing
+import os
 import pickle
+import signal
 import threading
 import time
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
@@ -312,6 +314,10 @@ def _worker_main(conn: Any, payload: bytes) -> None:
     process — and ``("ok", task_id, result)`` / ``("err", task_id, message)``
     after it.
     """
+    if hasattr(os, "setsid"):
+        # Its own process group: killing this worker (a timeout) also kills
+        # whatever the objective started.
+        os.setsid()
     problem = pickle.loads(payload)  # an exception here ends the process: a failed init
     while True:
         try:
@@ -356,6 +362,12 @@ class _Worker:
         return int(self.proc.pid or 0)
 
     def kill(self) -> None:
+        """Kill the worker and its process group (the objective's own subprocesses)."""
+        try:
+            if self.proc.pid is not None and hasattr(os, "killpg"):
+                os.killpg(self.proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass  # not yet its own group (still starting), or already gone
         try:
             if self.proc.is_alive():
                 self.proc.kill()
@@ -506,7 +518,9 @@ class ProcessPool(LocalPool):
             raise WorkerInitError(
                 "Worker processes cannot initialise the problem: %d worker processes died before any evaluation "
                 "started. Is the problem class importable in a fresh interpreter (not defined in __main__ or a "
-                "notebook), and does it unpickle without errors?" % self._idle_breaks
+                "notebook), and does it unpickle without errors?  A script that starts worker processes needs "
+                "its optimization code under 'if __name__ == \"__main__\":' (spawned workers re-import it).  "
+                "Points must be picklable too." % self._idle_breaks
             )
 
     # -- public API ----------------------------------------------------------

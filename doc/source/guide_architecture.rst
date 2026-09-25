@@ -739,9 +739,13 @@ heuristics see a bad point and every ranking puts it last.
 * ``dask``: the task on the dask worker runs the objective in a child
   process (:func:`panobbgo.timeout_call.call_with_timeout`) and kills that
   child when the call runs too long, so a hung objective never holds its
-  worker.  The problem must be importable in a fresh interpreter on the
-  worker.  Without a timeout the objective runs in the worker itself, as
-  before.
+  worker.  The problem must be serializable and importable in a fresh
+  interpreter on the worker (checked once before the first task).  Each call
+  evaluates a *fresh copy* of the problem, so state it accumulates while
+  evaluating does not carry over between calls — e.g. a
+  :class:`~panobbgo.lib.noise.NoisyProblem` with ``resample=True`` draws
+  the same noise on every re-evaluation (a warning says so).  Without a
+  timeout the objective runs in the worker itself, as before.
 * ``threaded``: a thread cannot be killed — a timed-out call is
   *abandoned*: it keeps running in the background and its result is
   discarded; abandoned threads are counted and warned about.  Use

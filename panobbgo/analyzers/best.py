@@ -15,6 +15,26 @@
 from __future__ import unicode_literals
 
 from panobbgo.core import Analyzer
+from panobbgo.lib.constraints import _finite_or_inf
+
+
+def _fx(r) -> float:
+    """``r.fx`` for comparisons: ``NaN`` / ``None`` rank last (``+inf``).
+
+    Every comparison with ``NaN`` is ``False``, so a ``NaN`` incumbent was
+    never replaced.
+    """
+    return _finite_or_inf(r.fx)
+
+
+def _cv(r) -> float:
+    """``r.cv`` for comparisons, ``NaN`` ranking last like in :func:`_fx`."""
+    return _finite_or_inf(r.cv)
+
+
+def _lexicographic_better(old, new) -> bool:
+    """``new`` beats ``old`` by (cv, fx) — the fallback without a handler."""
+    return _cv(new) < _cv(old) or (_cv(new) == _cv(old) and _fx(new) < _fx(old))
 
 
 class Best(Analyzer):
@@ -129,7 +149,7 @@ class Best(Analyzer):
         # stepwise monotone decreasing pareto front
         pf = self.pareto_front
         pf.append(result)
-        pf = sorted(pf)
+        pf = sorted(pf, key=_fx)
         pf_new = [pf[0]]
         for pp in pf[1:]:
             if pf_new[-1].cv > pp.cv:
@@ -145,12 +165,16 @@ class Best(Analyzer):
 
     def on_new_results(self, results):
         for r in results:
-            if (self._min is None) or (r.fx < self._min.fx) or (r.fx == self._min.fx and r.cv < self._min.cv):
+            if (
+                (self._min is None)
+                or (_fx(r) < _fx(self._min))
+                or (_fx(r) == _fx(self._min) and _cv(r) < _cv(self._min))
+            ):
                 # self.logger.info(u"\u2318 %s by %s" %(r, r.who))
                 self._min = r
                 self.eventbus.publish("new_min", min=r)
 
-            if (self._cv is None) or (r.cv < self._cv.cv) or (r.cv == self._cv.cv and r.fx < self._cv.fx):
+            if (self._cv is None) or _lexicographic_better(self._cv, r):
                 self._cv = r
                 self.eventbus.publish("new_cv", cv=r)
 
@@ -162,10 +186,7 @@ class Best(Analyzer):
                 is_better = self.strategy.constraint_handler.is_better(self._pareto, r)
             else:
                 # Fallback to default lexicographic behavior
-                if r.cv < self._pareto.cv:
-                    is_better = True
-                elif r.cv == self._pareto.cv and r.fx < self._pareto.fx:
-                    is_better = True
+                is_better = _lexicographic_better(self._pareto, r)
 
             if is_better:
                 self._pareto = r
@@ -203,10 +224,7 @@ class Best(Analyzer):
                 is_better = self.strategy.constraint_handler.is_better(self._pareto, r)
             else:
                 # Fallback to default lexicographic behavior
-                if r.cv < self._pareto.cv:
-                    is_better = True
-                elif r.cv == self._pareto.cv and r.fx < self._pareto.fx:
-                    is_better = True
+                is_better = _lexicographic_better(self._pareto, r)
 
             if is_better:
                 self.logger.info(f"Updated best point due to criteria change: {r.fx} (cv={r.cv})")

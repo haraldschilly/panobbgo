@@ -181,3 +181,22 @@ def test_on_new_pareto_front_reports_progress():
     analyzer.on_new_pareto_front([Result(Point(np.array([0.0]), "test"), 5.0)])
 
     assert strategy._progress_updated
+
+
+def test_best_min_and_cv_recover_from_a_nan_objective():
+    """A NaN objective ranks last; it does not pin ``min`` / ``cv`` forever.
+
+    Every comparison with NaN is False, so an early NaN result used to stay
+    ``min`` (and ``cv`` on a tie in cv) for the rest of the run.
+    """
+    strategy = MockStrategyNoCH()
+    analyzer = Best(strategy)
+    r_nan = Result(Point(np.array([0.0]), "test"), float("nan"))
+    r1 = Result(Point(np.array([1.0]), "test"), 5.0)
+    r2 = Result(Point(np.array([2.0]), "test"), 3.0)
+    analyzer.on_new_results([r_nan])
+    analyzer.on_new_results([r1, r2])
+    assert analyzer.min is r2
+    assert analyzer.cv is r2
+    assert analyzer.best is r2
+    assert analyzer.pareto_front == [r2]

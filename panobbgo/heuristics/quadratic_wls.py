@@ -17,10 +17,9 @@ from panobbgo.core import HeuristicSubprocess
 import numpy as np
 from functools import reduce
 import operator
+import threading
 import time
-
-#: Sentinel: no reply within :attr:`QuadraticWlsModel.reply_timeout`.
-_TIMED_OUT = object()
+from typing import Any, List, Optional
 
 
 def rank_weights(distances):
@@ -35,25 +34,60 @@ def rank_weights(distances):
 
 
 class QuadraticWlsModel(HeuristicSubprocess):
-    """
-    This heuristic uses an quadratic OLS model to find an approximate new best point
-    for each new best box (the latter is subject to change).
+    """Fit a weighted quadratic model to the best box and propose its minimiser.
 
-    The actual calculation is performed out of process.
+    For each new best box the results in it are fitted by weighted least
+    squares (weights :func:`rank_weights` of the distance to the box's best
+    point), and the minimiser of the fitted quadratic within the problem box
+    becomes the next search point.
+
+    The fit runs in a worker subprocess and is **pulled** from the main
+    loop's thread, like the solver bridges
+    (:class:`~panobbgo.core.PipeBridgeHeuristic`):
+
+    * :meth:`on_new_best_box` runs on the event-bus thread and only
+      *records* a snapshot of the latest best box.  It never touches the
+      pipe, so a slow fit cannot stall the other handlers.  Boxes that
+      arrive before the next :meth:`produce` coalesce: the latest one wins.
+    * :meth:`produce` (main thread) sends the recorded box to the worker and
+      collects its answer.  Under ``sync_evaluation`` it waits for the fit —
+      :attr:`fit_timeout` is only a deadlock backstop for a wedged worker —
+      so the emitted point is a function of the event sequence, not of
+      machine speed.  Otherwise it takes an answer only when one is ready
+      and returns ``[]`` in the meantime.
+
+    At most one fit is outstanding.  Every request carries an id and every
+    reply echoes it, so a reply to an abandoned request (after the backstop
+    fired) is recognised and dropped.
     """
 
     #: Reads Splitter boxes / subscribes to its events (installed on demand).
     requires_analyzers = ("Splitter",)
 
-    #: Seconds :meth:`on_new_best_box` waits for the worker's fit.
-    reply_timeout = 10.0
+    #: Points are produced on the caller's thread (see :meth:`produce`).
+    on_demand = True
+
+    #: Deadlock backstop for the synchronous wait in :meth:`produce`, in
+    #: seconds.  Not a scheduling parameter: a live worker is waited for as
+    #: long as its fit takes, and this only expires when it is wedged.
+    fit_timeout: float = 60.0
+
+    #: Granularity of that wait: how quickly a *dead* worker is noticed.
+    _poll_slice: float = 0.05
 
     def __init__(self, strategy):
         HeuristicSubprocess.__init__(self, strategy)
         self.logger = self.config.get_logger("H:WLS")
         #: Id of the last request sent; every reply echoes the id it answers,
-        #: so a late reply to a timed-out request is recognised and dropped.
+        #: so a late reply to an abandoned request is recognised and dropped.
         self._request_id = 0
+        #: Id of the request whose reply we are waiting for, or ``None``.
+        #: Main thread only.
+        self._inflight_id: Optional[int] = None
+        #: ``(points, fx_vals, best_x)`` of the latest best box, recorded on
+        #: the event-bus thread and consumed by :meth:`produce`.
+        self._pending_fit: Optional[tuple] = None
+        self._pending_lock = threading.Lock()
 
     @staticmethod
     def subprocess(pipe):
@@ -142,8 +176,11 @@ class QuadraticWlsModel(HeuristicSubprocess):
                     pass
 
     def on_new_best_box(self, best_box):
-        # self.logger.info("")
-        # self.logger.debug("best_box.best: %s" % best_box.best)
+        """Record a snapshot of ``best_box`` for the next :meth:`produce`.
+
+        Runs on the event-bus thread: cheap, no pipe I/O.  The arrays are
+        copied here because the box keeps changing as results arrive.
+        """
         get_val = self.strategy.constraint_handler.get_penalty_value
         # Only finite penalty values reach the least-squares fit (an infinite
         # one, e.g. from a NaN constraint, would make it nan).
@@ -152,40 +189,100 @@ class QuadraticWlsModel(HeuristicSubprocess):
             return
         pointarray = np.r_[[r.x for r, _ in usable]]
         fx_vals = np.array([v for _, v in usable], dtype=float)
+        best_x = np.array(best_box.best.x, dtype=float)
+        with self._pending_lock:
+            self._pending_fit = (pointarray, fx_vals, best_x)
 
+    # -- the pull side (main thread) ---------------------------------------
+
+    @property
+    def can_produce(self) -> bool:
+        """A queued point, a recorded box to fit, or a fit on its way."""
+        if self.has_points:
+            return True
+        if self._stopped or not self._worker_alive():
+            return False
+        return self._pending_fit is not None or self._inflight_id is not None
+
+    def produce(self, limit: Optional[int] = None, timeout: Optional[float] = None) -> List[Any]:
+        """Send the latest recorded box to the worker and hand out its answer.
+
+        Under ``sync_evaluation`` this waits for the fit (``timeout``, default
+        :attr:`fit_timeout`, is a deadlock backstop only); otherwise it never
+        blocks and returns ``[]`` while the fit is still running.
+        """
+        if self._stopped:
+            return []
         try:
-            # Send bounds as list of tuples for scipy compatibility
-            # self.problem.box is a BoundingBox object which might not be fully compatible
-            bounds = [tuple(row) for row in self.problem.box.box]
-            self._request_id += 1
-            req_id = self._request_id
-            self.pipe.send((req_id, pointarray, bounds, best_box.best.x, fx_vals))
-
-            reply = self._await_reply(req_id)
-            if reply is _TIMED_OUT:
-                self.logger.warning("QuadraticWlsModel subprocess timed out waiting for solution.")
-            elif reply is not None:
-                self.emit(reply)
-            else:
-                self.logger.warning("QuadraticWlsModel subprocess returned None (error occurred).")
+            self._collect_reply(wait=0.0)
+            if self._inflight_id is None:
+                self._send_pending()
+            if self._inflight_id is not None and self._sync():
+                self._collect_reply(wait=self.fit_timeout if timeout is None else timeout)
+        except (EOFError, OSError) as e:
+            self.logger.warning("QuadraticWlsModel: worker pipe closed (%s)." % e)
+            self._inflight_id = None
         except Exception as e:
             self.logger.error(f"Error communicating with QuadraticWlsModel subprocess: {e}")
+            self._inflight_id = None
+        return self.get_points(limit)
 
-    def _await_reply(self, req_id):
-        """The worker's answer to request *req_id*, or :data:`_TIMED_OUT`.
+    def _sync(self) -> bool:
+        return bool(getattr(self.config, "sync_evaluation", False))
 
-        Replies to earlier requests (which timed out here, and whose answer
-        arrived late) are read and dropped: without the id, every later
-        emission would be the answer to the box before.  A failure reply
-        whose request could not be read (id ``None``) counts as the answer
-        to *req_id*, the only request that can be outstanding.
+    def _worker_alive(self) -> bool:
+        proc = getattr(self, "_HeuristicSubprocess__subprocess", None)
+        return proc is not None and proc.is_alive()
+
+    def _send_pending(self) -> None:
+        """Send the recorded box, if any, as a new request."""
+        with self._pending_lock:
+            pending, self._pending_fit = self._pending_fit, None
+        if pending is None:
+            return
+        pointarray, fx_vals, best_x = pending
+        # Bounds as a list of tuples for scipy compatibility.
+        bounds = [tuple(row) for row in self.problem.box.box]
+        self._request_id += 1
+        self.pipe.send((self._request_id, pointarray, bounds, best_x, fx_vals))
+        self._inflight_id = self._request_id
+
+    def _collect_reply(self, wait: float) -> None:
+        """Read replies for up to ``wait`` seconds until the in-flight one arrives; emit it.
+
+        Replies to earlier, abandoned requests are read and dropped: without
+        the id, every later emission would be the answer to the box before.
+        A failure reply whose request could not be read (id ``None``) counts
+        as the answer to the in-flight request, the only one outstanding.
+        With ``wait > 0`` an expired deadline abandons the request — a
+        wedged worker, logged as an error.
         """
-        deadline = time.monotonic() + self.reply_timeout
+        if self._inflight_id is None:
+            return
+        deadline = time.monotonic() + wait
         while True:
             remaining = deadline - time.monotonic()
-            if remaining <= 0 or not self.pipe.poll(remaining):
-                return _TIMED_OUT
+            if not self.pipe.poll(max(0.0, min(self._poll_slice, remaining)) if wait > 0 else 0):
+                if wait <= 0:
+                    return  # async: not ready yet, try again on the next pull
+                if not self._worker_alive() and not self.pipe.poll(0):
+                    self.logger.warning("QuadraticWlsModel: worker process is not running.")
+                    self._inflight_id = None
+                    return
+                if remaining <= 0:
+                    self.logger.error(
+                        "QuadraticWlsModel: no reply from the worker for %.0fs; abandoning request %s. "
+                        "This is a bug, not a slow fit." % (wait, self._inflight_id)
+                    )
+                    self._inflight_id = None
+                    return
+                continue
             rid, sol = self.pipe.recv()
-            if rid == req_id or rid is None:
-                return sol
+            if rid == self._inflight_id or rid is None:
+                self._inflight_id = None
+                if sol is not None:
+                    self.emit(sol)
+                else:
+                    self.logger.warning("QuadraticWlsModel subprocess returned None (error occurred).")
+                return
             self.logger.debug("QuadraticWlsModel: dropping a stale reply to request %s." % rid)

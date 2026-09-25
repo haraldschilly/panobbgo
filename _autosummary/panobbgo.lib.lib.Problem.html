@@ -145,8 +145,13 @@ information about the problem, etc.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
 e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
-<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
-n-dimensional vector (default: None)</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translation of the whole problem, an n-dimensional
+vector (default: None).  The search box becomes
+<code class="docutils literal notranslate"><span class="pre">box</span> <span class="pre">+</span> <span class="pre">dx</span></code> and the objective is evaluated at <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">-</span> <span class="pre">dx</span></code>,
+i.e. the problem seen by the optimiser is
+<span class="math notranslate nohighlight">\(g(x) = f(x - dx)\)</span> and a minimiser <span class="math notranslate nohighlight">\(x^*\)</span> of
+<span class="math notranslate nohighlight">\(f\)</span> moves to <span class="math notranslate nohighlight">\(x^* + dx\)</span>.  Every point the
+objective sees lies in the original <code class="docutils literal notranslate"><span class="pre">box</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -158,8 +163,13 @@ n-dimensional vector (default: None)</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>box</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – list of tuples for the bounding box with length n,
 e.g.: <span class="math notranslate nohighlight">\(\left[ (-1,1), (-100, 0), (0, 0.01) \right]\)</span>.</p></li>
-<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translational offset which also affects the box,
-n-dimensional vector (default: None)</p></li>
+<li><p><strong>dx</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a>) – translation of the whole problem, an n-dimensional
+vector (default: None).  The search box becomes
+<code class="docutils literal notranslate"><span class="pre">box</span> <span class="pre">+</span> <span class="pre">dx</span></code> and the objective is evaluated at <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">-</span> <span class="pre">dx</span></code>,
+i.e. the problem seen by the optimiser is
+<span class="math notranslate nohighlight">\(g(x) = f(x - dx)\)</span> and a minimiser <span class="math notranslate nohighlight">\(x^*\)</span> of
+<span class="math notranslate nohighlight">\(f\)</span> moves to <span class="math notranslate nohighlight">\(x^* + dx\)</span>.  Every point the
+objective sees lies in the original <code class="docutils literal notranslate"><span class="pre">box</span></code>.</p></li>
 </ul>
 </dd>
 </dl>

@@ -208,6 +208,20 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.validate_setup"><code class="docutils literal notranslate"><span class="pre">StrategyBase.validate_setup()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#local-evaluation-pool">Local Evaluation Pool</a><ul>
+<li><a class="reference internal" href="#module-panobbgo.local_pool">Local evaluation pool</a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool"><code class="docutils literal notranslate"><span class="pre">LocalPool</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.close"><code class="docutils literal notranslate"><span class="pre">LocalPool.close()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.events"><code class="docutils literal notranslate"><span class="pre">LocalPool.events</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.poll"><code class="docutils literal notranslate"><span class="pre">LocalPool.poll()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.running"><code class="docutils literal notranslate"><span class="pre">LocalPool.running()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.submit"><code class="docutils literal notranslate"><span class="pre">LocalPool.submit()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.wait"><code class="docutils literal notranslate"><span class="pre">LocalPool.wait()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.local_pool.Outcome"><code class="docutils literal notranslate"><span class="pre">Outcome</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#dask-evaluation-backend">Dask Evaluation Backend</a><ul>
 <li><a class="reference internal" href="#dask-based-distributed-evaluation-backend">Dask-based distributed evaluation backend</a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.DaskEvaluators"><code class="docutils literal notranslate"><span class="pre">DaskEvaluators</span></code></a><ul>
@@ -1213,6 +1227,118 @@ that would cause the optimization to fail or behave unexpectedly.</p>
 
 </dd></dl>
 
+<section id="local-evaluation-pool">
+<h2>Local Evaluation Pool<a class="headerlink" href="#local-evaluation-pool" title="Link to this heading">#</a></h2>
+<p>Backend of <code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;threaded&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code>.</p>
+<section id="module-panobbgo.local_pool">
+<span id="id1"></span><h3>Local evaluation pool<a class="headerlink" href="#module-panobbgo.local_pool" title="Link to this heading">#</a></h3>
+<p>The backend of <code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;threaded&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code>:
+evaluations are submitted by task id and harvested without blocking by
+<a class="reference internal" href="#panobbgo.local_pool.LocalPool.poll" title="panobbgo.local_pool.LocalPool.poll"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LocalPool.poll()</span></code></a>, which reports every task exactly once, as a result
+or as a failure.</p>
+<p>What it guarantees beyond a bare executor:</p>
+<ul class="simple">
+<li><p><strong>The timeout counts running time only.</strong>  The clock of a task starts
+when a worker picks it up (a thread records it; a worker process reports
+it through a queue), so time spent queued behind other evaluations never
+times a task out.</p></li>
+<li><p><strong>Processes: a timed-out evaluation is killed, not abandoned.</strong>  The
+pool’s workers are killed and a fresh pool takes over; the other
+in-flight tasks are resubmitted (they lose their progress, not their
+place in the budget).</p></li>
+<li><p><strong>Threads: a timed-out evaluation is abandoned</strong> — a thread cannot be
+interrupted, so it runs to completion in the background.  So that it
+cannot hold a worker slot forever, the executor is retired
+(<code class="docutils literal notranslate"><span class="pre">shutdown(wait=False)</span></code>) and the tasks that had not started yet move to
+a fresh <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code>.  <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code> threads are not
+daemon threads: an abandoned evaluation that never returns keeps the
+interpreter from exiting.  Use <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code> for objectives that can
+hang.</p></li>
+<li><p><strong>Processes: a crashing evaluation does not end the run.</strong>  A worker
+that dies (<code class="docutils literal notranslate"><span class="pre">os._exit</span></code>, a segfault, the OOM killer) breaks a
+<code class="docutils literal notranslate"><span class="pre">ProcessPoolExecutor</span></code> and fails every in-flight future with
+<code class="docutils literal notranslate"><span class="pre">BrokenProcessPool</span></code>.  The task whose worker died is reported failed;
+the ones merely caught in the break are resubmitted to a fresh pool, and
+every task that was running during a break gets a strike — after
+<code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_BREAK_STRIKES</span></code> it is failed too, whatever the exit codes say,
+so a task cannot be retried forever.  A task that had <em>finished</em> in the
+worker but whose result had not arrived yet is evaluated again: the
+budget is charged once, but side effects of the objective happen twice.</p></li>
+<li><p><strong>Processes: workers that cannot load the problem are an error.</strong>  If
+the pool breaks before any evaluation started (the problem does not
+unpickle in a fresh interpreter — a class defined in <code class="docutils literal notranslate"><span class="pre">__main__</span></code> or a
+notebook, a <code class="docutils literal notranslate"><span class="pre">__setstate__</span></code> that raises), rebuilding cannot help:
+<code class="xref py py-class docutils literal notranslate"><span class="pre">WorkerInitError</span></code> is raised after <code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_IDLE_BREAKS</span></code> such
+breaks in a row.</p></li>
+<li><p><strong>Closing is bounded and leaves nothing running</strong> (<code class="xref py py-meth docutils literal notranslate"><span class="pre">close()</span></code>): queued
+tasks are cancelled, running ones get until the deadline, then worker
+processes are killed.</p></li>
+</ul>
+<p>Processes mode evaluates <em>copies</em> of the problem: each worker unpickles its
+own, so state the problem object accumulates while evaluating (counters,
+traces, caches, loggers) lives in the workers and is not seen by the
+caller’s object.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">LocalPool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool" title="Link to this definition">#</a></dt>
+<dd><p>Threads or spawned worker processes evaluating <code class="docutils literal notranslate"><span class="pre">problem</span></code> (see the module docstring).</p>
+<p>Not thread-safe: one thread (the strategy’s main loop) submits, polls
+and closes.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deadline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.close" title="Link to this definition">#</a></dt>
+<dd><p>Cancel queued tasks, give running ones until <code class="docutils literal notranslate"><span class="pre">deadline</span></code>, then stop the workers.</p>
+<p>Returns the number of evaluations still running at the deadline
+(killed for processes, abandoned for threads).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.events">
+<span class="sig-name descname"><span class="pre">events</span></span><a class="headerlink" href="#panobbgo.local_pool.LocalPool.events" title="Link to this definition">#</a></dt>
+<dd><p>the caller’s liveness check reads it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Starts and finishes seen</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.poll">
+<span class="sig-name descname"><span class="pre">poll</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#panobbgo.local_pool.Outcome" title="panobbgo.local_pool.Outcome"><span class="pre">Outcome</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.poll"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.poll" title="Link to this definition">#</a></dt>
+<dd><p>Harvest finished, failed and timed-out tasks without blocking.</p>
+<p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> is the per-evaluation limit in seconds of <em>running</em> time
+(<code class="docutils literal notranslate"><span class="pre">None</span></code>: no limit).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.running">
+<span class="sig-name descname"><span class="pre">running</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.running"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.running" title="Link to this definition">#</a></dt>
+<dd><p>Tasks that a worker has picked up and that have not been harvested.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.submit">
+<span class="sig-name descname"><span class="pre">submit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.submit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.submit" title="Link to this definition">#</a></dt>
+<dd><p>Queue one evaluation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.wait">
+<span class="sig-name descname"><span class="pre">wait</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deadline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poll_interval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.wait"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.wait" title="Link to this definition">#</a></dt>
+<dd><p>Block until a task can be harvested (or <code class="docutils literal notranslate"><span class="pre">deadline</span></code>).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.local_pool.Outcome">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">Outcome</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ok</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">started</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finished</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#Outcome"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.Outcome" title="Link to this definition">#</a></dt>
+<dd><p>What became of one task: <code class="docutils literal notranslate"><span class="pre">ok</span></code> with its <code class="docutils literal notranslate"><span class="pre">result</span></code>, or failed with an <code class="docutils literal notranslate"><span class="pre">error</span></code> message.</p>
+</dd></dl>
+
+</section>
 <section id="dask-evaluation-backend">
 <h2>Dask Evaluation Backend<a class="headerlink" href="#dask-evaluation-backend" title="Link to this heading">#</a></h2>
 <p>Optional distributed-evaluation backend (<code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;dask&quot;</span></code>),

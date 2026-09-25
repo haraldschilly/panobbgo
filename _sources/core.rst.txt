@@ -15,6 +15,14 @@ The core module provides the fundamental building blocks:
    :show-inheritance:
 
 
+Local Evaluation Pool
+---------------------
+
+Backend of ``evaluation_method = "threaded"`` and ``"processes"``.
+
+.. automodule:: panobbgo.local_pool
+   :members: LocalPool, Outcome
+
 Dask Evaluation Backend
 -----------------------
 

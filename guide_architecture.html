@@ -842,12 +842,21 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 <h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h3>
 <p>Parallelism parameters in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
-</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or 'dask'</span>
-</span><span data-line="3"><span class="w">  </span><span class="c1"># Dask specific configuration</span>
-</span><span data-line="4"><span class="w">  </span><span class="nt">dask</span><span class="p">:</span>
-</span><span data-line="5"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">localhost:8786</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or 'processes' or 'dask'</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">       </span><span class="c1"># optional: seconds of *running* time per evaluation</span>
+</span><span data-line="4"><span class="w">  </span><span class="c1"># Dask specific configuration</span>
+</span><span data-line="5"><span class="w">  </span><span class="nt">dask</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">localhost:8786</span>
 </span></pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">processes</span></code> evaluates in a pool of spawned worker processes
+(<a class="reference internal" href="core.html#module-panobbgo.local_pool" title="panobbgo.local_pool"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.local_pool</span></code></a>): the problem must be picklable, and the script
+needs an <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard.  Each worker evaluates its own
+<strong>copy</strong> of the problem, so state the problem object accumulates while
+evaluating (evaluation counters, traces, caches, loggers) lives in the
+workers and is not visible on the caller’s object.  An evaluation past
+<code class="docutils literal notranslate"><span class="pre">timeout</span></code> has its worker killed; a worker that crashes fails only its own
+evaluation.  Both still count against <code class="docutils literal notranslate"><span class="pre">max_eval</span></code>.</p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[optimization]</span>
 </span><span data-line="2"><span class="na">queue_capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">      </span><span class="c1"># Heuristic queue size</span>
 </span></pre></div>

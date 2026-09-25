@@ -668,21 +668,29 @@ problems and strategies without starting an optimization run.</p>
 <section id="problem-wrappers">
 <h3>Problem Wrappers<a class="headerlink" href="#problem-wrappers" title="Link to this heading">#</a></h3>
 <p>Instead of modifying your problem class, use composable wrappers from <a class="reference internal" href="lib.html#module-panobbgo.lib.wrappers" title="panobbgo.lib.wrappers"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.lib.wrappers</span></code></a>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.wrappers</span><span class="w"> </span><span class="kn">import</span> <span class="n">NormalizedProblem</span><span class="p">,</span> <span class="n">NoisyProblem</span><span class="p">,</span> <span class="n">LogTransformProblem</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Normalize all dimensions to [0, 1]</span>
-</span><span data-line="4"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
-</span><span data-line="5">
-</span><span data-line="6"><span class="c1"># Add noise for robustness testing (seed for reproducibility)</span>
-</span><span data-line="7"><span class="n">problem</span> <span class="o">=</span> <span class="n">NoisyProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
-</span><span data-line="8">
-</span><span data-line="9"><span class="c1"># Log-transform for objectives spanning orders of magnitude</span>
-</span><span data-line="10"><span class="n">problem</span> <span class="o">=</span> <span class="n">LogTransformProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
-</span><span data-line="11">
-</span><span data-line="12"><span class="c1"># Compose multiple wrappers</span>
-</span><span data-line="13"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">NoisyProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.05</span><span class="p">))</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">NoisyProblem</span>  <span class="c1"># = panobbgo.lib.noise.NoisyProblem</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.noise</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdditiveGaussianNoise</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.wrappers</span><span class="w"> </span><span class="kn">import</span> <span class="n">NormalizedProblem</span><span class="p">,</span> <span class="n">LogTransformProblem</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Normalize all dimensions to [0, 1]</span>
+</span><span data-line="6"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># Add noise for robustness testing: a pure function of (seed, x), so</span>
+</span><span data-line="9"><span class="c1"># runs are reproducible whatever the evaluation order or thread.</span>
+</span><span data-line="10"><span class="c1"># resample=True draws fresh noise on each re-evaluation of the same x.</span>
+</span><span data-line="11"><span class="n">problem</span> <span class="o">=</span> <span class="n">NoisyProblem</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">AdditiveGaussianNoise</span><span class="p">(</span><span class="n">sigma</span><span class="o">=</span><span class="mf">0.1</span><span class="p">),</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># Log-transform for objectives spanning orders of magnitude</span>
+</span><span data-line="14"><span class="n">problem</span> <span class="o">=</span> <span class="n">LogTransformProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">offset</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="c1"># Compose multiple wrappers</span>
+</span><span data-line="17"><span class="n">problem</span> <span class="o">=</span> <span class="n">NormalizedProblem</span><span class="p">(</span><span class="n">NoisyProblem</span><span class="p">(</span><span class="n">MyProblem</span><span class="p">(),</span> <span class="n">AdditiveGaussianNoise</span><span class="p">(</span><span class="n">sigma</span><span class="o">=</span><span class="mf">0.05</span><span class="p">),</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 </span></pre></div>
 </div>
+<p>The noise is applied to the precision <code class="docutils literal notranslate"><span class="pre">f(x)</span> <span class="pre">-</span> <span class="pre">f_opt</span></code> (<code class="docutils literal notranslate"><span class="pre">f_opt</span></code> defaults to the
+problem’s <code class="docutils literal notranslate"><span class="pre">optimum_y</span></code>, else 0); see <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.lib.noise</span></code> for the models.
+<code class="docutils literal notranslate"><span class="pre">panobbgo.lib.wrappers.NoisyProblem(problem,</span> <span class="pre">noise_std=...,</span> <span class="pre">seed=...)</span></code> is a
+deprecated adapter for the old signature.</p>
 <p>Wrappers are transparent — the framework sees a standard <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>
 with the transformed box and evaluation.</p>
 </section>
@@ -1866,20 +1874,18 @@ a population method) if you want the rest of the budget spent.</p>
 </span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Check progress during optimization</span>
-</span><span data-line="5"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Budget used: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_evaluations</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="5"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Budget used: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <section id="parallel-evaluation">
 <h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">#</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Control batch size</span>
-</span><span data-line="2"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span>
-</span><span data-line="3">    <span class="n">problem</span><span class="p">,</span>
-</span><span data-line="4">    <span class="n">size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>               <span class="c1"># Jobs per client</span>
-</span><span data-line="5">    <span class="n">jobs_per_client</span><span class="o">=</span><span class="mi">5</span>      <span class="c1"># Batch size</span>
-</span><span data-line="6"><span class="p">)</span>
-</span><span data-line="7">
-</span><span data-line="8"><span class="c1"># With 4 Dask workers, evaluates up to 4*5 = 20 points simultaneously</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># The number of parallel evaluators is a config setting (also used by</span>
+</span><span data-line="2"><span class="c1"># the local 'threaded'/'processes' pools); the batch size per pass is</span>
+</span><span data-line="3"><span class="c1"># sized automatically from the budget and the measured evaluation time.</span>
+</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">dask_n_workers</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># Unknown keyword arguments raise TypeError (they used to be ignored).</span>
 </span></pre></div>
 </div>
 </section>
@@ -2177,6 +2183,13 @@ continuing from where it left off.</p>
 </span><span data-line="11"><span class="c1"># Strategy runs for another 100 evals (total 200)</span>
 </span></pre></div>
 </div>
+<p>The database records a fingerprint of the problem (class, formula version,
+dimension, box and parameters; wrappers include the wrapped problem).  A run on
+a <em>different</em> problem refuses to open it (<code class="docutils literal notranslate"><span class="pre">StorageMismatchError</span></code>) instead of
+resuming foreign results.  A database written before fingerprints existed is
+refused too, since its results cannot be verified; if you know they belong to
+the problem, set <code class="docutils literal notranslate"><span class="pre">storage:</span> <span class="pre">adopt_legacy:</span> <span class="pre">true</span></code> for one run (or call
+<code class="docutils literal notranslate"><span class="pre">SQLiteStorage(uri).adopt(problem_fingerprint(problem))</span></code>).</p>
 </section>
 <section id="accessing-stored-data">
 <h3>Accessing Stored Data<a class="headerlink" href="#accessing-stored-data" title="Link to this heading">#</a></h3>

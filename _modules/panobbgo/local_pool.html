@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.local_pool - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.local_pool"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_benchmarking.html">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.local_pool</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.local_pool</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="c1"># Copyright 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
+</span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="7"><span class="c1">#</span>
+</span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="9"><span class="c1">#</span>
+</span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
+</span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="14"><span class="c1"># limitations under the License.</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="sd">"""</span>
+</span><span data-line="17"><span class="sd">Local evaluation pool</span>
+</span><span data-line="18"><span class="sd">=====================</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">The backend of ``evaluation_method = "threaded"`` and ``"processes"``:</span>
+</span><span data-line="21"><span class="sd">evaluations are submitted by task id and harvested without blocking by</span>
+</span><span data-line="22"><span class="sd">:meth:`LocalPool.poll`, which reports every task exactly once, as a result</span>
+</span><span data-line="23"><span class="sd">or as a failure.</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="sd">What it guarantees beyond a bare executor:</span>
+</span><span data-line="26">
+</span><span data-line="27"><span class="sd">* **The timeout counts running time only.**  The clock of a task starts</span>
+</span><span data-line="28"><span class="sd">  when a worker picks it up (a thread records it; a worker process reports</span>
+</span><span data-line="29"><span class="sd">  it through a queue), so time spent queued behind other evaluations never</span>
+</span><span data-line="30"><span class="sd">  times a task out.</span>
+</span><span data-line="31"><span class="sd">* **Processes: a timed-out evaluation is killed, not abandoned.**  The</span>
+</span><span data-line="32"><span class="sd">  pool's workers are killed and a fresh pool takes over; the other</span>
+</span><span data-line="33"><span class="sd">  in-flight tasks are resubmitted (they lose their progress, not their</span>
+</span><span data-line="34"><span class="sd">  place in the budget).</span>
+</span><span data-line="35"><span class="sd">* **Threads: a timed-out evaluation is abandoned** — a thread cannot be</span>
+</span><span data-line="36"><span class="sd">  interrupted, so it runs to completion in the background.  So that it</span>
+</span><span data-line="37"><span class="sd">  cannot hold a worker slot forever, the executor is retired</span>
+</span><span data-line="38"><span class="sd">  (``shutdown(wait=False)``) and the tasks that had not started yet move to</span>
+</span><span data-line="39"><span class="sd">  a fresh ``ThreadPoolExecutor``.  ``ThreadPoolExecutor`` threads are not</span>
+</span><span data-line="40"><span class="sd">  daemon threads: an abandoned evaluation that never returns keeps the</span>
+</span><span data-line="41"><span class="sd">  interpreter from exiting.  Use ``"processes"`` for objectives that can</span>
+</span><span data-line="42"><span class="sd">  hang.</span>
+</span><span data-line="43"><span class="sd">* **Processes: a crashing evaluation does not end the run.**  A worker</span>
+</span><span data-line="44"><span class="sd">  that dies (``os._exit``, a segfault, the OOM killer) breaks a</span>
+</span><span data-line="45"><span class="sd">  ``ProcessPoolExecutor`` and fails every in-flight future with</span>
+</span><span data-line="46"><span class="sd">  ``BrokenProcessPool``.  The task whose worker died is reported failed;</span>
+</span><span data-line="47"><span class="sd">  the ones merely caught in the break are resubmitted to a fresh pool, and</span>
+</span><span data-line="48"><span class="sd">  every task that was running during a break gets a strike — after</span>
+</span><span data-line="49"><span class="sd">  :data:`MAX_BREAK_STRIKES` it is failed too, whatever the exit codes say,</span>
+</span><span data-line="50"><span class="sd">  so a task cannot be retried forever.  A task that had *finished* in the</span>
+</span><span data-line="51"><span class="sd">  worker but whose result had not arrived yet is evaluated again: the</span>
+</span><span data-line="52"><span class="sd">  budget is charged once, but side effects of the objective happen twice.</span>
+</span><span data-line="53"><span class="sd">* **Processes: workers that cannot load the problem are an error.**  If</span>
+</span><span data-line="54"><span class="sd">  the pool breaks before any evaluation started (the problem does not</span>
+</span><span data-line="55"><span class="sd">  unpickle in a fresh interpreter — a class defined in ``__main__`` or a</span>
+</span><span data-line="56"><span class="sd">  notebook, a ``__setstate__`` that raises), rebuilding cannot help:</span>
+</span><span data-line="57"><span class="sd">  :class:`WorkerInitError` is raised after :data:`MAX_IDLE_BREAKS` such</span>
+</span><span data-line="58"><span class="sd">  breaks in a row.</span>
+</span><span data-line="59"><span class="sd">* **Closing is bounded and leaves nothing running** (:meth:`close`): queued</span>
+</span><span data-line="60"><span class="sd">  tasks are cancelled, running ones get until the deadline, then worker</span>
+</span><span data-line="61"><span class="sd">  processes are killed.</span>
+</span><span data-line="62">
+</span><span data-line="63"><span class="sd">Processes mode evaluates *copies* of the problem: each worker unpickles its</span>
+</span><span data-line="64"><span class="sd">own, so state the problem object accumulates while evaluating (counters,</span>
+</span><span data-line="65"><span class="sd">traces, caches, loggers) lives in the workers and is not seen by the</span>
+</span><span data-line="66"><span class="sd">caller's object.</span>
+</span><span data-line="67"><span class="sd">"""</span>
+</span><span data-line="68">
+</span><span data-line="69"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="70">
+</span><span data-line="71"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span data-line="72"><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+</span><span data-line="73"><span class="kn">import</span><span class="w"> </span><span class="nn">signal</span>
+</span><span data-line="74"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="75"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="76"><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">CancelledError</span><span class="p">,</span> <span class="n">Future</span><span class="p">,</span> <span class="n">ProcessPoolExecutor</span><span class="p">,</span> <span class="n">ThreadPoolExecutor</span>
+</span><span data-line="77"><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">wait</span> <span class="k">as</span> <span class="n">futures_wait</span>
+</span><span data-line="78"><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures.process</span><span class="w"> </span><span class="kn">import</span> <span class="n">BrokenProcessPool</span>
+</span><span data-line="79"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+</span><span data-line="80"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span data-line="81">
+</span><span data-line="82"><span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+</span><span data-line="83">
+</span><span data-line="84"><span class="c1">#: Breaks a task may be caught in (running at the time) before it is failed.</span>
+</span><span data-line="85"><span class="n">MAX_BREAK_STRIKES</span> <span class="o">=</span> <span class="mi">3</span>
+</span><span data-line="86"><span class="c1">#: Consecutive pool breaks with no evaluation started before giving up.</span>
+</span><span data-line="87"><span class="n">MAX_IDLE_BREAKS</span> <span class="o">=</span> <span class="mi">2</span>
+</span><span data-line="88">
+</span><span data-line="89">
+</span><span data-line="90"><span class="k">class</span><span class="w"> </span><span class="nc">WorkerInitError</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+</span><span data-line="91"><span class="w">    </span><span class="sd">"""Worker processes die before evaluating anything: the problem cannot be loaded in them."""</span>
+</span><span data-line="92">
+</span><span data-line="93">
+</span><span data-line="94"><span class="c1">#: The problem a worker process evaluates and the queue it reports task</span>
+</span><span data-line="95"><span class="c1">#: starts on; set once per worker by :func:`_process_worker_init`.</span>
+</span><span data-line="96"><span class="n">_WORKER_PROBLEM</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="97"><span class="n">_WORKER_STARTS</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="98">
+</span><span data-line="99">
+</span><span data-line="100"><span class="k">def</span><span class="w"> </span><span class="nf">_process_worker_init</span><span class="p">(</span><span class="n">payload</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">starts</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="101"><span class="w">    </span><span class="sd">"""Pool initializer: unpickle the problem once per worker process."""</span>
+</span><span data-line="102">    <span class="k">global</span> <span class="n">_WORKER_PROBLEM</span><span class="p">,</span> <span class="n">_WORKER_STARTS</span>
+</span><span data-line="103">    <span class="n">_WORKER_PROBLEM</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+</span><span data-line="104">    <span class="n">_WORKER_STARTS</span> <span class="o">=</span> <span class="n">starts</span>
+</span><span data-line="105">
+</span><span data-line="106">
+</span><span data-line="107"><span class="k">def</span><span class="w"> </span><span class="nf">_process_worker_eval</span><span class="p">(</span><span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="108"><span class="w">    </span><span class="sd">"""Report the start (task id, pid, wall time), then evaluate ``point``."""</span>
+</span><span data-line="109">    <span class="c1"># SimpleQueue writes synchronously: the start is on the pipe before the</span>
+</span><span data-line="110">    <span class="c1"># objective runs, even if the objective then kills the process.</span>
+</span><span data-line="111">    <span class="n">_WORKER_STARTS</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">task_id</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">(),</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+</span><span data-line="112">    <span class="k">return</span> <span class="n">_WORKER_PROBLEM</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="113">
+</span><span data-line="114">
+</span><span data-line="115"><span class="nd">@dataclass</span>
+</span><span data-line="116"><span class="k">class</span><span class="w"> </span><span class="nc">_Task</span><span class="p">:</span>
+</span><span data-line="117">    <span class="n">point</span><span class="p">:</span> <span class="n">Any</span>
+</span><span data-line="118">    <span class="n">future</span><span class="p">:</span> <span class="n">Future</span>
+</span><span data-line="119">    <span class="n">strikes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="120">
+</span><span data-line="121">
+<div class="viewcode-block" id="Outcome">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.Outcome">[docs]</a>
+</span><span data-line="122"><span class="nd">@dataclass</span>
+</span><span data-line="123"><span class="k">class</span><span class="w"> </span><span class="nc">Outcome</span><span class="p">:</span>
+</span><span data-line="124"><span class="w">    </span><span class="sd">"""What became of one task: ``ok`` with its ``result``, or failed with an ``error`` message."""</span>
+</span><span data-line="125">
+</span><span data-line="126">    <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span>
+</span><span data-line="127">    <span class="n">ok</span><span class="p">:</span> <span class="nb">bool</span>
+</span><span data-line="128">    <span class="n">result</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="129">    <span class="n">error</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+</span><span data-line="130">    <span class="n">started</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="131">    <span class="n">finished</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">)</span></div>
+
+</span><span data-line="132">
+</span><span data-line="133">
+<div class="viewcode-block" id="LocalPool">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.LocalPool">[docs]</a>
+</span><span data-line="134"><span class="k">class</span><span class="w"> </span><span class="nc">LocalPool</span><span class="p">:</span>
+</span><span data-line="135"><span class="w">    </span><span class="sd">"""Threads or spawned worker processes evaluating ``problem`` (see the module docstring).</span>
+</span><span data-line="136">
+</span><span data-line="137"><span class="sd">    Not thread-safe: one thread (the strategy's main loop) submits, polls</span>
+</span><span data-line="138"><span class="sd">    and closes.</span>
+</span><span data-line="139"><span class="sd">    """</span>
+</span><span data-line="140">
+</span><span data-line="141">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">n_workers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">processes</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="142">        <span class="bp">self</span><span class="o">.</span><span class="n">problem</span> <span class="o">=</span> <span class="n">problem</span>
+</span><span data-line="143">        <span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_workers</span><span class="p">))</span>
+</span><span data-line="144">        <span class="bp">self</span><span class="o">.</span><span class="n">processes</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">processes</span><span class="p">)</span>
+</span><span data-line="145">        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+</span><span data-line="146">        <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_Task</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="147">        <span class="c1">#: task id -&gt; (worker pid or thread ident, start wall time)</span>
+</span><span data-line="148">        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="149">        <span class="bp">self</span><span class="o">.</span><span class="n">_procs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="150">        <span class="bp">self</span><span class="o">.</span><span class="n">_payload</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="151">        <span class="bp">self</span><span class="o">.</span><span class="n">_starts</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="152">        <span class="c1">#: Starts and finishes seen: the caller's liveness check reads it.</span>
+</span><span data-line="153">        <span class="bp">self</span><span class="o">.</span><span class="n">events</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="154">        <span class="bp">self</span><span class="o">.</span><span class="n">_idle_breaks</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="155">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span><span class="p">:</span>
+</span><span data-line="156">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="157">                <span class="bp">self</span><span class="o">.</span><span class="n">_payload</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="158">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="159">                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+</span><span data-line="160">                    <span class="s2">"evaluation_method='processes' needs a picklable problem (defined at module level, "</span>
+</span><span data-line="161">                    <span class="sa">f</span><span class="s2">"no lambdas/closures): </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">"</span>
+</span><span data-line="162">                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+</span><span data-line="163">            <span class="k">try</span><span class="p">:</span>  <span class="c1"># cheap probe; a spawned worker can still fail (e.g. a class from __main__)</span>
+</span><span data-line="164">                <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_payload</span><span class="p">)</span>
+</span><span data-line="165">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="166">                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"evaluation_method='processes': the problem does not unpickle: </span><span class="si">{</span><span class="n">exc</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+</span><span data-line="167">        <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_pool</span><span class="p">()</span>
+</span><span data-line="168">
+</span><span data-line="169">    <span class="c1"># -- pool lifecycle ------------------------------------------------------</span>
+</span><span data-line="170">
+</span><span data-line="171">    <span class="k">def</span><span class="w"> </span><span class="nf">_make_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="172">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span><span class="p">:</span>
+</span><span data-line="173">            <span class="k">return</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span><span class="p">)</span>
+</span><span data-line="174">        <span class="n">ctx</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="s2">"spawn"</span><span class="p">)</span>
+</span><span data-line="175">        <span class="c1"># A fresh queue per pool: a worker killed mid-``put`` may leave the</span>
+</span><span data-line="176">        <span class="c1"># old one's lock held.</span>
+</span><span data-line="177">        <span class="bp">self</span><span class="o">.</span><span class="n">_starts</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">SimpleQueue</span><span class="p">()</span>
+</span><span data-line="178">        <span class="n">payload</span><span class="p">:</span> <span class="nb">bytes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_payload</span> <span class="ow">or</span> <span class="sa">b</span><span class="s2">""</span>
+</span><span data-line="179">        <span class="n">initargs</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_starts</span><span class="p">)</span>
+</span><span data-line="180">        <span class="k">return</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span>
+</span><span data-line="181">            <span class="n">max_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span><span class="p">,</span>
+</span><span data-line="182">            <span class="n">mp_context</span><span class="o">=</span><span class="n">ctx</span><span class="p">,</span>
+</span><span data-line="183">            <span class="n">initializer</span><span class="o">=</span><span class="n">_process_worker_init</span><span class="p">,</span>
+</span><span data-line="184">            <span class="n">initargs</span><span class="o">=</span><span class="n">initargs</span><span class="p">,</span>
+</span><span data-line="185">        <span class="p">)</span>
+</span><span data-line="186">
+</span><span data-line="187">    <span class="k">def</span><span class="w"> </span><span class="nf">_thread_eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="188">        <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">get_ident</span><span class="p">(),</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+</span><span data-line="189">        <span class="bp">self</span><span class="o">.</span><span class="n">events</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="190">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="191">
+</span><span data-line="192">    <span class="k">def</span><span class="w"> </span><span class="nf">_submit_future</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Future</span><span class="p">:</span>
+</span><span data-line="193">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span><span class="p">:</span>
+</span><span data-line="194">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="195">                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">_process_worker_eval</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+</span><span data-line="196">            <span class="k">except</span> <span class="n">BrokenProcessPool</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="197">                <span class="c1"># A worker died since the last poll: the executor refuses new</span>
+</span><span data-line="198">                <span class="c1"># work synchronously.  Hand back a failed future so the next</span>
+</span><span data-line="199">                <span class="c1"># poll() sees the break and recovers (and resubmits this task).</span>
+</span><span data-line="200">                <span class="n">failed</span><span class="p">:</span> <span class="n">Future</span> <span class="o">=</span> <span class="n">Future</span><span class="p">()</span>
+</span><span data-line="201">                <span class="n">failed</span><span class="o">.</span><span class="n">set_exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</span><span data-line="202">                <span class="k">return</span> <span class="n">failed</span>
+</span><span data-line="203">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_thread_eval</span><span class="p">,</span> <span class="n">task_id</span><span class="p">,</span> <span class="n">point</span><span class="p">)</span>
+</span><span data-line="204">
+</span><span data-line="205">    <span class="k">def</span><span class="w"> </span><span class="nf">_replace_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kill</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="206"><span class="w">        </span><span class="sd">"""Retire the current pool and move tasks to a fresh one.</span>
+</span><span data-line="207">
+</span><span data-line="208"><span class="sd">        Processes: every task is resubmitted (the old workers are killed or</span>
+</span><span data-line="209"><span class="sd">        already dead).  Threads: only the tasks that had not started move;</span>
+</span><span data-line="210"><span class="sd">        the ones running finish in the retired executor's threads.</span>
+</span><span data-line="211"><span class="sd">        """</span>
+</span><span data-line="212">        <span class="n">old</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span>
+</span><span data-line="213">        <span class="k">if</span> <span class="n">kill</span><span class="p">:</span>
+</span><span data-line="214">            <span class="n">old</span><span class="o">.</span><span class="n">kill_workers</span><span class="p">()</span>
+</span><span data-line="215">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="216">            <span class="n">old</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cancel_futures</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_make_pool</span><span class="p">()</span>
+</span><span data-line="218">        <span class="bp">self</span><span class="o">.</span><span class="n">_procs</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="219">        <span class="k">for</span> <span class="n">tid</span><span class="p">,</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="220">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">task</span><span class="o">.</span><span class="n">future</span><span class="o">.</span><span class="n">cancelled</span><span class="p">():</span>
+</span><span data-line="221">                <span class="k">continue</span>  <span class="c1"># running (or done) in the old executor: leave it there</span>
+</span><span data-line="222">            <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="223">            <span class="n">task</span><span class="o">.</span><span class="n">future</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_submit_future</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="224">
+</span><span data-line="225">    <span class="c1"># -- public API ----------------------------------------------------------</span>
+</span><span data-line="226">
+<div class="viewcode-block" id="LocalPool.submit">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.LocalPool.submit">[docs]</a>
+</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">submit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="228"><span class="w">        </span><span class="sd">"""Queue one evaluation."""</span>
+</span><span data-line="229">        <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">[</span><span class="n">task_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">_Task</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_submit_future</span><span class="p">(</span><span class="n">task_id</span><span class="p">,</span> <span class="n">point</span><span class="p">))</span>
+</span><span data-line="230">        <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_procs</span><span class="p">()</span></div>
+
+</span><span data-line="231">
+</span><span data-line="232">    <span class="k">def</span><span class="w"> </span><span class="nf">_snapshot_procs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="233">        <span class="c1"># Keep our own handles on the worker processes: a broken executor</span>
+</span><span data-line="234">        <span class="c1"># drops its table, and the exit codes are how a crash is attributed.</span>
+</span><span data-line="235">        <span class="n">procs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="p">,</span> <span class="s2">"_processes"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="236">        <span class="k">if</span> <span class="n">procs</span><span class="p">:</span>
+</span><span data-line="237">            <span class="bp">self</span><span class="o">.</span><span class="n">_procs</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">procs</span><span class="p">)</span>
+</span><span data-line="238">
+</span><span data-line="239">    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="240"><span class="w">        </span><span class="sd">"""Tasks queued or running."""</span>
+</span><span data-line="241">        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">)</span>
+</span><span data-line="242">
+<div class="viewcode-block" id="LocalPool.running">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.LocalPool.running">[docs]</a>
+</span><span data-line="243">    <span class="k">def</span><span class="w"> </span><span class="nf">running</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="244"><span class="w">        </span><span class="sd">"""Tasks that a worker has picked up and that have not been harvested."""</span>
+</span><span data-line="245">        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span> <span class="k">if</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">)</span></div>
+
+</span><span data-line="246">
+</span><span data-line="247">    <span class="k">def</span><span class="w"> </span><span class="nf">task_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="248">        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">)</span>
+</span><span data-line="249">
+</span><span data-line="250">    <span class="k">def</span><span class="w"> </span><span class="nf">_drain_starts</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="251">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_starts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="252">            <span class="k">return</span>
+</span><span data-line="253">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="254">            <span class="k">while</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_starts</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+</span><span data-line="255">                <span class="n">tid</span><span class="p">,</span> <span class="n">pid</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_starts</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+</span><span data-line="256">                <span class="k">if</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">:</span>
+</span><span data-line="257">                    <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">pid</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+</span><span data-line="258">                    <span class="bp">self</span><span class="o">.</span><span class="n">events</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="259">        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">EOFError</span><span class="p">):</span>  <span class="c1"># pragma: no cover - queue torn down</span>
+</span><span data-line="260">            <span class="k">pass</span>
+</span><span data-line="261">        <span class="bp">self</span><span class="o">.</span><span class="n">_snapshot_procs</span><span class="p">()</span>
+</span><span data-line="262">
+<div class="viewcode-block" id="LocalPool.poll">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.LocalPool.poll">[docs]</a>
+</span><span data-line="263">    <span class="k">def</span><span class="w"> </span><span class="nf">poll</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Outcome</span><span class="p">]:</span>
+</span><span data-line="264"><span class="w">        </span><span class="sd">"""Harvest finished, failed and timed-out tasks without blocking.</span>
+</span><span data-line="265">
+</span><span data-line="266"><span class="sd">        ``timeout`` is the per-evaluation limit in seconds of *running* time</span>
+</span><span data-line="267"><span class="sd">        (``None``: no limit).</span>
+</span><span data-line="268"><span class="sd">        """</span>
+</span><span data-line="269">        <span class="bp">self</span><span class="o">.</span><span class="n">_drain_starts</span><span class="p">()</span>
+</span><span data-line="270">        <span class="n">out</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Outcome</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="271">        <span class="n">now</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="272">        <span class="n">broken</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="273">        <span class="n">timed_out</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="274">        <span class="k">for</span> <span class="n">tid</span><span class="p">,</span> <span class="n">task</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+</span><span data-line="275">            <span class="n">f</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">future</span>
+</span><span data-line="276">            <span class="n">started</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+</span><span data-line="277">            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+</span><span data-line="278">                <span class="k">try</span><span class="p">:</span>
+</span><span data-line="279">                    <span class="n">exc</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">exception</span><span class="p">()</span>
+</span><span data-line="280">                <span class="k">except</span> <span class="n">CancelledError</span> <span class="k">as</span> <span class="n">ce</span><span class="p">:</span>
+</span><span data-line="281">                    <span class="n">exc</span> <span class="o">=</span> <span class="n">ce</span>
+</span><span data-line="282">                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">BrokenProcessPool</span><span class="p">):</span>
+</span><span data-line="283">                    <span class="n">broken</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="284">                    <span class="k">continue</span>
+</span><span data-line="285">                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+</span><span data-line="286">                <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="287">                <span class="bp">self</span><span class="o">.</span><span class="n">events</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="288">                <span class="n">t0</span> <span class="o">=</span> <span class="n">started</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">started</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="289">                <span class="k">if</span> <span class="n">started</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="290">                    <span class="bp">self</span><span class="o">.</span><span class="n">_idle_breaks</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># an evaluation ran: the workers can load the problem</span>
+</span><span data-line="291">                <span class="k">if</span> <span class="n">exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="292">                    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Outcome</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span> <span class="n">started</span><span class="o">=</span><span class="n">t0</span><span class="p">))</span>
+</span><span data-line="293">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="294">                    <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Outcome</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">result</span><span class="o">=</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">(),</span> <span class="n">started</span><span class="o">=</span><span class="n">t0</span><span class="p">))</span>
+</span><span data-line="295">            <span class="k">elif</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">started</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">now</span> <span class="o">-</span> <span class="n">started</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">timeout</span><span class="p">:</span>
+</span><span data-line="296">                <span class="n">timed_out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+</span><span data-line="297">        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">timed_out</span><span class="p">:</span>
+</span><span data-line="298">            <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span><span class="o">.</span><span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+</span><span data-line="299">            <span class="n">t0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tid</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="300">            <span class="n">action</span> <span class="o">=</span> <span class="s2">"killed"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span> <span class="k">else</span> <span class="s2">"abandoned (a thread cannot be interrupted)"</span>
+</span><span data-line="301">            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Outcome</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">error</span><span class="o">=</span><span class="s2">"timed out after </span><span class="si">%.1f</span><span class="s2">s; </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">timeout</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">action</span><span class="p">),</span> <span class="n">started</span><span class="o">=</span><span class="n">t0</span><span class="p">))</span>
+</span><span data-line="302">        <span class="k">if</span> <span class="n">timed_out</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">broken</span><span class="p">:</span>
+</span><span data-line="303">            <span class="c1"># Processes: kill the timed-out worker (with the pool).  Threads:</span>
+</span><span data-line="304">            <span class="c1"># the abandoned thread keeps its slot, so move the waiting tasks</span>
+</span><span data-line="305">            <span class="c1"># to a fresh executor rather than let n wedged threads starve them.</span>
+</span><span data-line="306">            <span class="bp">self</span><span class="o">.</span><span class="n">_replace_pool</span><span class="p">(</span><span class="n">kill</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">processes</span><span class="p">)</span>
+</span><span data-line="307">        <span class="k">if</span> <span class="n">broken</span><span class="p">:</span>
+</span><span data-line="308">            <span class="n">out</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_recover_broken</span><span class="p">())</span>
+</span><span data-line="309">        <span class="k">return</span> <span class="n">out</span></div>
+
+</span><span data-line="310">
+</span><span data-line="311">    <span class="k">def</span><span class="w"> </span><span class="nf">_recover_broken</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Outcome</span><span class="p">]:</span>
+</span><span data-line="312"><span class="w">        </span><span class="sd">"""The pool broke: report the task whose worker died, resubmit the rest to a fresh pool."""</span>
+</span><span data-line="313">        <span class="bp">self</span><span class="o">.</span><span class="n">_drain_starts</span><span class="p">()</span>
+</span><span data-line="314">        <span class="c1"># Give the executor a moment to reap its processes so exit codes are set.</span>
+</span><span data-line="315">        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_procs</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+</span><span data-line="316">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="317">                <span class="n">p</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="318">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+</span><span data-line="319">                <span class="k">pass</span>
+</span><span data-line="320">        <span class="n">out</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Outcome</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="321">        <span class="c1"># Started and unfinished when the pool broke: one of them killed it.</span>
+</span><span data-line="322">        <span class="n">suspects</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="323">        <span class="k">for</span> <span class="n">tid</span><span class="p">,</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="324">            <span class="n">f</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">future</span>
+</span><span data-line="325">            <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">done</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">f</span><span class="o">.</span><span class="n">cancelled</span><span class="p">()</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">exception</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="326">                <span class="k">continue</span>  <span class="c1"># finished just before the break: harvested next poll</span>
+</span><span data-line="327">            <span class="k">if</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">:</span>
+</span><span data-line="328">                <span class="n">suspects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+</span><span data-line="329">        <span class="k">if</span> <span class="ow">not</span> <span class="n">suspects</span><span class="p">:</span>
+</span><span data-line="330">            <span class="c1"># Nothing was running: the workers died loading the problem.</span>
+</span><span data-line="331">            <span class="bp">self</span><span class="o">.</span><span class="n">_idle_breaks</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="332">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_idle_breaks</span> <span class="o">&gt;=</span> <span class="n">MAX_IDLE_BREAKS</span><span class="p">:</span>
+</span><span data-line="333">                <span class="k">raise</span> <span class="n">WorkerInitError</span><span class="p">(</span>
+</span><span data-line="334">                    <span class="s2">"Worker processes cannot initialise the problem: the process pool broke </span><span class="si">%d</span><span class="s2"> times before "</span>
+</span><span data-line="335">                    <span class="s2">"any evaluation started. Is the problem class importable in a fresh interpreter (not "</span>
+</span><span data-line="336">                    <span class="s2">"defined in __main__ or a notebook), and does it unpickle without errors?"</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_idle_breaks</span>
+</span><span data-line="337">                <span class="p">)</span>
+</span><span data-line="338">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="339">            <span class="bp">self</span><span class="o">.</span><span class="n">_idle_breaks</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="340">        <span class="n">codes</span> <span class="o">=</span> <span class="p">{</span><span class="n">tid</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_procs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">"exitcode"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">suspects</span><span class="p">}</span>
+</span><span data-line="341">        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">suspects</span><span class="p">:</span>
+</span><span data-line="342">            <span class="n">code</span> <span class="o">=</span> <span class="n">codes</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+</span><span data-line="343">            <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+</span><span data-line="344">            <span class="n">task</span><span class="o">.</span><span class="n">strikes</span> <span class="o">+=</span> <span class="mi">1</span>  <span class="c1"># caught in a break: capped whatever the exit code says</span>
+</span><span data-line="345">            <span class="k">if</span> <span class="n">code</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">code</span> <span class="o">!=</span> <span class="o">-</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGTERM</span><span class="p">:</span>
+</span><span data-line="346">                <span class="n">culprit</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># its worker died on its own</span>
+</span><span data-line="347">            <span class="k">elif</span> <span class="n">code</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">suspects</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="348">                <span class="n">culprit</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># the only evaluation that was running</span>
+</span><span data-line="349">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="350">                <span class="n">culprit</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="n">strikes</span> <span class="o">&gt;=</span> <span class="n">MAX_BREAK_STRIKES</span>
+</span><span data-line="351">            <span class="k">if</span> <span class="n">culprit</span><span class="p">:</span>
+</span><span data-line="352">                <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+</span><span data-line="353">                <span class="n">t0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_started</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tid</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="354">                <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="355">                    <span class="n">Outcome</span><span class="p">(</span>
+</span><span data-line="356">                        <span class="n">tid</span><span class="p">,</span>
+</span><span data-line="357">                        <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="358">                        <span class="n">error</span><span class="o">=</span><span class="s2">"worker process died (exit code </span><span class="si">%s</span><span class="s2">, break </span><span class="si">%d</span><span class="s2">) evaluating it"</span> <span class="o">%</span> <span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">strikes</span><span class="p">),</span>
+</span><span data-line="359">                        <span class="n">started</span><span class="o">=</span><span class="n">t0</span><span class="p">,</span>
+</span><span data-line="360">                    <span class="p">)</span>
+</span><span data-line="361">                <span class="p">)</span>
+</span><span data-line="362">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="363">            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+</span><span data-line="364">                <span class="s2">"Process pool broke (a worker died); </span><span class="si">%d</span><span class="s2"> evaluation(s) failed, resubmitting </span><span class="si">%d</span><span class="s2">."</span>
+</span><span data-line="365">                <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="p">))</span>
+</span><span data-line="366">            <span class="p">)</span>
+</span><span data-line="367">        <span class="bp">self</span><span class="o">.</span><span class="n">_replace_pool</span><span class="p">(</span><span class="n">kill</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="368">        <span class="k">return</span> <span class="n">out</span>
+</span><span data-line="369">
+<div class="viewcode-block" id="LocalPool.wait">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.LocalPool.wait">[docs]</a>
+</span><span data-line="370">    <span class="k">def</span><span class="w"> </span><span class="nf">wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deadline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">poll_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="371"><span class="w">        </span><span class="sd">"""Block until a task can be harvested (or ``deadline``)."""</span>
+</span><span data-line="372">        <span class="n">pending</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">future</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+</span><span data-line="373">        <span class="k">if</span> <span class="ow">not</span> <span class="n">pending</span><span class="p">:</span>
+</span><span data-line="374">            <span class="k">return</span>
+</span><span data-line="375">        <span class="n">rest</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">deadline</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">deadline</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span>
+</span><span data-line="376">        <span class="n">rest</span> <span class="o">=</span> <span class="n">poll_interval</span> <span class="o">*</span> <span class="mi">50</span> <span class="k">if</span> <span class="n">rest</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">rest</span><span class="p">,</span> <span class="n">poll_interval</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+</span><span data-line="377">        <span class="n">futures_wait</span><span class="p">(</span><span class="n">pending</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">rest</span><span class="p">,</span> <span class="n">return_when</span><span class="o">=</span><span class="s2">"FIRST_COMPLETED"</span><span class="p">)</span></div>
+
+</span><span data-line="378">
+<div class="viewcode-block" id="LocalPool.close">
+<a class="viewcode-back" href="../../core.html#panobbgo.local_pool.LocalPool.close">[docs]</a>
+</span><span data-line="379">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deadline</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="380"><span class="w">        </span><span class="sd">"""Cancel queued tasks, give running ones until ``deadline``, then stop the workers.</span>
+</span><span data-line="381">
+</span><span data-line="382"><span class="sd">        Returns the number of evaluations still running at the deadline</span>
+</span><span data-line="383"><span class="sd">        (killed for processes, abandoned for threads).</span>
+</span><span data-line="384"><span class="sd">        """</span>
+</span><span data-line="385">        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+</span><span data-line="386">            <span class="n">task</span><span class="o">.</span><span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+</span><span data-line="387">        <span class="n">running</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="o">.</span><span class="n">future</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">t</span><span class="o">.</span><span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">()]</span>
+</span><span data-line="388">        <span class="n">still</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="389">        <span class="k">if</span> <span class="n">running</span><span class="p">:</span>
+</span><span data-line="390">            <span class="n">_done</span><span class="p">,</span> <span class="n">still</span> <span class="o">=</span> <span class="n">futures_wait</span><span class="p">(</span><span class="n">running</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">deadline</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()))</span>
+</span><span data-line="391">        <span class="bp">self</span><span class="o">.</span><span class="n">_tasks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="392">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">processes</span><span class="p">:</span>
+</span><span data-line="393">            <span class="k">if</span> <span class="n">still</span><span class="p">:</span>
+</span><span data-line="394">                <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="o">.</span><span class="n">kill_workers</span><span class="p">()</span>
+</span><span data-line="395">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="396">                <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">cancel_futures</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="397">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="398">            <span class="bp">self</span><span class="o">.</span><span class="n">_pool</span><span class="o">.</span><span class="n">shutdown</span><span class="p">(</span><span class="n">wait</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cancel_futures</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="399">        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">still</span><span class="p">)</span></div>
+</div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

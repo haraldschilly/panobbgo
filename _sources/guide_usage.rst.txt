@@ -487,19 +487,28 @@ Instead of modifying your problem class, use composable wrappers from :mod:`pano
 
 .. code-block:: python
 
-   from panobbgo.lib.wrappers import NormalizedProblem, NoisyProblem, LogTransformProblem
+   from panobbgo.lib import NoisyProblem  # = panobbgo.lib.noise.NoisyProblem
+   from panobbgo.lib.noise import AdditiveGaussianNoise
+   from panobbgo.lib.wrappers import NormalizedProblem, LogTransformProblem
 
    # Normalize all dimensions to [0, 1]
    problem = NormalizedProblem(Rosenbrock(dims=5))
 
-   # Add noise for robustness testing (seed for reproducibility)
-   problem = NoisyProblem(Rosenbrock(dims=5), noise_std=0.1, seed=42)
+   # Add noise for robustness testing: a pure function of (seed, x), so
+   # runs are reproducible whatever the evaluation order or thread.
+   # resample=True draws fresh noise on each re-evaluation of the same x.
+   problem = NoisyProblem(Rosenbrock(dims=5), AdditiveGaussianNoise(sigma=0.1), seed=42)
 
    # Log-transform for objectives spanning orders of magnitude
    problem = LogTransformProblem(MyProblem(), offset=0.0)
 
    # Compose multiple wrappers
-   problem = NormalizedProblem(NoisyProblem(MyProblem(), noise_std=0.05))
+   problem = NormalizedProblem(NoisyProblem(MyProblem(), AdditiveGaussianNoise(sigma=0.05), seed=0))
+
+The noise is applied to the precision ``f(x) - f_opt`` (``f_opt`` defaults to the
+problem's ``optimum_y``, else 0); see :mod:`panobbgo.lib.noise` for the models.
+``panobbgo.lib.wrappers.NoisyProblem(problem, noise_std=..., seed=...)`` is a
+deprecated adapter for the old signature.
 
 Wrappers are transparent — the framework sees a standard :class:`~panobbgo.lib.Problem`
 with the transformed box and evaluation.
@@ -1714,21 +1723,19 @@ a population method) if you want the rest of the budget spent.
    strategy = StrategyRewarding(problem, max_evaluations=500)
 
    # Check progress during optimization
-   print(f"Budget used: {len(strategy.results)} / {strategy.config.max_evaluations}")
+   print(f"Budget used: {len(strategy.results)} / {strategy.config.max_eval}")
 
 Parallel Evaluation
 ~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-   # Control batch size
-   strategy = StrategyRewarding(
-       problem,
-       size=10,               # Jobs per client
-       jobs_per_client=5      # Batch size
-   )
+   # The number of parallel evaluators is a config setting (also used by
+   # the local 'threaded'/'processes' pools); the batch size per pass is
+   # sized automatically from the budget and the measured evaluation time.
+   strategy = StrategyRewarding(problem, dask_n_workers=4)
 
-   # With 4 Dask workers, evaluates up to 4*5 = 20 points simultaneously
+   # Unknown keyword arguments raise TypeError (they used to be ignored).
 
 Multi-start Optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2039,6 +2046,14 @@ continuing from where it left off.
    strategy = StrategyRewarding(problem, max_evaluations=200)
    strategy.start()
    # Strategy runs for another 100 evals (total 200)
+
+The database records a fingerprint of the problem (class, formula version,
+dimension, box and parameters; wrappers include the wrapped problem).  A run on
+a *different* problem refuses to open it (``StorageMismatchError``) instead of
+resuming foreign results.  A database written before fingerprints existed is
+refused too, since its results cannot be verified; if you know they belong to
+the problem, set ``storage: adopt_legacy: true`` for one run (or call
+``SQLiteStorage(uri).adopt(problem_fingerprint(problem))``).
 
 Accessing Stored Data
 ~~~~~~~~~~~~~~~~~~~~~

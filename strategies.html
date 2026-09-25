@@ -114,6 +114,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.add_heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.add_heuristic()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.alpha"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.alpha</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.execute"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.execute()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.on_new_best"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.on_new_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyLinUCB.on_new_results"><code class="docutils literal notranslate"><span class="pre">StrategyLinUCB.on_new_results()</span></code></a></li>
@@ -153,6 +154,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.execute"><code class="docutils literal notranslate"><span class="pre">StrategyUCB.execute()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.on_new_best"><code class="docutils literal notranslate"><span class="pre">StrategyUCB.on_new_best()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.reward"><code class="docutils literal notranslate"><span class="pre">StrategyUCB.reward()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.strategies.StrategyUCB.ucb_c"><code class="docutils literal notranslate"><span class="pre">StrategyUCB.ucb_c</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -392,7 +394,7 @@ not exist until the first block ends.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyLinUCB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyLinUCB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">linucb_alpha</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.0</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/contextual.html#StrategyLinUCB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p>
 <p>This strategy uses the Linear Upper Confidence Bound (LinUCB) algorithm (disjoint)
 to select heuristics based on context features.</p>
@@ -419,6 +421,14 @@ to select heuristics based on context features.</p>
 <dd class="field-odd"><p><strong>h</strong> (<a class="reference internal" href="core.html#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><em>Heuristic</em></a>) – The heuristic instance to add</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyLinUCB.alpha">
+<span class="sig-name descname"><span class="pre">alpha</span></span><a class="headerlink" href="#panobbgo.strategies.StrategyLinUCB.alpha" title="Link to this definition">#</a></dt>
+<dd><p>Exploration weight (default 2.0 to encourage exploration).  An
+explicit parameter: read from <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> it was also forwarded
+to StrategyBase, which rejects keys that are not config attributes.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -690,7 +700,7 @@ Updates the Beta parameters for the heuristic that generated the solution.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.strategies.StrategyUCB">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyUCB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/ucb.html#StrategyUCB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyUCB" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.strategies.</span></span><span class="sig-name descname"><span class="pre">StrategyUCB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ucb_c</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.414</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/strategies/ucb.html#StrategyUCB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.strategies.StrategyUCB" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyBase</span></code></a></p>
 <p>This strategy uses the Upper Confidence Bound (UCB1) algorithm to select
 heuristics. It balances exploration (trying less used heuristics) and
@@ -748,6 +758,13 @@ Updates the reward statistics for the heuristic that generated the solution.</p>
 <dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)">float</a></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.strategies.StrategyUCB.ucb_c">
+<span class="sig-name descname"><span class="pre">ucb_c</span></span><a class="headerlink" href="#panobbgo.strategies.StrategyUCB.ucb_c" title="Link to this definition">#</a></dt>
+<dd><p>Exploration weight <code class="docutils literal notranslate"><span class="pre">c</span></code> (default ≈ √2).  Was read from a config
+key that does not exist, so <code class="docutils literal notranslate"><span class="pre">StrategyUCB(ucb_c=...)</span></code> was ignored.</p>
 </dd></dl>
 
 </dd></dl>

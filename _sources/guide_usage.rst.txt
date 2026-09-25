@@ -1359,6 +1359,15 @@ What each arm does with them:
   right scale.
 
 In all cases an empty archive (``t = 0``) means the arm silently cold-starts.
+
+On a ``restart`` event from the :class:`~panobbgo.analyzers.restart.Restart`
+analyzer, the L-SHADE family and PSO re-seed from the archive **only when the
+archive's best point lies outside the stagnated basin** — the bounding box of
+the arm's own live population (PSO: positions and evaluated personal bests),
+inflated by 1 % of the box range per side.  Otherwise, and when the arm has no
+evaluated population yet, the restart goes to the analyzer's ``center`` as a
+cold restart does, so the ``"diverse"`` / ``"sphere"`` restart strategies take
+effect.  A block bandit's ``warm_start_now`` at the next block is unaffected.
 For a custom heuristic, call
 :meth:`~panobbgo.core.Heuristic.archive_seed` and treat ``[]`` as "use the
 cold path"; override :meth:`~panobbgo.core.Heuristic.warm_start_now` if a

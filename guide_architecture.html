@@ -546,7 +546,10 @@ inertia retains the prior search direction.  Velocities are clamped to a configu
 of each box dimension to prevent the swarm from exploding outside the search box.  Supports
 IPOP-style warm restarts via the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer: on a
 <code class="docutils literal notranslate"><span class="pre">restart</span></code> event the swarm is scattered around the suggested center and the global memory is
-wiped while the strategy keeps its accumulated result history.</p></li>
+wiped while the strategy keeps its accumulated result history.  With <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> set the
+swarm re-seeds from the shared archive instead, but only when the archive’s best point lies
+outside the stagnated basin (the bounding box of the swarm’s positions and evaluated personal
+bests); otherwise it restarts around the center like a cold swarm.</p></li>
 </ul>
 <p><strong>Constraint-focused:</strong></p>
 <ul class="simple">

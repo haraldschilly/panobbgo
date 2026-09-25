@@ -1408,7 +1408,10 @@ the population <strong>directly, as evaluated results</strong>, so warm
 starting costs zero evaluations; any shortfall is filled by the
 cold random path, and the next good points seed the external
 archive.  Needs points to exist: at <code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">=</span> <span class="pre">0</span></code> the archive is
-empty and the heuristic silently cold-starts.</p></li>
+empty and the heuristic silently cold-starts.  On a <code class="docutils literal notranslate"><span class="pre">restart</span></code>
+event the archive is used only when its best point lies outside
+the stagnated basin (the bounding box of the live population);
+otherwise the restart goes to the Restart analyzer’s <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p></li>
 <li><p><strong>seed</strong> – Optional seed for the per-instance RNG.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
 uses the module’s strategy-derived <code class="docutils literal notranslate"><span class="pre">self.rng</span></code> stream.</p></li>
 <li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
@@ -1497,6 +1500,12 @@ variants: archive cleared, memory bins reset to 0.5, slots
 re-randomised in a small ball around <code class="docutils literal notranslate"><span class="pre">center</span></code> (or random in
 the box if <code class="docutils literal notranslate"><span class="pre">center</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>), and a fresh round of
 initial-random trials emitted.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> set the population is re-seeded from the shared
+archive instead — but only when the archive’s best point lies outside
+the stagnated basin, the bounding box of the live population
+(<code class="docutils literal notranslate"><span class="pre">panobbgo.heuristics._warm_restart.restart_from_archive</span></code>).
+Otherwise the archive would put the population straight back where it
+stagnated, and the restart goes to <code class="docutils literal notranslate"><span class="pre">center</span></code> as the cold path does.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -2361,7 +2370,11 @@ results at zero evaluation cost; velocities are
 <code class="docutils literal notranslate"><span class="pre">0.5·(x_π(i)</span> <span class="pre">−</span> <span class="pre">x_i)</span></code> over a random derangement <code class="docutils literal notranslate"><span class="pre">π</span></code>, clipped
 to <code class="docutils literal notranslate"><span class="pre">v_max</span></code>, so the swarm starts <em>moving between</em> known good
 points instead of from a standstill.  At <code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">=</span> <span class="pre">0</span></code> the archive is
-empty and the heuristic silently cold-starts.</p></li>
+empty and the heuristic silently cold-starts.  On a <code class="docutils literal notranslate"><span class="pre">restart</span></code>
+event the archive is used only when its best point lies outside
+the stagnated basin (the bounding box of the positions and
+evaluated personal bests);
+otherwise the restart goes to the Restart analyzer’s <code class="docutils literal notranslate"><span class="pre">center</span></code>.</p></li>
 <li><p><strong>seed</strong> – Optional seed for the per-instance RNG.  <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
 uses the module’s strategy-derived <code class="docutils literal notranslate"><span class="pre">self.rng</span></code> stream.</p></li>
 <li><p><strong>name</strong> – Override the heuristic’s display name.</p></li>
@@ -2414,8 +2427,12 @@ best is unchanged.</p>
 wiped, particles are scattered around the suggested center, and
 the next evaluation cycle behaves as if the heuristic had just
 started — except the strategy keeps its accumulated history.
-With <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> set and a non-empty archive the swarm is
-re-seeded from the archive instead (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_warm_start_swarm()</span></code>).</p>
+With <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> set the swarm is re-seeded from the archive
+instead (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_warm_start_swarm()</span></code>) — but only when the archive’s
+best point lies outside the stagnated basin, the bounding box of the
+current positions and evaluated personal bests (<code class="docutils literal notranslate"><span class="pre">panobbgo.heuristics._warm_restart.restart_from_archive</span></code>).
+Otherwise the archive would put the swarm straight back where it
+stagnated, and the restart goes to <code class="docutils literal notranslate"><span class="pre">center</span></code> as the cold path does.</p>
 </dd></dl>
 
 <dl class="py method">

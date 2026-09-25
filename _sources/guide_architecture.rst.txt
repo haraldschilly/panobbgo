@@ -370,7 +370,10 @@ Implemented Heuristics
   of each box dimension to prevent the swarm from exploding outside the search box.  Supports
   IPOP-style warm restarts via the :class:`~panobbgo.analyzers.restart.Restart` analyzer: on a
   ``restart`` event the swarm is scattered around the suggested center and the global memory is
-  wiped while the strategy keeps its accumulated result history.
+  wiped while the strategy keeps its accumulated result history.  With ``warm_start`` set the
+  swarm re-seeds from the shared archive instead, but only when the archive's best point lies
+  outside the stagnated basin (the bounding box of the swarm's positions and evaluated personal
+  bests); otherwise it restarts around the center like a cold swarm.
 
 **Constraint-focused:**
 

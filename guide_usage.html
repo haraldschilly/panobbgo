@@ -1532,7 +1532,15 @@ matrix <code class="docutils literal notranslate"><span class="pre">C</span></co
 population to fill — the whole gain is starting in the right basin at the
 right scale.</p></li>
 </ul>
-<p>In all cases an empty archive (<code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">=</span> <span class="pre">0</span></code>) means the arm silently cold-starts.
+<p>In all cases an empty archive (<code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">=</span> <span class="pre">0</span></code>) means the arm silently cold-starts.</p>
+<p>On a <code class="docutils literal notranslate"><span class="pre">restart</span></code> event from the <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>
+analyzer, the L-SHADE family and PSO re-seed from the archive <strong>only when the
+archive’s best point lies outside the stagnated basin</strong> — the bounding box of
+the arm’s own live population (PSO: positions and evaluated personal bests),
+inflated by 1 % of the box range per side.  Otherwise, and when the arm has no
+evaluated population yet, the restart goes to the analyzer’s <code class="docutils literal notranslate"><span class="pre">center</span></code> as a
+cold restart does, so the <code class="docutils literal notranslate"><span class="pre">&quot;diverse&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;sphere&quot;</span></code> restart strategies take
+effect.  A block bandit’s <code class="docutils literal notranslate"><span class="pre">warm_start_now</span></code> at the next block is unaffected.
 For a custom heuristic, call
 <a class="reference internal" href="core.html#panobbgo.core.Heuristic.archive_seed" title="panobbgo.core.Heuristic.archive_seed"><code class="xref py py-meth docutils literal notranslate"><span class="pre">archive_seed()</span></code></a> and treat <code class="docutils literal notranslate"><span class="pre">[]</span></code> as “use the
 cold path”; override <a class="reference internal" href="core.html#panobbgo.core.Heuristic.warm_start_now" title="panobbgo.core.Heuristic.warm_start_now"><code class="xref py py-meth docutils literal notranslate"><span class="pre">warm_start_now()</span></code></a> if a

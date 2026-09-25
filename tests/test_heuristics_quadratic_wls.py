@@ -2,7 +2,6 @@ from tests.support import attach_spawn_rng
 import unittest
 import unittest.mock as mock
 import numpy as np
-import time
 
 from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
 

@@ -20,7 +20,6 @@ Integration Tests for Stochastic Optimization
 These tests verify the framework's behavior when dealing with noisy objective functions.
 """
 
-import pytest
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics import Random, Nearby
 from panobbgo.lib.classic import RosenbrockStochastic

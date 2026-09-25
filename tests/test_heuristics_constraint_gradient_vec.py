@@ -1,7 +1,6 @@
 from tests.support import attach_spawn_rng
-import pytest
 import numpy as np
-from panobbgo.lib import Problem, Point, Result
+from panobbgo.lib import Problem, Point
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.core import StrategyBase, Results, EventBus
 from unittest.mock import MagicMock

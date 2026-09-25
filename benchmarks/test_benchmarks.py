@@ -14,10 +14,8 @@ from benchmarks.problems import (
     generate_benchmark_battery,
     SUCCESS_CRITERIA,
     calculate_solution_quality,
-    benchmark_result_to_dict,
 )
-from benchmarks.strategies import BENCHMARK_STRATEGIES, get_benchmark_strategies
-from panobbgo.lib.lib import Point
+from benchmarks.strategies import BENCHMARK_STRATEGIES
 
 
 class BenchmarkRunner:
@@ -336,7 +334,6 @@ def test_simple_benchmark_structure():
 
     def simple_optimization():
         # Simple random search for testing
-        import numpy as np
         from benchmarks.problems import generate_benchmark_battery
 
         cases = generate_benchmark_battery()

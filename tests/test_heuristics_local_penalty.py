@@ -3,9 +3,8 @@ from __future__ import unicode_literals
 
 import numpy as np
 import time
-import pytest
 from tests.support import PanobbgoTestCase
-from panobbgo.lib import Point, Result, BoundingBox, Problem
+from panobbgo.lib import Point, Result
 
 
 class MockConstraintHandler:

@@ -1,8 +1,7 @@
 from tests.support import StrategyDouble
-import pytest
 import numpy as np
 from panobbgo.analyzers.convergence import Convergence
-from panobbgo.lib import Problem, Point, Result, BoundingBox
+from panobbgo.lib import Problem
 from unittest import mock
 
 

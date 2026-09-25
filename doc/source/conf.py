@@ -62,7 +62,7 @@ copyright = "2012-2026, %s. License Apache 2.0" % author
 rst_prolog = """\
 .. |name|   replace:: %(project)s
 .. |author| replace:: Harald Schilly
-""" % {"project": project, "author": author}
+""" % {"project": project}
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

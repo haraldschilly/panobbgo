@@ -18,12 +18,10 @@ Rosenbrock valley intersects it.
 """
 
 import numpy as np
-import pytest
 from panobbgo.lib.lib import Problem
 from panobbgo.lib import Point
 from panobbgo.heuristics import Random, Nearby, NelderMead, LatinHypercube
 from panobbgo.strategies import StrategyRoundRobin
-from panobbgo.utils import evaluate_point_subprocess
 
 
 class RosenbrockLinearConstraint(Problem):
@@ -169,7 +167,7 @@ def test_constrained_rosenbrock_full_optimization():
     print("Constrained Rosenbrock Optimization Test")
     print("=" * 60)
     print(f"Unconstrained optimum: {OPTIMUM} (infeasible)")
-    print(f"Constraint: x + y ≤ 0 (feasible below line y = -x)")
+    print("Constraint: x + y ≤ 0 (feasible below line y = -x)")
     print(f"Box: {problem.box[:]}")
     print()
 

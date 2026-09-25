@@ -1,9 +1,8 @@
 # -*- coding: utf8 -*-
-import pytest
 from unittest import mock
 from tests.support import PanobbgoTestCase
 from panobbgo.strategies.rewarding import StrategyRewarding
-from panobbgo.lib import Result, Point
+from panobbgo.lib import Point
 from panobbgo.core import Heuristic
 import numpy as np
 

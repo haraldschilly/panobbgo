@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
-import numpy as np
-import pytest
 from panobbgo.lib.classic import Rosenbrock
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics import Random

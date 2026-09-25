@@ -1,10 +1,9 @@
 import pytest
 import numpy as np
-from panobbgo.lib import Problem, BoundingBox, Result, Point
+from panobbgo.lib import Problem, Result, Point
 from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
-    DynamicPenaltyConstraintHandler,
     AugmentedLagrangianConstraintHandler,
 )
 

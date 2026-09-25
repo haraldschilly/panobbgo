@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from panobbgo.lib import Problem, Point, Result
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler

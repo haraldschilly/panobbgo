@@ -512,7 +512,6 @@ def test_large_scale_optimization():
     - Best point tracking over many evaluations
     - Framework stability under load
     """
-    from panobbgo.lib.classic import Rastrigin
     import numpy as np
 
     # Create noisy Rastrigin function (2D for faster testing)

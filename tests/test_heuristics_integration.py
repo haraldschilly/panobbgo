@@ -7,7 +7,6 @@ These tests verify the end-to-end performance of specific heuristics
 like NelderMead and LBFGSB in a controlled integration environment.
 """
 
-import pytest
 import numpy as np
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics import (
@@ -15,7 +14,6 @@ from panobbgo.heuristics import (
     NelderMead,
     LBFGSB,
 )
-from panobbgo.analyzers.splitter import Splitter
 from panobbgo.lib.classic import (
     Rosenbrock,
     RosenbrockConstraint,

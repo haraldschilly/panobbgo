@@ -12,7 +12,6 @@ Problem: Rosenbrock with optimum at [24, -12] in box [-100, 100]^2.
 """
 
 import numpy as np
-import pytest
 from panobbgo.lib.classic import Rosenbrock
 from panobbgo.lib import Point
 from panobbgo.heuristics import Random, Nearby, NelderMead, LatinHypercube
@@ -134,7 +133,7 @@ def test_rosenbrock_full_optimization():
     # Validate point is within bounds
     for i, coord in enumerate(strategy.best.x):
         bounds = problem.box[i]
-        assert bounds[0] <= coord <= bounds[1], f"Solution should be within bounds"
+        assert bounds[0] <= coord <= bounds[1], "Solution should be within bounds"
 
     print("✅ Framework executed successfully!")
 

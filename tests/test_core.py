@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from unittest import mock
 from tests.support import PanobbgoTestCase
-from panobbgo.core import StrategyBase, Results, EventBus, Event, Module, StopHeuristic, Heuristic
+from panobbgo.core import StrategyBase, Results, EventBus, Event, Module, Heuristic
 from panobbgo.lib import Point, Result
 from panobbgo.lib.classic import Rosenbrock
 
@@ -195,7 +195,7 @@ def test_add_results_exception():
 
 def test_check_dependencies_failure():
     from unittest import mock
-    from panobbgo.core import StrategyBase, Module
+    from panobbgo.core import StrategyBase
     import pytest
 
     problem = mock.Mock()

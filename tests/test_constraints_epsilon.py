@@ -2,7 +2,6 @@
 from panobbgo.lib.constraints import EpsilonConstraintHandler
 from panobbgo.lib import Result
 import numpy as np
-import pytest
 
 
 class MockStrategy:

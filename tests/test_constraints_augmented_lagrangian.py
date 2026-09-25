@@ -14,9 +14,8 @@
 # limitations under the License.
 
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler
-from panobbgo.lib import Result, Point
+from panobbgo.lib import Result
 import numpy as np
-import pytest
 
 
 class MockStrategy:

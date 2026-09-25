@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 from future.builtins import str
 from future.builtins import range
 from random import random
-from math import exp, sin
+from math import sin
 # from collections import Counter
 
 alpha = 0.3

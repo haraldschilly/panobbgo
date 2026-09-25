@@ -1,10 +1,9 @@
 # -*- coding: utf8 -*-
 from tests.support import StrategyDouble
-import pytest
 import numpy as np
 from panobbgo.heuristics.repair import ConstraintRepair
 from panobbgo.lib.classic import RosenbrockConstraint
-from panobbgo.lib import Point, Result
+from panobbgo.lib import Point
 
 
 class MockStrategy(StrategyDouble):

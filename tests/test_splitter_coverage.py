@@ -1,8 +1,7 @@
 from tests.support import StrategyDouble
-import pytest
 import numpy as np
 from panobbgo.analyzers.splitter import Splitter
-from panobbgo.lib import Problem, Point, Result, BoundingBox
+from panobbgo.lib import Problem, Point, Result
 from unittest import mock
 
 

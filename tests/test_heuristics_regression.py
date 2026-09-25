@@ -27,7 +27,6 @@ import pytest
 from panobbgo.lib import Point, Result
 from panobbgo.heuristics.weighted_average import WeightedAverage
 from panobbgo.heuristics.nelder_mead import NelderMead
-from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic
 from panobbgo.lib.constraints import DefaultConstraintHandler
 from functools import cmp_to_key
 
@@ -191,7 +190,6 @@ class TestHeuristicRegressions:
 
 def test_quadratic_wls_subprocess():
     import multiprocessing
-    import time
     from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
 
     parent_conn, child_conn = multiprocessing.Pipe()

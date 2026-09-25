@@ -266,7 +266,6 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
 
         # Test exception in _report_progress_event (line 261-263)
         # We need self.strategy.panobbgo_logger.progress_reporter to exist, and self.strategy._update_progress_status to raise an exception
-        import logging
         from panobbgo.logging.logger import PanobbgoLogger
 
         self.strategy.panobbgo_logger = PanobbgoLogger({})

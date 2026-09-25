@@ -23,7 +23,6 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Type, Dict, Any, Tuple
 
 from panobbgo.lib.classic import Rosenbrock, Rastrigin, Griewank, RosenbrockConstraint
 from panobbgo.heuristics import Random, LatinHypercube, NelderMead, LBFGSB, ConstraintGradient

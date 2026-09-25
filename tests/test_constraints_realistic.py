@@ -21,10 +21,8 @@ These tests verify the framework's performance on realistic engineering design
 problems and other challenging constrained scenarios.
 """
 
-import pytest
-import numpy as np
 from panobbgo.strategies.rewarding import StrategyRewarding
-from panobbgo.heuristics import Center, Random, Nearby, NelderMead, FeasibleSearch, ConstraintGradient
+from panobbgo.heuristics import Random, Nearby, FeasibleSearch, ConstraintGradient
 from panobbgo.lib.classic import PressureVessel
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler, DynamicPenaltyConstraintHandler
 

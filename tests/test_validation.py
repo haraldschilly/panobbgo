@@ -9,12 +9,11 @@ by checking convergence to known optima for benchmark functions and comparing
 performance against a random baseline.
 """
 
-import numpy as np
 import pytest
 from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.strategies.ucb import StrategyUCB
-from panobbgo.heuristics import Center, Random, Nearby, NelderMead, LBFGSB
+from panobbgo.heuristics import Center, Random, Nearby, NelderMead
 
 
 def setup_strategy(strategy_class, problem, max_evaluations=50):

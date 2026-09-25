@@ -7,7 +7,6 @@ from panobbgo.lib import Result, Point
 from panobbgo.lib.classic import Rosenbrock
 from panobbgo.lib.constraints import DefaultConstraintHandler
 import numpy as np
-from queue import Queue
 
 
 class MockConfig:

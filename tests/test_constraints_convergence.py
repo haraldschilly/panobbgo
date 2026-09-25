@@ -1,7 +1,5 @@
-import pytest
 import numpy as np
-import time
-from panobbgo.lib import Problem, BoundingBox, Result, Point
+from panobbgo.lib import Problem
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.heuristics.random import Random
 from panobbgo.heuristics.nearby import Nearby

@@ -25,10 +25,9 @@ Specifically, we want to ensure that if a heuristic consistently generates
 non-improving points, its probability of selection decreases over time.
 """
 
-import pytest
 import numpy as np
-from panobbgo.core import StrategyBase, Heuristic, Result
-from panobbgo.lib import Problem, Point
+from panobbgo.core import Heuristic, Result
+from panobbgo.lib import Problem
 from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.strategies.rewarding import StrategyRewarding

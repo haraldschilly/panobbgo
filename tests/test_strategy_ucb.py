@@ -1,11 +1,9 @@
 # -*- coding: utf8 -*-
-import pytest
 import numpy as np
 from unittest import mock
 from tests.support import PanobbgoTestCase
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.core import Heuristic
-from panobbgo.heuristics import Random
 from panobbgo.lib import Point, Result, Problem
 import time
 import threading

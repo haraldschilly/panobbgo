@@ -6,7 +6,6 @@ This script parses the .github/workflows/tests.yml file and executes
 the same commands that CI would run, adapting dynamically to workflow changes.
 """
 
-import os
 import sys
 import subprocess
 import yaml

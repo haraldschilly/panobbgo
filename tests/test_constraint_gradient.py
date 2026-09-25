@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
 from panobbgo.lib import Point, Result, Problem

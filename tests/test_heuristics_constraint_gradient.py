@@ -1,6 +1,4 @@
 # -*- coding: utf8 -*-
-import unittest
-from unittest import mock
 import numpy as np
 from tests.support import PanobbgoTestCase
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient

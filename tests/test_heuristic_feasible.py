@@ -1,10 +1,9 @@
 # -*- coding: utf8 -*-
 from tests.support import attach_spawn_rng
-import pytest
 import numpy as np
 from unittest import mock
 from panobbgo.heuristics.feasible_search import FeasibleSearch
-from panobbgo.lib import Point, Result, BoundingBox, Problem
+from panobbgo.lib import Point, Result, Problem
 from panobbgo.config import Config
 
 

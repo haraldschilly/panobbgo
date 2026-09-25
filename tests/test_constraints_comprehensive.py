@@ -1,10 +1,9 @@
 # -*- coding: utf8 -*-
-import pytest
 import numpy as np
 import logging
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-from panobbgo.lib import Point, Result, BoundingBox
+from panobbgo.lib import Point, Result
 from panobbgo.lib.classic import RosenbrockConstraint
 from panobbgo.core import StrategyBase, Results, EventBus
 from panobbgo.lib.constraints import AugmentedLagrangianConstraintHandler

@@ -8,7 +8,6 @@ from panobbgo.lib.constraints import (
     DynamicPenaltyConstraintHandler,
 )
 from tests.support import PanobbgoTestCase
-import pytest
 
 
 class TestConstraintHandlerConfiguration(PanobbgoTestCase):

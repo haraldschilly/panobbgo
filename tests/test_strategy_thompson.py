@@ -1,11 +1,10 @@
 # -*- coding: utf8 -*-
-import unittest
 from unittest.mock import MagicMock
 import numpy as np
 from tests.support import PanobbgoTestCase
 from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.heuristics import Center, Random
-from panobbgo.lib import Point, Result, Problem
+from panobbgo.lib import Point, Result
 
 
 class TestStrategyThompson(PanobbgoTestCase):

@@ -1,9 +1,8 @@
 # -*- coding: utf8 -*-
-import unittest
 import numpy as np
 from tests.support import PanobbgoTestCase
 from panobbgo.heuristics.constraint_gradient import ConstraintGradient
-from panobbgo.lib import Problem, Point, Result
+from panobbgo.lib import Problem
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
 

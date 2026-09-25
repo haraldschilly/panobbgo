@@ -2,7 +2,6 @@ from panobbgo.analyzers.convergence import Convergence
 from panobbgo.core import StrategyBase, EventBus
 from panobbgo.lib import Result, Point
 import numpy as np
-import threading
 import time
 
 

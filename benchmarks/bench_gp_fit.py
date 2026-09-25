@@ -10,8 +10,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from panobbgo.heuristics.gaussian_process import GaussianProcessHeuristic
-from panobbgo.core import StrategyBase, Config
-from panobbgo.lib.classic import Rosenbrock
+from panobbgo.core import Config
 
 
 def run_benchmark():

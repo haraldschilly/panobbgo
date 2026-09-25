@@ -101,7 +101,6 @@ class HeuristicConstraintsTests(PanobbgoTestCase):
 
     def test_weighted_average_constraints(self):
         from panobbgo.heuristics.weighted_average import WeightedAverage
-        from panobbgo.analyzers.splitter import Splitter
         from panobbgo.lib.classic import Rosenbrock
 
         # Override problem with custom box to allow points at [10, 10]

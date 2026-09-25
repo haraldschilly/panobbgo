@@ -1,6 +1,5 @@
 from tests.support import StrategyDouble
 from panobbgo.analyzers.convergence import Convergence
-from panobbgo.core import Event
 from panobbgo.lib import Result, Point
 import numpy as np
 

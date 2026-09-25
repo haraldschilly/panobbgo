@@ -21,7 +21,6 @@ These tests verify the end-to-end performance of strategies on various
 unconstrained optimization problems.
 """
 
-import pytest
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.strategies.round_robin import StrategyRoundRobin
 from panobbgo.heuristics import (

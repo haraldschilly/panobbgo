@@ -21,11 +21,10 @@ These tests compare different strategies (UCB, Thompson Sampling, etc.)
 and verify they function correctly.
 """
 
-import pytest
 from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.lib.classic import Rosenbrock
-from panobbgo.heuristics import Random, Nearby
+from panobbgo.heuristics import Random
 
 
 def test_strategy_ucb_execution():

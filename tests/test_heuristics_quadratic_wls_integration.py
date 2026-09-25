@@ -1,9 +1,8 @@
 # -*- coding: utf8 -*-
 import unittest
 import numpy as np
-import time
 from panobbgo.core import StrategyBase, Result, Point
-from panobbgo.lib import Problem, BoundingBox
+from panobbgo.lib import Problem
 from panobbgo.heuristics.quadratic_wls import QuadraticWlsModel
 
 

@@ -22,17 +22,10 @@ import time
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from typing import List, Type, Dict, Any, Tuple
 
 from panobbgo.lib.classic import RosenbrockConstraint, Simionescu, MishraBird, PressureVessel
 from panobbgo.heuristics import Random, LatinHypercube, NelderMead, ConstraintGradient, LocalPenaltySearch
 from panobbgo.strategies.rewarding import StrategyRewarding
-from panobbgo.lib.constraints import (
-    DefaultConstraintHandler,
-    PenaltyConstraintHandler,
-    AugmentedLagrangianConstraintHandler,
-    FilterConstraintHandler,
-)
 
 # Configuration
 OUTPUT_DIR = "benchmarks/results_constrained"

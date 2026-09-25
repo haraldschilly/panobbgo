@@ -1,8 +1,7 @@
 import unittest
 import numpy as np
-import pandas as pd
 from panobbgo.core import Results
-from panobbgo.lib import Result, Point, Problem
+from panobbgo.lib import Result, Point
 from tests.support import PanobbgoTestCase
 
 

@@ -158,3 +158,40 @@ def test_result_point_roundtrip():
     """``Result.x`` is the emitted (projected) point, which the bridge matches on."""
     p = Point(np.array([0.25, 0.5]), "LBFGSB")
     assert np.array_equal(Result(p, 1.0).x, p.x)
+
+
+class BridgeHandoffRaceTests(PanobbgoTestCase):
+    """A reset between the bus thread's match and its ``put`` must win."""
+
+    def test_reset_between_match_and_put_drops_the_value(self):
+        import threading
+
+        h = _live(LBFGSB(self.strategy), "lbfgsb")
+        x = np.array([0.1, 0.1])
+        h._outstanding = True
+        h._outstanding_x = x.copy()
+        entered, release = threading.Event(), threading.Event()
+
+        def slow_penalty(r):
+            entered.set()  # matched; now the main thread resets
+            assert release.wait(5.0)
+            return r.fx
+
+        self.strategy.constraint_handler.get_penalty_value = slow_penalty
+        bus = threading.Thread(target=h.on_new_results, args=([Result(Point(x, "LBFGSB"), 9.0)],))
+        bus.start()
+        assert entered.wait(5.0)
+        h._bridge_reset()  # restart / abort on the main thread
+        release.set()
+        bus.join(5.0)
+        assert not bus.is_alive()
+        assert h._fx_inbox.empty()
+
+    def test_nan_point_still_matches(self):
+        h = _live(LBFGSB(self.strategy), "lbfgsb")
+        self.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+        x = np.array([np.nan, 0.5])
+        h._outstanding = True
+        h._outstanding_x = x.copy()
+        h.on_new_results([Result(Point(x, "LBFGSB"), 3.0)])
+        assert h._fx_inbox.get_nowait() == 3.0

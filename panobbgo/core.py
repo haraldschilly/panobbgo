@@ -1056,6 +1056,12 @@ class PipeBridgeHeuristic(Heuristic):
         #: thread and applied by :meth:`produce` on the main thread.
         self._pending_restart: Optional[tuple] = None
         self._restart_lock = threading.Lock()
+        #: Guards the hand-off of a value: the bus thread's "is this the
+        #: outstanding point? then queue its value" and the main thread's
+        #: reset / new outstanding point are atomic with respect to each other.
+        #: Without it a reset could land between the check and the ``put`` and
+        #: the old point's value would answer the new worker.
+        self._handoff_lock = threading.Lock()
 
     # -- subclass hooks ----------------------------------------------------
 
@@ -1143,13 +1149,14 @@ class PipeBridgeHeuristic(Heuristic):
 
     def _bridge_reset(self) -> None:
         """Forget the in-flight round trip; call after respawning a worker."""
-        self._outstanding_x = None
-        while True:
-            try:
-                self._fx_inbox.get_nowait()
-            except Empty:
-                break
-        self._outstanding = False
+        with self._handoff_lock:
+            self._outstanding_x = None
+            while True:
+                try:
+                    self._fx_inbox.get_nowait()
+                except Empty:
+                    break
+            self._outstanding = False
         self._bridge_done = False
 
     # -- the Heuristic contract -------------------------------------------
@@ -1221,12 +1228,20 @@ class PipeBridgeHeuristic(Heuristic):
         for result in results:
             if result.who != self.name or x_out is None:
                 continue
-            if not np.array_equal(np.asarray(result.x, dtype=float), x_out):
+            # ``equal_nan``: a NaN coordinate must still match, or the bridge
+            # would wait forever for a value that already arrived.
+            if not np.array_equal(np.asarray(result.x, dtype=float), x_out, equal_nan=True):
                 # Ours by name, but not the point the worker is waiting on: a
                 # leftover of a replaced worker or an aborted descent.
                 continue
-            self._outstanding_x = None  # answer it exactly once
-            self._fx_inbox.put(self.strategy.constraint_handler.get_penalty_value(result))
+            value = self.strategy.constraint_handler.get_penalty_value(result)
+            with self._handoff_lock:
+                # Re-check under the lock: a reset (restart, abort) since the
+                # match above makes this value stale.
+                if self._outstanding_x is not x_out:
+                    return
+                self._outstanding_x = None  # answer it exactly once
+                self._fx_inbox.put(value)
             return
 
     # -- internals ---------------------------------------------------------
@@ -1277,7 +1292,8 @@ class PipeBridgeHeuristic(Heuristic):
             x = self._bridge_point(msg)
             # ``emit`` projects the point; the result will carry that ``x``.
             # Recorded before the point can be dispatched for evaluation.
-            self._outstanding_x = np.asarray(self.problem.project(x), dtype=float)
+            with self._handoff_lock:
+                self._outstanding_x = np.asarray(self.problem.project(x), dtype=float)
             self.emit(x)
             self._outstanding = True
             return self.get_points(limit)

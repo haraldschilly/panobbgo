@@ -534,6 +534,9 @@ class StrategyBlockBandit(StrategyBase):
         self._blocks_closed: int = 0
         self._prologue: Optional[List[str]] = None
         self._prologue_pick: bool = False
+        #: the owner of the last block if that block spent no evaluation:
+        #: kept out of the next selection unless it can produce by then
+        self._empty_owner: Optional[str] = None
 
         #: warm-start bookkeeping: arms that have owned a block at least
         #: once (only those can be *re*-acquired), and per-arm counters of
@@ -814,6 +817,17 @@ class StrategyBlockBandit(StrategyBase):
             # The anchor is defined by the first block's own data, so that
             # block is scored on the same scale as every later one.
             self._anchor = self._spread_anchor()
+        self._last_owner = owner
+        self._owner = None
+        if self._block_n == 0:
+            # Nothing was spent (a warm-startable arm whose warm start was
+            # skipped or refilled nothing): there is nothing to score, and a
+            # 0-reward block would distort n/S/N.  The arm sits out the next
+            # selection, or a flat Q table picks it again and again.
+            self._empty_owner = owner
+            self.logger.debug("block of %s closed without an evaluation; not scored" % owner)
+            return
+        self._empty_owner = None
         reward = self._block_reward()
 
         g = self.gamma
@@ -834,8 +848,6 @@ class StrategyBlockBandit(StrategyBase):
             }
         )
         self._blocks_closed += 1
-        self._last_owner = owner
-        self._owner = None
         self.logger.debug(
             "block %d closed: %s spent %d/%d evals, r=%.4f (Q=%.4f)"
             % (self._blocks_closed, owner, self._block_n, self._block_size, reward, self._q(owner))
@@ -932,7 +944,7 @@ class StrategyBlockBandit(StrategyBase):
         else, so the override check is what keeps an un-opted-in arm out of
         the ``ready`` list.
         """
-        if not self.warm_start_on_resume:
+        if not self.warm_start_on_resume or h._stopped:
             return False
         if callable(getattr(h, "warm_start", None)):
             return True
@@ -1065,7 +1077,13 @@ class StrategyBlockBandit(StrategyBase):
         # The regime gate's mask is honoured here and nowhere else: every
         # other path that touches an arm (warm start, region hand-off,
         # prologue) only runs for an arm this list returned.
-        ready = [h for h in self.heuristics if self._is_enabled(h) and (h.can_produce or self._can_warm_start(h))]
+        # An arm whose last block spent nothing waits until it can produce
+        # on its own (see _close_block).
+        ready = [
+            h
+            for h in self.heuristics
+            if self._is_enabled(h) and (h.can_produce or (self._can_warm_start(h) and h.name != self._empty_owner))
+        ]
         if not ready:
             return None
 

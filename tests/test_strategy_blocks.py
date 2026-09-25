@@ -144,6 +144,7 @@ def _score_block(s, values, anchor=None, name="A"):
     if anchor is not None:
         s._anchor = anchor
     s._open_block(s._heuristics[name])
+    s._block_n = len(values)  # as if execute() had dispatched them
     s.on_new_results([_result(v, name) for v in values])
     s._close_block()
     return s._blocks[-1]["reward"]
@@ -557,3 +558,29 @@ def test_block_evals_auto_ignores_arms_the_regime_gate_disabled():
     s = _strategy(max_eval=1000, block_evals="auto", arms=(_sized_arm("A", "_lam", 6), _sized_arm("B", "NP_init", 50)))
     s._enabled = {"A": True, "B": False}  # what _apply_regime_gate sets for a row keeping only A
     assert s.block_evals == 24
+
+
+class Hollow(Restarting):
+    """Warm-startable, but its warm start refills nothing: after its first
+    generation every block it gets spends zero evaluations."""
+
+    def warm_start(self, results):
+        self.warm_calls.append((len(results), self._output.qsize()))
+
+
+def test_an_empty_block_is_not_scored_and_the_arm_sits_out_the_next_pick():
+    """Regression: a warm-startable arm that could not produce was selected,
+    closed a 0-evaluation block with reward 0 and — with a flat Q table —
+    was picked again on every pass."""
+    s = _run(
+        max_eval=210,
+        n_blocks=10,
+        warm_start_on_resume=True,
+        warm_start_only_if_foreign=False,
+        warm_start_only_if_better=False,
+        arms=(lambda st: Generational(st, name="G"), lambda st: Hollow(st, name="H")),
+    )
+    assert len(s.results) == 210
+    assert s._heuristics["H"].warm_calls, "the hollow arm must have been re-acquired"
+    assert all(b["evals"] > 0 for b in s._blocks), [b for b in s._blocks if b["evals"] == 0]
+    assert s._n["H"] <= 1.0  # only its prologue block was scored

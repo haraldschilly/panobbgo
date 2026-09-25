@@ -235,6 +235,34 @@ class TestCMAES(PanobbgoTestCase):
         cma.on_new_results([Result(p, float(np.sum(p.x**2))) for p in points[:quorum]])
         assert cma._counteval == cma._lam
 
+    def test_lazy_eigendecomposition_uses_hansens_strict_gap(self):
+        """The decomposition fires once *more than* λ/(c1+cμ)/n/10 evaluations passed.
+
+        Hansen's tutorial (purecmaes.m) tests ``counteval - eigeneval > gap``
+        on the unrounded gap; the old ``>= int(gap)`` fired one generation
+        early when the elapsed count landed exactly on ⌊gap⌋.
+        """
+        from panobbgo.heuristics import CMAES
+
+        for popsize in (6, 8, 10, 12, 16, 20, 30, 40):
+            cma = CMAES(self.strategy, popsize=popsize)
+            cma.on_start()
+            gap = cma._lam / (cma._c_1 + cma._c_mu) / self.problem.dim / 10.0
+            if gap > 1 and gap != int(gap):
+                break
+        else:
+            pytest.skip("no popsize gives a non-integer gap above 1")
+
+        def elapsed_after_one_generation(d):
+            # place _eigeneval so that the next update leaves counteval - eigeneval == d
+            cma._eigeneval = cma._counteval + cma._lam - d
+            anchor = cma._eigeneval
+            self._run_one_generation(cma)
+            return cma._eigeneval != anchor  # decomposed?
+
+        assert not elapsed_after_one_generation(int(gap)), "⌊gap⌋ < gap: not yet"
+        assert elapsed_after_one_generation(int(gap) + 1)
+
     def test_boundary_repair_stores_the_step_that_reaches_the_projected_point(self):
         """Regression: a projected offspring's ``y`` is ``(x_proj − m)/σ`` (Hansen's repair).
 

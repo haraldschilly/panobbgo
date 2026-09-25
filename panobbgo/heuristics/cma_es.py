@@ -1714,9 +1714,14 @@ class CMAES(Heuristic):
         self._C = C
 
         # --- Lazy eigendecomposition ---
-        # Update frequency: every lam / (c_1 + c_mu) / n / 10 evaluations
-        update_gap = max(1, int(self._lam / (self._c_1 + self._c_mu) / n / 10))
-        if self._counteval - self._eigeneval >= update_gap:
+        # Update frequency: once more than lam / (c_1 + c_mu) / n / 10
+        # evaluations have passed — Hansen's tutorial (arXiv:1604.00772,
+        # purecmaes.m): ``counteval - eigeneval > lambda/(c1+cmu)/N/10``,
+        # strict and on the unrounded gap.  (Was ``>= max(1, int(gap))``,
+        # which decomposed one generation early whenever the elapsed count
+        # landed on ⌊gap⌋.)
+        update_gap = self._lam / (self._c_1 + self._c_mu) / n / 10.0
+        if self._counteval - self._eigeneval > update_gap:
             self._eigeneval = self._counteval
             # Enforce symmetry, then decompose
             C_sym = (C + C.T) / 2.0

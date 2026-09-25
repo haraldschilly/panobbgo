@@ -58,13 +58,6 @@ class TestUtils(unittest.TestCase):
         for tp in testpoints:
             self.assertFalse(is_right(p0, p1, tp), "%s" % tp)
 
-    def test_shuffle(self):
-        # self.assertEqual(self.seq, range(10))
-        # should raise an exception for an immutable sequence
-        # self.assertRaises(TypeError, random.shuffle, (1,2,3))
-        # self.assertTrue(element in self.seq)
-        pass
-
 
 def _fresh_info(monkeypatch, run):
     import subprocess

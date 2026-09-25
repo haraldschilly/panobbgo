@@ -80,12 +80,16 @@ class TestSplitterCoverage(PanobbgoTestCase):
         splitter.__start__()
 
         # create points to trigger a split natively and exercise on_new_split logic
+        rng = np.random.default_rng(0)
         for i in range(int(splitter.limit) + 1):
-            r = Result(Point(self.problem.center + np.random.randn(2) * 0.01, f"p{i}"), 10.0 - float(i) / 100.0)
+            r = Result(Point(self.problem.center + rng.normal(size=2) * 0.01, f"p{i}"), 10.0 - float(i) / 100.0)
             splitter.on_new_results([r])
 
-        # self.assertIsNotNone(splitter.best_box)
-        # self.assertFalse(splitter.best_box.leaf == False)
+        self.assertGreater(len(splitter.leafs), 1)  # the root did split
+        self.assertIsNotNone(splitter.best_box)
+        self.assertTrue(splitter.best_box.leaf)
+        # the best box holds the best (last, lowest) result
+        self.assertEqual(splitter.best_box.best.fx, 10.0 - float(int(splitter.limit)) / 100.0)
 
     def test_splitter_on_refresh_best(self):
         splitter = Splitter(self.strategy)

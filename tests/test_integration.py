@@ -486,22 +486,6 @@ def test_noisy_problem_integration():
     print("✅ Noisy problem integration test passed!")
 
 
-def test_heuristic_point_generation():
-    """
-    Test integration of multiple heuristics generating points.
-    """
-    print("Skipping heuristic point generation test (requires complex mocking)")
-    print("✅ Heuristic integration test skipped for simplicity")
-
-
-def test_result_database_integration():
-    """
-    Test the Results database functionality.
-    """
-    print("Skipping results database test (requires complex mocking)")
-    print("✅ Results database integration test skipped for simplicity")
-
-
 def test_large_scale_optimization():
     """
     Large-scale integration test: Run 1000 evaluations on noisy Rastrigin function.
@@ -866,8 +850,6 @@ if __name__ == "__main__":
     test_dask_evaluation_integration()
     test_constrained_problem_integration()
     test_noisy_problem_integration()
-    test_heuristic_point_generation()
-    test_result_database_integration()
     test_large_scale_optimization()
 
     # Comprehensive integration tests

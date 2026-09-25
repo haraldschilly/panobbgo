@@ -538,3 +538,42 @@ def test_missing_analyzer_lookup_names_the_declaration():
     s.add_heuristic(CMAES(s))
     with pytest.raises(KeyError, match="requires_analyzers"):
         s.analyzer("Splitter")
+
+
+def test_eventbus_shutdown_timeout_leaves_no_phantom_inflight():
+    """Events dropped by a timed-out ``shutdown`` leave the in-flight count."""
+    import threading
+
+    from panobbgo.config import Config
+
+    bus = EventBus(Config(parse_args=False, testing_mode=True))
+    gate = threading.Event()
+
+    class Slow:
+        name = "slow"
+
+        def on_ping(self):
+            gate.wait(5)
+
+    bus.register(Slow())
+    for _ in range(3):
+        bus.publish("ping")
+    bus.shutdown(timeout=0.05)  # the first handler is still blocked; two are dropped
+    gate.set()
+    assert bus.wait_idle(timeout=5)
+    assert bus.inflight == 0
+
+
+def test_results_setter_resets_derived_state():
+    """Replacing the frame drops the progress-rank cache built for the old one."""
+    s = StrategyBase(Rosenbrock(dim=2), parse_args=False)
+    s.panobbgo_logger.progress_reporter.enabled = True
+    s.panobbgo_logger.progress_reporter.report_evaluation = lambda *a, **k: None
+    r = Results(s)
+    r.add_results([Result(Point(np.zeros(2), "t"), float(v)) for v in range(5)])
+    r.add_results([Result(Point(np.zeros(2), "t"), 10.0)])
+    assert r._progress_ranks is not None
+    old = r.results
+    r.results = old.iloc[:2]
+    assert r._progress_ranks is None and r._last_nb == 2
+    assert r._progress_stats()["current_best_fx"] == 0.0

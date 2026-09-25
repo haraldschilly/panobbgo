@@ -184,7 +184,10 @@ class Results:
             self._results_df = value
             self._unmerged_dfs = []
             self._buffer = []
+            # Derived state describes the old frame: drop it.
+            self._progress_ranks = None
             self._progress_ranks_fed = -1
+            self._last_nb = 0 if value is None else len(value)
             # Update best_fx from new results
             if value is not None and not value.empty:
                 try:
@@ -700,10 +703,7 @@ class Heuristic(Module):
 
     def __init__(self, strategy: "StrategyBase", name: Optional[str] = None, cap: Optional[int] = None) -> None:
         Module.__init__(self, strategy, name)
-        self.config = strategy.config
-        self.logger = self.config.get_logger("HEUR")
         self.cap: int = cap if cap is not None else self.config.capacity
-        self._stopped: bool = False
 
         self._output: Queue = Queue(self.cap)
 
@@ -900,11 +900,7 @@ class Heuristic(Module):
 
     def get_points(self, limit: Optional[int] = None) -> List["Point"]:
         """
-        this drains the output Queue until ``limit``
-        elements are removed or the Queue is empty.
-        For each actually emitted point,
-        the performance value is discounted (i.e. "punishment" or "energy
-        consumption")
+        Drain the output queue until ``limit`` points are removed or it is empty.
         """
         new_points = []
         try:
@@ -1651,6 +1647,10 @@ class EventBus:
         self.wait_idle(timeout=timeout)
         with self._cv:
             self._running = False
+            # Events dropped on a timeout will never run: take them out of
+            # the in-flight count, so ``inflight``/``wait_idle`` do not report
+            # (or wait for) work that no longer exists.
+            self._inflight -= len(self._queue)
             self._queue.clear()
             self._subs.clear()
             self._cv.notify_all()
@@ -2805,12 +2805,7 @@ class StrategyBase:
         # Deliver what is still queued (e.g. on_finished), then stop the dispatcher.
         self.eventbus.shutdown(timeout=min(2.0, remaining()))
         self.results.close()
-
-        # Close Dask client and cluster
-        if hasattr(self, "_client"):
-            self._client.close()
-        if hasattr(self, "_cluster"):
-            self._cluster.close()
+        # (The Dask client and cluster were closed by dask_evaluation.close above.)
 
     def on_converged(self, reason, stats):
         """
@@ -2828,9 +2823,9 @@ class StrategyBase:
         fini = self.n_finished
         peval = len(self.results)
         s = (
-            "{0:4d} ({1:4d}) pnts | Tasks: {2:3d} pend, {3:3d} finished | "
-            "{4:6.3f} [s] cpu, {5:6.3f} [s] wall, {6:6.3f} [s/task]".format(
-                peval, len(self.results), pend, fini, self.time_cpu, self.time_wall, avg
+            "{0:4d} pnts | Tasks: {1:3d} pend, {2:3d} finished | "
+            "{3:6.3f} [s] cpu, {4:6.3f} [s] wall, {5:6.3f} [s/task]".format(
+                peval, pend, fini, self.time_cpu, self.time_wall, avg
             )
         )
         self.slogger.info(s)

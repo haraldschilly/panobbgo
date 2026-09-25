@@ -200,3 +200,38 @@ def test_best_min_and_cv_recover_from_a_nan_objective():
     assert analyzer.cv is r2
     assert analyzer.best is r2
     assert analyzer.pareto_front == [r2]
+
+
+def _reference_front(front, r):
+    """The pre-2026-09 front rebuild: re-sort front + [r], keep decreasing cv."""
+    import math
+
+    pf = sorted(front + [r], key=lambda p: math.inf if math.isnan(p.fx) else p.fx)
+    new = [pf[0]]
+    for p in pf[1:]:
+        if new[-1].cv > p.cv:
+            new.append(p)
+    return new
+
+
+def test_incremental_pareto_front_matches_the_full_rebuild():
+    """The incremental update gives the rebuild's front, incl. ties and NaN."""
+    rng = np.random.default_rng(11)
+    strategy = MockStrategyNoCH()
+    analyzer = Best(strategy)
+    front = []
+    changes = 0
+    for k in range(2000):
+        fx = float(rng.integers(0, 30)) if k % 3 else float(rng.uniform(0, 30))
+        if k % 97 == 0:
+            fx = float("nan")
+        cv = float(rng.integers(0, 10)) if k % 2 else float(rng.uniform(0, 10))
+        r = Result(Point(np.array([float(k)]), "test"), fx, cv_vec=np.array([cv]))
+        before = analyzer.pareto_front
+        analyzer._update_pareto(r)
+        front = _reference_front(front, r)
+        after = analyzer.pareto_front
+        assert [id(p) for p in after] == [id(p) for p in front]
+        changes += [id(p) for p in before] != [id(p) for p in after]
+    events = [e for e in strategy.eventbus.events if e[0] == "new_pareto_front"]
+    assert len(events) == changes > 10

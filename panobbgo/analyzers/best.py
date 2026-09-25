@@ -14,6 +14,9 @@
 # limitations under the License.
 from __future__ import unicode_literals
 
+import bisect
+import logging
+
 from panobbgo.core import Analyzer
 from panobbgo.lib.constraints import _finite_or_inf
 
@@ -125,43 +128,25 @@ class Best(Analyzer):
         Either ignore it, or add it to the front and remove
         all points from the front which are obsolete.
         """
-        # Note: result.pp returns np.array([cv, fx])
-        # add the new point
-        pf_old = self.pareto_front
-
-        # old code for convex front, below the one for a monotone step function
-        # from utils import is_left
-        # pf = self.pareto_front
-        # pf needs to be sorted
-        # pf.append(result)
-        # pf = sorted(pf)
-        # ... and re-calculate the front
-        # new_front = pf[:1]
-        # for p in pf[1:]:
-        #  new_front.append(p)
-        # next point needs to be left (smaller cv) and and above (higher fx)
-        #  while len(new_front) > 1 and new_front[-1].cv >= new_front[-2].cv:
-        #    del new_front[-1]
-        # always a "right turn", concerning the ".pp" pareto points
-        #  while len(new_front) > 2 and is_left(*map(lambda _:_.pp, new_front[-3:])):
-        #    del new_front[-2]
-
-        # stepwise monotone decreasing pareto front
-        pf = self.pareto_front
-        pf.append(result)
-        pf = sorted(pf, key=_fx)
-        pf_new = [pf[0]]
-        for pp in pf[1:]:
-            if pf_new[-1].cv > pp.cv:
-                pf_new.append(pp)
-
-        new_front = sorted(pf_new)
-
+        # A stepwise monotone front: sorted by fx (NaN last), with strictly
+        # decreasing cv.  Incremental, O(log n) when ``result`` does not
+        # enter the front (the common case), instead of a copy and a sort
+        # of the whole front per result.  Same front as re-sorting
+        # front + [result] and keeping each point whose cv is below the last
+        # kept one: ``result`` goes after the points with equal fx.
+        pf = self._pareto_front
+        i = bisect.bisect_right(pf, _fx(result), key=_fx)
+        if i > 0 and not pf[i - 1].cv > result.cv:
+            return  # dominated: the front is unchanged
+        j = i
+        while j < len(pf) and not pf[j].cv < result.cv:
+            j += 1  # now dominated by ``result``
+        # a new list, so a front handed out with an event stays a snapshot
+        new_front = pf[:i] + [result] + pf[j:]
         self._pareto_front = new_front
-        if pf_old != new_front:
-            if len(self.pareto_front) > 2:
-                self.logger.debug("pareto: %s" % [(x.cv, x.fx) for x in self.pareto_front])
-            self.eventbus.publish("new_pareto_front", front=new_front)
+        if len(new_front) > 2:
+            self.logger.debug("pareto: %s" % [(x.cv, x.fx) for x in new_front])
+        self.eventbus.publish("new_pareto_front", front=new_front)
 
     def on_new_results(self, results):
         for r in results:
@@ -201,11 +186,11 @@ class Best(Analyzer):
 
     def on_new_pareto_front(self, front):
         """Report progress when a new pareto front is found."""
-        self._report_progress_event("New Pareto front", "pareto_front")
+        self._report_progress_event("New Pareto front", "pareto_front", level=logging.DEBUG)
 
     def on_new_cv(self, cv):
         """Report progress when a new constraint violation minimum is found."""
-        self._report_progress_event(f"CV improved to {cv.cv:.4f}", "cv_improvement")
+        self._report_progress_event(f"CV improved to {cv.cv:.4f}", "cv_improvement", level=logging.DEBUG)
 
     def on_refresh_best(self, candidates):
         """
@@ -236,10 +221,10 @@ class Best(Analyzer):
         """Report progress when a new global minimum is found."""
         self._report_progress_event(f"New best: {min.fx:.6f}", "new_best")
 
-    def _report_progress_event(self, message: str, event_type: str):
+    def _report_progress_event(self, message: str, event_type: str, level: int = logging.INFO):
         """Report a significant optimization event via progress system."""
-        # Log the event
-        self.logger.info(message)
+        # Log the event (the frequent secondary events log at DEBUG)
+        self.logger.log(level, message)
 
         # Get progress reporter from strategy and trigger status update
         if hasattr(self.strategy, "panobbgo_logger") and self.strategy.panobbgo_logger:

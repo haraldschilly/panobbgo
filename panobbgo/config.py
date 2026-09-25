@@ -353,10 +353,23 @@ class Config:
         self.version = __version__
         self.git_head = self.environment["git HEAD"]
 
-        # Additional configuration for constraint handling
-        self.rho = get_config("constraints.rho", None, None, 1.0, float)
-        self.constraint_exponent = get_config("constraints.exponent", None, None, 2, int)
-        self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, 1.1, float)
+        # Constraint handling (YAML only).  ``None`` = the chosen handler's
+        # own default: ``rho`` 100 for the Default / Penalty / Epsilon
+        # handlers (the penalty value ``fx + 100·cv`` the docs and the
+        # constrained family track use) and 10 for DynamicPenalty (``rho_start``)
+        # and AugmentedLagrangian (initial ``mu``); ``exponent`` 1 for Penalty,
+        # 2 for DynamicPenalty.  Until 2026-09 the defaults here were
+        # ``rho = 1.0`` and ``exponent = 2`` for every handler, so the default
+        # handler weighted constraint violation 100x less than documented.
+        self.rho = get_config("constraints.rho", None, None, None, float)
+        self.constraint_exponent = get_config("constraints.exponent", None, None, None, float)
+        # DynamicPenalty: *additive* per-evaluation growth, rho(t) = rho_start·(1 + rate·t)
+        # (handler default 0.01).
+        self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, None, float)
+        # AugmentedLagrangian: *multiplier* for mu when the violation stalls
+        # (handler default 2.0).  A separate key: the two rates are read in
+        # incompatible ways (a tuned 0.05 growth rate made ALM shrink mu).
+        self.alm_rate = get_config("constraints.alm_rate", None, None, None, float)
         self.epsilon_start = get_config("constraints.epsilon_start", None, None, 1.0, float)
         self.epsilon_cp = get_config("constraints.epsilon_cp", None, None, 5.0, float)
         self.epsilon_cutoff = get_config("constraints.epsilon_cutoff", None, None, 100, int)

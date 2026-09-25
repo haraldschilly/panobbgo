@@ -1968,20 +1968,27 @@ class StrategyBase:
         self._stop_requested = False
         self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
 
-        # Configure Constraint Handler
-        rho = float(config.rho) if hasattr(config, "rho") else 100.0
-        exponent = float(config.constraint_exponent) if hasattr(config, "constraint_exponent") else 1.0
-        rate = float(config.dynamic_penalty_rate) if hasattr(config, "dynamic_penalty_rate") else 0.01
+        # Configure Constraint Handler.  A setting left unset (``None``) is
+        # not passed, so each handler keeps its own class default (see the
+        # ``constraints.*`` keys in panobbgo/config.py).
+        def _set(**kw: Any) -> Dict[str, float]:
+            return {k: float(v) for k, v in kw.items() if v is not None}
+
+        rho = getattr(config, "rho", None)
+        exponent = getattr(config, "constraint_exponent", None)
         handler_name = getattr(config, "constraint_handler", "DefaultConstraintHandler")
 
         if handler_name == "PenaltyConstraintHandler":
-            self.constraint_handler = PenaltyConstraintHandler(strategy=self, rho=rho, exponent=exponent)
+            self.constraint_handler = PenaltyConstraintHandler(strategy=self, **_set(rho=rho, exponent=exponent))
         elif handler_name == "DynamicPenaltyConstraintHandler":
             self.constraint_handler = DynamicPenaltyConstraintHandler(
-                strategy=self, rho_start=rho, rate=rate, exponent=exponent
+                strategy=self,
+                **_set(rho_start=rho, rate=getattr(config, "dynamic_penalty_rate", None), exponent=exponent),
             )
         elif handler_name == "AugmentedLagrangianConstraintHandler":
-            self.constraint_handler = AugmentedLagrangianConstraintHandler(strategy=self, rho=rho, rate=rate)
+            self.constraint_handler = AugmentedLagrangianConstraintHandler(
+                strategy=self, **_set(rho=rho, rate=getattr(config, "alm_rate", None))
+            )
         elif handler_name == "EpsilonConstraintHandler":
             epsilon_start = float(config.epsilon_start) if hasattr(config, "epsilon_start") else 1.0
             epsilon_cp = float(config.epsilon_cp) if hasattr(config, "epsilon_cp") else 5.0
@@ -1992,12 +1999,12 @@ class StrategyBase:
                 epsilon_start=epsilon_start,
                 cp=epsilon_cp,
                 cutoff=epsilon_cutoff,
-                rho=rho,
+                **_set(rho=rho),
             )
         elif handler_name == "FilterConstraintHandler":
             self.constraint_handler = FilterConstraintHandler(strategy=self)
         else:
-            self.constraint_handler = DefaultConstraintHandler(strategy=self, rho=rho)
+            self.constraint_handler = DefaultConstraintHandler(strategy=self, **_set(rho=rho))
 
         self.eventbus = EventBus(config)
         self.eventbus.register(self.constraint_handler)

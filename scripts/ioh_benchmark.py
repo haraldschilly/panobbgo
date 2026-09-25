@@ -178,6 +178,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     family = _resolve_family_battery(args)
     if family is not None:
         name, instances, budget_multiplier = family
+        args.sync_eval = True if args.sync_eval is None else args.sync_eval
         dims = sorted({p.dim for _n, p in instances})
         print(
             f"Battery: {name}  instances={len(instances)}  dims={dims}  families={len({p.family for _n, p in instances})}"
@@ -209,6 +210,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             jobs=args.jobs,
         )
     else:
+        args.sync_eval = bool(args.sync_eval)
         battery = _resolve_battery(args)
         seeds = _resolve_seeds(args)
         print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
@@ -459,10 +461,13 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     )
     run_p.add_argument(
         "--sync-eval",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Synchronous-harvest evaluation: deterministic result batches, ~2x lower "
         "run-to-run noise for adaptive strategies. Use on BOTH sides of an A/B "
-        "(compare warns on a mode mismatch).",
+        "(compare warns on a mode mismatch).  Default: off on the MA-BBOB batteries "
+        "(historical comparability), on for the --families* track (nothing historical "
+        "to match; run_family_harness's own default).",
     )
     run_p.add_argument(
         "--timeout",

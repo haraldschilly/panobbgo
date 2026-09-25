@@ -688,6 +688,19 @@ class TestIOHBenchmarkCompareCLI:
         after = _mk_multi({42: {"A": 0.35}, 7: {"A": 0.34}, 3: {"A": 0.345}})
         assert self._gate(tmp_path, before, after) == 0
 
+    def test_families_default_to_sync_eval(self, monkeypatch) -> None:
+        cli = self._cli()
+        seen: list = []
+
+        def fake_run_family_harness(*args, **kwargs):
+            seen.append(kwargs["sync_eval"])
+            return SimpleNamespace(print_summary=lambda: None)
+
+        monkeypatch.setattr(cli, "run_family_harness", fake_run_family_harness)
+        assert cli.main(["run", "--families-quick", "--quiet"]) == 0
+        assert cli.main(["run", "--families-quick", "--quiet", "--no-sync-eval"]) == 0
+        assert seen == [True, False]
+
 
 # ---------------------------------------------------------------------------
 # Synchronous-harvest evaluation mode (--sync-eval / config.sync_evaluation)

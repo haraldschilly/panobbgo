@@ -121,7 +121,11 @@ class _Task:
 
 @dataclass
 class Outcome:
-    """What became of one task: ``ok`` with its ``result``, or failed with an ``error`` message."""
+    """What became of one task: ``ok`` with its ``result``, or failed with an ``error`` message.
+
+    ``point`` is the evaluated point, so a failure can be reported to the
+    module that asked for it (the ``failed_evaluations`` event).
+    """
 
     task_id: str
     ok: bool
@@ -129,6 +133,7 @@ class Outcome:
     error: str = ""
     started: Optional[float] = None
     finished: float = field(default_factory=time.time)
+    point: Any = None
 
 
 class LocalPool:
@@ -289,16 +294,25 @@ class LocalPool:
                 if started is not None:
                     self._idle_breaks = 0  # an evaluation ran: the workers can load the problem
                 if exc is not None:
-                    out.append(Outcome(tid, False, error=repr(exc), started=t0))
+                    out.append(Outcome(tid, False, error=repr(exc), started=t0, point=task.point))
                 else:
-                    out.append(Outcome(tid, True, result=f.result(), started=t0))
+                    out.append(Outcome(tid, True, result=f.result(), started=t0, point=task.point))
             elif timeout is not None and started is not None and now - started[1] > timeout:
                 timed_out.append(tid)
         for tid in timed_out:
-            self._tasks.pop(tid).future.cancel()
+            task = self._tasks.pop(tid)
+            task.future.cancel()
             t0 = self._started.pop(tid)[1]
             action = "killed" if self.processes else "abandoned (a thread cannot be interrupted)"
-            out.append(Outcome(tid, False, error="timed out after %.1fs; %s" % (timeout or 0.0, action), started=t0))
+            out.append(
+                Outcome(
+                    tid,
+                    False,
+                    error="timed out after %.1fs; %s" % (timeout or 0.0, action),
+                    started=t0,
+                    point=task.point,
+                )
+            )
         if timed_out and not broken:
             # Processes: kill the timed-out worker (with the pool).  Threads:
             # the abandoned thread keeps its slot, so move the waiting tasks
@@ -357,6 +371,7 @@ class LocalPool:
                         False,
                         error="worker process died (exit code %s, break %d) evaluating it" % (code, task.strikes),
                         started=t0,
+                        point=task.point,
                     )
                 )
         if self.logger is not None:

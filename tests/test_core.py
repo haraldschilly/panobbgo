@@ -674,3 +674,31 @@ def test_collect_points_does_not_wait_for_pending_evaluations():
     finally:
         s.pending = {}
         s._cleanup()
+
+
+def test_a_failed_evaluation_answers_the_bridge_with_inf():
+    """A failed evaluation left a bridge's round trip open forever: the arm was dead for the run."""
+    from queue import Empty
+
+    from panobbgo.core import PipeBridgeHeuristic
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class Bridge(PipeBridgeHeuristic):
+        def _bridge_process(self):
+            return None
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    try:
+        h = Bridge(s, name="Bridge")
+        x = np.array([0.5, -0.5])
+        h._outstanding = True
+        h._outstanding_x = x
+        # Another point of ours, or our point evaluated for someone else: not the answer.
+        h.on_failed_evaluations([Point(np.array([0.1, 0.1]), "Bridge"), Point(x.copy(), "Other")])
+        with pytest.raises(Empty):
+            h._fx_inbox.get_nowait()
+        h.on_failed_evaluations([Point(x.copy(), "Bridge")])
+        assert h._fx_inbox.get_nowait() == float("inf")
+        assert h._outstanding_x is None  # answered exactly once
+    finally:
+        s._cleanup()

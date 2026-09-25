@@ -1466,6 +1466,31 @@ class PipeBridgeHeuristic(Heuristic):
                 self._fx_inbox.put(value)
             return
 
+    def on_failed_evaluations(self, points: List["Point"]) -> None:
+        """Answer our outstanding point with ``inf`` when its evaluation failed.
+
+        Without an answer the worker waits for a value that never comes:
+        ``can_produce`` stays ``False`` and the arm is dead for the rest of
+        the run, silently.  ``inf`` is what :func:`pipe_objective` makes of
+        any non-finite value.  Same thread and locking rules as
+        :meth:`on_new_results`.
+        """
+        if not self._outstanding:
+            return
+        x_out = self._outstanding_x
+        for point in points:
+            if point.who != self.name or x_out is None:
+                continue
+            if not np.array_equal(np.asarray(point.x, dtype=float), x_out, equal_nan=True):
+                continue
+            self.logger.warning("%s: the evaluation of its point failed; answering inf" % self.name)
+            with self._handoff_lock:
+                if self._outstanding_x is not x_out:
+                    return
+                self._outstanding_x = None
+                self._fx_inbox.put(float("inf"))
+            return
+
     # -- internals ---------------------------------------------------------
 
     def _bridge_next_point(self, timeout: float, limit: Optional[int]) -> List["Point"]:
@@ -2688,8 +2713,12 @@ class StrategyBase:
         t = getattr(self.config, "evaluation_timeout", None)
         return float(t) if t else None
 
-    def _harvest(self, outcomes, new_results):
-        """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``."""
+    def _harvest(self, outcomes, new_results, failed):
+        """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``.
+
+        The points of failed evaluations are appended to ``failed`` (see
+        :meth:`_publish_failures`).
+        """
         for o in outcomes:
             self.pending.pop(o.task_id, None)
             self.new_finished.append(o.task_id)
@@ -2698,10 +2727,24 @@ class StrategyBase:
                 self.record_walltime(o.finished - o.started)
             if not o.ok:
                 self.logger.error("Evaluation failed: %s" % o.error)
+                if o.point is not None:
+                    failed.append(o.point)
             elif isinstance(o.result, list):
                 new_results.extend(o.result)
             else:
                 new_results.append(o.result)
+
+    def _publish_failures(self, points):
+        """Publish ``failed_evaluations`` (``points``: the :class:`~panobbgo.lib.Point`\\ s that left no result).
+
+        A failure (the objective raised, ``evaluation.timeout`` fired, the
+        worker process died) used to be only logged.  A module waiting for
+        the result of its own point -- a solver bridge's outstanding round
+        trip -- then waited forever.  Published only when someone listens,
+        so runs without failures see no extra event.
+        """
+        if points and "failed_evaluations" in self.eventbus.keys:
+            self.eventbus.publish("failed_evaluations", points=list(points))
 
     def _run_threaded_evaluation(self, points):
         """Evaluate on the local pool — threads or (``"processes"``) spawned workers.
@@ -2713,6 +2756,7 @@ class StrategyBase:
         """
         self.new_finished = []
         new_results = []
+        failed = []
         timeout = self._eval_timeout()
         pool = self._pool
 
@@ -2757,7 +2801,7 @@ class StrategyBase:
                         break
                     if len(pool):
                         pool.wait()
-                self._harvest([outcomes[t] for t in ids if t in outcomes], new_results)
+                self._harvest([outcomes[t] for t in ids if t in outcomes], new_results, failed)
             else:
                 from .local_pool import Outcome
 
@@ -2771,10 +2815,11 @@ class StrategyBase:
                 for tid, point in zip(ids, points):
                     t0 = time_module.time()
                     try:
-                        o = Outcome(tid, True, result=self._problem(point), started=t0)
+                        o = Outcome(tid, True, result=self._problem(point), started=t0, point=point)
                     except Exception as e:
-                        o = Outcome(tid, False, error=repr(e), started=t0)
-                    self._harvest([o], new_results)
+                        o = Outcome(tid, False, error=repr(e), started=t0, point=point)
+                    self._harvest([o], new_results, failed)
+            self._publish_failures(failed)
             self.results += new_results
             return
 
@@ -2782,7 +2827,8 @@ class StrategyBase:
             task_id = f"thread_task_{self.loops}_{i}"
             pool.submit(task_id, point)
             self.pending[task_id] = task_id
-        self._harvest(pool.poll(timeout), new_results)
+        self._harvest(pool.poll(timeout), new_results, failed)
+        self._publish_failures(failed)
         self.results += new_results
 
     def _update_progress_status(self, force=False):

@@ -92,6 +92,36 @@ def test_failed_evaluations_leave_pending():
     assert s._dispatched == 6
 
 
+@pytest.mark.parametrize(
+    "method,sync", [("threaded", True), ("threaded", False), ("processes", True)], ids=lambda v: str(v)
+)
+def test_failed_evaluations_are_published_with_their_points(method, sync):
+    """Failures were only logged; a module waiting for its point's value never heard of it."""
+    from panobbgo.core import Analyzer
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    got = []
+
+    class Listener(Analyzer):
+        def on_failed_evaluations(self, points):
+            got.extend(points)
+
+    s = StrategyRoundRobin(_Failing(), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = method
+    s.config.dask_n_workers = 2
+    s.config.max_eval = 5
+    s.config.sync_evaluation = sync
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.add_analyzer(Listener(s))
+    s.start()
+    s.eventbus.wait_idle(timeout=5.0)
+    assert len(s.results) == 0
+    assert len(got) == 5
+    assert {p.who for p in got} == {"Random"}
+
+
 def test_unpicklable_problem_is_a_clear_error():
     p = Rosenbrock(dim=2)
     p.hook = lambda: None  # type: ignore[attr-defined]

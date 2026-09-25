@@ -30,6 +30,7 @@ class _Client:
 def _strategy(problem):
     walltimes = []
     errors = []
+    failed = []
     return SimpleNamespace(
         _client=_Client(),
         _problem_future=problem,
@@ -42,6 +43,8 @@ def _strategy(problem):
         logger=SimpleNamespace(error=errors.append),
         walltimes=walltimes,
         errors=errors,
+        _publish_failures=failed.extend,
+        failed=failed,
     )
 
 
@@ -58,3 +61,4 @@ def test_failed_task_walltime_is_booked_like_a_successful_one():
     assert len(s.walltimes) == 2  # the failed evaluation counts too
     assert s.n_finished == 2 and not s.pending
     assert len(s.errors) == 1 and "boom" in s.errors[0]
+    assert s.failed == ["bad"]  # published as failed_evaluations, not only logged

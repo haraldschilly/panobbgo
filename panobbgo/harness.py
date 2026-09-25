@@ -1983,9 +1983,12 @@ class BenchmarkHarness:
             # at construction time.
             strategy = strat_spec.create_strategy(problem, seed=seed, max_eval=budget)
 
-            # Configure evaluation budget and method
+            # Configure evaluation budget and method.  Threaded unless the
+            # spec asks for another method (e.g. ``"processes"``): the
+            # default only guards against a user config file selecting dask.
             strategy.config.max_eval = budget
-            strategy.config.evaluation_method = "threaded"
+            if "evaluation_method" not in strat_spec.config_overrides:
+                strategy.config.evaluation_method = "threaded"
             if self.config.sync_eval:
                 strategy.config.sync_evaluation = True
 

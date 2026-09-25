@@ -1164,6 +1164,33 @@ class TestHarnessTimeout:
         assert result.composite_score > 0.0
 
 
+class TestHarnessEvaluationMethod:
+    def test_spec_override_is_kept(self):
+        """The harness defaults to threaded evaluation but keeps a spec's own choice."""
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.strategies import StrategyRoundRobin
+
+        seen = []
+
+        class Recording(StrategyRoundRobin):
+            def start(self):  # record and return without evaluating
+                seen.append(self.config.evaluation_method)
+
+        def spec(name, **overrides):
+            return StrategySpec(name=name, strategy_class=Recording, heuristics=[], config_overrides=overrides)
+
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=10,
+            reps=1,
+            seed=0,
+            strategies_override=[spec("Default"), spec("Processes", evaluation_method="processes")],
+        )
+        BenchmarkHarness(cfg).run(verbose=False)
+        assert seen == ["threaded", "processes"]
+
+
 class TestHarnessProblemDim:
     def test_mixed_dim_family_records_actual_dim(self):
         from panobbgo.harness_randomized import make_highdim_families

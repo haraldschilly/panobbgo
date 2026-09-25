@@ -2460,8 +2460,7 @@ class StrategyBase:
         #: See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.3.
         self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
         sync = bool(self.config.sync_evaluation)
-        max_eval_int = self.max_eval_or(1000)
-        self._max_total_loops = max_eval_int * 10000  # Much more headroom
+        self._last_n_finished = self.n_finished
         #: Evaluations charged against ``max_eval``: incremented when a point
         #: is *dispatched*, so a failing evaluation (no result) is charged
         #: too.  Results restored from storage count as dispatched.
@@ -2470,13 +2469,12 @@ class StrategyBase:
         while True:
             self.loops += 1
 
-            # Safety check: prevent infinite loops
-            if self.loops > self._max_total_loops:
-                self.logger.warning(
-                    f"Strategy exceeded maximum loops ({self._max_total_loops}). "
-                    f"Results so far: {len(self.results)}. Stopping optimization."
-                )
-                break
+            # No cap on the number of passes: an asynchronous run makes an
+            # idle ~1 ms pass per millisecond while evaluations run, so a cap
+            # of ``max_eval * 10000`` passes ended runs with slow evaluations
+            # after ~10 s per budgeted evaluation, silently (a WARNING under
+            # the default loglevel).  The run ends by the budget, the liveness
+            # predicate or the deadlock backstop below.
 
             # execute the actual strategy
             # Once the whole budget is dispatched, only in-flight results
@@ -2529,12 +2527,18 @@ class StrategyBase:
             # a stall: the question is whether anything *can* still produce.
             # ``_alive`` answers that from state alone — no wall clock.
             current_results_count = len(self.results)
-            progressed = len(points) > 0 or current_results_count != self._last_results_count or self._pool_progressed()
+            progressed = (
+                len(points) > 0
+                or current_results_count != self._last_results_count
+                or self.n_finished != self._last_n_finished  # a failed evaluation is progress too
+                or self._pool_progressed()
+            )
             now = time_module.time()
             if progressed:
                 self._dead_loops = 0
                 self._last_progress_at = now
                 self._last_results_count = current_results_count
+                self._last_n_finished = self.n_finished
             elif not self._alive():
                 self._dead_loops += 1
                 if self._dead_loops >= self._max_dead_loops:
@@ -2581,9 +2585,12 @@ class StrategyBase:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
                 break
 
-            if not sync:
-                # limit loop speed - sleep briefly (nothing is in flight in
-                # sync mode, so the sleep would be pure latency there)
+            if not sync or self.pending:
+                # Limit loop speed while evaluations are in flight.  Under
+                # sync threaded/processes evaluation nothing is in flight here
+                # (the sleep would be pure latency); dask ignores
+                # ``evaluation.sync`` and keeps ``pending`` filled, and without
+                # the sleep that loop spun at full CPU.
                 time_module.sleep(1e-3)
 
         # Final forced update to ensure UI shows 100% or final results
@@ -2591,25 +2598,30 @@ class StrategyBase:
         self._cleanup()
 
     def _pool_progressed(self) -> bool:
-        """Is the in-flight work moving?
+        """Did the in-flight work move since the last pass?
 
-        Dask and processes: anything pending counts.  Threads: an
-        evaluation is running, or one started or finished since the last
-        pass.  Tasks that sit queued with nothing running (every worker
-        wedged) are *not* progress, so the deadlock backstop can fire.
+        Progress is an *event*: an evaluation started or finished since the
+        last pass (finished dask tasks show up in ``n_finished``, which the
+        main loop checks itself).  An evaluation that is merely running is
+        not progress — otherwise one that hangs (with the default
+        ``evaluation.timeout`` of ``None``) kept the deadlock backstop from
+        ever firing and the run never ended.  So a single evaluation that
+        runs longer than ``core.deadlock_seconds`` with nothing else
+        happening ends the run; raise ``deadlock_seconds`` above the longest
+        legitimate evaluation.
+
+        One exception, for processes: queued tasks with *nothing started*
+        are workers spawning (after start, or after a timeout or a crash
+        replaced the pool), which takes seconds on a loaded machine.
         """
         pool = getattr(self, "_pool", None)
-        if self.config.evaluation_method == "dask" or pool is None:
-            return len(self.pending) > 0
-        if pool.processes:
-            # Queued work counts: workers may still be spawning (after start,
-            # or after a timeout killed the pool), and a timed-out worker is
-            # killed rather than left holding its slot, so processes cannot
-            # wedge the way threads can.
-            return len(pool) > 0
+        if pool is None or self.config.evaluation_method == "dask":
+            return False
         events, last = pool.events, getattr(self, "_last_pool_events", None)
         self._last_pool_events = events
-        return pool.running() > 0 or (last is not None and events != last)
+        if last is not None and events != last:
+            return True
+        return bool(pool.processes) and len(pool) > 0 and pool.running() == 0
 
     def _clamp_to_budget(self, points):
         """Cut a batch from :meth:`execute` to the evaluations the budget still allows.
@@ -2716,9 +2728,33 @@ class StrategyBase:
                 for tid, point in zip(ids, points):
                     pool.submit(tid, point)
                 outcomes = {}
+                # The deadlock backstop of ``_run`` never sees this loop, so it
+                # applies its own: no start or finish for ``deadlock_seconds``
+                # while an evaluation runs (a hung objective without
+                # ``evaluation.timeout``) ends the run instead of blocking forever.
+                deadlock = float(getattr(self, "_deadlock_seconds", self.config.deadlock_seconds))
+                events, moved_at = pool.events, time_module.time()
                 while len(pool):
                     for o in pool.poll(timeout):
                         outcomes[o.task_id] = o
+                    now = time_module.time()
+                    if pool.events != events or pool.running() == 0:  # moving, or workers spawning
+                        events, moved_at = pool.events, now
+                    elif now - moved_at > deadlock:
+                        self.logger.error(
+                            "Deadlock backstop: %.0fs without an evaluation starting or finishing "
+                            "(%d running, %d queued). A hung objective? Set evaluation.timeout. "
+                            "Ending the run; results so far: %d/%s."
+                            % (
+                                now - moved_at,
+                                pool.running(),
+                                len(pool) - pool.running(),
+                                len(self.results),
+                                self.config.max_eval,
+                            )
+                        )
+                        self._stop_requested = True
+                        break
                     if len(pool):
                         pool.wait()
                 self._harvest([outcomes[t] for t in ids if t in outcomes], new_results)

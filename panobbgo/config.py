@@ -307,7 +307,11 @@ class Config:
         # however slow its arms — ends via the liveness predicate instead and
         # never reaches this.  600 s is deliberately far outside any
         # legitimate slow-arm regime; a smaller value reintroduces the
-        # truncation of F4 at a larger constant.
+        # truncation of F4 at a larger constant.  A running evaluation is
+        # not "something arriving": one evaluation that runs longer than
+        # this with nothing else starting or finishing (a hung objective
+        # without evaluation.timeout) ends the run — raise it above the
+        # longest legitimate evaluation.
         self.deadlock_seconds = get_config("core.deadlock_seconds", "core", "deadlock_seconds", 600.0, float)
         # How long cleanup waits for evaluations already running when a run
         # ends (queued ones are cancelled).

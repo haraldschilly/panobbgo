@@ -19,7 +19,9 @@
   buffer (64 KB) to stderr used to block forever;
 * a round-trip is bounded by :attr:`IOHProblem.deadline`, and a worker
   that misses it is killed;
-* a dead worker's stderr tail is quoted in the error.
+* a dead worker's stderr tail is quoted in the error;
+* a closed problem's healthy worker is reused by the next one, a broken
+  one never is.
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ import time
 import numpy as np
 import pytest
 
-from panobbgo.lib.ioh_wrapper import IOHProblem, worker_available
+from panobbgo.lib.ioh_wrapper import IOHProblem, shutdown_idle_workers, worker_available
 
 _FAKE = r"""
 import json, sys, time
@@ -78,7 +80,9 @@ def fake_worker(monkeypatch, tmp_path):
 
         monkeypatch.setattr(IOHProblem, "_spawn_worker", spawn)
 
-    return lambda mode: (use(mode), tmp_path)[1]
+    shutdown_idle_workers()
+    yield lambda mode: (use(mode), tmp_path)[1]
+    shutdown_idle_workers()
 
 
 def test_chatty_worker_does_not_block(fake_worker):
@@ -172,3 +176,94 @@ def test_real_worker_stderr_path():
         assert isinstance(p._stderr_tail(), str)
     finally:
         p.close()
+
+
+# -- worker reuse ------------------------------------------------------------
+
+
+def test_closed_problem_hands_its_worker_to_the_next_one(fake_worker):
+    wd = fake_worker("ok")
+    p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    proc = p._proc
+    assert p.eval(np.array([1.0, 2.0])) == pytest.approx(5.0)
+    p.close()
+    assert proc is not None and proc.poll() is None  # parked, not stopped
+    with pytest.raises(RuntimeError, match="not running"):
+        p.eval(np.zeros(2))  # the closed problem cannot reach the parked worker
+
+    q = IOHProblem(kind="MA-BBOB", instance=1, dim=2, worker_dir=wd)
+    try:
+        assert q._proc is proc
+        assert q.eval(np.array([3.0, 0.0])) == pytest.approx(9.0)
+    finally:
+        q.close()
+
+
+def test_worker_is_per_kind_and_opt_out_is_private(fake_worker):
+    wd = fake_worker("ok")
+    p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    proc = p._proc
+    p.close()
+    other = IOHProblem(kind="BBOB", instance=0, dim=2, fid=1, worker_dir=wd)
+    assert other._proc is not proc
+    other.close()
+    private = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd, reuse_worker=False)
+    assert private._proc is not proc  # did not take the idle one
+    private_proc = private._proc
+    private.close()
+    assert private_proc is not None and private_proc.wait(timeout=10) == 0  # shut down
+
+
+def test_timed_out_worker_is_never_reused(fake_worker):
+    wd = fake_worker("hang")
+    p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd, call_timeout=0.5)
+    proc = p._proc
+    with pytest.raises(TimeoutError):
+        p.eval(np.zeros(2))
+    p.close()
+    q = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    try:
+        assert q._proc is not proc
+        assert proc is not None and proc.poll() is not None
+    finally:
+        q.close()
+
+
+def test_idle_worker_that_died_is_replaced(fake_worker):
+    wd = fake_worker("ok")
+    p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    proc = p._proc
+    p.close()
+    assert proc is not None
+    proc.kill()
+    proc.wait(timeout=5)
+    q = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    try:
+        assert q._proc is not proc
+        assert q.eval(np.array([1.0, 1.0])) == pytest.approx(2.0)
+    finally:
+        q.close()
+
+
+@pytest.mark.skipif(not worker_available(), reason="ioh worker venv not set up (tools/ioh_worker)")
+def test_real_reused_worker_evaluates_like_a_fresh_one():
+    """Re-targeting with ``create`` leaves nothing of the previous problem behind."""
+    shutdown_idle_workers()
+    rng = np.random.default_rng(0)
+    xs = [rng.uniform(-5, 5, 3) for _ in range(5)]
+    cases = [("MA-BBOB", 0, None), ("BBOB", 1, 8), ("MA-BBOB", 2, None), ("BBOB", 0, 24)]
+
+    def values(reuse):
+        out = []
+        for kind, inst, fid in cases:
+            p = IOHProblem(kind=kind, instance=inst, dim=3, fid=fid, reuse_worker=reuse)
+            try:
+                out.append((p.optimum_y, [p.eval(x) for x in xs]))
+            finally:
+                p.close()
+        return out
+
+    try:
+        assert values(True) == values(False)
+    finally:
+        shutdown_idle_workers()

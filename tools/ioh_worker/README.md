@@ -4,6 +4,14 @@ Stateful child process hosting one `ioh.problem.RealSingleObjective`
 instance.  Spawned on demand by `panobbgo.lib.ioh_wrapper.IOHProblem`,
 proxies `eval(x) -> fx` over JSON-Lines stdin/stdout.
 
+A worker outlives the problem that started it: on `IOHProblem.close()` a
+healthy worker (running, every request answered, never timed out) is
+parked in a small per-process pool, and the next `IOHProblem` of the same
+kind re-targets it with `create`, which replaces the hosted problem.  That
+saves the `uv run` + interpreter + `import ioh` start-up (~0.2–0.4 s) per
+benchmark run.  A worker that crashed or timed out is discarded, never
+reused; `IOHProblem(..., reuse_worker=False)` opts out.
+
 ## Why this is a separate uv project
 
 The `ioh` PyPI package ships pybind11/C++ binary wheels for **cp311 and

@@ -22,8 +22,12 @@ Adapts an IOHprofiler problem (BBOB, MA-BBOB, ...) as a panobbgo
 **not** imported in this process — it lives in an isolated child venv
 under ``tools/ioh_worker/``, pinned to Python 3.12 (the latest version
 with prebuilt cp-wheels for ``ioh``).  Each :class:`IOHProblem` instance
-spawns one such child, sends commands over JSON-Lines on stdin, and
-reads responses from stdout.
+talks to one such child, sends commands over JSON-Lines on stdin, and
+reads responses from stdout.  Children are reused: a closed problem hands
+its healthy worker back to a small per-process pool, and the next
+:class:`IOHProblem` of the same kind re-targets it with ``create`` instead
+of paying ``uv run`` + interpreter + ``import ioh`` again (~0.2–0.4 s per
+run, a fifth of a quick run).
 
 This split lets the panobbgo core stay on the newest Python without
 being held back by the ``ioh`` wheel coverage matrix.
@@ -48,6 +52,7 @@ See ``tools/ioh_worker/README.md``.
 
 from __future__ import annotations
 
+import atexit
 import fcntl
 import json
 import os
@@ -58,7 +63,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -76,6 +81,83 @@ STDERR_KEEP_BYTES: int = 64 << 10
 
 
 _WORKER_DIR_CACHE: Optional[Path] = None
+
+#: Idle workers kept per ``(worker_dir, kind)``; more are shut down.
+MAX_IDLE_PER_KEY: int = 2
+
+
+class _IdleWorker:
+    """A live worker between two problems: the process, its selector and stderr file."""
+
+    __slots__ = ("proc", "sel", "stderr", "pid")
+
+    def __init__(self, proc: subprocess.Popen, sel: selectors.BaseSelector, stderr: Any) -> None:
+        self.proc = proc
+        self.sel = sel
+        self.stderr = stderr
+        #: The process that owns it (a forked child must not adopt it).
+        self.pid = os.getpid()
+
+    def shutdown(self) -> None:
+        proc = self.proc
+        try:
+            if proc.poll() is None:
+                assert proc.stdin is not None
+                proc.stdin.write(b'{"cmd": "shutdown"}\n')
+                proc.stdin.flush()
+                proc.wait(timeout=5)
+        except Exception:
+            try:
+                proc.kill()
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+        for closeable in (proc.stdin, proc.stdout, self.sel, self.stderr):
+            try:
+                if closeable is not None:
+                    closeable.close()
+            except Exception:
+                pass
+
+
+_IDLE: Dict[Tuple[str, str], List[_IdleWorker]] = {}
+_IDLE_LOCK = threading.Lock()
+
+
+def _take_idle(key: Tuple[str, str]) -> Optional[_IdleWorker]:
+    """An idle, still-running worker for ``key`` owned by this process, or ``None``."""
+    with _IDLE_LOCK:
+        stack = _IDLE.get(key)
+        while stack:
+            w = stack.pop()
+            if w.pid != os.getpid():  # inherited through fork: not ours to use or stop
+                continue
+            if w.proc.poll() is None:
+                return w
+            w.shutdown()
+    return None
+
+
+def _put_idle(key: Tuple[str, str], worker: _IdleWorker) -> None:
+    with _IDLE_LOCK:
+        stack = _IDLE.setdefault(key, [])
+        stack.append(worker)
+        evicted = stack[:-MAX_IDLE_PER_KEY] if len(stack) > MAX_IDLE_PER_KEY else []
+        del stack[: len(evicted)]
+    for w in evicted:
+        w.shutdown()
+
+
+def shutdown_idle_workers() -> None:
+    """Stop every idle worker of this process (also run at interpreter exit)."""
+    with _IDLE_LOCK:
+        workers = [w for stack in _IDLE.values() for w in stack if w.pid == os.getpid()]
+        _IDLE.clear()
+    for w in workers:
+        w.shutdown()
+
+
+atexit.register(shutdown_idle_workers)
 
 
 def _resolve_worker_dir() -> Path:
@@ -149,11 +231,20 @@ class IOHProblem(Problem):
     worker_dir
         Override the path to the worker uv project.  Defaults to the
         result of :func:`_resolve_worker_dir`.
+    reuse_worker
+        ``True`` (default): take an idle worker of the same
+        ``(worker_dir, kind)`` if there is one, and hand this one back on
+        :meth:`close`.  ``False``: a private worker, shut down on close.
 
     Notes
     -----
-    The child process is spawned eagerly in ``__init__`` and torn down
-    by :meth:`close` (or :meth:`__del__` as a safety net).  Each
+    The child process is acquired eagerly in ``__init__`` — an idle one
+    re-targeted with ``create`` (the protocol replaces the worker's problem;
+    ``tools/ioh_worker/README.md``), else a fresh spawn — and released by
+    :meth:`close` (or :meth:`__del__` as a safety net).  Only a worker
+    in a known-good state goes back to the pool: running, no unread output,
+    never timed out or killed.  A crashed or timed-out worker is discarded
+    as before, so a run cannot inherit a broken process.  Each
     :meth:`eval` does one synchronous JSON-Lines round-trip behind a
     per-instance lock; the underlying IOH problem object is not
     thread-safe in C++ so serialising is correct.
@@ -183,6 +274,7 @@ class IOHProblem(Problem):
         fid: Optional[int] = None,
         worker_dir: Optional[Path] = None,
         call_timeout: Optional[float] = DEFAULT_CALL_TIMEOUT_S,
+        reuse_worker: bool = True,
     ) -> None:
         self._proc: Optional[subprocess.Popen] = None
         self._sel: Optional[selectors.BaseSelector] = None
@@ -193,15 +285,16 @@ class IOHProblem(Problem):
         self.deadline: Optional[float] = None
         #: Seconds one round-trip may take (``None``: unbounded).
         self.call_timeout: Optional[float] = call_timeout
-        self._stderr = tempfile.TemporaryFile(mode="w+b")
-        fd = self._stderr.fileno()
-        fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_APPEND)
-
         self._worker_dir = Path(worker_dir).resolve() if worker_dir is not None else _resolve_worker_dir()
-        self._proc = self._spawn_worker()
-        assert self._proc.stdout is not None
-        self._sel = selectors.DefaultSelector()
-        self._sel.register(self._proc.stdout.fileno(), selectors.EVENT_READ)
+        self._pool_key: Optional[Tuple[str, str]] = (str(self._worker_dir), str(kind)) if reuse_worker else None
+
+        idle = _take_idle(self._pool_key) if self._pool_key is not None else None
+        if idle is not None:
+            self._stderr = idle.stderr
+            self._proc = idle.proc
+            self._sel = idle.sel
+        else:
+            self._start_fresh_worker()
 
         create_kwargs: Dict[str, Any] = {
             "kind": str(kind),
@@ -211,7 +304,22 @@ class IOHProblem(Problem):
         if fid is not None:
             create_kwargs["fid"] = int(fid)
 
-        meta = self._call("create", **create_kwargs)
+        try:
+            meta = self._call("create", **create_kwargs)
+        except (RuntimeError, OSError):
+            # An adopted idle worker that died since it was parked (its
+            # ``create`` found no process or a closed pipe): start a fresh
+            # one.  A protocol error from a live worker is the caller's.
+            if idle is None or (self._proc is not None and self._proc.poll() is None):
+                raise
+            self._kill()
+            try:
+                self._stderr.close()
+            except Exception:
+                pass
+            self._rbuf = b""
+            self._start_fresh_worker()
+            meta = self._call("create", **create_kwargs)
 
         lb = np.asarray(meta["lb"], dtype=np.float64)
         ub = np.asarray(meta["ub"], dtype=np.float64)
@@ -249,6 +357,16 @@ class IOHProblem(Problem):
     # ------------------------------------------------------------------
     # Worker lifecycle
     # ------------------------------------------------------------------
+
+    def _start_fresh_worker(self) -> None:
+        """A new stderr file and a newly spawned worker (not from the idle pool)."""
+        self._stderr = tempfile.TemporaryFile(mode="w+b")
+        fd = self._stderr.fileno()
+        fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_APPEND)
+        self._proc = self._spawn_worker()
+        assert self._proc.stdout is not None
+        self._sel = selectors.DefaultSelector()
+        self._sel.register(self._proc.stdout.fileno(), selectors.EVENT_READ)
 
     def _spawn_worker(self) -> subprocess.Popen:
         cmd = [
@@ -367,7 +485,7 @@ class IOHProblem(Problem):
         return resp
 
     def close(self) -> None:
-        """Send ``shutdown`` and wait for the child to exit."""
+        """Release the worker: back to the idle pool if healthy, else ``shutdown``."""
         if self._closed:
             return
         if self._proc is None:  # never spawned, or killed after a timeout
@@ -376,6 +494,8 @@ class IOHProblem(Problem):
             self._stderr.close()
             return
         self._closed = True
+        if self._pool_key is not None and self._release_to_pool():
+            return
         try:
             if self._proc.poll() is None:
                 try:
@@ -399,6 +519,29 @@ class IOHProblem(Problem):
                 self._stderr.close()
             except Exception:
                 pass
+
+    def _release_to_pool(self) -> bool:
+        """Hand a worker in a known-good state to the idle pool; ``True`` if it was taken.
+
+        Known-good: still running, nothing unread (every request answered),
+        and never timed out (a timeout kills it and clears ``_proc``).
+        Under the call lock, so an evaluation racing with ``close`` either
+        finishes first or finds the worker gone ("not running").
+        """
+        with self._lock:
+            proc, sel = self._proc, self._sel
+            if proc is None or sel is None or proc.poll() is not None or self._rbuf:
+                return False
+            try:
+                if sel.select(0):  # unsolicited output: protocol state unknown
+                    return False
+            except Exception:
+                return False
+            self._proc = None
+            self._sel = None
+        assert self._pool_key is not None
+        _put_idle(self._pool_key, _IdleWorker(proc, sel, self._stderr))
+        return True
 
     def __del__(self) -> None:  # pragma: no cover — best-effort cleanup
         try:

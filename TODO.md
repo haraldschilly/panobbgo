@@ -60,13 +60,16 @@ integrity, optimizer fidelity (jSO / NL-SHADE / CMA-ES / PSO / constraint
 ordering), runtime robustness (process pool, leaks, storage fingerprint,
 classic test functions), performance (add_results, Splitter, LSHADE ranks,
 analyzers on demand, `--jobs`, IOH worker reuse) and cleanup (dead code,
-shared bandit selectors and screen pipeline).  Details in the PR
-descriptions and commit messages.
+shared bandit selectors and screen pipeline).  A second full audit round
+followed (#331–#334).  Details in the PR descriptions and commit messages.
 
 - [ ] **Re-baseline once.**  Result files from before 2026-09-25 are not
       comparable: runs now stop at exactly `max_eval`, composite `success`
       means "tolerance met within the budget", the DE family / CMA-ES /
-      PSO follow their papers, and GP fits are seeded.  Re-measure the
+      PSO follow their papers, GP fits are seeded, the default constraint
+      penalty is `fx + 100·cv` (was `fx + cv`), NelderMead / QuadraticWLS
+      follow their definitions, phased Rewarding phases use EMA credit, and
+      IOH aggregates count timeouts and crashes.  Re-measure the
       composite quick/standard and IOH/family references before the next
       comparison that relies on them.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
@@ -89,3 +92,25 @@ descriptions and commit messages.
 - [ ] **Old storage databases without a fingerprint** are refused by default
       now (escape hatch: `storage.adopt_legacy` / `SQLiteStorage.adopt`).
       OK as the default?
+- [ ] **Warm restart ignores the Restart analyzer's center** (PSO, L-SHADE
+      family): with `warm_start` set, a restart re-seeds from the archive's
+      top points — usually the stagnated basin itself — so "diverse"/"sphere"
+      restart strategies have no effect.  Mix the center in, or seed only
+      when the archive best lies outside the stagnated basin?
+- [ ] **QuadraticWlsModel on the pull-bridge model.**  Its fit still blocks
+      the event-bus thread up to 10 s, and a timeout makes sync runs
+      timing-dependent.  Moving it onto `PipeBridgeHeuristic` fixes both;
+      worth it?
+- [ ] **Block-bandit credit in async mode**: a result counts for whichever
+      block is open when it arrives.  Credit by `who` prefix instead?  Changes
+      the reward definition.
+- [ ] **Accept the new defaults?**  (a) The deadlock backstop ends a run when a
+      single evaluation runs longer than `core.deadlock_seconds` (600 s)
+      with nothing else happening.  (b) DynamicPenalty / ALM default to their
+      class rho of 10, Default/Penalty/Epsilon to 100 — or one flat 100?
+      (c) ALM keeps growing its multipliers linearly while the incumbent is
+      stuck (only mu growth was stopped).
+- [ ] **`--fail-on-regression` multi-seed gate** fails only when the pooled
+      t-CI95 lies below 0; also fail when a single strategy's CI does?
+- [ ] **`planning/GOAL.md` §2** is still the 2026-09-10 snapshot; folding in
+      DISCOVERY §32–§53 is a research-summary call.

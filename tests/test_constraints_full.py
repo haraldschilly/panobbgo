@@ -93,8 +93,8 @@ def test_default_constraint_handler():
     r_feasible = Result(Point(np.array([0.5, 0.5]), "test"), 0.5, cv_vec=np.array([0.0]))
     r_infeasible = Result(Point(np.array([0.0, 0.0]), "test"), 0.0, cv_vec=np.array([1.0]))
 
-    assert handler.is_better(r_infeasible, r_feasible) == True, "Feasible should beat Infeasible"
-    assert handler.is_better(r_feasible, r_infeasible) == False, "Infeasible should not beat Feasible"
+    assert handler.is_better(r_infeasible, r_feasible), "Feasible should beat Infeasible"
+    assert not handler.is_better(r_feasible, r_infeasible), "Infeasible should not beat Feasible"
 
     # Improvement calculation
     # Crossing from infeasible to feasible should give large reward
@@ -106,7 +106,7 @@ def test_default_constraint_handler():
     # (0.6, 0.6) fx=0.72, feasible
     r_feasible_worse = Result(Point(np.array([0.6, 0.6]), "test"), 0.72, cv_vec=np.array([0.0]))
 
-    assert handler.is_better(r_feasible_worse, r_feasible) == True, "Lower fx should be better"
+    assert handler.is_better(r_feasible_worse, r_feasible), "Lower fx should be better"
     assert handler.calculate_improvement(r_feasible_worse, r_feasible) == pytest.approx(0.22)
 
     # 3. Both Infeasible
@@ -114,7 +114,7 @@ def test_default_constraint_handler():
     # (0.1, 0.1) fx=0.02, cv=0.8
     r_infeasible_better = Result(Point(np.array([0.1, 0.1]), "test"), 0.02, cv_vec=np.array([0.8]))
 
-    assert handler.is_better(r_infeasible, r_infeasible_better) == True, "Lower cv should be better"
+    assert handler.is_better(r_infeasible, r_infeasible_better), "Lower cv should be better"
     assert handler.calculate_improvement(r_infeasible, r_infeasible_better) == pytest.approx(0.2 * handler.rho)
 
 
@@ -136,9 +136,9 @@ def test_penalty_constraint_handler():
     # r3: fx=0.1, cv=0.5 -> P = 0.1 + 10*0.5 = 5.1
     r3 = Result(Point(np.array([0.1, 0.1]), "test"), 0.1, cv_vec=np.array([0.5]))
 
-    assert handler.is_better(r1, r2) == True  # 0.5 < 10
-    assert handler.is_better(r1, r3) == True  # 5.1 < 10
-    assert handler.is_better(r3, r2) == True  # 0.5 < 5.1
+    assert handler.is_better(r1, r2)  # 0.5 < 10
+    assert handler.is_better(r1, r3)  # 5.1 < 10
+    assert handler.is_better(r3, r2)  # 0.5 < 5.1
 
     assert handler.calculate_improvement(r1, r3) == pytest.approx(4.9)
 
@@ -227,5 +227,5 @@ def test_augmented_lagrangian_improvement():
     # L = 0.5
     r2 = Result(Point(np.array([0.5, 0.5]), "t"), 0.5, cv_vec=np.array([0.0]))
 
-    assert handler.is_better(r1, r2) == True  # 0.5 < 1.5
+    assert handler.is_better(r1, r2)  # 0.5 < 1.5
     assert handler.calculate_improvement(r1, r2) == pytest.approx(1.0)

@@ -57,7 +57,12 @@ class Restart(Analyzer):
     judged on its own progress, not on whether it already beats the global
     incumbent (which it almost never can within ``patience`` evaluations — all
     ``max_restarts`` would fire back to back).  As at the start of the run, the
-    first result of a new epoch establishes its baseline.
+    first result of a new epoch establishes its baseline.  That result is simply
+    the next one to arrive — possibly a point proposed *before* the restart and
+    still in flight, i.e. from the old basin.  It is not filtered out: an
+    old-basin baseline is at worst a bit too good, so the new basin gets
+    ``patience`` evaluations to beat it rather than to beat itself, which is
+    the pre-epoch behaviour for those few evaluations and no worse.
 
     Configuration parameters:
 
@@ -146,11 +151,13 @@ class Restart(Analyzer):
         """Does ``r`` improve on the epoch best by more than the threshold?
 
         Ranked with the constraint handler's ordering (``rank_key``), the same
-        one ``Best`` uses — so e.g. a feasible point improves on an infeasible
-        one however large its ``fx``.  The relative threshold applies to the
-        last key component when the leading ones (feasibility tiers) tie; with
-        a scalar penalty that is the penalty itself.  The epoch best's key is
-        recomputed on every call, so a time-varying ordering is not cached.
+        one ``Best`` uses.  The relative threshold applies to the *first
+        differing* key component — a violation that creeps down by 1e-9 per
+        evaluation is stagnation, not progress.  The one unconditional
+        improvement is infeasible -> feasible under a lexicographic key (first
+        component, the violation tier, drops to zero).  With a scalar penalty
+        key the threshold applies to the penalty itself.  The epoch best's key
+        is recomputed on every call, so a time-varying ordering is not cached.
         """
         best = self._epoch_best
         if best is None:
@@ -159,13 +166,16 @@ class Restart(Analyzer):
         old_key = result_key(handler, best)
         if not new_key < old_key:
             return False
-        if new_key[:-1] != old_key[:-1]:
-            return True  # better in a leading (feasibility) component
-        old_v, new_v = old_key[-1], new_key[-1]
-        if old_v == float("inf"):
-            return True
-        rel_improvement = (old_v - new_v) / max(abs(old_v), 1e-12)
-        return rel_improvement > self._improvement_threshold
+        for i, (old_v, new_v) in enumerate(zip(old_key, new_key)):
+            if old_v == new_v:
+                continue
+            if i == 0 and len(new_key) > 1 and new_v == 0.0 and old_v > 0.0:
+                return True  # became feasible
+            if old_v == float("inf"):
+                return True
+            rel_improvement = (old_v - new_v) / max(abs(old_v), 1e-12)
+            return rel_improvement > self._improvement_threshold
+        return False
 
     def _trigger_restart(self):
         center = self._pick_new_center()

@@ -338,3 +338,25 @@ def test_invalid_restart_strategy_raises():
 def test_supported_restart_strategies_constant():
     """``SUPPORTED_RESTART_STRATEGIES`` lists the three policies."""
     assert Restart.SUPPORTED_RESTART_STRATEGIES == ("random", "diverse", "sphere")
+
+
+def test_creeping_violation_is_stagnation_but_feasibility_is_progress():
+    """A tiny cv decrease is below the relative threshold; reaching cv = 0 is not."""
+    from panobbgo.lib.constraints import DefaultConstraintHandler
+
+    problem = FlatProblem(dim=2)
+    strategy = _make_strategy(problem)
+    strategy.constraint_handler = DefaultConstraintHandler(strategy)
+    r = Restart(strategy, patience=5, max_restarts=10, improvement_threshold=1e-3)
+    r.__start__()
+
+    def feed(fx, cv):
+        r.on_new_results([Result(Point(np.zeros(2), "t"), fx, cv_vec=np.array([cv]))])
+
+    feed(0.0, 1.0)
+    for i in range(1, 5):
+        feed(0.0, 1.0 - 1e-9 * i)  # creeping toward feasibility
+    assert r._evals_since_improvement == 4
+    feed(50.0, 0.0)  # feasible, however bad its fx
+    assert r._evals_since_improvement == 0
+    assert r.restart_count == 0

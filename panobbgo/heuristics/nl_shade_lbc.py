@@ -19,19 +19,32 @@ NL-SHADE-LBC Heuristic
 
 NL-SHADE-LBC (Stanovov, Akhmedova & Semenkin, CEC 2022) — winner of the
 CEC-2022 single-objective bound-constrained competition.  It is the
-direct successor to
-:class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` (CEC 2021) and
-inherits its entire pipeline: the jSO-derived asynchronous DE
-(per-slot pending dict, generation-by-count book-keeping, archive of
-replaced parents, success-history memory with the frozen jSO anchor bin,
-unweighted ``current-to-pbest/1`` mutation, linear ``p_best`` schedule,
-asymmetric F-cap, warm restart), plus NL-SHADE-RSP's Non-Linear
-Population Size Reduction, Rank-based Selective Pressure on the ``r1``
-draw, and randomised adaptive archive cap.
+successor of :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`
+(CEC 2021) and shares its asynchronous pipeline, the non-linear
+population size reduction (NLPSR), the rank-based selective pressure on
+the population draw of ``r2`` and the fitness-sorted ``CR`` hand-out.
+Where it differs from NL-SHADE-RSP (paper §III and Algorithm 1):
 
-NL-SHADE-LBC adds **one further refinement** on top of NL-SHADE-RSP:
-**Linear Bias Change** in the success-history memory update.  The
-standard L-SHADE / jSO / NL-SHADE-RSP Lehmer mean uses fixed exponents
+* **Rank pressure** ``R_i = exp(−4 i / NP)`` (``k_rank = 4``), on ``r2``
+  only and only when ``r2`` comes from the population.
+* **Archive**: fixed use probability ``p_A = 0.5``; size
+  ``N_A = 1.0 · NP``, shrinking with NLPSR.  A full archive takes the new
+  parent in place of a randomly probed entry that is *worse* than it —
+  up to ``|A|`` probes, then a random entry.
+* ``pbest`` among the best ``max(2, ⌊NP (0.2 + 0.1 r)⌋)`` (rising
+  ``0.2 → 0.3``).
+* **Binomial crossover only**, with the fitness-sorted sampled ``CR``.
+* **Bounds**: a trial that leaves the box is generated again — new ``F``,
+  ``pbest``, ``r1``, ``r2`` — up to 100 times; what is still outside is
+  repaired with the midpoint target ``(bound + x) / 2``.
+* **Memory**: ``H = 20 · D`` bins initialised at ``M_F = 0.5``,
+  ``M_CR = 0.9``; a generation without successes resets the current bin
+  to those values (as in the MetaBox port; the paper is silent).
+* No jSO machinery: no F cap, no anchor bin, no ``F_w``, no CR floors,
+  no memory averaging.
+
+Its namesake is **Linear Bias Change** in the success-history memory
+update.  The standard L-SHADE / jSO / NL-SHADE-RSP Lehmer mean uses fixed exponents
 (``s^2 / s^1`` — i.e. order ``p = 2`` with spread ``m = 1``).
 NL-SHADE-LBC generalises this to::
 
@@ -98,38 +111,35 @@ passing both raises :class:`ValueError`.  Mirrors
 Asynchronous execution
 ----------------------
 
-Identical to NL-SHADE-RSP / jSO / L-SHADE.  The only hooks that
-change are :meth:`_mean_F` / :meth:`_mean_CR` (the Lehmer-mean computation).
-Everything else — NLPSR, RSP r1 selection, the randomised adaptive
-archive, the jSO frozen anchor bin and pointer-skip rule, warm
-restart — is inherited unchanged.
+Identical to NL-SHADE-RSP / L-SHADE.  NL-SHADE-LBC overrides the hooks
+:meth:`_mean_F` / :meth:`_mean_CR` (the LBC Lehmer mean),
+:meth:`_crossover` (binomial only), :meth:`_repair_bounds` (midpoint),
+:meth:`_archive_insert` (fitness-probed replacement),
+:meth:`_update_p_archive` (``p_A`` stays ``0.5``) and
+:data:`_TRIAL_ATTEMPTS` (the out-of-bounds regeneration).
 
-Deviations from the full CEC-2022 paper
----------------------------------------
+Deviations kept on purpose
+--------------------------
 
-For transparency (the Panobbgo norm is literature-faithful ports): two
-NL-SHADE-LBC mechanisms are intentionally **not** ported here, because
-they interact with the synchronous generation model in ways the
-asynchronous pipeline does not expose cleanly:
-
-* the *adaptive binomial / exponential crossover blend* (inherited
-  from NL-SHADE-RSP — see the same caveat there), and
-* the *repetitive generation* bound-constraint handling (Panobbgo's
-  asynchronous pipeline runs through ``strategy.constraint_handler`` and
-  the L-SHADE midpoint-reflection repair instead).
-
-Both are queued as follow-ups in
-``planning/done/SELF_IMPROVEMENT_LOOP.md``.
+* ``NP_init="auto"`` with the class coefficient :attr:`AUTO_DIM_COEF`
+  ``= 4`` (``≈ 4·dim``, budget-adaptive; measured,
+  ``planning/DISCOVERY_2026-09-09.md`` §17/§20/§24) instead of the paper's
+  ``23 · D``.
+* Asynchronous generations and the order-statistic ``CR`` (see
+  :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`); ranking and
+  success weights follow the strategy's constraint handler.
+* Algorithm 1 writes the archive-probe stop condition as
+  ``f(A_ra) < f(x_i)``; the text ("if the fitness of the new point is
+  better than of the selected one, the replacement occurs") is followed.
 
 CR-zero handling
 ----------------
 
-The standard L-SHADE / jSO / NL-SHADE-RSP CR=0 terminal sentinel rule
-is preserved: if every successful CR in this generation is zero, *or*
-the memory bin has already been planted with the sentinel, the bin
-remains terminal.  The LBC Lehmer mean is applied only to the strictly
-positive subset of the success CR vector, because at ``p_CR < m_lbc``
-the denominator exponent goes negative and ``0^{negative} → ∞``.
+There is no terminal ``CR`` sentinel (none in the paper).  The LBC
+Lehmer mean is applied only to the strictly positive subset of the
+success CR vector, because at ``p_CR < m_lbc`` the denominator exponent
+goes negative and ``0^{negative} → ∞``; a generation whose successes all
+used ``CR = 0`` leaves the ``CR`` bin as it is.
 
 References
 ----------
@@ -153,14 +163,19 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-from panobbgo.heuristics.jso import (
-    _DEFAULT_ARCHIVE_FACTOR,
-    _DEFAULT_H,
-    _DEFAULT_NP_MIN,
-    _DEFAULT_P_BEST_MAX,
-    _DEFAULT_P_BEST_MIN,
-)
-from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP, _DEFAULT_K_RANK
+from panobbgo.heuristics.lshade import LSHADE
+from panobbgo.lib import Result
+from panobbgo.heuristics.nl_shade_rsp import _DEFAULT_NP_MIN, NLSHADE_RSP
+
+# Algorithm 1 of the CEC-2022 paper.
+_DEFAULT_P_BEST: float = 0.2
+_DEFAULT_P_BEST_END: float = 0.3
+_DEFAULT_ARCHIVE_FACTOR: float = 1.0
+_DEFAULT_K_RANK: float = 4.0
+_INIT_M_F: float = 0.5
+_INIT_M_CR: float = 0.9
+#: Out-of-bounds regeneration attempts before the midpoint repair.
+_BOUND_RESAMPLES: int = 100
 
 # Defaults from Stanovov, Akhmedova & Semenkin (2022) — also published
 # in the MetaBox reference implementation
@@ -243,18 +258,13 @@ class NLSHADE_LBC(NLSHADE_RSP):
             fallback when the budget is unknown.
         NP_min: Minimum population size after non-linear reduction.
             Default ``4``.
-        H: History memory size.  Default ``5`` (inherits the jSO
-            anchor bin; must be ``>= 2``).
-        p_best_max: Upper bound on the linear ``p_best`` schedule.
-            Default ``0.25``.
-        p_best_min: Lower bound on the linear ``p_best`` schedule.
-            Default ``0.125``.
-        archive_factor: Multiplier for the external archive cap.
-            Default ``1.0``.
-        k_rank: Rank-based selective-pressure coefficient (NL-SHADE-RSP).
-            Default ``3.0``.
-        adaptive_archive: When ``True`` (default), resample the archive
-            cap per generation (NL-SHADE-RSP).
+        H: History memory size.  Default ``None`` → ``20 · D``.
+        p_best: ``pbest`` share at the start of the run.  Default ``0.2``.
+        p_best_end: ``pbest`` share at the end of the run.  Default ``0.3``.
+        archive_factor: Archive size per individual (``N_A = ⌊factor · NP⌋``,
+            at least ``NP_min``).  Default ``1.0``; ``0`` disables it.
+        k_rank: Exponent of the rank weights ``exp(−k_rank · i / NP)`` for
+            the population draw of ``r2``.  Default ``4``.
         p_F_init: Initial exponent of the F Lehmer mean's numerator
             (at progress ``r = 0``).  Default ``3.5``.  Mutually
             exclusive with ``lbc_regime``.
@@ -310,17 +320,20 @@ class NLSHADE_LBC(NLSHADE_RSP):
     #: rule gives +0.0523 AOCC [+0.0098, +0.0948], 10/12 seeds positive.
     AUTO_DIM_COEF: float = 4.0
 
+    INIT_MEMORY: Tuple[float, float] = (_INIT_M_F, _INIT_M_CR)
+    NO_SUCCESS_MEMORY: Tuple[float, float] = (_INIT_M_F, _INIT_M_CR)
+    _TRIAL_ATTEMPTS: int = _BOUND_RESAMPLES
+
     def __init__(
         self,
         strategy,
         NP_init: Union[int, str] = "auto",
         NP_min: int = _DEFAULT_NP_MIN,
-        H: int = _DEFAULT_H,
-        p_best_max: float = _DEFAULT_P_BEST_MAX,
-        p_best_min: float = _DEFAULT_P_BEST_MIN,
+        H: Optional[int] = None,
+        p_best: float = _DEFAULT_P_BEST,
+        p_best_end: float = _DEFAULT_P_BEST_END,
         archive_factor: float = _DEFAULT_ARCHIVE_FACTOR,
         k_rank: float = _DEFAULT_K_RANK,
-        adaptive_archive: bool = True,
         p_F_init: float = _UNSET,
         p_F_final: float = _UNSET,
         p_CR_init: float = _UNSET,
@@ -380,11 +393,10 @@ class NLSHADE_LBC(NLSHADE_RSP):
             NP_init=NP_init,
             NP_min=NP_min,
             H=H,
-            p_best_max=p_best_max,
-            p_best_min=p_best_min,
+            p_best=p_best,
+            p_best_end=p_best_end,
             archive_factor=archive_factor,
             k_rank=k_rank,
-            adaptive_archive=adaptive_archive,
             warm_start=warm_start,
             seed=seed,
             name=name or "NLSHADE_LBC",
@@ -395,6 +407,9 @@ class NLSHADE_LBC(NLSHADE_RSP):
         self.p_CR_final: float = float(p_CR_final)
         self.m_lbc: float = float(m_lbc)
         self.lbc_regime: Optional[str] = regime_key
+        #: ``id(vector) -> (vector, Result)``: the fitness source of archived
+        #: vectors, for the fitness-probed replacement.
+        self._archive_src: Dict[int, Tuple[np.ndarray, Result]] = {}
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -434,3 +449,59 @@ class NLSHADE_LBC(NLSHADE_RSP):
         """
         p_CR = self._lbc_exponent(self.p_CR_init, self.p_CR_final)
         return self._weighted_lehmer(CR_arr, w, p_CR, self.m_lbc, positive_only=True)
+
+    def _crossover(self, v: np.ndarray, x_target: np.ndarray, CR: float) -> np.ndarray:
+        """Binomial crossover only, with the fitness-sorted ``CR`` (no exponential, no ``CR_b``)."""
+        return LSHADE._crossover(self, v, x_target, CR)
+
+    def _repair_bounds(self, u: np.ndarray, x_target: np.ndarray) -> np.ndarray:
+        """Midpoint target ``(bound + x) / 2`` for what is still outside after the regeneration."""
+        return self._reflect_bounds(u, x_target)
+
+    def _update_p_archive(self, n_trials: int) -> None:
+        """NL-SHADE-LBC uses a fixed archive probability ``p_A = 0.5``."""
+        return
+
+    def _archive_insert(self, parent: Result) -> None:
+        """Paper §III: fill up; when full, probe random entries for one worse than ``parent``.
+
+        Up to ``|A|`` random probes; the first entry whose fitness is worse
+        than the parent's (by the handler's ranking key) is replaced.  If
+        none is found the last probed (random) entry is replaced.  Entries
+        of unknown fitness (seeded by a warm start) count as worse.
+        """
+        cap = self._archive_cap()
+        if cap <= 0:
+            return
+        x = np.array(parent.x, dtype=float, copy=True)
+        if len(self._archive) < cap:
+            self._archive.append(x)
+            self._remember_archived(x, parent)
+            return
+        parent_key = self._rank_of(parent)
+        n = len(self._archive)
+        j = 0
+        for _ in range(n):
+            j = int(self._rng.integers(0, n))
+            src = self._archived_result(self._archive[j])
+            if src is None or parent_key < self._rank_of(src):
+                break
+        self._archive[j] = x
+        self._remember_archived(x, parent)
+        self._trim_archive()
+
+    def _remember_archived(self, x: np.ndarray, parent: Result) -> None:
+        """Keep the fitness source of an archived vector (keyed by the array object)."""
+        src = self._archive_src
+        src[id(x)] = (x, parent)
+        if len(src) > 4 * max(len(self._archive), 1) + 16:
+            live = {id(a) for a in self._archive}
+            for key in [k for k in src if k not in live]:
+                del src[key]
+
+    def _archived_result(self, x: np.ndarray) -> Optional[Result]:
+        """The :class:`~panobbgo.lib.Result` an archive vector came from, if known."""
+        entry = self._archive_src.get(id(x))
+        if entry is None or entry[0] is not x:
+            return None
+        return entry[1]

@@ -197,6 +197,14 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "p_count = ceil(p_eff * NP) (lshade.py:773); at the budget-adaptive NP of a 3-d probe both "
         "0.11 and 0.05 quantise to the same count, so the iLSHADE schedule is a no-op at small NP"
     ),
+    ("NLSHADE_RSP", "p_best"): (
+        "pbest pool = max(2, int(NP * p)) (reference code); at the probe's NP of 7 shrinking to 4, "
+        "0.2 and 0.4 both give 2 (int(7 * 0.4) = 2)"
+    ),
+    ("NLSHADE_LBC", "p_best_end"): (
+        "pbest pool = max(2, int(NP * p)); the end value only matters once NLPSR has shrunk NP to "
+        "4-5, where 0.3 and 0.6 both give 2"
+    ),
     ("ClaudeHeuristic", "max_clusters"): (
         "k = min(max_clusters, n_elite // (2*dim)) (claude_heuristic.py:153); the second term binds "
         "for every elite set the probe produces"
@@ -298,7 +306,18 @@ POPULATION_SIZE_ARG: Dict[str, str] = {
 #: ``ucb_c=2`` first changing the run at 300 and ``ucb_c=0`` at 600.  That is
 #: an under-probed knob, not a dead one; 600 evaluations give every RegionUCB
 #: knob room to matter and still cost 0.13 s.
-PROBE_SETTINGS: Dict[str, Tuple[str, int]] = {"CMAES": ("rastrigin", 1500), "RegionUCB": ("dejong", 600)}
+#:
+#: NL-SHADE-RSP / -LBC keep ``H = 20 · D`` history bins (60 at the 3-d
+#: probe): in 150 evaluations only a handful of bins are ever updated, and
+#: ``CR`` reaches the trajectory only through the discrete crossover mask,
+#: so their ``CR``-memory knobs (``p_CR_init`` / ``p_CR_final``) need the
+#: longer probe to show.
+PROBE_SETTINGS: Dict[str, Tuple[str, int]] = {
+    "CMAES": ("rastrigin", 1500),
+    "RegionUCB": ("dejong", 600),
+    "NLSHADE_RSP": ("dejong", 600),
+    "NLSHADE_LBC": ("dejong", 600),
+}
 DEFAULT_PROBE: Tuple[str, int] = ("dejong", 150)
 
 
@@ -707,9 +726,11 @@ BEATS_UNIFORM_MEASURED: Dict[str, Tuple[float, float]] = {
     "LSHADE": (-2.871, -1.791),
     "LSHADE_EpSin": (-1.633, -2.872),
     "CMAES": (-1.475, -1.453),
-    "NLSHADE_LBC": (-1.567, -1.245),
+    # NL-SHADE-RSP / -LBC re-measured 2026-09-25 after the paper-fidelity pass
+    # (branch claude/t2c-de-fidelity; were -1.567 / -1.245 and -1.472 / -0.981).
+    "NLSHADE_LBC": (-1.371, -1.667),
     "JSO": (-2.047, -1.218),
-    "NLSHADE_RSP": (-1.472, -0.981),
+    "NLSHADE_RSP": (-2.310, -1.923),
     "RegionUCB": (-0.868, -0.754),
     "PSO": (-0.677, -0.590),
     "ClaudeHeuristic": (-0.549, -0.490),

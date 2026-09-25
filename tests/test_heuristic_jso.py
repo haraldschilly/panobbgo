@@ -533,6 +533,8 @@ class JSOGenerateTrialTests(_MockStrategyMixin, PanobbgoTestCase):
             h._population[i] = _build_result(self.strategy, x, 100.0 if i == 0 else 1.0, "JSO:x")
         h._archive = []
         h._sample_F_CR = lambda: (0.5, 1.0)  # type: ignore[method-assign]
+        h._trial_F_CR = lambda t, s: (0.5, 1.0)  # type: ignore[method-assign]
+        h._crossover = lambda v, x, CR: v  # type: ignore[method-assign]
         self.strategy.results = [None] * int(factor_progress * self.strategy.config.max_eval)
         captured = []
         h._emit_trial = lambda u, idx, F, CR, **kw: captured.append(np.asarray(u)) or True  # type: ignore[method-assign]

@@ -307,6 +307,34 @@ def test_pso_warm_start_honours_the_region_box():
         assert np.all(r.x >= box[:, 0]) and np.all(r.x <= box[:, 1])
 
 
+def test_pso_warm_start_reseeds_the_swarm_on_restart():
+    """Regression: ``on_restart`` ignored ``warm_start`` and always scattered fresh points."""
+    from panobbgo.heuristics import PSO
+
+    s = _strategy()
+    h = PSO(s, NP=4, warm_start="archive")
+    h.on_start()  # empty archive: the cold start
+    assert all(r is None for r in h._pbest_result)
+
+    a = _archive_of(s, _results(s.problem, 24))
+    seeds = a.top_k(4)
+    assert h.archive_seed(4, mode="archive"), "the archive has points to give after the restart"
+    h.on_restart(center=np.zeros(s.problem.dim), reason="test")
+    assert [id(r) for r in h._pbest_result] == [id(r) for r in seeds]
+    assert h._gbest_idx == 0
+
+
+def test_pso_cold_restart_is_unchanged_without_warm_start():
+    from panobbgo.heuristics import PSO
+
+    s = _strategy()
+    h = PSO(s, NP=4)
+    h.on_start()
+    _archive_of(s, _results(s.problem, 24))
+    h.on_restart(center=np.zeros(s.problem.dim), reason="test")
+    assert all(r is None for r in h._pbest_result)
+
+
 def test_pso_warm_start_validates_its_mode():
     from panobbgo.heuristics import PSO
 

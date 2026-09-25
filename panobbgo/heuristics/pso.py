@@ -882,6 +882,8 @@ class PSO(Heuristic):
         wiped, particles are scattered around the suggested center, and
         the next evaluation cycle behaves as if the heuristic had just
         started — except the strategy keeps its accumulated history.
+        With ``warm_start`` set and a non-empty archive the swarm is
+        re-seeded from the archive instead (:meth:`_warm_start_swarm`).
         """
         if self._stopped:
             return
@@ -896,6 +898,16 @@ class PSO(Heuristic):
         # cohesion, the social network is rebuilt to break stagnation).
         if self.topology == "random":
             self._init_random_adjacency()
+
+        # A warm-started swarm re-seeds from the shared archive instead of
+        # re-evaluating NP fresh points around ``center`` (as L-SHADE does).
+        # The personal bests are dropped first: the seeds replace them, and a
+        # shortfall particle must not keep a stale pre-restart best.
+        if self.warm_start:
+            self._pbest_result = [None] * self.NP
+            self._gbest_idx = None
+            if self._warm_start_swarm():
+                return
 
         dim = self.problem.dim
         v_max = self._v_max()

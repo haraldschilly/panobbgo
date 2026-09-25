@@ -219,7 +219,7 @@ Ordered by expected value; each item should enter through the loop above.
    five *d* = 2 instances, CMA-ES the hard *d* = 5 ones), and the sharing
    portfolio's entire advantage is at *d* = 5.  Dimension is known before
    the first evaluation, so this is directly actionable — a
-   dimension-gated portfolio spec is item 1 of the plan of record (§2c).
+   dimension-gated portfolio spec was item 1 of the 2026-09-10 plan of record; it shipped as the oracle regime gate (§45).
    Deliverable (b) and budget-gating remain open.
 2. **CMA-ES arm** — ~~*shipped 2026-08-06*~~ **retracted 2026-09-09.**  The
    original item recorded that adding the `CMAES` heuristic to
@@ -304,7 +304,7 @@ Ordered by expected value; each item should enter through the loop above.
    0.685 vs CMA-ES alone 0.666, +0.019, 8/12 seeds, CI including zero.
    Sharing is the mechanism; the bandit is not (rotation beats D-UCB
    once sharing is on, §25.4).  The remaining lean is at *d* = 5, which
-   is what item 1 of the plan of record now chases.  The historical
+   is what the 2026-09-10 plan of record chased (answered by the budget series, §44–§46).  The historical
    record of the *cold* result follows.
 
    *Block allocation was tested and does not rescue it.*  The hypothesis

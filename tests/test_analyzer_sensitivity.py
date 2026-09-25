@@ -206,3 +206,25 @@ def test_partial_correlation_uses_an_intercept():
     importance = Sensitivity._partial_correlation(X, y)
     assert importance[0] == pytest.approx(1.0)
     assert np.all(importance[1:] < 0.2)
+
+
+def test_accumulate_appends_into_a_growing_buffer():
+    """Batches append in place; the matrix is not rebuilt on every batch."""
+    problem = DimZeroProblem()
+    strategy = _make_strategy(problem)
+    s = Sensitivity(strategy, min_samples=10**9, update_interval=1)
+    s.__start__()
+
+    rng = np.random.default_rng(3)
+    xs = rng.uniform(-5, 5, (300, 2))
+    results = _make_results(xs, problem)
+    buffers = set()
+    for r in results:
+        s.on_new_results([r])
+        buffers.add(id(s._Xbuf))
+    assert s._X is not None and s._y is not None
+    np.testing.assert_array_equal(s._X, xs)
+    np.testing.assert_array_equal(s._y, [r.fx for r in results])
+    assert len(s._keys) == 300
+    # doubling: a handful of reallocations for 300 single-result batches
+    assert len(buffers) <= 4

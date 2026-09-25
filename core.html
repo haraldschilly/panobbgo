@@ -196,6 +196,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.initialize"><code class="docutils literal notranslate"><span class="pre">StrategyBase.initialize()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.request_stop"><code class="docutils literal notranslate"><span class="pre">StrategyBase.request_stop()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.rng"><code class="docutils literal notranslate"><span class="pre">StrategyBase.rng</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.seed"><code class="docutils literal notranslate"><span class="pre">StrategyBase.seed</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng"><code class="docutils literal notranslate"><span class="pre">StrategyBase.spawn_rng()</span></code></a></li>
@@ -1125,6 +1126,15 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.on_converged">
 <span class="sig-name descname"><span class="pre">on_converged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reason</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.on_converged"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.on_converged" title="Link to this definition">#</a></dt>
 <dd><p>Called when the Convergence analyzer detects convergence.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.request_stop">
+<span class="sig-name descname"><span class="pre">request_stop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.request_stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.request_stop" title="Link to this definition">#</a></dt>
+<dd><p>Ask the main loop to end after the current pass.</p>
+<p>Thread-safe (a single flag write): a harness enforcing a wall-clock
+timeout calls it from another thread, then joins the runner thread.
+In-flight evaluations of an asynchronous run are abandoned.</p>
 </dd></dl>
 
 <dl class="py attribute">

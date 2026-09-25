@@ -563,6 +563,11 @@ proof.</p></li>
 <li><p><strong>Problem-specific over-fitting</strong> — improving on a fixed problem set does
 not imply generalisation. This is the <em>central motivation</em> for the
 parametrically randomised battery described below.</p></li>
+<li><p><strong>Thread scheduling</strong> — by default the harness evaluates on a thread pool,
+so the same seed can give different trajectories.  <code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">--sync-eval</span></code>
+evaluates synchronously and makes a seeded run bit-reproducible; both
+sides of a comparison must use the same mode (<code class="docutils literal notranslate"><span class="pre">compare</span></code> warns if not).
+The default stays asynchronous so the historical baseline is comparable.</p></li>
 </ol>
 <p>Recommended practice: run the same comparison at two different base seeds
 before accepting a <code class="docutils literal notranslate"><span class="pre">+0.01</span></code> to <code class="docutils literal notranslate"><span class="pre">+0.03</span></code> delta.</p>

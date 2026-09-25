@@ -42,16 +42,6 @@ the strategy.
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: panobbgo.analyzers.grid
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-.. automodule:: panobbgo.analyzers.dedensifyer
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 .. automodule:: panobbgo.analyzers.splitter
    :members:
    :undoc-members:
@@ -67,9 +57,7 @@ from .archive import Archive
 from .best import Best
 from .convergence import Convergence
 from .splitter import Splitter
-from .grid import Grid
-from .dedensifyer import Dedensifyer
 from .sensitivity import Sensitivity
 from .restart import Restart
 
-__all__ = ["Archive", "Best", "Convergence", "Splitter", "Grid", "Dedensifyer", "Sensitivity", "Restart"]
+__all__ = ["Archive", "Best", "Convergence", "Splitter", "Sensitivity", "Restart"]

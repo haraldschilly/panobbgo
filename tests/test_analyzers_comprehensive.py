@@ -14,10 +14,9 @@
 # limitations under the License.
 from __future__ import unicode_literals
 
-import unittest
 import numpy as np
 from tests.support import PanobbgoTestCase
-from panobbgo.lib import Point, Result, BoundingBox
+from panobbgo.lib import Point, Result
 from panobbgo.lib.constraints import DefaultConstraintHandler
 
 
@@ -150,91 +149,3 @@ class TestAnalyzersComprehensive(PanobbgoTestCase):
         best = Best(self.strategy)
         best.on_new_results([])
         self.assertIsNone(best.best)
-
-    # --- Grid Analyzer Tests ---
-
-    def test_grid_init(self):
-        """Test Grid analyzer initialization."""
-        from panobbgo.analyzers.grid import Grid
-
-        grid = Grid(self.strategy)
-        # __start__ needs to be called manually or by strategy
-        grid.__start__()
-
-        self.assertIsNotNone(grid._grid)
-        self.assertIsInstance(grid._grid, dict)
-        self.assertEqual(grid._grid_div, 5.0)
-
-        ranges = self.problem.ranges
-        expected_lengths = ranges / 5.0
-        np.testing.assert_array_equal(grid._grid_lengths, expected_lengths)
-
-    def test_grid_add_and_retrieve(self):
-        """Test adding points to grid and retrieving them."""
-        from panobbgo.analyzers.grid import Grid
-
-        grid = Grid(self.strategy)
-        grid.__start__()
-
-        # Point 1
-        x1 = np.array([0.1, 0.1, 0.1])
-        r1 = Result(Point(x1, "t1"), 1.0)
-
-        # Point 2 close to Point 1
-        x2 = np.array([0.15, 0.15, 0.15])
-        r2 = Result(Point(x2, "t2"), 1.1)
-
-        # Point 3 far away
-        x3 = np.array([1.9, 1.9, 1.9])
-        r3 = Result(Point(x3, "t3"), 2.0)
-
-        grid.on_new_results([r1, r2, r3])
-
-        # Check if they landed in correct boxes
-        # _grid_mapping uses floor(x / l) * l
-
-        # Map x1
-        key1 = grid._grid_mapping(x1)
-        self.assertIn(key1, grid._grid)
-        self.assertEqual(len(grid._grid[key1]), 2)  # r1 and r2 should be here
-        self.assertIn(r1, grid._grid[key1])
-        self.assertIn(r2, grid._grid[key1])
-
-        # Map x3
-        key3 = grid._grid_mapping(x3)
-        self.assertIn(key3, grid._grid)
-        self.assertEqual(len(grid._grid[key3]), 1)
-        self.assertIn(r3, grid._grid[key3])
-
-        # Test in_same_grid
-        points_near_p1 = grid.in_same_grid(Point(x1, "q"))
-        self.assertEqual(len(points_near_p1), 2)
-
-        points_near_p3 = grid.in_same_grid(Point(x3, "q"))
-        self.assertEqual(len(points_near_p3), 1)
-
-    def test_grid_boundary_handling(self):
-        """Test points exactly on grid boundaries."""
-        from panobbgo.analyzers.grid import Grid
-
-        grid = Grid(self.strategy)
-        grid.__start__()
-
-        l = grid._grid_lengths[0]
-
-        # Point exactly on boundary
-        x = np.array([l, l, l])
-        r = Result(Point(x, "boundary"), 1.0)
-
-        grid.on_new_results([r])
-
-        key = grid._grid_mapping(x)
-        self.assertIn(key, grid._grid)
-
-        # Point slightly below
-        x_below = np.array([l - 1e-10, l - 1e-10, l - 1e-10])
-        r_below = Result(Point(x_below, "below"), 1.0)
-        grid.on_new_results([r_below])
-
-        key_below = grid._grid_mapping(x_below)
-        self.assertNotEqual(key, key_below)

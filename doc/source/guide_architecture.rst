@@ -442,16 +442,6 @@ effect on the consumers that read the tree.
 
 - ``new_split``: A box was split into children
 
-**Grid**
-
-:class:`~panobbgo.analyzers.grid.Grid` maintains a simple spatial grid for grouping nearby points.
-Experimental and not installed by default (nothing reads it); add it explicitly.
-
-**Dedensifyer**
-
-:class:`~panobbgo.analyzers.dedensifyer.Dedensifyer` maintains a hierarchical grid to avoid
-clustering, keeping only min/max representatives per region.
-
 **Sensitivity**
 
 :class:`~panobbgo.analyzers.sensitivity.Sensitivity` estimates per-dimension importance from

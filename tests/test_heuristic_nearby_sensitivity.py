@@ -321,7 +321,7 @@ def test_strategy_spec_analyzers_field():
 def test_strategy_spec_no_analyzers_default():
     """StrategySpec without analyzers field defaults to empty list.
 
-    Note: the four required analyzers (Best, Grid, Splitter, Convergence) are
+    Note: the default analyzers (Best, Convergence, and the Splitter on demand) are
     only added during ``strategy.initialize()`` / ``strategy.start()``, not by
     ``create_strategy()``.  This test only checks that the spec round-trips and
     that no *extra* analyzer is registered before initialization.

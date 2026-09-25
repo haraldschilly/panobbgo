@@ -1146,6 +1146,12 @@ def _downsample_trajectory(traj: Sequence[float], budget: int, k: int = 32) -> T
 # ---------------------------------------------------------------------------
 
 
+#: Seconds past a run's ``timeout_s`` that an in-flight IOH worker call
+#: may still take before the worker is killed (:attr:`IOHProblem.deadline
+#: <panobbgo.lib.ioh_wrapper.IOHProblem.deadline>`).
+WORKER_GRACE_S: float = 30.0
+
+
 @dataclass
 class _TrackedRun:
     """What :func:`_run_tracked` measured; the caller wraps it in a record."""
@@ -1281,6 +1287,12 @@ def _run_one(
             **builder_kwargs,
         )
         f_opt = float(problem.optimum_y)
+        if timeout_s is not None:
+            # A hung worker must not outlive the run's deadline by more than
+            # a grace period: past it, the round-trip is abandoned and the
+            # worker killed (the tracker already stops calling it at the
+            # deadline, so this only fires on a wedged call).
+            problem.deadline = time.monotonic() + float(timeout_s) + WORKER_GRACE_S
 
         if noise_tag is not None:
             from panobbgo.lib.noise import NoisyProblem, make_noise_model

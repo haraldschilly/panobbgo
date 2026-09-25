@@ -50,9 +50,12 @@ from __future__ import annotations
 
 import json
 import os
+import selectors
 import shutil
 import subprocess
+import tempfile
 import threading
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -143,6 +146,14 @@ class IOHProblem(Problem):
     :meth:`eval` does one synchronous JSON-Lines round-trip behind a
     per-instance lock; the underlying IOH problem object is not
     thread-safe in C++ so serialising is correct.
+
+    The worker's stderr goes to an anonymous temp file, never a pipe: a
+    pipe nobody drains blocks a chatty worker once it holds 64 KB.  Its
+    tail is quoted in the error when the worker dies.
+
+    :attr:`deadline` (a :func:`time.monotonic` instant, ``None`` = none)
+    bounds every round-trip: a worker that has not answered by then is
+    killed and the call raises, instead of blocking the run forever.
     """
 
     def __init__(
@@ -157,6 +168,10 @@ class IOHProblem(Problem):
         self._proc: Optional[subprocess.Popen] = None
         self._lock = threading.Lock()
         self._closed = False
+        self._rbuf = b""
+        #: Absolute :func:`time.monotonic` deadline for worker round-trips.
+        self.deadline: Optional[float] = None
+        self._stderr = tempfile.TemporaryFile(mode="w+b")
 
         self._worker_dir = Path(worker_dir).resolve() if worker_dir is not None else _resolve_worker_dir()
         self._proc = self._spawn_worker()
@@ -222,10 +237,57 @@ class IOHProblem(Problem):
             cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,  # line-buffered
+            stderr=self._stderr,
+            bufsize=0,  # raw pipes: stdout is read with os.read (see _readline)
         )
+
+    def _stderr_tail(self, limit: int = 4000) -> str:
+        """The last ``limit`` characters the worker wrote to stderr."""
+        try:
+            self._stderr.flush()
+            size = self._stderr.seek(0, os.SEEK_END)
+            self._stderr.seek(max(0, size - limit))
+            return self._stderr.read().decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    def _readline(self) -> bytes:
+        """One response line from the worker; ``b""`` on EOF.
+
+        Reads the raw fd so a selector can bound the wait by
+        :attr:`deadline` (a buffered text reader would hide data from it).
+        Raises :class:`TimeoutError` past the deadline.
+        """
+        assert self._proc is not None and self._proc.stdout is not None
+        fd = self._proc.stdout.fileno()
+        with selectors.DefaultSelector() as sel:
+            sel.register(fd, selectors.EVENT_READ)
+            while b"\n" not in self._rbuf:
+                timeout = None if self.deadline is None else max(0.0, self.deadline - time.monotonic())
+                if not sel.select(timeout):
+                    raise TimeoutError("IOH worker did not answer before the deadline")
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    return b""
+                self._rbuf += chunk
+        line, _, self._rbuf = self._rbuf.partition(b"\n")
+        return line + b"\n"
+
+    def _kill(self) -> None:
+        """Kill a worker whose protocol state is unknown (e.g. after a timeout)."""
+        proc, self._proc = self._proc, None
+        if proc is not None:
+            try:
+                proc.kill()
+                proc.wait(timeout=2)
+            except Exception:
+                pass
+            for pipe in (proc.stdin, proc.stdout):
+                try:
+                    if pipe is not None:
+                        pipe.close()
+                except Exception:
+                    pass
 
     def _call(self, cmd: str, **kwargs: Any) -> Dict[str, Any]:
         if self._proc is None or self._proc.poll() is not None:
@@ -234,18 +296,18 @@ class IOHProblem(Problem):
         line = json.dumps(msg)
         with self._lock:
             assert self._proc.stdin is not None and self._proc.stdout is not None
-            self._proc.stdin.write(line + "\n")
+            self._proc.stdin.write((line + "\n").encode("utf-8"))
             self._proc.stdin.flush()
-            resp_line = self._proc.stdout.readline()
+            try:
+                resp_line = self._readline()
+            except TimeoutError:
+                # A late answer would desynchronise every later call.
+                self._kill()
+                raise
         if not resp_line:
-            stderr = ""
-            if self._proc.stderr is not None:
-                try:
-                    stderr = self._proc.stderr.read() or ""
-                except Exception:
-                    stderr = ""
             raise RuntimeError(
-                f"IOH worker closed stdout while waiting for response to {cmd!r}. stderr: {stderr.strip()!r}"
+                f"IOH worker closed stdout while waiting for response to {cmd!r}. "
+                f"stderr: {self._stderr_tail().strip()!r}"
             )
         resp = json.loads(resp_line)
         if not resp.get("ok"):
@@ -254,7 +316,11 @@ class IOHProblem(Problem):
 
     def close(self) -> None:
         """Send ``shutdown`` and wait for the child to exit."""
-        if self._closed or self._proc is None:
+        if self._closed:
+            return
+        if self._proc is None:  # never spawned, or killed after a timeout
+            self._closed = True
+            self._stderr.close()
             return
         self._closed = True
         try:
@@ -262,9 +328,10 @@ class IOHProblem(Problem):
                 try:
                     with self._lock:
                         assert self._proc.stdin is not None and self._proc.stdout is not None
-                        self._proc.stdin.write(json.dumps({"cmd": "shutdown"}) + "\n")
+                        self._proc.stdin.write((json.dumps({"cmd": "shutdown"}) + "\n").encode("utf-8"))
                         self._proc.stdin.flush()
-                        self._proc.stdout.readline()
+                        self.deadline = time.monotonic() + 5.0
+                        self._readline()
                 except Exception:
                     pass
             try:
@@ -274,6 +341,10 @@ class IOHProblem(Problem):
                 self._proc.wait(timeout=2)
         finally:
             self._proc = None
+            try:
+                self._stderr.close()
+            except Exception:
+                pass
 
     def __del__(self) -> None:  # pragma: no cover — best-effort cleanup
         try:

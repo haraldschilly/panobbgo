@@ -459,9 +459,27 @@ class NLSHADERSPParameterTests(_MockStrategyMixin, PanobbgoTestCase):
 
         h = NLSHADE_RSP(self.strategy, seed=4)
         h._M_CR[:] = 0.5
-        best = np.mean([h._sample_CR_for_rank(0, 20) for _ in range(300)])
-        worst = np.mean([h._sample_CR_for_rank(19, 20) for _ in range(300)])
+        best = np.mean([h._sample_CR_for_rank(0, 20)[0] for _ in range(300)])
+        worst = np.mean([h._sample_CR_for_rank(19, 20)[0] for _ in range(300)])
         assert best < 0.4 < 0.6 < worst
+
+    def test_F_and_CR_share_the_individuals_bin(self):
+        """Reference code: one memory bin per individual for both ``F`` and ``CR``.
+
+        Bin 0 says (F, CR) ≈ (0.1, 0), bin 1 says ≈ (0.9, 1).  With a single
+        individual its CR is its own draw, so CR and F must come from the same
+        bin; independent bins would agree only half of the time.
+        """
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, H=2, seed=10)
+        h._M_F[:] = [0.1, 0.9]
+        h._M_CR[:] = [0.0, 1.0]
+        agree = 0
+        for _ in range(1000):
+            F, CR = h._trial_F_CR(0, [0])
+            agree += (CR < 0.5) == (F < 0.5)
+        assert agree > 800
 
     def test_binomial_CR_schedule(self):
         """``CR_b = 0`` in the first half, ``2(r − 0.5)`` after (the sampled CR is not used)."""

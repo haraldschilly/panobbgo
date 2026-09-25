@@ -233,6 +233,8 @@ class NLSHADE_RSP(LSHADE):
         self._pop_delta: float = 0.0
         #: This generation's crossover (``None`` until the first trial draws it).
         self._cross_exponential: Optional[bool] = None
+        #: Memory bin of the trial being built (for ``_resample_F``).
+        self._trial_bin: Optional[int] = None
 
     def _init_memory(self) -> None:
         """``M_F``, ``M_CR`` start at :attr:`INIT_MEMORY`."""
@@ -291,34 +293,46 @@ class NLSHADE_RSP(LSHADE):
         slot = self._population[sorted_live[pos]]
         return np.asarray(slot.x, dtype=float), False  # type: ignore[union-attr]
 
-    def _sample_F(self) -> float:
-        """``F ~ Cauchy(M_F[r], 0.1)`` from a random bin, redrawn while ``≤ 0``, clipped at 1."""
-        m_f = float(self._M_F[int(self._rng.integers(0, self.H))])
+    def _sample_F(self, r: Optional[int] = None) -> float:
+        """``F ~ Cauchy(M_F[r], 0.1)``, redrawn while ``≤ 0``, clipped at 1.
+
+        ``r`` is the individual's memory bin; ``None`` draws a random one.
+        """
+        if r is None:
+            r = int(self._rng.integers(0, self.H))
+        m_f = float(self._M_F[r])
         for _ in range(_F_MAX_REDRAWS):
             f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
             if f > 0.0:
                 return float(min(f, 1.0))
         return 0.5
 
-    def _sample_CR_for_rank(self, rank: int, n: int) -> float:
+    def _sample_CR_for_rank(self, rank: int, n: int) -> Tuple[float, int]:
         """The ``rank``-th smallest of ``n`` draws ``CR ~ N(M_CR[r], 0.1)`` clipped to ``[0, 1]``.
 
-        The asynchronous form of "sample ``NP`` values of ``CR``, sort them,
-        give the smallest to the best individual".
+        The asynchronous form of "every individual samples its bin ``r`` and
+        a ``CR`` from it, the ``NP`` values are sorted and the smallest goes to
+        the best individual".  Returns ``(CR, r)`` with ``r`` the bin of the
+        target's *own* draw (the first of the ``n``; all are i.i.d.), which
+        its ``F`` is then sampled from — one bin per individual for both, as
+        in the reference code.
         """
         n = max(int(n), 1)
         bins = self._rng.integers(0, self.H, size=n)
         crs = np.clip(self._rng.normal(self._M_CR[bins], _PARAM_SCALE), 0.0, 1.0)
+        own_bin = int(bins[0])
         crs.sort()
-        return float(crs[min(max(rank, 0), n - 1)])
+        return float(crs[min(max(rank, 0), n - 1)]), own_bin
 
     def _trial_F_CR(self, target_idx: int, sorted_live: List[int]) -> Tuple[float, float]:
-        """``F`` from a random bin; ``CR`` the order statistic for the target's rank."""
-        CR = self._sample_CR_for_rank(sorted_live.index(target_idx), len(sorted_live))
-        return self._sample_F(), CR
+        """``CR`` the order statistic for the target's rank; ``F`` from the target's own bin."""
+        CR, r = self._sample_CR_for_rank(sorted_live.index(target_idx), len(sorted_live))
+        self._trial_bin = r
+        return self._sample_F(r), CR
 
     def _resample_F(self) -> float:
-        return self._sample_F()
+        """A new ``F`` from the same individual's bin (NL-SHADE-LBC's regeneration)."""
+        return self._sample_F(self._trial_bin)
 
     def _binomial_CR(self) -> float:
         """``CR_b``: ``0`` in the first half of the budget, ``2 (r − 0.5)`` after."""

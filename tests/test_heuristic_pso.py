@@ -1185,81 +1185,6 @@ def test_pso_in_heuristics_init():
     assert "PSO" in heuristics.__all__
 
 
-def test_pso_in_default_structural_catalog():
-    """The structural catalog includes PSO as an add_heuristic candidate."""
-    from panobbgo.self_improve import default_structural_catalog
-    from panobbgo.heuristics.pso import PSO
-
-    catalog = default_structural_catalog()
-    add_rules = [r for r in catalog.rules if getattr(r, "op", None) == "add_heuristic"]
-    assert add_rules, "structural catalog should contain at least one add_heuristic rule"
-    classes_in_pool = {cls for rule in add_rules for cls, _ in rule.candidate_classes}
-    assert PSO in classes_in_pool
-
-
-def test_pso_lbest_variant_in_default_structural_catalog():
-    """The gbest, lbest, vonneumann, and random PSO variants all appear in the structural catalog.
-
-    The catalog ships *four* PSO entries — canonical gbest
-    (Kennedy-Eberhart 1995), lbest ring topology (Kennedy & Mendes
-    2002), vonneumann 2-D toroidal grid (Kennedy & Mendes 2003;
-    Mendes 2004), and random informer graph (Mendes 2004; Clerc 2007
-    / SPSO 2011) — so the self-improvement loop can pick whichever
-    helps on the current battery.  All four share ``cls = PSO`` so
-    ``avoid_duplicates=True`` still prevents multiple PSO instances
-    per strategy; instead the catalog samples uniformly between them
-    when PSO is not yet present.
-    """
-    from panobbgo.self_improve import default_structural_catalog
-    from panobbgo.heuristics.pso import PSO
-
-    catalog = default_structural_catalog()
-    add_rules = [r for r in catalog.rules if getattr(r, "op", None) == "add_heuristic"]
-    pso_entries = [kwargs for rule in add_rules for cls, kwargs in rule.candidate_classes if cls is PSO]
-    assert len(pso_entries) >= 4, f"expected ≥4 PSO entries, got {pso_entries!r}"
-    topologies = {kwargs.get("topology", "gbest") for kwargs in pso_entries}
-    assert topologies == {"gbest", "lbest", "vonneumann", "random"}
-
-
-def test_pso_topology_categorical_rule_includes_vonneumann():
-    """The PSO.topology categorical rule covers all four shipped topologies."""
-    from panobbgo.self_improve import default_catalog
-
-    catalog = default_catalog()
-    topo_rules = [r for r in catalog.rules if r.class_name == "PSO" and r.param_name == "topology"]
-    assert len(topo_rules) == 1, f"expected exactly 1 PSO.topology rule, got {len(topo_rules)}"
-    rule = topo_rules[0]
-    assert rule.kind == "categorical_choice"
-    assert set(rule.choices) == {"gbest", "lbest", "vonneumann", "random"}
-
-
-def test_pso_kwarg_rule_in_default_catalog():
-    """default_catalog includes a kwarg rule for PSO.NP."""
-    from panobbgo.self_improve import default_catalog
-
-    catalog = default_catalog()
-    keys = {(r.class_name, r.param_name) for r in catalog.rules}
-    assert ("PSO", "NP") in keys
-
-
-def test_pso_stagnation_threshold_rule_in_default_catalog():
-    """default_catalog ships a kwarg rule for ``PSO.stagnation_threshold``.
-
-    The rule fires only when a spec sets the kwarg explicitly (per
-    ``_find_targets``'s "param already in kwargs" predicate), so the
-    built-in factories that leave ``stagnation_threshold=None`` see no
-    behavioural change.
-    """
-    from panobbgo.self_improve import default_catalog
-
-    catalog = default_catalog()
-    rules = [r for r in catalog.rules if r.class_name == "PSO" and r.param_name == "stagnation_threshold"]
-    assert len(rules) == 1, f"expected exactly 1 stagnation_threshold rule, got {len(rules)}"
-    rule = rules[0]
-    assert rule.kind == "integer_add"
-    assert rule.bounds == (5, 60)
-
-
 # ----------------------------------------------------------------------
 # Adaptive inertia (Shi-Eberhart 1998 linearly decreasing schedule)
 # ----------------------------------------------------------------------
@@ -1337,14 +1262,3 @@ class PSOAdaptiveInertiaTests(_MockStrategyMixin, PanobbgoTestCase):
         with mock.patch.object(self.strategy, "results", FakeResults()):
             with mock.patch.object(self.strategy.config, "max_eval", 0):
                 assert h._current_inertia() == 0.9
-
-
-def test_pso_kwarg_rules_in_default_catalog_extras():
-    """default_catalog also exposes PSO.w and PSO.w_end so the loop can
-    tune the adaptive-inertia schedule."""
-    from panobbgo.self_improve import default_catalog
-
-    catalog = default_catalog()
-    keys = {(r.class_name, r.param_name) for r in catalog.rules}
-    assert ("PSO", "w") in keys
-    assert ("PSO", "w_end") in keys

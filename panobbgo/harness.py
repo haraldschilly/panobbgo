@@ -29,7 +29,7 @@ is expected to be gated against this number.
 For the full user-facing guide (interpretation, workflow, pitfalls,
 roadmap) see ``doc/source/guide_benchmarking.rst``. For the planned
 autonomous self-improvement loop that builds on top of this harness, see
-``planning/SELF_IMPROVEMENT_LOOP.md``.
+``planning/done/SELF_IMPROVEMENT_LOOP.md``.
 
 Key features
 ------------
@@ -275,7 +275,7 @@ def _make_quick_strategies() -> List[StrategySpec]:
     dimension importances to ``Nearby`` once enough evaluations have
     accumulated; ``update_interval=25`` was selected by the self-
     improvement loop as a small but reproducible gain over the earlier
-    ``20`` (see ``planning/self_improve_ledger.jsonl`` iter 6).
+    ``20`` (see ``planning/done/self_improve_ledger.jsonl`` iter 6).
 
     CMA-ES is intentionally excluded from the quick strategy: with only 75 evaluations
     its covariance adaptation has too little data to converge, and the population overhead
@@ -299,7 +299,7 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 # ``scramble=False`` codified 2026-05-31 from three independent
                 # self-improvement loop accepts (deltas +0.022 / +0.051 / +0.032,
                 # each with bootstrap-CI lower bound > 0 and no per-pair
-                # regression — see planning/self_improve_ledger.jsonl iter=9 /
+                # regression — see planning/done/self_improve_ledger.jsonl iter=9 /
                 # iter=15 / iter=17 in the 2026-05 ledger window).  At n=16 in
                 # the quick-mode 2-D battery, the deterministic Sobol' grid is
                 # already optimally space-filling; Owen scrambling perturbs
@@ -315,11 +315,8 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 # across eight distinct nights (2026-05-26 → 2026-06-18).
                 # Median accepted ``new_value`` is ``0.123105`` (most
                 # frequent: three accepts at exactly that value); the
-                # shipped seed is rounded slightly outward to ``0.124`` so
-                # the ``max(live) >= median(new_values)`` predicate in
-                # :func:`panobbgo.self_improve._candidate_already_codified`
-                # cleanly suppresses the now-redundant codify candidate
-                # next night.  Pooled per-record CI ``[+0.0365, +0.0658]``
+                # shipped seed is rounded slightly outward to ``0.124``.
+                # Pooled per-record CI ``[+0.0365, +0.0658]``
                 # — every contributing accept cleared its own per-record
                 # statistical-accept gate.  Pairs with the 2026-06-26
                 # catalog-bound tightening ``(0.032, 0.313)`` — the
@@ -588,256 +585,6 @@ def _make_full_strategies() -> List[StrategySpec]:
     return base + [thompson, bayes_enhanced, cmaes_gp, bipop_cmaes]
 
 
-def _make_loop_strategies() -> List[StrategySpec]:
-    """Dedicated registry for the self-improvement loop.
-
-    Returns the two ``quick`` specs (``RoundRobin_Random`` and
-    ``Rewarding_Diverse``) plus one *compact* spec per rule-bearing
-    catalog family — Differential Evolution, Particle Swarm, RegionUCB,
-    LBFGSB / COBYQA local optimizers, and the :class:`Restart` analyzer.
-    Each new spec ships every tunable kwarg of its targeted classes
-    explicitly at the constructor default so the :mod:`panobbgo.self_improve`
-    catalog rules immediately apply (see the ``_find_targets`` "param
-    already in kwargs" predicate — kwargs left at the constructor default
-    are filtered out and the rule stays dormant).
-
-    Motivation: §9.1 of ``planning/SELF_IMPROVEMENT_LOOP.md`` (V2 plan).
-    The nightly loop runs in ``quick`` mode whose default registry covers
-    only ``Sobol`` / ``Nearby`` / ``Sensitivity`` — three of the ~15
-    classes the catalog has rules for.  Every ``LSHADE`` / ``JSO`` /
-    ``NLSHADE_RSP`` / ``NLSHADE_LBC`` / ``LSHADE_EpSin`` / ``PSO`` /
-    ``RegionUCB`` / ``COBYQA`` / ``LBFGSB`` / ``Restart`` rule shipped
-    since mid-May 2026 sat dormant because the seed specs never set
-    those kwargs explicitly.  This factory exists to exercise the
-    dormant catalog (§2.4 "catalog ≫ registry mismatch" in the loop
-    diagnosis) without touching the existing ``quick`` / ``standard`` /
-    ``full`` registries.
-
-    The new specs use compact populations (``NP_init = 15`` for
-    population-based DE variants, ``NP = 15`` for PSO) so a single
-    strategy with multiple heuristics still fits the ``quick`` 75-eval
-    budget.  All values land inside the matching catalog rule's
-    ``bounds`` so a mutation can move in either direction.
-
-    Opt in via ``scripts/self_improve.py run --registry loop`` or by
-    passing ``seed_strategies=_make_loop_strategies()`` directly to
-    :class:`~panobbgo.self_improve.SelfImprover`.  The default
-    self-improvement CLI invocations are byte-identical because
-    ``--registry`` defaults to the historical mode-based selection.
-    """
-    from panobbgo.strategies import StrategyRewarding
-    from panobbgo.heuristics import (
-        Random,
-        Nearby,
-        NelderMead,
-        Center,
-        LatinHypercube,
-        Sobol,
-        CMAES,
-        PSO,
-        RegionUCB,
-        LBFGSB,
-        COBYQA,
-    )
-    from panobbgo.heuristics.lshade import LSHADE
-    from panobbgo.heuristics.jso import JSO
-    from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
-    from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
-    from panobbgo.heuristics.lshade_ep_sin import LSHADE_EpSin
-    from panobbgo.analyzers import Sensitivity, Restart
-
-    quick = _make_quick_strategies()
-
-    # DE family: all five literature-best adaptive Differential Evolution
-    # variants share a single Rewarding strategy.  The strategy-level
-    # bandit allocates budget across them at runtime; the explicit kwargs
-    # are tuned to the canonical literature defaults *and* sized down to
-    # ``NP_init = 15`` so even at the quick-mode 75-eval budget every
-    # heuristic can complete at least one full generation.  Every value
-    # sits inside the matching catalog rule's bounds (``NP_init`` ∈
-    # ``[10, 60]`` etc.) so the bandit can mutate in either direction.
-    #
-    # Per-heuristic kwarg coverage:
-    # * ``LSHADE``     — NP_init / H / p_best / p_best_end / archive_factor /
-    #                    F_schedule (six rules including two categorical)
-    # * ``JSO``        — NP_init / p_best_max / H (three rules + the
-    #                    `p_best_max` categorical regime arm)
-    # * ``NLSHADE_RSP``— NP_init / k_rank / H / adaptive_archive (four
-    #                    rules + the `k_rank` categorical regime arm)
-    # * ``NLSHADE_LBC``— NP_init + lbc_regime (two rules: the
-    #                    ``NP_init`` ``integer_add`` and the joint
-    #                    ``lbc_regime`` ``categorical_choice``).
-    #                    The composite categorical arm shipped
-    #                    2026-06-24 replaced the five per-field LBC
-    #                    float rules with one literature-motivated
-    #                    joint search across the LBC Lehmer-mean
-    #                    exponent / spread tuple.
-    # * ``LSHADE_EpSin``— NP_init / mu_freq_init (two rules)
-    #
-    # ``p_best_end`` for LSHADE is set to half ``p_best`` (the jSO
-    # iLSHADE-style schedule); ``F_schedule = "jso"`` opts the heuristic
-    # into the Brest et al. 2017 three-phase asymmetric F-cap (one of the
-    # four named regimes shipped 2026-06-23 — see
-    # :data:`panobbgo.heuristics.lshade._F_SCHEDULE_REGIMES`).
-    loop_de = StrategySpec(
-        name="Loop_DE_Family",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            (Random, {}),
-            (
-                LSHADE,
-                {
-                    "NP_init": 15,
-                    "H": 6,
-                    "p_best": 0.11,
-                    "p_best_end": 0.055,
-                    "archive_factor": 1.0,
-                    "F_schedule": "jso",
-                },
-            ),
-            (JSO, {"NP_init": 15, "H": 5, "p_best_max": 0.25}),
-            (
-                NLSHADE_RSP,
-                {"NP_init": 15, "H": 5, "k_rank": 3.0, "adaptive_archive": True},
-            ),
-            (
-                NLSHADE_LBC,
-                {
-                    "NP_init": 15,
-                    "H": 5,
-                    "lbc_regime": "cec2022",
-                },
-            ),
-            (LSHADE_EpSin, {"NP_init": 15, "mu_freq_init": 0.5}),
-            (NelderMead, {}),
-        ],
-        analyzers=[(Sensitivity, {"update_interval": 20})],
-    )
-
-    # PSO family: a single Rewarding spec with PSO at every tunable kwarg
-    # explicit.  Covers PSO.NP / w / w_end / stagnation_threshold /
-    # topology (five rules including the four-way topology categorical).
-    # ``topology = "gbest"`` is the Kennedy-Eberhart 1995 default; the
-    # categorical mutation rule can flip it to ``lbest`` / ``vonneumann``
-    # / ``random``.  ``w_end = 0.4`` enables the Shi-Eberhart 1998 linear
-    # inertia schedule (``w`` decays from ``0.7298`` to ``0.4`` over the
-    # budget).  ``stagnation_threshold = 10`` opts in to the Clerc 2007 /
-    # SPSO 2011 stochastic-K rebuild for the ``random`` topology — inert
-    # on the seed ``gbest`` setting but pre-staged so the bandit can flip
-    # both knobs simultaneously without re-adding the heuristic.
-    loop_pso = StrategySpec(
-        name="Loop_PSO",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            (LatinHypercube, {"div": 4}),
-            (
-                PSO,
-                {
-                    "NP": 15,
-                    "w": 0.7298,
-                    "w_end": 0.4,
-                    "stagnation_threshold": 10,
-                    "topology": "gbest",
-                },
-            ),
-            (NelderMead, {}),
-        ],
-        analyzers=[(Sensitivity, {"update_interval": 20})],
-    )
-
-    # RegionUCB: the three leaf-bandit dials shipped 2026-06-08 (ucb_c /
-    # gauss_fraction / gauss_scale) all live on the same heuristic class.
-    # Matches the seeded ``Rewarding_RegionUCB`` spec in standard mode
-    # (the same explicit kwargs) so the catalog mutations stay applicable.
-    loop_region_ucb = StrategySpec(
-        name="Loop_RegionUCB",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            # ``radius=0.124`` matches the 2026-06-28 codify on
-            # ``Rewarding_Diverse`` (sibling spec — same heuristic mix
-            # plus RegionUCB).  See the rationale comment there.
-            (Sobol, {"n": 16, "scramble": False}),
-            (Random, {}),
-            # ``quadratic=True`` curvature-aware refinement — same codify as
-            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
-            # randomized battery.  See that spec above and the 2026-07-08 entry in
-            # ``planning/SELF_IMPROVEMENT_LOG.md``.
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
-            (Center, {}),
-            (NelderMead, {}),
-            (RegionUCB, {"ucb_c": 1.0, "gauss_fraction": 0.5, "gauss_scale": 0.25}),
-        ],
-        analyzers=[(Sensitivity, {"update_interval": 25})],
-    )
-
-    # Local-search pair: COBYQA (derivative-free trust region) and
-    # LBFGSB (gradient-based quasi-Newton).  Both ship the kwargs the
-    # catalog mutates explicitly.  COBYQA: initial_tr_radius /
-    # final_tr_radius / scale (three rules including the binary
-    # categorical).  LBFGSB: max_starts (the only LBFGSB rule today).
-    # NelderMead stays as a cheap simplex fallback when the trust-region
-    # / quasi-Newton arms exhaust their budget.
-    #
-    # The LatinHypercube seeder was *dropped* here on 2026-07-06 by the
-    # codify pipeline: both local optimizers already start their first
-    # descent from the box centre (COBYQA / LBFGSB) and multi-start from
-    # fresh points thereafter, so the LHC "first looks" only diluted the
-    # tight quick-mode budget without giving the refiners a better
-    # anchor.  Two independent self-improvement ``drop_heuristic`` accepts
-    # (2026-06-24 Δ=+0.0511, 2026-06-29 Δ=+0.0471; each bootstrap-CI lower
-    # bound > 0) confirmed the win.  See the 2026-07-06 entry in
-    # ``planning/SELF_IMPROVEMENT_LOG.md``.
-    loop_local = StrategySpec(
-        name="Loop_LocalSearch",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            (
-                COBYQA,
-                {"initial_tr_radius": 0.1, "final_tr_radius": 1e-6, "scale": True},
-            ),
-            (LBFGSB, {"max_starts": 5}),
-            (NelderMead, {}),
-        ],
-        analyzers=[(Sensitivity, {"update_interval": 20})],
-    )
-
-    # Restart analyzer: every kwarg the catalog tunes lives on the
-    # :class:`Restart` analyzer — patience / max_restarts /
-    # restart_strategy (three rules including the categorical regime
-    # arm).  The heuristic mix is the lightweight "diverse" stack
-    # (Random / Nearby / NelderMead) so the analyzer's stagnation /
-    # restart cycle is the dominant signal.  Pairs naturally with CMAES
-    # whose own ``sigma0`` kwarg is exposed by an existing catalog rule.
-    loop_restart = StrategySpec(
-        name="Loop_Restart",
-        strategy_class=StrategyRewarding,
-        heuristics=[
-            # ``radius=0.124`` matches the 2026-06-28 codify on
-            # ``Rewarding_Diverse``; the Nearby refinement step plays the
-            # same role here (between Restart-driven jumps) as in the
-            # baseline diverse stack.  See the rationale comment there.
-            (LatinHypercube, {"div": 4}),
-            (CMAES, {"sigma0": 0.3}),
-            (Random, {}),
-            # ``quadratic=True`` curvature-aware refinement — same codify as
-            # ``Rewarding_Diverse`` (2026-07-08); statistical_accept ACCEPT on the
-            # randomized battery.  See that spec above and the 2026-07-08 entry in
-            # ``planning/SELF_IMPROVEMENT_LOG.md``.
-            (Nearby, {"radius": 0.124, "axes": "all", "new": 3, "quadratic": True}),
-            (NelderMead, {}),
-        ],
-        analyzers=[
-            (
-                Restart,
-                {"patience": 20, "restart_strategy": "random", "max_restarts": 5},
-            ),
-            (Sensitivity, {"update_interval": 20}),
-        ],
-    )
-
-    return quick + [loop_de, loop_pso, loop_region_ucb, loop_local, loop_restart]
-
-
 # ---------------------------------------------------------------------------
 # Simple DeJong sphere proxy (avoids importing a missing class by name)
 # ---------------------------------------------------------------------------
@@ -908,21 +655,10 @@ class HarnessConfig:
             self-improvement iteration see *identical* sampled instances,
             while different iterations see different ones.
         strategies_override: Explicit list of :class:`StrategySpec` objects
-            to run instead of the mode's default registry.  Used by the
-            self-improvement loop driver to evaluate perturbed copies of the
-            strategy registry without touching global state.  When set,
+            to run instead of the mode's default registry.  When set,
             :attr:`strategies` (the name filter) and :attr:`include_baselines`
             still apply, but no fallback to the built-in mode strategies
             happens.
-        registry: Named strategy-registry override.  ``"default"`` (the
-            historical behaviour) selects ``quick`` / ``standard`` /
-            ``full`` strategies based on :attr:`mode`.  ``"loop"`` selects
-            the catalog-exercising :func:`_make_loop_strategies` registry
-            regardless of :attr:`mode` — used by the self-improvement loop
-            so the rule-bearing DE / PSO / RegionUCB / LBFGSB / COBYQA /
-            Restart catalog entries actually fire on the seed specs.  See
-            §9.1 of ``planning/SELF_IMPROVEMENT_LOOP.md``.  Ignored when
-            :attr:`strategies_override` is set.
     """
 
     mode: str = "quick"
@@ -935,7 +671,7 @@ class HarnessConfig:
     #: If True, append the external baseline strategies (Random, SciPy DE,
     #: SciPy dual annealing) to the strategy list.  See
     #: :mod:`panobbgo.harness_baselines` for the adapters and Phase 2 of
-    #: ``planning/SELF_IMPROVEMENT_LOOP.md`` for the motivation.
+    #: ``planning/done/SELF_IMPROVEMENT_LOOP.md`` for the motivation.
     include_baselines: bool = False
     #: If True, the problem battery is replaced with randomized families.
     #: See :mod:`panobbgo.harness_randomized` (Phase 3).
@@ -955,16 +691,8 @@ class HarnessConfig:
     #: :attr:`randomize` is ``False``.
     extra_families: Optional[List["ProblemFamily"]] = None
     #: Caller-supplied strategy list that overrides the mode's default
-    #: registry.  Used by :mod:`panobbgo.self_improve` so a loop iteration
-    #: can evaluate a mutated copy of the strategy registry without
-    #: monkey-patching the built-in factories.  ``None`` keeps the legacy
-    #: behaviour (factories select based on ``mode``).
+    #: registry.  ``None`` keeps the factories selected by ``mode``.
     strategies_override: Optional[List[StrategySpec]] = None
-    #: Named strategy-registry override; ``"default"`` (historical) maps
-    #: ``mode`` to ``quick`` / ``standard`` / ``full`` factories;
-    #: ``"loop"`` selects :func:`_make_loop_strategies` regardless of
-    #: ``mode``.  Ignored when :attr:`strategies_override` is set.
-    registry: str = "default"
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -1585,48 +1313,6 @@ def _solve_fractions(psr: ProblemStrategyResult) -> np.ndarray:
 
 
 @dataclass
-class CellCI:
-    """Bootstrap CI for one *cell* — a group of pairs sharing a regime.
-
-    A scalar composite is a mean over every ``(problem, strategy)``
-    pair, which silently averages regimes that can move in opposite
-    directions.  Measured instance, 2026-08-11 (PR #298): adding the
-    NL-SHADE-LBC arm moved ``d2`` by −0.0241 [−0.0401, −0.0080] and
-    ``d5`` by +0.0080 [+0.0007, +0.0154] — *both* CIs excluding zero,
-    opposite signs.  The composite read −0.0080, "lean-negative", which
-    describes neither regime and hides that a real gain exists.
-
-    Cells make that structure first-class: the same bootstrap resample
-    indices are averaged within each cell instead of across all pairs,
-    so cell CIs are directly comparable to the composite CI and to each
-    other.
-
-    Args:
-        cell: Cell label (e.g. ``"d2"``).
-        delta: Mean per-pair delta within this cell.
-        ci_low: Lower bound of the bootstrap CI on the cell delta.
-        ci_high: Upper bound of the bootstrap CI on the cell delta.
-        n_pairs: Number of ``(problem, strategy)`` pairs in the cell.
-    """
-
-    cell: str
-    delta: float
-    ci_low: float
-    ci_high: float
-    n_pairs: int
-
-    @property
-    def credibly_negative(self) -> bool:
-        """``True`` when the whole CI sits below zero.
-
-        Used to distinguish a cell that *really* regressed from one that
-        merely looks bad through noise — a single noisy cell must not be
-        able to veto an otherwise good change.
-        """
-        return self.ci_high < 0.0
-
-
-@dataclass
 class PairCI:
     """Bootstrap confidence interval for a single ``(problem, strategy)`` pair.
 
@@ -1659,7 +1345,7 @@ class StatisticalDecision:
     Result of :func:`statistical_accept` — a principled accept / reject decision
     on ``after`` vs ``before`` harness results.
 
-    The decision rule follows ``planning/SELF_IMPROVEMENT_LOOP.md`` §6.2:
+    The decision rule follows ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §6.2:
 
     - **Accept** iff *all* of:
         - ``delta > eps_accept`` (moved in the right direction beyond noise),
@@ -1706,30 +1392,6 @@ class StatisticalDecision:
     per_pair: List[PairCI]
     seed: int
     paired: bool = False
-    #: Which statistic drove the verdict — ``"mean"`` (bootstrap CI on
-    #: the mean per-pair delta, the historical rule) or ``"rank"``
-    #: (one-sided Wilcoxon signed-rank on the per-pair deltas).
-    accept_stat: str = "mean"
-    #: One-sided Wilcoxon p-value for ``H1: median(delta) > eps_accept``.
-    #: ``None`` under ``accept_stat="mean"``, and ``1.0`` when the test
-    #: is undefined (no non-zero deltas, or too few pairs to reach the
-    #: significance level at all).
-    rank_p: Optional[float] = None
-    #: Hodges-Lehmann estimator of the per-pair delta — the median of
-    #: all Walsh averages ``(d_i + d_j)/2, i <= j``.  This is the point
-    #: estimate that *pairs* with the Wilcoxon test, the way the mean
-    #: pairs with the bootstrap CI.  ``None`` under ``accept_stat="mean"``.
-    rank_delta: Optional[float] = None
-    #: How pairs were grouped into cells — ``"none"`` (one implicit
-    #: cell, the historical behaviour) or ``"dim"``.
-    cell_by: str = "none"
-    #: Per-cell deltas and CIs, empty under ``cell_by="none"``.  Always
-    #: *reported* when cells are on, whether or not they gate; a
-    #: cell-conditional effect is worth recording even when the change
-    #: is accepted.
-    per_cell: List[CellCI] = field(default_factory=list)
-    #: The cell that blocked acceptance, if any.
-    blocking_cell: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise to a JSON-compatible dictionary."""
@@ -1747,21 +1409,6 @@ class StatisticalDecision:
             "reasons": list(self.reasons),
             "seed": self.seed,
             "paired": self.paired,
-            "accept_stat": self.accept_stat,
-            "rank_p": self.rank_p,
-            "rank_delta": self.rank_delta,
-            "cell_by": self.cell_by,
-            "blocking_cell": self.blocking_cell,
-            "per_cell": [
-                {
-                    "cell": c.cell,
-                    "delta": c.delta,
-                    "ci_low": c.ci_low,
-                    "ci_high": c.ci_high,
-                    "n_pairs": c.n_pairs,
-                }
-                for c in self.per_cell
-            ],
             "per_pair": [
                 {
                     "problem": p.problem,
@@ -1806,64 +1453,6 @@ class StatisticalDecision:
             print(bar)
 
 
-def _hodges_lehmann(d: "np.ndarray") -> float:
-    """Median of all Walsh averages ``(d_i + d_j) / 2`` for ``i <= j``.
-
-    The location estimator that belongs with the Wilcoxon signed-rank
-    test, exactly as the sample mean belongs with the t-test / bootstrap
-    CI.  Robust (breakdown ~29%) but, unlike the plain median, it uses
-    every pair of observations, so it wastes far less information on the
-    small samples this harness produces.
-    """
-    n = int(d.size)
-    if n == 0:
-        return 0.0
-    if n == 1:
-        return float(d[0])
-    iu = np.triu_indices(n)  # i <= j, so the d_i themselves are included
-    walsh = (d[iu[0]] + d[iu[1]]) / 2.0
-    return float(np.median(walsh))
-
-
-def _wilcoxon_greater(d: "np.ndarray", shift: float) -> float:
-    """One-sided ``P(median(d) <= shift)`` by the Wilcoxon signed-rank test.
-
-    Returns a p-value for ``H1: median(d) > shift``.  Returns ``1.0``
-    (i.e. "no evidence") whenever the test is undefined rather than
-    raising, because this sits on the loop's accept path and an
-    exception there would abort a night's run:
-
-    * fewer than one observation,
-    * every ``d_i - shift`` exactly zero (a no-op mutation — the loop
-      detects these separately and must not read them as significant),
-    * any SciPy-side failure on a degenerate input.
-
-    ``zero_method="zsplit"`` keeps exact zeros in the sample and splits
-    their ranks between the two sides.  The more common ``"wilcox"``
-    discards them, which *inflates* significance precisely when a
-    mutation is mostly inert — the failure mode this loop is most prone
-    to, since many kwarg perturbations move only a couple of pairs.
-    """
-    from scipy.stats import wilcoxon
-
-    x = np.asarray(d, dtype=np.float64) - float(shift)
-    if x.size < 1 or not np.any(np.isfinite(x)):
-        return 1.0
-    if np.allclose(x, 0.0):
-        return 1.0
-    try:
-        # Annotated ``Any``: SciPy's result object is not statically
-        # typed, so pyright can resolve neither ``.pvalue`` on it nor
-        # the element type of the tuple it also behaves as.
-        res: Any = wilcoxon(x, alternative="greater", zero_method="zsplit")
-    except ValueError:
-        # SciPy raises on degenerate samples (e.g. all-zero after
-        # zero handling).  Treat as "no evidence".
-        return 1.0
-    p = float(res.pvalue)
-    return 1.0 if not np.isfinite(p) else p
-
-
 def statistical_accept(
     before: HarnessResult,
     after: HarnessResult,
@@ -1873,14 +1462,11 @@ def statistical_accept(
     confidence: float = 0.95,
     seed: int = 42,
     paired: Optional[bool] = None,
-    accept_stat: str = "mean",
-    cell_by: str = "none",
-    eps_cell_regress: float = 0.01,
 ) -> StatisticalDecision:
     """Principled accept/reject decision for a candidate :class:`HarnessResult`.
 
     Implements the statistical acceptance rule from
-    ``planning/SELF_IMPROVEMENT_LOOP.md`` §6.2.  For every
+    ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §6.2.  For every
     ``(problem, strategy)`` pair present in both results, the per-run solve
     fractions are bootstrapped to produce a confidence interval on the
     mean-difference.  The composite delta and its CI are obtained by averaging
@@ -1935,72 +1521,6 @@ def statistical_accept(
               resamples on each side).  Useful when reps are *not*
               instance-aligned (e.g. comparing two ledgers built with
               different ``base_seed`` values).
-        accept_stat: Which statistic gates the verdict.
-
-            - ``"mean"`` (default, historical) — the rule described
-              above: ``delta > eps_accept`` and ``ci_low > 0``.
-            - ``"rank"`` — a one-sided Wilcoxon signed-rank test on the
-              per-pair deltas shifted by ``eps_accept``, accepted when
-              ``p < 1 - confidence``.  This single test replaces *both*
-              mean conditions: asking whether ``median(d) > eps_accept``
-              beyond chance is the rank analogue of "the mean cleared
-              the bar and its CI excludes zero".  ``GOAL.md`` §5.3 —
-              mean-AOCC deltas are outlier-sensitive, so one pair that
-              happens to solve or fail can carry the composite past the
-              bar on its own; competition practice (Wilcoxon / Friedman
-              over (function, instance) pairs) asks instead whether the
-              change wins *consistently*.
-
-            The bootstrap CI is computed and reported under both modes —
-            it is the ledger's continuity record — it simply does not
-            gate under ``"rank"``.  :attr:`StatisticalDecision.delta`
-            likewise stays the mean under both, so ledger series remain
-            comparable; the rank location estimate is reported
-            separately as :attr:`StatisticalDecision.rank_delta`.
-
-            **Minimum sample size.** The smallest attainable one-sided
-            Wilcoxon p-value on ``n`` pairs is ``2**-n``, so at
-            ``confidence=0.95`` a rank accept is impossible below
-            ``n = 5`` no matter how large the effect.  This is a
-            property of the test, not a bug, but it means ``"rank"``
-            must not be switched on for a battery that yields fewer
-            than five shared ``(problem, strategy)`` pairs — the rule
-            would never fire.  The AOCC quick battery yields
-            ``3 instances x n_specs`` (6 with two specs, 12 with the d5
-            slice on), comfortably clear.
-        cell_by: How to group pairs into *cells* — regimes whose effects
-            may differ in sign.
-
-            - ``"none"`` (default) — one implicit cell; historical
-              behaviour, byte-identical.
-            - ``"dim"`` — one cell per ``problem_dim``.
-
-            When cells are on, per-cell deltas and CIs are always
-            *reported* (:attr:`StatisticalDecision.per_cell`), and a
-            cell that credibly regresses blocks acceptance — see
-            ``eps_cell_regress``.
-
-            The motivation is a measured one.  On 2026-08-11 (PR #298)
-            adding the NL-SHADE-LBC arm moved ``d2`` by −0.0241
-            [−0.0401, −0.0080] and ``d5`` by +0.0080 [+0.0007, +0.0154]:
-            both CIs excluding zero, opposite signs.  The scalar
-            composite read −0.0080 — "lean-negative" — which describes
-            neither regime and hides that a real gain exists at d5.  A
-            scalar objective over a heterogeneous battery has a flat
-            optimum by construction; cells are the minimum machinery
-            needed to see past that.
-        eps_cell_regress: Tolerance for a whole-cell regression, used
-            only when ``cell_by != "none"``.  A cell blocks acceptance
-            iff **both** its delta is below ``-eps_cell_regress`` **and**
-            its entire CI sits below zero.  Requiring both means a
-            merely noisy cell cannot veto an otherwise good change,
-            while a real regime sacrifice does.  Default ``0.01``, which
-            would have blocked the #298 change on its d2 cell.
-
-            Orthogonal to ``accept_stat``: one asks whether the typical
-            effect is real, the other whether any regime is being
-            sacrificed to achieve it.
-
     Returns:
         A populated :class:`StatisticalDecision` describing the verdict and
         carrying per-pair CIs so an agent can drill into the cause of a
@@ -2158,101 +1678,16 @@ def statistical_accept(
             worst_pair_regression = p.delta
             worst_pair = (p.problem, p.strategy)
 
-    # Per-cell aggregation.  Uses the *same* bootstrap resample indices
-    # as the composite (pair_delta_samples are already aligned by
-    # column), so a cell CI is directly comparable to the composite CI
-    # and to other cells — averaging a subset of the same rows is
-    # exactly what the composite does over all of them.
-    if cell_by not in {"none", "dim"}:
-        raise ValueError(f"cell_by must be 'none' or 'dim', got {cell_by!r}")
-
-    per_cell: List[CellCI] = []
-    if cell_by == "dim" and per_pair:
-        cell_rows: Dict[str, List[int]] = {}
-        for i, key in enumerate(shared):
-            dim = int(before_map[key].problem_dim)
-            cell_rows.setdefault(f"d{dim}", []).append(i)
-        alpha = (1.0 - confidence) / 2.0
-        for label in sorted(cell_rows, key=lambda s: (len(s), s)):
-            rows = cell_rows[label]
-            samples = np.mean(np.vstack([pair_delta_samples[i] for i in rows]), axis=0)
-            per_cell.append(
-                CellCI(
-                    cell=label,
-                    delta=float(np.mean([per_pair[i].delta for i in rows])),
-                    ci_low=float(np.quantile(samples, alpha)),
-                    ci_high=float(np.quantile(samples, 1.0 - alpha)),
-                    n_pairs=len(rows),
-                )
-            )
-
-    # Decision rule.
-    if accept_stat not in {"mean", "rank"}:
-        raise ValueError(f"accept_stat must be 'mean' or 'rank', got {accept_stat!r}")
-
     reasons: List[str] = []
     cond_shared = bool(per_pair)
     cond_regress = worst_pair_regression > -eps_regress
 
-    rank_p: Optional[float] = None
-    rank_delta: Optional[float] = None
-    if accept_stat == "rank":
-        # Rank rule (GOAL §5.3): mean-AOCC deltas are outlier-sensitive
-        # — one pair that happens to solve or fail can swing the
-        # composite past eps_accept on its own.  Competition practice
-        # (Wilcoxon / Friedman over (function, instance) pairs) asks
-        # instead whether the change wins *consistently* across pairs.
-        #
-        # The single Wilcoxon test replaces BOTH the mean rule's
-        # ``delta > eps_accept`` and its ``ci_low > 0``: testing the
-        # shifted sample ``d - eps_accept`` against zero is exactly the
-        # question "is the typical per-pair gain bigger than eps_accept,
-        # beyond chance".  The bootstrap CI is still computed and
-        # reported — it is the ledger's continuity record — it just does
-        # not gate.
-        d_pairs = np.array([p.delta for p in per_pair], dtype=np.float64)
-        rank_delta = _hodges_lehmann(d_pairs)
-        rank_p = _wilcoxon_greater(d_pairs, eps_accept)
-        alpha_one_sided = 1.0 - float(confidence)
-        cond_delta = rank_p < alpha_one_sided
-        cond_ci = True  # folded into the rank test
-        if not cond_delta:
-            reasons.append(
-                f"Wilcoxon one-sided p={rank_p:.4f} ≥ alpha {alpha_one_sided:.4f}"
-                f" for median per-pair delta > eps_accept {eps_accept:.4f}"
-                f" (Hodges-Lehmann {rank_delta:+.4f}, n_pairs={d_pairs.size})"
-            )
-    else:
-        cond_delta = delta > eps_accept
-        cond_ci = ci_low > 0.0
-        if not cond_delta:
-            reasons.append(f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}")
-        if not cond_ci:
-            reasons.append(
-                f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically distinguishable from noise"
-            )
-
-    # Cell gate: a change may not credibly regress a whole regime, no
-    # matter how well it does on average.  BOTH conditions are required
-    # — the cell delta must be worse than the tolerance *and* its entire
-    # CI must sit below zero — so a merely noisy cell cannot veto an
-    # otherwise good change.  Applied on top of whichever accept_stat
-    # is in force; the two are orthogonal (one asks "is the typical
-    # effect real", the other "is any regime being sacrificed").
-    blocking_cell: Optional[str] = None
-    cond_cell = True
-    if per_cell:
-        for c in per_cell:
-            if c.delta < -eps_cell_regress and c.credibly_negative:
-                cond_cell = False
-                blocking_cell = c.cell
-                reasons.append(
-                    f"cell {c.cell} regressed by {c.delta:+.4f}"
-                    f" (< -eps_cell_regress {eps_cell_regress:.4f})"
-                    f" with CI [{c.ci_low:+.4f}, {c.ci_high:+.4f}] entirely below zero"
-                    f" — a credible whole-regime regression, not noise"
-                )
-                break
+    cond_delta = delta > eps_accept
+    cond_ci = ci_low > 0.0
+    if not cond_delta:
+        reasons.append(f"composite delta {delta:+.4f} ≤ eps_accept {eps_accept:.4f}")
+    if not cond_ci:
+        reasons.append(f"lower CI bound {ci_low:+.4f} ≤ 0 — improvement not statistically distinguishable from noise")
 
     if not cond_shared:
         reasons.append(
@@ -2267,27 +1702,14 @@ def statistical_accept(
         else:  # pragma: no cover — defensive; cannot trigger with the rule above
             reasons.append(f"worst regression {worst_pair_regression:+.4f} exceeds eps_regress {eps_regress:.4f}")
 
-    accept = cond_shared and cond_delta and cond_ci and cond_regress and cond_cell
+    accept = cond_shared and cond_delta and cond_ci and cond_regress
     if accept and not reasons:
-        if accept_stat == "rank":
-            reasons.append(
-                f"Wilcoxon one-sided p={rank_p:.4f} < alpha {1.0 - float(confidence):.4f}"
-                f" for median per-pair delta > eps_accept {eps_accept:.4f}"
-                f" (Hodges-Lehmann {rank_delta:+.4f}, mean {delta:+.4f}, n_pairs={len(per_pair)}),"
-                f" worst pair regression {worst_pair_regression:+.4f} > -{eps_regress:.4f}"
-            )
-        else:
-            reasons.append(
-                f"composite delta {delta:+.4f} > eps_accept {eps_accept:.4f},"
-                f" CI lower bound {ci_low:+.4f} > 0,"
-                f" worst pair regression {worst_pair_regression:+.4f}"
-                f" > -{eps_regress:.4f}"
-            )
-    if accept and per_cell:
-        # Record the per-cell breakdown even on an accept: a change that
-        # wins on average while one regime merely *tolerably* regresses
-        # is exactly the signal that motivates dimension-gated arms.
-        reasons.append("cells: " + ", ".join(f"{c.cell} {c.delta:+.4f}" for c in per_cell))
+        reasons.append(
+            f"composite delta {delta:+.4f} > eps_accept {eps_accept:.4f},"
+            f" CI lower bound {ci_low:+.4f} > 0,"
+            f" worst pair regression {worst_pair_regression:+.4f}"
+            f" > -{eps_regress:.4f}"
+        )
 
     return StatisticalDecision(
         accept=accept,
@@ -2304,12 +1726,6 @@ def statistical_accept(
         per_pair=per_pair,
         seed=seed,
         paired=used_paired_anywhere,
-        accept_stat=accept_stat,
-        rank_p=rank_p,
-        rank_delta=rank_delta,
-        cell_by=cell_by,
-        per_cell=per_cell,
-        blocking_cell=blocking_cell,
     )
 
 
@@ -2350,7 +1766,7 @@ class BenchmarkHarness:
         is replaced with :class:`~panobbgo.harness_randomized.RandomizedProblemSpec`
         instances that sample a fresh translated / rotated / scaled / noisy
         instance per repetition.  See :mod:`panobbgo.harness_randomized`
-        and Phase 3 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+        and Phase 3 of ``planning/done/SELF_IMPROVEMENT_LOOP.md``.
 
         When :attr:`HarnessConfig.extra_families` is set (and
         ``randomize`` is on), those families are appended to the default
@@ -2416,24 +1832,14 @@ class BenchmarkHarness:
         """
         if self.config.strategies_override is not None:
             specs = list(self.config.strategies_override)
-        elif self.config.registry == "loop":
-            # The catalog-exercising loop registry (§9.1 of
-            # ``planning/SELF_IMPROVEMENT_LOOP.md``).  Independent of
-            # :attr:`mode` so the same seed specs measure under quick /
-            # standard / full budgets.
-            specs = _make_loop_strategies()
-        elif self.config.registry == "default":
-            mode = self.config.mode
-            if mode == "quick":
-                specs = _make_quick_strategies()
-            elif mode == "standard":
-                specs = _make_standard_strategies()
-            elif mode == "full":
-                specs = _make_full_strategies()
-            else:
-                raise ValueError(f"Unknown mode {mode!r}.")
+        elif self.config.mode == "quick":
+            specs = _make_quick_strategies()
+        elif self.config.mode == "standard":
+            specs = _make_standard_strategies()
+        elif self.config.mode == "full":
+            specs = _make_full_strategies()
         else:
-            raise ValueError(f"Unknown registry {self.config.registry!r}; expected 'default' or 'loop'.")
+            raise ValueError(f"Unknown mode {self.config.mode!r}.")
 
         if self.config.include_baselines:
             from panobbgo.harness_baselines import make_baseline_strategies

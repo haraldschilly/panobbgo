@@ -18,7 +18,7 @@
 External baseline strategies for the benchmark harness
 ======================================================
 
-Phase 2 of :doc:`../planning/SELF_IMPROVEMENT_LOOP.md`: without external
+Phase 2 of :doc:`../planning/done/SELF_IMPROVEMENT_LOOP.md`: without external
 reference solvers, the composite score only answers *"is Panobbgo better
 than its previous self"*.  This module adds adapter strategies that plug
 three well-known external optimizers into the same

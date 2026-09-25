@@ -60,7 +60,7 @@ class Sobol(Heuristic):
     ``scramble=False`` after a 2026-05-31 ledger-evidence-driven
     codification (three independent self-improvement loop accepts with
     bootstrap-CI lower bound > 0; see
-    ``planning/SELF_IMPROVEMENT_LOOP.md`` §13).  At ``n=16`` in the 2-D
+    ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §13).  At ``n=16`` in the 2-D
     quick-mode battery the deterministic Sobol' grid is already
     optimally space-filling, and Owen scrambling adds variance the local
     heuristics then have to absorb — the per-rep "different points"

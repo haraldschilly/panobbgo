@@ -18,7 +18,7 @@
 Parametrically randomized benchmark problems
 ============================================
 
-Phase 3 of :doc:`../planning/SELF_IMPROVEMENT_LOOP.md`: turn the fixed
+Phase 3 of :doc:`../planning/done/SELF_IMPROVEMENT_LOOP.md`: turn the fixed
 harness battery into one that samples *fresh transformed instances* per
 repetition so the composite score becomes a Monte-Carlo estimate of
 **expected performance on a problem family**, not a point estimate on a
@@ -90,7 +90,7 @@ See also
 
 * :mod:`panobbgo.harness` — the harness this plugs into.
 * :mod:`panobbgo.harness_baselines` — Phase 2 external reference solvers.
-* ``planning/SELF_IMPROVEMENT_LOOP.md`` — design, §4.
+* ``planning/done/SELF_IMPROVEMENT_LOOP.md`` — design, §4.
 """
 
 from __future__ import annotations
@@ -399,7 +399,7 @@ class ProblemFamily:
             contiguous block of ``k`` reps covers every dim exactly once.
             This eliminates dim-mix variance across iterations of the
             self-improvement loop — see §10 of
-            ``planning/SELF_IMPROVEMENT_LOOP.md``.  When ``False``, the
+            ``planning/done/SELF_IMPROVEMENT_LOOP.md``.  When ``False``, the
             dim is drawn uniformly from ``dim_choices`` per instance,
             which dilutes cross-iteration deltas with sampling noise.
             Single-dim families are unaffected by this flag.
@@ -445,7 +445,7 @@ class ProblemFamily:
         Cycles through :attr:`dim_choices` so that any contiguous block of
         ``len(dim_choices)`` reps covers every declared dimension exactly
         once.  When ``len(dim_choices) == 1`` the result is the constant
-        family dim.  See §10 of ``planning/SELF_IMPROVEMENT_LOOP.md``.
+        family dim.  See §10 of ``planning/done/SELF_IMPROVEMENT_LOOP.md``.
 
         Args:
             rep: Non-negative repetition index.
@@ -710,7 +710,7 @@ def make_highdim_families() -> List[ProblemFamily]:
 
     The default battery (:func:`make_default_families`) ships every family
     at ``dim_choices=(2,)`` (see §10 of
-    ``planning/SELF_IMPROVEMENT_LOOP.md``), so the whole self-improvement
+    ``planning/done/SELF_IMPROVEMENT_LOOP.md``), so the whole self-improvement
     apparatus — the loop, the anti-cherry-pick guard, and codify-scan —
     measures exclusively at **dim 2**.  Any optimizer improvement whose
     benefit only appears at higher dimensions (coordinate coupling in a

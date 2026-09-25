@@ -290,35 +290,6 @@ class TestRunIOHHarness:
         # premature-stop bug has regressed.
         assert rec.n_evals >= 0.9 * rec.budget, (rec.n_evals, rec.budget)
 
-    def test_aocc_to_harness_result_roundtrip(self) -> None:
-        """The HarnessResult adapter must encode AOCC such that
-        ``ProblemStrategyResult.score`` and ``composite_score`` read back
-        the original AOCC values to within 1/budget rounding error."""
-        from panobbgo.harness_ioh import aocc_to_harness_result, make_ioh_strategies
-
-        battery = IOHBatterySpec(
-            name="ioh-adapter-test",
-            problem_kind="MA-BBOB",
-            dims=(2,),
-            instances=(0, 1),
-            reps=1,
-            budget_multiplier=50,
-        )
-        # Single strategy keeps the test cheap and the mapping check tight.
-        strats = [s for s in make_ioh_strategies() if s.name == "RoundRobin_Random"]
-        ioh_result = run_ioh_harness(strats, battery, base_seed=42, progress=False)
-        wrapped = aocc_to_harness_result(ioh_result)
-
-        # composite_score must equal the IOH mean AOCC up to encoding error.
-        budget = battery.budget_for(2)
-        assert wrapped.composite_score == pytest.approx(ioh_result.mean_aocc, abs=1.0 / budget)
-
-        # Each ProblemStrategyResult must hold AOCC for its source run.
-        per_strat = ioh_result.per_strategy_aocc()
-        for psr in wrapped.problem_strategy_results:
-            assert psr.strategy_name in per_strat
-            assert 0.0 <= psr.score <= 1.0
-
     def test_ioh_strategies_registry_runs(self) -> None:
         """``make_ioh_strategies`` returns a working list of specs."""
         from panobbgo.harness_ioh import make_ioh_strategies
@@ -345,35 +316,6 @@ class TestRunIOHHarness:
             # No half-finished runs; the IOH driver disables stop_on_convergence.
             assert r.n_evals >= 0.9 * r.budget
 
-    def test_self_improve_loop_aocc_metric(self) -> None:
-        """A 1-iteration self-improve run with metric='aocc' must complete
-        and produce a record whose scores look like AOCC (in [0, 1])."""
-        from panobbgo.self_improve import LoopConfig, SelfImprover
-
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as td:
-            ledger = f"{td}/ledger.jsonl"
-            cfg = LoopConfig(
-                iterations=1,
-                mode="quick",
-                metric="aocc",
-                ledger_path=ledger,
-                randomize=True,
-                stop_sentinel_path="",  # disable
-            )
-            improver = SelfImprover(cfg)
-            records = improver.run(verbose=False)
-
-        assert len(records) == 1
-        rec = records[0]
-        # AOCC always sits in [0, 1] — the encoding into HarnessResult
-        # preserves this for both baseline and candidate.
-        assert 0.0 <= rec.baseline_score <= 1.0, rec.baseline_score
-        assert 0.0 <= rec.candidate_score <= 1.0, rec.candidate_score
-        # ci_low/ci_high are deltas, can be negative — just sanity check shape
-        assert rec.ci_low <= rec.ci_high
-
     def test_reproducible_seed(self) -> None:
         baselines = [s for s in make_baseline_strategies() if s.name == "Baseline_Random"]
         battery = IOHBatterySpec(
@@ -393,18 +335,6 @@ class TestRunIOHHarness:
 # ---------------------------------------------------------------------------
 # LoopConfig metric validation (pure Python — no worker)
 # ---------------------------------------------------------------------------
-
-
-class TestLoopConfigMetric:
-    def test_loop_config_metric_validation(self) -> None:
-        from panobbgo.self_improve import LoopConfig
-
-        # Valid values
-        LoopConfig(iterations=0, metric="composite")
-        LoopConfig(iterations=0, metric="aocc")
-        # Invalid value
-        with pytest.raises(ValueError, match="metric"):
-            LoopConfig(iterations=0, metric="bogus")
 
 
 # ---------------------------------------------------------------------------

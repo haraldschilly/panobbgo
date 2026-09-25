@@ -50,7 +50,7 @@ This is the first step toward a full per-region adaptive portfolio. Future
 work can add per-leaf heuristic subsets, region-specific config, or
 hierarchical borrowing from parent boxes.
 
-See AGENTS.md, benchmark_harness.py, and planning/SELF_IMPROVEMENT_LOOP.md
+See AGENTS.md, benchmark_harness.py, and planning/done/SELF_IMPROVEMENT_LOOP.md
 for measurement requirements.
 """
 

@@ -119,7 +119,7 @@ asynchronous pipeline does not expose cleanly:
   the L-SHADE midpoint-reflection repair instead).
 
 Both are queued as follow-ups in
-``planning/SELF_IMPROVEMENT_LOOP.md``.
+``planning/done/SELF_IMPROVEMENT_LOOP.md``.
 
 CR-zero handling
 ----------------

@@ -1,6 +1,6 @@
 # GitHub Actions workflows
 
-Three workflows live here. `./test.sh` (via `run_ci.py`) replays the
+Two workflows live here. `./test.sh` (via `run_ci.py`) replays the
 `tests.yml` commands locally.
 
 ## `tests.yml` — CI on every push / PR to `master`
@@ -45,19 +45,6 @@ uv run sphinx-build -b html doc/source doc/build/html
 an artifact. On `master` the `deploy` job checks out the `gh-pages` branch,
 replaces its contents with the built HTML and pushes — that is what serves
 https://haraldschilly.github.io/panobbgo/.
-
-## `self_improve_nightly.yml` — nightly self-improvement loop (disabled)
-
-A scheduled (03:00 UTC) run of `scripts/self_improve.py run` against the
-IOH/MA-BBOB AOCC metric (or `composite` via `workflow_dispatch`), which
-appends to the metric's ledger under `planning/` and commits the updated
-ledger and summary back to `master` with `[skip ci]`.
-
-**This workflow is currently disabled on GitHub** (since 2026-08-13): the
-loop's accept rule sits on the harness's measurement-noise floor, see
-`planning/done/LOOP_DIAGNOSIS_2026-08-11.md`. The workflow file is kept so
-it can be re-enabled once the measurement issues in `TODO.md` are
-resolved; the loop's flags are documented in `planning/LOOP_REFERENCE.md`.
 
 ## Maintenance
 

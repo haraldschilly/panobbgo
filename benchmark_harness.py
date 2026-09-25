@@ -73,7 +73,7 @@ Typical agent loop
 
 6. Repeat.
 
-The ``planning/SELF_IMPROVEMENT_LOOP.md`` document describes how this CLI
+The ``planning/done/SELF_IMPROVEMENT_LOOP.md`` document describes how this CLI
 fits into a fully autonomous improvement loop (parametrically-randomised
 problem battery, external baselines, statistical acceptance rule).
 
@@ -394,7 +394,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Replace the fixed problem battery with parametrically randomized"
-            " families (Phase 3 of planning/SELF_IMPROVEMENT_LOOP.md).  Each"
+            " families (Phase 3 of planning/done/SELF_IMPROVEMENT_LOOP.md).  Each"
             " repetition draws a fresh translated/rotated/scaled instance."
             "  Pair with --randomize-iteration to keep before/after runs"
             " aligned."
@@ -460,7 +460,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Apply the principled acceptance rule from"
-            " planning/SELF_IMPROVEMENT_LOOP.md §6.2: bootstrap confidence"
+            " planning/done/SELF_IMPROVEMENT_LOOP.md §6.2: bootstrap confidence"
             " interval on the composite delta + per-pair regression guard."
         ),
     )

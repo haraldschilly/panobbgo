@@ -554,7 +554,7 @@ class TestHarnessRandomize:
 
 
 # ===========================================================================
-# 6. Stratified dimension sampling (§10 of SELF_IMPROVEMENT_LOOP.md)
+# 6. Stratified dimension sampling (§10 of planning/done/SELF_IMPROVEMENT_LOOP.md)
 # ===========================================================================
 
 

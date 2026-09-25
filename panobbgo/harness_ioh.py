@@ -38,7 +38,7 @@ Why a separate harness?
   not in Panobbgo's own problem registry and there is no need to mix the
   registries.
 * Forking the measurement track keeps the existing self-improvement
-  ledger (``planning/self_improve_ledger.jsonl``) honest: a change can be
+  ledger (``planning/done/self_improve_ledger.jsonl``) honest: a change can be
   good for ``composite_score`` and bad for AOCC, and we want to see both.
 
 Public surface
@@ -72,147 +72,13 @@ import hashlib
 import itertools
 import json
 import time
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
 from panobbgo.benchmark import StrategySpec
 from panobbgo.ioh_runner import AOCC_LOG_HI, AOCC_LOG_LO, IOHTracker, _BudgetExhausted, aocc  # noqa: F401
-
-
-# ---------------------------------------------------------------------------
-# Adapter: IOHHarnessResult -> HarnessResult (for the self-improvement loop)
-# ---------------------------------------------------------------------------
-#
-# The composite-score harness machinery (statistical_accept, the ledger
-# format, ProblemStrategyResult.compute_metrics, ...) operates on
-# :class:`~panobbgo.harness.HarnessResult` with per-run "solve fractions"
-# derived from ``first_success_eval``.  To reuse that machinery for the
-# AOCC track, we encode each (problem, strategy, rep) AOCC as a synthetic
-# :class:`~panobbgo.harness.RunRecord` whose only convergence event sits
-# at evaluation ``k* = round((1 - aocc) * budget) + 1`` with
-# ``func_distance = 0``.  Then ``_solve_fractions`` reads back exactly
-# ``aocc`` from that run and the bootstrap CI on the composite delta
-# operates on AOCC values without any further code duplication.
-#
-# Trade-offs:
-#   * `ert` and the convergence trace in the encoded result are
-#     meaningless under this scheme; only ``score`` /
-#     ``composite_score`` (== mean AOCC) carries semantics.
-#   * The encoded result is **not** for human consumption — it exists
-#     to plug AOCC measurements into the existing statistical /
-#     ledger machinery.  Use :class:`IOHHarnessResult` directly when
-#     reporting numbers to a user.
-
-
-def aocc_to_harness_result(ioh_result, mode: str = "ioh", base_seed: int = 42):
-    """Encode an :class:`IOHHarnessResult` as a :class:`HarnessResult`.
-
-    See module-level note: only ``composite_score`` and the per-pair
-    ``score`` carry meaning in the returned object; convergence traces
-    and ERT are synthetic.
-
-    Parameters
-    ----------
-    ioh_result
-        Result returned by :func:`run_ioh_harness`.
-    mode, base_seed
-        Forwarded to the synthetic :class:`HarnessConfig` so the wrapper
-        carries enough metadata for downstream serialisation.
-    """
-    from panobbgo.harness import (
-        ConvergencePoint,
-        HarnessConfig,
-        HarnessResult,
-        ProblemStrategyResult,
-        RunRecord,
-    )
-
-    # Group runs by (problem-key, strategy_name) → produces one
-    # ProblemStrategyResult per pair.  Problem key encodes
-    # (problem_kind, dim, instance) so different (dim, instance)
-    # tuples appear as different "problems" in the harness sense.
-    pair_buckets: Dict[Tuple[str, str], List[Any]] = {}
-    pair_meta: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    for r in ioh_result.runs:
-        # The fid segment appears only on a battery that has a function
-        # axis, so the problem keys of every pre-2026-09-14 result are
-        # unchanged — and two functions of one battery do not collapse
-        # into a single "problem" whose runs would then be averaged.
-        fid_tag = f"_f{r.fid}" if r.fid is not None else ""
-        pname = f"{r.problem_kind}{fid_tag}_d{r.dim}_i{r.instance}"
-        key = (pname, r.strategy_name)
-        pair_buckets.setdefault(key, []).append(r)
-        pair_meta[key] = {
-            "dim": r.dim,
-            "budget": r.budget,
-            "f_opt": r.f_opt,
-        }
-
-    psr_list: List[ProblemStrategyResult] = []
-    for (pname, sname), runs in pair_buckets.items():
-        meta = pair_meta[(pname, sname)]
-        budget = int(meta["budget"])
-        run_records: List[RunRecord] = []
-        for run in runs:
-            score = max(0.0, min(1.0, float(run.aocc)))
-            # Map AOCC -> first_success_eval so _solve_fractions reads
-            # it back unchanged.  Inverting frac = 1 - (k* - 1) / budget:
-            #   k* = round((1 - aocc) * budget) + 1, clipped to [1, budget].
-            k_star = max(1, min(budget, int(round((1.0 - score) * budget)) + 1))
-            conv = [
-                ConvergencePoint(
-                    eval_idx=k_star,
-                    fx=float(run.best_fx),
-                    func_distance=0.0,
-                )
-            ]
-            run_records.append(
-                RunRecord(
-                    problem_name=pname,
-                    problem_dim=int(meta["dim"]),
-                    strategy_name=sname,
-                    rep=int(run.rep),
-                    seed=int(run.seed),
-                    budget=budget,
-                    evaluations_used=int(run.n_evals),
-                    best_fx=float(run.best_fx),
-                    f_opt=float(meta["f_opt"]),
-                    func_distance=0.0,  # synthetic — see note above
-                    tolerance=1e-9,
-                    success=True,
-                    convergence=conv,
-                    heuristic_counts={},
-                    duration=float(run.elapsed_s),
-                    error=run.error,
-                )
-            )
-        psr = ProblemStrategyResult(
-            problem_name=pname,
-            problem_dim=int(meta["dim"]),
-            strategy_name=sname,
-            f_opt=float(meta["f_opt"]),
-            tolerance=1e-9,
-            budget=budget,
-            runs=run_records,
-        )
-        psr.compute_metrics()  # populates .score = mean AOCC by construction
-        psr_list.append(psr)
-
-    # The synthetic HarnessConfig only needs the mode / base_seed /
-    # budget so downstream serialisation has consistent metadata.
-    fake_cfg = HarnessConfig(mode=mode, seed=base_seed, budget=None, reps=None)
-
-    composite = float(np.mean([p.score for p in psr_list])) if psr_list else 0.0
-    return HarnessResult(
-        config=fake_cfg,
-        timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(ioh_result.timestamp)),
-        total_runs=len(ioh_result.runs),
-        total_duration=float(sum(r.elapsed_s for r in ioh_result.runs)),
-        problem_strategy_results=psr_list,
-        composite_score=composite,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -476,39 +342,6 @@ def make_quick_battery() -> IOHBatterySpec:
         reps=1,
         budget_multiplier=100,  # 100 * 2 = 200 evals; ~1s per run
     )
-
-
-def with_extra_dims(battery: IOHBatterySpec, extra_dims: Sequence[int]) -> IOHBatterySpec:
-    """Return ``battery`` widened with ``extra_dims``, preserving everything else.
-
-    The battery presets are frozen contracts (``planning/GOAL.md`` §4:
-    "extend via opt-in flags, never edit"), so a caller that wants a
-    regime the preset cannot reach composes one instead of editing the
-    factory.  Dims already present are ignored and the result is sorted,
-    so the call is idempotent and order-insensitive.
-
-    The name gains a ``+d<k>`` suffix per added dim so a report or
-    ledger record cannot silently conflate a widened battery with the
-    preset it came from — the two measure different things and their
-    mean AOCC is not comparable.
-
-    This exists because the nightly loop runs the quick battery, which
-    is ``dims=(2,)``.  Two of the sharpest measured results of 2026-08
-    (the JSO d5 add on 2026-08-02 and the NLSHADE_LBC per-dim split on
-    2026-08-11, where d2 lost 0.0241 while d5 gained 0.0080) lived
-    entirely at d5 — invisible to the regime the loop actually samples.
-
-    Note the budget interaction: ``budget_for`` is
-    ``budget_multiplier * dim``, so adding dim 5 to the quick battery
-    (multiplier 100) buys 500-eval runs alongside the 200-eval ones.
-    The added dim costs more per run than the ones already there.
-    """
-    merged = tuple(sorted(set(battery.dims) | {int(d) for d in extra_dims}))
-    if merged == battery.dims:
-        return battery
-    added = [d for d in merged if d not in battery.dims]
-    suffix = "".join(f"+d{d}" for d in added)
-    return replace(battery, name=f"{battery.name}{suffix}", dims=merged)
 
 
 def make_standard_battery() -> IOHBatterySpec:

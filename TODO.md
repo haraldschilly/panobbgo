@@ -1,792 +1,203 @@
 # TODO
 
-## Stand Ende 2026-09-10 — Phase A abgeschlossen, Phase B ausgemessen
+Open work only. Measurements and their reasoning live in
+`planning/DISCOVERY_2026-09-09.md` (§n below), the goal contract in
+`planning/GOAL.md`, the history of this file in `planning/done/TODO_archive_*`.
+Remove an item when it is done; record the result in the planning log, not here.
 
-Branch `claude/arm-sweep-pass2`, PR #319. Vollständiges Protokoll in
-`planning/DISCOVERY_2026-09-09.md` §15–§31, Zustand und Plan in
-`planning/GOAL.md` §2/§2c, Rohdaten in `planning/results/2026-09-10/`.
+## Where things stand (2026-09-15, §53)
 
-### Gelandet (alle Defaults 12-Seed-akzeptiert)
+- **Arms**: `NP_init="auto"` for the DE family, CMA-ES σ-divergence restart —
+  both 12-seed accepted defaults. Flagship spec is still `RoundRobin_CMAES`.
+- **Sharing portfolio** (`Blocks_warm_CMAES_JSO`: `Archive` + `warm_start` +
+  `StrategyBlockBandit`) is a **low-budget effect**: largest at 100·dim
+  (§46, 12/12 against all arms), accepted on the 24-fid BBOB axis at 100·dim
+  (§53), parity at ≥ 500·dim. The value is the **hand-over** (warm start on
+  re-acquisition, both-sided and superadditive — a ratchet, §48/§50); it
+  carries m and σ only, never the covariance shape (§49, §51).
+- **Bandit** allocation contributes nothing (§31); blocking itself is free (§50).
+- **Regime gate** step 1 landed (`regime_gate="table-v1"`, §45): masking is
+  cost-free, so the gate is worth exactly what its table is worth.
+- **§53**: at 200·dim the better arm flips per function (jSO vs CMA-ES); the
+  cell-wise oracle is 0.015–0.039 above the portfolio. Remaining value is in
+  **selection**, not in more sharing.
 
-- **`NP_init="auto"` = 3·dim·(budget/500·dim)^¼**, Konstruktor-Default;
-  LBC 4·dim. L-SHADE +0.230, jSO +0.204, LBC +0.064 (+0.052 bei 4·dim).
-- **CMA-ES σ-Divergenz-Restart** +0.026 (11/12). `ipop_factor` retracted.
-- **Harness-Fixes**: Budget vor Konstruktion; `seed_name`; Null-Floor
-  ±0.05/±0.03; Screen-Maximum ist Kandidat, nur Roster-CI zählt.
-- **Sharing-Infrastruktur**: `Archive`, `warm_start` auf CMA-ES / DE /
-  PSO, `StrategyBlockBandit`. Zweites Harness-Spec
-  `Blocks_warm_CMAES_JSO` (ersetzt `Rewarding_Restart`).
-- Doku, `AGENTS.md`-Messregeln, Werkzeuge (`arm_sweep`, `oracle`,
-  `np_accept`, `portfolio_screen`).
+## Waiting for Harald
 
-### Verdikt (500·dim, MA-BBOB, d ∈ {2, 5})
+- [ ] **Defaults** — `regime_gate="oracle:clean"` and `block_evals="auto"` for
+      `Blocks_warm_CMAES_JSO` (§45.1, §46.4). Decision of 2026-09-13: only
+      after the suite is broadened and the question re-run there.
+- [ ] **What "broader suite" means** (`planning/DESIGN_suite_2026-09-14.md`):
+      d 10/20, more instances, full BBOB instead of MA-BBOB mixtures,
+      constrained/noisy as own axes; tiered (small screen, wide decision) so
+      12-seed decision runs stay affordable. The fid axis (§52) is the first step.
+- [ ] **Composite registry** — `CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`
+      all pair CMA-ES with the `Restart` analyzer (measured −0.067); the
+      composite score is a frozen contract.
 
-Ein Zwei-Arm-Portfolio, das Evaluationen teilt, ist **gleichauf** mit
-dem besten Einzelarm: 0.685 vs. CMA-ES 0.666 (+0.019, 8/12, CI enthält
-0). Sharing hat die Strukturstrafe (−0.08) beseitigt, keinen Vorsprung
-gekauft. Der Bandit trägt nichts (§31); Tendenz bei *d*=5 (+0.03),
-nichts bei *d*=2. Flagship bleibt `RoundRobin_CMAES`.
+## Research line
 
-### Stand 2026-09-11 nachmittags (nach Token-Reset)
+- [ ] **Probe / regime detector** — now the main line (was parked in §45.2):
+      target +0.015…+0.039 (§53), signal observable early — how fast the
+      first arm progresses (§52.4).
+- [ ] **Hand-over without covariance reset** — keep the arm's adapted C and
+      only move m/σ (`_reset_covariance` sets C = I today).
+- [ ] **Surrogate pre-selection** (lq-CMA-ES) as a new building block.
+- [ ] `block_evals="auto"` for the low-budget table row and the portfolio
+      spec; fixed-block crossover at 300 or 500·dim (§46).
+- [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2 — the
+      σ-collapse hypothesis on `ellipsoid_ball`).
+- [ ] CMA-ES → warm-started L-BFGS-B polish (never measured: the driver
+      lacked a spawn guard).
+- [ ] Sweep CMA-ES's own knobs (`sigma0`, `popsize`, `restart_mode`).
+- [ ] No further bandit-tuning round without a new mechanism.
 
-master grün, Working Tree sauber. Alle 12-Seed-Rohläufe liegen in
-`planning/results/2026-09-11/` und sind als **§44** ausgewertet:
+## Engineering backlog — triaged 2026-09-25
 
-- **Budget entkoppelt das Verdikt**: Sharing-Portfolio bei **200·dim
-  nach Regel akzeptiert** (+0.037 vs CMA-ES, 9/12, beide Dims positiv;
-  gegen jSO/L-SHADE 10/12), 500·dim Parität (§27), 2000·dim alle Arme
-  gleich. Sharing ist ein Niedrig-Budget-Effekt — genau das Regime, für
-  das panobbgo gebaut ist. Zweiter Regel-Sieg nach unif-Rauschen (§42).
-- **Constrained, 12 Seeds**: jSO führt (Lean, d=5 −0.001), Portfolio
-  verliert nach Regel gegen jSO (2/12), getragen von ellipsoid_ball
-  (−0.175). Hypothese: Archive-Warm-Start auf der aktiven Nebenbedingung
-  kollabiert σ — Test: `warm_start=None` nur am CMA-ES-Arm, 3 Seeds.
-- `REGIME_TABLE_V1` im Design hat jetzt zwei probefreie Zeilen mehr
-  (bpd ≤ 200 → CMA-ES+jSO; constrained → jSO).
+From a five-way read-only code audit (core, heuristics/strategies,
+analyzers/lib, harnesses, self-improve loop). "✓" = reproduced or traced end
+to end; "?" = plausible from reading. Tiers are ordered by what to fix first.
+Items that change optimizer trajectories (T2) need a paired 12-seed A/B per
+`AGENTS.md` before they land; T1/T3/T4 are measurement-neutral or only
+change instruments that must be re-baselined once.
 
-- **Regime-Gate Schritt 1 gelandet** (71cd083, 12 Seeds, §45): nicht
-  falsifiziert, und die Maske kostet **nichts** — gated-zu-einem-Arm ist
-  bit-identisch mit dem Arm, gated-zu-beiden mit dem Portfolio. Der
-  Wert des Gates ist exakt der Wert der Tabelle.
-- **Kandidat für den neuen Default** (§45.1): `regime_gate="oracle:clean"`
-  (kein Probe) = d ≤ 5 & ≤ 200·dim → Sharing; constrained → jSO; sonst
-  CMA-ES. Nirgends schlechter als `CMAES_alone`, bei 200·dim nach Regel
-  besser. Entscheidung Harald: Default von `Blocks_warm_CMAES_JSO`?
-- Probe (Schritte 2–3) **zurückgestellt** (§45.2): Decke ~+0.03 in einem
-  Regime, nur bei d=5.
+### T1 — measurement integrity (fix first; every later number depends on it)
 
-- **Budget-Reihe gelaufen (§46)**: Sharing ist bei **100·dim am größten**
-  (+0.056, 12/12 gegen alle drei Arme — stärkste Akzeptanz bisher),
-  d=5 monoton fallend bis 2000·dim. Der d=2-Einbruch bei 200–300·dim
-  ist ein Artefakt des `n_blocks=50`-Defaults (12-Eval-Block, Stalls in
-  6–8 Zellen); mit `block_evals="auto"` sauber: ≈ +0.03 bei d=2 über
-  100–300. Dritter Arm (−0.020) und D-UCB (−0.028) verlieren auch bei
-  Niedrigbudget. **Offen:** Low-Budget-Zeile und Portfolio-Spec auf
-  `block_evals="auto"` umstellen; Fixed-Block-Punkt bei 500 (Crossover
-  300 oder 500?); Stall-Mechanismus (Re-Seed in ein Becken) messen.
-- **Nähte gemessen (§47)**: Injection unter Blockrotation strukturell
-  inert (Warm-Start verwirft die offene Generation); im Per-Punkt-Kanal
-  ist Sharing innerhalb der Generation real (+0.033, 12/12 bei 200·dim),
-  aber die **Übergabe** (Warm-Start beim Wiedererwerb) ist +0.08…+0.14
-  wert — vier zu eins. Der Baustein, der sich zu generalisieren lohnt,
-  ist die Übergabe selbst; Nähte, die Evaluationen *sparen* (Surrogat-
-  Vorauswahl), behalten ihren Fall. `inject`/`shared_pbest` bleiben als
-  gemessene Knöpfe, kein Default.
-- **Übergabe-Ablation gelaufen (§48)**: die Übergabe ist **beidseitig
-  und superadditiv** — einseitig warm bringt je ~1/3 der Lücke, beide
-  zusammen 47 % (100·dim) bzw. 31 % (200·dim) *mehr* als die Summe.
-  Lesart: eine Ratsche — ein warm gestarteter Arm schreibt bessere
-  Punkte ins Archiv, aus dem der andere Arm beim nächsten Mal zieht.
-  `archive_diverse` ist **exakt so viel wert wie gar keine Übergabe**
-  (−0.002/−0.004, CI über null) — die Übergabe ist Intensivierung, nicht
-  Diversifizierung. `archive_cov` spaltet nach Dimension (+0.010 bei
-  d=2/200·dim — bester d=2-Wert überhaupt; −0.069 bei d=5), Ursache:
-  10 korrelierte Top-Punkte für eine 5×5-Kovarianz, unreguliert.
-- **Shrinkage gemessen (§49, b19c7ab)**: repariert `archive_cov` bei
-  100·dim (d=5 von −0.053 auf Parität), scheitert aber bei 200·dim
-  (−0.043, CI klar unter null). Und **kein `c` kann das retten**: die
-  Orts-Kontrolle mit breiter Stichprobe *ist* der α→0-Endpunkt, der
-  ungeschrumpfte Spec ist α=1, und bei d=5/200·dim sind beide negativ —
-  die ganze Familie liegt in [−0.017, −0.069]. `archive_cov` bleibt ein
-  d≤2-Knopf, kein Default. Neue Beobachtung: die reine Form-Kosten
-  *wachsen mit dem Budget* (−0.002 bei 100·dim, −0.027 bei 200·dim),
-  weil die Übergabe ein C überschreibt, das der Arm über mehr
-  Generationen adaptiert hat.
-- **Ratsche gemessen (§50, 078114d)**: bei 100·dim **real und monoton**
-  (+0.053 bei 4 Blöcken → +0.098 bei 50, 12/12, beide Dimensionen),
-  bei 200·dim **gesättigt** (alles in [+0.120, +0.138]). Deshalb gewinnt
-  der Default `n_blocks=50` bei 100·dim und `auto` bei 200·dim.
-  **Blockieren ist gratis**: die kalten Specs unterscheiden sich über
-  einen 12×-Bereich der Blockzahl um < 0.006 AOCC — die Blocklänge wirkt
-  *nur* über die Übergabe (korrigiert §46.3's Lesart). **Stall geklärt**:
-  bei 200·dim/d=2 kollabieren 7/60 Zellen warm gegen 1/60 kalt bei
-  gleicher Blocklänge — die Pathologie *braucht* die Übergabe, §46.2's
-  Mechanismus hält.
-- **Nutzlast abgeschlossen (§51, 6ef2498)**: alle vier Wege, C bei einer
-  Übergabe zu setzen, sind gemessen — **Identität gewinnt**. Eigenes C
-  behalten ist überall negativ, am schlechtesten genau dort, wo §49.4 es
-  vorhergesagt hatte (d=5/200·dim −0.049), und es ist der einzige Spec
-  der Kampagne, der bei d=5 stallt. **Form ist über eine Umsetzung nicht
-  übertragbar** — weder die fremde noch die eigene. Die Übergabe trägt m
-  und σ, sonst nichts. Der **σ-Boden** entfernt 5 von 7 Stalls bei
-  200·dim/d=2 (+0.044 dort, CI klar über null), kostet aber am
-  `auto`-Block überall −0.02: gezielte Reparatur für kurzer-Block × d=2,
-  kein Default. Nächste Form, falls verfolgt: f mit der Blocklänge
-  skalieren.
-- **Funktionsachse gelandet (§52, 6282807)**: 24 BBOB-Funktionen als
-  Batterie-Dimension, nach COCO-Klasse gruppiert; Rückwärtskompatibilität
-  zweifach gepinnt. Dabei ein Worker-Bug gefunden (der BBOB-Pfad war nie
-  ausgeführt worden). Erster Blick (3 Seeds, keine Evidenz): das
-  Portfolio ist in **allen fünf Klassen** positiv, gewinnt 34 von 48
-  (fid × dim) Zellen, aber **eine einzige Funktion (f5, lineare Steigung)
-  kippt das Vorzeichen der ganzen Dimension d=5** (−0.239 dort; ohne f5
-  wird d=5 positiv). Reine Funktionen sind ein viel härteres Instrument
-  als die Mischungen (AOCC 0.27–0.31 gegen 0.49–0.53) — MA-BBOB mittelt
-  genau die Streuung weg, von der ein Portfolio lebt. Das ist vermutlich
-  der Grund, warum die Batterie so lange „paritätisch" las (§27).
-  **Folge:** der in §45.2 zurückgestellte Probe hat jetzt ein Ziel, das
-  die Komplexität wert ist — dieselbe Konfiguration reicht je nach
-  Landschaft von +0.22 bis −0.24.
-- **Entscheidungslauf auf der fid-Achse gelaufen (§53, c5b7d8c)**,
-  6 Seeds × 24 fids × 2 dims × 2 Instanzen = 576 Zellen pro Budget.
-  **Bei 100·dim gegen beide Arme akzeptiert** (+0.019 / +0.026, 6/6) —
-  die Kernbehauptung aus §46 überlebt den Wechsel von den Mischungen zu
-  den Standardfunktionen. **Bei 200·dim nicht**, und der Grund ist
-  lehrreich: *der bessere Arm wechselt* — jSO ist bei 100·dim schlechter
-  als CMA-ES (−0.007) und bei 200·dim deutlich besser (+0.026). Das
-  Portfolio folgt dem jeweils führenden Arm, schlägt den anderen um
-  +0.034 und liegt mit dem Sieger gleichauf. Auf MA-BBOB konnte das nicht
-  auftreten, dort war CMA-ES immer der zu schlagende Arm.
-  **Drei Schranken:** gegen den *durchschnittlichen* Arm (was man ohne
-  Vorwissen bekommt) +0.02 bei beiden Budgets, akzeptiert; gegen den
-  gepoolt besten +0.019 / +0.007; gegen das *zellweise Orakel* −0.015 /
-  −0.039. In allen 24 Funktionen ist der bessere Arm nicht in jeder Zelle
-  derselbe. **Die verbleibende Wertmasse liegt in der Auswahl, nicht in
-  mehr Sharing** — bei 200·dim ist die Orakel-Lücke fünfmal so groß wie
-  die eigene Marge des Portfolios.
-- **Nächste Kandidaten**: (0) **Probe / Regime-Gate** — von „zurück-
-  gestellt, Decke ~+0.03" (§45.2) zur Hauptlinie: gemessenes Ziel
-  +0.015…+0.039, und §52.4 sagt, das Signal ist früh beobachtbar
-  (wie schnell der erste Arm vorankommt); (1) **Übergabe ohne Reset**: jeder Warm-Start-
-  Modus wirft heute CMA-ES' adaptiertes C weg (`_reset_covariance`, C=I)
-  oder ersetzt es durch die Archiv-Form — die vierte Nutzlast, *eigenes C
-  behalten und nur m/σ verschieben*, ist nie gemessen worden. §48.2 +
-  §49.3 sagen genau die vorher: Umsetzen ohne Vergessen (§49.4);
-  (3) Surrogat-Vorauswahl (lq-CMA-ES) als neuer Baustein (Opus).
+- [ ] ✓ **Core does not enforce `max_eval`** — `_run` dispatches the whole
+      `execute()` batch (`core.py:2022-2034`): 37 → 38, 523 → 535 evals.
+      Clamp to `max_eval - len(results) - len(pending)` in one place.
+- [ ] ✓ **IOH tracker race in async mode** (`ioh_runner.py:207-236`): budget
+      check and best-so-far update unlocked → 201 evals on a 200 budget, AOCC
+      differs between identical-seed runs. Lock it; truncate the trace to
+      `budget` in `aocc()`; consider `sync_eval=True` as IOH default.
+- [ ] ✓ **Composite harness** (`harness.py`): no `sync_evaluation`
+      (`:2611`, the 0.4326…0.4674 spread); scores evals past the budget
+      (`:2645-2665`, `first_success_eval=89` on budget 75); timeout sets
+      `strategy._stopped`, which `StrategyBase` never reads (`:2634`) — the
+      runner thread keeps going and pollutes the next run. Add `sync_eval`
+      to `HarnessConfig` + `--sync-eval`, truncate to budget, real stop.
+- [ ] ✓ `harness_families.py` has no timeout (`_run_one`, `:267-337`) —
+      share one tracked run driver with `harness_ioh._run_one` (~70 lines).
+- [ ] ? IOH worker `stderr=PIPE` never drained (`lib/ioh_wrapper.py:221-243`)
+      and `_call` reads without timeout → a chatty worker hangs the harness.
+- [ ] ✓ Benchmark screens hand-code t-critical values that disagree
+      (`arm_sweep.py:146` 2.5 for n>6, `np_accept.py:130` 2.0 for n>12, …);
+      one `t_ci()` via `scipy.stats.t.ppf` as in `paired_seed_stats`.
+      Rows in `arm_sweep`/`np_accept`/`oracle`/`meta_screen` lack `fid`/`rep`
+      and would merge cells on the BBOB axis.
+- [ ] ? Composite runs on mixed-dim families all labelled `problem_dim=2`
+      (`harness.py:2485,2676,2697`) → `cell_by="dim"` misfiles them.
 
-### Entscheidung Harald 2026-09-13: Defaults erst nach der Suite-Erweiterung
+### T2 — algorithm bugs (change trajectories → A/B each)
 
-Die offenen Default-Fragen — `regime_gate="oracle:clean"` und
-`block_evals="auto"` als Default von `Blocks_warm_CMAES_JSO` (§45.1,
-§46.4) — werden **nicht jetzt** entschieden. Erst wird die Benchmark-
-Suite erweitert, dann werden diese Entscheidungen auf der breiteren
-Batterie re-evaluiert. Bis dahin bleiben die Defaults wie sie sind und
-die Regime-Tabelle bleibt opt-in.
+- [ ] ✓ **jSO `F_w` is a constant** (0.7/0.8/1.2), paper has `F_w = 0.7·F`
+      (`heuristics/jso.py:376`); inherited by NLSHADE_RSP/LBC.
+- [ ] ✓ **CMA-ES `_counteval += actual_mu`** (`cma_es.py:1636`) counts μ,
+      not λ → h_σ `gen_count`, eigen-update gap and BIPOP budgets off ~2×.
+- [ ] ? CMA-ES recombines the projected x but updates paths/C from the
+      unprojected y (`cma_es.py:1597-1600`) → σ inflation at bounds.
+      Repair y from x_proj (Hansen repair-by-injection, `_clip_injected`).
+- [ ] ✓ Region hand-off to arms that ignore it: `MetaAnalyst._accepts_region`
+      (`meta.py:668`) accepts `LBFGSB(warm_start=True)` which the bandit
+      then drops; PSO `_warm_start_swarm` omits `box=` (`pso.py:752`).
+- [ ] ✓ `Splitter.best_box` goes stale between splits (`splitter.py:327-394`)
+      — Random/NelderMead/QuadraticWLS consume the wrong box.
+- [ ] ? `Restart` never resets its global best (`analyzers/restart.py:118-142`)
+      → all `max_restarts` fire early, then the analyzer is inert.
+- [ ] ✓ LBFGSB respawns with the same `_worker_seed` (`lbfgsb.py:284,309`)
+      → restarts replay the same multi-start sequence.
+- [ ] ✓ LSHADE `_fx_of` memoises penalties (`lshade.py:664`) but the
+      dynamic-penalty and AL handlers are time-varying.
+- [ ] ✓ Constraint handlers disagree: `DefaultConstraintHandler.is_better`
+      is cv-first, its `get_penalty_value` is fx+100·cv (`lib/constraints.py`)
+      → Archive/Restart/Splitter rank differently from `Best`.
+- [ ] ? Bridge races: LBFGSB/COBYQA `on_restart` rebinds the pipe on the
+      bus thread (`lbfgsb.py:478`, `cobyqa.py:345`) — defer to `produce` as
+      LocalPenaltySearch does; `_bridge_finished` sets `_stopped`, so a
+      converged COBYQA ignores every later restart; LocalPenaltySearch abort
+      can leave a stale `eval` in the pipe (`local_penalty_search.py:220`).
+- [ ] ✓ PSO clips position but not velocity (`pso.py:447`) → wall sticking.
 
-**Offen (Design, vor der Erweiterung zu klären):** was heißt „breiter“ —
-mehr Dimensionen (10, 20) auf der Standard-Batterie, mehr Instanzen pro
-Funktion, die vollen 24 BBOB-Funktionen statt der MA-BBOB-Mischung,
-weitere Problemklassen (constrained/noisy als eigene Achsen statt
-Presets)? Kostenrahmen: die 12-Seed-Entscheidungsläufe müssen bezahlbar
-bleiben, also eher eine gestufte Suite (Screen klein, Entscheidung breit)
-als eine einzige große.
-- Danach: `warm_start=None` am CMA-ES-Arm auf constrained (§44.2).
+### T3 — runtime bugs and wrong defaults (no effect on the default path)
 
-### Arbeitsweise ab 2026-09-11: Subagenten **sequenziell** (Token-Budget)
+- [ ] ✓ `evaluation_method="processes"` broken: `sys.path` puts `panobbgo/`
+      first so `panobbgo/logging` shadows stdlib (`core.py:2145-2167`);
+      failed tasks never leave `pending` → 60 001 idle spins (`:2197-2207`).
+      Replace with `ProcessPoolExecutor` or remove the mode.
+- [ ] ✓ `HeuristicSubprocess` leaks its process (no `__stop__`, `core.py:930`).
+- [ ] ✓ Threaded shutdown `wait=False` without `cancel_futures`
+      (`core.py:2486`): queued evals still run after `start()` returns;
+      unstarted strategies leak their EventBus thread.
+- [ ] ✓ `Config()` crashes outside a git checkout (`utils.py:153`,
+      IndexError) and reports the cwd's repo, not panobbgo's.
+- [ ] ✓ Unknown strategy kwargs silently dropped (`core.py:1535`);
+      `max_eval > 100000` hard-fails; `cpu_count()` fallback dead.
+- [ ] ✓ `TypeError` inside `terminate=True` handlers swallowed and the
+      handler unsubscribed (`core.py:1399-1403`).
+- [ ] ? `on_finished` delivery races with `__stop__` (`core.py:2471,2501`).
+- [ ] ? sqlite storage resumes foreign results — no problem fingerprint.
+- [ ] ✓ `Problem(dx=…)` shifts twice and mutates the caller's array
+      (`lib/lib.py:259,429`); `Result.__eq__` (fx) vs `__hash__` (x, fx, who)
+      (`lib/lib.py:218`).
+- [ ] ✓ `lib/wrappers.NoisyProblem` shares one RNG across threads (not
+      reproducible) and collides by name with the deterministic
+      `lib/noise.NoisyProblem`; `panobbgo.lib` exports the wrong one.
+- [ ] ✓ `ioh_runner.run_strategy_on_ioh_problem` sets the budget after
+      construction — and has no caller: delete it; rebuild
+      `scripts/ioh_smoke.py` on `harness_ioh._run_one`.
 
-Reihenfolge: (1) LocalPenaltySearch-Bridge → Invarianten + LPS in einem
-grünen Push; (2) Regime-Detektor-Design fortsetzen; (3) Regime-Gate
-implementieren, sobald bm2000/bm200/constrained (12 Seeds, laufen) die
-Tabelle füllen; (4) Zoo kompaktieren bleibt zurückgestellt.
+### T3b — classic test functions (CI micro-battery; not the AOCC metric)
 
-### In Arbeit (2026-09-10 abends — Welle abgeschlossen bis auf LPS/Invarianten)
+- [ ] ✓ Wrong formulas / optima in `lib/classic.py`: **Wood** (unbounded,
+      −2728), **Branin** (default `t=1` kills the cosine term), **Box**
+      (sign, `m=1`), **Step** (missing floor), **Trigonometric**, **Powell**
+      (last term ², not ⁴), **RosenbrockModified** (claims 0 at (−1,−1), is
+      78; true min ≈ 34.04), **Sargan** (missing D). `RosenbrockStochastic`
+      and `NesterovQuadratic` use global `np.random` (Nesterov ignores `dim`).
+      Add `x_opt`/`f_opt` class attributes + one parametrized test
+      `f(x_opt) == f_opt` with a DE sanity check.
 
-Haralds Einschätzung: die Idee (mehrere Strategien und Bausteine unter
-einem Hut) bleibt richtig; Parität bei 500·dim/*d* ≤ 5 ist ein Befund
-über das *Regime*, nicht über die Idee. Die Batterie misst nur
-rauschfrei, unrestringiert, *d* ≤ 5 — nichts von dem, wofür panobbgo
-gebaut ist.
+### T4 — performance / memory
 
-- [ ] **`claude/battery-noise-highdim`** — `lib/noise.py` (deterministische
-      Rauschmodelle gauss/unif/cauchy, AOCC auf dem wahren Wert),
-      `make_noisy_battery`, `make_highdim_battery` (d 10/20, bm 2000);
-      Screen der Harness-Specs darauf.
-- [ ] **`claude/battery-families`** — `lib/families.py` (parametrisierte
-      Instanzen aus Klassikern: shift/rotation/conditioning, bekanntes
-      Optimum; **constrained** Familien mit aktiver Nebenbedingung am
-      Optimum), `harness_families.py` (AOCC-Track in-process),
-      `benchmarks/family_screen.py`; Screen darauf. Registrierung in
-      `harness_ioh.py` folgt (Zeilen kommen vom Agenten).
-- [ ] **`claude/invariants`** — `tests/test_invariants.py`: Dead-Parameter-
-      Detektor (jeder Konstruktor-Kwarg muss die Trajektorie ändern),
-      jede Heuristik allein schlägt Random, Budget voll, keine NaNs,
-      Queue-Vertrag, kein RNG im Konstruktor, Handler-Signaturen.
-      Deliverable ist die **Fundliste**.
-- [ ] **`planning/DESIGN_meta_level_2026-09-10.md`** — Haralds Idee:
-      nach Budget-Anteil (¼? 1/10?) oder Stagnation auf die Meta-Ebene
-      springen, analysieren, wo noch etwas zu holen ist / wo nicht
-      gesucht wurde, Modell rechnen, Kandidatenpunkte an die Solver.
-      Trigger-Regel ist Experimentsache.
-- [x] **Splitter-Auflösung** (§35/§37): budget-skaliert, 12-Seed-akzeptiert
-      für alle Baum-Konsumenten (RegionUCB +0.050 12/12). Median-Schnitt +
-      `RegionUCB.on_start` folgen als Patch v2.
-- [x] **DE-Arme zwischen Prozessen nicht reproduzierbar** (§40): Thread-Race
-      in `Results.add_results` (publish vor extend), gefixt f4b6376.
-- [x] **F2** (`_archive_cap()`-Draw vor dem Bail-out) und **F5** (PSO-Knopf
-      inert → `ValueError` außerhalb `topology="random"`): gefixt 4d58531.
-- [x] **F1/F3/F4** gefixt dd8b096: Pull-Bridge (`PipeBridgeHeuristic`) für
-      L-BFGS-B/COBYQA, Liveness aus Zustand statt Wall-Clock-Stall-Guard
-      (`deadlock_seconds` Backstop), RoundRobin-Division. Offen:
-      `LocalPenaltySearch` (letzter Pump-Thread) — Agent.
-- [ ] **Invarianten-Tests robust machen** — vier trajektorienabhängige Fälle
-      kippten mit dem Splitter-Umbau; master-CI rot bis der grüne Stand
-      landet.
-- [ ] **Regime-Gating, Schritt 1 (Oracle-Gate)** — Agent implementiert
-      `regime_gate="table-v1"` auf `StrategyBlockBandit` (ein Schalter:
-      begrenztes Rauschen bei *d* ≤ 5 → Portfolio, sonst CMA-ES) + Spec
-      `RegimeGate_oracle` + 12-Seed-Experiment über cauchy/gauss/unif/
-      standard/d10. Falsifikator: Oracle-Gate verfehlt die Regel, wo die
-      Tabelle Sieg sagt → Tabelle falsch, keine Probe bauen. Design:
-      `planning/DESIGN_regime_gating_2026-09-11.md`.
-- [ ] **Regime-Gating** (§41/§42): zwei Zweige mit 12-Seed-Evidenz —
-      Ausreißer → CMA-ES allein; uniformes Rauschen bei *d* ≤ 5 →
-      Sharing-Portfolio (erster Roster-Sieg des Portfolios). Design des
-      Regime-Detektors (Rausch-Probe) läuft; Tabelle wird mit bm2000/bm200/
-      constrained vervollständigt.
-- [ ] Zoo kompaktieren: **zurückgestellt**, bis die neuen Batterien
-      zeigen, was gut ist.
+- [ ] ✓ `Results.add_results` is O(n) per batch, O(n²) per run
+      (`core.py:238-270`): sorts all fx for a progress threshold even when
+      the reporter is off (782 µs/add at n = 8k); also `prev_best` off by one.
+- [ ] ✓ Splitter ~2.5× faster (0.68 → 0.27 s / 2500 evals): scalar descent,
+      key by `id(result)`, lazy debug logging; store results in leaves only
+      and drop `result2boxes` / biggest-box bookkeeping (no consumers).
+- [ ] ✓ `Grid` is a default analyzer that nothing reads; drop it from
+      `initialize` (`core.py:1642`); `Splitter` only when a consumer needs it.
+- [ ] ✓ `Config.__init__` per strategy (~3–6 ms; YAML 3.4, `git rev-parse`
+      1.2): `lru_cache` the parsed sources keyed on mtime, cache `info()`,
+      build the ArgumentParser only with `parse_args=True`, `makedirs`.
+- [ ] ✓ LSHADE family sorts the population per trial (`lshade.py:771`,
+      `nl_shade_rsp.py:260`): ~40 % of wall on cheap objectives — cache ranks.
+- [ ] ✓ `avg_time_per_task` averages all walltimes every 1 ms loop; NaN
+      below 2 tasks; Dask records a constant 0.1 (`core.py:2054,2542`).
+- [ ] Screens run seeds serially; under `sync_eval` runs are deterministic
+      → a `--jobs` process pool gives N× wall-clock for free.
+- [ ] IOH worker respawned via `uv run` per run (~0.2 s; 20 % of a quick run).
 
-### Danach (Plan of Record, `GOAL.md` §2c)
+### T5 — simplification / dead code
 
-- [ ] **Größere Budgets und *d* ≥ 10.** Die *d*=5-Tendenz sagt einen
-      realen Gewinn voraus; ein `dims=5,10 bm=2000`-Screen mit
-      `Blocks_warm_CMAES_JSO` vs. `RoundRobin_CMAES`, dann 12-Seed-Roster.
-      Billige Variante: dimensionsgebundenes Spec (Portfolio ab *d* ≥ 5,
-      `gate_min_dim`).
-- [ ] **Keine weitere Bandit-Tuning-Runde** ohne neuen Mechanismus.
-      Falls je gewünscht: `only_if_better` pro Arm relativ formulieren.
-- [ ] Constrained / verrauschte Probleme — keine Batterie deckt sie.
-- [ ] Composite-Registry: drei CMA-ES-Specs, frozen contract — Haralds
-      Entscheidung.
-- [ ] Nightly-Cron (`self_improve_nightly.yml`) ist seit 2026-08-13
-      deaktiviert; mit den neuen Specs wieder anschalten oder entfernen.
-- [ ] `ruff check`-Backlog (~190 Findings) als eigener Change.
-- [ ] `Result.__eq__` vergleicht nur `fx`, `__hash__` `(x, fx, who)`
-      (`lib/lib.py`) — Ticket, wichtiger seit Warm-Start.
-- [ ] `ioh_runner.py`/`scripts/ioh_smoke.py`: Budget-nach-Konstruktion
-      auch dort (Factory-Protokoll).
-
-### Then Phase B — the selection policy
-
-Only once the arms are strong.  It must allocate the budget in **blocks**:
-interleaving starves population methods (§9), and naive phasing already
-loses to a single arm (§12: CMA-ES→LBC −0.0118, LBC→CMA-ES −0.1321,
-Sobol→CMA-ES −0.3788).  Target a fraction of the oracle headroom, which
-itself moves as Phase A lands.
-
-### Carried over
-
-- [ ] **Re-run CMA-ES → warm-started L-BFGS-B polish.** The one phased
-      variant that could not be measured: `LBFGSB` spawns a subprocess
-      and the driver script lacked an `if __name__ == "__main__":` guard.
-- [ ] **Does a portfolio pay on other problem classes?** Constrained,
-      noisy and much higher dimensions are untested — no battery covers
-      constrained problems at all.
-- [ ] **Re-examine the composite registry.** All three of its CMA-ES
-      specs (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are
-      portfolios that also pair CMA-ES with the Restart analyzer, which
-      measured −0.067.  Untouched because the composite score is a
-      frozen contract; needs a decision.
-- [ ] **Document the multiprocessing spawn guard** for users: any script
-      building a strategy at module level with `LBFGSB` / `COBYQA` /
-      `LocalPenaltySearch` / `QuadraticWlsModel` needs
-      `if __name__ == "__main__":`.
-- [ ] **Adopt ruff 0.16's wider default rules** as its own change
-      (~2000 findings; the selection is pinned to E4/E7/E9/F for now).
-- [ ] `Config.__init__` runs `_create()` per strategy (~31 ms:
-      `git rev-parse`, YAML + INI parse, ArgumentParser). Cache the
-      process-constant parts.
-- [ ] 71 hand-rolled strategy doubles in tests do not implement
-      `spawn_rng`; `panobbgo.core._module_rng` keeps a documented
-      fallback for them.
-- [ ] The composite harness does not use `sync_evaluation`, so its
-      quick-mode runs are not reproducible (same seed varied
-      0.4326 … 0.4674).
-
-## Session 2026-09-09 — discovery pass; quality push before optimizer work
-
-Program (set by Harald): (1) discover robustness / effectiveness gaps →
-(2) docs consolidation + code simplification, CI green, pushed →
-(3) find an exceptionally strong default setup across standard + own
-problem sets. Findings with numbers: `planning/DISCOVERY_2026-09-09.md`.
-
-### Measured today (master fac26b8)
-- [x] **Flagship loses to `Baseline_SciPyDE`** on the standard IOH battery
-      at d2 (0.4555 vs 0.5065) and d5 (0.3011 vs 0.3437); GOAL §1.2 unmet.
-- [x] **Seeded runs are not reproducible**: same spec/seed/`--sync-eval`,
-      two processes → battery mean differs by ~0.01–0.05, one instance by
-      0.09. The nightly `eps_accept` (0.0125) sits inside this.
-- [x] **Default config stops after ~100 evals** (`Convergence` analyzer is
-      force-injected + `stop_on_convergence=True`): `max_eval=2500` → 105
-      evaluations used, f=64 on Rosenbrock-5D. Harness masks this by
-      disabling the stop.
-- [x] **`Config` is a process singleton** → `config_overrides` and any
-      `strategy.config.X = …` leak across strategies/specs in one process.
-- [x] **DE/PSO populations truncated to `capacity=20`**: `NP_init="auto"`
-      = 90 at d5 → 70 initial points silently dropped (`emit` swallows
-      `Full`). Only CMA-ES grows its queue. Raising capacity to 400 is flat
-      on AOCC (Δ −0.003 ± 0.035) — the DE arms are not carrying the spec.
-- [x] **`StrategyRewarding` ≈ round-robin**: per-point 0.95 discount zeroes
-      batch emitters instantly; `Center` (1 point, never discounted again)
-      holds the top selection weight (44 %) all run.
-- [x] Nightly workflow is `disabled_manually` on GitHub since 2026-08-13.
-- [x] Test suite: 2014 passed / 1 skipped in 62 s (`-n 4`); CI green.
-
-### Phase 2 — quality push (next)
-- [ ] **Robustness fixes with tests** (stacked PRs #307 → #308 → #309 → #310 → #311, drafts):
-  - [x] `stop_on_convergence` defaults to off; a run spends its full budget
-        (#308, `tests/test_defaults.py`).
-  - [x] `Config` is per strategy, no singleton; logger handlers attached once
-        (#309).
-  - [x] `Heuristic._put` grows the queue; nothing is dropped; `emit` raises on
-        bad input (#310). Measured effect on the flagship: none
-        (Δ −0.0001 ± 0.0011) — the DE arms get too few evaluations to matter.
-  - [x] `EventBus`: serial ordered dispatcher, one `Event` per subscriber,
-        `wait_idle()`; Random / NelderMead / LatinHypercube / Extremal are
-        reactive; subprocess bridges pump on their own thread (#307).
-  - [x] Deterministic seeded runs: `StrategyBase(seed=)`, per-module RNG
-        streams, bus settle in sync mode; `tests/test_reproducibility.py`
-        (#307). Standard battery, same seed, two processes: 0.4544 vs
-        0.4545 at d2 (was 0.40–0.49); bit-identical after #312 (sync mode
-        evaluates batches in submission order; spec `config_overrides` now
-        reach the constructor).
-- [x] **Local-run hygiene**: scripts nice themselves (15) and refuse to start
-      below 2 GiB free (#311). The evaluator thread pool already defaults to
-      `dask.local.n_workers` = 2, not `cpu_count()`.
-- [x] **Docs**: consolidated in #306 per `planning/DOCS_AUDIT_2026-09-09.md` —
-      `AGENTS.md` 1463 → ~200 lines, merge `guide_setup`→`guide_usage`,
-      split `guide_benchmarking.rst` (user chapter vs loop reference),
-      retire `DEVELOPMENT_PROMPT.md` / `planning/NEXT.md` / `test_plan.md`,
-      fix stale counts (README "27 tests", coverage %, Dask claim).
-- [ ] **Code**: `/simplify` pass over `core.py`, `self_improve.py`,
-      `harness*.py`; remove top-level clutter (`benchmark_import*.py`,
-      `debug*.py`, `logging_demo.py`, `test.sh`, `fabfile.py`, `.idea/`).
-- [ ] CI green, pushed, PRs merged → then Phase 3.
-
-### Phase 2 results — the stack (all draft PRs, CI green where it runs)
-
-| PR | what | measured |
-|---|---|---|
-| #306 | docs consolidation | AGENTS.md 1463 → 223 lines |
-| #307 | master seed, per-module RNGs, serial event bus | same-seed runs bit-identical (quick battery) |
-| #308 | `stop_on_convergence` off by default | a 300-eval run now uses all 300 (was 105 of 2500) |
-| #309 | one `Config` per strategy | overrides no longer leak between specs |
-| #310 | output queue grows; no dropped points | JSO NP=90 keeps 90 (was 20); AOCC effect nil |
-| #311 | `nice -n 15` + free-memory floor on all entry points | — |
-| #312 | sync mode evaluates in submission order | quick battery reproducible |
-| #313 | **EMA credit assignment (new default)** | **+0.0135 AOCC [+0.0032, +0.0238], 12 seeds** |
-| #314 | shared helpers, dead code removal | found the `seed=0` bug |
-| #315 | reproducible + ~2x faster standard battery | 60/60 identical (was 47/60); 249s → 179s |
-
-Open follow-ups (measured, not yet done):
-- [ ] `Config.__init__` runs `_create()` per strategy (~31 ms: `git rev-parse`,
-      YAML + INI parse, ArgumentParser). Cache the process-constant parts.
-- [ ] `Splitter.add_result` is ~1.9 s of a 2500-eval run; it is force-injected
-      even for strategies that never use boxes.
-- [ ] 71 hand-rolled strategy doubles in tests do not implement `spawn_rng`;
-      `_module_rng` keeps a documented fallback for them.
-- [ ] The composite harness does not use `sync_evaluation`, so its quick-mode
-      runs are not reproducible (same seed varied 0.4326 … 0.4674).
-
-### Phase 3 — strong default setup (in progress)
-- [x] Compared `StrategyRewarding` (legacy + EMA), `StrategyUCB`,
-      `StrategyThompsonSampling` and round-robin on the same arm set,
-      standard battery, 12 seeds → EMA credit wins (#313). UCB is flat,
-      Thompson is between.
-- [x] **Closed the gap to `Baseline_SciPyDE` — and then some (#316).** Every
-      arm of the flagship beats the flagship when run alone. CMA-ES alone
-      scores 0.580 vs the portfolio's 0.352 and SciPyDE's 0.416 (standard
-      battery, 3 seeds); paired per seed **+0.2847 [+0.2772, +0.2921]**.
-      The competition candidate is now `RoundRobin_CMAES`.
-      Holds at every budget from 50 to 1000 evaluations at d2 (8 seeds).
-      The `Restart` analyzer halves CMA-ES (0.663 → 0.301) — the user
-      guide recommended that pairing and now warns against it.
-- [x] **Block allocation tested — it does not rescue the portfolio.**
-      `StrategyPhased`, 3 seeds, paired vs CMA-ES alone: CMA-ES→LBC
-      −0.0118, LBC→CMA-ES −0.1321, Sobol→CMA-ES −0.3788. Blocking beats
-      interleaving (−0.012 vs −0.27) but still loses to one method.
-- [x] **Splitter live-lock fixed.** Identical points made its kd-tree
-      deepen without bound, hanging the event-bus dispatcher: a CMA-ES run
-      stopped at 408/1000 evaluations after 154 s (now 1000/1000 in 0.5 s).
-      The whole test suite went from 233 s to 124 s.
-- [ ] **Does a portfolio pay anywhere?** (GOAL §5.8) Still open for
-      multimodal, noisy, constrained and much higher dimensions — no
-      battery currently covers constrained problems at all.
-- [ ] **Re-run CMA-ES → warm-started L-BFGS-B polish.** The one phased
-      variant that could not be measured: `LBFGSB` spawns a subprocess and
-      the driver script lacked an `if __name__ == "__main__":` guard.
-- [ ] **Document that spawn guard** for users: any script building a
-      strategy at module level with `LBFGSB` / `COBYQA` /
-      `LocalPenaltySearch` / `QuadraticWlsModel` needs it.
-- [ ] **Re-examine the composite registry.** All three of its CMA-ES specs
-      (`CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`) are portfolios that
-      also pair CMA-ES with the Restart analyzer. Untouched here because
-      the composite score is a frozen contract; needs Harald's call.
-- [ ] **Sweep CMA-ES's own knobs** (`sigma0`, `popsize`, `restart_mode`)
-      now that it is the default — script ready at `cmaes_knobs.py`.
-- [ ] Decide the problem battery: MA-BBOB (have), plain BBOB via `ioh`,
-      own `lib/classic` battery; dims 2/5/10; budgets 200·d … 2000·d.
-- [ ] Re-enable the nightly only after the instrument is repaired.
-
-## Recent Improvements (continued)
-
-### Dimension-gated arm activation — 2026-08-12
-- [x] **`gate_min_dim` / `gate_max_dim` reserved keys** in
-      `StrategySpec` heuristic kwargs — the arm is only instantiated
-      when the problem dimension clears the gate; keys are stripped
-      before the heuristic constructor.  First deliverable of GOAL
-      §5.1(d).
-- [x] **NLSHADE_LBC gated to d≥5 in `Rewarding_Restart`** — ships the
-      #298-measured d5 gain (+0.0080 [+0.0007,+0.0154]) without the d2
-      loss (−0.0241).  Today's independent 12-seed standard A/B: d5
-      +0.0062 [−0.0001,+0.0125], d2 flat, control flat; pooled with
-      #298's d5 row: **+0.0070 [+0.0027,+0.0112]**.
-- [ ] **Re-measure the CMA-ES arm at d5** (GOAL §5.2) with the 12-seed
-      standard instrument — if it splits like NLSHADE_LBC, the same
-      gate ships it.
-- [ ] **Watch the nightly on the gated spec** — the d5 slice of the
-      widened quick battery now exercises the LBC arm nightly;
-      `drop_heuristic NLSHADE_LBC` accepts at d2-only regimes would be
-      evidence the gate threshold is wrong, not that the arm is bad.
-
-### Goal contract corrected; diagnosis written down; planning rotated — 2026-08-11 (sixth session)
-- [x] **`GOAL.md` §2 / §5.1 corrected** — the "instance-family
-      generalization" research item was built on a metric-unit bug and is
-      retracted; the slot now holds *regime-conditional strategy
-      selection*.  §5.3 marked shipped.  §4 Diagnose points at `per_cell`.
-- [x] **`planning/LOOP_DIAGNOSIS_2026-08-11.md`** — full 34-night audit so
-      no future session re-derives it.
-- [x] **Rotated into `planning/done/`** — both ledgers, the summary, and
-      the pre-2026-07-30 halves of `TODO.md` (3720 → 332) and
-      `SELF_IMPROVEMENT_LOG.md` (11126 → 1117).  Nothing deleted; the
-      bandit still primes from archives and metric inference on the new
-      filenames is verified.
-- [ ] **Watch the first post-rotation nights** — the live aocc ledger is
-      empty, so codify-scan has no cross-night evidence until ~2 nights
-      have run on *distinct* base seeds.  Expect a quiet week; that is
-      correct behaviour, not a regression.
-
-### Per-cell (per-dim) acceptance — 2026-08-11 (fifth session)
-- [x] **`--cell-by dim`, on in the nightly** — the objective is no
-      longer a scalar.  Per-cell delta + CI reported every iteration; a
-      cell blocks only when it is both worse than `-eps_cell_regress`
-      (0.01) and has its whole CI below zero.
-- [x] **`per_cell` / `blocking_cell` persisted in the ledger** — the
-      record a future codify-scan needs to propose a *dimension-gated*
-      arm instead of an unconditional one.
-- [ ] **Teach codify-scan to read `per_cell`** — it still pools one
-      scalar delta per night, so cell-conditional evidence is recorded
-      but not yet actionable.  This is the step that turns the #298 d5
-      gain into something shippable.
-- [ ] **Budget-phase cells** — `IOHRunRecord` already carries
-      `trace_evals` / `trace_fx`, but AOCC would have to be recomputed
-      on trajectory slices rather than read off the final value (a
-      change to the metric path, not the decision path).  #298's
-      evidence says this matters: the same arm leaned *positive* at
-      2-D×200 evals and negative at 2-D×1000 — a budget effect, not a
-      dimension one.
-- [x] **Dimension-gated arm activation** — the original §4.3 follow-up.
-      Shipped 2026-08-12 (see the entry above): `gate_min_dim` /
-      `gate_max_dim` in `StrategySpec`, NLSHADE_LBC gated to d≥5,
-      measured.  CMA-ES at d5 remains the open follow-up.
-
-### Rank-based acceptance available — 2026-08-11 (fourth session)
-- [x] **`--accept-stat rank`** — one-sided Wilcoxon signed-rank on the
-      per-pair deltas shifted by `eps_accept`, replacing both the
-      `delta > eps_accept` and `ci_low > 0` conditions.  Graduates
-      GOAL §5.3.
-- [x] **Hodges-Lehmann** reported as `rank_delta`; `delta` stays the
-      mean under both rules so the ledger series is continuous.
-- [ ] **A/B the rank rule against the mean rule, then decide** — NOT
-      enabled nightly on purpose: tonight already changes the accept
-      regime three ways (seed rotation, eps 0.005→0.0125, d5 slice).
-      A fourth simultaneous change would make the ledger
-      uninterpretable.  Run it via `workflow_dispatch` on a few nights
-      once the new instrument has a baseline, compare accept rates and
-      codify survival, and only then consider flipping the default.
-- [ ] **Guard the n<5 floor** — a rank accept is impossible below 5
-      shared pairs (min p is `2**-n`).  Currently only documented and
-      tested; a loud warning when a configured battery cannot clear it
-      would be better than a rule that silently never fires.
-
-### Nightly loop can see d5 — 2026-08-11 (third session)
-- [x] **`--aocc-extra-dims 5` in the nightly** — the quick preset's
-      `dims=(2,)` becomes `(2, 5)` for every measurement leg.  Closes
-      the blind spot behind the JSO d5 add (08-02) and the NLSHADE_LBC
-      per-dim split (08-11).  Cost 8.9s → 11.9s (1.34×).
-- [x] **`with_extra_dims` composes, never edits** the frozen presets;
-      name gains a `+d5` suffix.
-- [ ] **The ledger score level shifts** with this ship (d2 ~0.369 →
-      (d2,d5) ~0.309).  `aocc_extra_dims` is recorded per iteration;
-      codify-scan and `summary` should group by it before pooling.
-- [ ] **Re-measure the CMA-ES arm (GOAL §5.2) at d5** with the 12-seed
-      standard instrument — if it splits like NLSHADE_LBC did, one
-      dimension-gating mechanism ships both arms.
-
-### Loop measurement fidelity: hold-out metric bug, seed rotation, sync-eval — 2026-08-11 (second session)
-- [x] **Hold-out leg measured `composite_score` on AOCC runs** — the
-      8.5× "instance-family generalization gap" (`GOAL.md` §2 / §5.1's
-      top research priority) was a unit mismatch.  Real gap after the
-      fix: **0.3383 training vs 0.3342 hold-out**.
-- [x] **Confirm gate now crosses a base seed under `--metric aocc`** —
-      the `metric != "aocc"` exclusion meant 0/72 accepts had ever
-      tested a second instance family.
-- [x] **Nightly rotates `--base-seed`** over 7 values — all 952 prior
-      ledger records were `base_seed=42`, so codify's "k≥2 distinct
-      nights" was counting one instance draw k times (hit rate 0/5).
-- [x] **`--sync-eval` reachable from the loop** and on by default in
-      the nightly (noise sd 0.0101 → 0.0063; measured cost ~0).
-- [x] **eps_accept recalibrated** 0.005 → 0.0125 on the aocc branch
-      (0.5σ → 2σ); relax floor 0.001 → 0.006.
-- [ ] **Re-earn the codify backlog** — cross-night evidence banked
-      before 2026-08-11 is single-draw.  Let the rotated-seed ledger
-      accumulate ≥2 nights on *distinct* base seeds before trusting any
-      slot, and consider making codify-scan group by `base_seed` rather
-      than by night.
-- [ ] **Group cross-night pooling by `sync_eval`** — the field is now
-      recorded but codify-scan does not yet split on it; the first
-      nights after this ship straddle the boundary.
-
-### NLSHADE_LBC unconditional add rejected; per-dim split measured — 2026-08-11
-- [x] **`add_heuristic NLSHADE_LBC` on `Rewarding_Restart` measured and
-      rejected** (negative result, PR #298) — 12-seed paired A/B with
-      `--sync-eval` both sides: quick +0.0092 (noise), standard −0.0080
-      (lean-negative), but the per-dim split is CI-significant *both
-      ways*: **d5 +0.0080 [+0.0007,+0.0154]**, **d2 −0.0241
-      [−0.0401,−0.0080]**.  Reverted in-branch; see the 2026-08-11 log
-      entry.
-- [ ] **Dimension/budget-gated arm activation** — the d5 gain is real;
-      the shippable form is a structural mix that activates population
-      arms (NLSHADE_LBC, CMA-ES) only when dim/budget clears a
-      threshold, or an anytime schedule that phases them out at long
-      2-D budgets.  Re-measure the CMA-ES arm (GOAL §5.2) at d5 with
-      the 12-seed standard instrument first — if it splits the same
-      way, one gating mechanism ships two arms.
-- [ ] **Nightly regime blind spot confirmed again** — second measured
-      case (after the JSO d5 add) where decisive evidence lived at d5,
-      invisible to the quick-2-D nightly battery.  Strengthens the
-      case for a d5 (or `--extra-highdim`) slice in the nightly loop
-      alongside the multi-seed confirm item below.
-
-### JSO drop_heuristic slot rejected; NLSHADE_LBC slot policy-moot — 2026-08-10
-- [x] **`drop_heuristic JSO` on `Rewarding_Restart` rejected** (negative
-      result) — ledger slot (2 nights, pooled CI95% `[+0.0058,+0.0075]`)
-      measured flat on the 12-seed paired quick A/B: mean Δ `+0.0026`,
-      sd 0.0249, CI95% `[−0.0132,+0.0185]`, control flat; seed 42 alone
-      `+0.0200`.  Fourth consecutive training-seed artifact (0/4 screening
-      hit rate).  Would have reversed the standard-battery-validated
-      2026-08-02 JSO add (d5 +0.0287).  See the 2026-08-10 log entry.
-- [x] **`add_heuristic NLSHADE_LBC` → `RoundRobin_Random` recorded
-      policy-moot** — the slot only targets the pure-random reference /
-      A/B control spec, which stays untouched by standing judgement call.
-- [x] **Measure `add_heuristic NLSHADE_LBC` on `Rewarding_Restart`**
-      (§4.3 candidate with a positive prior: 3 confirmed control-spec
-      accepts across 2 nights say the arm is strong under AOCC) —
-      done 2026-08-11: rejected as an unconditional add (d2 loss
-      outweighs the significant d5 gain); see the 2026-08-11 entries
-      above.
-- [ ] **Multi-seed confirm in the nightly loop** — the 0/4 codify
-      screening hit rate bounds the loop's value at the current plateau;
-      rotate the nightly base seed and/or add a second-seed confirm gate
-      before a screening accept lands in the ledger (extends the
-      2026-08-03 "price instance sensitivity into the codify gate" item).
-
-### Sync-eval mode: scheduling noise quantified and halved — 2026-08-09
-- [x] **Fixed-seed repeatability measured** (10 identical quick runs,
-      seed 42): `Rewarding_Restart` battery-mean AOCC sd **0.0206**
-      (range 0.060), `RoundRobin_Random` sd 0.0012 — the "per-seed"
-      decision noise is almost entirely *scheduling* nondeterminism in
-      the adaptive strategy, not instance sensitivity.  See the
-      2026-08-09 log entry for the full source table.
-- [x] **`--sync-eval` shipped** (`ioh_benchmark.py run` →
-      `config.sync_evaluation` → synchronous future harvest in
-      `_run_threaded_evaluation`): pooled repeat sd over seeds
-      42/1234/777 drops 0.0183 → 0.0115 (**1.6× sd, 2.5× variance**;
-      seed-heterogeneous: 2.3×/1.25×/1.4×).  Opt-in, default-off,
-      `compare` warns on mode mismatch, results carry a `sync_eval`
-      tag.  Use on both sides of future A/Bs; the N=12 instrument-level
-      CI shrink is expected but not yet demonstrated (one null A/B per
-      mode couldn't resolve it — keep accumulating nulls).
-- [ ] **Event-drain wait measured ineffective** (negative result) —
-      waiting for eventbus queues to empty after publishing results did
-      not reduce sd further (0.0113 vs 0.0094); queue-empty ≠ handlers
-      idle.  A real synchronous stepping mode needs handler-completion
-      tracking, not queue polling.
-- [ ] **Residual ~0.009 sd: shared global RNG across handler threads** —
-      heuristics draw from `np.random` inside per-handler EventBus
-      threads, so thread interleaving reorders the stream even at a
-      fixed seed.  Next lever: per-heuristic `np.random.Generator`
-      seeded from (run seed, heuristic name); mechanical but touches
-      ~14 heuristic modules.  Measure with the same 10-repeat protocol.
-- [ ] **Adopt `--sync-eval` in the nightly loop / codify verification**
-      once a few sessions have used it interactively without surprises
-      (it shifts absolute AOCC within noise; ledger continuity says
-      switch deliberately, not silently).
-
-### Codify rejection memory: k ≥ 2 fresh-night resurrection bar — 2026-08-08
-- [x] **Single-fresh-night resurrection churn stopped** — rejected codify
-      slots now stay hidden until the *post-rejection* evidence alone
-      reaches `--min-fresh-nights` (default 2) distinct nights; one fresh
-      seed-42 night no longer re-opens a slot a 12-seed A/B rejected
-      (measured 0/3 hit rate across the 2026-08-03..07 resurrections).
-      `--min-fresh-nights 1` restores legacy semantics; audit view shows
-      per-slot progress toward the bar.  See the 2026-08-08 log entry.
-- [ ] **Rotate the nightly base seed by date** — with every ledger night
-      keyed to seed 42, `n_nights >= 2` measures persistence of one
-      training-battery draw, not cross-instance generality.  A dated seed
-      rotation would make cross-night pooling cross-seed for free (check
-      trend-table comparability + hold-out seed disjointness first).
-- [ ] **Codify pre-gate: auto 12-seed paired A/B** — before `--apply-top`
-      declares a slot actionable, optionally run the
-      `ioh_benchmark.py run --decision-seeds` instrument and require a
-      CI95 excluding zero (mechanises the manual protocol every session
-      currently hand-runs; complements the 2026-08-03 "price instance
-      sensitivity into the codify gate" item below).
-
-### Codify slot `NelderMead drop_heuristic` rejected — 2026-08-07
-- [x] **`NelderMead drop_heuristic` measured flat and rejected** —
-      ledger evidence (2 nights, pooled CI95% `[+0.0067,+0.0083]`)
-      did not survive the 12-seed paired quick A/B: `Rewarding_Restart`
-      mean Δ `−0.0003`, sd 0.0188, CI95 `[−0.0122,+0.0117]`, control
-      flat; seed 42 alone `+0.0174` (training-seed artifact, same
-      signature as both 2026-08-03 Sensitivity rejections).  Spec
-      unchanged (applied + reverted in-branch); rejection recorded in
-      `planning/self_improve_rejections_aocc.json`.  See the
-      2026-08-07 log entry.
-- [ ] **Multi-seed pre-gate for codify-scan** (raises priority of the
-      existing "price instance sensitivity into the codify gate" item)
-      — three consecutive ledger-positive slots rejected flat by the
-      12-seed instrument means single-seed `min_nights=2` evidence has
-      ~0 hit rate at the current plateau.  Cheapest fix: higher
-      `min_nights` for structural ops + a small (6-seed) screening A/B
-      in the nightly post-loop step before a slot is surfaced
-      actionable.
-- [ ] **Promote codify verification to `--standard`** when the quick
-      battery saturates (GOAL §4 step 4) — `Rewarding_Restart` per-seed
-      quick sd (~0.019) is ~9× the control's; effects below ~0.012
-      cannot clear a 12-seed quick CI95.
-
-### CMA-ES arm in the structural catalog (GOAL §5.2) — 2026-08-06
-- [x] **`CMAES` added to the `add_heuristic` candidate pool** — the
-      existing full CMA-ES heuristic (IPOP/BIPOP, `heuristics/cma_es.py`)
-      was unreachable by the nightly loop; the bandit can now measure the
-      only covariance-adapting family against the DE arms.  Explicit
-      `sigma0=0.3` makes the existing `CMAES.sigma0` kwarg rule fire.
-      Direct add to `Rewarding_Restart` measured **flat** on a 12-seed
-      paired quick A/B (Δ +0.0005, CI95 [-0.0113,+0.0123]) → not shipped
-      into the spec; the catalog route lets the ledger/hold-outs decide
-      at the regimes (5-D rotated valleys) where the arm should matter.
-      See the 2026-08-06 log entry.
-- [x] **`drop_analyzer Sensitivity` re-hidden** — resurfaced from a fresh
-      2026-08-06 single-seed night but is an apply-guard no-op (last
-      analyzer in the bucket) on a spec unchanged since the 2026-08-03
-      12-seed rejection; `codify-reject` re-recorded dated 2026-08-06.
-- [ ] **Annotate guard-suppressed codify candidates** — `codify-scan`
-      surfaces slots whose `--apply-top` would be a safety-guard no-op
-      (e.g. dropping the last analyzer) as "actionable"; detect and tag
-      (or hide) them so sessions don't burn the codify slot on a no-op.
-
-### Paired multi-seed decision instrument in `ioh_benchmark.py` — 2026-08-05
-- [x] **Multi-seed A/B mechanised** — `run --seeds` / `--decision-seeds`
-      (canonical 12-seed roster) / `--reps K` and a seed-paired `compare`
-      (per-strategy Δmean/sd/CI95 via t-dist, per-seed deltas, verdict
-      markers, loud mixed-format error).  The 2026-08-03 decision protocol
-      is now one flag instead of a hand-rolled bash loop.  15 new tests;
-      single-seed files/workflows unchanged.  See the 2026-08-05 log entry.
-- [x] **Deterministic evaluation mode** (follow-up to the nondeterminism
-      finding) — `_run_threaded_evaluation` harvests whichever futures are
-      `done()` per loop pass, so the strategy's result view depends on OS
-      scheduling.  *Partially shipped 2026-08-09 as `--sync-eval`
-      (synchronous harvest, 2.3× repeat-sd cut); full determinism blocked
-      on the shared-RNG / handler-thread items in the 2026-08-09 section
-      above.*
-
-### Codify-scan rejection memory — 2026-08-04
-- [x] **Rejection memory shipped** — `codify-scan` now consults a
-      per-metric rejections file
-      (`planning/self_improve_rejections_<metric>.json`); rejected/moot
-      slots are hidden from the report and skipped by `--apply-top`
-      until fresh post-rejection evidence resurrects them (tagged for
-      re-verification).  New `codify-reject` subcommand records
-      decisions; seeded with the five resolved aocc slots
-      (LBFGSB/Center/Sobol.n 07-30, both Sensitivity slots 08-03).
-      `codify-scan --metric aocc` now truthfully reports 0 actionable
-      candidates.  See the 2026-08-04 log entry.
-
-### Codify queue cleared; standard-battery nondeterminism found — 2026-08-03
-- [x] **Both remaining `Sensitivity` codify slots rejected** (negative
-      results) — `update_interval 25 → 20` (ledger pooled CI95%
-      `[+0.0092, +0.0117]`) and `drop_analyzer Sensitivity` (pooled CI95%
-      `[+0.0067, +0.0075]`) both measured flat on a 12-seed paired quick
-      A/B against the current spec: mean Δ `−0.0012` / `−0.0007`, CI95%
-      straddling zero, controls flat.  Training-battery artifacts; see the
-      2026-08-03 log entry.  All 6 scan candidates now resolved (JSO →
-      PR #289; LBFGSB/Center → rejected 07-30; Sobol.n → moot).
-- [x] **Standard battery measured nondeterministic run-to-run** — identical
-      tree+seed re-run shifts both arms by ≈ ±0.015 (threaded evaluation).
-      Decision protocol updated in the log: ≥ 12 paired quick seeds with
-      flat-control check, or ≥ 5 standard replicates per side.
-- [x] **Codify-scan rejection memory** — the scan re-surfaces
-      A/B-rejected and moot slots every night (no counterpart to the
-      already-codified suppression).  Add a rejected-slot suppression
-      list (slot key + rejection date + evidence pointer) consulted by
-      `codify-scan` so the nightly report and `--apply-top` skip them.
-      *Shipped 2026-08-04 — see the section above.*
-- [ ] **Fix threaded-evaluation nondeterminism in the IOH harness** — the
-      standard battery cannot currently resolve +0.01-scale effects with a
-      single run; find the ordering/seeding race and make batteries
-      reproducible per seed (quick battery already is, modulo rare
-      ±0.01 outliers).
-- [ ] **Price instance sensitivity into the codify gate** — nightly
-      evidence keys on the seed-42 training battery; per-seed null-change
-      sd is ~0.015.  Raise `min_nights` (2 → 3+) and/or add a multi-seed
-      confirm to the scan before surfacing a slot as actionable.
-
-### Codify: `JSO({'NP_init': 'auto'})` added to `Rewarding_Restart` — 2026-08-02
-- [x] **Codify banked** — `add_heuristic JSO` slot from the aocc ledger
-      (2 confirmed nights, pooled CI95% `[+0.0092, +0.0133]`; the 2026-08-01
-      accept was measured on the current post-Sobol-drop spec).  Standard-
-      battery paired A/B: `Rewarding_Restart` mean AOCC `0.3374 → 0.3596`
-      (+0.0222; d2 +0.0156, d5 +0.0287), control flat.  d5 now clearly beats
-      the random floor (0.3196 vs 0.2878).  Edit scoped to `Rewarding_Restart`
-      only — `RoundRobin_Random` stays the untouched reference.
-
-### Metric-aware codify routing + first aocc codify + goal contract — 2026-07-30
-- [x] **Bug fix (the aocc codify stall)** — `default_codify_registries()` and
-      `default_codify_apply_sources()` in `panobbgo/self_improve.py` gain a
-      `metric: str = "composite"` parameter; `"aocc"` routes suppression to
-      `panobbgo.harness_ioh.make_ioh_strategies` and the `--apply-top` edit
-      driver to `panobbgo/harness_ioh.py`.  Between 2026-07-09 (nightly metric
-      flip) and this fix, aocc evidence could never land as a source edit —
-      the driver scanned `harness.py`, found no matching spec, and silently
-      no-oped while the bandit re-discovered the same wins nightly (18
-      confirmed `drop_analyzer Restart` accepts across 17 nights).
-      `codify-scan` threads `--metric` into both call sites.
-- [x] **First aocc codify banked** — dropped the `Restart` analyzer from the
-      `Rewarding_Restart` spec in `make_ioh_strategies` via the fixed driver.
-      Local paired A/B (quick IOH battery): `Rewarding_Restart` mean AOCC
-      `0.3538 → 0.3922`, `RoundRobin_Random` control flat.  Post-codify scan
-      auto-suppresses the candidate (self-stability verified).
-- [x] **Nightly visibility** — `self_improve_nightly.yml` now regenerates and
-      commits `planning/self_improve_codify_scan.txt` (metric-aware) alongside
-      the summary, so actionable evidence is readable without running anything.
-- [x] **Goal contract** — new `planning/GOAL.md`: metric of record, per-session
-      operating loop, multi-day escalation ladder, SOTA-informed research
-      backlog (MA-BBOB / LLaMEA / modular CMA-ES context).  Pointer added to
-      `AGENTS.md`.
-- [x] **Validation** — 6 new tests (`TestMetricAwareCodifyRouting`); full
-      `tests/test_self_improve.py` suite green (611 passed); ruff clean.
-- [x] **Queued codify slots worked through (2026-07-30 second session)** —
-      `drop_heuristic Sobol` ACCEPTED (standard battery +0.0176, spec now
-      beats random at both dims); `add_heuristic LBFGSB` REJECTED (−0.0146
-      on the post-Sobol-drop spec — interaction negative); `drop_heuristic
-      Center` REJECTED (−0.0229; Center is load-bearing without Sobol);
-      `Sobol.n 32 → 38` moot.  Structural-add driver hardened in the same
-      session: missing-comma fix, `structural_kwargs` carried into edits,
-      factory-import rewriting, parse-validation net in
-      `apply_codify_edits` (8 new tests).  See the log's second 2026-07-30
-      entry.
-- [x] ~~**Open weakness** — hold-out base seeds score far below training seed
-      (0.04 vs 0.33 on 2026-07-30): instance-family generalization is the
-      top research target~~ — **RETRACTED 2026-08-11.**  This was a
-      metric-unit bug, not a weakness: `_measure_holdout` never routed
-      through the AOCC path, so AOCC runs wrote `composite_score`
-      (~0.045 scale) into hold-out records next to mean-AOCC training
-      records (~0.34).  Fixed in #299; the real gap is **0.3383 vs
-      0.3342**.  See `planning/LOOP_DIAGNOSIS_2026-08-11.md` §3.1.  The
-      research slot it occupied in `GOAL.md` §5.1 is now
-      *regime-conditional strategy selection*.
-
----
-
-*Entries before this point were moved to [`planning/done/TODO_archive_pre-2026-07-30.md`](TODO_archive_pre-2026-07-30.md) on 2026-08-11 to keep this file readable. Nothing was deleted — the archive is the same newest-first format.*
+- [ ] Shared `benchmarks/_screen.py` (seed loop, cell fold, paired stats,
+      `t_ci`, delta table, run health): ~300–400 lines across six screens.
+- [ ] Dead: `harness.compare(statistical=True)` (~80), legacy
+      `benchmark.BenchmarkSuite` + `run_benchmark.py` (~550, test-only),
+      `blocks._maybe_end_prologue` (condition never true), old
+      `DifferentialEvolution` (swallows all exceptions, O(NP²)), logging
+      `ComponentLogger`/`ErrorReporter`/verbosity toggles, `MockupEventBus`,
+      test helpers in library `utils.py`, `config.max_stall_seconds`,
+      `Grid`/`Dedensifyer` (test-only).
+- [ ] DE family dedup (~180 lines): `JSO._generate_trial` copies LSHADE's;
+      three `_update_memory`; reset blocks; EpSin samplers.
+- [ ] `phased.py:340-515` copies the UCB/Thompson/LinUCB/Rewarding selectors
+      (~150); bridge terminate/join/kill ×4 into `PipeBridgeHeuristic` (~60);
+      CMA-ES adaptation constants twice (~25); `Module.budget_progress()` (~30).
+- [ ] 71 hand-rolled strategy doubles in tests lack `spawn_rng`
+      (`_module_rng` fallback).
+- [ ] Document the multiprocessing spawn guard for users (`LBFGSB` /
+      `COBYQA` / `LocalPenaltySearch` / `QuadraticWlsModel`).
+- [ ] `ruff check`: 221 findings on E4/E7/E9/F (133 auto-fixable); ruff
+      0.16's wider defaults ~2000 more — own change.
+- [ ] Zoo compaction — parked until the broader suite shows what is good.

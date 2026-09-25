@@ -20,10 +20,10 @@ deduplicated docs; agent instructions separated from history.
 | `doc/source/guide_{introduction,architecture,mathematical_foundation,extending,research}.rst` | 195–762 | user guide chapters | user |
 | `doc/source/{heuristics,analyzers,strategies,...}.rst` | 5–38 | autodoc stubs + component lists | user |
 | `planning/GOAL.md` | 238 | goal contract | agent |
-| `planning/SELF_IMPROVEMENT_LOOP.md` | 732 | loop design §1–§12 | agent/maintainer |
+| `planning/done/SELF_IMPROVEMENT_LOOP.md` | 732 | loop design §1–§12 | agent/maintainer |
 | `planning/SELF_IMPROVEMENT_LOG.md` | 1211 | dated change log | history |
 | `planning/NEXT.md` | 263 | three "missing" blocks — all shipped | obsolete |
-| `planning/LOOP_DIAGNOSIS_2026-08-11.md` | 217 | 34-night audit | history |
+| `planning/done/LOOP_DIAGNOSIS_2026-08-11.md` | 217 | 34-night audit | history |
 | `planning/TEST_PERFORMANCE.md` | 128 | test timing notes | maintainer |
 | `tools/ioh_worker/README.md` | 76 | worker protocol | maintainer |
 | `.github/workflows/README.md` | 183 | CI caching; only covers tests.yml | maintainer |
@@ -81,11 +81,11 @@ deduplicated docs; agent instructions separated from history.
   `SELF_IMPROVEMENT_LOOP.md`, `SELF_IMPROVEMENT_LOG.md`, `TEST_PERFORMANCE.md`,
   `tools/ioh_worker/README.md`.
 * **Merge**: `guide_setup.rst` → `guide_usage.rst`; `guide_benchmarking.rst`
-  split into a ~600-line user chapter + `planning/LOOP_REFERENCE.md` for
+  split into a ~600-line user chapter + `planning/done/LOOP_REFERENCE.md` for
   loop internals; `AGENTS.md:284-1335` → log + loop reference;
   `.github/workflows/README.md` → cover all three workflows;
   `doc/benchmark-functions-todo.md` → `GOAL.md` §5 backlog.
 * **Move to `planning/done/`**: `DEVELOPMENT_PROMPT.md`, `planning/NEXT.md`,
-  `planning/LOOP_DIAGNOSIS_2026-08-11.md`.
+  `planning/done/LOOP_DIAGNOSIS_2026-08-11.md`.
 * **Delete**: `test_plan.md`, stray `index.rst` lines.
 * **Add**: `benchmarks/README.md`; `sketchpad/README.md` or drop the "demos" claim.

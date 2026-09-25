@@ -27,7 +27,7 @@ is the *same* measurement as :mod:`panobbgo.harness_ioh` — the same
 ``_derive_seed`` per-run seeds keyed on ``StrategySpec.rng_identity`` —
 pointed at a different set of problems.  Everything is imported rather
 than re-implemented so the two tracks cannot drift apart, and so the
-existing analysis code (``paired_seed_stats``, ``aocc_to_harness_result``,
+existing analysis code (``paired_seed_stats``,
 ``benchmarks/portfolio_screen.py``'s cell folding) works on these results
 unchanged.
 

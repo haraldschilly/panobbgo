@@ -666,25 +666,3 @@ class LSHADEEpSinRegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
 
         assert hasattr(h, "LSHADE_EpSin")
         assert "LSHADE_EpSin" in h.__all__
-
-    def test_in_structural_catalog(self):
-        from panobbgo.heuristics.lshade_ep_sin import LSHADE_EpSin
-        from panobbgo.self_improve import StructuralMutationRule, default_structural_catalog
-
-        catalog = default_structural_catalog()
-        add_rules = [r for r in catalog.rules if isinstance(r, StructuralMutationRule) and r.op == "add_heuristic"]
-        assert add_rules
-        has_epsin = any(cls is LSHADE_EpSin for rule in add_rules for cls, _ in (rule.candidate_classes or ()))
-        assert has_epsin
-
-    def test_kwarg_catalog_has_epsin_dials(self):
-        from panobbgo.self_improve import MutationRule, default_catalog
-
-        rules = default_catalog().rules
-        params = {
-            (r.class_name, r.param_name)
-            for r in rules
-            if isinstance(r, MutationRule) and r.class_name == "LSHADE_EpSin"
-        }
-        assert ("LSHADE_EpSin", "NP_init") in params
-        assert ("LSHADE_EpSin", "mu_freq_init") in params

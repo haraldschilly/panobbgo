@@ -5,18 +5,20 @@ actionable; history and design notes live under `planning/`.
 
 ## Where things are
 
-*   `TODO.md` — the status tracker (newest-first). Update it when you fix a
+*   `TODO.md` — open work only (done items go to the planning log). Update it when you fix a
     bug, find a new issue, finish a task, or make an architectural decision.
 *   `planning/GOAL.md` — the goal contract for open-ended "improve panobbgo"
     work: metric of record, operating loop, research backlog. Read it first
     for any optimisation-quality task.
 *   `doc/source/guide_benchmarking.rst` — user-facing benchmarking guide
     (composite score, running the harness, statistical acceptance).
-*   `planning/LOOP_REFERENCE.md` — the autonomous self-improvement loop's
-    flag/feature reference. The loop is **not currently in use** (nightly
-    workflow disabled on GitHub since 2026-08-13); the code and its tests
-    stay in the tree. `planning/SELF_IMPROVEMENT_LOOP.md` is its design,
-    `planning/SELF_IMPROVEMENT_LOG.md` and `planning/done/` its history.
+*   `planning/DISCOVERY_2026-09-09.md` — the running research log (§n):
+    every measured decision with its numbers.
+*   The autonomous self-improvement loop (nightly mutation + codify) was
+    removed on 2026-09-25: its accept signal sat on the noise floor. Its
+    design, reference and ledgers are in `planning/done/`
+    (`SELF_IMPROVEMENT_LOOP.md`, `LOOP_REFERENCE.md`, `LOOP_DIAGNOSIS_*`);
+    `planning/SELF_IMPROVEMENT_LOG.md` is the history.
 *   `tools/ioh_worker/README.md` — IOH/MA-BBOB worker setup and protocol.
 *   `planning/TEST_PERFORMANCE.md` — test-suite timing notes.
 
@@ -50,8 +52,8 @@ than the cost of moving early. Pre-releases and release candidates are
 
 When bumping: raise the floors, `uv lock`, `uv sync --extra dev --extra
 dask`, run the full suite, `ruff check`, `pyright panobbgo` and both
-Sphinx builds, and bump `PYTHON` in `.github/workflows/tests.yml` and
-`self_improve_nightly.yml` plus `python-version` in `docs.yml` in the
+Sphinx builds, and bump `PYTHON` in `.github/workflows/tests.yml`
+plus `python-version` in `docs.yml` in the
 same change — the CI pin is part of the dependency set.
 
 One deliberate exception: `tools/ioh_worker/` is pinned to
@@ -228,7 +230,6 @@ regress the other — track both. AOCC is the metric of record in
 *   `panobbgo/harness_baselines.py`, `panobbgo/harness_randomized.py`, `panobbgo/harness_ioh.py`
 *   `benchmark_harness.py` — CLI (`run`, `score`, `compare`, `list`)
 *   `tests/test_harness*.py` — harness tests
-*   `panobbgo/self_improve.py`, `scripts/self_improve.py` — loop driver (dormant; see `planning/LOOP_REFERENCE.md`)
 
 ## Agent-driven "improve X" PRs — evidence vs. CI
 
@@ -250,17 +251,14 @@ is opened, the agent must:
     *   a locally captured `before.json` / `after.json` pair compared with
         `compare --statistical --fail-on-regression --paired`, quoting the
         composite delta and CI bounds;
-    *   a ledger entry (`planning/self_improve_ledger*.jsonl`) whose
-        `proposal` matches the exact change, with `accepted: true`, CI
-        lower bound > 0 and no per-pair regression beyond `eps_regress` —
-        cite the iteration and `(base_seed, randomize_iteration)`.
+    *   a paired multi-seed decision run (`harness_ioh.paired_seed_stats`,
+        12 seeds for a default change) — quote delta, CI and wins/n.
     *   *Not acceptable alone:* "another strategy uses this configuration",
         literature analogy, or "the docstring says it should help". These
         are motivations, not measurements.
 2.  **Say explicitly when evidence is missing** for part of the change.
 3.  **Flag unmeasured changes as "pending validation"** so the owner knows a
-    follow-up measurement is required. (The nightly loop that used to
-    re-measure merged changes is disabled.)
+    follow-up measurement is required.
 
 Cumulative improvement requires each PR's claim to be backed by
 measurement or honestly marked as unmeasured; otherwise the project's "is

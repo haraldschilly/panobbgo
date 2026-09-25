@@ -1203,36 +1203,3 @@ class LSHADERegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
 
         assert hasattr(h, "LSHADE")
         assert "LSHADE" in h.__all__
-
-    def test_in_structural_catalog(self):
-        """``default_structural_catalog`` ships an ``add_heuristic`` rule with LSHADE."""
-        from panobbgo.heuristics.lshade import LSHADE
-        from panobbgo.self_improve import default_structural_catalog, StructuralMutationRule
-
-        catalog = default_structural_catalog()
-        add_rules = [r for r in catalog.rules if isinstance(r, StructuralMutationRule) and r.op == "add_heuristic"]
-        assert add_rules, "expected at least one add_heuristic rule"
-        # At least one entry in the candidate pool should be LSHADE.
-        has_lshade = False
-        for rule in add_rules:
-            for cls, _ in rule.candidate_classes or ():
-                if cls is LSHADE:
-                    has_lshade = True
-                    break
-        assert has_lshade
-
-    def test_kwarg_catalog_has_NP_init_and_H(self):
-        """``default_catalog`` exposes the headline LSHADE dials."""
-        from panobbgo.self_improve import default_catalog, MutationRule
-
-        rules = default_catalog().rules
-        params = {
-            (r.class_name, r.param_name) for r in rules if isinstance(r, MutationRule) and r.class_name == "LSHADE"
-        }
-        assert ("LSHADE", "NP_init") in params
-        assert ("LSHADE", "H") in params
-        assert ("LSHADE", "p_best") in params
-        # iLSHADE / jSO adaptive p_best schedule (opt-in via spec kwarg).
-        assert ("LSHADE", "p_best_end") in params
-        # jSO asymmetric F-cap (opt-in via spec kwarg).
-        assert ("LSHADE", "F_schedule") in params

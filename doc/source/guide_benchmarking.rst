@@ -3,9 +3,7 @@ Benchmarking and the Composite Score
 
 This chapter explains *how we measure the quality of Panobbgo* — what number
 we track, what it means, how to compute it, and how to decide whether a
-change is an improvement.  The internals of the (currently dormant)
-autonomous self-improvement loop that builds on this harness are documented
-in ``planning/LOOP_REFERENCE.md``.
+change is an improvement.
 
 .. contents::
    :local:
@@ -167,15 +165,14 @@ Statistical acceptance rule
 ---------------------------
 
 The naive ``|Δ| > eps`` gate is fast but fragile — at quick-mode sample sizes
-a single lucky/unlucky run can flip it.  For rigorous gating (the kind an
-autonomous self-improvement loop needs), add the ``--statistical`` flag:
+a single lucky/unlucky run can flip it.  For rigorous gating, add the ``--statistical`` flag:
 
 .. code-block:: bash
 
    uv run python benchmark_harness.py compare before.json after.json \
        --statistical --fail-on-regression
 
-The statistical rule follows ``planning/SELF_IMPROVEMENT_LOOP.md`` §6.2.
+The statistical rule follows ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §6.2.
 For every ``(problem, strategy)`` pair present on both sides the per-run
 **solve fractions** — the same quantity averaged into the composite score —
 are bootstrap-resampled to produce a confidence interval on the mean
@@ -341,8 +338,7 @@ The fixed registry (``_make_quick_problems`` etc. in
 ``panobbgo/harness.py``) is great for A/B reproducibility but vulnerable to
 over-fitting: an agent that tunes a heuristic to the specific Rosenbrock
 valley at ``(1, 1)`` may regress on the next problem it encounters.  The
-harness therefore ships a **parametric problem layer** (Phase 3 of the
-self-improvement loop) that samples fresh transformed instances per
+harness therefore ships a **parametric problem layer** that samples fresh transformed instances per
 repetition, turning ``composite_score`` into a Monte-Carlo estimate of
 *expected* performance on a problem family.
 
@@ -425,8 +421,7 @@ Every default family ships ``dim_choices=(2,)`` — the whole default
 battery is measured at **dimension 2**.  This keeps the composite score a
 **stable contract** (historical comparisons depend on it), but it also
 means any optimizer improvement whose benefit only appears at higher
-dimensions is invisible to the composite metric, the anti-cherry-pick
-guard, and codify-scan.
+dimensions is invisible to the composite metric.
 
 .. _opt-in-extended-battery:
 
@@ -453,27 +448,22 @@ returns one family:
 .. code-block:: bash
 
    uv run python benchmark_harness.py list --randomize --extra-highdim
-   # Loop path (composite metric only):
-   uv run python scripts/self_improve.py run --metric composite \
-       --registry loop --extra-highdim ...
 
 Success on a rotated, ill-conditioned 5-D valley at quick-mode budgets is
 rare, so a ``composite_score`` A/B on this family can floor near zero.
-Prefer the anytime **AOCC** metric (``--metric aocc``) for a responsive
-signal — the same dead-zone argument behind the 2026-07-09 metric flip.
-The flag is inert on the AOCC metric path, whose battery is defined by
-:mod:`panobbgo.harness_ioh`, not by randomized families.
+Prefer the anytime **AOCC** metric (``scripts/ioh_benchmark.py``) for a
+responsive signal; its battery is defined by :mod:`panobbgo.harness_ioh`,
+not by randomized families.
 
 Stratified dimension sampling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When a :class:`~panobbgo.harness_randomized.ProblemFamily` declares
 ``dim_choices = (2, 5, 10)``, naive random selection would produce a
-different mix of dimensions on each loop iteration — and since
-higher-dim instances are systematically harder, that mix-noise
-contaminates the cross-iteration deltas the bootstrap CI in
-:func:`panobbgo.harness.statistical_accept` (§6.2 of the
-self-improvement loop) operates on.
+different mix of dimensions on each run — and since higher-dim
+instances are systematically harder, that mix-noise contaminates the
+deltas the bootstrap CI in :func:`panobbgo.harness.statistical_accept`
+operates on.
 
 The default ``stratify_dims=True`` flag eliminates that noise source by
 construction.
@@ -521,7 +511,7 @@ is deterministically reproducible from the printed tuple:
    prob = spec.create_problem_for_rep(3)
    params = spec.last_sampled_params()  # dim, translation, rotation_trace, ...
 
-Design details: ``planning/SELF_IMPROVEMENT_LOOP.md`` §4.  Implementation:
+Design details: ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §4.  Implementation:
 :mod:`panobbgo.harness_randomized`.  Tests:
 ``tests/test_harness_randomized.py``.
 
@@ -778,6 +768,3 @@ See also
 - ``tests/test_harness.py`` — harness test suite (60+ tests).
 - ``tests/test_harness_baselines.py`` — baseline adapter tests.
 - ``tests/test_harness_stats.py`` — statistical acceptance rule tests.
-- ``planning/SELF_IMPROVEMENT_LOOP.md`` — design of the autonomous
-  improvement loop; ``planning/LOOP_REFERENCE.md`` — its flag and feature
-  reference (the loop is not currently in use).

@@ -66,7 +66,7 @@ the three that the asynchronous Panobbgo pipeline can carry cleanly:
    in ``[0, A_max]`` (``A_max = round(archive_factor · NP_current)``),
    randomising how much historical diversity the differential ``r2``
    draw can reach.  This is the lightweight "randomised archive size"
-   variant from ``planning/SELF_IMPROVEMENT_LOOP.md`` §"Next iteration
+   variant from ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §"Next iteration
    ideas".  Set ``adaptive_archive=False`` to recover jSO's fixed cap.
 
 Deviations from the full CEC-2021 paper

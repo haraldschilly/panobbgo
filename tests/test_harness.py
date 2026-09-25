@@ -740,60 +740,6 @@ class TestBuildHeuristicCountsFromArray:
 
 
 # ===========================================================================
-# 10b. Unit tests – legacy itertuples extraction helpers
-# ===========================================================================
-
-
-class TestExtractConvergenceLegacy:
-    """Test the backward-compatible _extract_convergence that works on NamedTuples.
-
-    The DataFrame MultiIndex flattens ("fx", 0) → "fx_0" in itertuples.
-    The legacy helper also accepts plain "fx" for external callers.
-    """
-
-    def _row(self, fx: float, field: str = "fx"):
-        from collections import namedtuple
-
-        Row = namedtuple("Row", [field, "who"])
-        return Row(**{field: fx, "who": "H1"})
-
-    def test_plain_fx_field(self):
-        """Accepts rows with plain 'fx' field (backward compat)."""
-        rows = [self._row(fx, field="fx") for fx in [5.0, 3.0, 8.0]]
-        trace = BenchmarkHarness._extract_convergence(rows, f_opt=0.0)
-        assert len(trace) == 2  # 5.0 and 3.0 are improvements
-
-    def test_fx_0_field(self):
-        """Accepts rows with 'fx_0' field (pandas MultiIndex flattening)."""
-        rows = [self._row(fx, field="fx_0") for fx in [5.0, 3.0, 8.0]]
-        trace = BenchmarkHarness._extract_convergence(rows, f_opt=0.0)
-        assert len(trace) == 2
-
-
-class TestExtractHeuristicCountsLegacy:
-    def _row(self, who: str, field: str = "who"):
-        from collections import namedtuple
-
-        Row = namedtuple("Row", ["fx", field])
-        return Row(fx=0.5, **{field: who})
-
-    def test_plain_who_field(self):
-        rows = [self._row("H1"), self._row("H2"), self._row("H1")]
-        counts = BenchmarkHarness._extract_heuristic_counts(rows)
-        assert counts["H1"] == 2
-        assert counts["H2"] == 1
-
-    def test_who_0_field(self):
-        rows = [self._row("H1", "who_0"), self._row("H2", "who_0")]
-        counts = BenchmarkHarness._extract_heuristic_counts(rows)
-        assert counts["H1"] == 1
-        assert counts["H2"] == 1
-
-    def test_empty(self):
-        assert BenchmarkHarness._extract_heuristic_counts([]) == {}
-
-
-# ===========================================================================
 # 11. Smoke tests – end-to-end (fast, one problem × one strategy × 1 rep)
 # ===========================================================================
 

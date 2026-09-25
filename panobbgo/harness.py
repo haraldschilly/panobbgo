@@ -609,13 +609,6 @@ class _DejongProxy:
         return DeJong(dims=dims)
 
 
-# Patch Himmelblau into namespace for the _make_standard_problems function
-try:
-    from panobbgo.lib.classic import Himmelblau  # pyright: ignore[reportUnusedImport] # noqa: F401
-except ImportError:
-    Himmelblau = None  # type: ignore[assignment,misc]
-
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -2220,86 +2213,6 @@ class BenchmarkHarness:
                 continue
             who = str(who_raw)
             counts[who] = counts.get(who, 0) + 1
-        return counts
-
-    # Keep backward-compatible static methods for external callers / tests
-    @staticmethod
-    def _extract_convergence(all_results: List[Any], f_opt: float) -> List[ConvergencePoint]:
-        """Build a convergence trace from itertuples NamedTuples.
-
-        .. deprecated::
-            Prefer :meth:`_build_convergence_from_arrays` when a raw
-            DataFrame is available.  This method exists for external callers
-            that hold pre-extracted itertuples results.
-
-        The NamedTuple field for ``fx`` depends on the pandas version and the
-        MultiIndex column naming (``"fx_0"`` after flattening ``("fx", 0)``).
-
-        Args:
-            all_results: Ordered NamedTuple rows from ``itertuples()``.
-            f_opt: True global optimum value.
-
-        Returns:
-            List of :class:`ConvergencePoint` objects.
-        """
-        trace: List[ConvergencePoint] = []
-        best_fx = float("inf")
-
-        for i, row in enumerate(all_results):
-            # NamedTuple field name for ("fx", 0) is "fx_0" in pandas
-            fx = None
-            for attr in ("fx_0", "fx"):
-                try:
-                    val = getattr(row, attr)
-                    if val is not None:
-                        fx = float(val)
-                        break
-                except (AttributeError, TypeError, ValueError):
-                    pass
-
-            if fx is None:
-                continue
-            if np.isnan(fx) or np.isinf(fx):
-                continue
-
-            if fx < best_fx:
-                best_fx = fx
-                trace.append(
-                    ConvergencePoint(
-                        eval_idx=i + 1,
-                        fx=float(best_fx),
-                        func_distance=abs(float(best_fx) - f_opt),
-                    )
-                )
-
-        return trace
-
-    @staticmethod
-    def _extract_heuristic_counts(all_results: List[Any]) -> Dict[str, int]:
-        """Count evaluations per heuristic from itertuples NamedTuples.
-
-        .. deprecated::
-            Prefer :meth:`_build_heuristic_counts_from_array`.
-
-        Args:
-            all_results: Ordered NamedTuple rows from ``itertuples()``.
-
-        Returns:
-            Dict mapping heuristic name to evaluation count.
-        """
-        counts: Dict[str, int] = {}
-        for row in all_results:
-            who = None
-            for attr in ("who_0", "who"):
-                try:
-                    val = getattr(row, attr)
-                    if val is not None:
-                        who = str(val)
-                        break
-                except AttributeError:
-                    pass
-            if who:
-                counts[who] = counts.get(who, 0) + 1
         return counts
 
 

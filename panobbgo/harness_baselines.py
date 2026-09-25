@@ -80,6 +80,7 @@ import numpy as np
 import pandas as pd
 
 from panobbgo.benchmark import StrategySpec
+from panobbgo.ioh_runner import _BudgetExhausted
 from panobbgo.lib import Point, Problem, Result
 
 
@@ -88,9 +89,9 @@ from panobbgo.lib import Point, Problem, Result
 # ---------------------------------------------------------------------------
 
 
-class _BudgetExhausted(Exception):
-    """Raised by the objective wrapper once ``max_eval`` evaluations have
-    been recorded.  Baseline adapters catch this to terminate cleanly."""
+# ``_BudgetExhausted`` (imported above) is the one hard-stop signal, shared
+# with ``IOHTracker(hard=True)``: an IOH tracker that raises it inside a
+# baseline's objective ends the baseline cleanly instead of as a crash.
 
 
 @dataclass
@@ -219,7 +220,6 @@ class BaselineStrategy:
         self.config: _BaselineConfig = _BaselineConfig()
         self.results: _BaselineResults = _BaselineResults()
         self._best: Optional[Result] = None
-        self._stopped: bool = False
         self._stop_requested: bool = False
         self._log: Optional[_EvaluationLog] = None
 
@@ -330,8 +330,6 @@ class RandomSearchStrategy(BaselineStrategy):
         for _ in range(log.max_eval):
             x = rng.uniform(lo, hi, size=self.problem.dim)
             objective(x)
-            if self._stopped:
-                break
 
 
 class SciPyDEStrategy(BaselineStrategy):
@@ -379,20 +377,18 @@ class SciPyDEStrategy(BaselineStrategy):
 
         # ``differential_evolution`` uses ``rng`` in scipy >= 1.15 (``seed``
         # is retained as a deprecated alias).  Prefer ``rng``.
-        try:
-            differential_evolution(
-                objective,
-                bounds=bounds,
-                popsize=self._popsize,
-                maxiter=max_generations,
-                tol=self._tol,
-                rng=de_seed,
-                polish=False,  # we enforce budget ourselves; polish would exceed
-                init="sobol",
-                updating="deferred",
-            )
-        except _BudgetExhausted:
-            raise
+        # A _BudgetExhausted from the objective ends the run; start() catches it.
+        differential_evolution(
+            objective,
+            bounds=bounds,
+            popsize=self._popsize,
+            maxiter=max_generations,
+            tol=self._tol,
+            rng=de_seed,
+            polish=False,  # we enforce budget ourselves; polish would exceed
+            init="sobol",
+            updating="deferred",
+        )
 
 
 class SciPyAnnealStrategy(BaselineStrategy):
@@ -416,19 +412,16 @@ class SciPyAnnealStrategy(BaselineStrategy):
         da_seed = self._run_seed()
 
         # ``dual_annealing`` uses ``rng`` in scipy >= 1.15.
-        try:
-            dual_annealing(
-                objective,
-                bounds=bounds,
-                maxfun=log.max_eval,
-                # ``maxiter`` is the cap on the outer SA loop; we let the
-                # hard ``maxfun`` + our _BudgetExhausted guard terminate it.
-                maxiter=10_000,
-                rng=da_seed,
-                no_local_search=False,
-            )
-        except _BudgetExhausted:
-            raise
+        dual_annealing(
+            objective,
+            bounds=bounds,
+            maxfun=log.max_eval,
+            # ``maxiter`` is the cap on the outer SA loop; we let the
+            # hard ``maxfun`` + our _BudgetExhausted guard terminate it.
+            maxiter=10_000,
+            rng=da_seed,
+            no_local_search=False,
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -197,6 +197,10 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "p_count = ceil(p_eff * NP) (lshade.py:773); at the budget-adaptive NP of a 3-d probe both "
         "0.11 and 0.05 quantise to the same count, so the iLSHADE schedule is a no-op at small NP"
     ),
+    ("JSO", "p_best_min"): (
+        "pbest pool = max(2, round(NP * p)) (jSO reference code); at the probe's NP of 6 shrinking to 4 "
+        "every p <= 0.25 gives 2"
+    ),
     ("NLSHADE_RSP", "p_best"): (
         "pbest pool = max(2, int(NP * p)) (reference code); at the probe's NP of 7 shrinking to 4, "
         "0.2 and 0.4 both give 2 (int(7 * 0.4) = 2)"
@@ -729,7 +733,7 @@ BEATS_UNIFORM_MEASURED: Dict[str, Tuple[float, float]] = {
     # NL-SHADE-RSP / -LBC re-measured 2026-09-25 after the paper-fidelity pass
     # (branch claude/t2c-de-fidelity; were -1.567 / -1.245 and -1.472 / -0.981).
     "NLSHADE_LBC": (-1.371, -1.667),
-    "JSO": (-2.047, -1.218),
+    "JSO": (-2.282, -2.393),  # re-measured 2026-09-25 after the jSO fidelity pass (was -2.047 / -1.218)
     "NLSHADE_RSP": (-2.310, -1.923),
     "RegionUCB": (-0.868, -0.754),
     "PSO": (-0.677, -0.590),

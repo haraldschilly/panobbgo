@@ -172,37 +172,56 @@ class JSOMemoryAnchorTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._M_F[anchor_idx] == _ANCHOR_M_F
         assert h._M_CR[anchor_idx] == _ANCHOR_M_CR
 
-    def test_pointer_wraps_over_writable_range_only(self):
-        """Pointer must cycle through ``[0, H-2]`` and never land on H-1."""
+    def test_pointer_cycles_over_all_bins_and_skips_anchor_write(self):
+        """Reference code: ``memory_pos`` cycles over all ``H`` bins; a write that
+        lands on the anchor is invisible (the sampler reads 0.9 / 0.9 there).
+
+        Updated 2026-09: the pointer used to wrap over ``[0, H − 2]`` only.
+        """
         from panobbgo.heuristics.jso import JSO
 
-        h = JSO(self.strategy, H=4, seed=0)  # writable range = [0, 1, 2]
-        seen = set()
-        for k in range(30):
-            seen.add(h._mem_ptr)
+        h = JSO(self.strategy, H=4, seed=0)
+        seen = []
+        for _ in range(8):
+            seen.append(h._mem_ptr)
             h._success_F = [0.5]
             h._success_CR = [0.5]
             h._success_delta = [1.0]
             h._update_memory()
-        # Pointer values stayed strictly below H - 1 = 3.
-        assert seen.issubset({0, 1, 2})
-        # Pointer covered the entire writable range (no skips).
-        assert seen == {0, 1, 2}
+        assert seen == [0, 1, 2, 3, 0, 1, 2, 3]
+        assert h._memory_bin(3) == (0.9, 0.9)
 
-    def test_writable_bin_updated_via_lehmer_mean(self):
-        """``_update_memory`` still writes successful F/CR Lehmer means to bin 0."""
-        from panobbgo.heuristics.jso import JSO
+    def test_memory_update_averages_with_old_value(self):
+        """Regression (iL-SHADE / jSO reference code): ``M ← (mean_WL + M_old) / 2``.
+
+        The old port wrote the bare Lehmer mean.
+        """
+        from panobbgo.heuristics.jso import JSO, _INIT_M_CR, _INIT_M_F
 
         h = JSO(self.strategy, H=3, seed=0)
         h._mem_ptr = 0
         h._success_F = [0.2, 0.4, 0.8]
         h._success_CR = [0.5, 0.6, 0.7]
         h._success_delta = [1.0, 1.0, 1.0]
-        expected_F = (0.2**2 + 0.4**2 + 0.8**2) / (0.2 + 0.4 + 0.8)
-        expected_CR = (0.5**2 + 0.6**2 + 0.7**2) / (0.5 + 0.6 + 0.7)
+        mean_F = (0.2**2 + 0.4**2 + 0.8**2) / (0.2 + 0.4 + 0.8)
+        mean_CR = (0.5**2 + 0.6**2 + 0.7**2) / (0.5 + 0.6 + 0.7)
         h._update_memory()
-        assert h._M_F[0] == pytest.approx(expected_F, rel=1e-9)
-        assert h._M_CR[0] == pytest.approx(expected_CR, rel=1e-9)
+        assert h._M_F[0] == pytest.approx((mean_F + _INIT_M_F) / 2.0, rel=1e-9)
+        assert h._M_CR[0] == pytest.approx((mean_CR + _INIT_M_CR) / 2.0, rel=1e-9)
+
+    def test_terminal_CR_only_when_all_zero_and_averaged(self):
+        """All-zero successful CR plants −1, averaged with the old value (reference code)."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy, H=3, seed=0)
+        h._success_F, h._success_CR, h._success_delta = [0.5], [0.0], [1.0]
+        h._update_memory()
+        assert h._M_CR[0] == pytest.approx((-1.0 + 0.8) / 2.0)
+        # a negative bin is not sticky: a later positive mean averages it back up
+        h._mem_ptr = 0
+        h._success_F, h._success_CR, h._success_delta = [0.5], [0.9], [1.0]
+        h._update_memory()
+        assert h._M_CR[0] == pytest.approx((0.9 - 0.1) / 2.0)
 
     def test_no_success_leaves_memory_unchanged(self):
         from panobbgo.heuristics.jso import JSO
@@ -250,7 +269,11 @@ class JSOScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._progress() is None
 
     def test_p_best_schedule_is_linear_decreasing(self):
-        """``_current_p_best`` decreases linearly from p_best_max to p_best_min."""
+        """``_current_p_best`` decreases linearly from p_best_max to p_best_min.
+
+        This follows jSO's reference code (``p = 0.25·(1 − 0.5·nfes/max)``); the
+        paper's formula would rise from 0.125 to 0.25 — a documented choice.
+        """
         from panobbgo.heuristics.jso import JSO
 
         h = JSO(self.strategy, p_best_max=0.25, p_best_min=0.125)
@@ -316,13 +339,9 @@ class JSOScheduleTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 class JSOAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
-    """jSO opts into the L-SHADE three-phase asymmetric F-cap.
-
-    The cap schedule (literature-faithful Brest et al. 2017 §III-D):
-
-    * ``progress < 0.6``        →  ``F ≤ 0.7``
-    * ``0.6 ≤ progress < 0.9``  →  ``F ≤ 0.8``
-    * ``progress ≥ 0.9``         →  ``F`` unclamped (still ≤ 1.0 from sampler)
+    """jSO's F cap (Brest et al. 2017 and reference code): ``F ≤ 0.7`` while
+    ``progress < 0.6``, unclamped after.  (The port used to add a second phase
+    ``F ≤ 0.8`` until ``progress = 0.9``.)
     """
 
     def test_jso_opts_into_F_schedule_by_construction(self):
@@ -346,35 +365,16 @@ class JSOAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
             F, _ = h._sample_F_CR()
             assert F <= 0.7 + 1e-12
 
-    def test_F_clamped_at_08_in_middle_phase(self):
-        """In the [0.6, 0.9) phase, F is capped at 0.8 (not 0.7, not unclamped)."""
+    def test_F_unclamped_from_60_percent(self):
+        """Regression: in ``[0.6, 0.9)`` F is no longer capped at 0.8."""
         from panobbgo.heuristics.jso import JSO
 
         h = JSO(self.strategy, H=2, seed=42)
         self.strategy.config.max_eval = 100
-        self.strategy.results = list(range(75))  # progress = 0.75 ∈ [0.6, 0.9)
+        self.strategy.results = list(range(75))  # progress = 0.75
         h._M_F[0] = 0.95
         h._M_CR[0] = 0.5
-        saw_above_07 = False
-        for _ in range(500):
-            F, _ = h._sample_F_CR()
-            assert F <= 0.8 + 1e-12  # never above 0.8
-            if F > 0.7:
-                saw_above_07 = True
-        assert saw_above_07, "phase-2 cap should permit F > 0.7"
-
-    def test_F_unclamped_in_final_10_percent(self):
-        """At progress >= 0.9 the clamp is released entirely."""
-        from panobbgo.heuristics.jso import JSO
-
-        h = JSO(self.strategy, H=2, seed=42)
-        self.strategy.config.max_eval = 100
-        self.strategy.results = list(range(95))  # progress = 0.95 >= 0.9
-        h._M_F[0] = 0.95
-        h._M_CR[0] = 0.5
-        # With high M_F and 500 draws we expect at least one F > 0.8.
-        any_above_08 = any(h._sample_F_CR()[0] > 0.8 for _ in range(500))
-        assert any_above_08
+        assert any(h._sample_F_CR()[0] > 0.8 for _ in range(500))
 
     def test_F_in_unit_interval_always(self):
         """Sampled F is always in (0, 1] regardless of phase."""
@@ -678,3 +678,56 @@ class JSORegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
 
         assert hasattr(h, "JSO")
         assert "JSO" in h.__all__
+
+
+# ----------------------------------------------------------------------
+# CR floors and pbest pool (reference code)
+# ----------------------------------------------------------------------
+
+
+class JSOReferenceCodeTests(_MockStrategyMixin, PanobbgoTestCase):
+    def test_CR_floors(self):
+        """Regression: ``CR ≥ 0.7`` while ``progress < 0.25``, ``≥ 0.6`` while ``< 0.5``, free after."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy, H=2, seed=3)
+        self.strategy.config.max_eval = 100
+        h._M_CR[0] = 0.1
+        for n, floor in ((10, 0.7), (40, 0.6)):
+            self.strategy.results = list(range(n))
+            crs = [h._sample_F_CR()[1] for _ in range(300)]
+            assert min(crs) >= floor
+        self.strategy.results = list(range(60))
+        assert min(h._sample_F_CR()[1] for _ in range(300)) < 0.5
+        # the terminal bin's CR = 0 is floored too
+        h._M_CR[0] = -1.0
+        self.strategy.results = list(range(10))
+        crs = [h._sample_F_CR()[1] for _ in range(100)]
+        assert min(crs) == 0.7  # bin 0 is terminal: CR = 0, floored to 0.7
+        self.strategy.config.max_eval = 0  # unknown budget: no floor
+        assert h._apply_CR_floor(0.1) == 0.1
+
+    def test_pbest_count_rounds_and_floors_at_two(self):
+        """``p_num = round(NP · p)``, at least 2 (reference code); was ``ceil``, at least 1."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy)
+        self.strategy.config.max_eval = 100
+        self.strategy.results = []
+        assert h._pbest_count(10) == 3  # round(2.5) = 3 (half away from zero)
+        assert h._pbest_count(6) == 2  # round(1.5) = 2
+        assert h._pbest_count(4) == 2  # ceil(1.0) was 1
+        self.strategy.results = list(range(100))
+        assert h._pbest_count(4) == 2  # round(0.5) = 1 → floor 2
+
+    def test_pbest_not_target_in_first_half(self):
+        """Regression: while ``progress < 0.5`` the pbest pool excludes the target (iL-SHADE rule)."""
+        from panobbgo.heuristics.jso import JSO
+
+        h = JSO(self.strategy)
+        self.strategy.config.max_eval = 100
+        srt = [3, 1, 4, 0, 2, 5, 6, 7]
+        self.strategy.results = list(range(10))
+        assert 3 not in h._pbest_pool(srt, target_idx=3)
+        self.strategy.results = list(range(60))
+        assert 3 in h._pbest_pool(srt, target_idx=3)

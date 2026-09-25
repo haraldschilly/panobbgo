@@ -284,9 +284,13 @@ Implemented Heuristics
   literature-best refinements: a *weighted* ``current-to-pbest-w/1`` mutation
   (the pbest direction is re-weighted by a phase-dependent ``F_w`` factor — ``0.7·F`` early,
   ``0.8·F`` mid, ``1.2·F`` late); a *linear* ``p_best`` schedule (``0.25 → 0.125``); and
-  *Cauchy-F clamping* that limits sampled ``F`` to ``0.7`` while ``progress < 0.6``.  The history
-  memory uses ``M_F = 0.3`` / ``M_CR = 0.8`` initial values and reserves the last bin
-  (``H − 1``) as a frozen anchor at ``0.9 / 0.9`` that ``_update_memory`` never overwrites.
+  *Cauchy-F clamping* that limits sampled ``F`` to ``0.7`` while ``progress < 0.6``; *CR floors*
+  (``CR ≥ 0.7`` while ``progress < 0.25``, ``≥ 0.6`` while ``< 0.5``).  The ``p_best`` schedule and
+  the rest follow the authors' reference code where it differs from the paper text (the paper's
+  ``p`` formula rises ``0.125 → 0.25``, the code's falls).  The history memory uses
+  ``M_F = 0.3`` / ``M_CR = 0.8`` initial values, averages each update with the old value
+  (``M ← (mean_WL + M) / 2``, from iL-SHADE) and reserves the last bin (``H − 1``) as an anchor
+  sampled as ``0.9 / 0.9``.
   Inherits L-SHADE's asynchronous pipeline (per-slot pending dict, generation-by-count
   book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
   jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant

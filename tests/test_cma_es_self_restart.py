@@ -82,12 +82,18 @@ def test_self_restart_off_reproduces_the_pre_change_trajectory():
     run stops at exactly 400.  Checked then: the pre-clamp code still gave the
     406-point pin above, and its first 400 fx values are bit-identical to the
     clamped run's — so the pin below is the same trajectory, cut to the budget.
+
+    Re-pinned 2026-09-25 (T2a) for an algorithm fix, not a drift:
+    ``_counteval`` now advances by λ per generation instead of μ (Hansen's
+    ``counteval += λ``), which changes the h_σ generation counter and the
+    lazy-eigendecomposition cadence.  The old pin was min 5.523971143576693e-09,
+    sum 701.1243094765689 at 400 evals.
     """
     h, fx = _run(self_restart=False)
     assert h.n_restarts == 0
     assert len(fx) == 400
-    assert float(np.min(fx)) == pytest.approx(5.523971143576693e-09, rel=1e-6)  # BLAS order differs across CPUs
-    assert float(np.sum(fx)) == pytest.approx(701.1243094765689, rel=1e-9)
+    assert float(np.min(fx)) == pytest.approx(3.559346295562978e-09, rel=1e-6)  # BLAS order differs across CPUs
+    assert float(np.sum(fx)) == pytest.approx(744.6691896421944, rel=1e-9)
 
 
 def test_restart_event_still_restarts():
@@ -96,8 +102,11 @@ def test_restart_event_still_restarts():
 
     # ``patience`` far below the budget, so the analyzer is guaranteed to fire
     # once the sphere has converged; self-restart is off so every restart
-    # counted here came through the event bus.
-    h, _ = _run(max_eval=800, self_restart=False, analyzers=(lambda s: Restart(s, patience=40),))
+    # counted here came through the event bus.  1200 evals, not 800: since
+    # ``_counteval`` counts λ (not μ) per generation the eigendecomposition
+    # runs on schedule and the sphere keeps improving by more than the
+    # analyzer's 1e-6 relative threshold through eval 800 (no stall to catch).
+    h, _ = _run(max_eval=1200, self_restart=False, analyzers=(lambda s: Restart(s, patience=40),))
     assert h.n_self_restarts == 0
     assert h.n_restarts >= 1
 

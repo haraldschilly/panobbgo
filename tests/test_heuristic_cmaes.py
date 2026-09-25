@@ -210,6 +210,31 @@ class TestCMAES(PanobbgoTestCase):
         pts_gen2 = cma.get_points(100)
         assert len(pts_gen2) == cma._lam
 
+    def test_counteval_counts_lambda_per_generation(self):
+        """Regression: ``_counteval`` advances by the λ emitted offspring, not μ.
+
+        It feeds h_σ's generation counter, the lazy-eigendecomposition gap and
+        the BIPOP regime budgets; counting μ ran all three at half speed.
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        for k in range(1, 4):
+            self._run_one_generation(cma)
+            assert cma._counteval == k * cma._lam
+
+    def test_counteval_counts_emitted_even_below_quorum(self):
+        """Offspring still in flight at the quorum are evaluations spent too."""
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy, min_results_fraction=0.5)
+        cma.on_start()
+        points = cma.get_points(100)
+        quorum = max(2, int(cma._lam * 0.5))
+        cma.on_new_results([Result(p, float(np.sum(p.x**2))) for p in points[:quorum]])
+        assert cma._counteval == cma._lam
+
     def test_mean_shifts_toward_optimum(self):
         """After several updates with a shifted sphere, mean should move closer to optimum."""
         from panobbgo.heuristics import CMAES

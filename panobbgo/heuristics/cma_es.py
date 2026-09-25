@@ -1023,7 +1023,7 @@ class CMAES(Heuristic):
                 # — after the quorum check, so they never count toward
                 # ``min_needed`` — and ranked with the offspring by ``_update``.
                 injected = self._injected.pop(gen, None)
-                self._update(bucket + injected if injected else bucket)
+                self._update(bucket + injected if injected else bucket, n_offspring=emitted)
                 del self._gen_results[gen]
                 self._gen_emitted.pop(gen, None)
                 # A fired termination criterion replaces the next generation
@@ -1557,8 +1557,18 @@ class CMAES(Heuristic):
                 self._lam,
             )
 
-    def _update(self, collected: List[dict]) -> None:
-        """Perform one CMA-ES parameter update from a set of evaluated offspring."""
+    def _update(self, collected: List[dict], n_offspring: int) -> None:
+        """Perform one CMA-ES parameter update from a set of evaluated offspring.
+
+        Args:
+            collected: The generation's ranked entries — own offspring that
+                arrived before the quorum, plus any injected foreign points.
+            n_offspring: How many offspring this instance sampled and emitted
+                for the generation (normally λ).  This is what ``_counteval``
+                advances by: every emitted point costs one evaluation, whether
+                or not it arrived before the quorum, while injected points were
+                paid for by another arm (Hansen's ``counteval += λ``).
+        """
         assert self._m is not None
         assert self._C is not None
         assert self._p_c is not None
@@ -1633,7 +1643,12 @@ class CMAES(Heuristic):
         max_sigma = float(np.mean(ranges))
         self._sigma = float(np.clip(self._sigma, 1e-12, max_sigma))
 
-        self._counteval += actual_mu
+        # Evaluations spent on this generation: the λ sampled offspring, not
+        # the μ selected ones (Hansen, "The CMA Evolution Strategy: A
+        # Tutorial", ``counteval += λ``).  Counting μ made the h_σ generation
+        # counter, the lazy-eigendecomposition gap and the BIPOP regime
+        # budgets all run at half speed.
+        self._counteval += int(n_offspring)
 
         # Persist path/covariance state back to instance.
         self._p_c = p_c

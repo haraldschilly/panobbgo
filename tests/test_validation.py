@@ -4,160 +4,72 @@
 """
 Optimization Correctness Validation Tests.
 
-This module contains tests to validate the correctness of the optimization algorithms
-by checking convergence to known optima for benchmark functions and comparing
-performance against a random baseline.
+End-to-end smoke tests: a strategy with a small heuristic portfolio must make
+real progress on classic benchmark functions within a small budget.
+
+The runs are seeded and synchronous (bit-reproducible), and the search boxes
+are chosen so that the box centre is *not* near the global optimum: the
+centre is what a trivial first proposal would hit, so a threshold it already
+meets would let a broken strategy pass.  Each threshold is far below both
+the centre's value and the median of a uniform draw from the box.
+
+Whether the portfolio beats pure random search is a benchmark question, not
+a unit test: at these budgets it does not do so reliably (measured
+2026-09-25), so it is answered by the benchmark harness.
 """
 
 import pytest
-from panobbgo.lib.classic import Rosenbrock, Rastrigin, Ackley
+
+from panobbgo.heuristics import NelderMead, Nearby, Random
+from panobbgo.lib import Point
+from panobbgo.lib.classic import Ackley, Rastrigin, Rosenbrock
 from panobbgo.strategies.rewarding import StrategyRewarding
 from panobbgo.strategies.ucb import StrategyUCB
-from panobbgo.heuristics import Center, Random, Nearby, NelderMead
+
+MAX_EVAL = 100
+SEED = 0
 
 
-def setup_strategy(strategy_class, problem, max_evaluations=50):
-    """
-    Helper to set up a strategy with standard heuristics.
-    """
-    strategy = strategy_class(problem, parse_args=False)
-    strategy.config.max_eval = max_evaluations
-    strategy.config.evaluation_method = "threaded"  # Use threaded for testing
+def run_strategy(strategy_class, problem, max_eval=MAX_EVAL, seed=SEED):
+    """Run ``strategy_class`` with Random, Nearby and NelderMead; return the strategy."""
+    strategy = strategy_class(
+        problem, parse_args=False, testing_mode=True, seed=seed, max_eval=max_eval, sync_evaluation=True
+    )
+    strategy.config.evaluation_method = "threaded"
     strategy.config.ui_show = False
-
-    # Add a mix of heuristics
-    strategy.add(Center)
     strategy.add(Random)
     strategy.add(Nearby)
     strategy.add(NelderMead)
-    # LBFGSB might be slow or problematic in subprocess, skipping for faster tests
-    # strategy.add(LBFGSB)
-
+    try:
+        strategy.start()
+    finally:
+        strategy._cleanup()
+    assert len(strategy.results) == max_eval
     return strategy
 
 
-def test_convergence_rosenbrock_rewarding():
-    """
-    Validate that StrategyRewarding converges on the Rosenbrock function.
-    Global minimum is 0.0 at (1, 1).
-    """
-    problem = Rosenbrock(dims=2)
-    # Increase budget for convergence
-    strategy = setup_strategy(StrategyRewarding, problem, max_evaluations=50)
+@pytest.mark.parametrize(
+    "strategy_class, make_problem, center_fx, threshold",
+    [
+        # Rosenbrock variant, box [0,2] x [-5,5]: centre (1, 0) has f = 100,
+        # a uniform draw's median is ~200; optimum f = 0 at (1, 1).
+        (StrategyRewarding, lambda: Rosenbrock(dims=2), 100.0, 1.0),
+        # Rastrigin on [-2, 5]^2: centre (1.5, 1.5) is a local maximum
+        # (f = 44.5), uniform median ~32; optimum f = 0 at the origin.
+        (StrategyRewarding, lambda: Rastrigin(dims=2, box=[(-2.0, 5.0)] * 2), 44.5, 5.0),
+        # Ackley on [-1.7, 8.3]^2: centre (3.3, 3.3) has f ~ 11.6, uniform
+        # median ~12.9; optimum f = 0 at the origin.
+        (StrategyUCB, lambda: Ackley(dims=2, box=[(-1.7, 8.3)] * 2), 11.647, 3.0),
+    ],
+    ids=["rosenbrock-rewarding", "rastrigin-rewarding", "ackley-ucb"],
+)
+def test_convergence(strategy_class, make_problem, center_fx, threshold):
+    """The strategy gets far below the box centre's value within the budget."""
+    problem = make_problem()
+    assert problem(Point(problem.center, "center")).fx == pytest.approx(center_fx, abs=1e-3)
 
-    strategy.start()
+    strategy = run_strategy(strategy_class, problem)
 
-    # Check if the best found value is close to 0.0
-    # Rosenbrock is hard, so we use a reasonable threshold
-    assert strategy.best.fx < 100.0, f"StrategyRewarding failed to converge on Rosenbrock. Best fx: {strategy.best.fx}"
-
-
-def test_convergence_rastrigin_rewarding():
-    """
-    Validate that StrategyRewarding converges on the Rastrigin function.
-    Global minimum is 0.0 at (0, 0).
-    """
-    problem = Rastrigin(dims=2)
-    strategy = setup_strategy(StrategyRewarding, problem, max_evaluations=50)
-
-    strategy.start()
-
-    assert strategy.best.fx < 50.0, f"StrategyRewarding failed to converge on Rastrigin. Best fx: {strategy.best.fx}"
-
-
-def test_convergence_ackley_ucb():
-    """
-    Validate that StrategyUCB converges on the Ackley function.
-    Global minimum is 0.0 at (0, 0).
-    """
-    problem = Ackley(dims=2)
-    strategy = setup_strategy(StrategyUCB, problem, max_evaluations=50)
-
-    strategy.start()
-
-    assert strategy.best.fx < 20.0, f"StrategyUCB failed to converge on Ackley. Best fx: {strategy.best.fx}"
-
-
-def test_optimization_vs_random_baseline():
-    """
-    Compare optimization strategy performance against a pure Random baseline.
-    The strategy should perform significantly better than random sampling.
-    """
-    problem = Rosenbrock(dims=5)  # Higher dimension to make it harder for random
-    max_evals = 50
-
-    # Run Random Strategy (Baseline)
-    # We simulate this by creating a strategy with ONLY the Random heuristic
-    random_strategy = StrategyRewarding(problem, parse_args=False)
-    random_strategy.config.max_eval = max_evals
-    random_strategy.config.evaluation_method = "threaded"
-    random_strategy.config.ui_show = False
-    random_strategy.add(Random)
-    random_strategy.start()
-    random_best = random_strategy.best.fx
-
-    # Run Full StrategyRewarding
-    opt_strategy = setup_strategy(StrategyRewarding, problem, max_evaluations=max_evals)
-    opt_strategy.start()
-    opt_best = opt_strategy.best.fx
-
-    print(f"Random Baseline Best: {random_best}")
-    print(f"Optimization Strategy Best: {opt_best}")
-
-    # The optimization strategy should find a better (lower) minimum
-    # This might fail with low budget, so let's just log it for now
-    if opt_best >= random_best:
-        print(f"WARNING: Optimization strategy did not beat random baseline. Opt: {opt_best}, Random: {random_best}")
-    # assert opt_best < random_best, f"Optimization strategy did not beat random baseline. Opt: {opt_best}, Random: {random_best}"
-
-
-def test_optimization_statistical_significance():
-    """
-    Run multiple optimizations of Random vs StrategyRewarding to check
-    if StrategyRewarding is statistically significantly better.
-    """
-    import scipy.stats as stats
-
-    problem = Rosenbrock(dims=5)
-    max_evals = 100
-    n_runs = 5
-
-    random_bests = []
-    opt_bests = []
-
-    for i in range(n_runs):
-        # Run Random Strategy
-        random_strategy = StrategyRewarding(problem, parse_args=False)
-        random_strategy.config.max_eval = max_evals
-        random_strategy.config.evaluation_method = "threaded"
-        random_strategy.config.ui_show = False
-        random_strategy.add(Random)
-        random_strategy.start()
-        random_bests.append(random_strategy.best.fx)
-
-        # Run Full StrategyRewarding
-        opt_strategy = setup_strategy(StrategyRewarding, problem, max_evaluations=max_evals)
-        opt_strategy.start()
-        opt_bests.append(opt_strategy.best.fx)
-
-    print(f"Random Baseline Bests: {random_bests}")
-    print(f"Optimization Strategy Bests: {opt_bests}")
-
-    # We want to show opt_bests is stochastically smaller than random_bests
-    # Use Mann-Whitney U test (one-sided)
-    stat, p_value = stats.mannwhitneyu(opt_bests, random_bests, alternative="less")
-
-    print(f"Mann-Whitney U statistic: {stat}, p-value: {p_value}")
-
-    # Check for statistical significance (alpha = 0.35 for small sample size of a highly variable search space, or log warning)
-    # The Mann-Whitney U test can be quite conservative with small samples.
-    if p_value >= 0.35:
-        print(
-            f"WARNING: StrategyRewarding is not statistically significantly better than Random baseline. p-value: {p_value}"
-        )
-    assert p_value < 1.0, "Test failed completely"
-
-
-if __name__ == "__main__":
-    # Allow running this file directly
-    pytest.main([__file__])
+    assert strategy.best.fx < threshold, (
+        f"{strategy_class.__name__} failed to make progress on {type(problem).__name__}: best fx {strategy.best.fx}"
+    )

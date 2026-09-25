@@ -128,8 +128,10 @@ class PanobbgoTestCase(unittest.TestCase):
         strategy.config = self.config
         # Modules derive their RNG from the strategy, so the stand-in has to
         # honour that contract — with a fixed seed, so module tests are
-        # reproducible.
+        # reproducible, and with *independent* streams per module, as
+        # StrategyBase.spawn_rng hands out (two modules built here used to
+        # draw identical numbers).
         strategy.seed = 0
         strategy.rng = np.random.default_rng(0)
-        strategy.spawn_rng.side_effect = lambda: np.random.default_rng(0)
+        strategy.spawn_rng.side_effect = rng_spawner(0)
         return strategy

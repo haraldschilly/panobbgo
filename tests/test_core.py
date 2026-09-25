@@ -621,6 +621,15 @@ def test_budget_progress_and_max_eval_or_on_module_and_strategy():
     assert m.budget_progress() == strategy.budget_progress() == 1.0  # clipped
 
 
+class TestPanobbgoTestCaseStreams(PanobbgoTestCase):
+    def test_modules_get_independent_reproducible_streams(self):
+        """Regression: every module built on the mock strategy drew ``default_rng(0)``."""
+        a, b = Module(self.strategy), Module(self.strategy)
+        assert a.rng.random() != b.rng.random()
+        self.setUp()  # a fresh stand-in replays the same sequence of streams
+        assert Module(self.strategy).rng.random() == Module(self.init_strategy()).rng.random()
+
+
 def test_default_analyzers_do_not_depend_on_the_package_namespace(monkeypatch):
     """Regression: the slot loop resolved ``getattr(panobbgo.analyzers, name, None)``.
 

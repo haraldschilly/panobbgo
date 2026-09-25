@@ -382,10 +382,16 @@ class TestCMAES(PanobbgoTestCase):
         assert cma._total_evals == 3
 
     def test_sigma_does_not_inflate_against_the_wall(self):
-        """With the optimum in a box corner, σ must shrink, not blow up to its clamp."""
+        """With the optimum in a box corner, σ must shrink, not blow up to its clamp.
+
+        ``self_restart=False``: once σ has collapsed (≈1e-3·σ₀ after ~30
+        generations) an IPOP self-restart may legitimately reset it, which
+        is not what this pins; whether one lands inside the 40 generations
+        depends on the RNG stream.
+        """
         from panobbgo.heuristics import CMAES
 
-        cma = CMAES(self.strategy)
+        cma = CMAES(self.strategy, self_restart=False)
         cma.on_start()
         box = self.problem.box.box
         sigma0 = cma._sigma

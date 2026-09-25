@@ -245,6 +245,28 @@ def test_idle_worker_that_died_is_replaced(fake_worker):
         q.close()
 
 
+def test_release_while_the_pool_lock_is_held_does_not_deadlock(fake_worker):
+    """GC can run ``__del__`` -> ``close`` -> the pool in a thread that already
+    holds the pool lock; it must be re-entrant."""
+    import threading
+
+    import panobbgo.lib.ioh_wrapper as w
+
+    wd = fake_worker("ok")
+    p = IOHProblem(kind="MA-BBOB", instance=0, dim=2, worker_dir=wd)
+    finished = threading.Event()
+
+    def release_under_lock():
+        with w._IDLE_LOCK:
+            p.close()
+        finished.set()
+
+    t = threading.Thread(target=release_under_lock, daemon=True)
+    t.start()
+    t.join(timeout=10)
+    assert finished.is_set(), "close() deadlocked on the idle-pool lock"
+
+
 @pytest.mark.skipif(not worker_available(), reason="ioh worker venv not set up (tools/ioh_worker)")
 def test_real_reused_worker_evaluates_like_a_fresh_one():
     """Re-targeting with ``create`` leaves nothing of the previous problem behind."""

@@ -121,11 +121,16 @@ class _IdleWorker:
 
 
 _IDLE: Dict[Tuple[str, str], List[_IdleWorker]] = {}
-_IDLE_LOCK = threading.Lock()
+#: Re-entrant: garbage collection can run ``IOHProblem.__del__`` -> ``close``
+#: -> :func:`_put_idle` in a thread that already holds it.  Only list
+#: bookkeeping happens under it; stopping a worker (up to seconds) never does.
+_IDLE_LOCK = threading.RLock()
 
 
 def _take_idle(key: Tuple[str, str]) -> Optional[_IdleWorker]:
     """An idle, still-running worker for ``key`` owned by this process, or ``None``."""
+    dead: List[_IdleWorker] = []
+    found: Optional[_IdleWorker] = None
     with _IDLE_LOCK:
         stack = _IDLE.get(key)
         while stack:
@@ -133,9 +138,12 @@ def _take_idle(key: Tuple[str, str]) -> Optional[_IdleWorker]:
             if w.pid != os.getpid():  # inherited through fork: not ours to use or stop
                 continue
             if w.proc.poll() is None:
-                return w
-            w.shutdown()
-    return None
+                found = w
+                break
+            dead.append(w)
+    for w in dead:  # outside the lock: shutdown may block
+        w.shutdown()
+    return found
 
 
 def _put_idle(key: Tuple[str, str], worker: _IdleWorker) -> None:

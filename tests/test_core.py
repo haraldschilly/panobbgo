@@ -316,3 +316,24 @@ def test_heuristic_subprocess_stop_terminates_the_worker(strategy):
     h.__stop__()
     assert not proc.is_alive()
     assert h.pipe.closed and h.pipe_child.closed
+
+
+def test_unstarted_strategy_owns_no_eventbus_thread():
+    """The dispatcher thread starts with the first event, not in ``EventBus.__init__``."""
+    import threading
+
+    from panobbgo.heuristics import Random
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRoundRobin
+
+    def buses():
+        return {t for t in threading.enumerate() if t.name == "EventBus"}
+
+    before = buses()
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    s.add(Random)
+    assert buses() == before
+    assert s.eventbus._thread is None
+    s.config.max_eval = 5
+    s.start()
+    assert s.eventbus._thread is not None and not s.eventbus._thread.is_alive()

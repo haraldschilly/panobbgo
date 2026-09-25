@@ -1408,8 +1408,10 @@ class EventBus:
         # queued + currently running events; ``wait_idle`` waits for zero.
         self._inflight: int = 0
         self._running: bool = True
-        self._thread = Thread(target=self._loop, name="EventBus", daemon=True)
-        self._thread.start()
+        #: The dispatcher starts with the first published event, so a bus
+        #: (i.e. a strategy) that is constructed but never started owns no
+        #: thread — it used to leak one per unstarted strategy.
+        self._thread: Optional[Thread] = None
 
     @property
     def keys(self) -> List[str]:
@@ -1501,6 +1503,9 @@ class EventBus:
             return
         payload = dict(kwargs) if event is None else dict(event._kwargs)
         with self._cv:
+            if self._thread is None and self._running:
+                self._thread = Thread(target=self._loop, name="EventBus", daemon=True)
+                self._thread.start()
             for target in list(self._subs[key]):
                 ev = Event(**payload)
                 ev.terminate = terminate
@@ -1583,8 +1588,9 @@ class EventBus:
             self._queue.clear()
             self._subs.clear()
             self._cv.notify_all()
-        if self._thread.is_alive() and threading.current_thread() is not self._thread:
-            self._thread.join(timeout=timeout)
+        t = self._thread
+        if t is not None and t.is_alive() and threading.current_thread() is not t:
+            t.join(timeout=timeout)
 
 
 #: The problem a ``evaluation_method="processes"`` worker evaluates; set once

@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2024 Panobbgo Contributors
+# Copyright 2024 -- 2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,24 +53,13 @@ class DifferentialEvolution(Heuristic):
     def _emit_trial(self, x, target_idx):
         if self._stopped:
             return
-        try:
-            # Project to bounds
-            x = self.problem.project(x)
-
-            # Create unique ID for this trial
-            # Drawn from self.rng (not uuid4/OS entropy) so who-tags are seed-reproducible.
-            req_id = str(uuid.UUID(bytes=self.rng.bytes(16)))
-            # Result.who will be "DifferentialEvolution:<uuid>"
-            who = f"{self.name}:{req_id}"
-
-            point = Point(x, who)
-            self._put(point)
-
-            # Track
-            self.pending_trials[req_id] = target_idx
-
-        except Exception as e:
-            self.logger.debug(f"Failed to emit DE trial: {e}")
+        x = self.problem.project(x)
+        # Unique id for this trial, drawn from self.rng (not uuid4/OS
+        # entropy) so who-tags are seed-reproducible.  Result.who will be
+        # "DifferentialEvolution:<uuid>".
+        req_id = str(uuid.UUID(bytes=self.rng.bytes(16)))
+        self._put(Point(x, f"{self.name}:{req_id}"))
+        self.pending_trials[req_id] = target_idx
 
     def on_start(self):
         # Initial population generation
@@ -84,58 +73,34 @@ class DifferentialEvolution(Heuristic):
         Process new results.
         If result is from our initialization or trial, update population.
         """
+        prefix = f"{self.name}:"
         for r in results:
-            # Check if result belongs to us (starts with name:)
-            if not r.who.startswith(f"{self.name}:"):
+            if not r.who.startswith(prefix):
+                continue
+            target_idx = self.pending_trials.pop(r.who[len(prefix) :], None)
+            if target_idx is None:
                 continue
 
-            try:
-                # Parse ID
-                parts = r.who.split(":", 1)
-                if len(parts) != 2:
-                    continue
-                req_id = parts[1]
+            if self.population[target_idx] is None:
+                self.population[target_idx] = r
+                self.pop_size += 1
+                self.active_indices.append(target_idx)
+            elif self.strategy.constraint_handler.is_better(self.population[target_idx], r):
+                # Trial (r) is better, replace the target.
+                self.population[target_idx] = r
 
-                if req_id in self.pending_trials:
-                    target_idx = self.pending_trials.pop(req_id)
+            # Evolution step
+            if self.pop_size >= 4:
+                # 1. Generate new trial for the current slot
+                self._generate_trial(target_idx)
 
-                    if self.population[target_idx] is None:
-                        self.population[target_idx] = r
-                        self.pop_size += 1
-                        self.active_indices.append(target_idx)
-                    else:
-                        target = self.population[target_idx]
-                        if self.strategy.constraint_handler.is_better(target, r):
-                            # Trial (r) is better, replace target
-                            self.population[target_idx] = r
-                        # Else keep target
-
-                    # Evolution step
-                    if self.pop_size >= 4:
-                        # 1. Generate new trial for the current slot
-                        self._generate_trial(target_idx)
-
-                        # 2. Bootstrapping: Wake up any idle slots
-                        # (e.g. slots filled during initialization before pop_size reached 4)
-                        active_trials = set(self.pending_trials.values())
-                        # Note: _generate_trial adds to pending_trials immediately if successful
-
-                        for i in range(self.NP):
-                            if self.population[i] is not None and i not in active_trials:
-                                self._generate_trial(i)
-                                # We re-read pending_trials.values() or rely on _generate_trial logic?
-                                # _generate_trial might fail if queue full.
-                                # But if it succeeds, it adds to pending_trials.
-                                # We should update active_trials to avoid redundant calls?
-                                # Actually, checking i not in active_trials is enough if we assume single threaded on_new_results.
-                                # But we should update the set to reflect the newly added trial.
-                                # However, active_trials is a local snapshot.
-                                # Re-check:
-                                if i in self.pending_trials.values():
-                                    active_trials.add(i)  # just in case
-
-            except Exception as e:
-                self.logger.debug(f"Error in DE on_new_results: {e}")
+                # 2. Bootstrapping: wake up any idle slot (e.g. slots filled
+                # during initialization before pop_size reached 4).  Each
+                # slot is visited once, so the snapshot needs no update.
+                active_trials = set(self.pending_trials.values())
+                for i in range(self.NP):
+                    if self.population[i] is not None and i not in active_trials:
+                        self._generate_trial(i)
 
     def _generate_trial(self, target_idx):
         """

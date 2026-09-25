@@ -66,7 +66,13 @@ class ProblemWrapper(Problem):
         from panobbgo.storage import problem_fingerprint
 
         params = {k: v for k, v in vars(self).items() if not k.startswith("_") and k != "dx"}
-        return "%s(%r)<%s>" % (type(self).__qualname__, sorted(params.items()), problem_fingerprint(self._wrapped))
+        box = np.asarray(self.box.box).round(12).tolist()  # a custom box= is part of the identity
+        return "%s(%r, box=%r)<%s>" % (
+            type(self).__qualname__,
+            sorted(params.items()),
+            box,
+            problem_fingerprint(self._wrapped),
+        )
 
 
 class NormalizedProblem(ProblemWrapper):

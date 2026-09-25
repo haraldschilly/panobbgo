@@ -155,6 +155,8 @@ def test_fingerprint_distinguishes_rotations_and_formula_versions():
     plain = TransformedProblem(Rosenbrock(dims=2), x_star=[0.5, 0.5])
     assert fp(plain) != fp(TransformedProblem(Rosenbrock(dims=2), x_star=[0.5, 0.5], Q=q))
     assert '"formula_version": 2' in fp(Wood())  # corrected formula: older databases do not match
+    wide = TransformedProblem(Rosenbrock(dims=2), x_star=[0.5, 0.5], box=[(-9, 9), (-9, 9)])
+    assert fp(plain) != fp(wide)  # a custom box is part of the identity
 
 
 def test_clear_keeps_the_fingerprint_of_an_open_store(storage_uri):

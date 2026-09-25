@@ -281,7 +281,7 @@ class TransformedProblem(Problem):
         from panobbgo.storage import problem_fingerprint
 
         h = hashlib.blake2b(digest_size=16)
-        for arr in (self._x_star, self._y_base_star, self._Q, self._scale):
+        for arr in (self._x_star, self._y_base_star, self._Q, self._scale, self.box.box):
             h.update(b"-" if arr is None else np.ascontiguousarray(arr, dtype=np.float64).tobytes())
         return "TransformedProblem(%s, sigma=%r, seed=%d, %s)<%s>" % (
             self._transform_name,

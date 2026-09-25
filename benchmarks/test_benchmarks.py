@@ -381,7 +381,7 @@ def test_simple_benchmark_structure():
 
 
 def test_battery_expectations_match_the_declared_optima():
-    """Every case's stated minimum is attained at its stated optimum; unknown minima are NaN."""
+    """Every case's stated minimum is attained at its stated optimum, inside the box; unknown minima are NaN."""
     import numpy as np
     from benchmarks.problems import generate_benchmark_battery
     from panobbgo.lib import Point
@@ -397,8 +397,13 @@ def test_battery_expectations_match_the_declared_optima():
         problem = c.create_problem()
         assert problem.dim == c.dimension, c.problem_name  # Arwhead used to build 3-D for "2-D"
         if c.global_optimum is not None:
-            fx = problem(Point(np.asarray(c.global_optimum, dtype=float), "opt")).fx
+            opt = Point(np.asarray(c.global_optimum, dtype=float), "opt")
+            assert opt in problem.box, (c.problem_name, list(c.shift_vector))  # shifted Ripple left [0,1]^2
+            fx = problem(opt).fx
             assert np.isclose(fx, c.global_minimum, atol=1e-6), (c.problem_name, fx, c.global_minimum)
+    state = np.random.get_state()[1].copy()
+    generate_benchmark_battery()
+    assert np.array_equal(np.random.get_state()[1], state)  # building it draws nothing from np.random
 
 
 if __name__ == "__main__":

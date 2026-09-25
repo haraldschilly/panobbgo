@@ -60,28 +60,30 @@ class BenchmarkCase:
     unimodal: bool
 
     def create_problem(self):
-        """Create the actual problem instance."""
-        problem = _construct(PROBLEM_CLASSES[self.problem_name], self.dimension)
+        """Create the actual problem instance.
 
-        # Check if dimension matches requested
-        if hasattr(problem, "dim") and problem.dim != self.dimension:
-            # This happens for fixed dimension problems like GoldsteinPrice (2D)
-            # We can't force dimension, so we might need to skip or warn if mismatch
-            # But for BenchmarkCase generation we should only generate valid dims.
-            pass
-
-        # Apply shift to the problem
-        if np.any(self.shift_vector != 0):
-            problem = ShiftedProblem(problem, self.shift_vector)
-
-        return problem
+        A non-zero ``shift_vector`` translates the whole problem with
+        ``Problem(dx=shift)``: the box moves with the optimum, so a bounded
+        domain (Ripple's ``[0, 1]^2``) still contains it.
+        """
+        shift = np.asarray(self.shift_vector, dtype=float)
+        extra = {"dx": shift} if np.any(shift != 0) else {}
+        return _construct(PROBLEM_CLASSES[self.problem_name], self.dimension, **extra)
 
 
-def _construct(problem_class, dimension: int):
-    """Instantiate ``problem_class`` in ``dimension`` (``dims=``, else ``dim=``, else fixed-dimension)."""
+def _construct(problem_class, dimension: int, **extra):
+    """Instantiate ``problem_class`` in ``dimension`` (``dims=``, else ``dim=``, else fixed-dimension).
+
+    Classes with a ``seed`` (random instances) get ``seed=0``, so building
+    the battery neither varies nor consumes numpy's global random state.
+    """
+    import inspect
+
+    if "seed" in inspect.signature(problem_class.__init__).parameters:
+        extra.setdefault("seed", 0)
     for kwargs in ({"dims": dimension}, {"dim": dimension}, {}):
         try:
-            return problem_class(**kwargs)
+            return problem_class(**kwargs, **extra)
         except TypeError:
             continue
     raise TypeError(f"cannot construct {problem_class.__name__}")
@@ -96,25 +98,6 @@ def _known_optimum(problem_name: str, dimension: int) -> Tuple[float, Optional[n
         float(f_opt) if f_opt is not None else float("nan"),
         np.asarray(x_opt, dtype=float) if x_opt is not None else None,
     )
-
-
-class ShiftedProblem:
-    """Wrapper to shift a problem's optimum."""
-
-    def __init__(self, base_problem, shift_vector):
-        self.base_problem = base_problem
-        self.shift_vector = np.array(shift_vector)
-        self.dim = base_problem.dim
-        self.box = base_problem.box
-
-    def __call__(self, point):
-        # Shift the point before evaluation
-        shifted_point = point.x - self.shift_vector
-        shifted_point_obj = type(point)(shifted_point, point.who)
-        return self.base_problem(shifted_point_obj)
-
-    def __str__(self):
-        return f"Shifted{self.base_problem} (shift={self.shift_vector})"
 
 
 # Available problem classes

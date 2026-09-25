@@ -158,3 +158,13 @@ class NoisyProblem(_DeterministicNoisyProblem):
         if not np.isfinite(true_fx):
             return true_fx
         return float(self.model.apply(true_fx, self._noise_rng(x)))
+
+    def fingerprint(self) -> str:
+        """Storage identity, distinct from :class:`panobbgo.lib.noise.NoisyProblem`'s.
+
+        :meth:`apply_noise` corrupts the raw value, not the precision above
+        ``f_opt``, so with ``f_opt != 0`` the two give different values for
+        the same model, seed and point; sharing a fingerprint let a run's
+        database resume under the other silently.
+        """
+        return "wrappers." + super().fingerprint()

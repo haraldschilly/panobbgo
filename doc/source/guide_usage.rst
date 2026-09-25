@@ -154,6 +154,13 @@ Edit this file to customize behavior.
    An old config file's ``max_stall_seconds`` entry is ignored.  See
    ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.
 
+   Passing it as a *keyword argument* is an error, though: a strategy's
+   constructor accepts only ``max_eval`` / ``max_evaluations``, ``seed``,
+   its own parameters and the names of existing config attributes, and
+   raises ``TypeError`` for anything else — a removed option such as
+   ``max_stall_seconds=`` or a typo such as ``max_evals=`` is no longer
+   dropped silently.
+
 Basic Usage
 -----------
 
@@ -2068,6 +2075,15 @@ An application that configures logging first — e.g.
 its own handlers exactly once, at its own level.  If you configure logging
 only *after* building a strategy, drop the fallback with
 ``logging.getLogger('panobbgo').handlers.clear()``.
+
+Logger focus (``--lf`` / ``--log-focus NAME``) matches the five-character
+logger names exactly.  Every heuristic and analyzer logs under a name of its
+own — by default the first five letters of its module name, upper-cased
+(``LSHAD``, ``CMAES``, ``NELDE``), some pick one explicitly (``SPLIT``,
+``META``, ``LBFGS``, ``BEST``).  There is no longer a shared ``HEUR`` logger,
+so ``--lf HEUR`` matches nothing: name the modules you want instead
+(``--lf LSHAD --lf CMAES``).  The core loggers are ``STRAT``, ``STATS``,
+``EVBUS`` and ``RSLTS``.
 
 Persistent Storage & Resuming
 -----------------------------

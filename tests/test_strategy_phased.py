@@ -8,7 +8,10 @@ from panobbgo.strategies.ucb import StrategyUCB
 from panobbgo.strategies.thompson import StrategyThompsonSampling
 from panobbgo.core import Heuristic
 from panobbgo.lib import Point, Result, Problem
+import inspect
 import time
+
+import numpy as np
 import threading
 
 
@@ -283,3 +286,63 @@ class TestStrategyPhasedExecution(PanobbgoTestCase):
 
         info = strategy._get_status_info()
         assert "phase" in info
+
+
+class TestStrategyPhasedLinUCB(PanobbgoTestCase):
+    """A LinUCB phase must learn (regression: its A/b stayed I/0 for the whole phase)."""
+
+    def _run(self):
+        from panobbgo.strategies.contextual import StrategyLinUCB
+
+        problem = TrackingProblem()
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                {
+                    "pct": 20,
+                    "strategy": (StrategyRoundRobin, {"size": 5}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_RR"})],
+                },
+                {
+                    "strategy": (StrategyLinUCB, {}),
+                    "heuristics": [(SimpleHeuristic, {"name": "H_First"}), (SimpleHeuristic, {"name": "H_Second"})],
+                },
+            ],
+            parse_args=False,
+            seed=3,
+        )
+        strategy.config.max_eval = 120
+        strategy.config.sync_evaluation = True
+        strategy.config.stop_on_convergence = False
+        strategy.start()
+        return strategy, problem
+
+    def test_linucb_phase_updates_and_explores(self):
+        strategy, problem = self._run()
+        first = strategy.heuristic("H_First")
+        second = strategy.heuristic("H_Second")
+        # the model was updated with the phase's rewards ...
+        assert np.any(first.linucb_b != 0) or np.any(second.linucb_b != 0)
+        assert not np.allclose(first.linucb_A, np.eye(3))
+        # ... so the picks moved off the first listed arm
+        assert problem.call_counts.get("H_Second", 0) > 0, problem.call_counts
+
+    def test_linucb_phase_first_result_earns_no_free_reward(self):
+        """A new phase measures improvement against the run's best, not against nothing."""
+        strategy, _ = self._run()
+        strategy._init_phase_stats(1)
+        h = strategy.heuristic("H_First")
+        assert strategy.last_best is not None
+        worse = Result(Point(np.array([0.0]), "H_First"), strategy.last_best.fx + 1.0)
+        worse.point.context_vector = np.array([1.0, 0.5, 0.0])
+        strategy.on_new_results([worse])
+        assert np.all(h.linucb_b == 0)
+        assert not np.allclose(h.linucb_A, np.eye(3))  # the pull still counts
+
+    def test_default_alpha_matches_standalone(self):
+        from panobbgo.strategies._bandit import LINUCB_ALPHA
+        from panobbgo.strategies.contextual import StrategyLinUCB
+
+        assert inspect.signature(StrategyLinUCB.__init__).parameters["linucb_alpha"].default == LINUCB_ALPHA == 2.0
+        # the phase reads the same default
+        assert "LINUCB_ALPHA" in inspect.getsource(StrategyPhased._execute_linucb)

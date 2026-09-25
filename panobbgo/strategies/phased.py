@@ -32,18 +32,23 @@ at phase boundaries.
 
 from __future__ import annotations
 
+import threading
 import time as time_module
 
 from panobbgo.core import StrategyBase
 from panobbgo.strategies._bandit import (
+    LINUCB_ALPHA,
     collect_pulls,
     improvement_reward,
     init_linucb,
     init_thompson,
     init_ucb,
     linucb_context,
+    linucb_observe,
     linucb_select,
+    linucb_update,
     near_best_rewards,
+    push_recent,
     rewarding_select,
     thompson_select,
     ucb_select,
@@ -111,6 +116,10 @@ class StrategyPhased(StrategyBase):
         # State for delegated strategy logic
         self.last_best = None
         self.total_selections = 0
+        #: Guards the LinUCB phase state: updated by ``on_new_results`` on the
+        #: event-bus thread, read by ``execute`` and reset at phase
+        #: transitions on the main thread.
+        self._lock = threading.RLock()
 
         StrategyBase.__init__(self, problem, **kwargs)
 
@@ -233,9 +242,26 @@ class StrategyPhased(StrategyBase):
                 self._init_phase_heuristic(h, phase_idx)
 
         # Reset phase-level state
-        info["state"] = {}
-        if _policy(info["cls"]) == "linucb":
-            info["state"]["recent_rewards"] = []
+        with self._lock:
+            info["state"] = {}
+            if _policy(info["cls"]) == "linucb":
+                self._init_linucb_state(info["state"])
+
+    def _init_linucb_state(self, state):
+        """Fresh LinUCB phase state: empty reward window, best seeded with the run's best.
+
+        Seeding ``local_best`` with :attr:`last_best` means the first result
+        of a later phase earns no reward for merely existing.
+        """
+        state["recent_rewards"] = []
+        state["local_best"] = self.last_best
+
+    def _linucb_state(self):
+        """The current phase's LinUCB state, created on first use (the first phase has no transition)."""
+        state = self._phase_strategy_info[self._current_phase]["state"]
+        if "recent_rewards" not in state:
+            self._init_linucb_state(state)
+        return state
 
     def add_heuristic(self, h):
         """Override to initialize stats for the first phase's strategy."""
@@ -294,13 +320,35 @@ class StrategyPhased(StrategyBase):
         info = self._phase_strategy_info[self._current_phase]
         strat_cls = info["cls"]
 
+        policy = _policy(strat_cls)
+        if policy == "linucb":
+            self._linucb_on_new_results(results)
+
         # Rewarding strategy gives small rewards for points near best
-        if _policy(strat_cls) == "rewarding" and self.last_best is not None:
+        if policy == "rewarding" and self.last_best is not None:
             for r, reward in near_best_rewards(self.constraint_handler, self.problem, self.last_best, results):
                 try:
                     self.heuristic(r.who).performance += reward
                 except KeyError:
                     pass
+
+    def _linucb_on_new_results(self, results):
+        """LinUCB update of the current phase (same rule as :class:`StrategyLinUCB`)."""
+        with self._lock:
+            state = self._linucb_state()
+            for result in results:
+                reward, state["local_best"] = linucb_observe(self.constraint_handler, state["local_best"], result)
+                push_recent(state["recent_rewards"], reward)
+                x_t = getattr(result.point, "context_vector", None)
+                if x_t is None:
+                    continue  # not picked by LinUCB (e.g. an earlier phase's point)
+                try:
+                    h = self.heuristic(result.who)
+                except KeyError:
+                    continue
+                if not hasattr(h, "linucb_A"):
+                    continue  # never initialised for a LinUCB phase
+                linucb_update(h, x_t, reward)
 
     # ── Selection logic per strategy type ──
 
@@ -352,9 +400,9 @@ class StrategyPhased(StrategyBase):
 
     def _execute_linucb(self, phase_heurs, strat_kwargs):
         """LinUCB selection logic."""
-        alpha = float(strat_kwargs.get("linucb_alpha", 0.5))
-        recent = self._phase_strategy_info[self._current_phase]["state"].get("recent_rewards", [])
-        context = linucb_context(len(self.results), self.config.max_eval, recent)
+        alpha = float(strat_kwargs.get("linucb_alpha", LINUCB_ALPHA))
+        with self._lock:
+            context = linucb_context(len(self.results), self.config.max_eval, self._linucb_state()["recent_rewards"])
         return collect_pulls(self, lambda _target: linucb_select(phase_heurs, context, alpha))
 
     # ── Main execute dispatch ──

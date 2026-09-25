@@ -36,6 +36,14 @@ import numpy as np
 #: Context dimension of LinUCB: (bias, budget progress, recent success rate).
 LINUCB_DIM = 3
 
+#: Default LinUCB exploration weight ``α``, shared by
+#: :class:`~.contextual.StrategyLinUCB` and a LinUCB phase of
+#: :class:`~.phased.StrategyPhased`.
+LINUCB_ALPHA = 2.0
+
+#: Length of the recent-reward window behind the LinUCB success-rate feature.
+LINUCB_RECENT = 100
+
 
 # ── Per-heuristic statistics ──
 
@@ -70,6 +78,47 @@ def improvement_reward(constraint_handler, last_best, best) -> float:
         return 1.0
     improvement = constraint_handler.calculate_improvement(last_best, best)
     return 1.0 - np.exp(-1.0 * improvement)
+
+
+def linucb_reward(improvement) -> float:
+    """LinUCB reward of an improvement: 0 if ``improvement <= 0``, else ``1 - exp(-improvement)``."""
+    if improvement <= 0:
+        return 0.0
+    return 1.0 - np.exp(-1.0 * improvement)
+
+
+def linucb_observe(constraint_handler, local_best, result):
+    """Reward of *result* against the running *local_best*; returns ``(reward, new local_best)``.
+
+    With no *local_best* yet the result is the first point and counts as a
+    success (improvement 1.0).
+    """
+    if local_best is None:
+        return linucb_reward(1.0), result
+    improvement = constraint_handler.calculate_improvement(local_best, result)
+    if constraint_handler.is_better(local_best, result):
+        local_best = result
+    return linucb_reward(improvement), local_best
+
+
+def linucb_update(h, x, r: float) -> None:
+    """Disjoint-LinUCB update of heuristic *h*: ``A += x xᵀ``, ``b += r·x``, refresh ``A⁻¹``.
+
+    Also counts the update in ``h.linucb_count`` / ``h.linucb_reward``.
+    """
+    h.linucb_A += np.outer(x, x)
+    h.linucb_b += r * x
+    # d = 3: a full inverse is as cheap as Sherman-Morrison
+    h.linucb_A_inv = np.linalg.inv(h.linucb_A)
+    h.linucb_count = getattr(h, "linucb_count", 0) + 1
+    h.linucb_reward = getattr(h, "linucb_reward", 0.0) + r
+
+
+def push_recent(buf: list, r: float, cap: int = LINUCB_RECENT) -> None:
+    """Append *r* to *buf*, dropping the oldest entry beyond *cap*."""
+    buf.append(r)
+    if len(buf) > cap:
+        buf.pop(0)
 
 
 def discount_factor(val) -> float:

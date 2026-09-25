@@ -21,7 +21,18 @@ import threading
 import numpy as np
 
 from panobbgo.core import StrategyBase
-from panobbgo.strategies._bandit import LINUCB_DIM, collect_pulls, init_linucb, linucb_context, linucb_select
+from panobbgo.strategies._bandit import (
+    LINUCB_ALPHA,
+    LINUCB_DIM,
+    collect_pulls,
+    init_linucb,
+    linucb_context,
+    linucb_observe,
+    linucb_reward,
+    linucb_select,
+    linucb_update,
+    push_recent,
+)
 
 
 class StrategyLinUCB(StrategyBase):
@@ -42,7 +53,7 @@ class StrategyLinUCB(StrategyBase):
     where $A_a = \\sum x_s x_s^T + I$ and $b_a = \\sum r_s x_s$.
     """
 
-    def __init__(self, problem, linucb_alpha: float = 2.0, **kwargs):
+    def __init__(self, problem, linucb_alpha: float = LINUCB_ALPHA, **kwargs):
         self.local_best = None  # Track best internally to avoid event bus race conditions
         #: Exploration weight (default 2.0 to encourage exploration).  An
         #: explicit parameter: read from ``**kwargs`` it was also forwarded
@@ -71,7 +82,8 @@ class StrategyLinUCB(StrategyBase):
         """
         if not hasattr(self, "_recent_rewards"):
             self._recent_rewards = []
-        return linucb_context(len(self.results), self.config.max_eval, self._recent_rewards)
+        with self._lock:
+            return linucb_context(len(self.results), self.config.max_eval, self._recent_rewards)
 
     def reward(self, improvement):
         """
@@ -83,10 +95,7 @@ class StrategyLinUCB(StrategyBase):
         Returns:
             float: Reward in [0, 1]
         """
-        if improvement <= 0:
-            return 0.0
-        # Bounded reward in [0, 1]
-        return 1.0 - np.exp(-1.0 * improvement)
+        return linucb_reward(improvement)
 
     def on_new_best(self, best):
         """
@@ -103,62 +112,26 @@ class StrategyLinUCB(StrategyBase):
         if not results:
             return
 
-        # Update recent rewards buffer
         if not hasattr(self, "_recent_rewards"):
             self._recent_rewards = []
 
         with self._lock:
             for result in results:
-                # Calculate reward locally using self.local_best
-                if self.local_best is None:
-                    # First point is effectively a success
-                    improvement = 1.0
-                    self.local_best = result
-                else:
-                    improvement = self.constraint_handler.calculate_improvement(self.local_best, result)
-                    if self.constraint_handler.is_better(self.local_best, result):
-                        self.local_best = result
-
-                reward_val = self.reward(improvement)
-
+                # Reward against the internally tracked best (not the event-bus best)
+                reward_val, self.local_best = linucb_observe(self.constraint_handler, self.local_best, result)
                 if reward_val > 0:
                     self.logger.info("\u2318 %s | \u0394 %.7f %s (LinUCB)" % (result, reward_val, result.who))
+                push_recent(self._recent_rewards, reward_val)
 
-                # Update recent rewards (keep last 100)
-                self._recent_rewards.append(reward_val)
-                if len(self._recent_rewards) > 100:
-                    self._recent_rewards.pop(0)
-
-                # Get context vector from point
-                # It should have been attached in execute()
-                if hasattr(result.point, "context_vector"):
-                    x_t = result.point.context_vector
-
-                    try:
-                        h = self.heuristic(result.who)
-                    except KeyError:
-                        continue
-
-                    # LinUCB Update
-                    # A += x x^T
-                    h.linucb_A += np.outer(x_t, x_t)
-                    # b += r * x
-                    h.linucb_b += reward_val * x_t
-
-                    # Recompute inverse (or use Sherman-Morrison for O(d^2) update, but d=3 is tiny)
-                    h.linucb_A_inv = np.linalg.inv(h.linucb_A)
-
-                    # Update stats for logging
-                    if not hasattr(h, "linucb_count"):
-                        h.linucb_count = 0
-                    if not hasattr(h, "linucb_reward"):
-                        h.linucb_reward = 0.0
-                    h.linucb_count += 1
-                    h.linucb_reward += reward_val
-
-                else:
-                    # Point generated without context (e.g. at startup or by other means)
-                    pass
+                # The context the point was selected under, attached in execute();
+                # points generated without one (e.g. at startup) teach nothing.
+                if not hasattr(result.point, "context_vector"):
+                    continue
+                try:
+                    h = self.heuristic(result.who)
+                except KeyError:
+                    continue
+                linucb_update(h, result.point.context_vector, reward_val)
 
     def execute(self):
         # One context for the whole batch; each point carries it back to on_new_results.

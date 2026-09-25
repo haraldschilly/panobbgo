@@ -183,7 +183,6 @@ class TestAnalyzersBestCoverage(PanobbgoTestCase):
             best_analyzer.on_new_results([r])
 
         pf = best_analyzer.pareto_front
-        pf_values = [(r.fx, r.cv) for r in pf]
 
         # Expected Front:
         # P2: (8.0, 5.0)

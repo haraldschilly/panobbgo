@@ -133,7 +133,7 @@ class TestHeuristicRegressions:
         rather than just raw penalty value.
         """
         strategy = MockStrategy()
-        nm = NelderMead(strategy)
+        NelderMead(strategy)
 
         # R1: Infeasible, FX=0.0, CV=1.0 -> Penalty=100
         r1 = Result(Point(np.array([0.0]), "r1"), 0.0, cv_vec=np.array([1.0]))
@@ -222,7 +222,7 @@ def test_quadratic_wls_subprocess():
         try:
             # Send EOF/break
             child_conn.close()
-        except:
+        except Exception:
             pass
         p.terminate()
         p.join(timeout=1.0)

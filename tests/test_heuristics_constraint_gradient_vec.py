@@ -222,9 +222,6 @@ def test_constraint_gradient_fallback_scalar():
 
     strategy.results.get_history = mock_get_history
 
-    # Set best.cv > 0 manually
-    best = results[0]
-
     # We need to monkeypatch 'cv' property or create a mock Result
     # Result.cv is a property.
     # We can create a dummy object with attributes

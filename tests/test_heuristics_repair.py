@@ -73,7 +73,7 @@ def test_repair_heuristic_on_new_best():
     points = h.get_points()
 
     try:
-        import scipy
+        import scipy  # noqa: F401  # availability guard: skip the block via ImportError if scipy is missing
 
         if len(points) > 0:
             p = points[0]

@@ -136,9 +136,6 @@ class StrategiesTests(PanobbgoTestCase):
         # StrategyRewarding checks fx directly from result.
 
         # We want x to be far.
-        ranges = self.problem.ranges  # Rosenbrock [-5, 10] usually?
-        # Let's check ranges. Rosenbrock default box is usually large.
-
         near_point = Point(np.array([-1.0, -1.0, -1.0]), h_random.name)
         # Fake fx for testing logic
         near_result = Result(near_point, 0.00001)

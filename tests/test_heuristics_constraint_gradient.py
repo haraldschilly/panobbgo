@@ -54,8 +54,6 @@ class TestConstraintGradient(PanobbgoTestCase):
         self.problem = SimpleProblem()
         self.strategy.problem = self.problem
 
-        dim = 2
-
         # Mock history points around (0,0)
         # CV(x) = x[0] + x[1] + 1.0
         history = []

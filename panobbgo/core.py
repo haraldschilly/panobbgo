@@ -1666,6 +1666,22 @@ class EventBus:
             t.join(timeout=timeout)
 
 
+#: The default-analyzer slots :meth:`StrategyBase.initialize` walks, in
+#: order.  Until 2026-09 all four were constructed unconditionally, each
+#: drawing one :meth:`~StrategyBase.spawn_rng` stream from the master seed.
+#: Now ``Grid`` is gone, the ``Splitter`` is built only on demand, and an
+#: analyzer the user added already is skipped — but every slot that builds
+#: nothing still draws (and discards) its stream.  Strategies that draw from
+#: ``self.rng`` afterwards (Thompson, phased) and modules spawned later thus
+#: see the same numbers as before, which keeps seeded trajectories identical
+#: to older runs.  Do not reorder, add or remove entries without accepting
+#: that every seeded trajectory changes.
+_LEGACY_DEFAULT_ANALYZER_SLOTS: Tuple[str, ...] = ("Best", "Grid", "Splitter", "Convergence")
+
+#: The slots of :data:`_LEGACY_DEFAULT_ANALYZER_SLOTS` that still construct an analyzer.
+_DEFAULT_ANALYZERS = frozenset({"Best", "Splitter", "Convergence"})
+
+
 def _config_keys(config: Any) -> set:
     """Public, non-callable attributes of a :class:`Config` — the settable keys."""
     return {k for k, v in vars(config).items() if not k.startswith("_") and not callable(v)}
@@ -1868,25 +1884,13 @@ class StrategyBase:
 
         # Default analyzers: ``Best`` and ``Convergence`` always, the
         # ``Splitter`` only when a module declares it (``requires_analyzers``).
-        # The loop walks the four historical slots — Best, Grid, Splitter,
-        # Convergence — and every slot that constructs nothing (``Grid``, which
-        # nothing reads, an unneeded ``Splitter``, an analyzer the user added
-        # already) still draws its seed from the master stream, exactly as the
-        # unconditional construction of all four did.  Strategies that draw
-        # from ``self.rng`` afterwards (Thompson, phased) and modules spawned
-        # later therefore see the same numbers as before, which keeps seeded
-        # trajectories comparable with older runs.
-        from .analyzers import Best, Convergence, Splitter
+        # See _LEGACY_DEFAULT_ANALYZER_SLOTS for why every slot draws a seed.
+        from . import analyzers
 
         needed = set(self._required_analyzers())
-        slots: List[Tuple[str, Any]] = [
-            ("Best", Best),
-            ("Grid", None),
-            ("Splitter", Splitter),
-            ("Convergence", Convergence),
-        ]
         new_analyzers = []
-        for name, cls in slots:
+        for name in _LEGACY_DEFAULT_ANALYZER_SLOTS:
+            cls = getattr(analyzers, name, None) if name in _DEFAULT_ANALYZERS else None
             if cls is not None and name not in self._analyzers and (name != "Splitter" or name in needed):
                 new_analyzers.append(cls(self))
             else:

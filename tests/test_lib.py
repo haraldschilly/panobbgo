@@ -154,6 +154,18 @@ class Lib(unittest.TestCase):
     def test_result_error(self):
         Result([1.0, 1.0], 1.1)
 
+    def test_result_eq_and_hash_are_identity(self):
+        """``__eq__`` compared fx only, ``__hash__`` used (x, fx, who): inconsistent."""
+        a = Result(Point([0.0, 0.0], "h"), 1.0)
+        b = Result(Point([5.0, 5.0], "h"), 1.0)  # same fx, different evaluation
+        c = Result(Point([0.0, 0.0], "h"), 1.0)  # same x, fx, who: still another evaluation
+        assert a == a and a != b and a != c
+        assert len({a, b, c}) == 3
+        front = [a, b]
+        front.remove(b)
+        assert front == [a]
+        assert sorted([b, Result(Point([1.0, 1.0], "h"), 0.5)])[0].fx == 0.5
+
     def test_result(self):
         r0 = Result(Point([1.0, 1.0], "nose"), 1.0)
         assert r0.who == "nose"

@@ -221,20 +221,11 @@ class Result:
             return True
         return self._fx < other._fx
 
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, Result):
-            return NotImplemented
-        return self._fx == other._fx
-
-    def __hash__(self) -> int:
-        """
-        Hash function for Result objects, needed for use in sets and dictionaries.
-
-        Uses the point coordinates and function value for uniqueness.
-        """
-        # Convert numpy array to tuple for hashing
-        x_tuple = tuple(self.x) if self.x is not None else ()
-        return hash((x_tuple, self._fx, self.who))
+    # Equality and hashing are by identity (``object``'s defaults).  Until
+    # 2026-09 ``__eq__`` compared fx only while ``__hash__`` used (x, fx, who)
+    # — inconsistent, and two distinct evaluations with equal fx compared
+    # equal (``in`` / ``list.remove`` / dict keys).  Compare ``.fx``
+    # explicitly where value equality is meant; ordering stays ``__lt__``.
 
     def __str__(self) -> str:
         x = " ".join("%11.6f" % _ for _ in self.x) if self.x is not None else None

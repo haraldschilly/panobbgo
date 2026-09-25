@@ -141,10 +141,12 @@ class TestSplitterCoverage(PanobbgoTestCase):
         splitter.root._register_result(r2)
         # self.assertEqual(splitter.root.best, r1)
 
-        # Add better result (cv is same, fx is lower)
+        # Without a constraint handler the fallback compares fx only: r2
+        # (fx 1.0) replaced r1, and r3 (also fx 1.0) is not strictly better.
+        # (This passed as ``best == r3`` only while Result.__eq__ compared fx.)
         r3 = Result(Point(self.problem.center + 0.2, "p3"), 1.0, cv_vec=np.array([1.0]))
         splitter.root._register_result(r3)
-        self.assertEqual(splitter.root.best, r3)
+        self.assertIs(splitter.root.best, r2)
 
     def test_splitter_get_all_boxes_result_in_leaf(self):
         splitter = Splitter(self.strategy)

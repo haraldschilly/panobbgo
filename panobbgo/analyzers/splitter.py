@@ -412,7 +412,7 @@ class Splitter(Analyzer):
                 # So we just need to find WHICH child contains it.
 
                 # Simple check: if fx matches (and cv matches)
-                if new_box.best == self.best_box.best:  # Result.__eq__ checks fx
+                if new_box.best.fx == self.best_box.best.fx:
                     # Ideally check identity
                     if new_box.best is self.best_box.best:
                         self.best_box = new_box

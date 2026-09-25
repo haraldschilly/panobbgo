@@ -56,3 +56,31 @@ class TestHeuristicNelderMead(PanobbgoTestCase):
         xa = np.array([p.x for p in a.get_points()])
         xb = np.array([p.x for p in b.get_points()])
         np.testing.assert_array_equal(xa, xb)
+
+    def _results(self, xs, fxs=None):
+        from panobbgo.lib import Point, Result
+
+        fxs = range(len(xs)) if fxs is None else fxs
+        return [Result(Point(np.array(x, dtype=float), "t"), float(f)) for x, f in zip(xs, fxs)]
+
+    def test_collinear_points_are_no_simplex(self):
+        """Regression: absolute positions were orthogonalised, so collinear points off the origin passed."""
+        nm = NelderMead(self.strategy)
+        assert nm.gram_schmidt(2, self._results([[1.0, 0.0], [1.0, 1.0], [1.0, 2.0]])) is None
+
+    def test_base_is_a_full_simplex_and_translation_invariant(self):
+        """dim + 1 affinely independent vertices, best first; shifting every point shifts nothing else."""
+        from panobbgo.lib.constraints import DefaultConstraintHandler
+
+        self.strategy.constraint_handler = DefaultConstraintHandler(self.strategy, rho=100.0)  # a real best-first sort
+        nm = NelderMead(self.strategy)
+        xs = [[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [0.0, 1.0]]
+        base = nm.gram_schmidt(2, self._results(xs))
+        assert base is not None and len(base) == 3
+        assert [list(r.x) for r in base] == [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]
+        offsets = np.array([r.x - base[0].x for r in base[1:]])
+        assert np.linalg.matrix_rank(offsets) == 2
+
+        shift = np.array([5.0, -3.0])
+        shifted = nm.gram_schmidt(2, self._results([np.array(x) + shift for x in xs]))
+        assert [list(r.x - shift) for r in shifted] == [list(r.x) for r in base]

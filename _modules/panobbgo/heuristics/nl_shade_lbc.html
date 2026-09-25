@@ -556,10 +556,10 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="420"><span class="w">        </span><span class="sd">"""Linear bias change schedule.</span>
 </span><span data-line="421">
 </span><span data-line="422"><span class="sd">        ``p(r) = (1 − r) · p_init + r · p_final``.  When the strategy</span>
-</span><span data-line="423"><span class="sd">        budget is unknown (``_progress() is None``) the schedule falls</span>
+</span><span data-line="423"><span class="sd">        budget is unknown (``budget_progress() is None``) the schedule falls</span>
 </span><span data-line="424"><span class="sd">        back to ``p_init`` — a documented, predictable fallback.</span>
 </span><span data-line="425"><span class="sd">        """</span>
-</span><span data-line="426">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="426">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
 </span><span data-line="427">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="428">            <span class="k">return</span> <span class="n">p_init</span>
 </span><span data-line="429">        <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">progress</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>

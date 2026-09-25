@@ -419,7 +419,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="283"><span class="sd">        ``p_best_max`` (the early-phase value), matching the L-SHADE</span>
 </span><span data-line="284"><span class="sd">        fall-back pattern.</span>
 </span><span data-line="285"><span class="sd">        """</span>
-</span><span data-line="286">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="286">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
 </span><span data-line="287">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="288">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span>
 </span><span data-line="289">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_best_min</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_best_max</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span><span class="p">)</span>
@@ -431,7 +431,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="295"><span class="sd">        :meth:`_generate_trial` multiplies it by the sampled ``F``.  Falls</span>
 </span><span data-line="296"><span class="sd">        back to the early-phase factor when the budget is unknown.</span>
 </span><span data-line="297"><span class="sd">        """</span>
-</span><span data-line="298">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="298">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
 </span><span data-line="299">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="300">            <span class="k">return</span> <span class="n">_FW_PHASE1_FACTOR</span>
 </span><span data-line="301">        <span class="k">if</span> <span class="n">progress</span> <span class="o">&lt;</span> <span class="n">_FW_PHASE1_BOUND</span><span class="p">:</span>
@@ -446,7 +446,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="310"><span class="sd">        Applied to every sampled ``CR``, including the ``0`` a terminal bin</span>
 </span><span data-line="311"><span class="sd">        yields (reference code).  Bypassed when the budget is unknown.</span>
 </span><span data-line="312"><span class="sd">        """</span>
-</span><span data-line="313">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="313">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
 </span><span data-line="314">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="315">            <span class="k">return</span> <span class="n">CR</span>
 </span><span data-line="316">        <span class="k">for</span> <span class="n">bound</span><span class="p">,</span> <span class="n">floor</span> <span class="ow">in</span> <span class="n">_CR_FLOORS</span><span class="p">:</span>
@@ -471,7 +471,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="335"><span class="sd">        excluded throughout (early-phase fallback).</span>
 </span><span data-line="336"><span class="sd">        """</span>
 </span><span data-line="337">        <span class="n">pool</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_pbest_pool</span><span class="p">(</span><span class="n">sorted_live</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">)</span>
-</span><span data-line="338">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="338">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
 </span><span data-line="339">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">progress</span> <span class="o">&lt;</span> <span class="n">_PBEST_NOT_TARGET_UNTIL</span><span class="p">:</span>
 </span><span data-line="340">            <span class="n">others</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
 </span><span data-line="341">            <span class="k">if</span> <span class="n">others</span><span class="p">:</span>

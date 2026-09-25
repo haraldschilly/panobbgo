@@ -2384,7 +2384,9 @@ independent.</p></li>
 <a class="reference internal" href="#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a>: the global memory is
 wiped, particles are scattered around the suggested center, and
 the next evaluation cycle behaves as if the heuristic had just
-started — except the strategy keeps its accumulated history.</p>
+started — except the strategy keeps its accumulated history.
+With <code class="docutils literal notranslate"><span class="pre">warm_start</span></code> set and a non-empty archive the swarm is
+re-seeded from the archive instead (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_warm_start_swarm()</span></code>).</p>
 </dd></dl>
 
 <dl class="py method">

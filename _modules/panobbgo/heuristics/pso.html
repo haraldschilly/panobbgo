@@ -816,253 +816,260 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="680"><span class="sd">        """</span>
 </span><span data-line="681">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_end</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="682">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
-</span><span data-line="683">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="684">            <span class="n">max_eval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">max_eval</span><span class="p">)</span>  <span class="c1"># type: ignore[union-attr]</span>
-</span><span data-line="685">            <span class="n">current</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">results</span><span class="p">))</span>
-</span><span data-line="686">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="687">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
-</span><span data-line="688">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">max_eval</span><span class="p">)</span> <span class="ow">or</span> <span class="n">max_eval</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="689">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
-</span><span data-line="690">        <span class="n">progress</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">current</span> <span class="o">/</span> <span class="n">max_eval</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="691">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_end</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span>
-</span><span data-line="692">
-</span><span data-line="693">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_next</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="694"><span class="w">        </span><span class="sd">"""Produce the next candidate position for ``particle_idx``.</span>
-</span><span data-line="695">
-</span><span data-line="696"><span class="sd">        Falls back to a fresh random point if we don't yet have a</span>
-</span><span data-line="697"><span class="sd">        social attractor (e.g. all initial trials still pending, or</span>
-</span><span data-line="698"><span class="sd">        ``lbest`` mode with the entire local neighbourhood empty).</span>
-</span><span data-line="699"><span class="sd">        Callers only move a particle that already holds a personal best</span>
-</span><span data-line="700"><span class="sd">        (after its own result, or after a warm-start seed).</span>
-</span><span data-line="701"><span class="sd">        """</span>
-</span><span data-line="702">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="703">            <span class="k">return</span>
-</span><span data-line="704">
-</span><span data-line="705">        <span class="n">social_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_social_best_idx</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span>
-</span><span data-line="706">        <span class="k">if</span> <span class="n">social_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="707">            <span class="c1"># No memory to pull from yet — emit a fresh random point so</span>
-</span><span data-line="708">            <span class="c1"># the particle stays active.</span>
-</span><span data-line="709">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="710">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">)</span>
-</span><span data-line="711">            <span class="k">return</span>
-</span><span data-line="712">
-</span><span data-line="713">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="714">        <span class="n">x_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
-</span><span data-line="715">        <span class="n">v_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
-</span><span data-line="716">        <span class="n">p_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
-</span><span data-line="717">        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">social_idx</span><span class="p">]</span>
+</span><span data-line="683">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
+</span><span data-line="684">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="685">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span>
+</span><span data-line="686">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">w</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">w_end</span><span class="p">)</span> <span class="o">*</span> <span class="n">progress</span>
+</span><span data-line="687">
+</span><span data-line="688">    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_next</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="689"><span class="w">        </span><span class="sd">"""Produce the next candidate position for ``particle_idx``.</span>
+</span><span data-line="690">
+</span><span data-line="691"><span class="sd">        Falls back to a fresh random point if we don't yet have a</span>
+</span><span data-line="692"><span class="sd">        social attractor (e.g. all initial trials still pending, or</span>
+</span><span data-line="693"><span class="sd">        ``lbest`` mode with the entire local neighbourhood empty).</span>
+</span><span data-line="694"><span class="sd">        Callers only move a particle that already holds a personal best</span>
+</span><span data-line="695"><span class="sd">        (after its own result, or after a warm-start seed).</span>
+</span><span data-line="696"><span class="sd">        """</span>
+</span><span data-line="697">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="698">            <span class="k">return</span>
+</span><span data-line="699">
+</span><span data-line="700">        <span class="n">social_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_social_best_idx</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span>
+</span><span data-line="701">        <span class="k">if</span> <span class="n">social_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="702">            <span class="c1"># No memory to pull from yet — emit a fresh random point so</span>
+</span><span data-line="703">            <span class="c1"># the particle stays active.</span>
+</span><span data-line="704">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="705">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">)</span>
+</span><span data-line="706">            <span class="k">return</span>
+</span><span data-line="707">
+</span><span data-line="708">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="709">        <span class="n">x_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="710">        <span class="n">v_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="711">        <span class="n">p_i</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="712">        <span class="n">g</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">social_idx</span><span class="p">]</span>
+</span><span data-line="713">
+</span><span data-line="714">        <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_inertia</span><span class="p">()</span>
+</span><span data-line="715">        <span class="n">r1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="716">        <span class="n">r2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="717">        <span class="n">new_v</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">v_i</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">*</span> <span class="n">r1</span> <span class="o">*</span> <span class="p">(</span><span class="n">p_i</span> <span class="o">-</span> <span class="n">x_i</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">*</span> <span class="n">r2</span> <span class="o">*</span> <span class="p">(</span><span class="n">g</span> <span class="o">-</span> <span class="n">x_i</span><span class="p">)</span>
 </span><span data-line="718">
-</span><span data-line="719">        <span class="n">w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_inertia</span><span class="p">()</span>
-</span><span data-line="720">        <span class="n">r1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="721">        <span class="n">r2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="722">        <span class="n">new_v</span> <span class="o">=</span> <span class="n">w</span> <span class="o">*</span> <span class="n">v_i</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c1</span> <span class="o">*</span> <span class="n">r1</span> <span class="o">*</span> <span class="p">(</span><span class="n">p_i</span> <span class="o">-</span> <span class="n">x_i</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">c2</span> <span class="o">*</span> <span class="n">r2</span> <span class="o">*</span> <span class="p">(</span><span class="n">g</span> <span class="o">-</span> <span class="n">x_i</span><span class="p">)</span>
+</span><span data-line="719">        <span class="c1"># Velocity clamp.</span>
+</span><span data-line="720">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="721">        <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">new_v</span><span class="p">,</span> <span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">new_v</span><span class="p">)</span>
+</span><span data-line="722">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_v</span>
 </span><span data-line="723">
-</span><span data-line="724">        <span class="c1"># Velocity clamp.</span>
-</span><span data-line="725">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
-</span><span data-line="726">        <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">new_v</span><span class="p">,</span> <span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">new_v</span><span class="p">)</span>
-</span><span data-line="727">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_v</span>
-</span><span data-line="728">
-</span><span data-line="729">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x_i</span> <span class="o">+</span> <span class="n">new_v</span>
-</span><span data-line="730">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">new_x</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">)</span>
-</span><span data-line="731">
-</span><span data-line="732">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="733">    <span class="c1"># Heuristic interface</span>
-</span><span data-line="734">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="735">
-</span><span data-line="736">    <span class="k">def</span><span class="w"> </span><span class="nf">_derangement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-</span><span data-line="737"><span class="w">        </span><span class="sd">"""A permutation of ``range(n)`` without fixed points.</span>
-</span><span data-line="738">
-</span><span data-line="739"><span class="sd">        Rejection sampling (a random permutation is a derangement with</span>
-</span><span data-line="740"><span class="sd">        probability ≈ 1/e, so this takes about three draws) with a cyclic</span>
-</span><span data-line="741"><span class="sd">        shift as the bounded fallback.  ``n &lt; 2`` has no derangement; the</span>
-</span><span data-line="742"><span class="sd">        identity is returned and the corresponding velocities come out zero.</span>
-</span><span data-line="743"><span class="sd">        """</span>
-</span><span data-line="744">        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="745">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="746">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="747">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_DERANGEMENT_MAX_DRAWS</span><span class="p">):</span>
-</span><span data-line="748">            <span class="n">perm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="749">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">perm</span> <span class="o">==</span> <span class="n">idx</span><span class="p">):</span>
-</span><span data-line="750">                <span class="k">return</span> <span class="n">perm</span>
-</span><span data-line="751">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span><span data-line="752">
-</span><span data-line="753">    <span class="k">def</span><span class="w"> </span><span class="nf">_warm_start_swarm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="754"><span class="w">        </span><span class="sd">"""Seed positions, personal bests and velocities from the shared archive.</span>
-</span><span data-line="755">
-</span><span data-line="756"><span class="sd">        ``True`` iff at least one particle was seeded.  The seed points cost</span>
-</span><span data-line="757"><span class="sd">        **zero evaluations** — they are already-evaluated</span>
-</span><span data-line="758"><span class="sd">        :class:`~panobbgo.lib.Result` objects, so they go straight into</span>
-</span><span data-line="759"><span class="sd">        ``_pbest_result``.  Each particle then gets one ordinary move</span>
-</span><span data-line="760"><span class="sd">        (:meth:`_generate_next`), which is the first thing it would have done</span>
-</span><span data-line="761"><span class="sd">        anyway; the difference is that the move starts from a good point with</span>
-</span><span data-line="762"><span class="sd">        a velocity pointing at *another* good point.</span>
-</span><span data-line="763"><span class="sd">        """</span>
-</span><span data-line="764">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
-</span><span data-line="765">            <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="766">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="767">        <span class="n">seeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start_box</span><span class="p">)</span>
-</span><span data-line="768">        <span class="k">if</span> <span class="ow">not</span> <span class="n">seeds</span><span class="p">:</span>
-</span><span data-line="769">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># empty archive: the caller falls back to the cold path</span>
-</span><span data-line="770">
-</span><span data-line="771">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="772">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
-</span><span data-line="773">        <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">)</span>
-</span><span data-line="774">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-</span><span data-line="775">            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="776">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="777">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="778">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-</span><span data-line="779">
-</span><span data-line="780">        <span class="c1"># Shortfall: the cold path, unchanged — a random position with a</span>
-</span><span data-line="781">        <span class="c1"># random velocity, evaluated as a fresh particle.</span>
-</span><span data-line="782">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
-</span><span data-line="783">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="784">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="785">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="786">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-</span><span data-line="787">
-</span><span data-line="788">        <span class="c1"># Velocities of the seeded particles: half the way towards another</span>
-</span><span data-line="789">        <span class="c1"># seed.  A derangement, so no particle is handed a zero velocity and</span>
-</span><span data-line="790">        <span class="c1"># the swarm spans the archive instead of collapsing onto its best</span>
-</span><span data-line="791">        <span class="c1"># point.</span>
-</span><span data-line="792">        <span class="n">perm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derangement</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="724">        <span class="n">new_x</span> <span class="o">=</span> <span class="n">x_i</span> <span class="o">+</span> <span class="n">new_v</span>
+</span><span data-line="725">        <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">new_x</span><span class="p">,</span> <span class="n">particle_idx</span><span class="p">)</span>
+</span><span data-line="726">
+</span><span data-line="727">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="728">    <span class="c1"># Heuristic interface</span>
+</span><span data-line="729">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="730">
+</span><span data-line="731">    <span class="k">def</span><span class="w"> </span><span class="nf">_derangement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="732"><span class="w">        </span><span class="sd">"""A permutation of ``range(n)`` without fixed points.</span>
+</span><span data-line="733">
+</span><span data-line="734"><span class="sd">        Rejection sampling (a random permutation is a derangement with</span>
+</span><span data-line="735"><span class="sd">        probability ≈ 1/e, so this takes about three draws) with a cyclic</span>
+</span><span data-line="736"><span class="sd">        shift as the bounded fallback.  ``n &lt; 2`` has no derangement; the</span>
+</span><span data-line="737"><span class="sd">        identity is returned and the corresponding velocities come out zero.</span>
+</span><span data-line="738"><span class="sd">        """</span>
+</span><span data-line="739">        <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+</span><span data-line="740">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="741">        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="742">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_DERANGEMENT_MAX_DRAWS</span><span class="p">):</span>
+</span><span data-line="743">            <span class="n">perm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="744">            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">perm</span> <span class="o">==</span> <span class="n">idx</span><span class="p">):</span>
+</span><span data-line="745">                <span class="k">return</span> <span class="n">perm</span>
+</span><span data-line="746">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="747">
+</span><span data-line="748">    <span class="k">def</span><span class="w"> </span><span class="nf">_warm_start_swarm</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="749"><span class="w">        </span><span class="sd">"""Seed positions, personal bests and velocities from the shared archive.</span>
+</span><span data-line="750">
+</span><span data-line="751"><span class="sd">        ``True`` iff at least one particle was seeded.  The seed points cost</span>
+</span><span data-line="752"><span class="sd">        **zero evaluations** — they are already-evaluated</span>
+</span><span data-line="753"><span class="sd">        :class:`~panobbgo.lib.Result` objects, so they go straight into</span>
+</span><span data-line="754"><span class="sd">        ``_pbest_result``.  Each particle then gets one ordinary move</span>
+</span><span data-line="755"><span class="sd">        (:meth:`_generate_next`), which is the first thing it would have done</span>
+</span><span data-line="756"><span class="sd">        anyway; the difference is that the move starts from a good point with</span>
+</span><span data-line="757"><span class="sd">        a velocity pointing at *another* good point.</span>
+</span><span data-line="758"><span class="sd">        """</span>
+</span><span data-line="759">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
+</span><span data-line="760">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="761">        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="762">        <span class="n">seeds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive_seed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">warm_start_box</span><span class="p">)</span>
+</span><span data-line="763">        <span class="k">if</span> <span class="ow">not</span> <span class="n">seeds</span><span class="p">:</span>
+</span><span data-line="764">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># empty archive: the caller falls back to the cold path</span>
+</span><span data-line="765">
+</span><span data-line="766">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="767">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="768">        <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">seeds</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">)</span>
+</span><span data-line="769">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span data-line="770">            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="771">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="772">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="773">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span><span data-line="774">
+</span><span data-line="775">        <span class="c1"># Shortfall: the cold path, unchanged — a random position with a</span>
+</span><span data-line="776">        <span class="c1"># random velocity, evaluated as a fresh particle.</span>
+</span><span data-line="777">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
+</span><span data-line="778">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="779">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="780">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="781">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+</span><span data-line="782">
+</span><span data-line="783">        <span class="c1"># Velocities of the seeded particles: half the way towards another</span>
+</span><span data-line="784">        <span class="c1"># seed.  A derangement, so no particle is handed a zero velocity and</span>
+</span><span data-line="785">        <span class="c1"># the swarm spans the archive instead of collapsing onto its best</span>
+</span><span data-line="786">        <span class="c1"># point.</span>
+</span><span data-line="787">        <span class="n">perm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_derangement</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="788">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+</span><span data-line="789">            <span class="n">v</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+</span><span data-line="790">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">)</span>
+</span><span data-line="791">
+</span><span data-line="792">        <span class="bp">self</span><span class="o">.</span><span class="n">_update_global_best</span><span class="p">()</span>
 </span><span data-line="793">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-</span><span data-line="794">            <span class="n">v</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">perm</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-</span><span data-line="795">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">)</span>
+</span><span data-line="794">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</span><span data-line="795">        <span class="k">return</span> <span class="kc">True</span>
 </span><span data-line="796">
-</span><span data-line="797">        <span class="bp">self</span><span class="o">.</span><span class="n">_update_global_best</span><span class="p">()</span>
-</span><span data-line="798">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
-</span><span data-line="799">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
-</span><span data-line="800">        <span class="k">return</span> <span class="kc">True</span>
-</span><span data-line="801">
 <div class="viewcode-block" id="PSO.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_start">[docs]</a>
-</span><span data-line="802">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="803"><span class="w">        </span><span class="sd">"""Allocate state and emit the initial swarm of random positions.</span>
-</span><span data-line="804">
-</span><span data-line="805"><span class="sd">        With ``warm_start`` set and a non-empty archive the random swarm is</span>
-</span><span data-line="806"><span class="sd">        replaced by seeds taken straight from the shared archive; with</span>
-</span><span data-line="807"><span class="sd">        ``warm_start=None`` — or an archive that has nothing to give — this</span>
-</span><span data-line="808"><span class="sd">        is the cold start, statement for statement as before.</span>
-</span><span data-line="809"><span class="sd">        """</span>
-</span><span data-line="810">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="811">        <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="812">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="813">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="814">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span>
-</span><span data-line="815">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="816">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="817">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="818">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
-</span><span data-line="819">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
-</span><span data-line="820">
-</span><span data-line="821">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">():</span>
-</span><span data-line="822">            <span class="k">return</span>
-</span><span data-line="823">
-</span><span data-line="824">        <span class="c1"># Initial velocities are drawn uniformly inside the velocity</span>
-</span><span data-line="825">        <span class="c1"># clamp.  This avoids the "stalled at zero velocity for the</span>
-</span><span data-line="826">        <span class="c1"># first iteration" pathology of pure-zero-init PSO.</span>
-</span><span data-line="827">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
-</span><span data-line="828">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
-</span><span data-line="829">
-</span><span data-line="830">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
-</span><span data-line="831">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="832">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="833">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span></div>
+</span><span data-line="797">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="798"><span class="w">        </span><span class="sd">"""Allocate state and emit the initial swarm of random positions.</span>
+</span><span data-line="799">
+</span><span data-line="800"><span class="sd">        With ``warm_start`` set and a non-empty archive the random swarm is</span>
+</span><span data-line="801"><span class="sd">        replaced by seeds taken straight from the shared archive; with</span>
+</span><span data-line="802"><span class="sd">        ``warm_start=None`` — or an archive that has nothing to give — this</span>
+</span><span data-line="803"><span class="sd">        is the cold start, statement for statement as before.</span>
+</span><span data-line="804"><span class="sd">        """</span>
+</span><span data-line="805">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="806">        <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="807">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="808">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="809">        <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span>
+</span><span data-line="810">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="811">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="812">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="813">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
+</span><span data-line="814">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
+</span><span data-line="815">
+</span><span data-line="816">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">():</span>
+</span><span data-line="817">            <span class="k">return</span>
+</span><span data-line="818">
+</span><span data-line="819">        <span class="c1"># Initial velocities are drawn uniformly inside the velocity</span>
+</span><span data-line="820">        <span class="c1"># clamp.  This avoids the "stalled at zero velocity for the</span>
+</span><span data-line="821">        <span class="c1"># first iteration" pathology of pure-zero-init PSO.</span>
+</span><span data-line="822">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="823">        <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="824">
+</span><span data-line="825">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
+</span><span data-line="826">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="827">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="828">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span></div>
 
-</span><span data-line="834">
+</span><span data-line="829">
 <div class="viewcode-block" id="PSO.warm_start_now">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.warm_start_now">[docs]</a>
-</span><span data-line="835">    <span class="k">def</span><span class="w"> </span><span class="nf">warm_start_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-</span><span data-line="836"><span class="w">        </span><span class="sd">"""Re-seed the swarm from the shared archive on re-acquisition.</span>
-</span><span data-line="837">
-</span><span data-line="838"><span class="sd">        The direct-call hook of</span>
-</span><span data-line="839"><span class="sd">        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`; see</span>
-</span><span data-line="840"><span class="sd">        :meth:`panobbgo.core.Heuristic.warm_start_now`.  Drops the stale</span>
-</span><span data-line="841"><span class="sd">        in-flight trials and rebuilds the swarm around the portfolio's best</span>
-</span><span data-line="842"><span class="sd">        points, at zero evaluation cost.  The informer graph and the inertia</span>
-</span><span data-line="843"><span class="sd">        schedule are left alone — this is a re-seeding, not a restart.</span>
-</span><span data-line="844"><span class="sd">        """</span>
-</span><span data-line="845">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
-</span><span data-line="846">            <span class="k">return</span> <span class="kc">False</span>
-</span><span data-line="847">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="848">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># not started yet — on_start will do the seeding</span>
-</span><span data-line="849">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="850">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="851">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">()</span></div>
+</span><span data-line="830">    <span class="k">def</span><span class="w"> </span><span class="nf">warm_start_now</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="831"><span class="w">        </span><span class="sd">"""Re-seed the swarm from the shared archive on re-acquisition.</span>
+</span><span data-line="832">
+</span><span data-line="833"><span class="sd">        The direct-call hook of</span>
+</span><span data-line="834"><span class="sd">        :class:`~panobbgo.strategies.blocks.StrategyBlockBandit`; see</span>
+</span><span data-line="835"><span class="sd">        :meth:`panobbgo.core.Heuristic.warm_start_now`.  Drops the stale</span>
+</span><span data-line="836"><span class="sd">        in-flight trials and rebuilds the swarm around the portfolio's best</span>
+</span><span data-line="837"><span class="sd">        points, at zero evaluation cost.  The informer graph and the inertia</span>
+</span><span data-line="838"><span class="sd">        schedule are left alone — this is a re-seeding, not a restart.</span>
+</span><span data-line="839"><span class="sd">        """</span>
+</span><span data-line="840">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
+</span><span data-line="841">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="842">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="843">            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># not started yet — on_start will do the seeding</span>
+</span><span data-line="844">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="845">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="846">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">()</span></div>
 
-</span><span data-line="852">
+</span><span data-line="847">
 <div class="viewcode-block" id="PSO.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_new_results">[docs]</a>
-</span><span data-line="853">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="854"><span class="w">        </span><span class="sd">"""Process incoming evaluation results and emit follow-up trials."""</span>
-</span><span data-line="855">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="856">            <span class="k">return</span>  <span class="c1"># not started yet</span>
-</span><span data-line="857">
-</span><span data-line="858">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
-</span><span data-line="859">        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">particle_idx</span> <span class="ow">in</span> <span class="n">own_results</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">):</span>
-</span><span data-line="860">            <span class="c1"># Update personal best.</span>
-</span><span data-line="861">            <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
-</span><span data-line="862">            <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
-</span><span data-line="863">                <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
-</span><span data-line="864">                <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="865">
-</span><span data-line="866">            <span class="c1"># Refresh global best after every update so the next</span>
-</span><span data-line="867">            <span class="c1"># particle to move can immediately benefit from the new</span>
-</span><span data-line="868">            <span class="c1"># information.  Cheap: O(NP) per result.</span>
-</span><span data-line="869">            <span class="n">prev_gbest_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span>
-</span><span data-line="870">            <span class="n">prev_gbest_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">prev_gbest_idx</span><span class="p">]</span> <span class="k">if</span> <span class="n">prev_gbest_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
-</span><span data-line="871">            <span class="bp">self</span><span class="o">.</span><span class="n">_update_global_best</span><span class="p">()</span>
-</span><span data-line="872">            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_rebuild_random_adjacency</span><span class="p">(</span><span class="n">prev_gbest_result</span><span class="p">)</span>
-</span><span data-line="873">
-</span><span data-line="874">            <span class="c1"># Emit the next trial for this particle.</span>
-</span><span data-line="875">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span></div>
+</span><span data-line="848">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="849"><span class="w">        </span><span class="sd">"""Process incoming evaluation results and emit follow-up trials."""</span>
+</span><span data-line="850">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="851">            <span class="k">return</span>  <span class="c1"># not started yet</span>
+</span><span data-line="852">
+</span><span data-line="853">        <span class="n">handler</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span>
+</span><span data-line="854">        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">particle_idx</span> <span class="ow">in</span> <span class="n">own_results</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">):</span>
+</span><span data-line="855">            <span class="c1"># Update personal best.</span>
+</span><span data-line="856">            <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span>
+</span><span data-line="857">            <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">handler</span><span class="o">.</span><span class="n">is_better</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="858">                <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="859">                <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">particle_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="860">
+</span><span data-line="861">            <span class="c1"># Refresh global best after every update so the next</span>
+</span><span data-line="862">            <span class="c1"># particle to move can immediately benefit from the new</span>
+</span><span data-line="863">            <span class="c1"># information.  Cheap: O(NP) per result.</span>
+</span><span data-line="864">            <span class="n">prev_gbest_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span>
+</span><span data-line="865">            <span class="n">prev_gbest_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">prev_gbest_idx</span><span class="p">]</span> <span class="k">if</span> <span class="n">prev_gbest_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="866">            <span class="bp">self</span><span class="o">.</span><span class="n">_update_global_best</span><span class="p">()</span>
+</span><span data-line="867">            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_rebuild_random_adjacency</span><span class="p">(</span><span class="n">prev_gbest_result</span><span class="p">)</span>
+</span><span data-line="868">
+</span><span data-line="869">            <span class="c1"># Emit the next trial for this particle.</span>
+</span><span data-line="870">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span></div>
 
-</span><span data-line="876">
+</span><span data-line="871">
 <div class="viewcode-block" id="PSO.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_restart">[docs]</a>
-</span><span data-line="877">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="878"><span class="w">        </span><span class="sd">"""Drop in-flight trials and reseed the swarm around ``center``.</span>
-</span><span data-line="879">
-</span><span data-line="880"><span class="sd">        The behaviour mirrors the IPOP-style warm restart used by</span>
-</span><span data-line="881"><span class="sd">        :class:`~panobbgo.heuristics.cma_es.CMAES`: the global memory is</span>
-</span><span data-line="882"><span class="sd">        wiped, particles are scattered around the suggested center, and</span>
-</span><span data-line="883"><span class="sd">        the next evaluation cycle behaves as if the heuristic had just</span>
-</span><span data-line="884"><span class="sd">        started — except the strategy keeps its accumulated history.</span>
-</span><span data-line="885"><span class="sd">        """</span>
-</span><span data-line="886">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="887">            <span class="k">return</span>
-</span><span data-line="888">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="889">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="890">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="891">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="892">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
-</span><span data-line="893">
-</span><span data-line="894">        <span class="c1"># Re-sample the random informer graph on restart (matches the</span>
-</span><span data-line="895">        <span class="c1"># Clerc 2007 / SPSO 2011 convention: when the swarm loses</span>
-</span><span data-line="896">        <span class="c1"># cohesion, the social network is rebuilt to break stagnation).</span>
-</span><span data-line="897">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
-</span><span data-line="898">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
-</span><span data-line="899">
-</span><span data-line="900">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="901">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
-</span><span data-line="902">        <span class="c1"># Scatter particles in a small ball around the new center, with</span>
-</span><span data-line="903">        <span class="c1"># radius equal to v_max.  A ball, not a point: identical</span>
-</span><span data-line="904">        <span class="c1"># positions would collapse the swarm immediately.</span>
-</span><span data-line="905">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="906">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="907">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="908">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="909">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
-</span><span data-line="910">            <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="911">            <span class="n">x</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">offset</span>
-</span><span data-line="912">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="913">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="914">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="915">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="916">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="917">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-</span><span data-line="918">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span></div>
+</span><span data-line="872">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="873"><span class="w">        </span><span class="sd">"""Drop in-flight trials and reseed the swarm around ``center``.</span>
+</span><span data-line="874">
+</span><span data-line="875"><span class="sd">        The behaviour mirrors the IPOP-style warm restart used by</span>
+</span><span data-line="876"><span class="sd">        :class:`~panobbgo.heuristics.cma_es.CMAES`: the global memory is</span>
+</span><span data-line="877"><span class="sd">        wiped, particles are scattered around the suggested center, and</span>
+</span><span data-line="878"><span class="sd">        the next evaluation cycle behaves as if the heuristic had just</span>
+</span><span data-line="879"><span class="sd">        started — except the strategy keeps its accumulated history.</span>
+</span><span data-line="880"><span class="sd">        With ``warm_start`` set and a non-empty archive the swarm is</span>
+</span><span data-line="881"><span class="sd">        re-seeded from the archive instead (:meth:`_warm_start_swarm`).</span>
+</span><span data-line="882"><span class="sd">        """</span>
+</span><span data-line="883">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="884">            <span class="k">return</span>
+</span><span data-line="885">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="886">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="887">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="888">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="889">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
+</span><span data-line="890">
+</span><span data-line="891">        <span class="c1"># Re-sample the random informer graph on restart (matches the</span>
+</span><span data-line="892">        <span class="c1"># Clerc 2007 / SPSO 2011 convention: when the swarm loses</span>
+</span><span data-line="893">        <span class="c1"># cohesion, the social network is rebuilt to break stagnation).</span>
+</span><span data-line="894">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
+</span><span data-line="895">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
+</span><span data-line="896">
+</span><span data-line="897">        <span class="c1"># A warm-started swarm re-seeds from the shared archive instead of</span>
+</span><span data-line="898">        <span class="c1"># re-evaluating NP fresh points around ``center`` (as L-SHADE does).</span>
+</span><span data-line="899">        <span class="c1"># The personal bests are dropped first: the seeds replace them, and a</span>
+</span><span data-line="900">        <span class="c1"># shortfall particle must not keep a stale pre-restart best.</span>
+</span><span data-line="901">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
+</span><span data-line="902">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span>
+</span><span data-line="903">            <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="904">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">():</span>
+</span><span data-line="905">                <span class="k">return</span>
+</span><span data-line="906">
+</span><span data-line="907">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="908">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="909">        <span class="c1"># Scatter particles in a small ball around the new center, with</span>
+</span><span data-line="910">        <span class="c1"># radius equal to v_max.  A ball, not a point: identical</span>
+</span><span data-line="911">        <span class="c1"># positions would collapse the swarm immediately.</span>
+</span><span data-line="912">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="913">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="914">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="915">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="916">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
+</span><span data-line="917">            <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="918">            <span class="n">x</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">offset</span>
+</span><span data-line="919">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="920">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="921">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="922">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="923">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="924">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+</span><span data-line="925">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span></div>
 </div>
 
 </span></pre></div>

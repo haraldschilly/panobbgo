@@ -252,10 +252,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.bipop_evals_small">bipop_evals_small (panobbgo.heuristics.CMAES property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.bipop_regime">bipop_regime (panobbgo.heuristics.CMAES property)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.block_evals">block_evals (panobbgo.strategies.StrategyBlockBandit property)</a>
 </li>
       <li><a href="_autosummary/panobbgo.lib.lib.BoundingBox.html#panobbgo.lib.BoundingBox">BoundingBox (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.BoundingBox">[1]</a>
@@ -273,6 +273,14 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="core.html#panobbgo.core.PipeBridgeHeuristic.bridge_timeout">bridge_timeout (panobbgo.core.PipeBridgeHeuristic attribute)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.budget_fraction">budget_fraction() (in module panobbgo.heuristics)</a>
+</li>
+      <li><a href="core.html#panobbgo.core.Module.budget_progress">budget_progress() (panobbgo.core.Module method)</a>
+
+      <ul>
+        <li><a href="core.html#panobbgo.core.StrategyBase.budget_progress">(panobbgo.core.StrategyBase method)</a>
+</li>
+      </ul></li>
+      <li><a href="core.html#panobbgo.core.budget_progress_of">budget_progress_of() (in module panobbgo.core)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -830,6 +838,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.EventBus.keys">keys (panobbgo.core.EventBus property)</a>
 </li>
+      <li><a href="core.html#panobbgo.core.known_budget">known_budget() (in module panobbgo.core)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -890,6 +900,14 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.MAX_DEPTH">(panobbgo.analyzers.splitter.Splitter.Box attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.core.Module.max_eval_or">max_eval_or() (panobbgo.core.Module method)</a>
+
+      <ul>
+        <li><a href="core.html#panobbgo.core.StrategyBase.max_eval_or">(panobbgo.core.StrategyBase method)</a>
+</li>
+      </ul></li>
+      <li><a href="core.html#panobbgo.core.max_eval_or_default">max_eval_or_default() (in module panobbgo.core)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.splitter.MAX_LEAVES">MAX_LEAVES (in module panobbgo.analyzers.splitter)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.MetaAnalyst">MetaAnalyst (class in panobbgo.heuristics)</a>
@@ -1374,6 +1392,8 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
       <li><a href="core.html#panobbgo.core.Heuristic.performance">performance (panobbgo.core.Heuristic attribute)</a>
 </li>
+      <li><a href="core.html#panobbgo.core.pipe_objective">pipe_objective() (in module panobbgo.core)</a>
+</li>
       <li><a href="core.html#panobbgo.core.PipeBridgeHeuristic">PipeBridgeHeuristic (class in panobbgo.core)</a>
 </li>
       <li><a href="_autosummary/panobbgo.lib.lib.Point.html#panobbgo.lib.Point">Point (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.Point">[1]</a>
@@ -1570,6 +1590,8 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.core.safe_send">safe_send() (in module panobbgo.core)</a>
+</li>
       <li><a href="classic.html#panobbgo.lib.classic.Salomon">Salomon (class in panobbgo.lib.classic)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.RegionUCB.sample_in_leaf">sample_in_leaf() (panobbgo.heuristics.RegionUCB method)</a>
@@ -1624,14 +1646,14 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
       <li><a href="heuristics.html#panobbgo.heuristics.stagnation">stagnation() (in module panobbgo.heuristics)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.StrategyBase.start">start() (panobbgo.core.StrategyBase method)</a>
 
       <ul>
         <li><a href="strategies.html#panobbgo.strategies.StrategyPhased.start">(panobbgo.strategies.StrategyPhased method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="classic.html#panobbgo.lib.classic.Step">Step (class in panobbgo.lib.classic)</a>
 </li>
       <li><a href="core.html#panobbgo.core.StopHeuristic">StopHeuristic</a>
@@ -1704,12 +1726,14 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
       <li><a href="core.html#panobbgo.core.Event.terminate">terminate (panobbgo.core.Event attribute)</a>
 </li>
-      <li><a href="core.html#panobbgo.core.StrategyBase.time_cpu">time_cpu (panobbgo.core.StrategyBase property)</a>
+      <li><a href="core.html#panobbgo.core.terminate_process">terminate_process() (in module panobbgo.core)</a>
 </li>
-      <li><a href="core.html#panobbgo.core.StrategyBase.time_start_str">time_start_str (panobbgo.core.StrategyBase property)</a>
+      <li><a href="core.html#panobbgo.core.StrategyBase.time_cpu">time_cpu (panobbgo.core.StrategyBase property)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.core.StrategyBase.time_start_str">time_start_str (panobbgo.core.StrategyBase property)</a>
+</li>
       <li><a href="core.html#panobbgo.core.StrategyBase.time_wall">time_wall (panobbgo.core.StrategyBase property)</a>
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.Archive.top_k">top_k() (panobbgo.analyzers.Archive method)</a>

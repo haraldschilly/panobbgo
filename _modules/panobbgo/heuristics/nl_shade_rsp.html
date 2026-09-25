@@ -467,7 +467,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="331">
 </span><span data-line="332">    <span class="k">def</span><span class="w"> </span><span class="nf">_binomial_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 </span><span data-line="333"><span class="w">        </span><span class="sd">"""``CR_b``: ``0`` in the first half of the budget, ``2 (r − 0.5)`` after."""</span>
-</span><span data-line="334">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="334">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">budget_progress</span><span class="p">()</span>
 </span><span data-line="335">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">progress</span> <span class="o">&lt;=</span> <span class="mf">0.5</span><span class="p">:</span>
 </span><span data-line="336">            <span class="k">return</span> <span class="mf">0.0</span>
 </span><span data-line="337">        <span class="k">return</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">progress</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span>

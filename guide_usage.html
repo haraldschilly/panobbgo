@@ -359,6 +359,12 @@ is logged at <code class="docutils literal notranslate"><span class="pre">ERROR<
 alone unless an arm of yours legitimately takes minutes per evaluation.
 An old config file’s <code class="docutils literal notranslate"><span class="pre">max_stall_seconds</span></code> entry is ignored.  See
 <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §2.</p>
+<p>Passing it as a <em>keyword argument</em> is an error, though: a strategy’s
+constructor accepts only <code class="docutils literal notranslate"><span class="pre">max_eval</span></code> / <code class="docutils literal notranslate"><span class="pre">max_evaluations</span></code>, <code class="docutils literal notranslate"><span class="pre">seed</span></code>,
+its own parameters and the names of existing config attributes, and
+raises <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> for anything else — a removed option such as
+<code class="docutils literal notranslate"><span class="pre">max_stall_seconds=</span></code> or a typo such as <code class="docutils literal notranslate"><span class="pre">max_evals=</span></code> is no longer
+dropped silently.</p>
 </div>
 </section>
 </section>
@@ -2197,6 +2203,22 @@ the probability of feasibility: <span class="math notranslate nohighlight">\(\te
 </span><span data-line="8"><span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">'panobbgo'</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
 </span></pre></div>
 </div>
+<p>Handlers.  Panobbgo only installs its own fallback handler (stderr, level
+<code class="docutils literal notranslate"><span class="pre">WARNING</span></code> on the <code class="docutils literal notranslate"><span class="pre">panobbgo</span></code> logger) when neither the <code class="docutils literal notranslate"><span class="pre">panobbgo</span></code> logger
+nor the root logger has a handler at the moment the first strategy is built.
+An application that configures logging first — e.g.
+<code class="docutils literal notranslate"><span class="pre">logging.basicConfig(level=logging.INFO)</span></code> — gets panobbgo’s records through
+its own handlers exactly once, at its own level.  If you configure logging
+only <em>after</em> building a strategy, drop the fallback with
+<code class="docutils literal notranslate"><span class="pre">logging.getLogger('panobbgo').handlers.clear()</span></code>.</p>
+<p>Logger focus (<code class="docutils literal notranslate"><span class="pre">--lf</span></code> / <code class="docutils literal notranslate"><span class="pre">--log-focus</span> <span class="pre">NAME</span></code>) matches the five-character
+logger names exactly.  Every heuristic and analyzer logs under a name of its
+own — by default the first five letters of its module name, upper-cased
+(<code class="docutils literal notranslate"><span class="pre">LSHAD</span></code>, <code class="docutils literal notranslate"><span class="pre">CMAES</span></code>, <code class="docutils literal notranslate"><span class="pre">NELDE</span></code>), some pick one explicitly (<code class="docutils literal notranslate"><span class="pre">SPLIT</span></code>,
+<code class="docutils literal notranslate"><span class="pre">META</span></code>, <code class="docutils literal notranslate"><span class="pre">LBFGS</span></code>, <code class="docutils literal notranslate"><span class="pre">BEST</span></code>).  There is no longer a shared <code class="docutils literal notranslate"><span class="pre">HEUR</span></code> logger,
+so <code class="docutils literal notranslate"><span class="pre">--lf</span> <span class="pre">HEUR</span></code> matches nothing: name the modules you want instead
+(<code class="docutils literal notranslate"><span class="pre">--lf</span> <span class="pre">LSHAD</span> <span class="pre">--lf</span> <span class="pre">CMAES</span></code>).  The core loggers are <code class="docutils literal notranslate"><span class="pre">STRAT</span></code>, <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
+<code class="docutils literal notranslate"><span class="pre">EVBUS</span></code> and <code class="docutils literal notranslate"><span class="pre">RSLTS</span></code>.</p>
 </section>
 </section>
 <section id="persistent-storage-resuming">

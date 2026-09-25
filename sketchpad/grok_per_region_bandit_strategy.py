@@ -63,13 +63,25 @@ from typing import Any, Dict, List, Optional
 from panobbgo.core import StrategyBase, Result
 
 
+def _biggest_leaf(splitter):
+    """The Splitter leaf with the largest log-volume, or ``None``.
+
+    ``Splitter.biggest_leaf`` no longer exists (it had no consumer in the
+    library), so the prototype computes it on demand: O(#leaves).
+    """
+    leafs = getattr(splitter, "leafs", None)
+    if not leafs:
+        return None
+    return max(leafs, key=lambda leaf: leaf.log_volume)
+
+
 class StrategyPerRegionBandit(StrategyBase):
     """
     Per-region Thompson Sampling bandit.
 
     Maintains an independent Beta-Bernoulli bandit (alpha/beta derived from
     accumulated reward and selection count) for each leaf box returned by
-    the Splitter analyzer's ``get_leaf()`` / ``biggest_leaf``.
+    the Splitter analyzer's ``get_leaf()`` / its largest leaf.
 
     Selection always queries the bandit belonging to the *current biggest
     leaf* (the one with largest log-volume, i.e. the least-explored region).
@@ -178,7 +190,7 @@ class StrategyPerRegionBandit(StrategyBase):
             # Report the biggest leaf's bandit if available
             try:
                 splitter = self.analyzer("Splitter")
-                biggest = getattr(splitter, "biggest_leaf", None)
+                biggest = _biggest_leaf(splitter)
                 if biggest is not None:
                     leaf_id = getattr(biggest, "id", 0)
                     info["biggest_leaf"] = f"id={leaf_id} depth={getattr(biggest, 'depth', 0)}"
@@ -190,7 +202,7 @@ class StrategyPerRegionBandit(StrategyBase):
         """
         Main point-generation loop.
 
-        Queries the current biggest leaf (via Splitter.biggest_leaf or best_box)
+        Queries the current biggest leaf (the largest Splitter leaf, or best_box)
         and uses that leaf's per-region bandit to select which heuristic to
         pull from. Falls back to global Thompson sampling if no leaf info yet.
 
@@ -215,7 +227,7 @@ class StrategyPerRegionBandit(StrategyBase):
                 try:
                     splitter = self.analyzer("Splitter")
                     # biggest_leaf is the least-explored (largest volume) region
-                    current_leaf = getattr(splitter, "biggest_leaf", None)
+                    current_leaf = _biggest_leaf(splitter)
                     if current_leaf is None:
                         current_leaf = getattr(splitter, "best_box", None)
                     if current_leaf is not None:

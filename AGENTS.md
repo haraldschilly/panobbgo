@@ -93,6 +93,11 @@ Useful `gh` commands: `gh pr checks <N>`, `gh run list`,
     `spawn` worker processes (`panobbgo.local_run.TaskPool`).  Under
     `sync_eval` the records do not depend on N.  Size N to the free cores
     and memory of a shared machine.
+*   Scripts that build `LBFGSB` / `COBYQA` / `LocalPenaltySearch` /
+    `QuadraticWlsModel` or use `evaluation_method = "processes"` start
+    `"spawn"` subprocesses, which re-import the script: keep the code that
+    runs the optimization under `if __name__ == "__main__":` (user guide,
+    "Scripts That Start Worker Processes").
 *   Measure progress in **evaluations**, not wall time. Wall time depends on
     machine load and the evaluator thread pool; evaluation counts are the
     comparable quantity (see "Domain context").

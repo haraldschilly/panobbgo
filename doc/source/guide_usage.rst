@@ -234,6 +234,56 @@ Complete Example
    print(f"\nDataFrame shape: {df.shape}")
    print(df.head())
 
+.. _spawn-guard:
+
+Scripts That Start Worker Processes: the ``__main__`` Guard
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some parts of Panobbgo run in **child processes** started with
+multiprocessing's ``"spawn"`` method:
+
+* the solver bridges :class:`~panobbgo.heuristics.lbfgsb.LBFGSB`,
+  :class:`~panobbgo.heuristics.cobyqa.COBYQA` and
+  :class:`~panobbgo.heuristics.local_penalty_search.LocalPenaltySearch`,
+* :class:`~panobbgo.heuristics.quadratic_wls.QuadraticWlsModel` (a
+  :class:`~panobbgo.core.HeuristicSubprocess`),
+* the ``processes`` evaluation backend (``evaluation: method: processes``,
+  or ``strategy.config.evaluation_method = "processes"``).
+
+A spawned child starts a fresh interpreter and **re-imports your script**.
+If the script builds and starts the strategy at module level, the child
+runs that code again and tries to start processes of its own, which fails
+(``RuntimeError: An attempt has been made to start a new process before the
+current process has finished its bootstrapping phase``) or, at best, starts
+a second optimization.  Put everything that runs the optimization under an
+``if __name__ == "__main__":`` guard:
+
+.. code-block:: python
+
+   from panobbgo.heuristics import LBFGSB, Random
+   from panobbgo.lib.classic import Rosenbrock
+   from panobbgo.strategies import StrategyRewarding
+
+
+   def main():
+       strategy = StrategyRewarding(Rosenbrock(dims=5), max_evaluations=500)
+       strategy.add(Random)
+       strategy.add(LBFGSB)
+       strategy.start()
+       print(strategy.best)
+
+
+   if __name__ == "__main__":
+       main()
+
+Imports, problem classes and helper functions may stay at module level;
+only the code that *runs* belongs under the guard.  The guard is harmless
+for the other heuristics, so using it in every script is the simple rule.
+In a notebook there is no script to re-import, but
+the ``processes`` backend still needs a problem class that a fresh
+interpreter can import (not one defined in the notebook or in
+``__main__``).
+
 Verified Walkthrough
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -645,6 +695,12 @@ For problems with constraints handled via penalties (e.g. Penalty or Augmented L
    # Use L-BFGS-B on the penalized objective
    strategy.add(LocalPenaltySearch, method="L-BFGS-B")
 
+.. note::
+
+   ``LocalPenaltySearch`` runs its optimizer in a spawned subprocess: a
+   script using it needs an ``if __name__ == "__main__":`` guard (see
+   :ref:`spawn-guard`).
+
 ClaudeHeuristic (Cluster-Based Adaptive Search)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -759,6 +815,10 @@ A good portfolio balances exploration and exploitation:
    * - Constraint Handling
      - FeasibleSearch, ConstraintGradient, ConstraintRepair
      - When constraints are present
+
+``LBFGSB``, ``COBYQA``, ``LocalPenaltySearch`` and ``QuadraticWlsModel`` run
+in spawned subprocesses; scripts that use them need an
+``if __name__ == "__main__":`` guard (see :ref:`spawn-guard`).
 
 Recommended Configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1735,6 +1795,11 @@ Parallel Evaluation
    strategy = StrategyRewarding(problem, dask_n_workers=4)
 
    # Unknown keyword arguments raise TypeError (they used to be ignored).
+
+With ``strategy.config.evaluation_method = "processes"`` the evaluations run
+in spawned worker processes: the script needs an
+``if __name__ == "__main__":`` guard (see :ref:`spawn-guard`) and the
+problem must be picklable.
 
 Multi-start Optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~

@@ -706,7 +706,7 @@ Parallelism parameters in ``config.yaml`` or ``~/.panobbgo/config.ini``:
 
 ``processes`` evaluates in a pool of spawned worker processes
 (:mod:`panobbgo.local_pool`): the problem must be picklable, and the script
-needs an ``if __name__ == "__main__":`` guard.  Each worker evaluates its own
+needs an ``if __name__ == "__main__":`` guard (:ref:`spawn-guard`).  Each worker evaluates its own
 **copy** of the problem, so state the problem object accumulates while
 evaluating (evaluation counters, traces, caches, loggers) lives in the
 workers and is not visible on the caller's object.  An evaluation past

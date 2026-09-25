@@ -359,10 +359,10 @@ class Results:
 
     def __len__(self) -> int:
         with self._lock:
-            l = len(self._results_df) if self._results_df is not None else 0
-            l += sum(len(df) for df in self._unmerged_dfs)
-            l += len(self._buffer)
-            return l
+            count = len(self._results_df) if self._results_df is not None else 0
+            count += sum(len(df) for df in self._unmerged_dfs)
+            count += len(self._buffer)
+            return count
 
     def get_history(self, n: Optional[int] = None) -> Dict[str, Any]:
         """

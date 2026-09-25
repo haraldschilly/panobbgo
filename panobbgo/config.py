@@ -236,15 +236,15 @@ class Config:
                         val = None
                         break
                 if val is not None:
-                    return type_cast(val) if type_cast != bool else bool(val)
+                    return type_cast(val) if type_cast is not bool else bool(val)
 
             # Fall back to INI
             if ini_section and ini_key and cfgp.has_option(ini_section, ini_key):
-                if type_cast == int:
+                if type_cast is int:
                     return cfgp.getint(ini_section, ini_key)
-                elif type_cast == float:
+                elif type_cast is float:
                     return cfgp.getfloat(ini_section, ini_key)
-                elif type_cast == bool:
+                elif type_cast is bool:
                     return cfgp.getboolean(ini_section, ini_key)
                 else:
                     return cfgp.get(ini_section, ini_key)
@@ -436,6 +436,6 @@ class Config:
 
         if loglevel is None:
             loglevel = self.loglevel
-        l = create_logger(name, int(loglevel) if loglevel is not None else 40)
-        self._loggers[key] = l
-        return l
+        logger = create_logger(name, int(loglevel) if loglevel is not None else 40)
+        self._loggers[key] = logger
+        return logger

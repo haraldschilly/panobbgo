@@ -4,121 +4,41 @@ Basic tests for the logging infrastructure.
 .. codeauthor:: Panobbgo Development Team
 """
 
-import pytest
 from unittest.mock import patch
-import sys
 from io import StringIO
 
-from panobbgo.logging import PanobbgoLogger, ComponentLogger
+from panobbgo.logging import PanobbgoLogger
 from panobbgo.logging.progress import ProgressReporter, ProgressContext
 from panobbgo.lib import Result, Point
 import numpy as np
 
 
-class TestComponentLogger:
-    """Test ComponentLogger functionality."""
-
-    def test_initial_state(self):
-        """Test initial logger state."""
-        parent = PanobbgoLogger()
-        logger = ComponentLogger("test", parent)
-
-        assert not logger.enabled
-        assert logger.level == 30  # WARNING
-        assert logger.name == "test"
-
-    def test_enable_disable(self):
-        """Test enabling and disabling logger."""
-        parent = PanobbgoLogger()
-        logger = ComponentLogger("test", parent)
-
-        logger.enabled = True
-        assert logger.enabled
-
-        logger.enabled = False
-        assert not logger.enabled
-
-    def test_level_setting(self):
-        """Test setting log levels."""
-        parent = PanobbgoLogger()
-        logger = ComponentLogger("test", parent)
-
-        logger.level = "DEBUG"
-        assert logger.level == 10
-
-        logger.level = "INFO"
-        assert logger.level == 20
-
-        logger.level = "WARNING"
-        assert logger.level == 30
-
-        logger.level = 40  # ERROR
-        assert logger.level == 40
-
-    def test_logging_when_disabled(self):
-        """Test that logging doesn't output when disabled."""
-        parent = PanobbgoLogger()
-        logger = ComponentLogger("test", parent)
-
-        # Should not log anything since disabled
-        with patch("sys.stderr", new_callable=StringIO) as mock_stderr:
-            logger.info("This should not appear")
-            # Since disabled, no output expected
-            assert mock_stderr.getvalue() == ""
-
-
 class TestPanobbgoLogger:
     """Test PanobbgoLogger functionality."""
 
-    def test_get_logger(self):
-        """Test getting component loggers."""
-        main_logger = PanobbgoLogger()
+    def test_default_handler_is_idempotent_and_non_destructive(self):
+        """Building many loggers adds one handler and never replaces the user's."""
+        import logging
 
-        logger1 = main_logger.get_logger("strategy")
-        logger2 = main_logger.get_logger("strategy")
+        root = logging.getLogger("panobbgo")
+        saved_handlers, saved_level = root.handlers[:], root.level
+        try:
+            root.handlers.clear()
+            root.setLevel(logging.NOTSET)
+            PanobbgoLogger()
+            PanobbgoLogger()
+            assert len(root.handlers) == 1
+            assert root.level == logging.WARNING
 
-        assert logger1 is logger2  # Same instance
-        assert logger1.name == "strategy"
-
-    def test_enable_component(self):
-        """Test enabling components."""
-        main_logger = PanobbgoLogger()
-
-        main_logger.enable_component("strategy", "DEBUG")
-
-        strategy_logger = main_logger.get_logger("strategy")
-        assert strategy_logger.enabled
-        assert strategy_logger.level == 10  # DEBUG
-
-    def test_quiet_mode(self):
-        """Test quiet mode disables everything."""
-        main_logger = PanobbgoLogger()
-
-        # Enable some components first
-        main_logger.enable_component("strategy")
-        main_logger.enable_component("results")
-
-        # Set quiet mode
-        main_logger.set_quiet_mode()
-
-        # Check components are disabled
-        assert not main_logger.get_logger("strategy").enabled
-        assert not main_logger.get_logger("results").enabled
-        assert not main_logger.progress_reporter.enabled
-        assert not main_logger.progress_reporter.status_enabled
-
-    def test_verbose_mode(self):
-        """Test verbose mode enables common components."""
-        main_logger = PanobbgoLogger()
-
-        main_logger.set_verbose_mode()
-
-        # Check common components are enabled
-        assert main_logger.get_logger("strategy").enabled
-        assert main_logger.get_logger("results").enabled
-        assert main_logger.get_logger("splitter").enabled
-        assert main_logger.progress_reporter.enabled
-        assert main_logger.progress_reporter.status_enabled
+            user = logging.NullHandler()
+            root.handlers[:] = [user]
+            root.setLevel(logging.DEBUG)
+            PanobbgoLogger()
+            assert root.handlers == [user]
+            assert root.level == logging.DEBUG
+        finally:
+            root.handlers[:] = saved_handlers
+            root.setLevel(saved_level)
 
 
 class TestProgressReporter:

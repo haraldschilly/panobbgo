@@ -2,12 +2,12 @@
 Logging Infrastructure for Panobbgo
 ====================================
 
-Flexible, component-based logging system with progress reporting.
+Progress reporting for strategy runs.
 
 .. codeauthor:: Panobbgo Development Team
 """
 
-from .logger import PanobbgoLogger, ComponentLogger
-from .progress import ProgressReporter, ErrorReporter
+from .logger import PanobbgoLogger
+from .progress import ProgressReporter
 
-__all__ = ["PanobbgoLogger", "ComponentLogger", "ProgressReporter", "ErrorReporter"]
+__all__ = ["PanobbgoLogger", "ProgressReporter"]

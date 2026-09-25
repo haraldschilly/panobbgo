@@ -94,7 +94,7 @@ ARM = {
     # runs on the shipped default rather than a hand-picked constant.
     "lshade": (LSHADE, {"NP_init": "auto"}),
     "jso": (JSO, {"NP_init": "auto"}),
-    "lbc": (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),
+    "lbc": (NLSHADE_LBC, {"NP_init": "auto"}),
     # PSO won zero cells in the provisional oracle, so it only appears in
     # the deliberately over-armed five-arm spec.
     "pso": (PSO, {"NP": 6}),

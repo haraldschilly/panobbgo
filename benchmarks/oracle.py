@@ -60,7 +60,7 @@ BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
 # that "which arms, with which knobs" is a single obvious edit.
 ARMS = {
     "cmaes": (CMAES, {}),  # sigma-divergence restart is the default now
-    "lbc": (NLSHADE_LBC, {"NP_init": "auto", "k_rank": 3.0}),  # auto = 3*dim*(budget/500dim)^0.25
+    "lbc": (NLSHADE_LBC, {"NP_init": "auto"}),  # auto = 3*dim*(budget/500dim)^0.25
     "jso": (JSO, {"NP_init": "auto"}),
     "lshade": (LSHADE, {"NP_init": "auto"}),
     "pso": (PSO, {"NP": 6}),

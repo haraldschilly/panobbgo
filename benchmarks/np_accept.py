@@ -62,7 +62,7 @@ def old_auto(dim: int, budget: float) -> int:
 ARMS = {
     "lshade": (LSHADE, {}),
     "jso": (JSO, {}),
-    "lbc": (NLSHADE_LBC, {"k_rank": 3.0}),
+    "lbc": (NLSHADE_LBC, {}),
 }
 
 arm, out = sys.argv[1], sys.argv[2]

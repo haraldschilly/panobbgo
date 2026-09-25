@@ -72,20 +72,23 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         # ``AUTO_DIM_COEF = 4``: 4*dim = 8 at dim=2 / 1000 evals.
         assert h.NP_init == 8
         assert h.NP_min == 4
-        assert h.H == 5
-        assert h.p_best_max == 0.25
-        assert h.p_best_min == 0.125
+        # Paper defaults (Algorithm 1), updated 2026-09 for the fidelity pass;
+        # the port used to inherit jSO's H = 5 / p_best 0.25 → 0.125 / F cap
+        # and RSP's linear k_rank = 3 weight on r1.
+        assert h.H == 20 * self.problem.dim
+        assert h.p_best == 0.2
+        assert h.p_best_end == 0.3
         assert h.archive_factor == 1.0
-        assert h.k_rank == 3.0
-        assert h.adaptive_archive is True
+        assert h.k_rank == 4.0
+        np.testing.assert_array_equal(h._M_F, 0.5)
+        np.testing.assert_array_equal(h._M_CR, 0.9)
         assert h.p_F_init == _DEFAULT_P_F_INIT == 3.5
         assert h.p_F_final == _DEFAULT_P_F_FINAL == 1.5
         assert h.p_CR_init == _DEFAULT_P_CR_INIT == 1.0
         assert h.p_CR_final == _DEFAULT_P_CR_FINAL == 1.5
         assert h.m_lbc == _DEFAULT_M_LBC == 1.5
         assert h.name == "NLSHADE_LBC"
-        # F-cap inherited from jSO via NL-SHADE-RSP (jSO regime).
-        assert h.F_schedule == "jso"
+        assert h.F_schedule is None  # no jSO F cap
 
     def test_custom_construction(self):
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
@@ -95,11 +98,10 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
             NP_init=24,
             NP_min=6,
             H=4,
-            p_best_max=0.3,
-            p_best_min=0.1,
+            p_best=0.3,
+            p_best_end=0.1,
             archive_factor=2.0,
             k_rank=2.0,
-            adaptive_archive=False,
             p_F_init=4.0,
             p_F_final=2.0,
             p_CR_init=0.8,
@@ -111,9 +113,9 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h.NP_init == 24
         assert h.NP_min == 6
         assert h.H == 4
-        assert h.p_best_max == 0.3
+        assert h.p_best == 0.3
+        assert h.p_best_end == 0.1
         assert h.k_rank == 2.0
-        assert h.adaptive_archive is False
         assert h.p_F_init == 4.0
         assert h.p_F_final == 2.0
         assert h.p_CR_init == 0.8
@@ -121,7 +123,7 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h.m_lbc == 1.2
         assert h.name == "MyLBC"
 
-    def test_subclass_of_nl_shade_rsp_jso_lshade(self):
+    def test_subclass_of_nl_shade_rsp_and_lshade_not_jso(self):
         from panobbgo.heuristics.jso import JSO
         from panobbgo.heuristics.lshade import LSHADE
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
@@ -129,8 +131,8 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
 
         h = NLSHADE_LBC(self.strategy)
         assert isinstance(h, NLSHADE_RSP)
-        assert isinstance(h, JSO)
         assert isinstance(h, LSHADE)
+        assert not isinstance(h, JSO)
 
     def test_invalid_p_F_init(self):
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
@@ -168,14 +170,13 @@ class NLSHADELBCConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         with pytest.raises(ValueError, match="m_lbc"):
             NLSHADE_LBC(self.strategy, m_lbc=float("nan"))
 
-    def test_inherits_rsp_jso_validation(self):
-        """NL-SHADE-RSP / jSO H >= 2 and p_best ordering rules still apply."""
+    def test_inherits_lshade_validation(self):
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
 
-        with pytest.raises(ValueError, match="H must be >= 2"):
-            NLSHADE_LBC(self.strategy, H=1)
-        with pytest.raises(ValueError, match="p_best_min .* must be <= p_best_max"):
-            NLSHADE_LBC(self.strategy, p_best_max=0.2, p_best_min=0.3)
+        with pytest.raises(ValueError, match="H must be >= 1"):
+            NLSHADE_LBC(self.strategy, H=0)
+        with pytest.raises(ValueError, match="p_best_end"):
+            NLSHADE_LBC(self.strategy, p_best_end=0.0)
         with pytest.raises(ValueError, match="k_rank"):
             NLSHADE_LBC(self.strategy, k_rank=-0.1)
 
@@ -390,41 +391,29 @@ class NLSHADELBCMemoryUpdateTests(_MockStrategyMixin, PanobbgoTestCase):
         h._success_CR = list(map(float, CR_vals))
         h._success_delta = list(map(float, deltas))
 
-    def test_update_memory_writes_to_writable_range_only(self):
-        """The jSO anchor bin (index H-1) must stay frozen at 0.9."""
-        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
-
-        h = NLSHADE_LBC(self.strategy, H=4)
-        h.on_start()
-        anchor_F_before = h._M_F[-1]
-        anchor_CR_before = h._M_CR[-1]
-        # Run several updates to make sure no write ever falls on H-1.
-        for _ in range(2 * h.H):
-            self._seed_success_buffer(h, [0.5, 0.7], [0.3, 0.6], [1.0, 2.0])
-            h._update_memory()
-        assert h._M_F[-1] == anchor_F_before
-        assert h._M_CR[-1] == anchor_CR_before
-
-    def test_update_memory_advances_pointer_modulo_writable(self):
+    def test_every_bin_is_writable(self):
+        """Regression: no jSO anchor bin — the pointer cycles over all H bins."""
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
 
         h = NLSHADE_LBC(self.strategy, H=5)
         h.on_start()
-        for expected in [1, 2, 3, 0, 1, 2]:  # H-1 = 4 writable bins, wraps mod 4
+        for expected in [1, 2, 3, 4, 0, 1]:
             self._seed_success_buffer(h, [0.4], [0.6], [1.0])
             h._update_memory()
             assert h._mem_ptr == expected
+        assert h._M_F[4] != 0.5  # the last bin learned too
 
-    def test_no_op_when_buffer_empty(self):
+    def test_no_success_resets_bin_to_initial_values(self):
+        """A generation without successes resets the current bin to (0.5, 0.9); the pointer stays."""
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
 
         h = NLSHADE_LBC(self.strategy, H=4)
         h.on_start()
-        snap_F = h._M_F.copy()
-        snap_CR = h._M_CR.copy()
+        h._M_F[:] = 0.1
+        h._M_CR[:] = 0.2
         h._update_memory()
-        np.testing.assert_array_equal(h._M_F, snap_F)
-        np.testing.assert_array_equal(h._M_CR, snap_CR)
+        assert (h._M_F[0], h._M_CR[0], h._mem_ptr) == (0.5, 0.9, 0)
+        np.testing.assert_array_equal(h._M_F[1:], 0.1)
 
     def test_F_memory_in_unit_interval(self):
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
@@ -488,28 +477,16 @@ class NLSHADELBCMemoryUpdateTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._M_F[0] == pytest.approx(expected_F, rel=1e-9)
         assert h._M_CR[0] == pytest.approx(expected_CR, rel=1e-9)
 
-    def test_CR_zero_terminal_sentinel(self):
-        """All-zero CR successes plant the terminal sentinel (-1)."""
-        from panobbgo.heuristics.lshade import _CR_TERMINAL
+    def test_no_CR_terminal_sentinel(self):
+        """Regression: all-zero CR successes no longer plant −1 (not in the paper); the CR bin stays."""
         from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
 
         h = NLSHADE_LBC(self.strategy, H=4)
         h.on_start()
         self._seed_success_buffer(h, [0.5, 0.7], [0.0, 0.0], [1.0, 1.0])
         h._update_memory()
-        assert h._M_CR[0] == _CR_TERMINAL
-
-    def test_CR_terminal_bin_stays_terminal(self):
-        """Once the CR bin is the sentinel, subsequent updates leave it alone."""
-        from panobbgo.heuristics.lshade import _CR_TERMINAL
-        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
-
-        h = NLSHADE_LBC(self.strategy, H=4)
-        h.on_start()
-        h._M_CR[0] = _CR_TERMINAL  # plant the sentinel at the writable bin
-        self._seed_success_buffer(h, [0.5], [0.6], [1.0])
-        h._update_memory()
-        assert h._M_CR[0] == _CR_TERMINAL
+        assert h._M_CR[0] == 0.9
+        assert h._M_F[0] != 0.5
 
     def test_CR_zero_entries_filtered_with_mixed_values(self):
         """Mixed CR values: zeros skipped, LBC applied to positive subset."""
@@ -610,12 +587,129 @@ class NLSHADELBCPipelineTests(_MockStrategyMixin, PanobbgoTestCase):
         h = NLSHADE_LBC(self.strategy, NP_init=6, seed=2)
         h.on_start()
         h.get_points(limit=100)
-        h._rsp_archive_cap = 3
+        h._M_CR[:] = 0.1
         h._archive.append(np.array([0.5, 0.5]))
         h.on_restart(np.array([0.0, 0.0]), reason="test")
-        assert h._rsp_archive_cap is None
+        np.testing.assert_array_equal(h._M_CR, 0.9)
         assert h._archive == []
         assert len(h._pending) == h.NP_init
+
+
+class NLSHADELBCFidelityTests(_MockStrategyMixin, PanobbgoTestCase):
+    """Paper §III / Algorithm 1 mechanisms that differ from NL-SHADE-RSP."""
+
+    def _populate(self, h, n):
+        h._population = [_build_result(self.strategy, self.problem.random_point(), float(i), f"x{i}") for i in range(n)]
+        h._NP_current = n
+        live = h._live_indices()
+        return live, sorted(live, key=lambda i: h._rank_of(h._population[i]))
+
+    def test_archive_probability_fixed_at_one_half(self):
+        from panobbgo.heuristics.lshade import _TrialMeta
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, seed=1)
+        m = _TrialMeta(0, 0.5, 0.5)
+        m.from_archive = True
+        h._record_success(m, 5.0)
+        h._update_p_archive(n_trials=4)
+        assert h.p_archive == 0.5
+        live, srt = self._populate(h, 6)
+        h._archive = [np.array([9.0, 9.0]) for _ in range(500)]
+        hits = sum(h._select_r2(live, srt, target_idx=0, r1=1, pbest_idx=2)[1] for _ in range(4000))
+        assert 0.45 < hits / 4000 < 0.55
+
+    def test_archive_size_is_NP(self):
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy)
+        h._NP_current = 17
+        assert h._archive_cap() == 17
+
+    def test_full_archive_replaces_a_worse_entry(self):
+        """Regression: a full archive probes up to |A| random entries for one worse than the parent.
+
+        With one bad entry among four, the bad one is replaced with probability
+        ``1 − (3/4)^4 ≈ 0.68`` (when all four probes miss it, the last probed —
+        a good — entry goes), against ``0.25`` for the old random replacement.
+        """
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, NP_min=4, seed=3)
+        h._NP_current = 4
+        hit = 0
+        n = 4000
+        for _ in range(n):
+            h._archive = []
+            for fx in (1.0, 2.0, 3.0, 100.0):  # fill: three good entries, one bad
+                h._archive_insert(_build_result(self.strategy, [fx, 0.0], fx, "p"))
+            h._archive_insert(_build_result(self.strategy, [50.0, 0.0], 50.0, "p"))
+            xs = sorted(a[0] for a in h._archive)
+            hit += xs == [1.0, 2.0, 3.0, 50.0]
+        assert 0.64 < hit / n < 0.73
+
+    def test_pbest_rises_0_2_to_0_3(self):
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy)
+        self.strategy.config.max_eval = 100
+        self.strategy.results = []
+        assert h._pbest_count(30) == 6
+        self.strategy.results = list(range(100))
+        assert h._pbest_count(30) == 9
+
+    def test_binomial_only_with_sorted_CR(self):
+        """Regression: binomial crossover with the sampled CR (no exponential, no RSP CR_b schedule)."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, seed=4)
+        self.strategy.results = []  # first half: RSP's CR_b would be 0
+        x = np.zeros(2)
+        v = np.ones(2)
+        for _ in range(50):
+            assert np.all(h._crossover(v, x, 1.0) == 1.0)
+        assert h._cross_exponential is None
+
+    def test_out_of_bounds_trial_is_regenerated(self):
+        """Regression: an out-of-box trial is regenerated (new F, pbest, r1, r2) before the midpoint repair."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy, NP_init=6, seed=5)
+        h.on_start()
+        h.get_points(limit=100)
+        lb, ub = self.problem.box[:, 0], self.problem.box[:, 1]
+        for i in range(6):
+            h._population[i] = _build_result(self.strategy, lb + (ub - lb) * (0.1 + 0.15 * i), float(i), "x")
+        h._pending.clear()
+        calls = []
+        orig = h._mutation_vectors
+
+        def counting(*a, **kw):
+            calls.append(1)
+            return orig(*a, **kw)
+
+        h._mutation_vectors = counting  # type: ignore[method-assign]
+        # F = 1 always, and a crossover that always copies v: with the target at
+        # the box corner and x_r1 − x_r2 pointing out, most attempts leave the box.
+        h._resample_F = lambda: 1.0  # type: ignore[method-assign]
+        h._trial_F_CR = lambda t, s: (1.0, 1.0)  # type: ignore[method-assign]
+        h._population[0] = _build_result(self.strategy, lb.copy(), -1.0, "x")
+        captured = []
+        h._emit_trial = lambda u, idx, F, CR, **kw: captured.append(np.asarray(u)) or True  # type: ignore[method-assign]
+        for _ in range(30):
+            calls.clear()
+            h._generate_trial(0)
+            assert 1 <= len(calls) <= 100
+        assert np.all([np.all((u >= lb) & (u <= ub)) for u in captured])
+        assert type(h)._TRIAL_ATTEMPTS == 100
+
+    def test_bounds_midpoint_after_regeneration(self):
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+
+        h = NLSHADE_LBC(self.strategy)
+        lb = self.problem.box[:, 0]
+        x = lb + 1.0
+        np.testing.assert_allclose(h._repair_bounds(lb - 10.0, x), (lb + x) / 2.0)
 
 
 # ----------------------------------------------------------------------
@@ -634,7 +728,7 @@ class NLSHADELBCInheritanceTests(_MockStrategyMixin, PanobbgoTestCase):
         h._success_CR = [0.5, 0.7]
         h._success_delta = [1.0, 1.0]
         h._update_memory()
-        # Standard L-SHADE Lehmer mean with p=2, m=1.
+        # Standard L-SHADE Lehmer mean with p=2, m=1 (NL-SHADE-RSP, reference code).
         F_vals = np.array([0.4, 0.6])
         expected = float(np.sum(F_vals * F_vals) / np.sum(F_vals))
         assert h._M_F[0] == pytest.approx(expected, rel=1e-9)

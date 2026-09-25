@@ -61,11 +61,10 @@ ARMS = {
     ),
     "lbc": (
         NLSHADE_LBC,
-        {**AUTO, "k_rank": 3.0},
+        dict(AUTO),
         {
             **NP_GRID,
             "np_30_H_20": {"NP_init": 30, "H": 20},
-            "np_30_H_20_k_6": {"NP_init": 30, "H": 20, "k_rank": 6.0},
         },
     ),
     "jso": (

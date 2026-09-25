@@ -27,7 +27,7 @@ class _MockStrategyMixin:
     """Same scaffolding as the L-SHADE / jSO tests.
 
     NL-SHADE-RSP inherits the LPSR / constraint-handler / max_eval
-    semantics from jSO → L-SHADE, so the mock strategy needs the same
+    semantics from L-SHADE, so the mock strategy needs the same
     setup.  ``config.max_eval`` is saved / restored to prevent cross-test
     bleed.
     """
@@ -59,22 +59,28 @@ def _build_result(strategy, x, fx, who):
 
 class NLSHADERSPConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
     def test_default_construction(self):
-        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP, _DEFAULT_K_RANK
+        """Paper / reference-code defaults (``nlshade-original.cpp``).
+
+        Updated 2026-09 for the fidelity pass: the port used to inherit jSO's
+        ``H = 5``, ``p_best 0.25 → 0.125``, ``archive_factor = 1``, the
+        ``"jso"`` F cap and a linear ``k_rank = 3`` weight on ``r1``.
+        """
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
         h = NLSHADE_RSP(self.strategy)
         # ``NP_init`` defaults to ``"auto"``: 3*dim = 6 at dim=2 / 1000 evals.
         assert h.NP_init == 6
         assert h.NP_min == 4
-        assert h.H == 5
-        assert h.p_best_max == 0.25
-        assert h.p_best_min == 0.125
-        assert h.archive_factor == 1.0
-        assert h.k_rank == _DEFAULT_K_RANK == 3.0
-        assert h.adaptive_archive is True
+        assert h.H == 20 * self.problem.dim
+        assert h.p_best == 0.2
+        assert h.p_best_end == 0.4
+        assert h.archive_factor == 2.1
+        assert h.k_rank == 1.0
+        assert h.p_archive == 0.5
         assert h.name == "NLSHADE_RSP"
-        assert h._rsp_archive_cap is None
-        # jSO opts into the asymmetric F-cap; NL-SHADE-RSP inherits it.
-        assert h.F_schedule == "jso"
+        assert h.F_schedule is None  # no jSO F cap
+        np.testing.assert_array_equal(h._M_F, 0.2)
+        np.testing.assert_array_equal(h._M_CR, 0.2)
 
     def test_custom_construction(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
@@ -84,32 +90,32 @@ class NLSHADERSPConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
             NP_init=20,
             NP_min=6,
             H=4,
-            p_best_max=0.3,
-            p_best_min=0.1,
+            p_best=0.3,
+            p_best_end=0.1,
             archive_factor=2.0,
             k_rank=1.5,
-            adaptive_archive=False,
             seed=7,
             name="MyRSP",
         )
         assert h.NP_init == 20
         assert h.NP_min == 6
         assert h.H == 4
-        assert h.p_best_max == 0.3
-        assert h.p_best_min == 0.1
+        assert h.p_best == 0.3
+        assert h.p_best_end == 0.1
         assert h.archive_factor == 2.0
         assert h.k_rank == 1.5
-        assert h.adaptive_archive is False
         assert h.name == "MyRSP"
 
-    def test_subclass_of_jso_and_lshade(self):
+    def test_subclass_of_lshade_not_jso(self):
+        """NL-SHADE-RSP is an L-SHADE descendant, not a jSO (no F_w, F cap, anchor bin, ...)."""
         from panobbgo.heuristics.jso import JSO
         from panobbgo.heuristics.lshade import LSHADE
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
         h = NLSHADE_RSP(self.strategy)
-        assert isinstance(h, JSO)
         assert isinstance(h, LSHADE)
+        assert not isinstance(h, JSO)
+        assert h._current_F_weight() == 1.0
 
     def test_invalid_k_rank(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
@@ -128,20 +134,13 @@ class NLSHADERSPConstructionTests(_MockStrategyMixin, PanobbgoTestCase):
         h = NLSHADE_RSP(self.strategy, k_rank=0.0)
         assert h.k_rank == 0.0
 
-    def test_invalid_adaptive_archive_type(self):
+    def test_inherits_lshade_validation(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        with pytest.raises(ValueError, match="adaptive_archive"):
-            NLSHADE_RSP(self.strategy, adaptive_archive="yes")  # type: ignore[arg-type]
-
-    def test_inherits_jso_validation(self):
-        """jSO's H >= 2 and p_best ordering rules still apply."""
-        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
-
-        with pytest.raises(ValueError, match="H must be >= 2"):
-            NLSHADE_RSP(self.strategy, H=1)
-        with pytest.raises(ValueError, match="p_best_min .* must be <= p_best_max"):
-            NLSHADE_RSP(self.strategy, p_best_max=0.2, p_best_min=0.3)
+        with pytest.raises(ValueError, match="H must be >= 1"):
+            NLSHADE_RSP(self.strategy, H=0)
+        with pytest.raises(ValueError, match="p_best_end"):
+            NLSHADE_RSP(self.strategy, p_best_end=1.5)
 
 
 # ----------------------------------------------------------------------
@@ -214,7 +213,7 @@ class NLSHADERSPReductionTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 # ----------------------------------------------------------------------
-# Rank-based Selective Pressure (RSP)
+# Rank-based Selective Pressure (RSP) — on r2, not r1
 # ----------------------------------------------------------------------
 
 
@@ -226,15 +225,26 @@ class NLSHADERSPRankSelectionTests(_MockStrategyMixin, PanobbgoTestCase):
         h._NP_current = len(fxs)
         return h._live_indices()
 
-    def test_select_excludes_target(self):
+    def _sorted(self, h, live):
+        return sorted(live, key=lambda i: h._rank_of(h._population[i]))
+
+    def test_r1_is_uniform_and_distinct(self):
+        """Regression (paper §III / reference code): ``r1`` is *uniform*, not rank-weighted.
+
+        The old port rank-selected ``r1`` with ``k·(n−i)/n + 1``, so the best
+        slot was drawn ~2× as often as the worst.
+        """
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, seed=0)
-        live = self._populate(h, [1.0, 2.0, 3.0, 4.0, 5.0])
-        for _ in range(200):
-            r1 = h._select_r1(live, target_idx=2)
-            assert r1 != 2
-            assert r1 in live
+        h = NLSHADE_RSP(self.strategy, seed=7)
+        live = self._populate(h, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+        counts = {i: 0 for i in live}
+        for _ in range(8000):
+            r1 = h._select_r1(live, target_idx=5, pbest_idx=0)
+            counts[r1] += 1
+        assert counts[5] == 0 and counts[0] == 0  # target and pbest excluded
+        for i in (1, 2, 3, 4):  # the rest uniform: ~2000 each
+            assert 1700 < counts[i] < 2300
 
     def test_returns_none_when_pool_empty(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
@@ -243,106 +253,280 @@ class NLSHADERSPRankSelectionTests(_MockStrategyMixin, PanobbgoTestCase):
         live = self._populate(h, [1.0])  # only the target slot is live
         assert h._select_r1(live, target_idx=0) is None
 
-    def test_better_individuals_selected_more_often(self):
-        """With k_rank > 0 the best slot is drawn far more than the worst."""
+    def test_rank_weights_are_exponential(self):
+        """``R_i = exp(−k·i/NP)`` (i = 0 best): RSP ``k = 1``, LBC ``k = 4``."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, k_rank=3.0, seed=123)
-        # Slot 0 is best (fx=1), slot 4 is worst (fx=5).  Target is slot 2.
-        live = self._populate(h, [1.0, 2.0, 3.0, 4.0, 5.0])
+        rsp = NLSHADE_RSP(self.strategy)
+        np.testing.assert_allclose(rsp._rank_weights(5), np.exp(-np.arange(5) / 5.0))
+        lbc = NLSHADE_LBC(self.strategy)
+        np.testing.assert_allclose(lbc._rank_weights(5), np.exp(-4.0 * np.arange(5) / 5.0))
+
+    def test_r2_from_population_is_rank_weighted(self):
+        """Population draws of ``r2`` follow ``exp(−i/NP)`` over the ranks, excluding target/pbest/r1."""
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, k_rank=1.0, seed=11)
+        live = self._populate(h, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
+        srt = self._sorted(h, live)
+        h._archive = []  # population only
+        n_draws = 20000
         counts = {i: 0 for i in live}
-        for _ in range(3000):
-            counts[h._select_r1(live, target_idx=2)] += 1
-        # Best candidate (slot 0) is chosen substantially more than worst (slot 4).
-        assert counts[0] > counts[4]
-        assert counts[0] > 2 * counts[4]
+        for _ in range(n_draws):
+            x, from_archive = h._select_r2(live, srt, target_idx=6, r1=1, pbest_idx=0)
+            assert not from_archive
+            idx = next(i for i in live if np.array_equal(h._population[i].x, x))
+            counts[idx] += 1
+        assert counts[6] == counts[1] == counts[0] == 0
+        w = np.exp(-np.arange(7) / 7.0)[[2, 3, 4, 5]]
+        expected = w / w.sum() * n_draws
+        for pos, i in enumerate((2, 3, 4, 5)):
+            assert abs(counts[i] - expected[pos]) < 0.05 * n_draws
 
     def test_k_rank_zero_is_uniform(self):
-        """``k_rank=0`` gives equal weights → roughly uniform selection."""
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
         h = NLSHADE_RSP(self.strategy, k_rank=0.0, seed=7)
-        live = self._populate(h, [1.0, 2.0, 3.0, 4.0])  # no target excluded below
+        live = self._populate(h, [1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+        srt = self._sorted(h, live)
         counts = {i: 0 for i in live}
         for _ in range(8000):
-            counts[h._select_r1(live, target_idx=99)] += 1  # target not in pool
-        # Each of the 4 slots should get ~25% (2000); allow generous slack.
-        for i in live:
-            assert 1500 < counts[i] < 2500
+            x, _ = h._select_r2(live, srt, target_idx=0, r1=1, pbest_idx=None)
+            counts[next(i for i in live if np.array_equal(h._population[i].x, x))] += 1
+        for i in (2, 3, 4, 5):
+            assert 1700 < counts[i] < 2300
 
 
 # ----------------------------------------------------------------------
-# Adaptive (randomised) archive
+# Archive: size 2.1·NP, adaptive usage probability p_A
 # ----------------------------------------------------------------------
 
 
 class NLSHADERSPArchiveTests(_MockStrategyMixin, PanobbgoTestCase):
-    def test_fixed_cap_when_adaptive_off(self):
+    def _populate(self, h, n):
+        h._population = [_build_result(self.strategy, self.problem.random_point(), float(i), f"x{i}") for i in range(n)]
+        h._NP_current = n
+        live = h._live_indices()
+        return live, sorted(live, key=lambda i: h._rank_of(h._population[i]))
+
+    def test_archive_size_is_2_1_NP_and_no_random_cap(self):
+        """Regression: ``N_A = ⌊2.1 · NP⌋`` (at least NP_min), not a random cap in ``[0, NP]``."""
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, archive_factor=2.0, adaptive_archive=False)
+        h = NLSHADE_RSP(self.strategy, seed=3)
+        h._NP_current = 30
+        assert {h._archive_cap() for _ in range(50)} == {63}
         h._NP_current = 10
-        assert h._archive_cap() == 20  # round(2.0 * 10)
+        assert h._archive_cap() == 21
+        h._NP_current = 1
+        assert h._archive_cap() == h.NP_min
+        assert NLSHADE_RSP(self.strategy, archive_factor=0.0)._archive_cap() == 0
 
-    def test_adaptive_cap_within_bounds(self):
+    def test_full_archive_replaces_a_random_entry(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, archive_factor=1.0, adaptive_archive=True, seed=3)
-        h._NP_current = 30
-        a_max = h._archive_max()
-        assert a_max == 30
-        seen = set()
-        for _ in range(200):
-            h._rsp_archive_cap = None  # force a fresh sample
-            cap = h._archive_cap()
-            assert 0 <= cap <= a_max
-            seen.add(cap)
-        # Random sampling should produce a spread of cap values.
-        assert len(seen) > 5
+        h = NLSHADE_RSP(self.strategy, archive_factor=1.0, NP_min=4, seed=5)
+        h._NP_current = 4
+        for i in range(10):
+            h._archive_insert(_build_result(self.strategy, [float(i), 0.0], 1.0, "p"))
+        assert len(h._archive) == 4
+        assert any(a[0] >= 4.0 for a in h._archive)  # later parents got in
 
-    def test_adaptive_cap_clipped_to_shrunk_a_max(self):
-        """A cached cap is clipped down when NLPSR shrinks ``A_max``."""
+    def test_r2_archive_probability(self):
+        """Regression: ``r2`` comes from the archive with probability ``p_A`` (was uniform over P ∪ A)."""
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, archive_factor=1.0, adaptive_archive=True)
-        h._NP_current = 30
-        h._rsp_archive_cap = 25  # sampled while population was large
-        h._NP_current = 8  # NLPSR shrank the population; A_max now 8
-        assert h._archive_cap() == 8
+        h = NLSHADE_RSP(self.strategy, seed=19)
+        live, srt = self._populate(h, 6)
+        # A huge archive: under the old uniform-over-union rule nearly every draw hit it.
+        h._archive = [np.array([9.0, 9.0]) for _ in range(500)]
+        for p_a, lo, hi in ((0.5, 0.45, 0.55), (0.1, 0.07, 0.13), (0.9, 0.87, 0.93)):
+            h.p_archive = p_a
+            hits = sum(h._select_r2(live, srt, target_idx=0, r1=1, pbest_idx=2)[1] for _ in range(4000))
+            assert lo < hits / 4000 < hi
+        h._archive = []
+        assert not h._select_r2(live, srt, target_idx=0, r1=1, pbest_idx=2)[1]
 
-    def test_cap_lazily_sampled_once(self):
+    def test_p_archive_update(self):
+        """``p_A = (Δ_A/n_A) / (Δ_A/n_A + Δ_P/(n − n_A))`` clipped to [0.1, 0.9]; 0.5 without archive success."""
+        from panobbgo.heuristics.lshade import _TrialMeta
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, adaptive_archive=True, seed=5)
-        h._NP_current = 20
-        assert h._rsp_archive_cap is None
-        cap1 = h._archive_cap()
-        assert h._rsp_archive_cap is not None
-        cap2 = h._archive_cap()  # cached — no re-sample
-        assert cap1 == cap2
+        h = NLSHADE_RSP(self.strategy, seed=0)
 
-    def test_end_of_generation_resamples_cap(self):
+        def success(from_archive, delta):
+            m = _TrialMeta(0, 0.5, 0.5)
+            m.from_archive = from_archive
+            h._record_success(m, delta)
+
+        success(True, 3.0)
+        success(True, 1.0)
+        success(False, 2.0)
+        h._update_p_archive(n_trials=6)  # A = 4/2 = 2, P = 2/4 = 0.5
+        assert h.p_archive == pytest.approx(2.0 / 2.5)
+
+        h._arch_delta, h._arch_n, h._pop_delta = 10.0, 1, 0.0
+        h._update_p_archive(n_trials=5)
+        assert h.p_archive == pytest.approx(0.9)  # clipped
+        h._arch_delta, h._arch_n, h._pop_delta = 0.1, 1, 100.0
+        h._update_p_archive(n_trials=5)
+        assert h.p_archive == pytest.approx(0.1)  # clipped
+        h._arch_delta, h._arch_n, h._pop_delta = 0.0, 0, 5.0
+        h._update_p_archive(n_trials=5)
+        assert h.p_archive == 0.5  # no archive success
+
+    def test_end_of_generation_updates_p_archive_and_resets(self):
+        from panobbgo.heuristics.lshade import _TrialMeta
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, adaptive_archive=True, seed=9)
+        h = NLSHADE_RSP(self.strategy, seed=9)
         h._population = []
-        h._NP_current = 20
-        self.strategy.config.max_eval = 1000
-        self.strategy.results = []
-        h._rsp_archive_cap = None
+        h._NP_current = 4
+        m = _TrialMeta(0, 0.5, 0.5)
+        m.from_archive = True
+        h._record_success(m, 1.0)
+        h._gen_completed = 4
+        h._cross_exponential = True
         h._end_of_generation()
-        assert h._rsp_archive_cap is not None
-        assert 0 <= h._rsp_archive_cap <= h._archive_max()
+        assert h.p_archive == pytest.approx(0.9)  # only the archive trial improved
+        assert (h._arch_delta, h._arch_n, h._pop_delta) == (0.0, 0, 0.0)
+        assert h._cross_exponential is None  # a fresh coin next generation
 
-    def test_archive_never_exceeds_cap(self):
+
+class NLSHADERSPParameterTests(_MockStrategyMixin, PanobbgoTestCase):
+    def _populate(self, h, n):
+        h._population = [_build_result(self.strategy, self.problem.random_point(), float(i), f"x{i}") for i in range(n)]
+        h._NP_current = n
+        live = h._live_indices()
+        return live, sorted(live, key=lambda i: h._rank_of(h._population[i]))
+
+    def test_pbest_rises_0_2_to_0_4_and_excludes_target(self):
+        """Regression (reference code): ``psize = max(2, NP·(0.2 + 0.2·r))`` rises; pbest ≠ target.
+
+        The old port inherited jSO's falling ``0.25 → 0.125``.
+        """
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
-        h = NLSHADE_RSP(self.strategy, archive_factor=1.0, adaptive_archive=True, seed=11)
-        h._NP_current = 6
-        h._rsp_archive_cap = 3
-        h._archive = [np.array([0.0, 0.0]) for _ in range(10)]
-        h._trim_archive()
-        assert len(h._archive) <= 3
+        h = NLSHADE_RSP(self.strategy, seed=0)
+        self.strategy.config.max_eval = 100
+        self.strategy.results = []
+        assert h._pbest_count(20) == 4
+        self.strategy.results = list(range(50))
+        assert h._pbest_count(20) == 6
+        self.strategy.results = list(range(100))
+        assert h._pbest_count(20) == 8
+        assert h._pbest_count(4) == 2  # floor of 2
+        live, srt = self._populate(h, 10)
+        assert srt[0] not in h._pbest_pool(srt, target_idx=srt[0])
+
+    def test_memory_init_and_plain_lehmer_update(self):
+        """Regression: M_F = M_CR = 0.2 initially; plain weighted Lehmer mean, no averaging,
+        no anchor, no terminal CR; a generation without success resets the bin to 0.5."""
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, H=4, seed=0)
+        np.testing.assert_array_equal(h._M_F, [0.2] * 4)
+        h._success_F = [0.2, 0.4, 0.8]
+        h._success_CR = [0.0, 0.0, 0.0]
+        h._success_delta = [1.0, 1.0, 1.0]
+        h._update_memory()
+        assert h._M_F[0] == pytest.approx((0.04 + 0.16 + 0.64) / 1.4)
+        assert h._M_CR[0] == 0.5  # all-zero CR: Lehmer denominator 0 → 0.5, not the −1 sentinel
+        # every bin is writable (no anchor)
+        for _ in range(3):
+            h._success_F, h._success_CR, h._success_delta = [0.9], [0.9], [1.0]
+            h._update_memory()
+        assert h._mem_ptr == 0
+        np.testing.assert_allclose(h._M_F[1:], 0.9)
+        # no success: current bin reset to 0.5 / 0.5, pointer stays
+        h._success_F, h._success_CR, h._success_delta = [], [], []
+        h._update_memory()
+        assert (h._M_F[0], h._M_CR[0], h._mem_ptr) == (0.5, 0.5, 0)
+
+    def test_no_F_cap(self):
+        """Regression: RSP does not inherit jSO's ``F ≤ 0.7`` cap."""
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, seed=1)
+        self.strategy.results = []
+        h._M_F[:] = 0.95
+        assert max(h._sample_F() for _ in range(300)) > 0.9
+
+    def test_CR_is_rank_order_statistic(self):
+        """Smaller sampled ``CR`` go to better individuals (sorted hand-out)."""
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, seed=4)
+        h._M_CR[:] = 0.5
+        best = np.mean([h._sample_CR_for_rank(0, 20) for _ in range(300)])
+        worst = np.mean([h._sample_CR_for_rank(19, 20) for _ in range(300)])
+        assert best < 0.4 < 0.6 < worst
+
+    def test_binomial_CR_schedule(self):
+        """``CR_b = 0`` in the first half, ``2(r − 0.5)`` after (the sampled CR is not used)."""
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, seed=0)
+        self.strategy.config.max_eval = 100
+        self.strategy.results = list(range(40))
+        assert h._binomial_CR() == 0.0
+        self.strategy.results = list(range(75))
+        assert h._binomial_CR() == pytest.approx(0.5)
+        h._cross_exponential = False
+        self.strategy.results = list(range(10))
+        x = np.zeros(2)
+        v = np.ones(2)
+        for _ in range(50):  # CR_b = 0: exactly the forced component, whatever CR says
+            assert np.sum(h._crossover(v, x, 1.0) == 1.0) == 1
+
+    def test_exponential_crossover_contiguous(self):
+        """Exponential crossover copies one contiguous run from a random start (no wrap-around)."""
+        from unittest import mock
+
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, seed=2)
+        x = np.zeros(8)
+        v = np.ones(8)
+        fake = mock.MagicMock(dim=8)
+        with mock.patch.object(NLSHADE_RSP, "problem", new_callable=mock.PropertyMock, return_value=fake):
+            lengths = []
+            for _ in range(300):
+                idx = np.flatnonzero(h._exponential_crossover(v, x, 0.7) == 1.0)
+                assert len(idx) >= 1
+                assert np.all(np.diff(idx) == 1)
+                lengths.append(len(idx))
+            for _ in range(20):
+                assert np.sum(h._exponential_crossover(v, x, 0.0)) == 1.0  # CR = 0: just the start
+        assert max(lengths) > 2
+
+    def test_crossover_type_fixed_per_generation(self):
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, seed=6)
+        seen = set()
+        for _ in range(40):
+            h._cross_exponential = None
+            h._crossover(np.ones(2), np.zeros(2), 0.5)
+            first = h._cross_exponential
+            for _ in range(5):
+                h._crossover(np.ones(2), np.zeros(2), 0.5)
+                assert h._cross_exponential is first
+            seen.add(first)
+        assert seen == {True, False}
+
+    def test_bounds_resampled_uniformly(self):
+        """Regression: out-of-box components are resampled in the box (was midpoint)."""
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        h = NLSHADE_RSP(self.strategy, seed=8)
+        lb, ub = h.problem.box[:, 0], h.problem.box[:, 1]
+        x = lb.copy()  # midpoint repair would give exactly lb for u < lb
+        u = lb - 5.0
+        outs = np.array([h._repair_bounds(u, x) for _ in range(200)])
+        assert np.all(outs >= lb) and np.all(outs <= ub)
+        assert outs[:, 0].std() > 0.1 * (ub[0] - lb[0])
 
 
 # ----------------------------------------------------------------------
@@ -363,13 +547,15 @@ class NLSHADERSPPipelineTests(_MockStrategyMixin, PanobbgoTestCase):
         assert all(slot is None for slot in h._population)
         assert all(pt.who.startswith("NLSHADE_RSP:") for pt in emitted)
 
-    def test_on_start_resets_archive_cap(self):
+    def test_on_start_resets_archive_probability(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
         h = NLSHADE_RSP(self.strategy, NP_init=4, seed=0)
-        h._rsp_archive_cap = 7
+        h.p_archive = 0.9
+        h._cross_exponential = True
         h.on_start()
-        assert h._rsp_archive_cap is None
+        assert h.p_archive == 0.5
+        assert h._cross_exponential is None
 
     def test_filled_population_emits_evolutionary_trials(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
@@ -412,16 +598,18 @@ class NLSHADERSPPipelineTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._population[target_slot].fx == target_fx - 50.0
         assert len(h._success_F) >= 1
 
-    def test_restart_resets_archive_cap_and_memory(self):
+    def test_restart_resets_archive_probability_and_memory(self):
         from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
 
         h = NLSHADE_RSP(self.strategy, NP_init=6, seed=2)
         h.on_start()
         h.get_points(limit=100)
-        h._rsp_archive_cap = 4
+        h.p_archive = 0.1
+        h._M_F[:] = 0.9
         h._archive.append(np.array([0.5, 0.5]))
         h.on_restart(np.array([0.0, 0.0]), reason="test")
-        assert h._rsp_archive_cap is None
+        assert h.p_archive == 0.5
+        np.testing.assert_array_equal(h._M_F, 0.2)
         assert h._archive == []
         assert len(h._pending) == h.NP_init
 

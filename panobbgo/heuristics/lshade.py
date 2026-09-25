@@ -706,8 +706,8 @@ class LSHADE(Heuristic):
         """Maximum number of replaced parents the external archive retains.
 
         The fixed ``archive_factor · NP_current`` cap from Tanabe-Fukunaga
-        (2014).  Subclasses (e.g.
-        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override it.
+        (2014).  :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`
+        overrides it (``⌊2.1 · NP⌋``, at least ``NP_min``).
         """
         return max(int(round(self.archive_factor * self._NP_current)), 0)
 
@@ -741,6 +741,13 @@ class LSHADE(Heuristic):
         """
         return max(int(np.ceil(self._current_p_best() * n)), 1)
 
+    def _pbest_pool(self, sorted_live: List[int], target_idx: int) -> List[int]:
+        """The live slots ``pbest`` is drawn from: the top :meth:`_pbest_count`.
+
+        L-SHADE does not exclude the target (Tanabe-Fukunaga 2014).
+        """
+        return sorted_live[: self._pbest_count(len(sorted_live))]
+
     def _select_pbest(self, sorted_live: List[int], target_idx: int) -> Optional[Tuple[np.ndarray, Optional[int]]]:
         """Pick ``x_pbest`` uniformly from the top :meth:`_pbest_count` slots.
 
@@ -748,7 +755,7 @@ class LSHADE(Heuristic):
         point does not come from the live population (jSO's shared pbest) —
         or ``None`` to abort the trial.
         """
-        pbest_pool = sorted_live[: self._pbest_count(len(sorted_live))]
+        pbest_pool = self._pbest_pool(sorted_live, target_idx)
         pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
         pbest_slot = self._population[pbest_idx]
         if not isinstance(pbest_slot, Result):
@@ -1103,11 +1110,10 @@ class LSHADE(Heuristic):
         slots = [i for i, slot in enumerate(self._population) if not isinstance(slot, _Dropped)]
 
         # Find out whether the archive has anything at all *before* asking for
-        # the archive cap.  :meth:`_archive_cap` is not a pure accessor in
-        # every subclass: :meth:`NLSHADE_RSP._archive_cap
-        # <panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP._archive_cap>` draws
-        # the per-generation cap from ``self._rng`` when
-        # ``adaptive_archive=True`` (the default).  Computing it on a path
+        # the archive cap.  :meth:`_archive_cap` need not be a pure accessor
+        # in every subclass: until 2026-09 NL-SHADE-RSP drew a randomised
+        # per-generation cap from ``self._rng`` (it now uses the paper's
+        # fixed ``2.1 · NP``).  Computing it on a path
         # that then bails out consumed an RNG draw, so on NL-SHADE-RSP and
         # NL-SHADE-LBC merely *passing* ``warm_start="archive"`` shifted the
         # whole initial population even though the empty archive meant the

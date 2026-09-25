@@ -382,8 +382,8 @@ def regime_arms_for_roles(heuristics: List[Heuristic], roles: Tuple[str, ...]) -
 
     A role is a heuristic *class name* (``"CMAES"``, ``"JSO"``); an arm
     plays it if that is its exact class or its :attr:`name`.  Exact class,
-    not ``isinstance``: ``NLSHADE_LBC`` subclasses ``JSO`` and is not the
-    arm §42 measured.  The result is in registration order and may be
+    not ``isinstance``: a subclass of an arm is not the arm §42 measured
+    (``NLSHADE_LBC`` subclassed ``JSO`` until 2026-09).  The result is in registration order and may be
     empty — the caller decides what an empty mask means.
     """
     wanted = set(roles)

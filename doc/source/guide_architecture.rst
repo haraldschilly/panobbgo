@@ -292,31 +292,30 @@ Implemented Heuristics
   jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
   wins on the current battery.
 
-- :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`: NL-SHADE-RSP refinement of jSO
-  (Stanovov, Akhmedova & Semenkin, CEC 2021 winner).  Direct subclass of
-  :class:`~panobbgo.heuristics.jso.JSO` that adds three further refinements: *Non-Linear
-  Population Size Reduction* (``NP(r) = round((NP_min − NP_init)·r^(1−r) + NP_init)``, which
-  reduces the population faster than L-SHADE's linear schedule in the early phase); *Rank-based
-  Selective Pressure* (the differential ``r1`` index is drawn with probability proportional to a
-  fitness rank weight ``k_rank·(n−i)/n + 1``, biasing the mutation toward better individuals —
-  ``k_rank`` default ``3``, ``0`` recovers uniform jSO selection); and a *randomised adaptive
-  archive* (the archive cap is resampled per generation in ``[0, round(archive_factor·NP)]``).
-  Inherits the jSO mutation / schedule / anchor-memory machinery and the asynchronous pipeline
-  unchanged.  The full CEC-2021 adaptive-crossover blend and success-ratio archive-probability
-  adaptation are intentionally not ported (the asynchronous generation model does not expose them
-  cleanly).
+- :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`: NL-SHADE-RSP (Stanovov, Akhmedova &
+  Semenkin, CEC 2021 winner), a direct subclass of :class:`~panobbgo.heuristics.lshade.LSHADE`
+  following the authors' reference code: *Non-Linear Population Size Reduction*
+  (``NP(r) = round((NP_min − NP_init)·r^(1−r) + NP_init)``); *rank-based selective pressure* on
+  the population draw of ``r2`` (weights ``exp(−i/NP)``, best first; ``r1`` uniform); an archive
+  of ``2.1·NP`` used for ``r2`` with an *adaptive probability* ``p_A`` (from the archive vs.
+  population success of the last generation, clipped to ``[0.1, 0.9]``); a per-generation coin
+  between *binomial* (``CR_b = 0``, then ``2(r − 0.5)`` in the second half) and *exponential*
+  crossover with the sampled ``CR`` handed out sorted by fitness; ``pbest`` share rising
+  ``0.2 → 0.4``; ``H = 20·D`` bins at ``0.2``; plain Lehmer memory; uniform resampling of
+  out-of-box components.  None of jSO's machinery (F cap, anchor bin, ``F_w``, CR floors, memory
+  averaging).  Deviations: ``NP_init="auto"`` (measured) and the asynchronous generation model.
 
-- :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`: NL-SHADE-LBC refinement of NL-SHADE-RSP
-  (Stanovov, Akhmedova & Semenkin, CEC 2022 winner).  Direct subclass of
-  :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` that adds *Linear Bias Change* in the
+- :class:`~panobbgo.heuristics.nl_shade_lbc.NLSHADE_LBC`: NL-SHADE-LBC (Stanovov, Akhmedova &
+  Semenkin, CEC 2022 winner), a subclass of
+  :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP` with *Linear Bias Change* in the
   success-history memory update: the F / CR Lehmer-mean order ``p`` is linearly scheduled across
-  budget progress (``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``) instead of fixed at ``2``; the spread
-  between numerator and denominator exponents is held constant at ``m_lbc = 1.5``.  At
-  ``p = 2, m = 1`` the formula recovers the standard L-SHADE weighted Lehmer mean — both regimes
-  are reachable from the default catalog so the bandit can flip between them.  Inherits NL-SHADE-RSP's
-  NLPSR / RSP / adaptive-archive machinery and the asynchronous pipeline unchanged.  The CEC-2022
-  adaptive crossover blend and repetitive-generation bound-constraint handling are intentionally not
-  ported (see the heuristic docstring).
+  budget progress (``p_F: 3.5 → 1.5``, ``p_CR: 1.0 → 1.5``) with spread ``m_lbc = 1.5``; at
+  ``p = 2, m = 1`` the formula recovers the standard weighted Lehmer mean.  Otherwise per the
+  paper: rank pressure ``exp(−4i/NP)`` on ``r2``, fixed ``p_A = 0.5``, archive ``1.0·NP`` with
+  fitness-probed replacement, ``pbest`` share ``0.2 → 0.3``, binomial crossover only (sorted
+  ``CR``), out-of-bounds trials regenerated up to 100 times before the midpoint repair, ``H = 20·D``
+  bins at ``M_F = 0.5`` / ``M_CR = 0.9``.  Deviations: ``NP_init="auto"`` with coefficient ``4``
+  (measured) and the asynchronous generation model.
 
 - :class:`~panobbgo.heuristics.lshade_ep_sin.LSHADE_EpSin`: LSHADE-EpSin refinement of L-SHADE
   (Awad, Ali & Suganthan, CEC 2016).  Direct subclass of

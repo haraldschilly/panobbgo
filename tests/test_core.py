@@ -702,3 +702,15 @@ def test_a_failed_evaluation_answers_the_bridge_with_inf():
         assert h._outstanding_x is None  # answered exactly once
     finally:
         s._cleanup()
+
+
+def test_cleanup_closes_the_backend_that_was_set_up():
+    """``_cleanup`` routed by the configured method: a changed name leaked the live backend."""
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    assert s._pool_method == "threaded"
+    s.config.evaluation_method = "dask"  # changed after construction; initialize() never ran
+    with mock.patch.object(s._pool, "close", wraps=s._pool.close) as close:
+        s._cleanup()
+    assert close.call_count == 1

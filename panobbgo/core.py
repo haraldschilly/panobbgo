@@ -3021,7 +3021,11 @@ class StrategyBase:
         self.eventbus.publish("finished", terminate=True)
         self._end = time_module.time()
 
-        if self.config.evaluation_method == "dask":
+        # The backend that was actually set up, not the configured name: a
+        # caller may change ``config.evaluation_method`` after construction,
+        # and if ``initialize()`` then fails before ``_ensure_cluster``, the
+        # old backend (a LocalCluster, a LocalPool) is still the live one.
+        if getattr(self, "_pool_method", self.config.evaluation_method) == "dask":
             from . import dask_evaluation
 
             # Cancel outstanding futures, close client + cluster

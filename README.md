@@ -46,7 +46,7 @@ pip install -e ".[dev]"
 ## Running tests
 
 ```bash
-uv run pytest -q -n 4          # full suite, ~2000 tests, about a minute
+uv run pytest -q -n 4          # full suite, ~2300 tests, about a minute
 uv run pytest --cov=panobbgo   # with coverage
 uv run pyright panobbgo        # type checking
 uv run ruff format --check .   # formatting (the CI gate)

@@ -67,7 +67,7 @@ package, so if they pass for you the installation is complete.
    >>> print(f"NumPy: {np.__version__}, SciPy: {scipy.__version__}")
    NumPy: ..., SciPy: ...
 
-To run the framework's own test suite (about 2000 tests, roughly a minute
+To run the framework's own test suite (about 2300 tests, roughly a minute
 with four workers):
 
 .. code-block:: bash

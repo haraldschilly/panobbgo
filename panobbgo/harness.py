@@ -1916,8 +1916,8 @@ class BenchmarkHarness:
     ) -> RunRecord:
         """Execute one (problem, strategy, rep) run and return a :class:`RunRecord`.
 
-        Runs the strategy directly (without going through :class:`BenchmarkSuite`)
-        so that the full results DataFrame is accessible for convergence extraction.
+        Runs the strategy directly so that the full results DataFrame is
+        accessible for convergence extraction.
 
         Args:
             prob_spec: Problem specification.

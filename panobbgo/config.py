@@ -330,7 +330,8 @@ class Config:
         # whichever futures the OS scheduler happened to finish.  Cuts
         # the run-to-run noise of adaptive strategies roughly in half on
         # the IOH benchmark (see planning/SELF_IMPROVEMENT_LOG.md,
-        # 2026-08-09); off by default — benchmark drivers opt in.
+        # 2026-08-09); off by default — benchmark drivers opt in.  Not
+        # supported by 'dask' (ignored with a warning).
         self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
 
         # Per-evaluation timeout in seconds of running time for 'threaded'
@@ -338,7 +339,8 @@ class Config:
         # fails (no result, still charged to the budget): processes kill the
         # worker, threads abandon it (it keeps running; see
         # panobbgo/local_pool.py).  Ignored — with a warning — for threaded
-        # evaluation under evaluation.sync (inline).  Unset/0 = no timeout.
+        # evaluation under evaluation.sync (inline) and for 'dask'.
+        # Unset/0 = no timeout.
         self.evaluation_timeout = get_config("evaluation.timeout", None, None, None, float)
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')

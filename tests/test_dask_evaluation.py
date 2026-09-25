@@ -62,3 +62,21 @@ def test_failed_task_walltime_is_booked_like_a_successful_one():
     assert s.n_finished == 2 and not s.pending
     assert len(s.errors) == 1 and "boom" in s.errors[0]
     assert s.failed == ["bad"]  # published as failed_evaluations, not only logged
+
+
+def test_timeout_and_sync_are_ignored_with_one_warning():
+    """Both options were dropped silently for dask."""
+    s = _strategy(lambda point: point)
+    warnings = []
+    s.logger = SimpleNamespace(error=s.errors.append, warning=warnings.append)
+    s.config = SimpleNamespace(show_interval=1e9, evaluation_timeout=5.0, sync_evaluation=True)
+    dask_evaluation.run_evaluation(s, ["a"])
+    dask_evaluation.run_evaluation(s, ["b"])
+    assert len(warnings) == 1
+    assert "evaluation.timeout" in warnings[0] and "evaluation.sync" in warnings[0]
+
+
+def test_no_warning_without_the_options():
+    s = _strategy(lambda point: point)
+    s.logger = SimpleNamespace(error=s.errors.append, warning=lambda msg: (_ for _ in ()).throw(AssertionError(msg)))
+    dask_evaluation.run_evaluation(s, ["a"])

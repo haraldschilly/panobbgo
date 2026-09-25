@@ -114,6 +114,8 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
             return None, time.perf_counter() - t0, repr(exc)
         return result, time.perf_counter() - t0, None
 
+    _warn_ignored_options(strategy)
+
     # distribute work using Dask futures
     # Submit each point as a separate task; remember its point so a failure
     # can be reported (``failed_evaluations``).
@@ -159,6 +161,31 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
 
     strategy._publish_failures(failed)
     return new_results
+
+
+def _warn_ignored_options(strategy: "StrategyBase") -> None:
+    """Warn once that ``evaluation.timeout`` and ``evaluation.sync`` do not apply to dask.
+
+    Nothing is cancelled on a timeout and results arrive in completion
+    order; both options used to be dropped silently.
+    """
+    if getattr(strategy, "_warned_dask_options", False):
+        return
+    config = strategy.config
+    ignored = [
+        name
+        for name, value in (
+            ("evaluation.timeout", getattr(config, "evaluation_timeout", None)),
+            ("evaluation.sync", getattr(config, "sync_evaluation", False)),
+        )
+        if value
+    ]
+    if ignored:
+        setattr(strategy, "_warned_dask_options", True)
+        strategy.logger.warning(
+            "%s ignored for evaluation.method 'dask': evaluations are not timed out and results "
+            "arrive in completion order. Use 'threaded' or 'processes' for them." % " and ".join(ignored)
+        )
 
 
 def _add_tasks(strategy: "StrategyBase", new_futures: List[Any]) -> None:

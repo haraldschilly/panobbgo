@@ -666,17 +666,25 @@ class LSHADE(Heuristic):
 
         Memoised per :class:`~panobbgo.lib.Result`: the population is ranked
         on every trial generation, so the same handful of results would
-        otherwise be re-penalised thousands of times per run.  Results are
-        immutable, so the cached value cannot go stale.
+        otherwise be re-penalised thousands of times per run.  Only when the
+        handler is ``time_invariant``: results are immutable, but a dynamic
+        penalty (``rho`` grows with the number of results), an epsilon level
+        or augmented-Lagrangian multipliers change the value of the *same*
+        result over time, and a memo would rank the population on stale
+        penalties.
         """
-        cached = self._fx_cache.get(id(r))
-        if cached is not None:
-            return cached
         handler = getattr(self.strategy, "constraint_handler", None)
+        cacheable = handler is None or bool(getattr(handler, "time_invariant", False))
+        if cacheable:
+            cached = self._fx_cache.get(id(r))
+            if cached is not None:
+                return cached
         if handler is None:
             value = float(r.fx) if r.fx is not None else float("inf")
         else:
             value = handler.get_penalty_value(r)
+        if not cacheable:
+            return value
         self._fx_cache[id(r)] = value
         self._fx_keep.append(r)  # keep alive so ``id`` cannot be reused
         if len(self._fx_keep) > 4 * max(self.NP_init, 1):

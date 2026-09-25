@@ -1203,3 +1203,38 @@ class LSHADERegistrationTests(_MockStrategyMixin, PanobbgoTestCase):
 
         assert hasattr(h, "LSHADE")
         assert "LSHADE" in h.__all__
+
+
+class LSHADEPenaltyMemoTests(_MockStrategyMixin, PanobbgoTestCase):
+    """``_fx_of`` may memoise only under a time-invariant handler."""
+
+    def _result(self):
+        from panobbgo.lib import Point, Result
+
+        return Result(Point(np.zeros(2), "t"), 1.0, cv_vec=np.array([1.0]))
+
+    def test_dynamic_penalty_is_not_memoised(self):
+        from panobbgo.heuristics.lshade import LSHADE
+        from panobbgo.lib.constraints import DynamicPenaltyConstraintHandler
+
+        self.strategy.constraint_handler = DynamicPenaltyConstraintHandler(
+            self.strategy, rho_start=1.0, rate=1.0, exponent=1.0
+        )
+        h = LSHADE(self.strategy)
+        r = self._result()
+        self.strategy.results = []
+        first = h._fx_of(r)  # rho = 1
+        self.strategy.results = list(range(9))
+        assert h._fx_of(r) != first  # rho = 10: the penalty of the same result moved
+        assert h._fx_of(r) == pytest.approx(1.0 + 10.0)
+
+    def test_time_invariant_handler_is_memoised(self):
+        from unittest import mock
+
+        from panobbgo.heuristics.lshade import LSHADE
+
+        h = LSHADE(self.strategy)
+        r = self._result()
+        first = h._fx_of(r)
+        with mock.patch.object(type(self.strategy.constraint_handler), "get_penalty_value", return_value=-5.0):
+            assert h._fx_of(r) == first

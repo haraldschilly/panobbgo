@@ -287,12 +287,6 @@ class LBFGSB(PipeBridgeHeuristic):
         # no explicit seed is given so the restart stream is pinned by the
         # strategy's master seed rather than fresh OS entropy.
         self._worker_seed: int = int(self.rng.integers(2**31)) if seed is None else int(seed)
-        # Seeds for *respawned* workers (restarts).  The first worker keeps
-        # ``_worker_seed``; every later one draws a fresh seed from this
-        # stream, so a restart does not replay the first worker's multi-start
-        # ``x0`` sequence, and the whole sequence is still pinned by the seed.
-        self._respawn_seeds = np.random.default_rng(self._worker_seed)
-        self._spawns: int = 0
 
         # Subprocess handles — populated by :meth:`__start__`.
         self.p1: Any = None  # parent end of the request pipe
@@ -313,6 +307,21 @@ class LBFGSB(PipeBridgeHeuristic):
         """Midpoint of every box axis — the deterministic first start point."""
         return np.array([(low + high) / 2.0 for low, high in bounds], dtype=float)
 
+    def _respawn_seed(self, restart_index: int) -> int:
+        """Worker seed for the worker spawned for restart ``restart_index``.
+
+        ``0`` (the initial worker) is ``_worker_seed`` itself, so runs without
+        restarts are unchanged.  Restart *n* gets child *n* of
+        ``SeedSequence(_worker_seed)``: a restart does not replay the first
+        worker's multi-start ``x0`` sequence, and the seed depends on *which*
+        restart it is (counted on the event bus), not on how many respawns
+        timing happened to coalesce.
+        """
+        if restart_index == 0:
+            return self._worker_seed
+        ss = np.random.SeedSequence(self._worker_seed, spawn_key=(restart_index,))
+        return int(ss.generate_state(1, dtype=np.uint32)[0] >> 1)
+
     def _spawn(self, x0_first: np.ndarray, bounds: list) -> None:
         """Launch a fresh worker subprocess starting from ``x0_first``."""
         ctx = multiprocessing.get_context("spawn")
@@ -322,8 +331,7 @@ class LBFGSB(PipeBridgeHeuristic):
         lb = np.asarray([b[0] for b in bounds], dtype=float)
         ub = np.asarray([b[1] for b in bounds], dtype=float)
 
-        worker_seed = self._worker_seed if self._spawns == 0 else int(self._respawn_seeds.integers(2**31))
-        self._spawns += 1
+        worker_seed = self._respawn_seed(self._restart_index)
 
         self.lbfgsb = ctx.Process(
             target=self.worker,

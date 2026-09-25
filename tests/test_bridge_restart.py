@@ -135,13 +135,14 @@ class _FakeCtx:
 
 
 class LBFGSBWorkerSeedTests(PanobbgoTestCase):
-    def _seeds(self, seed):
+    def _seeds(self, seed, restarts=(1, 2)):
         h = LBFGSB(self.init_strategy(), seed=seed)
         ctx = _FakeCtx()
         with mock.patch("panobbgo.heuristics.lbfgsb.multiprocessing.get_context", return_value=ctx):
             h.__start__()
-            h._bridge_respawn(None)
-            h._bridge_respawn(None)
+            for n in restarts:
+                h._restart_index = n
+                h._bridge_respawn(None)
         return h._worker_seed, ctx.seeds
 
     def test_respawn_draws_a_fresh_worker_seed(self):
@@ -152,6 +153,21 @@ class LBFGSBWorkerSeedTests(PanobbgoTestCase):
             assert seeds[0] == first  # the first worker is unchanged
             assert len(set(seeds)) == 3  # every respawn gets its own seed
             assert self._seeds(seed)[1] == seeds  # ... reproducibly
+
+    def test_seed_depends_on_the_restart_number_not_the_respawn_count(self):
+        """Restart 2's worker gets the same seed whether restart 1 was applied
+        or coalesced into it."""
+        _, both = self._seeds(7, restarts=(1, 2))
+        _, only_second = self._seeds(7, restarts=(2,))
+        assert only_second[1] == both[2]
+
+    def test_restart_requests_are_numbered_on_the_bus(self):
+        h = _live(LBFGSB(self.init_strategy()), "lbfgsb")
+        with mock.patch.object(LBFGSB, "_bridge_respawn"):
+            h.on_restart(center=None, reason="a")
+            h.on_restart(center=None, reason="b")  # coalesces with "a"
+            h._apply_pending_restart()
+        assert h._restart_index == 2
 
 
 def test_result_point_roundtrip():

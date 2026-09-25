@@ -1056,6 +1056,13 @@ class PipeBridgeHeuristic(Heuristic):
         #: thread and applied by :meth:`produce` on the main thread.
         self._pending_restart: Optional[tuple] = None
         self._restart_lock = threading.Lock()
+        #: Number of restart *requests* so far (counted on the event bus, so a
+        #: pure function of the event sequence), and the number of the request
+        #: the current worker was spawned for (``0``: the initial worker).
+        #: Requests that arrive before the next ``produce`` coalesce, so
+        #: respawns can skip numbers; the number itself never depends on timing.
+        self._restart_requests: int = 0
+        self._restart_index: int = 0
         #: Guards the hand-off of a value: the bus thread's "is this the
         #: outstanding point? then queue its value" and the main thread's
         #: reset / new outstanding point are atomic with respect to each other.
@@ -1125,7 +1132,8 @@ class PipeBridgeHeuristic(Heuristic):
         if self._stopped:
             return
         with self._restart_lock:
-            self._pending_restart = (center,)
+            self._restart_requests += 1
+            self._pending_restart = (center, self._restart_requests)
 
     def _apply_pending_restart(self) -> None:
         """Perform a recorded restart.  Main thread only (see :meth:`produce`)."""
@@ -1134,6 +1142,7 @@ class PipeBridgeHeuristic(Heuristic):
         if pending is None or self._stopped:
             return
         self.clear_output()
+        self._restart_index = pending[1]
         try:
             self._bridge_respawn(pending[0])
         except Exception as exc:

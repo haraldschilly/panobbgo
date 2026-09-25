@@ -116,10 +116,14 @@ class QuadraticWlsModel(HeuristicSubprocess):
     def on_new_best_box(self, best_box):
         # self.logger.info("")
         # self.logger.debug("best_box.best: %s" % best_box.best)
-        pointarray = np.r_[[r.x for r in best_box.results]]
-        # self.logger.debug("pointarray: \n%s" % pointarray)
         get_val = self.strategy.constraint_handler.get_penalty_value
-        fx_vals = np.array([get_val(r) for r in best_box.results])
+        # Only finite penalty values reach the least-squares fit (an infinite
+        # one, e.g. from a NaN constraint, would make it nan).
+        usable = [(r, v) for r in best_box.results for v in (get_val(r),) if np.isfinite(v)]
+        if not usable:
+            return
+        pointarray = np.r_[[r.x for r, _ in usable]]
+        fx_vals = np.array([v for _, v in usable], dtype=float)
 
         try:
             # Send bounds as list of tuples for scipy compatibility

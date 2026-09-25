@@ -194,3 +194,16 @@ def test_clear_output_on_new_results():
     h.on_new_results(_make_results(5, dim=2, rng=np.random.default_rng(99)))
     points = h.get_points(10)
     assert len(points) == 3
+
+
+def test_nan_constraint_result_is_not_accumulated():
+    """A NaN constraint makes ``cv`` and the penalty infinite; such a result must
+    not enter the stored arrays (an ``inf`` target poisons every later fit)."""
+    problem = MockProblem(dim=2)
+    strategy = _make_strategy(problem)
+    h = ClaudeHeuristic(strategy)
+    good = _make_results(3, 2)
+    bad = Result(Point(np.zeros(2), "test"), 0.0, cv_vec=np.array([np.nan]))
+    assert h._accumulate(good + [bad])
+    assert h.y_all is not None and len(h.y_all) == 3
+    assert np.all(np.isfinite(h.y_all))

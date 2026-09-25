@@ -43,8 +43,13 @@ class WeightedAverage(Heuristic):
 
         # actual calculation
         get_val = self.strategy.constraint_handler.get_penalty_value
-        xx = np.array([r.x for r in box.results])
-        yy = np.array([get_val(r) for r in box.results])
+        # Only finite penalty values: an infinite one (e.g. a NaN constraint)
+        # would turn every weight into nan.
+        pairs = [(r.x, v) for r in box.results for v in (get_val(r),) if np.isfinite(v)]
+        if len(pairs) < 3:
+            return
+        xx = np.array([p[0] for p in pairs])
+        yy = np.array([p[1] for p in pairs], dtype=float)
 
         # Calculate weights based on penalty values.
         # Shift values relative to the box minimum to ensure non-negative inputs for log1p.

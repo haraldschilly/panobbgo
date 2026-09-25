@@ -143,7 +143,9 @@ class GaussianProcessHeuristic(Heuristic):
         new_cv_list = []
 
         for r in results:
-            if r.fx is not None and np.isfinite(r.fx):
+            # A NaN constraint makes ``cv`` (and the penalty) infinite: skip it,
+            # as a non-finite ``fx`` is skipped; the second loop below must match.
+            if r.fx is not None and np.isfinite(r.fx) and np.isfinite(r.cv):
                 new_X_list.append(r.x)
                 new_fx_list.append(r.fx)
                 cv = r.cv if r.cv is not None else 0.0
@@ -228,7 +230,7 @@ class GaussianProcessHeuristic(Heuristic):
 
             # Re-iterate results to get penalty values
             for r in results:
-                if r.fx is not None and np.isfinite(r.fx):
+                if r.fx is not None and np.isfinite(r.fx) and np.isfinite(r.cv):
                     val = get_val(r)
                     new_penalized.append(val)
 

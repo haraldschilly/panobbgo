@@ -346,6 +346,29 @@ def test_type_error_inside_a_terminate_handler_is_reported(strategy):
     bus.shutdown()
 
 
+def test_on_finished_reaches_every_module_before_stop():
+    """``__stop__`` unsubscribed modules while ``finished`` was still queued behind a slow handler."""
+    import time
+
+    from panobbgo.core import Analyzer
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    got = []
+
+    class Slow(Analyzer):
+        def on_finished(self):
+            time.sleep(0.3)
+            got.append(self.name)
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0, max_eval=5)
+    s.add_analyzer(Slow(s, name="Slow1"))
+    s.add_analyzer(Slow(s, name="Slow2"))
+    s.add(Random)
+    s.start()
+    assert got == ["Slow1", "Slow2"]
+
+
 def test_unknown_strategy_kwarg_is_a_type_error():
     """``max_evals=`` (typo) used to be dropped silently."""
     from panobbgo.strategies import StrategyRoundRobin, StrategyUCB

@@ -2705,6 +2705,13 @@ class StrategyBase:
 
         self.info()
         self.results.info()
+        # Let ``on_finished`` reach every subscriber before the ``__stop__``
+        # loop below unsubscribes them: a handler still queued behind a slow
+        # one was silently dropped.  Bounded — cleanup must not hang on a
+        # wedged handler — and skipped on the bus thread, which cannot wait
+        # for itself.
+        if threading.current_thread() is not self.eventbus._thread:
+            self.eventbus.wait_idle(timeout=float(self.config.shutdown_grace_seconds))
         # *Every* module, not ``self.heuristics`` — that property filters on
         # ``active``, so a heuristic that had already exhausted itself (the F1
         # shape) never got its ``__stop__`` and kept its subprocess alive.

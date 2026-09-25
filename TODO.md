@@ -63,6 +63,16 @@ change instruments that must be re-baselined once.
 
 ### T1 — measurement integrity
 
+- [ ] **Re-baseline once: pre-T1 result files are not comparable.**  Since
+      2026-09-25 (T1) composite `success`/`success_rate` means "tolerance
+      met *within the budget*" (was: the final `strategy.best`, which could
+      come from evaluations past it), and the core clamps every run to
+      exactly `max_eval` evaluations (runs used to overshoot by up to one
+      batch, e.g. 406 on 400) — which also changes trajectories of
+      asynchronous runs and the last batch of every run.  Composite
+      scores, success rates and AOCC from before T1 must not be compared
+      with newer ones; re-measure the baselines (composite quick/standard,
+      the IOH/family references) before the next A/B that relies on them.
 - [ ] **`sync_eval=True` as the default** of `run_ioh_harness` /
       `scripts/ioh_benchmark.py` and of the composite harness
       (`HarnessConfig.sync_eval`, `--sync-eval`).  Every screen already
@@ -107,9 +117,8 @@ change instruments that must be re-baselined once.
       failed tasks never leave `pending` → 60 001 idle spins (`:2197-2207`).
       Replace with `ProcessPoolExecutor` or remove the mode.
 - [ ] ✓ `HeuristicSubprocess` leaks its process (no `__stop__`, `core.py:930`).
-- [ ] ✓ Threaded shutdown `wait=False` without `cancel_futures`
-      (`core.py:2486`): queued evals still run after `start()` returns;
-      unstarted strategies leak their EventBus thread.
+- [ ] ✓ Unstarted strategies leak their EventBus thread (the threaded
+      pool's queued evals are cancelled on cleanup since T1).
 - [ ] ✓ `Config()` crashes outside a git checkout (`utils.py:153`,
       IndexError) and reports the cwd's repo, not panobbgo's.
 - [ ] ✓ Unknown strategy kwargs silently dropped (`core.py:1535`);

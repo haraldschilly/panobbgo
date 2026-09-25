@@ -182,6 +182,11 @@ Per-pair metrics: `success_rate`, `ert` (BBOB standard),
     have the same rep count — the `--randomize` case. Force with
     `--paired` / `--unpaired`; use `--unpaired` when reps are not
     instance-aligned (different `base_seed`s).
+*   **Result files from before T1 (2026-09-25) are not comparable** with
+    newer ones: the core now stops at exactly `max_eval` (runs used to
+    overshoot by up to one batch), and composite `success` means
+    "tolerance met within the budget" (was: final `strategy.best`).
+    Re-baseline instead of comparing across that line (TODO.md T1).
 *   Seeded runs are bit-reproducible under `sync_eval` (since 2026-09-09).
     But each run's RNG stream is derived from `StrategySpec.seed_name`
     (default: the spec's `name`), so **variants of one arm must share a

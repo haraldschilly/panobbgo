@@ -25,7 +25,6 @@ Exercises :func:`panobbgo.harness.statistical_accept` and the
 from __future__ import annotations
 
 import json
-import pathlib
 from typing import List, Optional
 
 import numpy as np
@@ -376,9 +375,6 @@ class TestCompareCLIStatistical:
 
     def test_compare_statistical_accept(self, tmp_path, capsys):
         """A large uniform improvement should print ACCEPT and exit 0."""
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         before = str(tmp_path / "before.json")
@@ -414,9 +410,6 @@ class TestCompareCLIStatistical:
 
     def test_compare_statistical_reject_regression(self, tmp_path, capsys):
         """A one-pair crash with zero composite lift should reject and exit 2."""
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         before = str(tmp_path / "before.json")
@@ -452,9 +445,6 @@ class TestCompareCLIStatistical:
 
     def test_compare_statistical_json_payload(self, tmp_path, capsys):
         """--json with --statistical should include a statistical block."""
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         before = str(tmp_path / "before.json")
@@ -609,9 +599,6 @@ class TestCompareCLIPaired:
     def test_compare_paired_flag_unblocks_acceptance(self, tmp_path, capsys):
         """The same data that fails the unpaired gate passes when --paired
         is set, mirroring the auto-detect default for randomized runs."""
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         before = str(tmp_path / "before.json")
@@ -655,9 +642,6 @@ class TestCompareCLIPaired:
 
     def test_compare_paired_and_unpaired_are_mutually_exclusive(self, tmp_path, capsys):
         """argparse should reject both flags together."""
-        import sys
-
-        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
         from benchmark_harness import main
 
         before = str(tmp_path / "before.json")

@@ -80,6 +80,9 @@ include = ["panobbgo*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The repo root, so tests import the top-level scripts (`benchmark_harness`)
+# no matter which test file happens to run first.
+pythonpath = ["."]
 # `--durations` surfaces the slowest tests on every run so we keep timing
 # data to spot long-running integration drivers (e.g. the CMA-ES IPOP/BIPOP
 # `.start()` tests, which are wall-clock/event-loop bound, not CPU bound).

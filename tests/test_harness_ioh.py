@@ -485,6 +485,43 @@ class TestMultiSeedResult:
         assert 42 in DEFAULT_DECISION_SEEDS
 
 
+class TestErroredRunsCount:
+    """Crashed and timed-out runs stay in the aggregates (as ``_screen.fold`` counts them)."""
+
+    @staticmethod
+    def _result() -> IOHHarnessResult:
+        from dataclasses import replace
+
+        res = _mk_seed_result({"A": 0.6})
+        base = res.runs[0]
+        res.runs += [
+            # timed out: scored on the trace up to the deadline
+            replace(base, dim=5, aocc=0.3, error="TimeoutError: stopped after 1s at 40/100 evals"),
+            # crashed: nothing scored
+            replace(base, dim=10, aocc=0.0, error="RuntimeError: boom"),
+            # a wedged worker is a crash, not a (scored) timeout
+            replace(base, dim=10, rep=1, aocc=0.0, error="TimeoutError: IOH worker did not answer in time"),
+        ]
+        return res
+
+    def test_means_include_errored_runs(self) -> None:
+        res = self._result()
+        assert res.mean_aocc == pytest.approx(0.9 / 4)
+        assert res.per_strategy_aocc() == {"A": pytest.approx(0.9 / 4)}
+        assert res.per_strategy_per_dim_aocc() == {
+            ("A", 2): pytest.approx(0.6),
+            ("A", 5): pytest.approx(0.3),
+            ("A", 10): pytest.approx(0.0),
+        }
+        assert res.per_strategy_counts() == {"A": {"n": 4, "crashed": 2, "timed_out": 1}}
+
+    def test_summary_reports_counts(self, capsys) -> None:
+        self._result().print_summary()
+        out = capsys.readouterr().out
+        assert "2 crashed (AOCC 0), 1 timed out" in out
+        assert "(n=4, 2 crashed, 1 timed out)" in out
+
+
 class TestPairedSeedStats:
     def test_constant_shift(self) -> None:
         before = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}, 1234: {"A": 0.35}})

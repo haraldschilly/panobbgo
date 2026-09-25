@@ -285,11 +285,6 @@ class Config:
         self.shutdown_grace_seconds = get_config(
             "core.shutdown_grace_seconds", "core", "shutdown_grace_seconds", 60.0, float
         )
-        # Deprecated: the wall-clock stall guard this configured was replaced
-        # by the evaluation-counted liveness predicate
-        # (planning/DESIGN_pump_and_stall_2026-09-11.md §2).  Still accepted so
-        # existing config files and callers do not break; it is inert.
-        self.max_stall_seconds = get_config("core.max_stall_seconds", "core", "max_stall_seconds", 30.0, float)
 
         # Evaluation method configuration (YAML only)
         # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)

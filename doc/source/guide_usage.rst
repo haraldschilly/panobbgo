@@ -151,8 +151,7 @@ Edit this file to customize behavior.
    bug — a wedged subprocess, a handler that never returns — and tripping it
    is logged at ``ERROR`` level with the state that caused it.  Leave it
    alone unless an arm of yours legitimately takes minutes per evaluation.
-   ``max_stall_seconds`` is still accepted so old config files keep loading,
-   but it is **inert**.  See
+   An old config file's ``max_stall_seconds`` entry is ignored.  See
    ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.
 
 Basic Usage

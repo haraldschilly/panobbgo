@@ -42,7 +42,6 @@ def run(
     max_eval=150,
     size=SIZE,
     strategy_cls=StrategyRoundRobin,
-    stall=None,
 ):
     """A seeded, synchronous run; returns ``(fx, who, strategy)``."""
     s = strategy_cls(problem or DeJong(dims=3), parse_args=False, testing_mode=True, seed=seed, size=size)
@@ -51,10 +50,6 @@ def run(
     s.config.stop_on_convergence = False
     s.config.ui_show = False
     s.config.evaluation_method = "threaded"
-    if stall is not None:
-        # The deprecated wall-clock knob.  Setting it must no longer change
-        # anything: that is half of what these tests assert.
-        s.config.max_stall_seconds = stall
     for f in factories:
         s.add_heuristic(f(s))
     s.start()
@@ -284,7 +279,7 @@ class _SlowNearby(Nearby):
         return super().on_new_results(results)
 
 
-def _slow_run(delay, max_eval=60, seed=1234, stall=None):
+def _slow_run(delay, max_eval=60, seed=1234):
     def make(st):
         h = _SlowNearby(st, radius=0.1, axes="all", new=3)
         h.delay = delay
@@ -295,7 +290,6 @@ def _slow_run(delay, max_eval=60, seed=1234, stall=None):
         problem=Rosenbrock(dim=2),
         seed=seed,
         max_eval=max_eval,
-        stall=stall,
     )
 
 
@@ -314,22 +308,6 @@ def test_trajectory_is_independent_of_handler_latency():
     assert len(fast_fx) == len(slow_fx) >= 60, (len(fast_fx), len(slow_fx))
     np.testing.assert_array_equal(fast_fx, slow_fx)
     assert list(fast_who) == list(slow_who)
-
-
-def test_the_wall_clock_knob_can_no_longer_truncate_a_run():
-    """``max_stall_seconds`` is inert — the sharpest form of the F4 fix.
-
-    A per-batch handler delay an order of magnitude *above* the configured
-    stall threshold used to end the run early (300 evaluations became 70–240,
-    depending on machine load).  It must now change nothing at all: neither
-    the number of evaluations nor which points they were.
-    """
-    ref_fx, ref_who, _ = _slow_run(0.05)
-    fx, who, _ = _slow_run(0.05, stall=0.001)
-
-    assert len(fx) >= 60, f"a 1 ms stall threshold truncated the run to {len(fx)}"
-    np.testing.assert_array_equal(ref_fx, fx)
-    assert list(ref_who) == list(who)
 
 
 # ---------------------------------------------------------------------------

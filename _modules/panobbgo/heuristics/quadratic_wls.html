@@ -251,7 +251,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="113">                <span class="c1"># Send None to indicate failure and prevent parent from hanging indefinitely</span>
 </span><span data-line="114">                <span class="k">try</span><span class="p">:</span>
 </span><span data-line="115">                    <span class="n">pipe</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-</span><span data-line="116">                <span class="k">except</span><span class="p">:</span>
+</span><span data-line="116">                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
 </span><span data-line="117">                    <span class="k">pass</span></div>
 
 </span><span data-line="118">

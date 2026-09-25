@@ -61,32 +61,14 @@ Items that change optimizer trajectories (T2) need a paired 12-seed A/B per
 `AGENTS.md` before they land; T1/T3/T4 are measurement-neutral or only
 change instruments that must be re-baselined once.
 
-### T1 — measurement integrity (fix first; every later number depends on it)
+### T1 — measurement integrity
 
-- [ ] ✓ **Core does not enforce `max_eval`** — `_run` dispatches the whole
-      `execute()` batch (`core.py:2022-2034`): 37 → 38, 523 → 535 evals.
-      Clamp to `max_eval - len(results) - len(pending)` in one place.
-- [ ] ✓ **IOH tracker race in async mode** (`ioh_runner.py:207-236`): budget
-      check and best-so-far update unlocked → 201 evals on a 200 budget, AOCC
-      differs between identical-seed runs. Lock it; truncate the trace to
-      `budget` in `aocc()`; consider `sync_eval=True` as IOH default.
-- [ ] ✓ **Composite harness** (`harness.py`): no `sync_evaluation`
-      (`:2611`, the 0.4326…0.4674 spread); scores evals past the budget
-      (`:2645-2665`, `first_success_eval=89` on budget 75); timeout sets
-      `strategy._stopped`, which `StrategyBase` never reads (`:2634`) — the
-      runner thread keeps going and pollutes the next run. Add `sync_eval`
-      to `HarnessConfig` + `--sync-eval`, truncate to budget, real stop.
-- [ ] ✓ `harness_families.py` has no timeout (`_run_one`, `:267-337`) —
-      share one tracked run driver with `harness_ioh._run_one` (~70 lines).
-- [ ] ? IOH worker `stderr=PIPE` never drained (`lib/ioh_wrapper.py:221-243`)
-      and `_call` reads without timeout → a chatty worker hangs the harness.
-- [ ] ✓ Benchmark screens hand-code t-critical values that disagree
-      (`arm_sweep.py:146` 2.5 for n>6, `np_accept.py:130` 2.0 for n>12, …);
-      one `t_ci()` via `scipy.stats.t.ppf` as in `paired_seed_stats`.
-      Rows in `arm_sweep`/`np_accept`/`oracle`/`meta_screen` lack `fid`/`rep`
-      and would merge cells on the BBOB axis.
-- [ ] ? Composite runs on mixed-dim families all labelled `problem_dim=2`
-      (`harness.py:2485,2676,2697`) → `cell_by="dim"` misfiles them.
+- [ ] **`sync_eval=True` as the default** of `run_ioh_harness` /
+      `scripts/ioh_benchmark.py` and of the composite harness
+      (`HarnessConfig.sync_eval`, `--sync-eval`).  Every screen already
+      passes it; the defaults stay asynchronous because flipping them moves
+      the recorded IOH and composite baselines — a decision for Harald,
+      then one re-baseline.
 
 ### T2 — algorithm bugs (change trajectories → A/B each)
 

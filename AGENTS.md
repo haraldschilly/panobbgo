@@ -152,6 +152,9 @@ Useful flags (see the guide for details):
     line up (`panobbgo/harness_randomized.py`).
 *   `--seed S` changes the base seed; re-run at a second seed before
     trusting a small delta.
+*   `--sync-eval` evaluates synchronously, so a seeded run is
+    bit-reproducible (off by default to keep the historical baseline
+    comparable; `compare` warns when the two sides differ in mode).
 
 ### Score interpretation
 

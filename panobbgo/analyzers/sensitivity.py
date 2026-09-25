@@ -168,6 +168,10 @@ class Sensitivity(Analyzer):
                 raw[i] = abs(corr) if np.isfinite(corr) else 0.0
                 continue
 
+            # With an intercept: without one, a box away from the origin makes
+            # the constant part of y leak into every residual.
+            others = np.column_stack([others, np.ones(len(others))])
+
             # Least squares: y = others @ beta + residual_y
             beta_y, _, _, _ = np.linalg.lstsq(others, y, rcond=None)
             resid_y = y - others @ beta_y

@@ -192,3 +192,17 @@ def test_sensitivity_partial_correlation_1d():
 
     assert s.importance is not None
     assert len(s.importance) == 1
+
+
+def test_partial_correlation_uses_an_intercept():
+    """Irrelevant dimensions get no importance on a box away from the origin.
+
+    Without a constant column in the regressions, y = 5 + x0 on [10, 11]^3
+    gave the irrelevant dimensions importance ~0.6.
+    """
+    rng = np.random.default_rng(0)
+    X = rng.uniform(10.0, 11.0, (200, 3))
+    y = 5.0 + X[:, 0]
+    importance = Sensitivity._partial_correlation(X, y)
+    assert importance[0] == pytest.approx(1.0)
+    assert np.all(importance[1:] < 0.2)

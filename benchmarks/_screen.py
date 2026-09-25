@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 import statistics as st
 import sys
 import time
@@ -157,6 +158,14 @@ def runs_to_rows(seed: int, runs, fields=IOH_FIELDS, extra: Optional[Dict[str, A
     return [{"seed": seed, **extra, **{k: getattr(x, a) for k, a in fields}} for x in runs]
 
 
+def _write_rows(rows: List[Dict[str, Any]], out: str) -> None:
+    """Replace *out* atomically: an interrupt mid-dump leaves the previous file intact."""
+    tmp = f"{out}.tmp"
+    with open(tmp, "w") as f:
+        json.dump(rows, f)
+    os.replace(tmp, out)
+
+
 def run_seeds(seeds: Iterable[int], out: str, batches: Callable[[int], Iterable[List[Dict[str, Any]]]]):
     """Collect ``batches(seed)`` for every seed, rewriting *out* after each batch.
 
@@ -167,7 +176,7 @@ def run_seeds(seeds: Iterable[int], out: str, batches: Callable[[int], Iterable[
     for seed in seeds:
         for batch in batches(seed):
             rows += batch
-            json.dump(rows, open(out, "w"))
+            _write_rows(rows, out)
         print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
     return rows
 

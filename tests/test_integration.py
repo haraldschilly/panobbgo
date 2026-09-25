@@ -374,16 +374,13 @@ def test_threaded_evaluation_integration():
     """
     Test threaded evaluation (fast mode for testing).
     """
-    from panobbgo.utils import evaluate_point_subprocess
-
     # Set up problem
     problem = Rosenbrock(2)
 
-    # Test single evaluation using the same function the framework uses
     test_point = Point([1.0, 1.0], "test")
 
-    # Test the evaluation function directly (same as threaded mode uses)
-    result = evaluate_point_subprocess(problem, test_point)
+    # Evaluators (threads, worker processes, dask) all call ``problem(point)``
+    result = problem(test_point)
 
     assert isinstance(result, Result), "Threaded evaluation should return Result"
     assert result.fx == 0.0, "Threaded evaluation should work correctly"
@@ -609,7 +606,6 @@ def test_manual_optimization_execution():
     """
     from panobbgo.lib.classic import Rosenbrock
     from panobbgo.lib import Point
-    from panobbgo.utils import evaluate_point_subprocess
 
     problem = Rosenbrock(dims=2)
     print("Testing manual optimization execution...")
@@ -625,8 +621,8 @@ def test_manual_optimization_execution():
         x = problem.random_point()
         point = Point(x, f"manual_{i}")
 
-        # Evaluate using subprocess (like the framework does)
-        result = evaluate_point_subprocess(problem, point)
+        # Evaluate the way the framework's evaluators do
+        result = problem(point)
         results.append(result)
 
         # Track best

@@ -280,22 +280,3 @@ class memoize:
         except KeyError:
             res = cache[key] = self.func(*args, **kw)
         return res
-
-
-def evaluate_point_subprocess(problem, point):
-    """
-    Evaluate a point using a problem instance.
-
-    This function is used by all evaluation modes:
-    - 'threaded': Called directly in thread pool
-    - 'processes': Called in subprocess after deserializing problem/point
-    - 'dask': Called on worker nodes
-
-    Args:
-        problem: The optimization problem instance
-        point: The point to evaluate
-
-    Returns:
-        The evaluation result (Result object)
-    """
-    return problem(point)

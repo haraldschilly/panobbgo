@@ -181,6 +181,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.wrappers.NoisyProblem"><code class="docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.wrappers.NoisyProblem.apply_noise"><code class="docutils literal notranslate"><span class="pre">NoisyProblem.apply_noise()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.wrappers.NoisyProblem.fingerprint"><code class="docutils literal notranslate"><span class="pre">NoisyProblem.fingerprint()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.lib.wrappers.NormalizedProblem"><code class="docutils literal notranslate"><span class="pre">NormalizedProblem</span></code></a><ul>
@@ -920,6 +921,16 @@ objective sees lies in the original <code class="docutils literal notranslate"><
 <dt class="sig sig-object py" id="panobbgo.lib.wrappers.NoisyProblem.apply_noise">
 <span class="sig-name descname"><span class="pre">apply_noise</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">true_fx</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NoisyProblem.apply_noise"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NoisyProblem.apply_noise" title="Link to this definition">#</a></dt>
 <dd><p>Corrupt a known true value at <code class="docutils literal notranslate"><span class="pre">x</span></code> — the pure <code class="docutils literal notranslate"><span class="pre">(seed,</span> <span class="pre">x)</span></code> map.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.lib.wrappers.NoisyProblem.fingerprint">
+<span class="sig-name descname"><span class="pre">fingerprint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="reference internal" href="_modules/panobbgo/lib/wrappers.html#NoisyProblem.fingerprint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.wrappers.NoisyProblem.fingerprint" title="Link to this definition">#</a></dt>
+<dd><p>Storage identity, distinct from <a class="reference internal" href="#panobbgo.lib.NoisyProblem" title="panobbgo.lib.noise.NoisyProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.lib.noise.NoisyProblem</span></code></a>’s.</p>
+<p><a class="reference internal" href="#panobbgo.lib.wrappers.NoisyProblem.apply_noise" title="panobbgo.lib.wrappers.NoisyProblem.apply_noise"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply_noise()</span></code></a> corrupts the raw value, not the precision above
+<code class="docutils literal notranslate"><span class="pre">f_opt</span></code>, so with <code class="docutils literal notranslate"><span class="pre">f_opt</span> <span class="pre">!=</span> <span class="pre">0</span></code> the two give different values for
+the same model, seed and point; sharing a fingerprint let a run’s
+database resume under the other silently.</p>
 </dd></dl>
 
 </dd></dl>

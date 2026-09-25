@@ -382,6 +382,10 @@ fully handled before the next <a class="reference internal" href="#panobbgo.stra
 deterministic function of the schedule.  The log terms themselves
 are only formed at <code class="xref py py-meth docutils literal notranslate"><span class="pre">_close_block()</span></code>: the anchor they need does
 not exist until the first block ends.</p>
+<p>With asynchronous evaluation a result is credited to whichever block
+is open when it <em>arrives</em>, so the previous owner’s late results can
+land in the next block; the lock only keeps each result and each
+block switch atomic.</p>
 </dd></dl>
 
 <dl class="py attribute">

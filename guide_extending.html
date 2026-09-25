@@ -190,42 +190,41 @@ data-aria-dark="Switch to auto color mode">
 <section id="basic-template">
 <h3>Basic Template<a class="headerlink" href="#basic-template" title="Link to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
-</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="4">
-</span><span data-line="5"><span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
-</span><span data-line="6"><span class="w">    </span><span class="sd">"""Brief description of what this heuristic does."""</span>
-</span><span data-line="7">
-</span><span data-line="8">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">my_param</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
-</span><span data-line="9"><span class="w">        </span><span class="sd">"""Initialize with parameters.</span>
-</span><span data-line="10">
-</span><span data-line="11"><span class="sd">        Args:</span>
-</span><span data-line="12"><span class="sd">            strategy: The strategy instance</span>
-</span><span data-line="13"><span class="sd">            my_param: Custom parameter</span>
-</span><span data-line="14"><span class="sd">        """</span>
-</span><span data-line="15">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="16">        <span class="bp">self</span><span class="o">.</span><span class="n">my_param</span> <span class="o">=</span> <span class="n">my_param</span>
-</span><span data-line="17">
-</span><span data-line="18">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="19"><span class="w">        </span><span class="sd">"""Called when optimization starts.</span>
-</span><span data-line="20">
-</span><span data-line="21"><span class="sd">        Generate initial points here.</span>
-</span><span data-line="22"><span class="sd">        """</span>
-</span><span data-line="23">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
-</span><span data-line="24">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
-</span><span data-line="25">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
-</span><span data-line="26">
-</span><span data-line="27">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="28"><span class="w">        </span><span class="sd">"""Called when a new best point is found.</span>
-</span><span data-line="29">
-</span><span data-line="30"><span class="sd">        Args:</span>
-</span><span data-line="31"><span class="sd">            best: The new best Result object</span>
-</span><span data-line="32"><span class="sd">        """</span>
-</span><span data-line="33">        <span class="c1"># Generate points near the new best</span>
-</span><span data-line="34">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
-</span><span data-line="35">            <span class="n">x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="36">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Ensure in bounding box</span>
-</span><span data-line="37">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="k">class</span><span class="w"> </span><span class="nc">MyHeuristic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="5"><span class="w">    </span><span class="sd">"""Brief description of what this heuristic does."""</span>
+</span><span data-line="6">
+</span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">my_param</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="8"><span class="w">        </span><span class="sd">"""Initialize with parameters.</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="sd">        Args:</span>
+</span><span data-line="11"><span class="sd">            strategy: The strategy instance</span>
+</span><span data-line="12"><span class="sd">            my_param: Custom parameter</span>
+</span><span data-line="13"><span class="sd">        """</span>
+</span><span data-line="14">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="15">        <span class="bp">self</span><span class="o">.</span><span class="n">my_param</span> <span class="o">=</span> <span class="n">my_param</span>
+</span><span data-line="16">
+</span><span data-line="17">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="18"><span class="w">        </span><span class="sd">"""Called when optimization starts.</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">        Generate initial points here.</span>
+</span><span data-line="21"><span class="sd">        """</span>
+</span><span data-line="22">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+</span><span data-line="23">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
+</span><span data-line="24">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="25">
+</span><span data-line="26">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="27"><span class="w">        </span><span class="sd">"""Called when a new best point is found.</span>
+</span><span data-line="28">
+</span><span data-line="29"><span class="sd">        Args:</span>
+</span><span data-line="30"><span class="sd">            best: The new best Result object</span>
+</span><span data-line="31"><span class="sd">        """</span>
+</span><span data-line="32">        <span class="c1"># Generate points near the new best</span>
+</span><span data-line="33">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+</span><span data-line="34">            <span class="n">x</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="35">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Ensure in bounding box</span>
+</span><span data-line="36">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -237,6 +236,12 @@ points that implies, and let the scheduler drain the queue when it gets to
 you.  <a class="reference internal" href="core.html#panobbgo.core.Heuristic.has_points" title="panobbgo.core.Heuristic.has_points"><code class="xref py py-attr docutils literal notranslate"><span class="pre">has_points</span></code></a> and
 <a class="reference internal" href="core.html#panobbgo.core.Heuristic.get_points" title="panobbgo.core.Heuristic.get_points"><code class="xref py py-meth docutils literal notranslate"><span class="pre">get_points()</span></code></a> are the queue’s interface, and
 you need to do nothing to opt in.</p>
+<p><code class="docutils literal notranslate"><span class="pre">emit()</span></code> takes a coordinate vector (a <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code></a>) or a list of
+them — not a <a class="reference internal" href="lib.html#panobbgo.lib.Point" title="panobbgo.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a>; it projects each vector into the
+box and wraps it in a <code class="docutils literal notranslate"><span class="pre">Point</span></code> tagged with the heuristic’s name, and raises
+<code class="docutils literal notranslate"><span class="pre">TypeError</span></code> for anything else.  Draw random numbers from <code class="docutils literal notranslate"><span class="pre">self.rng</span></code> (a
+per-module generator derived from the strategy’s seed), not from
+<code class="docutils literal notranslate"><span class="pre">np.random</span></code>, so a seeded run stays reproducible.</p>
 <p>The other contract exists for arms that can only compute <strong>one point at a
 time, and only once the previous one has been evaluated</strong> — a sequential
 solver whose next iterate is a function of <code class="docutils literal notranslate"><span class="pre">f</span></code> at the current one.  Such an
@@ -256,7 +261,7 @@ answer would be a fabrication.  It sets
 </span><span data-line="11">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_outstanding</span><span class="p">:</span>             <span class="c1"># we owe an answer we don't have</span>
 </span><span data-line="12">            <span class="k">return</span> <span class="p">[]</span>                     <span class="c1"># return instantly; never block</span>
 </span><span data-line="13">        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_solver_next_point</span><span class="p">()</span>
-</span><span data-line="14">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="14">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="15">        <span class="bp">self</span><span class="o">.</span><span class="n">_outstanding</span> <span class="o">=</span> <span class="kc">True</span>
 </span><span data-line="16">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="17">
@@ -319,8 +324,8 @@ rebuilding the pipe protocol.  Design and measurements:
 </span><span data-line="26">            <span class="n">ei</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">epsilon</span>
 </span><span data-line="27">
 </span><span data-line="28">            <span class="c1"># Forward and backward</span>
-</span><span data-line="29">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">ei</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
-</span><span data-line="30">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">ei</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="29">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">ei</span><span class="p">)</span>
+</span><span data-line="30">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">ei</span><span class="p">)</span>
 </span><span data-line="31">
 </span><span data-line="32">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
 </span><span data-line="33"><span class="w">        </span><span class="sd">"""Approximate gradient and sample along it."""</span>
@@ -355,7 +360,7 @@ rebuilding the pipe protocol.  Design and measurements:
 </span><span data-line="62">        <span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_samples</span><span class="p">):</span>
 </span><span data-line="63">            <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_best_x</span> <span class="o">-</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">grad</span>
 </span><span data-line="64">            <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
-</span><span data-line="65">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="65">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -381,14 +386,14 @@ rebuilding the pipe protocol.  Design and measurements:
 </span><span data-line="18"><span class="w">        </span><span class="sd">"""Initialize particle swarm."""</span>
 </span><span data-line="19">        <span class="c1"># Random initial positions</span>
 </span><span data-line="20">        <span class="bp">self</span><span class="o">.</span><span class="n">particles</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-</span><span data-line="21">            <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
+</span><span data-line="21">            <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
 </span><span data-line="22">            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span><span class="p">)</span>
 </span><span data-line="23">        <span class="p">])</span>
 </span><span data-line="24">
 </span><span data-line="25">        <span class="c1"># Random initial velocities</span>
 </span><span data-line="26">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">ranges</span>
 </span><span data-line="27">        <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-</span><span data-line="28">            <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ranges</span><span class="p">,</span> <span class="n">ranges</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
+</span><span data-line="28">            <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ranges</span><span class="p">,</span> <span class="n">ranges</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.1</span>
 </span><span data-line="29">            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span><span class="p">)</span>
 </span><span data-line="30">        <span class="p">])</span>
 </span><span data-line="31">
@@ -397,7 +402,7 @@ rebuilding the pipe protocol.  Design and measurements:
 </span><span data-line="34">
 </span><span data-line="35">        <span class="c1"># Emit initial positions for evaluation</span>
 </span><span data-line="36">        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">:</span>
-</span><span data-line="37">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="37">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="38">
 </span><span data-line="39">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
 </span><span data-line="40"><span class="w">        </span><span class="sd">"""Update particles based on new results."""</span>
@@ -412,8 +417,8 @@ rebuilding the pipe protocol.  Design and measurements:
 </span><span data-line="49">        <span class="c1"># Update velocities and positions</span>
 </span><span data-line="50">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_particles</span><span class="p">):</span>
 </span><span data-line="51">            <span class="c1"># Random factors</span>
-</span><span data-line="52">            <span class="n">r_cognitive</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="53">            <span class="n">r_social</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="52">            <span class="n">r_cognitive</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="53">            <span class="n">r_social</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="54">
 </span><span data-line="55">            <span class="c1"># Update velocity</span>
 </span><span data-line="56">            <span class="bp">self</span><span class="o">.</span><span class="n">velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
@@ -427,7 +432,7 @@ rebuilding the pipe protocol.  Design and measurements:
 </span><span data-line="64">            <span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 </span><span data-line="65">
 </span><span data-line="66">            <span class="c1"># Emit new position</span>
-</span><span data-line="67">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="67">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">particles</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
 </span></pre></div>
 </div>
 </section>
@@ -710,7 +715,7 @@ Set <code class="docutils literal notranslate"><span class="pre">time_invariant<
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
-</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">class</span><span class="w"> </span><span class="nc">CFDSimulation</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="7"><span class="w">    </span><span class="sd">"""Aerodynamic optimization using CFD simulation."""</span>
@@ -718,14 +723,14 @@ Set <code class="docutils literal notranslate"><span class="pre">time_invariant<
 </span><span data-line="9">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="10">        <span class="c1"># 5 design parameters</span>
 </span><span data-line="11">        <span class="n">dim</span> <span class="o">=</span> <span class="mi">5</span>
-</span><span data-line="12">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-</span><span data-line="13">            <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>   <span class="c1"># Parameter 1</span>
-</span><span data-line="14">            <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>   <span class="c1"># Parameter 2</span>
-</span><span data-line="15">            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">],</span>  <span class="c1"># Parameter 3 (angle)</span>
-</span><span data-line="16">            <span class="p">[</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span>  <span class="c1"># Parameter 4</span>
-</span><span data-line="17">            <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]</span>    <span class="c1"># Parameter 5</span>
-</span><span data-line="18">        <span class="p">]))</span>
-</span><span data-line="19">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+</span><span data-line="12">        <span class="n">box</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="13">            <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>   <span class="c1"># Parameter 1</span>
+</span><span data-line="14">            <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>   <span class="c1"># Parameter 2</span>
+</span><span data-line="15">            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">90.0</span><span class="p">),</span>  <span class="c1"># Parameter 3 (angle)</span>
+</span><span data-line="16">            <span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">),</span>  <span class="c1"># Parameter 4</span>
+</span><span data-line="17">            <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span>    <span class="c1"># Parameter 5</span>
+</span><span data-line="18">        <span class="p">]</span>
+</span><span data-line="19">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
 </span><span data-line="20">
 </span><span data-line="21">    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 </span><span data-line="22"><span class="w">        </span><span class="sd">"""Run CFD simulation and return drag coefficient."""</span>
@@ -770,8 +775,8 @@ Set <code class="docutils literal notranslate"><span class="pre">time_invariant<
 </span><span data-line="3">
 </span><span data-line="4">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span> <span class="n">max_deflection</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
 </span><span data-line="5">        <span class="n">dim</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># 8 structural members</span>
-</span><span data-line="6">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">]]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">))</span>  <span class="c1"># Cross-sections</span>
-</span><span data-line="7">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+</span><span data-line="6">        <span class="n">box</span> <span class="o">=</span> <span class="p">[(</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dim</span>  <span class="c1"># Cross-sections</span>
+</span><span data-line="7">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
 </span><span data-line="8">
 </span><span data-line="9">        <span class="bp">self</span><span class="o">.</span><span class="n">max_stress</span> <span class="o">=</span> <span class="n">max_stress</span>
 </span><span data-line="10">        <span class="bp">self</span><span class="o">.</span><span class="n">max_deflection</span> <span class="o">=</span> <span class="n">max_deflection</span>
@@ -942,34 +947,37 @@ Set <code class="docutils literal notranslate"><span class="pre">time_invariant<
 </section>
 <section id="testing-your-extensions">
 <h2>Testing Your Extensions<a class="headerlink" href="#testing-your-extensions" title="Link to this heading">#</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+<p><code class="docutils literal notranslate"><span class="pre">strategy.add()</span></code> only registers a class; the instances exist after
+<a class="reference internal" href="core.html#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a>, which also delivers the
+<code class="docutils literal notranslate"><span class="pre">start</span></code> event, so <code class="docutils literal notranslate"><span class="pre">on_start</span></code> has already emitted its points.  Clean up
+with <code class="docutils literal notranslate"><span class="pre">_cleanup()</span></code> so the event bus and evaluator threads stop.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies.round_robin</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRoundRobin</span>
-</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyHeuristic</span>
-</span><span data-line="5">
-</span><span data-line="6"><span class="k">def</span><span class="w"> </span><span class="nf">test_my_heuristic</span><span class="p">():</span>
-</span><span data-line="7"><span class="w">    </span><span class="sd">"""Test custom heuristic."""</span>
-</span><span data-line="8">    <span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
-</span><span data-line="9">    <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRoundRobin</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
-</span><span data-line="10">
-</span><span data-line="11">    <span class="c1"># Add heuristic</span>
-</span><span data-line="12">    <span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">MyHeuristic</span><span class="p">,</span> <span class="n">my_param</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
-</span><span data-line="13">
-</span><span data-line="14">    <span class="c1"># Get heuristic instance</span>
-</span><span data-line="15">    <span class="n">h</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">heuristics</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-</span><span data-line="16">    <span class="k">assert</span> <span class="n">h</span><span class="o">.</span><span class="n">my_param</span> <span class="o">==</span> <span class="mf">2.0</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">my_module</span><span class="w"> </span><span class="kn">import</span> <span class="n">MyHeuristic</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="k">def</span><span class="w"> </span><span class="nf">test_my_heuristic</span><span class="p">():</span>
+</span><span data-line="8"><span class="w">    </span><span class="sd">"""Test custom heuristic."""</span>
+</span><span data-line="9">    <span class="n">problem</span> <span class="o">=</span> <span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</span><span data-line="10">    <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRoundRobin</span><span class="p">(</span>
+</span><span data-line="11">        <span class="n">problem</span><span class="p">,</span> <span class="n">parse_args</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">testing_mode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_eval</span><span class="o">=</span><span class="mi">100</span>
+</span><span data-line="12">    <span class="p">)</span>
+</span><span data-line="13">    <span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">MyHeuristic</span><span class="p">,</span> <span class="n">my_param</span><span class="o">=</span><span class="mf">2.0</span><span class="p">)</span>
+</span><span data-line="14">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="15">        <span class="c1"># Build the modules and deliver "start", without running the loop</span>
+</span><span data-line="16">        <span class="n">strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
 </span><span data-line="17">
-</span><span data-line="18">    <span class="c1"># Trigger start</span>
-</span><span data-line="19">    <span class="n">h</span><span class="o">.</span><span class="n">__start__</span><span class="p">()</span>
+</span><span data-line="18">        <span class="n">h</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">heuristics</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="19">        <span class="k">assert</span> <span class="n">h</span><span class="o">.</span><span class="n">my_param</span> <span class="o">==</span> <span class="mf">2.0</span>
 </span><span data-line="20">
-</span><span data-line="21">    <span class="c1"># Check point generation</span>
-</span><span data-line="22">    <span class="n">points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-</span><span data-line="23">    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">10</span>
-</span><span data-line="24">    <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Point</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">)</span>
-</span><span data-line="25">
-</span><span data-line="26">    <span class="c1"># Check bounds</span>
-</span><span data-line="27">    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
-</span><span data-line="28">        <span class="k">assert</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="21">        <span class="c1"># Points on_start() emitted</span>
+</span><span data-line="22">        <span class="n">points</span> <span class="o">=</span> <span class="n">h</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+</span><span data-line="23">        <span class="k">assert</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">10</span>
+</span><span data-line="24">        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">Point</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">)</span>
+</span><span data-line="25">        <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">p</span> <span class="ow">in</span> <span class="n">problem</span><span class="o">.</span><span class="n">box</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">)</span>
+</span><span data-line="26">    <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="27">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cleanup</span><span class="p">()</span>
 </span></pre></div>
 </div>
 </section>

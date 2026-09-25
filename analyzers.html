@@ -524,11 +524,18 @@ better than current best due to changed criteria (e.g. updated constraint weight
 If the improvement over a specified window of evaluations is below a threshold,
 or if the standard deviation of the best values in the window is small enough,
 it publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event.</p>
-<p>Configuration parameters (via <code class="docutils literal notranslate"><span class="pre">strategy.config</span></code> or kwargs):
-- <code class="docutils literal notranslate"><span class="pre">convergence.window_size</span></code> (int): Number of recent best values to consider (default: 50).
-- <code class="docutils literal notranslate"><span class="pre">convergence.min_evaluations</span></code> (int): Minimum number of evaluations before checking convergence (default: window_size).
-- <code class="docutils literal notranslate"><span class="pre">convergence.threshold</span></code> (float): Threshold for relative improvement or std dev (default: 1e-6).
-- <code class="docutils literal notranslate"><span class="pre">convergence.mode</span></code> (str): ‘std’ (standard deviation), ‘improv’ (relative improvement), or ‘slope’ (linear regression slope) (default: ‘std’).</p>
+<p>Configuration parameters: a keyword argument wins; otherwise the
+<code class="docutils literal notranslate"><span class="pre">strategy.config</span></code> attribute in parentheses is used when it exists and
+is not <code class="docutils literal notranslate"><span class="pre">None</span></code>; otherwise the default.  <code class="docutils literal notranslate"><span class="pre">0</span></code> / <code class="docutils literal notranslate"><span class="pre">0.0</span></code> are honoured.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">window_size</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_window_size</span></code>, int &gt;= 1): Number of recent best values to consider (default: 50).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_evaluations</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_min_evaluations</span></code>, int): Minimum number of evaluations before
+checking convergence (default: window_size).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">threshold</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_threshold</span></code>, float): Threshold for relative improvement or std dev (default: 1e-6).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_mode</span></code>, str): ‘std’ (standard deviation), ‘improv’ (relative improvement),
+or ‘slope’ (linear regression slope) (default: ‘std’).</p></li>
+<li><p>(<code class="docutils literal notranslate"><span class="pre">convergence_require_feasibility</span></code>, bool): only converge on a feasible incumbent (default: False).</p></li>
+</ul>
 <p>Events published:
 - <code class="docutils literal notranslate"><span class="pre">converged</span></code>: When convergence criteria are met.</p>
 <blockquote>
@@ -1055,11 +1062,18 @@ better than current best due to changed criteria (e.g. updated constraint weight
 If the improvement over a specified window of evaluations is below a threshold,
 or if the standard deviation of the best values in the window is small enough,
 it publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event.</p>
-<p>Configuration parameters (via <code class="docutils literal notranslate"><span class="pre">strategy.config</span></code> or kwargs):
-- <code class="docutils literal notranslate"><span class="pre">convergence.window_size</span></code> (int): Number of recent best values to consider (default: 50).
-- <code class="docutils literal notranslate"><span class="pre">convergence.min_evaluations</span></code> (int): Minimum number of evaluations before checking convergence (default: window_size).
-- <code class="docutils literal notranslate"><span class="pre">convergence.threshold</span></code> (float): Threshold for relative improvement or std dev (default: 1e-6).
-- <code class="docutils literal notranslate"><span class="pre">convergence.mode</span></code> (str): ‘std’ (standard deviation), ‘improv’ (relative improvement), or ‘slope’ (linear regression slope) (default: ‘std’).</p>
+<p>Configuration parameters: a keyword argument wins; otherwise the
+<code class="docutils literal notranslate"><span class="pre">strategy.config</span></code> attribute in parentheses is used when it exists and
+is not <code class="docutils literal notranslate"><span class="pre">None</span></code>; otherwise the default.  <code class="docutils literal notranslate"><span class="pre">0</span></code> / <code class="docutils literal notranslate"><span class="pre">0.0</span></code> are honoured.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">window_size</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_window_size</span></code>, int &gt;= 1): Number of recent best values to consider (default: 50).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_evaluations</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_min_evaluations</span></code>, int): Minimum number of evaluations before
+checking convergence (default: window_size).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">threshold</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_threshold</span></code>, float): Threshold for relative improvement or std dev (default: 1e-6).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code> (<code class="docutils literal notranslate"><span class="pre">convergence_mode</span></code>, str): ‘std’ (standard deviation), ‘improv’ (relative improvement),
+or ‘slope’ (linear regression slope) (default: ‘std’).</p></li>
+<li><p>(<code class="docutils literal notranslate"><span class="pre">convergence_require_feasibility</span></code>, bool): only converge on a feasible incumbent (default: False).</p></li>
+</ul>
 <p>Events published:
 - <code class="docutils literal notranslate"><span class="pre">converged</span></code>: When convergence criteria are met.</p>
 <blockquote>

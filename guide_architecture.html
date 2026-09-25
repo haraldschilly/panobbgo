@@ -354,7 +354,8 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 </ul>
 <p><strong>Key methods:</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">emit(point)</span></code> or <code class="docutils literal notranslate"><span class="pre">emit(points)</span></code>: Add points to output queue</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">emit(x)</span></code> or <code class="docutils literal notranslate"><span class="pre">emit([x1,</span> <span class="pre">x2,</span> <span class="pre">...])</span></code>: queue coordinate vectors (numpy arrays; they are
+projected into the box and wrapped in a <code class="docutils literal notranslate"><span class="pre">Point</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">get_points(limit)</span></code>: Drain up to <code class="docutils literal notranslate"><span class="pre">limit</span></code> points from queue</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">active</span></code>: Property indicating if heuristic has more points</p></li>
 </ul>
@@ -363,14 +364,14 @@ and <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title=
 </span><span data-line="2">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="3">        <span class="c1"># Generate initial points</span>
 </span><span data-line="4">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
-</span><span data-line="5">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">()</span>
-</span><span data-line="6">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="5">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span>
+</span><span data-line="6">            <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
 </span><span data-line="9">        <span class="c1"># React to improvements</span>
-</span><span data-line="10">        <span class="n">x_new</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="10">        <span class="n">x_new</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
 </span><span data-line="11">        <span class="n">x_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
-</span><span data-line="12">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="n">x_new</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+</span><span data-line="12">        <span class="bp">self</span><span class="o">.</span><span class="n">emit</span><span class="p">(</span><span class="n">x_new</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -399,7 +400,7 @@ each dimension proportionally to its importance score</p></li>
 </ul>
 <p><strong>Model-based (surrogate):</strong></p>
 <ul class="simple">
-<li><p><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code>: Weighted least-squares quadratic surrogate</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.QuadraticWlsModel" title="panobbgo.heuristics.quadratic_wls.QuadraticWlsModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code></a>: Weighted least-squares quadratic surrogate</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.GaussianProcessHeuristic" title="panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussianProcessHeuristic</span></code></a>: Gaussian Process surrogate with EI / UCB / PI
 acquisition functions (scikit-learn backend).  Supports constrained Expected Improvement (EIC)
 when the problem has active constraint violations.  Gold standard for expensive black-box
@@ -454,10 +455,10 @@ Schwefel where purely local methods get trapped.</p></li>
 Differential Evolution (Tanabe &amp; Fukunaga, CEC 2014 winner).  Adapts <code class="docutils literal notranslate"><span class="pre">F</span></code> and <code class="docutils literal notranslate"><span class="pre">CR</span></code> per-trial
 via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of
 successful triples; uses the <code class="docutils literal notranslate"><span class="pre">current-to-pbest/1</span></code> mutation (Zhang &amp; Sanderson 2009) with an
-external archive of replaced parents.  The population shrinks linearly from <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> (default 30)
+external archive of replaced parents.  The population shrinks linearly from <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> (default <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code>, budget-adaptive)
 down to <code class="docutils literal notranslate"><span class="pre">NP_min</span></code> (default 4) over the strategy’s evaluation budget — broad exploration early,
 focused exploitation late.  Strictly stronger than the basic DE on multimodal benchmarks; opt-in
-via the structural mutation catalog.  Also supports IPOP-style warm restarts via
+(<code class="docutils literal notranslate"><span class="pre">strategy.add(...)</span></code>).  Also supports IPOP-style warm restarts via
 <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a>.</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.JSO" title="panobbgo.heuristics.jso.JSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">JSO</span></code></a>: jSO refinement of L-SHADE (Brest, Maučec &amp; Bošković,
 CEC 2017 winner).  Direct subclass of <a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a> that adds three
@@ -472,9 +473,9 @@ the rest follow the authors’ reference code where it differs from the paper te
 (<code class="docutils literal notranslate"><span class="pre">M</span> <span class="pre">←</span> <span class="pre">(mean_WL</span> <span class="pre">+</span> <span class="pre">M)</span> <span class="pre">/</span> <span class="pre">2</span></code>, from iL-SHADE) and reserves the last bin (<code class="docutils literal notranslate"><span class="pre">H</span> <span class="pre">−</span> <span class="pre">1</span></code>) as an anchor
 sampled as <code class="docutils literal notranslate"><span class="pre">0.9</span> <span class="pre">/</span> <span class="pre">0.9</span></code>.
 Inherits L-SHADE’s asynchronous pipeline (per-slot pending dict, generation-by-count
-book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
-jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
-wins on the current battery.</p></li>
+book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Add L-SHADE and
+jSO side by side and a bandit strategy picks whichever DE-family variant wins on the current
+battery.</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.NLSHADE_RSP" title="panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP"><code class="xref py py-class docutils literal notranslate"><span class="pre">NLSHADE_RSP</span></code></a>: NL-SHADE-RSP (Stanovov, Akhmedova &amp;
 Semenkin, CEC 2021 winner), a direct subclass of <a class="reference internal" href="heuristics.html#panobbgo.heuristics.LSHADE" title="panobbgo.heuristics.lshade.LSHADE"><code class="xref py py-class docutils literal notranslate"><span class="pre">LSHADE</span></code></a>
 following the authors’ reference code: <em>Non-Linear Population Size Reduction</em>
@@ -513,8 +514,8 @@ second half (<code class="docutils literal notranslate"><span class="pre">progre
 both phases).  Different <em>branch</em> of the DE family tree from jSO / NL-SHADE-RSP — all the other
 DE arms adapt <code class="docutils literal notranslate"><span class="pre">F</span></code> via the Cauchy memory; EpSin’s deterministic-amplitude sinusoid is
 algorithmically distinct.  All six DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
-NL-SHADE-LBC / LSHADE-EpSin) ship in the structural catalog so the bandit picks whichever wins
-on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
+NL-SHADE-LBC / LSHADE-EpSin) are opt-in; add several and a bandit strategy picks whichever
+wins on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
 ensemble plus a covariance-matrix step — not ported here; CMA-ES is a separate Panobbgo
 heuristic).</p></li>
 <li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.PSO" title="panobbgo.heuristics.pso.PSO"><code class="xref py py-class docutils literal notranslate"><span class="pre">PSO</span></code></a>: Asynchronous Particle Swarm Optimization with the canonical
@@ -836,19 +837,24 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 <p><strong>Dask setup (optional):</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Start local cluster with 4 workers</span>
 </span><span data-line="2">dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
-</span><span data-line="3">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nprocs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
+</span><span data-line="3">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nworkers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
 </span></pre></div>
 </div>
 </section>
 <section id="configuration">
 <h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h3>
-<p>Parallelism parameters in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> or <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
+<p>The evaluation and Dask settings are read from <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> in the
+working directory only; <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code> has no section for them.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
 </span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or 'processes' or 'dask'</span>
 </span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">       </span><span class="c1"># optional: seconds of *running* time per evaluation</span>
-</span><span data-line="4"><span class="w">  </span><span class="c1"># Dask specific configuration</span>
-</span><span data-line="5"><span class="w">  </span><span class="nt">dask</span><span class="p">:</span>
-</span><span data-line="6"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">localhost:8786</span>
+</span><span data-line="4"><span class="nt">dask</span><span class="p">:</span><span class="w">               </span><span class="c1"># top level, not under 'evaluation'</span>
+</span><span data-line="5"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remote</span><span class="w">   </span><span class="c1"># 'local' (default) starts a LocalCluster</span>
+</span><span data-line="6"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
+</span><span data-line="7"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
+</span><span data-line="8"><span class="w">  </span><span class="nt">local</span><span class="p">:</span><span class="w">                 </span><span class="c1"># used when cluster_type is 'local'</span>
+</span><span data-line="9"><span class="w">    </span><span class="nt">n_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span data-line="10"><span class="w">    </span><span class="nt">threads_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
 </span></pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">processes</span></code> evaluates in a pool of spawned worker processes
@@ -859,8 +865,10 @@ evaluating (evaluation counters, traces, caches, loggers) lives in the
 workers and is not visible on the caller’s object.  An evaluation past
 <code class="docutils literal notranslate"><span class="pre">timeout</span></code> has its worker killed; a worker that crashes fails only its own
 evaluation.  Both still count against <code class="docutils literal notranslate"><span class="pre">max_eval</span></code>.</p>
-<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[optimization]</span>
-</span><span data-line="2"><span class="na">queue_capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">      </span><span class="c1"># Heuristic queue size</span>
+<p>The heuristic queue size can be set in either file (YAML
+<code class="docutils literal notranslate"><span class="pre">heuristic:</span> <span class="pre">capacity:</span> <span class="pre">20</span></code>, or in <code class="docutils literal notranslate"><span class="pre">config.ini</span></code>):</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[heuristic]</span>
+</span><span data-line="2"><span class="na">capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">      </span><span class="c1"># Heuristic queue size</span>
 </span></pre></div>
 </div>
 </section>

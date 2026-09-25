@@ -240,8 +240,8 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="106"><span class="sd">all particles into the first decent basin, ``vonneumann`` between the</span>
 </span><span data-line="107"><span class="sd">two with a fixed 2-D geometry, and ``random`` as a structure-free</span>
 </span><span data-line="108"><span class="sd">alternative whose diffusion speed depends on the realised graph.</span>
-</span><span data-line="109"><span class="sd">Panobbgo's structural mutation catalog ships *all four* variants so the</span>
-</span><span data-line="110"><span class="sd">self-improvement loop can pick whichever helps on a given problem family.</span>
+</span><span data-line="109"><span class="sd">All four ship; pick the one that suits the problem family with</span>
+</span><span data-line="110"><span class="sd">``strategy.add(PSO, topology=...)``.</span>
 </span><span data-line="111">
 </span><span data-line="112"><span class="sd">Adaptive inertia (Shi-Eberhart 1998)</span>
 </span><span data-line="113"><span class="sd">~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
@@ -324,7 +324,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="190"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="191">
 </span><span data-line="192"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
-</span><span data-line="193"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics._tagged</span><span class="w"> </span><span class="kn">import</span> <span class="n">emit_tagged</span><span class="p">,</span> <span class="n">own_results</span>
+</span><span data-line="193"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics._tagged</span><span class="w"> </span><span class="kn">import</span> <span class="n">emit_tagged</span><span class="p">,</span> <span class="n">own_failures</span><span class="p">,</span> <span class="n">own_results</span>
 </span><span data-line="194"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span>
 </span><span data-line="195">
 </span><span data-line="196">
@@ -1014,62 +1014,77 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="870">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span></div>
 
 </span><span data-line="871">
+<div class="viewcode-block" id="PSO.on_failed_evaluations">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_failed_evaluations">[docs]</a>
+</span><span data-line="872">    <span class="k">def</span><span class="w"> </span><span class="nf">on_failed_evaluations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="873"><span class="w">        </span><span class="sd">"""A particle whose trial failed to evaluate moves on without it.</span>
+</span><span data-line="874">
+</span><span data-line="875"><span class="sd">        No result comes back for a failed evaluation, so without this the</span>
+</span><span data-line="876"><span class="sd">        particle keeps a pending entry and never moves again.  Its personal</span>
+</span><span data-line="877"><span class="sd">        best is unchanged.</span>
+</span><span data-line="878"><span class="sd">        """</span>
+</span><span data-line="879">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="880">            <span class="k">return</span>
+</span><span data-line="881">        <span class="k">for</span> <span class="n">particle_idx</span> <span class="ow">in</span> <span class="n">own_failures</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">):</span>
+</span><span data-line="882">            <span class="bp">self</span><span class="o">.</span><span class="n">_generate_next</span><span class="p">(</span><span class="n">particle_idx</span><span class="p">)</span></div>
+
+</span><span data-line="883">
 <div class="viewcode-block" id="PSO.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.PSO.on_restart">[docs]</a>
-</span><span data-line="872">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="873"><span class="w">        </span><span class="sd">"""Drop in-flight trials and reseed the swarm around ``center``.</span>
-</span><span data-line="874">
-</span><span data-line="875"><span class="sd">        The behaviour mirrors the IPOP-style warm restart used by</span>
-</span><span data-line="876"><span class="sd">        :class:`~panobbgo.heuristics.cma_es.CMAES`: the global memory is</span>
-</span><span data-line="877"><span class="sd">        wiped, particles are scattered around the suggested center, and</span>
-</span><span data-line="878"><span class="sd">        the next evaluation cycle behaves as if the heuristic had just</span>
-</span><span data-line="879"><span class="sd">        started — except the strategy keeps its accumulated history.</span>
-</span><span data-line="880"><span class="sd">        With ``warm_start`` set and a non-empty archive the swarm is</span>
-</span><span data-line="881"><span class="sd">        re-seeded from the archive instead (:meth:`_warm_start_swarm`).</span>
-</span><span data-line="882"><span class="sd">        """</span>
-</span><span data-line="883">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="884">            <span class="k">return</span>
-</span><span data-line="885">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="886">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="887">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="888">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="889">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
-</span><span data-line="890">
-</span><span data-line="891">        <span class="c1"># Re-sample the random informer graph on restart (matches the</span>
-</span><span data-line="892">        <span class="c1"># Clerc 2007 / SPSO 2011 convention: when the swarm loses</span>
-</span><span data-line="893">        <span class="c1"># cohesion, the social network is rebuilt to break stagnation).</span>
-</span><span data-line="894">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
-</span><span data-line="895">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
-</span><span data-line="896">
-</span><span data-line="897">        <span class="c1"># A warm-started swarm re-seeds from the shared archive instead of</span>
-</span><span data-line="898">        <span class="c1"># re-evaluating NP fresh points around ``center`` (as L-SHADE does).</span>
-</span><span data-line="899">        <span class="c1"># The personal bests are dropped first: the seeds replace them, and a</span>
-</span><span data-line="900">        <span class="c1"># shortfall particle must not keep a stale pre-restart best.</span>
-</span><span data-line="901">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
-</span><span data-line="902">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span>
-</span><span data-line="903">            <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="904">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">():</span>
-</span><span data-line="905">                <span class="k">return</span>
-</span><span data-line="906">
-</span><span data-line="907">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
-</span><span data-line="908">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
-</span><span data-line="909">        <span class="c1"># Scatter particles in a small ball around the new center, with</span>
-</span><span data-line="910">        <span class="c1"># radius equal to v_max.  A ball, not a point: identical</span>
-</span><span data-line="911">        <span class="c1"># positions would collapse the swarm immediately.</span>
-</span><span data-line="912">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="913">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="914">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="915">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="916">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
-</span><span data-line="917">            <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="918">            <span class="n">x</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">offset</span>
-</span><span data-line="919">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span><span data-line="920">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="921">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="922">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
-</span><span data-line="923">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="924">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
-</span><span data-line="925">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span></div>
+</span><span data-line="884">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="885"><span class="w">        </span><span class="sd">"""Drop in-flight trials and reseed the swarm around ``center``.</span>
+</span><span data-line="886">
+</span><span data-line="887"><span class="sd">        The behaviour mirrors the IPOP-style warm restart used by</span>
+</span><span data-line="888"><span class="sd">        :class:`~panobbgo.heuristics.cma_es.CMAES`: the global memory is</span>
+</span><span data-line="889"><span class="sd">        wiped, particles are scattered around the suggested center, and</span>
+</span><span data-line="890"><span class="sd">        the next evaluation cycle behaves as if the heuristic had just</span>
+</span><span data-line="891"><span class="sd">        started — except the strategy keeps its accumulated history.</span>
+</span><span data-line="892"><span class="sd">        With ``warm_start`` set and a non-empty archive the swarm is</span>
+</span><span data-line="893"><span class="sd">        re-seeded from the archive instead (:meth:`_warm_start_swarm`).</span>
+</span><span data-line="894"><span class="sd">        """</span>
+</span><span data-line="895">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="896">            <span class="k">return</span>
+</span><span data-line="897">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="898">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="899">        <span class="bp">self</span><span class="o">.</span><span class="n">_stagnation_counter</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="900">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="901">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
+</span><span data-line="902">
+</span><span data-line="903">        <span class="c1"># Re-sample the random informer graph on restart (matches the</span>
+</span><span data-line="904">        <span class="c1"># Clerc 2007 / SPSO 2011 convention: when the swarm loses</span>
+</span><span data-line="905">        <span class="c1"># cohesion, the social network is rebuilt to break stagnation).</span>
+</span><span data-line="906">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">topology</span> <span class="o">==</span> <span class="s2">"random"</span><span class="p">:</span>
+</span><span data-line="907">            <span class="bp">self</span><span class="o">.</span><span class="n">_init_random_adjacency</span><span class="p">()</span>
+</span><span data-line="908">
+</span><span data-line="909">        <span class="c1"># A warm-started swarm re-seeds from the shared archive instead of</span>
+</span><span data-line="910">        <span class="c1"># re-evaluating NP fresh points around ``center`` (as L-SHADE does).</span>
+</span><span data-line="911">        <span class="c1"># The personal bests are dropped first: the seeds replace them, and a</span>
+</span><span data-line="912">        <span class="c1"># shortfall particle must not keep a stale pre-restart best.</span>
+</span><span data-line="913">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span><span class="p">:</span>
+</span><span data-line="914">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP</span>
+</span><span data-line="915">            <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="916">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_swarm</span><span class="p">():</span>
+</span><span data-line="917">                <span class="k">return</span>
+</span><span data-line="918">
+</span><span data-line="919">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="920">        <span class="n">v_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_v_max</span><span class="p">()</span>
+</span><span data-line="921">        <span class="c1"># Scatter particles in a small ball around the new center, with</span>
+</span><span data-line="922">        <span class="c1"># radius equal to v_max.  A ball, not a point: identical</span>
+</span><span data-line="923">        <span class="c1"># positions would collapse the swarm immediately.</span>
+</span><span data-line="924">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="925">            <span class="n">base</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="926">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="927">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="928">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP</span><span class="p">):</span>
+</span><span data-line="929">            <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="930">            <span class="n">x</span> <span class="o">=</span> <span class="n">base</span> <span class="o">+</span> <span class="n">offset</span>
+</span><span data-line="931">            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="932">            <span class="bp">self</span><span class="o">.</span><span class="n">_positions</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="933">            <span class="bp">self</span><span class="o">.</span><span class="n">_velocities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">v_max</span><span class="p">,</span> <span class="n">v_max</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="934">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="935">            <span class="bp">self</span><span class="o">.</span><span class="n">_pbest_result</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="936">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+</span><span data-line="937">        <span class="bp">self</span><span class="o">.</span><span class="n">_gbest_idx</span> <span class="o">=</span> <span class="kc">None</span></div>
 </div>
 
 </span></pre></div>

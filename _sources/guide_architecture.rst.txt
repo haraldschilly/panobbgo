@@ -168,7 +168,8 @@ Each heuristic maintains:
 
 **Key methods:**
 
-- ``emit(point)`` or ``emit(points)``: Add points to output queue
+- ``emit(x)`` or ``emit([x1, x2, ...])``: queue coordinate vectors (numpy arrays; they are
+  projected into the box and wrapped in a ``Point``)
 - ``get_points(limit)``: Drain up to ``limit`` points from queue
 - ``active``: Property indicating if heuristic has more points
 
@@ -180,14 +181,14 @@ Each heuristic maintains:
        def on_start(self):
            # Generate initial points
            for i in range(10):
-               x = self.problem.random_point()
-               self.emit(Point(x, self.name))
+               x = self.problem.random_point(rng=self.rng)
+               self.emit(x)
 
        def on_new_best(self, best):
            # React to improvements
-           x_new = best.x + 0.1 * np.random.randn(self.problem.dim)
+           x_new = best.x + 0.1 * self.rng.standard_normal(self.problem.dim)
            x_new = self.problem.project(x_new)
-           self.emit(Point(x_new, self.name))
+           self.emit(x_new)
 
 Implemented Heuristics
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -215,7 +216,7 @@ Implemented Heuristics
 
 **Model-based (surrogate):**
 
-- :class:`~panobbgo.heuristics.quadratic_wls_model.QuadraticWlsModel`: Weighted least-squares quadratic surrogate
+- :class:`~panobbgo.heuristics.quadratic_wls.QuadraticWlsModel`: Weighted least-squares quadratic surrogate
 - :class:`~panobbgo.heuristics.gaussian_process.GaussianProcessHeuristic`: Gaussian Process surrogate with EI / UCB / PI
   acquisition functions (scikit-learn backend).  Supports constrained Expected Improvement (EIC)
   when the problem has active constraint violations.  Gold standard for expensive black-box
@@ -273,10 +274,10 @@ Implemented Heuristics
   Differential Evolution (Tanabe & Fukunaga, CEC 2014 winner).  Adapts ``F`` and ``CR`` per-trial
   via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of
   successful triples; uses the ``current-to-pbest/1`` mutation (Zhang & Sanderson 2009) with an
-  external archive of replaced parents.  The population shrinks linearly from ``NP_init`` (default 30)
+  external archive of replaced parents.  The population shrinks linearly from ``NP_init`` (default ``"auto"``, budget-adaptive)
   down to ``NP_min`` (default 4) over the strategy's evaluation budget — broad exploration early,
   focused exploitation late.  Strictly stronger than the basic DE on multimodal benchmarks; opt-in
-  via the structural mutation catalog.  Also supports IPOP-style warm restarts via
+  (``strategy.add(...)``).  Also supports IPOP-style warm restarts via
   :class:`~panobbgo.analyzers.restart.Restart`.
 
 - :class:`~panobbgo.heuristics.jso.JSO`: jSO refinement of L-SHADE (Brest, Maučec & Bošković,
@@ -292,9 +293,9 @@ Implemented Heuristics
   (``M ← (mean_WL + M) / 2``, from iL-SHADE) and reserves the last bin (``H − 1``) as an anchor
   sampled as ``0.9 / 0.9``.
   Inherits L-SHADE's asynchronous pipeline (per-slot pending dict, generation-by-count
-  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
-  jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
-  wins on the current battery.
+  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Add L-SHADE and
+  jSO side by side and a bandit strategy picks whichever DE-family variant wins on the current
+  battery.
 
 - :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`: NL-SHADE-RSP (Stanovov, Akhmedova &
   Semenkin, CEC 2021 winner), a direct subclass of :class:`~panobbgo.heuristics.lshade.LSHADE`
@@ -336,8 +337,8 @@ Implemented Heuristics
   both phases).  Different *branch* of the DE family tree from jSO / NL-SHADE-RSP — all the other
   DE arms adapt ``F`` via the Cauchy memory; EpSin's deterministic-amplitude sinusoid is
   algorithmically distinct.  All six DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
-  NL-SHADE-LBC / LSHADE-EpSin) ship in the structural catalog so the bandit picks whichever wins
-  on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
+  NL-SHADE-LBC / LSHADE-EpSin) are opt-in; add several and a bandit strategy picks whichever
+  wins on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
   ensemble plus a covariance-matrix step — not ported here; CMA-ES is a separate Panobbgo
   heuristic).
 
@@ -688,21 +689,26 @@ Function evaluations can run in parallel using different engines:
 
    # Start local cluster with 4 workers
    dask scheduler &
-   dask worker localhost:8786 --nprocs 4 &
+   dask worker localhost:8786 --nworkers 4 &
 
 Configuration
 ~~~~~~~~~~~~~
 
-Parallelism parameters in ``config.yaml`` or ``~/.panobbgo/config.ini``:
+The evaluation and Dask settings are read from ``config.yaml`` in the
+working directory only; ``~/.panobbgo/config.ini`` has no section for them.
 
 .. code-block:: yaml
 
    evaluation:
      method: threaded  # or 'processes' or 'dask'
      timeout: 60       # optional: seconds of *running* time per evaluation
-     # Dask specific configuration
-     dask:
-       address: localhost:8786
+   dask:               # top level, not under 'evaluation'
+     cluster_type: remote   # 'local' (default) starts a LocalCluster
+     remote:
+       scheduler_address: tcp://localhost:8786
+     local:                 # used when cluster_type is 'local'
+       n_workers: 2
+       threads_per_worker: 1
 
 ``processes`` evaluates in a pool of spawned worker processes
 (:mod:`panobbgo.local_pool`): the problem must be picklable, and the script
@@ -713,11 +719,13 @@ workers and is not visible on the caller's object.  An evaluation past
 ``timeout`` has its worker killed; a worker that crashes fails only its own
 evaluation.  Both still count against ``max_eval``.
 
+The heuristic queue size can be set in either file (YAML
+``heuristic: capacity: 20``, or in ``config.ini``):
+
 .. code-block:: ini
 
-   [optimization]
-   queue_capacity = 20      # Heuristic queue size
-
+   [heuristic]
+   capacity = 20      # Heuristic queue size
 
 Extension Points
 ----------------

@@ -289,7 +289,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="155"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </span><span data-line="156">
 </span><span data-line="157"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span><span class="p">,</span> <span class="n">known_budget</span>
-</span><span data-line="158"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics._tagged</span><span class="w"> </span><span class="kn">import</span> <span class="n">emit_tagged</span><span class="p">,</span> <span class="n">own_results</span>
+</span><span data-line="158"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics._tagged</span><span class="w"> </span><span class="kn">import</span> <span class="n">emit_tagged</span><span class="p">,</span> <span class="n">own_failures</span><span class="p">,</span> <span class="n">own_results</span>
 </span><span data-line="159"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Result</span>
 </span><span data-line="160"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.constraints</span><span class="w"> </span><span class="kn">import</span> <span class="n">result_key</span>
 </span><span data-line="161">
@@ -1459,62 +1459,93 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="1315">            <span class="bp">self</span><span class="o">.</span><span class="n">_wake_idle_slots</span><span class="p">()</span></div>
 
 </span><span data-line="1316">
+<div class="viewcode-block" id="LSHADE.on_failed_evaluations">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_failed_evaluations">[docs]</a>
+</span><span data-line="1317">    <span class="k">def</span><span class="w"> </span><span class="nf">on_failed_evaluations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1318"><span class="w">        </span><span class="sd">"""Free the slots whose trial failed to evaluate, and keep them working.</span>
+</span><span data-line="1319">
+</span><span data-line="1320"><span class="sd">        A failed trial produces no result, so without this its slot keeps a</span>
+</span><span data-line="1321"><span class="sd">        pending entry forever and is never woken again.  A failed initial</span>
+</span><span data-line="1322"><span class="sd">        point is redrawn; a failed competitive trial counts as a lost one (the</span>
+</span><span data-line="1323"><span class="sd">        target stays) and the slot gets its next trial.</span>
+</span><span data-line="1324"><span class="sd">        """</span>
+</span><span data-line="1325">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
+</span><span data-line="1326">            <span class="k">return</span>
+</span><span data-line="1327">        <span class="k">for</span> <span class="n">meta</span> <span class="ow">in</span> <span class="n">own_failures</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">points</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">):</span>
+</span><span data-line="1328">            <span class="n">slot_idx</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">slot_idx</span>
+</span><span data-line="1329">            <span class="k">if</span> <span class="n">slot_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">):</span>
+</span><span data-line="1330">                <span class="k">continue</span>
+</span><span data-line="1331">            <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">]</span>
+</span><span data-line="1332">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">slot</span><span class="p">,</span> <span class="n">_Dropped</span><span class="p">):</span>
+</span><span data-line="1333">                <span class="k">continue</span>
+</span><span data-line="1334">            <span class="k">if</span> <span class="n">slot</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1335">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="1336">                <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span>
+</span><span data-line="1337">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1338">                <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="1339">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span> <span class="o">&gt;=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+</span><span data-line="1340">                    <span class="bp">self</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
+</span><span data-line="1341">                <span class="k">if</span> <span class="n">slot_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">slot_idx</span><span class="p">],</span> <span class="n">Result</span><span class="p">):</span>
+</span><span data-line="1342">                    <span class="bp">self</span><span class="o">.</span><span class="n">_generate_trial</span><span class="p">(</span><span class="n">slot_idx</span><span class="p">)</span>
+</span><span data-line="1343">            <span class="bp">self</span><span class="o">.</span><span class="n">_wake_idle_slots</span><span class="p">()</span></div>
+
+</span><span data-line="1344">
 <div class="viewcode-block" id="LSHADE.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LSHADE.on_restart">[docs]</a>
-</span><span data-line="1317">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1318"><span class="w">        </span><span class="sd">"""Drop in-flight state and reseed the population around ``center``.</span>
-</span><span data-line="1319">
-</span><span data-line="1320"><span class="sd">        Mirrors the warm-restart pattern used by</span>
-</span><span data-line="1321"><span class="sd">        :class:`~panobbgo.heuristics.pso.PSO` and the IPOP/BIPOP CMA-ES</span>
-</span><span data-line="1322"><span class="sd">        variants: archive cleared, memory bins reset to 0.5, slots</span>
-</span><span data-line="1323"><span class="sd">        re-randomised in a small ball around ``center`` (or random in</span>
-</span><span data-line="1324"><span class="sd">        the box if ``center`` is ``None``), and a fresh round of</span>
-</span><span data-line="1325"><span class="sd">        initial-random trials emitted.</span>
-</span><span data-line="1326"><span class="sd">        """</span>
-</span><span data-line="1327">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
-</span><span data-line="1328">            <span class="k">return</span>
-</span><span data-line="1329">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
-</span><span data-line="1330">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</span><span data-line="1331">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
-</span><span data-line="1332">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
-</span><span data-line="1333">
-</span><span data-line="1334">        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_run</span><span class="p">()</span>
-</span><span data-line="1335">
-</span><span data-line="1336">        <span class="c1"># A warm-started arm re-seeds from the shared archive instead of</span>
-</span><span data-line="1337">        <span class="c1"># re-evaluating ``NP_init`` fresh points — the restart's ``center``</span>
-</span><span data-line="1338">        <span class="c1"># is the incumbent, and the archive's best points are around it</span>
-</span><span data-line="1339">        <span class="c1"># anyway.  Design §2: the random re-emission below is pure waste.</span>
-</span><span data-line="1340">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">():</span>
-</span><span data-line="1341">            <span class="k">return</span>
-</span><span data-line="1342">
-</span><span data-line="1343">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
-</span><span data-line="1344">        <span class="n">ball</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">ranges</span>  <span class="c1"># small reseed ball; conservative</span>
-</span><span data-line="1345">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1346">            <span class="n">base</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="1347">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1348">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="1349">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
-</span><span data-line="1350">            <span class="k">if</span> <span class="n">base</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1351">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
-</span><span data-line="1352">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1353">                <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ball</span><span class="p">,</span> <span class="n">ball</span><span class="p">)</span>
-</span><span data-line="1354">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
-</span><span data-line="1355">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
+</span><span data-line="1345">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1346"><span class="w">        </span><span class="sd">"""Drop in-flight state and reseed the population around ``center``.</span>
+</span><span data-line="1347">
+</span><span data-line="1348"><span class="sd">        Mirrors the warm-restart pattern used by</span>
+</span><span data-line="1349"><span class="sd">        :class:`~panobbgo.heuristics.pso.PSO` and the IPOP/BIPOP CMA-ES</span>
+</span><span data-line="1350"><span class="sd">        variants: archive cleared, memory bins reset to 0.5, slots</span>
+</span><span data-line="1351"><span class="sd">        re-randomised in a small ball around ``center`` (or random in</span>
+</span><span data-line="1352"><span class="sd">        the box if ``center`` is ``None``), and a fresh round of</span>
+</span><span data-line="1353"><span class="sd">        initial-random trials emitted.</span>
+</span><span data-line="1354"><span class="sd">        """</span>
+</span><span data-line="1355">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="1356">            <span class="k">return</span>
+</span><span data-line="1357">        <span class="bp">self</span><span class="o">.</span><span class="n">clear_output</span><span class="p">()</span>
+</span><span data-line="1358">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="1359">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">:</span>
+</span><span data-line="1360">            <span class="k">return</span>  <span class="c1"># not started yet — nothing to reset</span>
+</span><span data-line="1361">
+</span><span data-line="1362">        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_run</span><span class="p">()</span>
+</span><span data-line="1363">
+</span><span data-line="1364">        <span class="c1"># A warm-started arm re-seeds from the shared archive instead of</span>
+</span><span data-line="1365">        <span class="c1"># re-evaluating ``NP_init`` fresh points — the restart's ``center``</span>
+</span><span data-line="1366">        <span class="c1"># is the incumbent, and the archive's best points are around it</span>
+</span><span data-line="1367">        <span class="c1"># anyway.  Design §2: the random re-emission below is pure waste.</span>
+</span><span data-line="1368">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">warm_start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_warm_start_population</span><span class="p">():</span>
+</span><span data-line="1369">            <span class="k">return</span>
+</span><span data-line="1370">
+</span><span data-line="1371">        <span class="n">ranges</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="1372">        <span class="n">ball</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">ranges</span>  <span class="c1"># small reseed ball; conservative</span>
+</span><span data-line="1373">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1374">            <span class="n">base</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="1375">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1376">            <span class="n">base</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="1377">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">):</span>
+</span><span data-line="1378">            <span class="k">if</span> <span class="n">base</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1379">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="p">)</span>
+</span><span data-line="1380">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1381">                <span class="n">offset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="n">ball</span><span class="p">,</span> <span class="n">ball</span><span class="p">)</span>
+</span><span data-line="1382">                <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span>
+</span><span data-line="1383">            <span class="bp">self</span><span class="o">.</span><span class="n">_emit_trial</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">F</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">),</span> <span class="n">CR</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">))</span></div>
 </div>
 
-</span><span data-line="1356">
-</span><span data-line="1357">
-</span><span data-line="1358"><span class="k">class</span><span class="w"> </span><span class="nc">_TrialMeta</span><span class="p">:</span>
-</span><span data-line="1359"><span class="w">    </span><span class="sd">"""Per-trial bookkeeping used to identify which slot/F/CR a result came from."""</span>
-</span><span data-line="1360">
-</span><span data-line="1361">    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"slot_idx"</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">,</span> <span class="s2">"CR"</span><span class="p">,</span> <span class="s2">"from_archive"</span><span class="p">)</span>
-</span><span data-line="1362">
-</span><span data-line="1363">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="1364">        <span class="bp">self</span><span class="o">.</span><span class="n">slot_idx</span> <span class="o">=</span> <span class="n">slot_idx</span>
-</span><span data-line="1365">        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">F</span>
-</span><span data-line="1366">        <span class="bp">self</span><span class="o">.</span><span class="n">CR</span> <span class="o">=</span> <span class="n">CR</span>
-</span><span data-line="1367">        <span class="c1">#: whether ``r2`` came from the external archive (set by ``_emit_trial``)</span>
-</span><span data-line="1368">        <span class="bp">self</span><span class="o">.</span><span class="n">from_archive</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="1384">
+</span><span data-line="1385">
+</span><span data-line="1386"><span class="k">class</span><span class="w"> </span><span class="nc">_TrialMeta</span><span class="p">:</span>
+</span><span data-line="1387"><span class="w">    </span><span class="sd">"""Per-trial bookkeeping used to identify which slot/F/CR a result came from."""</span>
+</span><span data-line="1388">
+</span><span data-line="1389">    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"slot_idx"</span><span class="p">,</span> <span class="s2">"F"</span><span class="p">,</span> <span class="s2">"CR"</span><span class="p">,</span> <span class="s2">"from_archive"</span><span class="p">)</span>
+</span><span data-line="1390">
+</span><span data-line="1391">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slot_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">F</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="1392">        <span class="bp">self</span><span class="o">.</span><span class="n">slot_idx</span> <span class="o">=</span> <span class="n">slot_idx</span>
+</span><span data-line="1393">        <span class="bp">self</span><span class="o">.</span><span class="n">F</span> <span class="o">=</span> <span class="n">F</span>
+</span><span data-line="1394">        <span class="bp">self</span><span class="o">.</span><span class="n">CR</span> <span class="o">=</span> <span class="n">CR</span>
+</span><span data-line="1395">        <span class="c1">#: whether ``r2`` came from the external archive (set by ``_emit_trial``)</span>
+</span><span data-line="1396">        <span class="bp">self</span><span class="o">.</span><span class="n">from_archive</span> <span class="o">=</span> <span class="kc">False</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

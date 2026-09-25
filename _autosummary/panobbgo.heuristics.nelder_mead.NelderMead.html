@@ -143,7 +143,7 @@ data-aria-dark="Switch to auto color mode">
 <p>Algorithm:</p>
 <ul class="simple">
 <li><p>If there are enough result points available, it tries to find a
-subset of points, which are linear independent (hence, suiteable for NM)
+subset of <code class="docutils literal notranslate"><span class="pre">dim</span> <span class="pre">+</span> <span class="pre">1</span></code> points, which are affinely independent (hence, span a simplex)
 and have the best (so far) function values, and are
 close (in the same <a class="reference internal" href="../analyzers.html#panobbgo.analyzers.Splitter" title="panobbgo.analyzers.Splitter"><code class="xref py py-class docutils literal notranslate"><span class="pre">Box</span></code></a>).</p></li>
 <li><p>Then, it applies the NM heuristic in a randomized fashion, i.e. it generates
@@ -196,7 +196,7 @@ its output queue up on every result batch.  It never sleeps or polls.</p>
 <td><p>Drain the output queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code> points are removed or it is empty.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">gram_schmidt</span></code>(dim, results[, tol])</p></td>
-<td><p>Tries to calculate an orthogonal base of dimension <cite>dim</cite> with given list of <a class="reference internal" href="../lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.</p></td>
+<td><p>Pick <code class="docutils literal notranslate"><span class="pre">dim</span> <span class="pre">+</span> <span class="pre">1</span></code> affinely independent <a class="reference internal" href="../lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> to span a simplex, best first.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">nelder_mead</span></code>(base[, scale, offset])</p></td>
 <td><p>Retuns a new <em>randomized</em> search point for the given set of results (<code class="docutils literal notranslate"><span class="pre">base</span></code>), which are linearly independent enough to form a orthonormal base, using the Nelder-Mead Method.</p></td>

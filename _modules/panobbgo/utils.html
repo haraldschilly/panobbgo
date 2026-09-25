@@ -420,25 +420,6 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="280">        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
 </span><span data-line="281">            <span class="n">res</span> <span class="o">=</span> <span class="n">cache</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
 </span><span data-line="282">        <span class="k">return</span> <span class="n">res</span>
-</span><span data-line="283">
-</span><span data-line="284">
-</span><span data-line="285"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point_subprocess</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="286"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="287"><span class="sd">    Evaluate a point using a problem instance.</span>
-</span><span data-line="288">
-</span><span data-line="289"><span class="sd">    This function is used by all evaluation modes:</span>
-</span><span data-line="290"><span class="sd">    - 'threaded': Called directly in thread pool</span>
-</span><span data-line="291"><span class="sd">    - 'processes': Called in subprocess after deserializing problem/point</span>
-</span><span data-line="292"><span class="sd">    - 'dask': Called on worker nodes</span>
-</span><span data-line="293">
-</span><span data-line="294"><span class="sd">    Args:</span>
-</span><span data-line="295"><span class="sd">        problem: The optimization problem instance</span>
-</span><span data-line="296"><span class="sd">        point: The point to evaluate</span>
-</span><span data-line="297">
-</span><span data-line="298"><span class="sd">    Returns:</span>
-</span><span data-line="299"><span class="sd">        The evaluation result (Result object)</span>
-</span><span data-line="300"><span class="sd">    """</span>
-</span><span data-line="301">    <span class="k">return</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
 </span></pre></div>
         </article><button class="back-to-top" type="button">
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

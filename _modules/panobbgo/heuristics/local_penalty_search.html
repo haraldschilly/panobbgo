@@ -147,7 +147,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipeBridgeHeuristic</span>
+</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">PipeBridgeHeuristic</span><span class="p">,</span> <span class="n">terminate_process</span>
 </span><span data-line="17"><span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
 </span><span data-line="18"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span data-line="19"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
@@ -405,79 +405,76 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="266">            <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 </span><span data-line="267">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
 </span><span data-line="268">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"LocalPenaltySearch process did not exit gracefully, terminating..."</span><span class="p">)</span>
-</span><span data-line="269">                <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
-</span><span data-line="270">                <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-</span><span data-line="271">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">is_alive</span><span class="p">():</span>
-</span><span data-line="272">                    <span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
-</span><span data-line="273">
-</span><span data-line="274">        <span class="c1"># Close pipes</span>
-</span><span data-line="275">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="276">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="277">            <span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="278">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="279">            <span class="k">pass</span>
-</span><span data-line="280">
+</span><span data-line="269">                <span class="n">terminate_process</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">process</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span data-line="270">
+</span><span data-line="271">        <span class="c1"># Close pipes</span>
+</span><span data-line="272">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="273">            <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="274">            <span class="bp">self</span><span class="o">.</span><span class="n">child_conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="275">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="276">            <span class="k">pass</span>
+</span><span data-line="277">
 <div class="viewcode-block" id="LocalPenaltySearch.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_start">[docs]</a>
-</span><span data-line="281">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="282"><span class="w">        </span><span class="sd">"""Queue the first local search.</span>
-</span><span data-line="283">
-</span><span data-line="284"><span class="sd">        The starting point is drawn *here*, so this heuristic consumes exactly</span>
-</span><span data-line="285"><span class="sd">        the same number of draws from its module RNG, at the same point in the</span>
-</span><span data-line="286"><span class="sd">        stream, as it always did.  Only the ``send`` is deferred to</span>
-</span><span data-line="287"><span class="sd">        :meth:`produce` — see :meth:`_apply_pending_control`.</span>
-</span><span data-line="288"><span class="sd">        """</span>
-</span><span data-line="289">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span></div>
+</span><span data-line="278">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="279"><span class="w">        </span><span class="sd">"""Queue the first local search.</span>
+</span><span data-line="280">
+</span><span data-line="281"><span class="sd">        The starting point is drawn *here*, so this heuristic consumes exactly</span>
+</span><span data-line="282"><span class="sd">        the same number of draws from its module RNG, at the same point in the</span>
+</span><span data-line="283"><span class="sd">        stream, as it always did.  Only the ``send`` is deferred to</span>
+</span><span data-line="284"><span class="sd">        :meth:`produce` — see :meth:`_apply_pending_control`.</span>
+</span><span data-line="285"><span class="sd">        """</span>
+</span><span data-line="286">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">random_point</span><span class="p">(</span><span class="n">rng</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="p">)</span></div>
 
-</span><span data-line="290">
-</span><span data-line="291">    <span class="k">def</span><span class="w"> </span><span class="nf">_start_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
-</span><span data-line="292">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
-</span><span data-line="293">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="294">                <span class="bp">self</span><span class="o">.</span><span class="n">_descent_id</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="295">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"start"</span><span class="p">,</span> <span class="s2">"x0"</span><span class="p">:</span> <span class="n">x0</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_descent_id</span><span class="p">})</span>
-</span><span data-line="296">                <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="297">                <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="298">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Started local search optimization"</span><span class="p">)</span>
-</span><span data-line="299">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="300">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to start optimization: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="301">
+</span><span data-line="287">
+</span><span data-line="288">    <span class="k">def</span><span class="w"> </span><span class="nf">_start_optimization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x0</span><span class="p">):</span>
+</span><span data-line="289">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span><span class="p">:</span>
+</span><span data-line="290">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="291">                <span class="bp">self</span><span class="o">.</span><span class="n">_descent_id</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="292">                <span class="bp">self</span><span class="o">.</span><span class="n">parent_conn</span><span class="o">.</span><span class="n">send</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"start"</span><span class="p">,</span> <span class="s2">"x0"</span><span class="p">:</span> <span class="n">x0</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_descent_id</span><span class="p">})</span>
+</span><span data-line="293">                <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="294">                <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="295">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"Started local search optimization"</span><span class="p">)</span>
+</span><span data-line="296">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="297">                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Failed to start optimization: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="298">
 <div class="viewcode-block" id="LocalPenaltySearch.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_restart">[docs]</a>
-</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
-</span><span data-line="303"><span class="w">        </span><span class="sd">"""Reset the search around the new center.</span>
-</span><span data-line="304">
-</span><span data-line="305"><span class="sd">        Records the intent; :meth:`_apply_pending_control` performs it on the</span>
-</span><span data-line="306"><span class="sd">        main loop's thread (this handler runs on the event bus, which may not</span>
-</span><span data-line="307"><span class="sd">        touch the pipe or the output queue — the strategy may be draining it</span>
-</span><span data-line="308"><span class="sd">        at that instant).</span>
-</span><span data-line="309"><span class="sd">        """</span>
-</span><span data-line="310">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_clear</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="311">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="312">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_abort</span> <span class="o">=</span> <span class="kc">True</span>
-</span><span data-line="313">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="n">center</span></div>
+</span><span data-line="299">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">):</span>
+</span><span data-line="300"><span class="w">        </span><span class="sd">"""Reset the search around the new center.</span>
+</span><span data-line="301">
+</span><span data-line="302"><span class="sd">        Records the intent; :meth:`_apply_pending_control` performs it on the</span>
+</span><span data-line="303"><span class="sd">        main loop's thread (this handler runs on the event bus, which may not</span>
+</span><span data-line="304"><span class="sd">        touch the pipe or the output queue — the strategy may be draining it</span>
+</span><span data-line="305"><span class="sd">        at that instant).</span>
+</span><span data-line="306"><span class="sd">        """</span>
+</span><span data-line="307">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending_clear</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="308">        <span class="k">if</span> <span class="n">center</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="309">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_abort</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="310">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="n">center</span></div>
 
-</span><span data-line="314">
+</span><span data-line="311">
 <div class="viewcode-block" id="LocalPenaltySearch.on_new_best">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_new_best">[docs]</a>
-</span><span data-line="315">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
-</span><span data-line="316">        <span class="c1"># If idle, restart the search from the new best.</span>
-</span><span data-line="317">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="318">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span></div>
+</span><span data-line="312">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">best</span><span class="p">):</span>
+</span><span data-line="313">        <span class="c1"># If idle, restart the search from the new best.</span>
+</span><span data-line="314">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_optimization_active</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="315">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_start</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">x</span></div>
 
-</span><span data-line="319">
+</span><span data-line="316">
 <div class="viewcode-block" id="LocalPenaltySearch.on_new_results">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.LocalPenaltySearch.on_new_results">[docs]</a>
-</span><span data-line="320">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
-</span><span data-line="321"><span class="w">        </span><span class="sd">"""Store the penalty value of our outstanding point.</span>
-</span><span data-line="322">
-</span><span data-line="323"><span class="sd">        Delegates to :class:`~panobbgo.core.PipeBridgeHeuristic`, which keeps</span>
-</span><span data-line="324"><span class="sd">        the value in a queue until :meth:`produce` can send it from the main</span>
-</span><span data-line="325"><span class="sd">        thread.</span>
-</span><span data-line="326"><span class="sd">        """</span>
-</span><span data-line="327">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_new_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="328">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_inbox</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
-</span><span data-line="329">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
-</span><span data-line="330">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span></div>
+</span><span data-line="317">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+</span><span data-line="318"><span class="w">        </span><span class="sd">"""Store the penalty value of our outstanding point.</span>
+</span><span data-line="319">
+</span><span data-line="320"><span class="sd">        Delegates to :class:`~panobbgo.core.PipeBridgeHeuristic`, which keeps</span>
+</span><span data-line="321"><span class="sd">        the value in a queue until :meth:`produce` can send it from the main</span>
+</span><span data-line="322"><span class="sd">        thread.</span>
+</span><span data-line="323"><span class="sd">        """</span>
+</span><span data-line="324">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_new_results</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="325">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fx_inbox</span><span class="o">.</span><span class="n">empty</span><span class="p">():</span>
+</span><span data-line="326">            <span class="bp">self</span><span class="o">.</span><span class="n">_waiting_for_eval</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="327">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending_x</span> <span class="o">=</span> <span class="kc">None</span></div>
 </div>
 
 </span></pre></div>

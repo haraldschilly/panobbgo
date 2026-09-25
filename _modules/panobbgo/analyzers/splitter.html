@@ -927,257 +927,263 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="765"><span class="w">            </span><span class="sd">"""Dimension along which the objective separates most across the cut.</span>
 </span><span data-line="766">
 </span><span data-line="767"><span class="sd">            For every candidate dimension the prospective cut is the same one</span>
-</span><span data-line="768"><span class="sd">            :meth:`split` would make (the mean coordinate), and the two halves</span>
-</span><span data-line="769"><span class="sd">            are compared by the *rank* of their penalty values — scale-free,</span>
-</span><span data-line="770"><span class="sd">            so it survives an objective spanning many orders of magnitude and</span>
-</span><span data-line="771"><span class="sd">            a constraint handler whose penalty units are arbitrary::</span>
-</span><span data-line="772">
-</span><span data-line="773"><span class="sd">                score_j = |mean_rank(left) - mean_rank(right)|</span>
-</span><span data-line="774"><span class="sd">                          * sqrt(n_left * n_right / n)</span>
-</span><span data-line="775">
-</span><span data-line="776"><span class="sd">            That is the standardised two-sample rank-sum statistic: the first</span>
-</span><span data-line="777"><span class="sd">            factor is the separation, the second rewards a balanced cut, so a</span>
-</span><span data-line="778"><span class="sd">            dimension does not win by shaving off two outliers.  Ties (in</span>
-</span><span data-line="779"><span class="sd">            particular *every* score zero, i.e. a box in which the objective</span>
-</span><span data-line="780"><span class="sd">            is flat or all values are equal) fall back to the widest</span>
-</span><span data-line="781"><span class="sd">            dimension, so this rule degrades exactly into ``"widest"`` when</span>
-</span><span data-line="782"><span class="sd">            there is no value signal to use.</span>
-</span><span data-line="783">
-</span><span data-line="784"><span class="sd">            What it scores is the **cut**, not the dependence: a cloud that</span>
-</span><span data-line="785"><span class="sd">            mirrors exactly about the cut — a bowl sampled symmetrically</span>
-</span><span data-line="786"><span class="sd">            around its own centre — puts equally good and equally bad points</span>
-</span><span data-line="787"><span class="sd">            on both sides, scores zero, and width decides.  That is the</span>
-</span><span data-line="788"><span class="sd">            honest semantics for a rule about to make exactly this cut: a cut</span>
-</span><span data-line="789"><span class="sd">            that separates nothing gains nothing by being made on that axis.</span>
-</span><span data-line="790"><span class="sd">            In practice the mean of a finite sample is not the axis of</span>
-</span><span data-line="791"><span class="sd">            symmetry and the residual asymmetry is enough — a plain</span>
-</span><span data-line="792"><span class="sd">            ``x_j**2`` still wins its axis by a factor of three over the</span>
-</span><span data-line="793"><span class="sd">            noise on 200 uniform points.</span>
-</span><span data-line="794"><span class="sd">            """</span>
-</span><span data-line="795">            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="796">            <span class="n">cand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">usable</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
-</span><span data-line="797">            <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">])[:,</span> <span class="n">cand</span><span class="p">]</span>
-</span><span data-line="798">            <span class="n">ranks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_penalties</span><span class="p">())</span>
-</span><span data-line="799">            <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-</span><span data-line="800">                <span class="n">ranks</span> <span class="o">/=</span> <span class="n">n</span> <span class="o">-</span> <span class="mf">1.0</span>
-</span><span data-line="801">
-</span><span data-line="802">            <span class="n">cuts</span> <span class="o">=</span> <span class="n">xs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-</span><span data-line="803">            <span class="n">left</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">&lt;=</span> <span class="n">cuts</span>
-</span><span data-line="804">            <span class="n">n_l</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="805">            <span class="n">n_r</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">n_l</span>
-</span><span data-line="806">            <span class="n">sum_l</span> <span class="o">=</span> <span class="n">ranks</span> <span class="o">@</span> <span class="n">left</span>
-</span><span data-line="807">            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
-</span><span data-line="808">                <span class="n">mean_l</span> <span class="o">=</span> <span class="n">sum_l</span> <span class="o">/</span> <span class="n">n_l</span>
-</span><span data-line="809">                <span class="n">mean_r</span> <span class="o">=</span> <span class="p">(</span><span class="n">ranks</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">-</span> <span class="n">sum_l</span><span class="p">)</span> <span class="o">/</span> <span class="n">n_r</span>
-</span><span data-line="810">                <span class="n">score</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">mean_l</span> <span class="o">-</span> <span class="n">mean_r</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n_l</span> <span class="o">*</span> <span class="n">n_r</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
-</span><span data-line="811">            <span class="c1"># ``spread &gt; 0`` puts min and max strictly on opposite sides of</span>
-</span><span data-line="812">            <span class="c1"># the mean, so both halves are non-empty; be defensive anyway.</span>
-</span><span data-line="813">            <span class="n">score</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">score</span><span class="p">),</span> <span class="n">score</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="814">
-</span><span data-line="815">            <span class="n">best</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-</span><span data-line="816">            <span class="n">tied</span> <span class="o">=</span> <span class="n">score</span> <span class="o">&gt;=</span> <span class="n">best</span> <span class="o">-</span> <span class="mf">1e-12</span>
-</span><span data-line="817">            <span class="n">widths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">tied</span><span class="p">,</span> <span class="n">usable</span><span class="p">[</span><span class="n">cand</span><span class="p">],</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="818">            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">cand</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">widths</span><span class="p">))])</span>
-</span><span data-line="819">
-</span><span data-line="820">        <span class="k">def</span><span class="w"> </span><span class="nf">_split_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="821"><span class="w">            </span><span class="sd">"""Dimension to cut this box along, or ``None`` if no cut helps."""</span>
-</span><span data-line="822">            <span class="n">usable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_usable</span><span class="p">()</span>
-</span><span data-line="823">            <span class="k">if</span> <span class="n">usable</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="824">                <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="825">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">split_rule</span> <span class="o">==</span> <span class="s2">"value"</span><span class="p">:</span>
-</span><span data-line="826">                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_dim_value</span><span class="p">(</span><span class="n">usable</span><span class="p">)</span>
-</span><span data-line="827">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_dim_widest</span><span class="p">(</span><span class="n">usable</span><span class="p">)</span>
-</span><span data-line="828">
-</span><span data-line="829">        <span class="k">def</span><span class="w"> </span><span class="nf">_can_split</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="830"><span class="w">            </span><span class="sd">"""``False`` when splitting cannot make progress.</span>
-</span><span data-line="831">
-</span><span data-line="832"><span class="sd">            ``Box.contains`` includes both boundaries, so a cut through a</span>
-</span><span data-line="833"><span class="sd">            cluster of *identical* points puts every one of them in *both*</span>
-</span><span data-line="834"><span class="sd">            children.  Each child is then an over-full leaf that splits</span>
-</span><span data-line="835"><span class="sd">            again on the next result, and the tree deepens without bound —</span>
-</span><span data-line="836"><span class="sd">            a live-lock that costs the rest of the evaluation budget.</span>
-</span><span data-line="837"><span class="sd">            (Measured: CMA-ES on MA-BBOB d5 with a diverged step size</span>
-</span><span data-line="838"><span class="sd">            projects most of a generation onto the same box corner and</span>
-</span><span data-line="839"><span class="sd">            stalls the run at 408 of 1000 evaluations.)</span>
-</span><span data-line="840">
-</span><span data-line="841"><span class="sd">            Asks :meth:`_usable` rather than :meth:`_split_dim`: the two</span>
-</span><span data-line="842"><span class="sd">            agree on *whether* a cut exists (both rules return a dimension</span>
-</span><span data-line="843"><span class="sd">            whenever one does), and this one is O(dim) from the running</span>
-</span><span data-line="844"><span class="sd">            min/max instead of O(#results · dim).  It runs on every result</span>
-</span><span data-line="845"><span class="sd">            of an over-full leaf, so the difference is the whole cost of the</span>
-</span><span data-line="846"><span class="sd">            degenerate case.</span>
-</span><span data-line="847"><span class="sd">            """</span>
-</span><span data-line="848">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">depth</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_DEPTH</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_usable</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="849">
-</span><span data-line="850">        <span class="k">def</span><span class="w"> </span><span class="fm">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
-</span><span data-line="851"><span class="w">            </span><span class="sd">"""</span>
-</span><span data-line="852"><span class="sd">            Convenience wrapper for :meth:`.add_result`.</span>
+</span><span data-line="768"><span class="sd">            :meth:`split` would make (:meth:`_split_point`: the mean</span>
+</span><span data-line="769"><span class="sd">            coordinate, or the median boundary under ``cut_rule="median"``),</span>
+</span><span data-line="770"><span class="sd">            and the two halves</span>
+</span><span data-line="771"><span class="sd">            are compared by the *rank* of their penalty values — scale-free,</span>
+</span><span data-line="772"><span class="sd">            so it survives an objective spanning many orders of magnitude and</span>
+</span><span data-line="773"><span class="sd">            a constraint handler whose penalty units are arbitrary::</span>
+</span><span data-line="774">
+</span><span data-line="775"><span class="sd">                score_j = |mean_rank(left) - mean_rank(right)|</span>
+</span><span data-line="776"><span class="sd">                          * sqrt(n_left * n_right / n)</span>
+</span><span data-line="777">
+</span><span data-line="778"><span class="sd">            That is the standardised two-sample rank-sum statistic: the first</span>
+</span><span data-line="779"><span class="sd">            factor is the separation, the second rewards a balanced cut, so a</span>
+</span><span data-line="780"><span class="sd">            dimension does not win by shaving off two outliers.  Ties (in</span>
+</span><span data-line="781"><span class="sd">            particular *every* score zero, i.e. a box in which the objective</span>
+</span><span data-line="782"><span class="sd">            is flat or all values are equal) fall back to the widest</span>
+</span><span data-line="783"><span class="sd">            dimension, so this rule degrades exactly into ``"widest"`` when</span>
+</span><span data-line="784"><span class="sd">            there is no value signal to use.</span>
+</span><span data-line="785">
+</span><span data-line="786"><span class="sd">            What it scores is the **cut**, not the dependence: a cloud that</span>
+</span><span data-line="787"><span class="sd">            mirrors exactly about the cut — a bowl sampled symmetrically</span>
+</span><span data-line="788"><span class="sd">            around its own centre — puts equally good and equally bad points</span>
+</span><span data-line="789"><span class="sd">            on both sides, scores zero, and width decides.  That is the</span>
+</span><span data-line="790"><span class="sd">            honest semantics for a rule about to make exactly this cut: a cut</span>
+</span><span data-line="791"><span class="sd">            that separates nothing gains nothing by being made on that axis.</span>
+</span><span data-line="792"><span class="sd">            In practice the mean of a finite sample is not the axis of</span>
+</span><span data-line="793"><span class="sd">            symmetry and the residual asymmetry is enough — a plain</span>
+</span><span data-line="794"><span class="sd">            ``x_j**2`` still wins its axis by a factor of three over the</span>
+</span><span data-line="795"><span class="sd">            noise on 200 uniform points.</span>
+</span><span data-line="796"><span class="sd">            """</span>
+</span><span data-line="797">            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="798">            <span class="n">cand</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">usable</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">)</span>
+</span><span data-line="799">            <span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">])[:,</span> <span class="n">cand</span><span class="p">]</span>
+</span><span data-line="800">            <span class="n">ranks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ranks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_penalties</span><span class="p">())</span>
+</span><span data-line="801">            <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="802">                <span class="n">ranks</span> <span class="o">/=</span> <span class="n">n</span> <span class="o">-</span> <span class="mf">1.0</span>
+</span><span data-line="803">
+</span><span data-line="804">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">cut_rule</span> <span class="o">==</span> <span class="s2">"mean"</span><span class="p">:</span>
+</span><span data-line="805">                <span class="n">cuts</span> <span class="o">=</span> <span class="n">xs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span data-line="806">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="807">                <span class="c1"># Score the cut that will be made, not the mean one.</span>
+</span><span data-line="808">                <span class="n">cuts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_split_point</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">d</span><span class="p">))</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">cand</span><span class="p">])</span>
+</span><span data-line="809">            <span class="n">left</span> <span class="o">=</span> <span class="n">xs</span> <span class="o">&lt;=</span> <span class="n">cuts</span>
+</span><span data-line="810">            <span class="n">n_l</span> <span class="o">=</span> <span class="n">left</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="811">            <span class="n">n_r</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">n_l</span>
+</span><span data-line="812">            <span class="n">sum_l</span> <span class="o">=</span> <span class="n">ranks</span> <span class="o">@</span> <span class="n">left</span>
+</span><span data-line="813">            <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+</span><span data-line="814">                <span class="n">mean_l</span> <span class="o">=</span> <span class="n">sum_l</span> <span class="o">/</span> <span class="n">n_l</span>
+</span><span data-line="815">                <span class="n">mean_r</span> <span class="o">=</span> <span class="p">(</span><span class="n">ranks</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">-</span> <span class="n">sum_l</span><span class="p">)</span> <span class="o">/</span> <span class="n">n_r</span>
+</span><span data-line="816">                <span class="n">score</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">mean_l</span> <span class="o">-</span> <span class="n">mean_r</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n_l</span> <span class="o">*</span> <span class="n">n_r</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="817">            <span class="c1"># ``spread &gt; 0`` puts min and max strictly on opposite sides of</span>
+</span><span data-line="818">            <span class="c1"># the mean, so both halves are non-empty; be defensive anyway.</span>
+</span><span data-line="819">            <span class="n">score</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">score</span><span class="p">),</span> <span class="n">score</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="820">
+</span><span data-line="821">            <span class="n">best</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">score</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+</span><span data-line="822">            <span class="n">tied</span> <span class="o">=</span> <span class="n">score</span> <span class="o">&gt;=</span> <span class="n">best</span> <span class="o">-</span> <span class="mf">1e-12</span>
+</span><span data-line="823">            <span class="n">widths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">tied</span><span class="p">,</span> <span class="n">usable</span><span class="p">[</span><span class="n">cand</span><span class="p">],</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="824">            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">cand</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">widths</span><span class="p">))])</span>
+</span><span data-line="825">
+</span><span data-line="826">        <span class="k">def</span><span class="w"> </span><span class="nf">_split_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="827"><span class="w">            </span><span class="sd">"""Dimension to cut this box along, or ``None`` if no cut helps."""</span>
+</span><span data-line="828">            <span class="n">usable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_usable</span><span class="p">()</span>
+</span><span data-line="829">            <span class="k">if</span> <span class="n">usable</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="830">                <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="831">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">split_rule</span> <span class="o">==</span> <span class="s2">"value"</span><span class="p">:</span>
+</span><span data-line="832">                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_dim_value</span><span class="p">(</span><span class="n">usable</span><span class="p">)</span>
+</span><span data-line="833">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_dim_widest</span><span class="p">(</span><span class="n">usable</span><span class="p">)</span>
+</span><span data-line="834">
+</span><span data-line="835">        <span class="k">def</span><span class="w"> </span><span class="nf">_can_split</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="836"><span class="w">            </span><span class="sd">"""``False`` when splitting cannot make progress.</span>
+</span><span data-line="837">
+</span><span data-line="838"><span class="sd">            ``Box.contains`` includes both boundaries, so a cut through a</span>
+</span><span data-line="839"><span class="sd">            cluster of *identical* points puts every one of them in *both*</span>
+</span><span data-line="840"><span class="sd">            children.  Each child is then an over-full leaf that splits</span>
+</span><span data-line="841"><span class="sd">            again on the next result, and the tree deepens without bound —</span>
+</span><span data-line="842"><span class="sd">            a live-lock that costs the rest of the evaluation budget.</span>
+</span><span data-line="843"><span class="sd">            (Measured: CMA-ES on MA-BBOB d5 with a diverged step size</span>
+</span><span data-line="844"><span class="sd">            projects most of a generation onto the same box corner and</span>
+</span><span data-line="845"><span class="sd">            stalls the run at 408 of 1000 evaluations.)</span>
+</span><span data-line="846">
+</span><span data-line="847"><span class="sd">            Asks :meth:`_usable` rather than :meth:`_split_dim`: the two</span>
+</span><span data-line="848"><span class="sd">            agree on *whether* a cut exists (both rules return a dimension</span>
+</span><span data-line="849"><span class="sd">            whenever one does), and this one is O(dim) from the running</span>
+</span><span data-line="850"><span class="sd">            min/max instead of O(#results · dim).  It runs on every result</span>
+</span><span data-line="851"><span class="sd">            of an over-full leaf, so the difference is the whole cost of the</span>
+</span><span data-line="852"><span class="sd">            degenerate case.</span>
 </span><span data-line="853"><span class="sd">            """</span>
-</span><span data-line="854">            <span class="bp">self</span><span class="o">.</span><span class="n">add_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="855">            <span class="k">return</span> <span class="bp">self</span>
-</span><span data-line="856">
-</span><span data-line="857">        <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="858">            <span class="c1"># O(1): a split box does not rebuild its list to be counted (this</span>
-</span><span data-line="859">            <span class="c1"># is also the box's truthiness and part of its ``repr``).</span>
-</span><span data-line="860">            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span>
-</span><span data-line="861">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="k">if</span> <span class="n">res</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span>
+</span><span data-line="854">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">depth</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_DEPTH</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_usable</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="855">
+</span><span data-line="856">        <span class="k">def</span><span class="w"> </span><span class="fm">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+</span><span data-line="857"><span class="w">            </span><span class="sd">"""</span>
+</span><span data-line="858"><span class="sd">            Convenience wrapper for :meth:`.add_result`.</span>
+</span><span data-line="859"><span class="sd">            """</span>
+</span><span data-line="860">            <span class="bp">self</span><span class="o">.</span><span class="n">add_result</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="861">            <span class="k">return</span> <span class="bp">self</span>
 </span><span data-line="862">
-</span><span data-line="863">        <span class="k">def</span><span class="w"> </span><span class="nf">_split_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
-</span><span data-line="864"><span class="w">            </span><span class="sd">"""Where to cut along ``dim``.</span>
-</span><span data-line="865">
-</span><span data-line="866"><span class="sd">            **The invariant, and the only thing that keeps the tree finite.**</span>
-</span><span data-line="867"><span class="sd">            :meth:`contains` includes both boundaries, so a point sitting</span>
-</span><span data-line="868"><span class="sd">            exactly on the cut lands in *both* children.  A child is</span>
-</span><span data-line="869"><span class="sd">            therefore a strict subset of its parent only when the cut ``s``</span>
-</span><span data-line="870"><span class="sd">            is *strictly interior* to the observed coordinates::</span>
+</span><span data-line="863">        <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="864">            <span class="c1"># O(1): a split box does not rebuild its list to be counted (this</span>
+</span><span data-line="865">            <span class="c1"># is also the box's truthiness and part of its ``repr``).</span>
+</span><span data-line="866">            <span class="n">res</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_results</span>
+</span><span data-line="867">            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">res</span><span class="p">)</span> <span class="k">if</span> <span class="n">res</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span>
+</span><span data-line="868">
+</span><span data-line="869">        <span class="k">def</span><span class="w"> </span><span class="nf">_split_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+</span><span data-line="870"><span class="w">            </span><span class="sd">"""Where to cut along ``dim``.</span>
 </span><span data-line="871">
-</span><span data-line="872"><span class="sd">                left  = {x_dim &lt;= s}  is proper  &lt;=&gt;  s &lt; max(x_dim)</span>
-</span><span data-line="873"><span class="sd">                right = {x_dim &gt;= s}  is proper  &lt;=&gt;  s &gt; min(x_dim)</span>
-</span><span data-line="874">
-</span><span data-line="875"><span class="sd">            Violate it and one child inherits the whole parent, is over-full</span>
-</span><span data-line="876"><span class="sd">            on arrival, splits again — the §13 live-lock, one level up from</span>
-</span><span data-line="877"><span class="sd">            the identical-points case :meth:`_can_split` already guards.</span>
-</span><span data-line="878">
-</span><span data-line="879"><span class="sd">            ``"mean"`` satisfies it for free: the average of values that are</span>
-</span><span data-line="880"><span class="sd">            not all equal lies strictly between the smallest and the largest,</span>
-</span><span data-line="881"><span class="sd">            and ``_can_split`` has already established ``spread &gt; 0``.</span>
-</span><span data-line="882">
-</span><span data-line="883"><span class="sd">            A **plain median does not**, in two separate ways, and both were</span>
-</span><span data-line="884"><span class="sd">            measured rather than reasoned about:</span>
-</span><span data-line="885">
-</span><span data-line="886"><span class="sd">            1. It can *be* the minimum — on ``[0,0,0,1,1]`` the median is 0,</span>
-</span><span data-line="887"><span class="sd">               so the right child inherits all five points.</span>
-</span><span data-line="888"><span class="sd">            2. Worse, and the one that actually bit: the median is an</span>
-</span><span data-line="889"><span class="sd">               *observed coordinate*, and a converging search produces long</span>
-</span><span data-line="890"><span class="sd">               runs of duplicates (a clipped bound, a stalled component).</span>
-</span><span data-line="891"><span class="sd">               Every point on the cut goes into **both** children, so the two</span>
-</span><span data-line="892"><span class="sd">               children together hold ``n + (duplicates at the cut)`` points</span>
-</span><span data-line="893"><span class="sd">               and neither shrinks much.  Replaying one real ``Random``</span>
-</span><span data-line="894"><span class="sd">               *d* = 5 cloud (2500 points) through a plain median cut gave</span>
-</span><span data-line="895"><span class="sd">               **61 leaves at depth 60** — the ``MAX_DEPTH`` cap — with a</span>
-</span><span data-line="896"><span class="sd">               leaf holding **1302** points, against 113 leaves at depth 31</span>
-</span><span data-line="897"><span class="sd">               and a largest leaf of 36 for the mean.</span>
-</span><span data-line="898">
-</span><span data-line="899"><span class="sd">            So ``"median"`` here is the median *boundary*: of all the gaps</span>
-</span><span data-line="900"><span class="sd">            between adjacent **distinct** coordinates, take the one that</span>
-</span><span data-line="901"><span class="sd">            comes closest to halving the population and cut in its middle.</span>
-</span><span data-line="902"><span class="sd">            With distinct coordinates that is exactly the median; with ties</span>
-</span><span data-line="903"><span class="sd">            it is the nearest cut that no point can sit on, so a duplicate</span>
-</span><span data-line="904"><span class="sd">            mass lands wholly on one side.  The mean stays the fallback for</span>
-</span><span data-line="905"><span class="sd">            the float-degenerate case where the gap is too narrow to hold a</span>
-</span><span data-line="906"><span class="sd">            representable point.</span>
-</span><span data-line="907"><span class="sd">            """</span>
-</span><span data-line="908">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">cut_rule</span> <span class="o">==</span> <span class="s2">"mean"</span><span class="p">:</span>
-</span><span data-line="909">                <span class="c1"># ``np.average`` over the list, verbatim: legacy trees are</span>
-</span><span data-line="910">                <span class="c1"># pinned bit-for-bit on this expression.</span>
-</span><span data-line="911">                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
-</span><span data-line="912">            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
-</span><span data-line="913">            <span class="n">xd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fromiter</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
-</span><span data-line="914">            <span class="n">values</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">xd</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="915">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
-</span><span data-line="916">                <span class="c1"># ``below[k]`` = points at or below ``values[k]``; the cut</span>
-</span><span data-line="917">                <span class="c1"># between ``values[k]`` and ``values[k+1]`` splits the box</span>
-</span><span data-line="918">                <span class="c1"># ``below[k]`` against ``n - below[k]``.</span>
-</span><span data-line="919">                <span class="n">below</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-</span><span data-line="920">                <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">below</span> <span class="o">-</span> <span class="n">n</span><span class="p">)))</span>
-</span><span data-line="921">                <span class="n">lo_v</span><span class="p">,</span> <span class="n">hi_v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
-</span><span data-line="922">                <span class="n">cut</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo_v</span> <span class="o">+</span> <span class="n">hi_v</span><span class="p">)</span>
-</span><span data-line="923">                <span class="k">if</span> <span class="n">lo_v</span> <span class="o">&lt;</span> <span class="n">cut</span> <span class="o">&lt;</span> <span class="n">hi_v</span><span class="p">:</span>
-</span><span data-line="924">                    <span class="k">return</span> <span class="n">cut</span>
-</span><span data-line="925">            <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xd</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">xd</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
-</span><span data-line="926">            <span class="n">cut</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">xd</span><span class="p">))</span>
-</span><span data-line="927">            <span class="c1"># The last resort is bounded by ``MAX_DEPTH``, not by this line:</span>
-</span><span data-line="928">            <span class="c1"># if no representable point is strictly interior the box simply</span>
-</span><span data-line="929">            <span class="c1"># keeps splitting until the depth cap stops it.</span>
-</span><span data-line="930">            <span class="k">return</span> <span class="n">cut</span> <span class="k">if</span> <span class="n">lo</span> <span class="o">&lt;</span> <span class="n">cut</span> <span class="o">&lt;</span> <span class="n">hi</span> <span class="k">else</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">hi</span><span class="p">)</span>
-</span><span data-line="931">
+</span><span data-line="872"><span class="sd">            **The invariant, and the only thing that keeps the tree finite.**</span>
+</span><span data-line="873"><span class="sd">            :meth:`contains` includes both boundaries, so a point sitting</span>
+</span><span data-line="874"><span class="sd">            exactly on the cut lands in *both* children.  A child is</span>
+</span><span data-line="875"><span class="sd">            therefore a strict subset of its parent only when the cut ``s``</span>
+</span><span data-line="876"><span class="sd">            is *strictly interior* to the observed coordinates::</span>
+</span><span data-line="877">
+</span><span data-line="878"><span class="sd">                left  = {x_dim &lt;= s}  is proper  &lt;=&gt;  s &lt; max(x_dim)</span>
+</span><span data-line="879"><span class="sd">                right = {x_dim &gt;= s}  is proper  &lt;=&gt;  s &gt; min(x_dim)</span>
+</span><span data-line="880">
+</span><span data-line="881"><span class="sd">            Violate it and one child inherits the whole parent, is over-full</span>
+</span><span data-line="882"><span class="sd">            on arrival, splits again — the §13 live-lock, one level up from</span>
+</span><span data-line="883"><span class="sd">            the identical-points case :meth:`_can_split` already guards.</span>
+</span><span data-line="884">
+</span><span data-line="885"><span class="sd">            ``"mean"`` satisfies it for free: the average of values that are</span>
+</span><span data-line="886"><span class="sd">            not all equal lies strictly between the smallest and the largest,</span>
+</span><span data-line="887"><span class="sd">            and ``_can_split`` has already established ``spread &gt; 0``.</span>
+</span><span data-line="888">
+</span><span data-line="889"><span class="sd">            A **plain median does not**, in two separate ways, and both were</span>
+</span><span data-line="890"><span class="sd">            measured rather than reasoned about:</span>
+</span><span data-line="891">
+</span><span data-line="892"><span class="sd">            1. It can *be* the minimum — on ``[0,0,0,1,1]`` the median is 0,</span>
+</span><span data-line="893"><span class="sd">               so the right child inherits all five points.</span>
+</span><span data-line="894"><span class="sd">            2. Worse, and the one that actually bit: the median is an</span>
+</span><span data-line="895"><span class="sd">               *observed coordinate*, and a converging search produces long</span>
+</span><span data-line="896"><span class="sd">               runs of duplicates (a clipped bound, a stalled component).</span>
+</span><span data-line="897"><span class="sd">               Every point on the cut goes into **both** children, so the two</span>
+</span><span data-line="898"><span class="sd">               children together hold ``n + (duplicates at the cut)`` points</span>
+</span><span data-line="899"><span class="sd">               and neither shrinks much.  Replaying one real ``Random``</span>
+</span><span data-line="900"><span class="sd">               *d* = 5 cloud (2500 points) through a plain median cut gave</span>
+</span><span data-line="901"><span class="sd">               **61 leaves at depth 60** — the ``MAX_DEPTH`` cap — with a</span>
+</span><span data-line="902"><span class="sd">               leaf holding **1302** points, against 113 leaves at depth 31</span>
+</span><span data-line="903"><span class="sd">               and a largest leaf of 36 for the mean.</span>
+</span><span data-line="904">
+</span><span data-line="905"><span class="sd">            So ``"median"`` here is the median *boundary*: of all the gaps</span>
+</span><span data-line="906"><span class="sd">            between adjacent **distinct** coordinates, take the one that</span>
+</span><span data-line="907"><span class="sd">            comes closest to halving the population and cut in its middle.</span>
+</span><span data-line="908"><span class="sd">            With distinct coordinates that is exactly the median; with ties</span>
+</span><span data-line="909"><span class="sd">            it is the nearest cut that no point can sit on, so a duplicate</span>
+</span><span data-line="910"><span class="sd">            mass lands wholly on one side.  The mean stays the fallback for</span>
+</span><span data-line="911"><span class="sd">            the float-degenerate case where the gap is too narrow to hold a</span>
+</span><span data-line="912"><span class="sd">            representable point.</span>
+</span><span data-line="913"><span class="sd">            """</span>
+</span><span data-line="914">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">cut_rule</span> <span class="o">==</span> <span class="s2">"mean"</span><span class="p">:</span>
+</span><span data-line="915">                <span class="c1"># ``np.average`` over the list, verbatim: legacy trees are</span>
+</span><span data-line="916">                <span class="c1"># pinned bit-for-bit on this expression.</span>
+</span><span data-line="917">                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">])</span>
+</span><span data-line="918">            <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+</span><span data-line="919">            <span class="n">xd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fromiter</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="920">            <span class="n">values</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">xd</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="921">            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+</span><span data-line="922">                <span class="c1"># ``below[k]`` = points at or below ``values[k]``; the cut</span>
+</span><span data-line="923">                <span class="c1"># between ``values[k]`` and ``values[k+1]`` splits the box</span>
+</span><span data-line="924">                <span class="c1"># ``below[k]`` against ``n - below[k]``.</span>
+</span><span data-line="925">                <span class="n">below</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">counts</span><span class="p">)[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="926">                <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">below</span> <span class="o">-</span> <span class="n">n</span><span class="p">)))</span>
+</span><span data-line="927">                <span class="n">lo_v</span><span class="p">,</span> <span class="n">hi_v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span>
+</span><span data-line="928">                <span class="n">cut</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo_v</span> <span class="o">+</span> <span class="n">hi_v</span><span class="p">)</span>
+</span><span data-line="929">                <span class="k">if</span> <span class="n">lo_v</span> <span class="o">&lt;</span> <span class="n">cut</span> <span class="o">&lt;</span> <span class="n">hi_v</span><span class="p">:</span>
+</span><span data-line="930">                    <span class="k">return</span> <span class="n">cut</span>
+</span><span data-line="931">            <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">xd</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">xd</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+</span><span data-line="932">            <span class="n">cut</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">average</span><span class="p">(</span><span class="n">xd</span><span class="p">))</span>
+</span><span data-line="933">            <span class="c1"># The last resort is bounded by ``MAX_DEPTH``, not by this line:</span>
+</span><span data-line="934">            <span class="c1"># if no representable point is strictly interior the box simply</span>
+</span><span data-line="935">            <span class="c1"># keeps splitting until the depth cap stops it.</span>
+</span><span data-line="936">            <span class="k">return</span> <span class="n">cut</span> <span class="k">if</span> <span class="n">lo</span> <span class="o">&lt;</span> <span class="n">cut</span> <span class="o">&lt;</span> <span class="n">hi</span> <span class="k">else</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="937">
 <div class="viewcode-block" id="Splitter.Box.split">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.split">[docs]</a>
-</span><span data-line="932">        <span class="k">def</span><span class="w"> </span><span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="933"><span class="w">            </span><span class="sd">"""</span>
-</span><span data-line="934"><span class="sd">            Arguments::</span>
-</span><span data-line="935">
-</span><span data-line="936"><span class="sd">            - ``dim``: Dimension, along which to split. (default: `None`, and calculated)</span>
-</span><span data-line="937"><span class="sd">            """</span>
-</span><span data-line="938">            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s2">"only leaf boxes are allowed to be split"</span>
-</span><span data-line="939">            <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="940">                <span class="c1"># Split along the widest dimension in which the results</span>
-</span><span data-line="941">                <span class="c1"># actually differ; a cut through identical coordinates</span>
-</span><span data-line="942">                <span class="c1"># separates nothing (see :meth:`_can_split`).</span>
-</span><span data-line="943">                <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_dim</span><span class="p">()</span>
-</span><span data-line="944">                <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="945">                    <span class="n">dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">))</span>
-</span><span data-line="946">            <span class="c1"># self.logger.debug("dim: %d" % dim)</span>
-</span><span data-line="947">            <span class="k">assert</span> <span class="n">dim</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s2">"dimension along where to split is </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">dim</span>
-</span><span data-line="948">            <span class="n">b1</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-</span><span data-line="949">            <span class="n">b2</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
-</span><span data-line="950">            <span class="bp">self</span><span class="o">.</span><span class="n">split_dim</span> <span class="o">=</span> <span class="n">dim</span>
-</span><span data-line="951">            <span class="n">split_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_point</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
-</span><span data-line="952">            <span class="n">b1</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
-</span><span data-line="953">            <span class="n">b2</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
-</span><span data-line="954">            <span class="c1"># Read back from the box, so the descent compares against the very</span>
-</span><span data-line="955">            <span class="c1"># value ``contains`` would.</span>
-</span><span data-line="956">            <span class="n">cut</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cut</span> <span class="o">=</span> <span class="n">b1</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-</span><span data-line="957">            <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">b1</span><span class="p">,</span> <span class="n">b2</span><span class="p">])</span>
-</span><span data-line="958">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">_replace_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
-</span><span data-line="959">            <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="960">            <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span>
-</span><span data-line="961">            <span class="c1"># Every result lies inside this box unless it entered through the</span>
-</span><span data-line="962">            <span class="c1"># root from outside the problem box (the root registers</span>
-</span><span data-line="963">            <span class="c1"># unconditionally); the running min/max tells which.</span>
-</span><span data-line="964">            <span class="n">box_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="s2">"box"</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
-</span><span data-line="965">            <span class="n">inside</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="966">                <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="967">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="968">                <span class="ow">and</span> <span class="nb">bool</span><span class="p">((</span><span class="n">box_array</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-</span><span data-line="969">                <span class="ow">and</span> <span class="nb">bool</span><span class="p">((</span><span class="n">box_array</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmax</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-</span><span data-line="970">            <span class="p">)</span>
-</span><span data-line="971">            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">):</span>
-</span><span data-line="972">                <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">_new_box</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
-</span><span data-line="973">                <span class="k">if</span> <span class="ow">not</span> <span class="n">inside</span><span class="p">:</span>
-</span><span data-line="974">                    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">)]</span>
-</span><span data-line="975">                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="976">                    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">cut</span><span class="p">]</span>
-</span><span data-line="977">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="978">                    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">cut</span><span class="p">]</span>
-</span><span data-line="979">                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
-</span><span data-line="980">                    <span class="n">c</span><span class="o">.</span><span class="n">_register_result</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">handler</span><span class="p">)</span>
-</span><span data-line="981">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="982">                <span class="c1"># Results are stored in leaves and the root only; see</span>
-</span><span data-line="983">                <span class="c1"># :attr:`results`.</span>
-</span><span data-line="984">                <span class="bp">self</span><span class="o">.</span><span class="n">_results</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="985">            <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmax</span> <span class="o">=</span> <span class="kc">None</span>
-</span><span data-line="986">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_split"</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span></div>
+</span><span data-line="938">        <span class="k">def</span><span class="w"> </span><span class="nf">split</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="939"><span class="w">            </span><span class="sd">"""</span>
+</span><span data-line="940"><span class="sd">            Arguments::</span>
+</span><span data-line="941">
+</span><span data-line="942"><span class="sd">            - ``dim``: Dimension, along which to split. (default: `None`, and calculated)</span>
+</span><span data-line="943"><span class="sd">            """</span>
+</span><span data-line="944">            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s2">"only leaf boxes are allowed to be split"</span>
+</span><span data-line="945">            <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="946">                <span class="c1"># Split along the widest dimension in which the results</span>
+</span><span data-line="947">                <span class="c1"># actually differ; a cut through identical coordinates</span>
+</span><span data-line="948">                <span class="c1"># separates nothing (see :meth:`_can_split`).</span>
+</span><span data-line="949">                <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_dim</span><span class="p">()</span>
+</span><span data-line="950">                <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="951">                    <span class="n">dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ranges</span><span class="p">))</span>
+</span><span data-line="952">            <span class="c1"># self.logger.debug("dim: %d" % dim)</span>
+</span><span data-line="953">            <span class="k">assert</span> <span class="n">dim</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">dim</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="s2">"dimension along where to split is </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">dim</span>
+</span><span data-line="954">            <span class="n">b1</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+</span><span data-line="955">            <span class="n">b2</span> <span class="o">=</span> <span class="n">Splitter</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+</span><span data-line="956">            <span class="bp">self</span><span class="o">.</span><span class="n">split_dim</span> <span class="o">=</span> <span class="n">dim</span>
+</span><span data-line="957">            <span class="n">split_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_split_point</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="958">            <span class="n">b1</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
+</span><span data-line="959">            <span class="n">b2</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_point</span>
+</span><span data-line="960">            <span class="c1"># Read back from the box, so the descent compares against the very</span>
+</span><span data-line="961">            <span class="c1"># value ``contains`` would.</span>
+</span><span data-line="962">            <span class="n">cut</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cut</span> <span class="o">=</span> <span class="n">b1</span><span class="o">.</span><span class="n">box</span><span class="p">[</span><span class="n">dim</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="963">            <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">b1</span><span class="p">,</span> <span class="n">b2</span><span class="p">])</span>
+</span><span data-line="964">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">_replace_leaf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">)</span>
+</span><span data-line="965">            <span class="n">handler</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"constraint_handler"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="966">            <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">results</span>
+</span><span data-line="967">            <span class="c1"># Every result lies inside this box unless it entered through the</span>
+</span><span data-line="968">            <span class="c1"># root from outside the problem box (the root registers</span>
+</span><span data-line="969">            <span class="c1"># unconditionally); the running min/max tells which.</span>
+</span><span data-line="970">            <span class="n">box_array</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">box</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">,</span> <span class="s2">"box"</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="971">            <span class="n">inside</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="972">                <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="973">                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="974">                <span class="ow">and</span> <span class="nb">bool</span><span class="p">((</span><span class="n">box_array</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="975">                <span class="ow">and</span> <span class="nb">bool</span><span class="p">((</span><span class="n">box_array</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmax</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="976">            <span class="p">)</span>
+</span><span data-line="977">            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">):</span>
+</span><span data-line="978">                <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">_new_box</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+</span><span data-line="979">                <span class="k">if</span> <span class="ow">not</span> <span class="n">inside</span><span class="p">:</span>
+</span><span data-line="980">                    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">)]</span>
+</span><span data-line="981">                <span class="k">elif</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="982">                    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">cut</span><span class="p">]</span>
+</span><span data-line="983">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="984">                    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">cut</span><span class="p">]</span>
+</span><span data-line="985">                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
+</span><span data-line="986">                    <span class="n">c</span><span class="o">.</span><span class="n">_register_result</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">handler</span><span class="p">)</span>
+</span><span data-line="987">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="988">                <span class="c1"># Results are stored in leaves and the root only; see</span>
+</span><span data-line="989">                <span class="c1"># :attr:`results`.</span>
+</span><span data-line="990">                <span class="bp">self</span><span class="o">.</span><span class="n">_results</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="991">            <span class="bp">self</span><span class="o">.</span><span class="n">_xmin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_xmax</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="992">            <span class="bp">self</span><span class="o">.</span><span class="n">splitter</span><span class="o">.</span><span class="n">eventbus</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="s2">"new_split"</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span> <span class="n">children</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)</span></div>
 
-</span><span data-line="987">
+</span><span data-line="993">
 <div class="viewcode-block" id="Splitter.Box.contains">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.contains">[docs]</a>
-</span><span data-line="988">        <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="989"><span class="w">            </span><span class="sd">"""</span>
-</span><span data-line="990"><span class="sd">            true, if given point is inside this box (including boundaries).</span>
-</span><span data-line="991"><span class="sd">            """</span>
-</span><span data-line="992">            <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
-</span><span data-line="993">            <span class="k">return</span> <span class="p">(</span><span class="n">lo</span> <span class="o">&lt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span><span class="n">hi</span> <span class="o">&gt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
+</span><span data-line="994">        <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+</span><span data-line="995"><span class="w">            </span><span class="sd">"""</span>
+</span><span data-line="996"><span class="sd">            true, if given point is inside this box (including boundaries).</span>
+</span><span data-line="997"><span class="sd">            """</span>
+</span><span data-line="998">            <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="999">            <span class="k">return</span> <span class="p">(</span><span class="n">lo</span> <span class="o">&lt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span> <span class="ow">and</span> <span class="p">(</span><span class="n">hi</span> <span class="o">&gt;=</span> <span class="n">point</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
-</span><span data-line="994">
+</span><span data-line="1000">
 <div class="viewcode-block" id="Splitter.Box.get_child_boxes">
 <a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.get_child_boxes">[docs]</a>
-</span><span data-line="995">        <span class="k">def</span><span class="w"> </span><span class="nf">get_child_boxes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="996"><span class="w">            </span><span class="sd">"""</span>
-</span><span data-line="997"><span class="sd">            returns all immediate child boxes, which contain given point.</span>
-</span><span data-line="998"><span class="sd">            """</span>
-</span><span data-line="999">            <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s1">'not applicable for "leaf" box'</span>
-</span><span data-line="1000">            <span class="n">ret</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">point</span><span class="p">)]</span>
-</span><span data-line="1001">            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"no child box containing </span><span class="si">%s</span><span class="s2"> found!"</span> <span class="o">%</span> <span class="n">point</span>
-</span><span data-line="1002">            <span class="k">return</span> <span class="n">ret</span></div>
+</span><span data-line="1001">        <span class="k">def</span><span class="w"> </span><span class="nf">get_child_boxes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
+</span><span data-line="1002"><span class="w">            </span><span class="sd">"""</span>
+</span><span data-line="1003"><span class="sd">            returns all immediate child boxes, which contain given point.</span>
+</span><span data-line="1004"><span class="sd">            """</span>
+</span><span data-line="1005">            <span class="k">assert</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span><span class="p">,</span> <span class="s1">'not applicable for "leaf" box'</span>
+</span><span data-line="1006">            <span class="n">ret</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">point</span><span class="p">)]</span>
+</span><span data-line="1007">            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"no child box containing </span><span class="si">%s</span><span class="s2"> found!"</span> <span class="o">%</span> <span class="n">point</span>
+</span><span data-line="1008">            <span class="k">return</span> <span class="n">ret</span></div>
 
-</span><span data-line="1003">
-</span><span data-line="1004">        <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="1005">            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume</span>
-</span><span data-line="1006">            <span class="n">tag</span> <span class="o">=</span> <span class="s2">",leaf"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="k">else</span> <span class="s2">""</span>
-</span><span data-line="1007">            <span class="n">info</span> <span class="o">=</span> <span class="s2">"(</span><span class="si">%d</span><span class="s2">,</span><span class="si">%.3f%s</span><span class="s2">) "</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">v</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
-</span><span data-line="1008">            <span class="n">b</span> <span class="o">=</span> <span class="s2">","</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
-</span><span data-line="1009">            <span class="k">return</span> <span class="s2">"Box-</span><span class="si">%d</span><span class="s2"> </span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]"</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
+</span><span data-line="1009">
+</span><span data-line="1010">        <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="1011">            <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">volume</span>
+</span><span data-line="1012">            <span class="n">tag</span> <span class="o">=</span> <span class="s2">",leaf"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">leaf</span> <span class="k">else</span> <span class="s2">""</span>
+</span><span data-line="1013">            <span class="n">info</span> <span class="o">=</span> <span class="s2">"(</span><span class="si">%d</span><span class="s2">,</span><span class="si">%.3f%s</span><span class="s2">) "</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span> <span class="n">v</span><span class="p">,</span> <span class="n">tag</span><span class="p">)</span>
+</span><span data-line="1014">            <span class="n">b</span> <span class="o">=</span> <span class="s2">","</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="1015">            <span class="k">return</span> <span class="s2">"Box-</span><span class="si">%d</span><span class="s2"> </span><span class="si">%s</span><span class="s2">[</span><span class="si">%s</span><span class="s2">]"</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">info</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

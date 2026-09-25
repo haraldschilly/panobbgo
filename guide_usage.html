@@ -283,7 +283,7 @@ package, so if they pass for you the installation is complete.</p>
 </span><span data-line="17"><span class="go">NumPy: ..., SciPy: ...</span>
 </span></pre></div>
 </div>
-<p>To run the framework’s own test suite (about 2000 tests, roughly a minute
+<p>To run the framework’s own test suite (about 2300 tests, roughly a minute
 with four workers):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span>
 </span></pre></div>
@@ -306,7 +306,7 @@ lives in <a class="reference internal" href="core.html#module-panobbgo.dask_eval
 .. code-block:: bash</p>
 <blockquote>
 <div><p>dask scheduler &amp;
-dask worker localhost:8786 –nprocs 4 &amp;</p>
+dask worker localhost:8786 –nworkers 4 &amp;</p>
 </div></blockquote>
 </li>
 <li><p><strong>Configure Panobbgo</strong>:
@@ -317,32 +317,49 @@ Set <code class="docutils literal notranslate"><span class="pre">evaluation:</sp
 </section>
 <section id="configuration">
 <h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h3>
-<p>On first run, Panobbgo creates <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code>:</p>
-<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[dask]</span>
-</span><span data-line="2"><span class="na">cluster_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">local</span><span class="w">                    </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
-</span><span data-line="3"><span class="na">local.n_workers</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">2</span><span class="w">                    </span><span class="c1"># Number of local workers (default: 2)</span>
-</span><span data-line="4"><span class="na">local.threads_per_worker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">1</span><span class="w">           </span><span class="c1"># Threads per worker (default: 1)</span>
-</span><span data-line="5"><span class="na">local.memory_limit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">2GB</span><span class="w">               </span><span class="c1"># Memory per worker (default: 2GB)</span>
-</span><span data-line="6"><span class="na">local.dashboard_address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">:8787</span><span class="w">        </span><span class="c1"># Dashboard port (default: :8787)</span>
-</span><span data-line="7"><span class="na">remote.scheduler_address</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">tcp://localhost:8786</span><span class="w">  </span><span class="c1"># For remote clusters</span>
-</span><span data-line="8">
-</span><span data-line="9"><span class="k">[optimization]</span>
-</span><span data-line="10"><span class="na">max_evaluations</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">1000</span><span class="w">    </span><span class="c1"># Evaluation budget</span>
-</span><span data-line="11"><span class="na">queue_capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">       </span><span class="c1"># Heuristic queue size</span>
+<p>Settings come, in decreasing precedence, from keyword arguments of the
+strategy (<code class="docutils literal notranslate"><span class="pre">max_eval=</span></code>, <code class="docutils literal notranslate"><span class="pre">seed=</span></code>, config attribute names), <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>
+in the working directory, <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code> and the built-in
+defaults.  On first run Panobbgo writes a default <code class="docutils literal notranslate"><span class="pre">config.ini</span></code>:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[heuristic]</span>
+</span><span data-line="2"><span class="na">capacity</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">20</span><span class="w">             </span><span class="c1"># heuristic output-queue size</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="k">[core]</span>
+</span><span data-line="5"><span class="na">loglevel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">40</span><span class="w">             </span><span class="c1"># Python logging level (40 = ERROR)</span>
+</span><span data-line="6"><span class="na">show_interval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">1.0</span>
+</span><span data-line="7"><span class="na">max_eval</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">1000</span><span class="w">           </span><span class="c1"># evaluation budget</span>
+</span><span data-line="8"><span class="na">discount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.95</span><span class="w">           </span><span class="c1"># performance decay factor</span>
+</span><span data-line="9"><span class="na">smooth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.5</span><span class="w">              </span><span class="c1"># additive smoothing for the bandit</span>
+</span><span data-line="10"><span class="c1"># also read from [core]: seed, stop_on_convergence, deadlock_seconds</span>
+</span><span data-line="11"><span class="c1"># (see below), rewarding_credit, rewarding_explore</span>
 </span><span data-line="12">
-</span><span data-line="13"><span class="k">[strategy]</span>
-</span><span data-line="14"><span class="na">smooth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.1</span><span class="w">              </span><span class="c1"># Additive smoothing for bandit</span>
-</span><span data-line="15"><span class="na">discount</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">0.95</span><span class="w">           </span><span class="c1"># Performance decay factor</span>
-</span><span data-line="16"><span class="na">jobs_per_client</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">5</span><span class="w">       </span><span class="c1"># Batch size per engine</span>
-</span><span data-line="17">
-</span><span data-line="18"><span class="k">[core]</span>
-</span><span data-line="19"><span class="na">deadlock_seconds</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">600</span><span class="w">    </span><span class="c1"># error backstop for a wedged worker (see below)</span>
-</span><span data-line="20">
-</span><span data-line="21"><span class="k">[logging]</span>
-</span><span data-line="22"><span class="na">level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">INFO</span><span class="w">              </span><span class="c1"># DEBUG, INFO, WARNING, ERROR</span>
+</span><span data-line="13"><span class="c1"># [storage]</span>
+</span><span data-line="14"><span class="c1"># backend = sqlite        # checkpoint/resume; uri defaults to panobbgo.db</span>
 </span></pre></div>
 </div>
-<p>Edit this file to customize behavior.</p>
+<p>Everything above can also go in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (<code class="docutils literal notranslate"><span class="pre">core:</span> <span class="pre">max_eval:</span> <span class="pre">500</span></code>,
+<code class="docutils literal notranslate"><span class="pre">heuristic:</span> <span class="pre">capacity:</span> <span class="pre">20</span></code>, …).  The evaluation, Dask, constraint and
+logging settings are <strong>YAML only</strong> — <code class="docutils literal notranslate"><span class="pre">config.ini</span></code> has no section for them:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">        </span><span class="c1"># 'threaded', 'processes' or 'dask'</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">             </span><span class="c1"># optional: seconds of running time per evaluation</span>
+</span><span data-line="4"><span class="w">  </span><span class="nt">sync</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">             </span><span class="c1"># true: bit-reproducible seeded runs</span>
+</span><span data-line="5"><span class="nt">dask</span><span class="p">:</span>
+</span><span data-line="6"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span><span class="w">     </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
+</span><span data-line="7"><span class="w">  </span><span class="nt">local</span><span class="p">:</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">n_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span data-line="9"><span class="w">    </span><span class="nt">threads_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span data-line="10"><span class="w">    </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2GB</span>
+</span><span data-line="11"><span class="w">    </span><span class="nt">dashboard_address</span><span class="p">:</span><span class="w"> </span><span class="s">':8787'</span>
+</span><span data-line="12"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
+</span><span data-line="13"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
+</span><span data-line="14"><span class="nt">constraints</span><span class="p">:</span>
+</span><span data-line="15"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
+</span><span data-line="16"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
+</span><span data-line="17"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
+</span></pre></div>
+</div>
+<p>Edit these files to customize behavior.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p><strong>There is no wall-clock stall guard.</strong>  A run used to end after
@@ -695,15 +712,15 @@ problems and strategies without starting an optimization run.</p>
 <h3>Basic Problem<a class="headerlink" href="#basic-problem" title="Link to this heading">#</a></h3>
 <p>Subclass <a class="reference internal" href="lib.html#panobbgo.lib.Problem" title="panobbgo.lib.Problem"><code class="xref py py-class docutils literal notranslate"><span class="pre">Problem</span></code></a>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span><span class="p">,</span> <span class="n">BoundingBox</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Problem</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">class</span><span class="w"> </span><span class="nc">Sphere</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="5"><span class="w">    </span><span class="sd">"""Simple sphere function: f(x) = sum(x^2)"""</span>
 </span><span data-line="6">
 </span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
 </span><span data-line="8">        <span class="c1"># Define bounding box: each variable in [-10, 10]</span>
-</span><span data-line="9">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">))</span>
-</span><span data-line="10">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+</span><span data-line="9">        <span class="n">box</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dim</span>
+</span><span data-line="10">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
 </span><span data-line="11">
 </span><span data-line="12">    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 </span><span data-line="13"><span class="w">        </span><span class="sd">"""Evaluate objective function"""</span>
@@ -750,8 +767,8 @@ with the transformed box and evaluation.</p>
 <p>You can also add stochasticity directly in <code class="docutils literal notranslate"><span class="pre">eval()</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">NoisySphere</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="2">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">noise_std</span><span class="o">=</span><span class="mf">0.1</span><span class="p">):</span>
-</span><span data-line="3">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">dim</span><span class="p">))</span>
-</span><span data-line="4">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+</span><span data-line="3">        <span class="n">box</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">dim</span>
+</span><span data-line="4">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
 </span><span data-line="5">        <span class="bp">self</span><span class="o">.</span><span class="n">noise_std</span> <span class="o">=</span> <span class="n">noise_std</span>
 </span><span data-line="6">
 </span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
@@ -768,8 +785,8 @@ with the transformed box and evaluation.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">ConstrainedProblem</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="2">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="3">        <span class="c1"># 2D problem: x in [-5, 5], y in [-5, 5]</span>
-</span><span data-line="4">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">]]))</span>
-</span><span data-line="5">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="4">        <span class="n">box</span> <span class="o">=</span> <span class="p">[(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)]</span>
+</span><span data-line="5">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
 </span><span data-line="6">
 </span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 </span><span data-line="8"><span class="w">        </span><span class="sd">"""Objective: minimize (x-1)^2 + (y-2)^2"""</span>
@@ -789,9 +806,9 @@ with the transformed box and evaluation.</p>
 </span><span data-line="22"><span class="n">problem</span> <span class="o">=</span> <span class="n">ConstrainedProblem</span><span class="p">()</span>
 </span><span data-line="23"><span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
 </span><span data-line="24">
-</span><span data-line="25"><span class="c1"># You can configure the constraint handling method in ~/.panobbgo/config.ini</span>
-</span><span data-line="26"><span class="c1"># [optimization]</span>
-</span><span data-line="27"><span class="c1"># constraint_handler = AugmentedLagrangianConstraintHandler</span>
+</span><span data-line="25"><span class="c1"># The constraint handling method is set in config.yaml:</span>
+</span><span data-line="26"><span class="c1">#   constraints:</span>
+</span><span data-line="27"><span class="c1">#     handler: AugmentedLagrangianConstraintHandler</span>
 </span><span data-line="28">
 </span><span data-line="29"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Center</span><span class="p">)</span>
 </span><span data-line="30"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
@@ -809,7 +826,7 @@ with the transformed box and evaluation.</p>
 </section>
 <section id="constraint-handling-methods">
 <h3>Constraint Handling Methods<a class="headerlink" href="#constraint-handling-methods" title="Link to this heading">#</a></h3>
-<p>Panobbgo supports different constraint handling strategies, configurable in <code class="docutils literal notranslate"><span class="pre">config.ini</span></code>:</p>
+<p>Panobbgo supports different constraint handling strategies, selected in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> (<code class="docutils literal notranslate"><span class="pre">constraints:</span> <span class="pre">handler:</span> <span class="pre">...</span></code>) or with the <code class="docutils literal notranslate"><span class="pre">constraint_handler</span></code> strategy argument:</p>
 <ol class="arabic simple">
 <li><p><strong>DefaultConstraintHandler</strong> (default):
 Lexicographic ordering. Prioritizes feasibility (cv=0) over objective function value.
@@ -908,12 +925,12 @@ pockets of promising solutions.</p>
 </span><span data-line="4"><span class="k">class</span><span class="w"> </span><span class="nc">ExternalSimulation</span><span class="p">(</span><span class="n">Problem</span><span class="p">):</span>
 </span><span data-line="5">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="6">        <span class="c1"># 3D problem</span>
-</span><span data-line="7">        <span class="n">box</span> <span class="o">=</span> <span class="n">BoundingBox</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
-</span><span data-line="8">            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
-</span><span data-line="9">            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
-</span><span data-line="10">            <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
-</span><span data-line="11">        <span class="p">]))</span>
-</span><span data-line="12">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">box</span><span class="o">=</span><span class="n">box</span><span class="p">)</span>
+</span><span data-line="7">        <span class="n">box</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="8">            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+</span><span data-line="9">            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+</span><span data-line="10">            <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="11">        <span class="p">]</span>
+</span><span data-line="12">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">box</span><span class="p">)</span>
 </span><span data-line="13">
 </span><span data-line="14">    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
 </span><span data-line="15"><span class="w">        </span><span class="sd">"""Call external simulation"""</span>
@@ -2296,7 +2313,7 @@ the problem, set <code class="docutils literal notranslate"><span class="pre">st
 <p><strong>Error:</strong> <code class="docutils literal notranslate"><span class="pre">TimeoutError:</span> <span class="pre">Cluster</span> <span class="pre">not</span> <span class="pre">found</span></code> (Only when using <code class="docutils literal notranslate"><span class="pre">evaluation:</span> <span class="pre">method:</span> <span class="pre">dask</span></code>)</p>
 <p><strong>Solution:</strong> Start Dask cluster before running:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">dask<span class="w"> </span>scheduler<span class="w"> </span><span class="p">&amp;</span>
-</span><span data-line="2">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nprocs<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
+</span><span data-line="2">dask<span class="w"> </span>worker<span class="w"> </span>localhost:8786<span class="w"> </span>--nworkers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="p">&amp;</span>
 </span></pre></div>
 </div>
 </section>

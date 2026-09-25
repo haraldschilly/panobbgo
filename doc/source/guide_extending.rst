@@ -118,6 +118,14 @@ solver living in a subprocess, and is the base class of
 rebuilding the pipe protocol.  Design and measurements:
 ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §1.
 
+:class:`~panobbgo.heuristics.quadratic_wls.QuadraticWlsModel` is the
+request/reply variant: its worker is a model fit rather than a solver
+waiting on ``f(x)``.  The event handler only records the input (the latest
+best box); ``produce()`` sends it and collects the reply.  The only wait is
+for the worker's *computation*, never for an evaluation we owe, and only
+under ``sync_evaluation`` — there it keeps the emitted point independent of
+machine speed.  Asynchronous runs return ``[]`` until the reply is ready.
+
 Example: Gradient Sampling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

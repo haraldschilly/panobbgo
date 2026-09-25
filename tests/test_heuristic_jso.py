@@ -514,6 +514,52 @@ class JSOGenerateTrialTests(_MockStrategyMixin, PanobbgoTestCase):
         assert all(np.isfinite(f) for f in h._success_F)
         assert all(np.isfinite(c) for c in h._success_CR)
 
+    def _pbest_step(self, cls, factor_progress: float):
+        """Return ``(u − x_target) / (x_pbest − x_target)`` for one trial.
+
+        Every non-target member sits at the same point ``p`` (so ``x_r1 −
+        x_r2 = 0``), the target is worst, ``F = 0.5`` and ``CR = 1`` — the
+        trial is then exactly ``x_target + F_w · (p − x_target)``.
+        """
+        h = cls(self.strategy, NP_init=5, seed=3)
+        h.on_start()
+        h.get_points(limit=100)
+        lo, hi = self.problem.box[:, 0], self.problem.box[:, 1]
+        center = 0.5 * (lo + hi)
+        d = 0.1 * (hi - lo)
+        p = center + d
+        for i in range(len(h._population)):
+            x = center if i == 0 else p
+            h._population[i] = _build_result(self.strategy, x, 100.0 if i == 0 else 1.0, "JSO:x")
+        h._archive = []
+        h._sample_F_CR = lambda: (0.5, 1.0)  # type: ignore[method-assign]
+        self.strategy.results = [None] * int(factor_progress * self.strategy.config.max_eval)
+        captured = []
+        h._emit_trial = lambda u, idx, F, CR: captured.append(np.asarray(u)) or True  # type: ignore[method-assign]
+        h._generate_trial(0)
+        assert len(captured) == 1
+        return float(np.mean((captured[0] - center) / d))
+
+    def test_pbest_term_weight_is_factor_times_F(self):
+        """Regression: jSO's pbest weight is ``F_w = 0.7·F`` (etc.), not the bare factor.
+
+        The old code used ``F_w = 0.7 / 0.8 / 1.2`` directly, which here gave
+        a step of ``0.7`` instead of ``0.7 · 0.5 = 0.35``.
+        """
+        from panobbgo.heuristics.jso import JSO
+
+        assert self._pbest_step(JSO, 0.0) == pytest.approx(0.7 * 0.5)
+        assert self._pbest_step(JSO, 0.5) == pytest.approx(1.2 * 0.5)
+
+    def test_nl_shade_variants_use_unweighted_pbest_term(self):
+        """NL-SHADE-RSP / -LBC use plain ``current-to-pbest/1``: ``F_w = F``."""
+        from panobbgo.heuristics.nl_shade_lbc import NLSHADE_LBC
+        from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP
+
+        for cls in (NLSHADE_RSP, NLSHADE_LBC):
+            assert self._pbest_step(cls, 0.0) == pytest.approx(0.5)
+            assert self._pbest_step(cls, 0.5) == pytest.approx(0.5)
+
 
 # ----------------------------------------------------------------------
 # Restart behaviour

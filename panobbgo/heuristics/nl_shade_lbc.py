@@ -24,7 +24,7 @@ direct successor to
 inherits its entire pipeline: the jSO-derived asynchronous DE
 (per-slot pending dict, generation-by-count book-keeping, archive of
 replaced parents, success-history memory with the frozen jSO anchor bin,
-weighted ``current-to-pbest-w/1`` mutation, linear ``p_best`` schedule,
+unweighted ``current-to-pbest/1`` mutation, linear ``p_best`` schedule,
 asymmetric F-cap, warm restart), plus NL-SHADE-RSP's Non-Linear
 Population Size Reduction, Rank-based Selective Pressure on the ``r1``
 draw, and randomised adaptive archive cap.

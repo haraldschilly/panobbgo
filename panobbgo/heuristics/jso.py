@@ -285,9 +285,11 @@ class JSO(LSHADE):
         return float(self.p_best_max + (self.p_best_min - self.p_best_max) * progress)
 
     def _current_F_weight(self) -> float:
-        """Three-phase ``F_w`` factor for the weighted current-to-pbest term.
+        """Three-phase factor ``c`` of the weighted pbest term, ``F_w = c · F``.
 
-        Falls back to the early-phase factor when the budget is unknown.
+        Returns ``0.7`` / ``0.8`` / ``1.2`` by progress (Brest et al. 2017);
+        :meth:`_generate_trial` multiplies it by the sampled ``F``.  Falls
+        back to the early-phase factor when the budget is unknown.
         """
         progress = self._progress()
         if progress is None:
@@ -322,7 +324,9 @@ class JSO(LSHADE):
             return
 
         F, CR = self._sample_F_CR()
-        F_w = self._current_F_weight()
+        # jSO: F_w = {0.7, 0.8, 1.2} · F — the phase factor scales the sampled
+        # F, it does not replace it (Brest et al. 2017, the jSO mutation).
+        F_w = self._current_F_weight() * F
         x_target = np.asarray(slot.x, dtype=float)
 
         # pbest: top p% of live population by fitness, with linear p_best schedule.

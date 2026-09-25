@@ -23,8 +23,11 @@ refinement of jSO
 (:class:`~panobbgo.heuristics.jso.JSO`) and inherits the entire L-SHADE
 / jSO asynchronous pipeline: per-slot pending dict, generation-by-count
 book-keeping, archive of replaced parents, success-history memory with
-the frozen jSO anchor bin, the weighted ``current-to-pbest-w/1``
-mutation, the linear ``p_best`` schedule, and the asymmetric F-cap.
+the frozen jSO anchor bin, the linear ``p_best`` schedule, and the
+asymmetric F-cap.  The mutation is the paper's *unweighted*
+``current-to-pbest/1`` — ``v = x + F(x_pbest − x) + F(x_r1 − x_r2)`` —
+so jSO's ``F_w`` phase weighting is switched off
+(:meth:`_current_F_weight` returns ``1``).
 
 NL-SHADE-RSP adds three refinements on top of jSO.  This port implements
 the three that the asynchronous Panobbgo pipeline can carry cleanly:
@@ -92,7 +95,8 @@ Asynchronous execution
 ----------------------
 
 Identical to jSO / L-SHADE.  The only methods that change are
-:meth:`_lpsr_target` (NLPSR), :meth:`_select_r1` (RSP), and the archive
+:meth:`_lpsr_target` (NLPSR), :meth:`_select_r1` (RSP),
+:meth:`_current_F_weight` (unweighted pbest term), and the archive
 cap pair :meth:`_archive_cap` / :meth:`_end_of_generation` (randomised
 archive).  Everything else — the per-slot pending dict, the
 generation-by-count cadence, the memory anchor bin, the warm restart —
@@ -244,6 +248,16 @@ class NLSHADE_RSP(JSO):
         r = float(np.clip(progress, 0.0, 1.0))
         factor = r ** (1.0 - r) if r > 0.0 else 0.0
         return int(round((self.NP_min - self.NP_init) * factor + self.NP_init))
+
+    def _current_F_weight(self) -> float:
+        """Unweighted pbest term: ``F_w = F`` (factor ``1``).
+
+        NL-SHADE-RSP (and NL-SHADE-LBC) mutate with plain
+        ``current-to-pbest/1``, ``v = x + F(x_pbest − x) + F(x_r1 − x_r2)``;
+        jSO's phase-dependent ``0.7 / 0.8 / 1.2`` weighting of the pbest
+        term is not part of either paper.
+        """
+        return 1.0
 
     def _select_r1(self, live: List[int], target_idx: int) -> Optional[int]:
         """Rank-based selective pressure (RSP) draw of the ``r1`` index.

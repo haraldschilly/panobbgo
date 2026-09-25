@@ -1993,7 +1993,7 @@ class StrategyBase:
         # Configure Constraint Handler.  A setting left unset (``None``) is
         # not passed, so each handler keeps its own class default (see the
         # ``constraints.*`` keys in panobbgo/config.py).
-        def _set(**kw: Any) -> Dict[str, float]:
+        def _set(**kw: Any) -> Dict[str, Any]:
             return {k: float(v) for k, v in kw.items() if v is not None}
 
         rho = getattr(config, "rho", None)

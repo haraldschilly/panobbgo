@@ -313,3 +313,24 @@ class TestProgressReporterIntegration:
 
             # Verify ANSI codes are present (Rich uses its own control sequences)
             assert "\x1b[" in output  # Contains ANSI escape sequences
+
+
+def test_progress_keeps_a_bounded_tail_and_renders_snapshots():
+    """The symbol history grew by one per evaluation and was re-rendered whole at 4 Hz, unlocked."""
+    reporter = ProgressReporter()
+    reporter.enabled = True
+    reporter.supports_ansi = False  # fallback mode: no Live thread in the test
+    result = Result(Point(np.zeros(2), "t"), 1.0)
+    with patch("sys.stdout", new_callable=StringIO):
+        for _ in range(3 * ProgressReporter.PROGRESS_WINDOW):
+            reporter.report_evaluation(result)
+        assert reporter.evaluation_count == 3 * ProgressReporter.PROGRESS_WINDOW
+        assert len(reporter.progress_line) == ProgressReporter.PROGRESS_WINDOW
+        # The renderable holds a snapshot that later reports do not mutate.
+        snapshot = reporter._get_display_renderable()
+        text = snapshot.columns[0]._cells[0]
+        before = text.plain
+        reporter.report_evaluation(Result(Point(np.zeros(2), "t"), None))
+        assert text.plain == before
+    reporter.reset()
+    assert reporter.progress_line == ""

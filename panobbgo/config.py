@@ -96,6 +96,29 @@ def _load_ini(path: str) -> Dict[str, Dict[str, str]]:
     return {sec: dict(items) for sec, items in _parse_ini(key).items()} if key is not None else {}
 
 
+_TRUE_STRINGS = frozenset({"1", "yes", "true", "on"})
+_FALSE_STRINGS = frozenset({"0", "no", "false", "off"})
+
+
+def _to_bool(val: Any) -> bool:
+    """A YAML config value as a boolean, parsing strings like ``ConfigParser.getboolean``.
+
+    ``bool("false")`` is ``True``, so a quoted ``"false"`` / ``"no"`` / ``"0"``
+    in ``config.yaml`` used to switch an option *on*.
+
+    Raises:
+        ValueError: ``val`` is a string that is not a recognised boolean.
+    """
+    if isinstance(val, str):
+        s = val.strip().lower()
+        if s in _TRUE_STRINGS:
+            return True
+        if s in _FALSE_STRINGS:
+            return False
+        raise ValueError("Not a boolean: %r" % val)
+    return bool(val)
+
+
 def _write_default_ini(path: str) -> None:
     """Write the default ``config.ini`` atomically (safe under ``pytest -n``)."""
     import tempfile
@@ -236,7 +259,7 @@ class Config:
                         val = None
                         break
                 if val is not None:
-                    return type_cast(val) if type_cast is not bool else bool(val)
+                    return _to_bool(val) if type_cast is bool else type_cast(val)
 
             # Fall back to INI
             if ini_section and ini_key and cfgp.has_option(ini_section, ini_key):
@@ -284,7 +307,11 @@ class Config:
         # however slow its arms — ends via the liveness predicate instead and
         # never reaches this.  600 s is deliberately far outside any
         # legitimate slow-arm regime; a smaller value reintroduces the
-        # truncation of F4 at a larger constant.
+        # truncation of F4 at a larger constant.  A running evaluation is
+        # not "something arriving": one evaluation that runs longer than
+        # this with nothing else starting or finishing (a hung objective
+        # without evaluation.timeout) ends the run — raise it above the
+        # longest legitimate evaluation.
         self.deadlock_seconds = get_config("core.deadlock_seconds", "core", "deadlock_seconds", 600.0, float)
         # How long cleanup waits for evaluations already running when a run
         # ends (queued ones are cancelled).
@@ -303,7 +330,8 @@ class Config:
         # whichever futures the OS scheduler happened to finish.  Cuts
         # the run-to-run noise of adaptive strategies roughly in half on
         # the IOH benchmark (see planning/SELF_IMPROVEMENT_LOG.md,
-        # 2026-08-09); off by default — benchmark drivers opt in.
+        # 2026-08-09); off by default — benchmark drivers opt in.  Not
+        # supported by 'dask' (ignored with a warning).
         self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
 
         # Per-evaluation timeout in seconds of running time for 'threaded'
@@ -311,7 +339,8 @@ class Config:
         # fails (no result, still charged to the budget): processes kill the
         # worker, threads abandon it (it keeps running; see
         # panobbgo/local_pool.py).  Ignored — with a warning — for threaded
-        # evaluation under evaluation.sync (inline).  Unset/0 = no timeout.
+        # evaluation under evaluation.sync (inline) and for 'dask'.
+        # Unset/0 = no timeout.
         self.evaluation_timeout = get_config("evaluation.timeout", None, None, None, float)
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
@@ -330,15 +359,40 @@ class Config:
         self.version = __version__
         self.git_head = self.environment["git HEAD"]
 
-        # Additional configuration for constraint handling
-        self.rho = get_config("constraints.rho", None, None, 1.0, float)
-        self.constraint_exponent = get_config("constraints.exponent", None, None, 2, int)
-        self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, 1.1, float)
+        # Constraint handling (YAML only).  ``None`` = the chosen handler's
+        # own default: ``rho`` 100 for the Default / Penalty / Epsilon
+        # handlers (the penalty value ``fx + 100·cv`` the docs and the
+        # constrained family track use) and 10 for DynamicPenalty (``rho_start``)
+        # and AugmentedLagrangian (initial ``mu``); ``exponent`` 1 for Penalty,
+        # 2 for DynamicPenalty.  Until 2026-09 the defaults here were
+        # ``rho = 1.0`` and ``exponent = 2`` for every handler, so the default
+        # handler weighted constraint violation 100x less than documented.
+        self.rho = get_config("constraints.rho", None, None, None, float)
+        self.constraint_exponent = get_config("constraints.exponent", None, None, None, float)
+        # DynamicPenalty: *additive* per-evaluation growth, rho(t) = rho_start·(1 + rate·t)
+        # (handler default 0.01).
+        self.dynamic_penalty_rate = get_config("constraints.dynamic_penalty_rate", None, None, None, float)
+        # AugmentedLagrangian: *multiplier* for mu when the violation stalls
+        # (handler default 2.0).  A separate key: the two rates are read in
+        # incompatible ways (a tuned 0.05 growth rate made ALM shrink mu).
+        self.alm_rate = get_config("constraints.alm_rate", None, None, None, float)
         self.epsilon_start = get_config("constraints.epsilon_start", None, None, 1.0, float)
         self.epsilon_cp = get_config("constraints.epsilon_cp", None, None, 5.0, float)
         self.epsilon_cutoff = get_config("constraints.epsilon_cutoff", None, None, 100, int)
         self.constraint_handler = get_config("constraints.handler", None, None, "DefaultConstraintHandler", str)
         self.logging = get_config("logging", None, None, {}, dict)
+
+        # Convergence analyzer settings (YAML only; panobbgo.analyzers.convergence
+        # reads them through ``strategy.config``, its constructor kwargs win).
+        self.convergence_window_size = get_config("convergence.window_size", None, None, 50, int)
+        self.convergence_threshold = get_config("convergence.threshold", None, None, 1e-6, float)
+        self.convergence_mode = get_config("convergence.mode", None, None, "std", str)
+        self.convergence_require_feasibility = get_config("convergence.require_feasibility", None, None, False, bool)
+        # Default: the window size.  Only set when configured — the analyzer
+        # falls back to its window size when the attribute is absent.
+        min_evaluations = get_config("convergence.min_evaluations", None, None, None, int)
+        if min_evaluations is not None:
+            self.convergence_min_evaluations = min_evaluations
 
         # Storage configuration
         self.storage_backend = get_config("storage.backend", "storage", "backend", None, str)
@@ -423,7 +477,8 @@ class Config:
     def get_logger(self, name: str, loglevel: Optional[int] = None) -> logging.Logger:
         assert len(name) <= 5, 'Length of logger name > 5: "%s"' % name
         name = "%-5s" % name
-        loglevel = loglevel or self.loglevel
+        if loglevel is None:  # not ``or``: 0 is an explicit level
+            loglevel = self.loglevel
         # logger focus
         lf = [_.upper() for _ in ["%-5s" % _ for _ in self.logger_focus]]
         if name in lf:
@@ -434,8 +489,6 @@ class Config:
             return self._loggers[key]
         from .utils import create_logger
 
-        if loglevel is None:
-            loglevel = self.loglevel
         logger = create_logger(name, int(loglevel) if loglevel is not None else 40)
         self._loggers[key] = logger
         return logger

@@ -10,8 +10,10 @@ Uses the Rich library for robust terminal handling.
 """
 
 import sys
+import threading
 import time
-from typing import Dict, Any, Optional
+from collections import deque
+from typing import Deque, Dict, Any, Optional
 from dataclasses import dataclass
 
 from rich.live import Live
@@ -42,6 +44,9 @@ class ProgressReporter:
     and automatic cursor management.
     """
 
+    #: Progress symbols shown (and kept): the tail of the run.
+    PROGRESS_WINDOW = 400
+
     def __init__(self):
         # Auto-disable progress output when stdout is not a TTY (CI, pipes,
         # redirected logs).  The per-evaluation progress chars + status
@@ -53,7 +58,6 @@ class ProgressReporter:
         self.enabled = _is_tty
         self.use_symbols = True
         self.status_enabled = _is_tty
-        self.update_frequency = 5  # Update status every N evaluations
 
         self.evaluation_count = 0
         self.start_time = time.time()
@@ -61,7 +65,11 @@ class ProgressReporter:
 
         # Rich components
         self.console = Console(file=sys.stdout, force_terminal=None)
-        self.progress_text = Text()  # Accumulates progress symbols
+        #: The most recent progress symbols (older ones scroll away).  The
+        #: whole history used to be kept and re-rendered at every Live
+        #: refresh (4 Hz) and status update, one symbol per evaluation.
+        self._symbols: Deque[str] = deque(maxlen=self.PROGRESS_WINDOW)
+        self._symbols_lock = threading.Lock()
         self.status_text = ""
         self.live = None  # Live display (started on first use)
 
@@ -106,11 +114,23 @@ class ProgressReporter:
             sys.stdout.write("\n")
             sys.stdout.flush()
 
+    @property
+    def progress_text(self) -> Text:
+        """A snapshot of the recent progress symbols.
+
+        A new :class:`~rich.text.Text` per call: the Live display renders it
+        on its refresh thread, so it must not be one the main thread keeps
+        appending to.
+        """
+        with self._symbols_lock:
+            return Text("".join(self._symbols))
+
     # Backward compatibility properties
     @property
     def progress_line(self) -> str:
-        """Get progress line as string (for backward compatibility)."""
-        return self.progress_text.plain
+        """The recent progress symbols as a string (the last :attr:`PROGRESS_WINDOW`)."""
+        with self._symbols_lock:
+            return "".join(self._symbols)
 
     @property
     def status_line(self) -> str:
@@ -205,7 +225,8 @@ class ProgressReporter:
         symbol = self.get_progress_symbol(result, context)
 
         # Add symbol to progress text
-        self.progress_text.append(symbol)
+        with self._symbols_lock:
+            self._symbols.append(symbol)
         self.evaluation_count += 1
 
         if self.supports_ansi:
@@ -342,7 +363,8 @@ class ProgressReporter:
             self.live = None
 
         # Reset state
-        self.progress_text = Text()
+        with self._symbols_lock:
+            self._symbols.clear()
         self.status_text = ""
         self.evaluation_count = 0
         self.start_time = time.time()

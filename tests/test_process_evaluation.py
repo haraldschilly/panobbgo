@@ -92,6 +92,36 @@ def test_failed_evaluations_leave_pending():
     assert s._dispatched == 6
 
 
+@pytest.mark.parametrize(
+    "method,sync", [("threaded", True), ("threaded", False), ("processes", True)], ids=lambda v: str(v)
+)
+def test_failed_evaluations_are_published_with_their_points(method, sync):
+    """Failures were only logged; a module waiting for its point's value never heard of it."""
+    from panobbgo.core import Analyzer
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    got = []
+
+    class Listener(Analyzer):
+        def on_failed_evaluations(self, points):
+            got.extend(points)
+
+    s = StrategyRoundRobin(_Failing(), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = method
+    s.config.dask_n_workers = 2
+    s.config.max_eval = 5
+    s.config.sync_evaluation = sync
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.add_analyzer(Listener(s))
+    s.start()
+    s.eventbus.wait_idle(timeout=5.0)
+    assert len(s.results) == 0
+    assert len(got) == 5
+    assert {p.who for p in got} == {"Random"}
+
+
 def test_unpicklable_problem_is_a_clear_error():
     p = Rosenbrock(dim=2)
     p.hook = lambda: None  # type: ignore[attr-defined]
@@ -277,12 +307,14 @@ def test_an_evaluation_whose_worker_is_sigtermed_is_not_retried_forever():
 
 
 class _WedgeFirstTwo(Problem):
-    """The first two evaluations hang for 3 s; the rest are instant."""
+    """The first two evaluations hang until ``release`` is set; the rest are instant."""
 
-    def __init__(self):
+    def __init__(self, release):
         import itertools
         import threading
 
+        self.release = release
+        self.wedged_returned = 0
         self._calls = itertools.count()
         self._lock = threading.Lock()
         super().__init__([(-1, 1), (-1, 1)])
@@ -291,16 +323,30 @@ class _WedgeFirstTwo(Problem):
         with self._lock:
             n = next(self._calls)
         if n < 2:
-            time.sleep(3.0)
+            self.release.wait(60.0)
+            with self._lock:
+                self.wedged_returned += 1
         return float(np.sum(x**2))
 
 
 def test_timed_out_threads_do_not_starve_the_queue():
-    """Two wedged threads held both slots of a 2-worker executor; the rest waited behind them."""
-    t0 = time.time()
-    s = _run(_WedgeFirstTwo(), 10, False, timeout=0.3, method="threaded")
-    assert len(s.results) == 8
-    assert time.time() - t0 < 2.5
+    """Two wedged threads held both slots of a 2-worker executor; the rest waited behind them.
+
+    Asserted on ordering, not wall time: the run must finish all eight other
+    evaluations while both wedged ones are still hanging.  (It used to
+    require the run to end in 2.5 s against a 3 s wedge -- a 0.5 s margin
+    that a loaded machine can eat.)
+    """
+    import threading
+
+    release = threading.Event()
+    problem = _WedgeFirstTwo(release)
+    try:
+        s = _run(problem, 10, False, timeout=0.3, method="threaded")
+        assert len(s.results) == 8
+        assert problem.wedged_returned == 0
+    finally:
+        release.set()
 
 
 def test_sync_threaded_timeout_is_ignored_with_one_warning():
@@ -322,6 +368,110 @@ def test_sync_threaded_timeout_is_ignored_with_one_warning():
     assert len(s.results) == 6
 
 
+class _BlockFirst(Problem):
+    """The first evaluation blocks on ``release`` (threads only: the event is not picklable)."""
+
+    def __init__(self, release, wait_s):
+        import itertools
+
+        self.release = release
+        self.wait_s = wait_s
+        self.first_returned = False
+        self._calls = itertools.count()
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        if next(self._calls) == 0:
+            self.release.wait(self.wait_s)
+            self.first_returned = True
+        return float(np.sum(x**2))
+
+
+def test_a_hung_threaded_evaluation_trips_the_deadlock_backstop():
+    """A running-but-silent evaluation counted as progress, so a hang (no timeout) never ended the run."""
+    import threading
+
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    release = threading.Event()
+    problem = _BlockFirst(release, 30.0)
+    s = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, seed=3)
+    s.config.max_eval = 3
+    s.config.sync_evaluation = False
+    s.config.deadlock_seconds = 0.5
+    s.config.shutdown_grace_seconds = 0.1
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    try:
+        s.start()
+        # The run ended while the evaluation still hung (it used to wait it out).
+        assert not problem.first_returned
+        assert len(s.results) == 2  # the other two evaluations of the budget
+    finally:
+        release.set()
+
+
+def test_a_hung_sync_process_evaluation_trips_the_deadlock_backstop():
+    """The sync processes harvest loop waited for the pool with no bound at all."""
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(_Slow(8.0), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = "processes"
+    s.config.dask_n_workers = 2
+    s.config.max_eval = 2
+    s.config.sync_evaluation = True
+    s.config.deadlock_seconds = 1.0
+    s.config.shutdown_grace_seconds = 0.0
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.start()
+    assert len(s.results) == 0  # both evaluations were still hanging (they finish at 8 s)
+
+
+class _WaitForLoops(Problem):
+    """Returns once the strategy's main loop has made ``n`` passes (threads only)."""
+
+    def __init__(self, n):
+        self.n = n
+        self.strategy = None
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        import threading
+
+        ev = threading.Event()
+        deadline = time.time() + 20.0
+        while self.strategy is not None and self.strategy.loops < self.n and time.time() < deadline:
+            ev.wait(1e-3)
+        return float(np.sum(x**2))
+
+
+def test_idle_passes_do_not_end_a_run_with_a_slow_evaluation(monkeypatch):
+    """A cap of max_eval * 10000 main-loop passes ended runs whose evaluations take ~10 s each.
+
+    The loop's 1 ms sleep is patched out so the passes pile up fast; the
+    evaluation returns only after 12000 passes (the old cap for max_eval=1
+    was 10000, which ended the run with no result).
+    """
+    import panobbgo.core as core
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    problem = _WaitForLoops(12000)
+    s = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, seed=3)
+    problem.strategy = s
+    s.config.max_eval = 1
+    s.config.sync_evaluation = False
+    s.config.shutdown_grace_seconds = 0.1
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    monkeypatch.setattr(core.time_module, "sleep", lambda _s: None)
+    s.start()
+    assert len(s.results) == 1
+
+
 def test_queued_tasks_with_nothing_running_are_not_progress():
     """The deadlock backstop must see a wedge: pending tasks that never start are not progress."""
     from panobbgo.strategies import StrategyRoundRobin
@@ -341,8 +491,17 @@ def test_queued_tasks_with_nothing_running_are_not_progress():
     assert not s._pool_progressed()
     FakePool.events = 6
     assert s._pool_progressed()
+    # A running evaluation that neither starts nor finishes anything is not
+    # progress either: a hung objective used to keep the backstop off forever.
     s._pool.running = lambda: 1
+    assert not s._pool_progressed()
+    # Processes: queued tasks with nothing started are workers spawning.
+    FakePool.processes = True
+    FakePool.__len__ = lambda self: 1
+    s._pool.running = lambda: 0
     assert s._pool_progressed()
+    s._pool.running = lambda: 1
+    assert not s._pool_progressed()
     real.close(time.time())
 
 

@@ -65,7 +65,6 @@ class PanobbgoLogger:
             "progress_enabled": _is_tty,
             "progress_symbols": True,
             "status_line_enabled": _is_tty,
-            "status_update_frequency": 5,
         }
 
         # Merge with provided config
@@ -75,7 +74,8 @@ class PanobbgoLogger:
         self.progress_reporter.enabled = self.config["progress_enabled"]
         self.progress_reporter.use_symbols = self.config["progress_symbols"]
         self.progress_reporter.status_enabled = self.config["status_line_enabled"]
-        self.progress_reporter.update_frequency = self.config["status_update_frequency"]
+        # ("status_update_frequency" was accepted here but never read; the
+        # status line is refreshed at most every 0.1 s by the strategy.)
 
     def enable_progress_reporting(self, symbols: bool = True):
         """Enable progress reporting with optional emoji symbols."""

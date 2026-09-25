@@ -154,9 +154,9 @@ def test_results_setter_exception():
     midx = pd.MultiIndex.from_tuples([("other", 0)], names=["prop", "dim"])
     df = pd.DataFrame([[1]], columns=midx)
 
-    # It should catch KeyError and set _best_fx to inf
+    # A frame without 'fx' is accepted as is (Results no longer derives a best fx from it)
     results.results = df
-    assert results._best_fx == float("inf")
+    assert results.results is df
 
 
 def test_add_results_exception():
@@ -645,5 +645,100 @@ def test_default_analyzers_do_not_depend_on_the_package_namespace(monkeypatch):
     try:
         s.initialize()
         assert {"Best", "Convergence"} <= set(s._analyzers)
+    finally:
+        s._cleanup()
+
+
+def test_collect_points_does_not_wait_for_pending_evaluations():
+    """Pending results cannot land inside ``execute()``: the selector used to be retried 20 x 10 ms."""
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    try:
+        s.pending = {"t": "t"}  # an evaluation in flight, the event bus idle
+        calls = []
+
+        def selector():
+            calls.append(1)
+            return []
+
+        assert s._collect_points_safely(3, selector) == []
+        assert len(calls) == 1
+
+        # A handler on the bus *can* refill a queue mid-pass: keep retrying then.
+        calls.clear()
+        with mock.patch.object(type(s.eventbus), "inflight", new_callable=mock.PropertyMock, return_value=1):
+            with mock.patch("panobbgo.core.time_module.sleep"):
+                s._collect_points_safely(3, selector)
+        assert len(calls) > 1
+    finally:
+        s.pending = {}
+        s._cleanup()
+
+
+def test_a_failed_evaluation_answers_the_bridge_with_inf():
+    """A failed evaluation left a bridge's round trip open forever: the arm was dead for the run."""
+    from queue import Empty
+
+    from panobbgo.core import PipeBridgeHeuristic
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class Bridge(PipeBridgeHeuristic):
+        def _bridge_process(self):
+            return None
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    try:
+        h = Bridge(s, name="Bridge")
+        x = np.array([0.5, -0.5])
+        h._outstanding = True
+        h._outstanding_x = x
+        # Another point of ours, or our point evaluated for someone else: not the answer.
+        h.on_failed_evaluations([Point(np.array([0.1, 0.1]), "Bridge"), Point(x.copy(), "Other")])
+        with pytest.raises(Empty):
+            h._fx_inbox.get_nowait()
+        h.on_failed_evaluations([Point(x.copy(), "Bridge")])
+        assert h._fx_inbox.get_nowait() == float("inf")
+        assert h._outstanding_x is None  # answered exactly once
+    finally:
+        s._cleanup()
+
+
+def test_cleanup_closes_the_backend_that_was_set_up():
+    """``_cleanup`` routed by the configured method: a changed name leaked the live backend."""
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    assert s._pool_method == "threaded"
+    s.config.evaluation_method = "dask"  # changed after construction; initialize() never ran
+    with mock.patch.object(s._pool, "close", wraps=s._pool.close) as close:
+        s._cleanup()
+    assert close.call_count == 1
+
+
+def test_bridge_pipes_are_closed_in_the_parent():
+    """The parent kept the child's pipe ends (no EOF on a dead worker) and never closed replaced pipes."""
+    from panobbgo.core import terminate_process
+    from panobbgo.heuristics import LBFGSB
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    s.config.max_eval = 20
+    s.config.sync_evaluation = True
+    s.add_heuristic(LBFGSB(s))
+    s.initialize()
+    try:
+        h = s._heuristics["LBFGSB"]
+        assert h.p2.closed and h.out2.closed
+        old_p1, old_out1 = h.p1, h.out1
+        h._request_restart(None)
+        assert len(h.produce(1)) == 1  # respawned, and the new worker asks for a point
+        assert old_p1.closed and old_out1.closed
+        assert h.p2.closed and h.out2.closed
+        # A dead worker is now an EOF on the request pipe.
+        terminate_process(h.lbfgsb)
+        assert h.p1.poll(5.0)
+        with pytest.raises(EOFError):
+            h.p1.recv()
     finally:
         s._cleanup()

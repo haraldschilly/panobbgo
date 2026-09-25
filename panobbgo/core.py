@@ -127,7 +127,6 @@ class Results:
         self._results_df: Optional["DataFrame"] = None
         self._unmerged_dfs: List["DataFrame"] = []
         self._buffer: List["Result"] = []
-        self._best_fx: float = float("inf")
         self._last_nb: int = 0  # for logging
         # Order statistics of past fx for the progress reporter, built lazily
         # the first time a batch arrives with the reporter on; ``_fed`` is the
@@ -188,14 +187,6 @@ class Results:
             self._progress_ranks = None
             self._progress_ranks_fed = -1
             self._last_nb = 0 if value is None else len(value)
-            # Update best_fx from new results
-            if value is not None and not value.empty:
-                try:
-                    self._best_fx = float(value.xs(0, level=1, axis=1)["fx"].min())
-                except (KeyError, ValueError):
-                    self._best_fx = float("inf")
-            else:
-                self._best_fx = float("inf")
 
     def _flush_buffer(self) -> None:
         """
@@ -305,10 +296,6 @@ class Results:
         with self._lock:
             n_before = len(self)
             self._buffer.extend(new_results)
-
-            for r in new_results:
-                if r.fx is not None and r.fx < self._best_fx:
-                    self._best_fx = r.fx
 
             if reporting:
                 # The tracker covers ``_progress_ranks_fed`` results.  Extend
@@ -1116,13 +1103,7 @@ class HeuristicSubprocess(Heuristic):
                 end.close()
             except Exception:
                 pass
-        proc = self.__subprocess
-        if proc.is_alive():
-            proc.terminate()
-        proc.join(1)
-        if proc.is_alive():
-            proc.kill()
-            proc.join(1)
+        terminate_process(self.__subprocess)
 
     @staticmethod
     def subprocess(pipe: Any) -> None:
@@ -1311,14 +1292,30 @@ class PipeBridgeHeuristic(Heuristic):
         proc = ctx.Process(target=target, args=(self.p2, self.out2) + tuple(args), name=name)
         proc.daemon = True
         proc.start()
+        # The child has its own copies now.  Holding ours kept the pipes open
+        # after the worker died, so ``p1`` never saw EOF and a dead worker was
+        # noticed only by the ``is_alive()`` poll.
+        self.p2.close()
+        self.out2.close()
         return proc
 
     def _bridge_stop_worker(self) -> None:
-        """Terminate the current worker before a respawn; a failed teardown is only logged."""
+        """Terminate the current worker and close our pipe ends before a respawn.
+
+        A failed teardown is only logged.  Closing here, not at garbage
+        collection, keeps a run with many restarts from piling up open pipes.
+        """
         try:
             terminate_process(self._bridge_process())
         except Exception as exc:
             self.logger.debug("%s: subprocess teardown on restart failed: %s" % (self.name, exc))
+        for end in (getattr(self, "p1", None), getattr(self, "out1", None)):
+            if end is None:
+                continue
+            try:
+                end.close()
+            except Exception:
+                pass
 
     def _bridge_box_bounds(self) -> List[Tuple[float, float]]:
         """The feasible box as a list of ``(low, high)`` tuples (SciPy's ``bounds``)."""
@@ -1464,6 +1461,31 @@ class PipeBridgeHeuristic(Heuristic):
                     return
                 self._outstanding_x = None  # answer it exactly once
                 self._fx_inbox.put(value)
+            return
+
+    def on_failed_evaluations(self, points: List["Point"]) -> None:
+        """Answer our outstanding point with ``inf`` when its evaluation failed.
+
+        Without an answer the worker waits for a value that never comes:
+        ``can_produce`` stays ``False`` and the arm is dead for the rest of
+        the run, silently.  ``inf`` is what :func:`pipe_objective` makes of
+        any non-finite value.  Same thread and locking rules as
+        :meth:`on_new_results`.
+        """
+        if not self._outstanding:
+            return
+        x_out = self._outstanding_x
+        for point in points:
+            if point.who != self.name or x_out is None:
+                continue
+            if not np.array_equal(np.asarray(point.x, dtype=float), x_out, equal_nan=True):
+                continue
+            self.logger.warning("%s: the evaluation of its point failed; answering inf" % self.name)
+            with self._handoff_lock:
+                if self._outstanding_x is not x_out:
+                    return
+                self._outstanding_x = None
+                self._fx_inbox.put(float("inf"))
             return
 
     # -- internals ---------------------------------------------------------
@@ -1968,20 +1990,27 @@ class StrategyBase:
         self._stop_requested = False
         self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
 
-        # Configure Constraint Handler
-        rho = float(config.rho) if hasattr(config, "rho") else 100.0
-        exponent = float(config.constraint_exponent) if hasattr(config, "constraint_exponent") else 1.0
-        rate = float(config.dynamic_penalty_rate) if hasattr(config, "dynamic_penalty_rate") else 0.01
+        # Configure Constraint Handler.  A setting left unset (``None``) is
+        # not passed, so each handler keeps its own class default (see the
+        # ``constraints.*`` keys in panobbgo/config.py).
+        def _set(**kw: Any) -> Dict[str, Any]:
+            return {k: float(v) for k, v in kw.items() if v is not None}
+
+        rho = getattr(config, "rho", None)
+        exponent = getattr(config, "constraint_exponent", None)
         handler_name = getattr(config, "constraint_handler", "DefaultConstraintHandler")
 
         if handler_name == "PenaltyConstraintHandler":
-            self.constraint_handler = PenaltyConstraintHandler(strategy=self, rho=rho, exponent=exponent)
+            self.constraint_handler = PenaltyConstraintHandler(strategy=self, **_set(rho=rho, exponent=exponent))
         elif handler_name == "DynamicPenaltyConstraintHandler":
             self.constraint_handler = DynamicPenaltyConstraintHandler(
-                strategy=self, rho_start=rho, rate=rate, exponent=exponent
+                strategy=self,
+                **_set(rho_start=rho, rate=getattr(config, "dynamic_penalty_rate", None), exponent=exponent),
             )
         elif handler_name == "AugmentedLagrangianConstraintHandler":
-            self.constraint_handler = AugmentedLagrangianConstraintHandler(strategy=self, rho=rho, rate=rate)
+            self.constraint_handler = AugmentedLagrangianConstraintHandler(
+                strategy=self, **_set(rho=rho, rate=getattr(config, "alm_rate", None))
+            )
         elif handler_name == "EpsilonConstraintHandler":
             epsilon_start = float(config.epsilon_start) if hasattr(config, "epsilon_start") else 1.0
             epsilon_cp = float(config.epsilon_cp) if hasattr(config, "epsilon_cp") else 5.0
@@ -1992,12 +2021,12 @@ class StrategyBase:
                 epsilon_start=epsilon_start,
                 cp=epsilon_cp,
                 cutoff=epsilon_cutoff,
-                rho=rho,
+                **_set(rho=rho),
             )
         elif handler_name == "FilterConstraintHandler":
             self.constraint_handler = FilterConstraintHandler(strategy=self)
         else:
-            self.constraint_handler = DefaultConstraintHandler(strategy=self, rho=rho)
+            self.constraint_handler = DefaultConstraintHandler(strategy=self, **_set(rho=rho))
 
         self.eventbus = EventBus(config)
         self.eventbus.register(self.constraint_handler)
@@ -2453,8 +2482,7 @@ class StrategyBase:
         #: See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.3.
         self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
         sync = bool(self.config.sync_evaluation)
-        max_eval_int = self.max_eval_or(1000)
-        self._max_total_loops = max_eval_int * 10000  # Much more headroom
+        self._last_n_finished = self.n_finished
         #: Evaluations charged against ``max_eval``: incremented when a point
         #: is *dispatched*, so a failing evaluation (no result) is charged
         #: too.  Results restored from storage count as dispatched.
@@ -2463,13 +2491,12 @@ class StrategyBase:
         while True:
             self.loops += 1
 
-            # Safety check: prevent infinite loops
-            if self.loops > self._max_total_loops:
-                self.logger.warning(
-                    f"Strategy exceeded maximum loops ({self._max_total_loops}). "
-                    f"Results so far: {len(self.results)}. Stopping optimization."
-                )
-                break
+            # No cap on the number of passes: an asynchronous run makes an
+            # idle ~1 ms pass per millisecond while evaluations run, so a cap
+            # of ``max_eval * 10000`` passes ended runs with slow evaluations
+            # after ~10 s per budgeted evaluation, silently (a WARNING under
+            # the default loglevel).  The run ends by the budget, the liveness
+            # predicate or the deadlock backstop below.
 
             # execute the actual strategy
             # Once the whole budget is dispatched, only in-flight results
@@ -2522,12 +2549,18 @@ class StrategyBase:
             # a stall: the question is whether anything *can* still produce.
             # ``_alive`` answers that from state alone — no wall clock.
             current_results_count = len(self.results)
-            progressed = len(points) > 0 or current_results_count != self._last_results_count or self._pool_progressed()
+            progressed = (
+                len(points) > 0
+                or current_results_count != self._last_results_count
+                or self.n_finished != self._last_n_finished  # a failed evaluation is progress too
+                or self._pool_progressed()
+            )
             now = time_module.time()
             if progressed:
                 self._dead_loops = 0
                 self._last_progress_at = now
                 self._last_results_count = current_results_count
+                self._last_n_finished = self.n_finished
             elif not self._alive():
                 self._dead_loops += 1
                 if self._dead_loops >= self._max_dead_loops:
@@ -2574,9 +2607,12 @@ class StrategyBase:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
                 break
 
-            if not sync:
-                # limit loop speed - sleep briefly (nothing is in flight in
-                # sync mode, so the sleep would be pure latency there)
+            if not sync or self.pending:
+                # Limit loop speed while evaluations are in flight.  Under
+                # sync threaded/processes evaluation nothing is in flight here
+                # (the sleep would be pure latency); dask ignores
+                # ``evaluation.sync`` and keeps ``pending`` filled, and without
+                # the sleep that loop spun at full CPU.
                 time_module.sleep(1e-3)
 
         # Final forced update to ensure UI shows 100% or final results
@@ -2584,25 +2620,30 @@ class StrategyBase:
         self._cleanup()
 
     def _pool_progressed(self) -> bool:
-        """Is the in-flight work moving?
+        """Did the in-flight work move since the last pass?
 
-        Dask and processes: anything pending counts.  Threads: an
-        evaluation is running, or one started or finished since the last
-        pass.  Tasks that sit queued with nothing running (every worker
-        wedged) are *not* progress, so the deadlock backstop can fire.
+        Progress is an *event*: an evaluation started or finished since the
+        last pass (finished dask tasks show up in ``n_finished``, which the
+        main loop checks itself).  An evaluation that is merely running is
+        not progress — otherwise one that hangs (with the default
+        ``evaluation.timeout`` of ``None``) kept the deadlock backstop from
+        ever firing and the run never ended.  So a single evaluation that
+        runs longer than ``core.deadlock_seconds`` with nothing else
+        happening ends the run; raise ``deadlock_seconds`` above the longest
+        legitimate evaluation.
+
+        One exception, for processes: queued tasks with *nothing started*
+        are workers spawning (after start, or after a timeout or a crash
+        replaced the pool), which takes seconds on a loaded machine.
         """
         pool = getattr(self, "_pool", None)
-        if self.config.evaluation_method == "dask" or pool is None:
-            return len(self.pending) > 0
-        if pool.processes:
-            # Queued work counts: workers may still be spawning (after start,
-            # or after a timeout killed the pool), and a timed-out worker is
-            # killed rather than left holding its slot, so processes cannot
-            # wedge the way threads can.
-            return len(pool) > 0
+        if pool is None or self.config.evaluation_method == "dask":
+            return False
         events, last = pool.events, getattr(self, "_last_pool_events", None)
         self._last_pool_events = events
-        return pool.running() > 0 or (last is not None and events != last)
+        if last is not None and events != last:
+            return True
+        return bool(pool.processes) and len(pool) > 0 and pool.running() == 0
 
     def _clamp_to_budget(self, points):
         """Cut a batch from :meth:`execute` to the evaluations the budget still allows.
@@ -2669,8 +2710,12 @@ class StrategyBase:
         t = getattr(self.config, "evaluation_timeout", None)
         return float(t) if t else None
 
-    def _harvest(self, outcomes, new_results):
-        """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``."""
+    def _harvest(self, outcomes, new_results, failed):
+        """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``.
+
+        The points of failed evaluations are appended to ``failed`` (see
+        :meth:`_publish_failures`).
+        """
         for o in outcomes:
             self.pending.pop(o.task_id, None)
             self.new_finished.append(o.task_id)
@@ -2679,10 +2724,24 @@ class StrategyBase:
                 self.record_walltime(o.finished - o.started)
             if not o.ok:
                 self.logger.error("Evaluation failed: %s" % o.error)
+                if o.point is not None:
+                    failed.append(o.point)
             elif isinstance(o.result, list):
                 new_results.extend(o.result)
             else:
                 new_results.append(o.result)
+
+    def _publish_failures(self, points):
+        """Publish ``failed_evaluations`` (``points``: the :class:`~panobbgo.lib.Point`\\ s that left no result).
+
+        A failure (the objective raised, ``evaluation.timeout`` fired, the
+        worker process died) used to be only logged.  A module waiting for
+        the result of its own point -- a solver bridge's outstanding round
+        trip -- then waited forever.  Published only when someone listens,
+        so runs without failures see no extra event.
+        """
+        if points and "failed_evaluations" in self.eventbus.keys:
+            self.eventbus.publish("failed_evaluations", points=list(points))
 
     def _run_threaded_evaluation(self, points):
         """Evaluate on the local pool — threads or (``"processes"``) spawned workers.
@@ -2694,6 +2753,7 @@ class StrategyBase:
         """
         self.new_finished = []
         new_results = []
+        failed = []
         timeout = self._eval_timeout()
         pool = self._pool
 
@@ -2709,12 +2769,36 @@ class StrategyBase:
                 for tid, point in zip(ids, points):
                     pool.submit(tid, point)
                 outcomes = {}
+                # The deadlock backstop of ``_run`` never sees this loop, so it
+                # applies its own: no start or finish for ``deadlock_seconds``
+                # while an evaluation runs (a hung objective without
+                # ``evaluation.timeout``) ends the run instead of blocking forever.
+                deadlock = float(getattr(self, "_deadlock_seconds", self.config.deadlock_seconds))
+                events, moved_at = pool.events, time_module.time()
                 while len(pool):
                     for o in pool.poll(timeout):
                         outcomes[o.task_id] = o
+                    now = time_module.time()
+                    if pool.events != events or pool.running() == 0:  # moving, or workers spawning
+                        events, moved_at = pool.events, now
+                    elif now - moved_at > deadlock:
+                        self.logger.error(
+                            "Deadlock backstop: %.0fs without an evaluation starting or finishing "
+                            "(%d running, %d queued). A hung objective? Set evaluation.timeout. "
+                            "Ending the run; results so far: %d/%s."
+                            % (
+                                now - moved_at,
+                                pool.running(),
+                                len(pool) - pool.running(),
+                                len(self.results),
+                                self.config.max_eval,
+                            )
+                        )
+                        self._stop_requested = True
+                        break
                     if len(pool):
                         pool.wait()
-                self._harvest([outcomes[t] for t in ids if t in outcomes], new_results)
+                self._harvest([outcomes[t] for t in ids if t in outcomes], new_results, failed)
             else:
                 from .local_pool import Outcome
 
@@ -2728,10 +2812,11 @@ class StrategyBase:
                 for tid, point in zip(ids, points):
                     t0 = time_module.time()
                     try:
-                        o = Outcome(tid, True, result=self._problem(point), started=t0)
+                        o = Outcome(tid, True, result=self._problem(point), started=t0, point=point)
                     except Exception as e:
-                        o = Outcome(tid, False, error=repr(e), started=t0)
-                    self._harvest([o], new_results)
+                        o = Outcome(tid, False, error=repr(e), started=t0, point=point)
+                    self._harvest([o], new_results, failed)
+            self._publish_failures(failed)
             self.results += new_results
             return
 
@@ -2739,7 +2824,8 @@ class StrategyBase:
             task_id = f"thread_task_{self.loops}_{i}"
             pool.submit(task_id, point)
             self.pending[task_id] = task_id
-        self._harvest(pool.poll(timeout), new_results)
+        self._harvest(pool.poll(timeout), new_results, failed)
+        self._publish_failures(failed)
         self.results += new_results
 
     def _update_progress_status(self, force=False):
@@ -2836,13 +2922,15 @@ class StrategyBase:
         return any(h.can_produce for h in self.heuristics)
 
     def _can_still_produce(self) -> bool:
-        """``True`` if points may still arrive without a new result batch.
+        """``True`` while an evaluation is in flight, i.e. a later result batch may wake a starved arm.
 
-        Narrower than :meth:`_alive`, deliberately: it is consulted inside a
-        single ``execute()`` (``_collect_points_safely``) to decide whether
-        *retrying the selector* can help, and a retry loop is not where a run
-        should be kept alive.  An evaluation in flight is the one thing that
-        can still change the answer within one pass.
+        Narrower than :meth:`_alive`: the block scheduler
+        (:class:`~panobbgo.strategies.blocks.StrategyBlockBandit`) asks it
+        whether an arm that cannot produce now may produce again.  It is
+        *not* the right question inside one ``execute()``: pending results
+        are harvested by the main loop only after ``execute`` returns, so
+        they cannot refill a queue mid-pass (see
+        :meth:`_collect_points_safely`).
 
         Until the pull bridge of ``DESIGN_pump_and_stall_2026-09-11.md`` §1
         this also counted a live pump thread — which never exits, so for any
@@ -2882,7 +2970,13 @@ class StrategyBase:
 
             # Check progress
             if len(points) == initial_count:
-                if not self._can_still_produce():
+                # Only a handler still on the event bus can refill a queue
+                # within this pass.  In-flight evaluations cannot: the main
+                # loop harvests them after ``execute`` returns.  (Waiting on
+                # them cost 20 x 10 ms per empty draw -- 9.6 s of a 9.7 s
+                # async StrategyRewarding run on Rosenbrock(2) -- and made
+                # point collection depend on timing.)
+                if self.eventbus.inflight <= 0:
                     break  # nothing will arrive until the next result batch
                 attempts += 1
                 if attempts >= max_attempts:
@@ -2924,7 +3018,11 @@ class StrategyBase:
         self.eventbus.publish("finished", terminate=True)
         self._end = time_module.time()
 
-        if self.config.evaluation_method == "dask":
+        # The backend that was actually set up, not the configured name: a
+        # caller may change ``config.evaluation_method`` after construction,
+        # and if ``initialize()`` then fails before ``_ensure_cluster``, the
+        # old backend (a LocalCluster, a LocalPool) is still the live one.
+        if getattr(self, "_pool_method", self.config.evaluation_method) == "dask":
             from . import dask_evaluation
 
             # Cancel outstanding futures, close client + cluster

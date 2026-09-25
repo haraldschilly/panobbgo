@@ -99,7 +99,7 @@ import threading
 import warnings
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -1681,6 +1681,20 @@ def statistical_accept(
 # ---------------------------------------------------------------------------
 
 
+def _filter_by_name(kind: str, specs: List[Any], names: Sequence[str]) -> List[Any]:
+    """Keep the specs named in ``names``; raise :class:`ValueError` on a name that matches none.
+
+    A typo would otherwise filter everything out and yield a composite of
+    0.0 from an empty battery, saved and exited with status 0.
+    """
+    available = [s.name for s in specs]
+    unknown = sorted(set(names) - set(available))
+    if unknown:
+        raise ValueError(f"Unknown {kind} name(s) {unknown} for this battery; available: {available}")
+    keep = set(names)
+    return [s for s in specs if s.name in keep]
+
+
 class BenchmarkHarness:
     """
     Reproducible benchmark harness for automated agent feedback loops.
@@ -1753,8 +1767,7 @@ class BenchmarkHarness:
                 specs = _make_full_problems()
 
         if self.config.problems:
-            keep = set(self.config.problems)
-            specs = [s for s in specs if s.name in keep]
+            specs = _filter_by_name("problem", specs, self.config.problems)
 
         # Override budget from config
         for spec in specs:
@@ -1794,8 +1807,7 @@ class BenchmarkHarness:
             specs = specs + make_baseline_strategies()
 
         if self.config.strategies:
-            keep = set(self.config.strategies)
-            specs = [s for s in specs if s.name in keep]
+            specs = _filter_by_name("strategy", specs, self.config.strategies)
 
         return specs
 

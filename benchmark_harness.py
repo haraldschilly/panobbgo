@@ -151,6 +151,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     harness = BenchmarkHarness(config)
+    try:
+        # Resolve the battery up front: an unknown --problems / --strategies
+        # name is an error, not an empty run with composite 0.0.
+        harness.get_problems()
+        harness.get_strategies()
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
     result = harness.run(verbose=not args.quiet)
 
     output = args.output or _default_output_path(mode)

@@ -475,6 +475,28 @@ class TestCompare:
         assert main(["compare", *paths, "--fail-on-regression"]) == 2
 
 
+class TestUnknownNames:
+    """A typo in --problems / --strategies is an error, not an empty battery scoring 0.0."""
+
+    def test_unknown_problem_raises(self):
+        harness = BenchmarkHarness(HarnessConfig(mode="quick", problems=["DeJong_2D", "Rosenbrok_2D"]))
+        with pytest.raises(ValueError, match="Rosenbrok_2D"):
+            harness.get_problems()
+
+    def test_unknown_strategy_raises(self):
+        harness = BenchmarkHarness(HarnessConfig(mode="quick", strategies=["RoundRobin_Randm"]))
+        with pytest.raises(ValueError, match="RoundRobin_Randm"):
+            harness.get_strategies()
+
+    def test_cli_exits_nonzero_without_writing(self, tmp_path, capsys):
+        from benchmark_harness import main
+
+        out = tmp_path / "r.json"
+        assert main(["run", "--quick", "--problems", "NoSuchProblem", "--output", str(out)]) == 1
+        assert not out.exists()
+        assert "NoSuchProblem" in capsys.readouterr().err
+
+
 # ===========================================================================
 # 6. Unit tests – HarnessConfig
 # ===========================================================================

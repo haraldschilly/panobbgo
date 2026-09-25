@@ -664,6 +664,30 @@ class TestIOHBenchmarkCompareCLI:
         a_path.write_text(after.to_json())
         assert cli.main(["compare", str(b_path), str(a_path), "--fail-on-regression"]) == 2
 
+    def _gate(self, tmp_path, before, after) -> int:
+        b_path, a_path = tmp_path / "b.json", tmp_path / "a.json"
+        b_path.write_text(before.to_json())
+        a_path.write_text(after.to_json())
+        return self._cli().main(["compare", str(b_path), str(a_path), "--fail-on-regression"])
+
+    def test_single_gate_ignores_one_sided_strategies(self, tmp_path) -> None:
+        # Baselines only on the before side: A improved, the gate must pass.
+        before = _mk_seed_result({"A": 0.30, "Baseline_Random": 0.90})
+        after = _mk_seed_result({"A": 0.31})
+        assert self._gate(tmp_path, before, after) == 0
+        assert self._gate(tmp_path, before, _mk_seed_result({"A": 0.29})) == 2
+
+    def test_multi_gate_ignores_one_sided_strategies(self, tmp_path) -> None:
+        before = _mk_multi({42: {"A": 0.30, "B": 0.90}, 7: {"A": 0.40, "B": 0.90}})
+        after = _mk_multi({42: {"A": 0.31}, 7: {"A": 0.41}})
+        assert self._gate(tmp_path, before, after) == 0
+
+    def test_multi_gate_uses_the_ci_not_the_raw_mean(self, tmp_path) -> None:
+        # Mean delta -0.005 but the per-seed deltas straddle zero widely: noise, not a regression.
+        before = _mk_multi({42: {"A": 0.30}, 7: {"A": 0.40}, 3: {"A": 0.35}})
+        after = _mk_multi({42: {"A": 0.35}, 7: {"A": 0.34}, 3: {"A": 0.345}})
+        assert self._gate(tmp_path, before, after) == 0
+
 
 # ---------------------------------------------------------------------------
 # Synchronous-harvest evaluation mode (--sync-eval / config.sync_evaluation)

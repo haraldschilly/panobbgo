@@ -68,11 +68,8 @@ descriptions and commit messages.
       PSO follow their papers, and GP fits are seeded.  Re-measure the
       composite quick/standard and IOH/family references before the next
       comparison that relies on them.
-- [ ] Bridge terminate/join/kill sequence is repeated in LBFGSB and COBYQA
-      (and their `_make_pipe_objective`/`_safe_send`) → move into
-      `PipeBridgeHeuristic`.
-- [ ] `ruff check`: findings on the pinned E4/E7/E9/F selection; ruff 0.16's
-      wider defaults add ~2000 more — own change.
+- [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
+      selection is clean since 2026-09-25) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.
 
 ## Questions for Harald

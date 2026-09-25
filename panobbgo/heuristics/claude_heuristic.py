@@ -138,8 +138,14 @@ class ClaudeHeuristic(Heuristic):
         """Return (X_elite, y_elite) — top elite_fraction by penalty value."""
         assert self.y_all is not None and self.X_all is not None
         n_elite = max(2, int(len(self.y_all) * self.elite_fraction))
-        n_elite = min(n_elite, len(self.y_all))
-        idx = np.argpartition(self.y_all, n_elite)[:n_elite]
+        n = len(self.y_all)
+        n_elite = min(n_elite, n)
+        if n_elite >= n:
+            # every point is elite (elite_fraction=1.0, or min_points <= 2);
+            # argpartition's kth must be < n
+            idx = np.arange(n)
+        else:
+            idx = np.argpartition(self.y_all, n_elite)[:n_elite]
         return self.X_all[idx], self.y_all[idx]
 
     def _compute_clusters(self, X_elite, y_elite):

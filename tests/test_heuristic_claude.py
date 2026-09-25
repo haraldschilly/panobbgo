@@ -209,3 +209,12 @@ def test_nan_constraint_result_is_not_accumulated():
     assert h._accumulate(good + [bad])
     assert h.y_all is not None and len(h.y_all) == 3
     assert np.all(np.isfinite(h.y_all))
+
+
+def test_all_points_elite_does_not_crash():
+    """Regression: n_elite == len(y_all) made argpartition raise 'kth out of bounds'."""
+    problem = MockProblem(dim=2)
+    h = ClaudeHeuristic(_make_strategy(problem), n_candidates=4, min_points=2, elite_fraction=1.0)
+    h.on_start()
+    h.on_new_results(_make_results(2, dim=2))
+    assert len(h.get_points(10)) == 4

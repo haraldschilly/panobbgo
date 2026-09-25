@@ -200,11 +200,50 @@ def test_epsilon_nan_violation_is_not_feasible():
     strategy = mock.MagicMock()
     strategy.results = []
     h = EpsilonConstraintHandler(strategy=strategy, epsilon_start=0.0)
-    # ``Result.cv`` itself drops NaN entries of ``cv_vec``; a NaN ``cv`` reaches
-    # the handler from results that compute it otherwise.
+    # ``Result.cv`` maps a NaN entry of ``cv_vec`` to ``inf``; a NaN ``cv``
+    # still reaches the handler from results that compute it otherwise.
     nan_cv = mock.MagicMock(fx=-100.0, cv=float("nan"))
     assert h._phi(nan_cv) == float("inf")
     assert h.is_better(nan_cv, _r(5.0, 0.0))
+
+
+def test_result_cv_nan_entry_is_infeasible():
+    """A NaN entry of ``cv_vec`` is an unknown violation: ``cv`` is ``inf``.
+
+    ``cv_vec[cv_vec > 0.0]`` used to drop it, so a NaN constraint counted as
+    satisfied and the result as feasible."""
+    assert Result(Point(np.zeros(2), "t"), 1.0, cv_vec=np.array([np.nan, -1.0])).cv == float("inf")
+    assert Result(Point(np.zeros(2), "t"), 1.0, cv_vec=np.array([np.nan, 2.0])).cv == float("inf")
+    # no NaN: unchanged (norm of the positive entries); unconstrained: 0.0
+    assert Result(Point(np.zeros(2), "t"), 1.0, cv_vec=np.array([3.0, -1.0, 4.0])).cv == 5.0
+    assert Result(Point(np.zeros(2), "t"), 1.0).cv == 0.0
+    h = DefaultConstraintHandler(strategy=mock.MagicMock(results=[]))
+    feasible = _r(100.0, 0.0)
+    nan_cv = Result(Point(np.zeros(2), "t"), -100.0, cv_vec=np.array([np.nan]))
+    assert h.is_better(nan_cv, feasible)
+    assert not h.is_better(feasible, nan_cv)
+
+
+def test_alm_nan_constraint_is_infeasible():
+    """ALM applies the same policy: a NaN constraint value makes the
+    Lagrangian ``inf`` (it used to be ``nan_to_num``-ed to 0.0 = satisfied)."""
+    strategy = mock.MagicMock()
+    strategy.results = []
+    h = AugmentedLagrangianConstraintHandler(strategy=strategy)
+    h.lambdas = np.zeros(2)
+    nan_r = Result(Point(np.zeros(2), "t"), -100.0, cv_vec=np.array([np.nan, -1.0]))
+    ok_r = Result(Point(np.ones(2), "u"), 5.0, cv_vec=np.array([-1.0, -1.0]))
+    assert h.get_penalty_value(nan_r) == float("inf")
+    assert h.get_penalty_value(ok_r) == 5.0
+
+    # The history scan must not crown the NaN row as the new best.
+    strategy.results = [nan_r, ok_r]
+    strategy.best = ok_r
+    published = []
+    strategy.eventbus.publish.side_effect = lambda *a, **kw: published.append(kw)
+    h._scan_history_for_new_best()
+    assert published, "scan did not publish a candidate"
+    assert published[-1]["candidates"][0].fx == 5.0
 
 
 def test_time_invariance_flags():

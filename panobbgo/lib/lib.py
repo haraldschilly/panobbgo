@@ -168,9 +168,15 @@ class Result:
         .. Note::
 
             Only the positive entries are used to calculate the norm!
+            A ``NaN`` entry is an *unknown* violation, not a satisfied
+            constraint: the result is then ``inf`` (infeasible), never
+            feasible.  (``cv_vec > 0.0`` is ``False`` for ``NaN``, so the
+            entry used to be silently dropped.)
         """
         if self._cv_vec is None:
             return 0.0
+        if np.isnan(self._cv_vec).any():
+            return float("inf")
         return float(norm(self._cv_vec[self._cv_vec > 0.0], self._cv_norm))  # type: ignore
 
     @property

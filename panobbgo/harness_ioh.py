@@ -977,6 +977,28 @@ def run_ioh_harness_multi_seed(
     )
 
 
+def t_ci(deltas: Sequence[float], level: float = 0.95) -> Tuple[float, float]:
+    """``(mean, half-width)`` of a two-sided Student-t CI on the mean of ``deltas``.
+
+    The one t-interval every screen and :func:`paired_seed_stats` use: the
+    critical value is ``scipy.stats.t.ppf`` at ``len(deltas) - 1`` degrees
+    of freedom — keyed on the deltas actually present, not on the number of
+    seeds requested (a cell missing on one seed shrinks ``n``).  The
+    half-width is NaN below two deltas; the mean is NaN for none.
+    """
+    arr = np.asarray(list(deltas), dtype=np.float64)
+    n = int(arr.size)
+    if n == 0:
+        return float("nan"), float("nan")
+    mean = float(arr.mean())
+    if n < 2:
+        return mean, float("nan")
+    from scipy.stats import t as t_dist
+
+    crit = float(t_dist.ppf(0.5 + level / 2.0, n - 1))
+    return mean, crit * float(arr.std(ddof=1)) / float(np.sqrt(n))
+
+
 def paired_seed_stats(before: IOHMultiSeedResult, after: IOHMultiSeedResult) -> Dict[str, Dict[str, Any]]:
     """Per-strategy paired delta statistics across the common base seeds.
 
@@ -1015,12 +1037,9 @@ def paired_seed_stats(before: IOHMultiSeedResult, after: IOHMultiSeedResult) -> 
         a_vals = np.asarray([a_mat[name][a_idx[s]] for s in common], dtype=np.float64)
         deltas = a_vals - b_vals
         n = len(common)
-        mean_delta = float(deltas.mean())
+        mean_delta, half = t_ci(deltas)
         if n >= 2:
             sd = float(deltas.std(ddof=1))
-            from scipy.stats import t as t_dist
-
-            half = float(t_dist.ppf(0.975, n - 1)) * sd / float(np.sqrt(n))
             ci_low, ci_high = mean_delta - half, mean_delta + half
         else:
             sd = float("nan")

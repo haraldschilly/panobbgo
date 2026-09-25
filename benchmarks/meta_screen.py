@@ -60,7 +60,7 @@ import time
 from collections import defaultdict
 
 from panobbgo.analyzers import Archive
-from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness
+from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.heuristics import CMAES, JSO, MetaAnalyst, RegionUCB
 from panobbgo.heuristics.meta import budget_fraction, stagnation
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
@@ -214,8 +214,10 @@ else:
             {
                 "seed": seed,
                 "s": x.strategy_name,
+                "fid": x.fid,
                 "dim": x.dim,
                 "inst": x.instance,
+                "rep": x.rep,
                 "aocc": x.aocc,
                 "evals": x.n_evals,
                 "budget": x.budget,
@@ -226,22 +228,22 @@ else:
         json.dump(rows, open(out, "w"))
         print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
 
-# --- fold rows into cells: (seed, dim, inst) -> {spec: mean AOCC over reps} --
+# --- fold rows into cells: (seed, fid, dim, inst) -> {spec: mean AOCC over reps}
+# ``fid`` is None without a function axis (and in files written before it).
 raw = defaultdict(lambda: defaultdict(list))
 errs, short = defaultdict(list), defaultdict(list)
 for r in rows:
     if r["s"] not in names:
         continue
-    raw[(r["seed"], r["dim"], r["inst"])][r["s"]].append(r["aocc"])
+    raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["s"]].append(r["aocc"])
     if r["err"]:
         errs[r["s"]].append(r["err"])
     if r.get("budget") and r.get("evals", 0) < 0.98 * r["budget"]:
         short[r["s"]].append((r["dim"], r["inst"], r["evals"], r["budget"]))
 cells = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
-dims = sorted({d for _, d, _ in cells})
-insts = sorted({i for _, _, i in cells})
+dims = sorted({d for _, _, d, _ in cells})
+insts = sorted({i for _, _, _, i in cells})
 n = len(seeds)
-tc = {2: 12.71, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365}.get(n, 2.26 if n > 8 else 2.5)
 
 if not cells:
     sys.exit("no rows for the selected specs — nothing to compare")
@@ -250,7 +252,7 @@ if not cells:
 def mean_of(name, dim=None, inst=None):
     vals = [
         v[name]
-        for (_, d, i), v in cells.items()
+        for (_, _, d, i), v in cells.items()
         if name in v and (dim is None or d == dim) and (inst is None or i == inst)
     ]
     return st.mean(vals) if vals else float("nan")
@@ -259,7 +261,7 @@ def mean_of(name, dim=None, inst=None):
 def paired(a, b, dim=None, inst=None):
     """Per-seed mean of ``a - b`` over the cells where both have a result."""
     ps = defaultdict(list)
-    for (seed, d, i), v in cells.items():
+    for (seed, _, d, i), v in cells.items():
         if a in v and b in v and (dim is None or d == dim) and (inst is None or i == inst):
             ps[seed].append(v[a] - v[b])
     return [st.mean(x) for x in ps.values()]
@@ -267,10 +269,7 @@ def paired(a, b, dim=None, inst=None):
 
 def ci(ds):
     """``(mean, halfwidth)`` of a 95% t-CI over the per-seed deltas."""
-    if len(ds) < 2:
-        return (st.mean(ds) if ds else float("nan")), float("nan")
-    m = st.mean(ds)
-    return m, tc * st.stdev(ds) / len(ds) ** 0.5
+    return t_ci(ds)
 
 
 def delta(a, b):

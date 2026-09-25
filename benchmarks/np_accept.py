@@ -40,7 +40,7 @@ import dataclasses
 import statistics as st
 import time
 from collections import defaultdict
-from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness
+from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.heuristics import JSO, LSHADE, NLSHADE_LBC
 from panobbgo.strategies import StrategyRoundRobin
 
@@ -113,47 +113,45 @@ for seed in seeds:
         one_dim = dataclasses.replace(battery, dims=(d,))
         r = run_ioh_harness(specs_for(d), one_dim, base_seed=seed, progress=False, sync_eval=True)
         rows += [
-            {"seed": seed, "s": x.strategy_name, "dim": x.dim, "inst": x.instance, "aocc": x.aocc, "err": x.error}
+            {
+                "seed": seed,
+                "s": x.strategy_name,
+                "fid": x.fid,
+                "dim": x.dim,
+                "inst": x.instance,
+                "rep": x.rep,
+                "aocc": x.aocc,
+                "err": x.error,
+            }
             for x in r.runs
         ]
         json.dump(rows, open(out, "w"))
     print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
 
-tot, by, errs = defaultdict(list), defaultdict(dict), defaultdict(int)
+# Cells are (seed, fid, dim, inst); reps fold into their mean.  ``fid`` is
+# None without a function axis, so the BBOB axis cannot merge cells.
+tot, raw, errs = defaultdict(list), defaultdict(lambda: defaultdict(list)), defaultdict(int)
 for r in rows:
     tot[r["s"]].append(r["aocc"])
-    by[(r["seed"], r["dim"], r["inst"])][r["s"]] = r["aocc"]
+    raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["s"]].append(r["aocc"])
     if r["err"]:
         errs[r["s"]] += 1
+by = {k: {s: st.mean(v) for s, v in d.items()} for k, d in raw.items()}
 n = len(seeds)
 dims = sorted({r["dim"] for r in rows})
-tc = {
-    2: 12.71,
-    3: 4.303,
-    4: 3.182,
-    5: 2.776,
-    6: 2.571,
-    7: 2.447,
-    8: 2.365,
-    9: 2.306,
-    10: 2.262,
-    11: 2.228,
-    12: 2.201,
-}.get(n, 2.0)
 
 
 def paired_by_seed(name, ref, dim=None):
     """Per-seed mean deltas of ``name`` against ``ref``, optionally one dimension."""
     ps = defaultdict(list)
-    for (seed, d, _), v in by.items():
+    for (seed, _, d, _), v in by.items():
         if name in v and ref in v and (dim is None or d == dim):
             ps[seed].append(v[name] - v[ref])
     return {s: st.mean(x) for s, x in ps.items()}
 
 
 def ci(ds):
-    m, sd = st.mean(ds), st.stdev(ds)
-    h = tc * sd / len(ds) ** 0.5
+    m, h = t_ci(ds)
     return m, m - h, m + h
 
 
@@ -179,7 +177,7 @@ print(f"NP_init: auto_old={old_np}  fixed_cd={new_np} (coef {cls.AUTO_DIM_COEF})
 head = f"{'variant':12s} {'mean':>7s}"
 print(head + "".join(f"   {'d=' + str(d):>8s}" for d in dims))
 for s in sorted(tot, key=lambda k: -st.mean(tot[k])):
-    per = "".join(f"   {st.mean([v[s] for (_, d, _), v in by.items() if s in v and d == dim]):8.4f}" for dim in dims)
+    per = "".join(f"   {st.mean([v[s] for (_, _, d, _), v in by.items() if s in v and d == dim]):8.4f}" for dim in dims)
     err = f"  errors={errs[s]}" if errs[s] else ""
     print(f"{s:12s} {st.mean(tot[s]):7.4f}" + per + err)
 

@@ -60,7 +60,7 @@ from collections import defaultdict
 
 from panobbgo.analyzers import Archive
 from panobbgo.harness_families import make_constrained_battery, make_families_battery, run_family_harness
-from panobbgo.harness_ioh import make_ioh_strategies
+from panobbgo.harness_ioh import make_ioh_strategies, t_ci
 from panobbgo.heuristics import CMAES, JSO, LSHADE
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
 
@@ -221,7 +221,6 @@ if not cells:
 dims = sorted({d for _, _, d, _ in cells})
 fams = sorted({f for _, f, _, _ in cells})
 n = len(seeds)
-tc = {2: 12.71, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365}.get(n, 2.26 if n > 8 else 2.5)
 
 
 def mean_of(name, dim=None, fam=None):
@@ -244,10 +243,7 @@ def paired(a, b, dim=None, fam=None):
 
 def ci(ds):
     """``(mean, halfwidth)`` of a 95% t-CI over the per-seed deltas."""
-    if len(ds) < 2:
-        return (st.mean(ds) if ds else float("nan")), float("nan")
-    m = st.mean(ds)
-    return m, tc * st.stdev(ds) / len(ds) ** 0.5
+    return t_ci(ds)
 
 
 print(f"\n=== family screen ===  ({n} seeds, preset {preset}, budget {bm}*d, dims {dims})")

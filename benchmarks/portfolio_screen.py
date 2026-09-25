@@ -79,6 +79,7 @@ from panobbgo.harness_ioh import (
     make_standard_battery,
     noise_class_of,
     run_ioh_harness,
+    t_ci,
 )
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyBlockBandit, StrategyRewarding, StrategyRoundRobin
@@ -926,7 +927,6 @@ fids_seen = sorted({f for _, f, _, _ in cells if f is not None})
 classes = bbob_classes_present(fids_seen)
 cls_of = {f: bbob_class_of(f) for f in fids_seen}
 n = len(seeds)
-tc = {2: 12.71, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365}.get(n, 2.26 if n > 8 else 2.5)
 
 if not cells:
     sys.exit("no rows for the selected specs — nothing to compare")
@@ -953,10 +953,7 @@ def paired(a, b, dim=None, cls=None):
 
 def ci(ds):
     """``(mean, halfwidth)`` of a 95% t-CI over the per-seed deltas."""
-    if len(ds) < 2:
-        return (st.mean(ds) if ds else float("nan")), float("nan")
-    m = st.mean(ds)
-    return m, tc * st.stdev(ds) / len(ds) ** 0.5
+    return t_ci(ds)
 
 
 def delta(a, b):

@@ -50,7 +50,7 @@ import statistics as st
 import time
 from collections import defaultdict
 from itertools import combinations
-from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness
+from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyRoundRobin
 
@@ -133,25 +133,34 @@ else:
     for seed in seeds:
         r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True)
         rows += [
-            {"seed": seed, "arm": x.strategy_name, "dim": x.dim, "inst": x.instance, "aocc": x.aocc, "err": x.error}
+            {
+                "seed": seed,
+                "arm": x.strategy_name,
+                "fid": x.fid,
+                "dim": x.dim,
+                "inst": x.instance,
+                "rep": x.rep,
+                "aocc": x.aocc,
+                "err": x.error,
+            }
             for x in r.runs
         ]
         json.dump(rows, open(out, "w"))
         print(f"seed {seed} done ({time.perf_counter() - t0:.0f}s)", flush=True)
 
-# --- fold rows into cells: (seed, dim, inst) -> {arm: mean AOCC over reps} ---
+# --- fold rows into cells: (seed, fid, dim, inst) -> {arm: mean AOCC over reps} ---
+# ``fid`` is None without a function axis (and in files written before it).
 raw, errs = defaultdict(lambda: defaultdict(list)), defaultdict(int)
 for r in rows:
     if r["arm"] not in arms:
         continue
-    raw[(r["seed"], r["dim"], r["inst"])][r["arm"]].append(r["aocc"])
+    raw[(r["seed"], r.get("fid"), r["dim"], r["inst"])][r["arm"]].append(r["aocc"])
     if r["err"]:
         errs[r["arm"]] += 1
 cells = {k: {a: st.mean(v) for a, v in d.items()} for k, d in raw.items()}
 full = {k: v for k, v in cells.items() if len(v) == len(arms)}
-dims = sorted({d for _, d, _ in full})
+dims = sorted({d for _, _, d, _ in full})
 n = len(seeds)
-tc = {2: 12.71, 3: 4.303, 4: 3.182, 5: 2.776, 6: 2.571, 7: 2.447, 8: 2.365}.get(n, 2.26 if n > 8 else 2.5)
 
 if not full:
     sys.exit("no cell has a result for every selected arm — nothing to compare")
@@ -159,7 +168,7 @@ if not full:
 
 def mean_of(f, dim=None):
     """Mean of ``f(cell)`` over the complete cells, optionally one dimension."""
-    return st.mean([f(v) for (_, d, _), v in full.items() if dim is None or d == dim])
+    return st.mean([f(v) for (_, _, d, _), v in full.items() if dim is None or d == dim])
 
 
 # In ``--from`` mode the battery is whatever produced the file, not the one
@@ -190,12 +199,12 @@ print(f"{'ORACLE':10s} {oracle:7.4f} " + per + f"  {0.0:7.4f}  {len(full):5d}")
 # (c) headroom with a per-seed paired t-CI: per-seed oracle minus per-seed best arm.
 ds = []
 for seed in seeds:
-    cs = [v for (s, _, _), v in full.items() if s == seed]
+    cs = [v for (s, _, _, _), v in full.items() if s == seed]
     if cs:
         ds.append(st.mean([max(v.values()) for v in cs]) - st.mean([v[best] for v in cs]))
 line = f"\nheadroom (oracle - {best}): {oracle - means[best]:+.4f}"
 if len(ds) >= 2:
-    m, h = st.mean(ds), tc * st.stdev(ds) / len(ds) ** 0.5
+    m, h = t_ci(ds)
     sig = " <--" if m - h > 0 else ""
     line += f"   paired per seed {m:+.4f} [{m - h:+.4f},{m + h:+.4f}] {sum(d > 1e-12 for d in ds)}/{len(ds)}{sig}"
 line += f"   = {100 * (oracle - means[best]) / max(means[best], 1e-12):.1f}% of {best}"
@@ -205,18 +214,25 @@ for d in dims:
     bd = max(arms, key=lambda a: mean_of(lambda v, a=a: v[a], d))
     print(f"  d={d}: oracle {o:.4f}  best {bd} {mean_of(lambda v: v[bd], d):.4f}  headroom {o - b:+.4f} (vs {best})")
 
-# (d) win counts per (dim, inst): majority over seeds, and summed over seeds.
+# (d) win counts per (fid, dim, inst): majority over seeds, and summed over seeds.
 seedwins = defaultdict(lambda: defaultdict(int))
-for (_, d, i), v in full.items():
-    seedwins[(d, i)][max(arms, key=lambda a: v[a])] += 1
-# Majority owner of a (dim, inst) cell: most seed wins, ties to the better arm overall.
+for (_, f, d, i), v in full.items():
+    seedwins[(f, d, i)][max(arms, key=lambda a: v[a])] += 1
+# Majority owner of a (fid, dim, inst) cell: most seed wins, ties to the better arm overall.
 owner = {k: max(arms, key=lambda a: (w[a], means[a])) for k, w in seedwins.items()}
 cellwins = {a: sum(o == a for o in owner.values()) for a in arms}
 allwins = {a: sum(w[a] for w in seedwins.values()) for a in arms}
-print(f"\nwin counts over {len(seedwins)} (dim, inst) cells")
+
+
+def cell_label(f, d, i):
+    return (f"f{f}" if f is not None else "") + f"d{d}i{i}"
+
+
+print(f"\nwin counts over {len(seedwins)} (fid, dim, inst) cells")
 print(f"{'arm':10s} {'majority':>9s} {'seed-wins':>10s}   per-cell majorities")
 for a in sorted(arms, key=lambda a: (-cellwins[a], -allwins[a])):
-    owned = " ".join(f"d{d}i{i}" for (d, i), o in sorted(owner.items()) if o == a)
+    ordered = sorted(owner.items(), key=lambda kv: (kv[0][0] or 0, kv[0][1], kv[0][2]))
+    owned = " ".join(cell_label(*k) for k, o in ordered if o == a)
     print(f"{a:10s} {cellwins[a]:9d} {allwins[a]:10d}   {owned}")
 
 # (f) top-2 oracle: how much of the headroom a two-arm portfolio could capture.

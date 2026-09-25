@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 -- 2013 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -2019,7 +2019,7 @@ class StrategyBase:
                 break
 
             # execute the actual strategy
-            points = self.execute()
+            points = self._clamp_to_budget(self.execute())
 
             # Update progress status
             self._update_progress_status()
@@ -2116,6 +2116,33 @@ class StrategyBase:
         # Final forced update to ensure UI shows 100% or final results
         self._update_progress_status(force=True)
         self._cleanup()
+
+    def _clamp_to_budget(self, points):
+        """Cut a batch from :meth:`execute` to the evaluations the budget still allows.
+
+        ``max_eval`` is a hard cap (AGENTS.md "Domain context"), and this is
+        the one place every evaluation mode passes through, so no strategy
+        has to size its batches against the budget itself.  Points already
+        in flight count against it: an asynchronous run may have ``pending``
+        evaluations whose results have not arrived yet.  Surplus points are
+        dropped — they are cheap, the evaluations are not.
+        """
+        if not self.config.max_eval:
+            return points
+        room = max(0, int(self.config.max_eval) - len(self.results) - len(self.pending))
+        if len(points) > room:
+            self.logger.debug("Budget clamp: dispatching %d of %d points." % (room, len(points)))
+            return list(points[:room])
+        return points
+
+    def request_stop(self):
+        """Ask the main loop to end after the current pass.
+
+        Thread-safe (a single flag write): a harness enforcing a wall-clock
+        timeout calls it from another thread, then joins the runner thread.
+        In-flight evaluations of an asynchronous run are abandoned.
+        """
+        self._stop_requested = True
 
     def _run_process_evaluation(self, points):
         """Run evaluation using subprocess calls."""

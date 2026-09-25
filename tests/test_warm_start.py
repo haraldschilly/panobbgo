@@ -379,8 +379,46 @@ def test_pso_warm_restart_goes_to_center_when_the_archive_best_is_in_the_basin()
         assert np.all(np.abs(p.x - center) <= v_max + 1e-12), "the swarm must scatter around center"
 
 
+def test_pso_warm_restart_counts_evaluated_personal_bests_as_the_basin():
+    """A swarm that overshot the archive's best, but holds it as a personal best, is in its basin."""
+    from panobbgo.heuristics import PSO
+
+    s = _strategy()
+    a = _archive_of(s, _results(s.problem, 24))
+    h = PSO(s, NP=4, warm_start="archive")
+    h.on_start()
+    h.get_points()
+    assert h._positions is not None and h._pbest_x is not None
+    h._positions[:] = _far_from_best(s, a)
+    best = a.top_k(1)[0]
+    h._pbest_result = [best, None, None, None]
+    h._pbest_x[0] = np.asarray(best.x, dtype=float)
+
+    h.on_restart(center=np.array([1.5, -1.5]), reason="test")
+    assert all(r is None for r in h._pbest_result), "the archive's best is this swarm's own basin"
+
+
+@pytest.mark.parametrize("idx", range(5))
+def test_lshade_restart_before_any_evaluation_goes_to_center(idx):
+    """A second restart with nothing evaluated since the first: no basin, so ``center``."""
+    cls = _lshade_family()[idx]
+    s = _strategy()
+    _archive_of(s, _results(s.problem, 24))
+    h = cls(s, NP_init=6, warm_start="archive")
+    h.on_start()
+    h.on_restart(center=np.array([1.0, 1.0]), reason="first")
+    assert all(slot is None for slot in h._population)
+
+    center = np.array([1.5, -1.5])
+    h.on_restart(center=center, reason="second")
+    assert all(slot is None for slot in h._population), cls.__name__
+    ball = 0.1 * (s.problem.box[:, 1] - s.problem.box[:, 0])
+    for p in h.get_points():
+        assert np.all(np.abs(p.x - center) <= ball + 1e-12), cls.__name__
+
+
 def test_warm_restart_rule_edge_cases():
-    """No live positions: nothing to avoid, use the archive; empty archive: ``center``."""
+    """No live positions: no basin to judge, restart to ``center``; empty archive: ``center``."""
     from panobbgo.heuristics import PSO
     from panobbgo.heuristics._warm_restart import BASIN_MARGIN, restart_from_archive
 
@@ -388,7 +426,8 @@ def test_warm_restart_rule_edge_cases():
     h = PSO(s, NP=4, warm_start="archive")
     assert restart_from_archive(h, np.zeros((0, s.problem.dim))) is False  # no archive yet
     a = _archive_of(s, _results(s.problem, 24))
-    assert restart_from_archive(h, []) is True
+    assert restart_from_archive(h, []) is False
+    assert restart_from_archive(h, _far_from_best(s, a)) is True
     best = np.asarray(a.top_k(1)[0].x, dtype=float)
     assert restart_from_archive(h, [best]) is False  # a one-point population is its own basin
 

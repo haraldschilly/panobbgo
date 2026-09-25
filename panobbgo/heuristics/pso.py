@@ -308,7 +308,8 @@ class PSO(Heuristic):
             points instead of from a standstill.  At ``t = 0`` the archive is
             empty and the heuristic silently cold-starts.  On a ``restart``
             event the archive is used only when its best point lies outside
-            the stagnated basin (the bounding box of the live positions);
+            the stagnated basin (the bounding box of the positions and
+            evaluated personal bests);
             otherwise the restart goes to the Restart analyzer's ``center``.
         seed: Optional seed for the per-instance RNG.  ``None`` (default)
             uses the module's strategy-derived ``self.rng`` stream.
@@ -885,6 +886,16 @@ class PSO(Heuristic):
         for particle_idx in own_failures(self.name, points, self._pending):
             self._generate_next(particle_idx)
 
+    def _basin_positions(self) -> np.ndarray:
+        """Current positions plus the evaluated personal bests: the swarm's basin.
+
+        The personal bests matter when the swarm has overshot its incumbent:
+        the positions alone would then miss the point it stagnated on.
+        """
+        assert self._positions is not None and self._pbest_x is not None
+        evaluated = [i for i, r in enumerate(self._pbest_result) if r is not None]
+        return np.vstack([self._positions, self._pbest_x[evaluated]])
+
     def on_restart(self, center, reason: str = "") -> None:
         """Drop in-flight trials and reseed the swarm around ``center``.
 
@@ -896,7 +907,7 @@ class PSO(Heuristic):
         With ``warm_start`` set the swarm is re-seeded from the archive
         instead (:meth:`_warm_start_swarm`) — but only when the archive's
         best point lies outside the stagnated basin, the bounding box of the
-        current positions (``panobbgo.heuristics._warm_restart.restart_from_archive``).
+        current positions and evaluated personal bests (``panobbgo.heuristics._warm_restart.restart_from_archive``).
         Otherwise the archive would put the swarm straight back where it
         stagnated, and the restart goes to ``center`` as the cold path does.
         """
@@ -919,7 +930,7 @@ class PSO(Heuristic):
         # unless the archive's best is inside the basin the swarm stagnated
         # in.  The personal bests are dropped first: the seeds replace them,
         # and a shortfall particle must not keep a stale pre-restart best.
-        if self.warm_start and restart_from_archive(self, self._positions):
+        if self.warm_start and restart_from_archive(self, self._basin_positions()):
             self._pbest_result = [None] * self.NP
             self._gbest_idx = None
             if self._warm_start_swarm():

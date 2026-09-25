@@ -33,11 +33,22 @@ The *stagnated basin* is deliberately simple: the axis-aligned bounding box of
 the live population's positions at the moment of the restart, inflated on
 every side by :data:`BASIN_MARGIN` times the problem box's range in that
 coordinate (so a one-point or flat population still has a non-degenerate
-box).  With no live positions there is no basin to avoid, and the archive is
-used as before.
+box).  For PSO the live positions are the current positions *and* the
+evaluated personal bests, so a swarm that overshot the incumbent still counts
+it as in-basin.  The basin is the arm's **own** population, not the
+portfolio's incumbent: the archive's best counts as "elsewhere" when another
+arm found it outside this arm's box.
+
+With **no** live positions (e.g. a second restart arrives before any trial of
+the previous one was evaluated) there is no basin to judge, and the restart
+goes to ``center``: the archive would otherwise send the arm back to the basin
+the previous restart just left.
 
 Warm starts outside restarts (``on_start``, ``warm_start_now``) do not go
-through this test.
+through this test.  In particular a
+:class:`~panobbgo.strategies.blocks.StrategyBlockBandit` still calls
+``warm_start_now`` when it hands the arm its next block, which re-seeds from
+the archive regardless of the basin (unchanged behaviour).
 """
 
 from __future__ import annotations
@@ -77,7 +88,9 @@ def restart_from_archive(h: Any, live_x: Any) -> bool:
     restricted to ``h.warm_start_box`` like the seeding itself) and that point
     lies outside :func:`basin_box` of ``live_x``.  ``False`` means "restart
     around the analyzer's ``center``" — including the empty-archive case,
-    where the archive seeding would have fallen back to that path anyway.
+    where the archive seeding would have fallen back to that path anyway,
+    and the no-live-positions case (no basin to judge, see the module
+    docstring).
 
     A pure query: no RNG draws, no state changes.
     """
@@ -86,7 +99,7 @@ def restart_from_archive(h: Any, live_x: Any) -> bool:
         return False
     box = basin_box(h.problem, live_x)
     if box is None:
-        return True
+        return False
     x = np.asarray(best[0].x, dtype=float)
     inside = bool(np.all(x >= box[:, 0]) and np.all(x <= box[:, 1]))
     return not inside

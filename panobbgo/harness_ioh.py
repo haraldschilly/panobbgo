@@ -608,7 +608,8 @@ def make_ioh_strategies() -> List[StrategySpec]:
         #
         # ``Archive`` must be listed: without it ``archive_seed`` silently
         # falls back to the Splitter root.  ``Splitter`` is not listed —
-        # ``StrategyBase.initialize`` always installs it.  The strategy
+        # both arms warm-start, so their ``required_analyzers`` declare it
+        # and ``StrategyBase.initialize`` installs it on demand.  The strategy
         # kwargs travel through ``config_overrides``, which
         # ``StrategySpec.create_strategy`` passes to the constructor.
         StrategySpec(

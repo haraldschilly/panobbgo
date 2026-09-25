@@ -121,19 +121,61 @@ def test_splitter_value_rule_ranks_by_handler_order():
     assert list(sp.root._penalties()) == [2.0, 0.0, 1.0]
 
 
+def _dynamic_archive(k):
+    from panobbgo.analyzers import Archive
+    from panobbgo.lib.classic import Rosenbrock
+
+    strategy = mock.MagicMock()
+    strategy.problem = Rosenbrock(dim=2)
+    strategy.results = []
+    strategy.constraint_handler = DynamicPenaltyConstraintHandler(strategy, rho_start=1.0, rate=1.0, exponent=1.0)
+    return strategy, Archive(strategy, k=k)
+
+
 def test_archive_reranks_under_a_time_varying_handler():
     """Dynamic penalty: rho grows with len(results), so the heap order changes."""
-    from panobbgo.analyzers import Archive
-
-    s = _strategy_with(DynamicPenaltyConstraintHandler, rho_start=1.0, rate=1.0, exponent=1.0)
-    h = s.constraint_handler
-    assert not h.time_invariant
+    strategy, a = _dynamic_archive(4)
+    assert not strategy.constraint_handler.time_invariant
     lo_fx_infeasible = _r(-10.0, 1.0)  # P = -10 + rho
     feasible = _r(0.0, 0.0)  # P = 0
-    a = Archive(s, k=4)
-    with mock.patch.object(type(h), "_get_current_rho", return_value=1.0):
-        a.on_new_results([lo_fx_infeasible, feasible])
-        assert a.results[0] is lo_fx_infeasible
-    with mock.patch.object(type(h), "_get_current_rho", return_value=100.0):
-        assert a.results[0] is feasible
-        assert a.top_k(1)[0] is feasible
+    a.on_new_results([lo_fx_infeasible, feasible])  # rho = 1
+    assert a.results[0] is lo_fx_infeasible
+    strategy.results = list(range(99))  # rho = 100
+    assert a.results[0] is feasible
+    assert a.top_k(1)[0] is feasible
+
+
+def test_archive_rerank_is_cached_per_result_count():
+    strategy, a = _dynamic_archive(4)
+    a.on_new_results([_r(1.0, 0.0), _r(2.0, 0.0)])
+    a.top_k(1)  # re-ranks once for the current clock
+    with mock.patch.object(type(a), "_key", wraps=a._key) as key:
+        a.top_k(1)
+        a.top_k(1)
+        assert key.call_count == 0  # nothing moved since the batch's re-rank
+        strategy.results = [0]
+        a.top_k(1)
+        assert key.call_count == 2
+
+
+def test_archive_queries_do_not_lose_concurrent_admissions():
+    """Regression: a query re-ranked by rebinding the heap while the bus thread
+    pushed onto the old one, so admissions were lost."""
+    import threading
+
+    strategy, a = _dynamic_archive(100000)
+    n = 400
+    done = threading.Event()
+
+    def bus():
+        for i in range(n):
+            strategy.results.append(i)  # the clock moves: every query re-ranks
+            a.on_new_results([_r(float(i), 0.0)])
+        done.set()
+
+    t = threading.Thread(target=bus)
+    t.start()
+    while not done.is_set():
+        a.top_k(3)
+    t.join()
+    assert len(a) == n

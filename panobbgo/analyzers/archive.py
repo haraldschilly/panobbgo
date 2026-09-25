@@ -48,6 +48,7 @@ and are made a handful of times per run, so they are deliberately simple.
 from __future__ import annotations
 
 import heapq
+import threading
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
@@ -67,9 +68,14 @@ class Archive(Analyzer):
 
     With a time-varying handler (``time_invariant`` is ``False``, e.g.
     dynamic penalty or augmented Lagrangian) the retained entries are re-ranked
-    under the current ordering before every batch and every query, so the
-    heap order never goes stale; which results were *admitted* earlier still
-    reflects the ordering at the time.
+    under the current ordering before a batch or a query whenever the number
+    of results has changed since the last re-rank (the time these handlers
+    move with), so the heap order does not go stale; which results were
+    *admitted* earlier still reflects the ordering at the time.
+
+    Thread-safety: results arrive on the event-bus thread, queries come from
+    heuristics on the main thread; one lock covers every read and write of
+    the heap.
 
     :param strategy: the owning strategy.
     :param k: how many results to retain (default :data:`DEFAULT_K`).
@@ -91,6 +97,9 @@ class Archive(Analyzer):
         #: (``Result.__eq__`` only looks at ``fx``).
         self._heap: List[Tuple[Tuple[float, ...], int, Result]] = []
         self._seq: int = 0
+        self._lock = threading.RLock()
+        #: ``len(strategy.results)`` at the last re-rank (see :meth:`_rerank`).
+        self._ranked_at: Any = None
 
     # -- ingestion ---------------------------------------------------------
 
@@ -118,10 +127,22 @@ class Archive(Analyzer):
         return value if np.isfinite(value) else None
 
     def _rerank(self) -> None:
-        """Re-key the retained entries if the handler's ordering can change."""
+        """Re-key the retained entries if the handler's ordering can have changed.
+
+        Only for a time-varying handler, and only when ``len(strategy.results)``
+        moved since the last re-rank — the clock of the dynamic, epsilon and
+        augmented-Lagrangian handlers.  Callers hold :attr:`_lock`.
+        """
         handler = self._handler()
         if handler is None or getattr(handler, "time_invariant", False) or not self._heap:
             return
+        try:
+            now: Any = len(self.strategy.results)
+        except TypeError:
+            now = None  # no usable clock: always re-rank
+        if now is not None and now == self._ranked_at:
+            return
+        self._ranked_at = now
         heap = []
         for _, neg_seq, r in self._heap:
             key = self._key(r)
@@ -133,28 +154,35 @@ class Archive(Analyzer):
     def on_new_results(self, results: Iterable[Result]) -> None:
         """Fold every result into the bounded top-K.  ``O(log K)`` per result
         (plus an ``O(K)`` re-rank per batch for a time-varying handler)."""
-        self._rerank()
-        for r in results:
-            key = self._key(r)
-            if key is None:
-                continue  # inf / nan / failed evaluation: no information
-            self._seq += 1
-            item = (tuple(-v for v in key), -self._seq, r)
-            if len(self._heap) < self.K:
-                heapq.heappush(self._heap, item)
-            elif item > self._heap[0]:
-                heapq.heapreplace(self._heap, item)
+        with self._lock:
+            self._rerank()
+            for r in results:
+                key = self._key(r)
+                if key is None:
+                    continue  # inf / nan / failed evaluation: no information
+                self._seq += 1
+                item = (tuple(-v for v in key), -self._seq, r)
+                if len(self._heap) < self.K:
+                    heapq.heappush(self._heap, item)
+                elif item > self._heap[0]:
+                    heapq.heapreplace(self._heap, item)
+
+    def _ranked(self) -> List[Result]:
+        """A snapshot of the retained results, best first."""
+        with self._lock:
+            self._rerank()
+            return [r for _, _, r in sorted(self._heap, reverse=True)]
 
     # -- queries -----------------------------------------------------------
 
     def __len__(self) -> int:
-        return len(self._heap)
+        with self._lock:
+            return len(self._heap)
 
     @property
     def results(self) -> List[Result]:
         """Every retained result, best first."""
-        self._rerank()
-        return [r for _, _, r in sorted(self._heap, reverse=True)]
+        return self._ranked()
 
     def penalty_of(self, r: Result) -> float:
         """Scalar penalty value of ``r``, ``inf`` when it cannot be evaluated.
@@ -185,10 +213,9 @@ class Archive(Analyzer):
         """
         if k <= 0:
             return []
-        self._rerank()
         excluded = self._who_filter(exclude_who)
         out: List[Result] = []
-        for _, _, r in sorted(self._heap, reverse=True):
+        for r in self._ranked():
             # Not a ``break``: the order is the handler's ranking, which for a
             # lexicographic handler is not monotone in the scalar penalty.
             if fx_max is not None and self.penalty_of(r) > fx_max:

@@ -163,15 +163,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.leaf</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.log_volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.log_volume</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.ranges"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.ranges</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.results"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.results</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.split"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.split()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.Box.volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.volume</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_all_boxes"><code class="docutils literal notranslate"><span class="pre">Splitter.get_all_boxes()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_box"><code class="docutils literal notranslate"><span class="pre">Splitter.get_box()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.get_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.get_leaf()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_by_depth()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_leaf()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_results"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_new_split"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_split()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.Splitter.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Splitter.on_refresh_best()</span></code></a></li>
@@ -240,15 +238,13 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.leaf</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.log_volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.log_volume</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.ranges"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.ranges</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.results"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.results</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.split"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.split()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.Box.volume"><code class="docutils literal notranslate"><span class="pre">Splitter.Box.volume</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_all_boxes"><code class="docutils literal notranslate"><span class="pre">Splitter.get_all_boxes()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_box"><code class="docutils literal notranslate"><span class="pre">Splitter.get_box()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.get_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.get_leaf()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_by_depth"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_by_depth()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_biggest_leaf()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_results"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_new_split"><code class="docutils literal notranslate"><span class="pre">Splitter.on_new_split()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Splitter.on_refresh_best"><code class="docutils literal notranslate"><span class="pre">Splitter.on_refresh_best()</span></code></a></li>
@@ -886,6 +882,15 @@ routine is called.</p>
 i.e. upper - lower bound.</p>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.results">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">results</span></span><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.results" title="Link to this definition">#</a></dt>
+<dd><p>The results in this box, in arrival order.</p>
+<p>A leaf and the root hold their list; any other box drops it when
+it is split and recomputes it on demand
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">Splitter._results_in()</span></code>).  <code class="docutils literal notranslate"><span class="pre">len(box)</span></code> never rebuilds it.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.Box.split">
 <span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.Box.split" title="Link to this definition">#</a></dt>
@@ -908,12 +913,6 @@ i.e. upper - lower bound.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.get_all_boxes">
-<span class="sig-name descname"><span class="pre">get_all_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_all_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_all_boxes" title="Link to this definition">#</a></dt>
-<dd><p>return all boxes, where point is contained in</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.get_box">
 <span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_box" title="Link to this definition">#</a></dt>
 <dd><p>return “leftmost” leaf box, where given point is contained in</p>
@@ -924,16 +923,6 @@ i.e. upper - lower bound.</p>
 <span class="sig-name descname"><span class="pre">get_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.get_leaf" title="Link to this definition">#</a></dt>
 <dd><p>returns the leaf box, where given result is currently sitting in</p>
 </dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth">
-<span class="sig-name descname"><span class="pre">on_new_biggest_by_depth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_by_depth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_by_depth" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf">
-<span class="sig-name descname"><span class="pre">on_new_biggest_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.splitter.Splitter.on_new_biggest_leaf" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.splitter.Splitter.on_new_results">
@@ -1499,6 +1488,15 @@ routine is called.</p>
 i.e. upper - lower bound.</p>
 </dd></dl>
 
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.results">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">results</span></span><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.results" title="Link to this definition">#</a></dt>
+<dd><p>The results in this box, in arrival order.</p>
+<p>A leaf and the root hold their list; any other box drops it when
+it is split and recomputes it on demand
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">Splitter._results_in()</span></code>).  <code class="docutils literal notranslate"><span class="pre">len(box)</span></code> never rebuilds it.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.Box.split">
 <span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.Box.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.Box.split" title="Link to this definition">#</a></dt>
@@ -1521,12 +1519,6 @@ i.e. upper - lower bound.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.get_all_boxes">
-<span class="sig-name descname"><span class="pre">get_all_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_all_boxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_all_boxes" title="Link to this definition">#</a></dt>
-<dd><p>return all boxes, where point is contained in</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.get_box">
 <span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_box" title="Link to this definition">#</a></dt>
 <dd><p>return “leftmost” leaf box, where given point is contained in</p>
@@ -1537,16 +1529,6 @@ i.e. upper - lower bound.</p>
 <span class="sig-name descname"><span class="pre">get_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.get_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.get_leaf" title="Link to this definition">#</a></dt>
 <dd><p>returns the leaf box, where given result is currently sitting in</p>
 </dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_biggest_by_depth">
-<span class="sig-name descname"><span class="pre">on_new_biggest_by_depth</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">depth</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_by_depth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_biggest_by_depth" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_biggest_leaf">
-<span class="sig-name descname"><span class="pre">on_new_biggest_leaf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/splitter.html#Splitter.on_new_biggest_leaf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Splitter.on_new_biggest_leaf" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Splitter.on_new_results">

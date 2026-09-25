@@ -231,6 +231,7 @@ from __future__ import annotations
 import heapq
 import operator
 import re
+import threading
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
@@ -563,6 +564,13 @@ class StrategyBlockBandit(StrategyBase):
         self._top: List[Tuple[float, int, Result]] = []
         self._top_seq: int = 0
 
+        #: Guards the block and archive state above: ``on_new_results`` runs
+        #: on the event-bus thread, the block life cycle on the main loop's.
+        #: Without it an asynchronous run could interleave a result with a
+        #: block switch (trace reset, ``_phi0``, reward).  Uncontended under
+        #: ``sync_evaluation``.
+        self._block_lock = threading.RLock()
+
         StrategyBase.__init__(self, problem, **kwargs)
 
     # -- configuration -----------------------------------------------------
@@ -717,23 +725,29 @@ class StrategyBlockBandit(StrategyBase):
         deterministic function of the schedule.  The log terms themselves
         are only formed at :meth:`_close_block`: the anchor they need does
         not exist until the first block ends.
+
+        With asynchronous evaluation a result is credited to whichever block
+        is open when it *arrives*, so the previous owner's late results can
+        land in the next block; the lock only keeps each result and each
+        block switch atomic.
         """
-        for r in results:
-            phi = self._penalty(r)
-            if phi is None:
-                continue  # inf / nan / failed evaluation: no information
-            if self._owner is not None and self._phi0 is None:
-                # first evaluation of the very first block: nothing was
-                # known before it, so it *is* best(t0).
-                self._phi0 = phi
-            self._phis.append(phi)
-            if phi < self._best_phi:
-                self._best_phi = phi
-            self._credit_arm_best(phi, r)
-            self._remember_top(phi, r)
-            self._reanchor_if_needed()
-            if self._owner is not None:
-                self._trace.append(self._best_phi)
+        with self._block_lock:
+            for r in results:
+                phi = self._penalty(r)
+                if phi is None:
+                    continue  # inf / nan / failed evaluation: no information
+                if self._owner is not None and self._phi0 is None:
+                    # first evaluation of the very first block: nothing was
+                    # known before it, so it *is* best(t0).
+                    self._phi0 = phi
+                self._phis.append(phi)
+                if phi < self._best_phi:
+                    self._best_phi = phi
+                self._credit_arm_best(phi, r)
+                self._remember_top(phi, r)
+                self._reanchor_if_needed()
+                if self._owner is not None:
+                    self._trace.append(self._best_phi)
 
     def _penalty(self, r: Result) -> Optional[float]:
         """The scalar the constraint handler minimises, or ``None`` if unusable."""
@@ -790,7 +804,8 @@ class StrategyBlockBandit(StrategyBase):
             heapq.heapreplace(self._top, item)
 
     def _top_results(self) -> List[Result]:
-        return [r for _, _, r in sorted(self._top, key=lambda t: -t[0])]
+        with self._block_lock:
+            return [r for _, _, r in sorted(self._top, key=lambda t: -t[0])]
 
     # -- reward ------------------------------------------------------------
 
@@ -810,6 +825,10 @@ class StrategyBlockBandit(StrategyBase):
     # -- the block life cycle ----------------------------------------------
 
     def _close_block(self) -> None:
+        with self._block_lock:
+            self._close_block_locked()
+
+    def _close_block_locked(self) -> None:
         owner = self._owner
         if owner is None:
             return
@@ -854,13 +873,15 @@ class StrategyBlockBandit(StrategyBase):
         )
 
     def _open_block(self, h: Heuristic) -> None:
-        self._owner = h.name
-        self._block_n = 0
-        self._block_drained = False
-        self._block_is_prologue = self._prologue_pick
-        self._block_size = max(1, self.block_evals // 2) if self._prologue_pick else self.block_evals
-        self._trace = []
-        self._phi0 = self._best_phi if np.isfinite(self._best_phi) else None
+        block_size = max(1, self.block_evals // 2) if self._prologue_pick else self.block_evals
+        with self._block_lock:
+            self._owner = h.name
+            self._block_n = 0
+            self._block_drained = False
+            self._block_is_prologue = self._prologue_pick
+            self._block_size = block_size
+            self._trace = []
+            self._phi0 = self._best_phi if np.isfinite(self._best_phi) else None
         self._block_region = self._apply_pending_region(h)
         self._block_warm_started = self._warm_start(h)
         # The box is a *one-shot* hand-off: whatever the warm start made of

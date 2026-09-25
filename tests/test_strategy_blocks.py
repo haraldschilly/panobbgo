@@ -584,3 +584,25 @@ def test_an_empty_block_is_not_scored_and_the_arm_sits_out_the_next_pick():
     assert s._heuristics["H"].warm_calls, "the hollow arm must have been re-acquired"
     assert all(b["evals"] > 0 for b in s._blocks), [b for b in s._blocks if b["evals"] == 0]
     assert s._n["H"] <= 1.0  # only its prologue block was scored
+
+
+def test_results_wait_for_a_block_switch_in_progress():
+    """on_new_results (bus thread) and the block life cycle (main thread) share one lock,
+    so a result cannot land between the trace reset and the new _phi0."""
+    import threading
+
+    s = _reward_probe()
+    s._open_block(s._heuristics["A"])
+    done = threading.Event()
+
+    def deliver():
+        s.on_new_results([_result(3.0, "A")])
+        done.set()
+
+    with s._block_lock:  # stands in for a block switch on the main thread
+        t = threading.Thread(target=deliver)
+        t.start()
+        assert not done.wait(0.2), "the result was handled mid-switch"
+        assert s._trace == []
+    t.join(5)
+    assert done.is_set() and s._trace == [3.0]

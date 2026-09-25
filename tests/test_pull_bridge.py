@@ -241,9 +241,13 @@ def test_liveness_is_true_while_a_bridge_arm_owes_us_nothing():
         assert len(pts) == 1
         assert h._outstanding
         assert not h.can_produce
+        # A blocking produce() waits ``bridge_timeout`` (60 s) for a request
+        # the worker never sends, then declares it wedged.  The margin to
+        # that is wide so a loaded machine cannot fail the check.
         t0 = time.time()
         assert h.produce(1) == []
-        assert time.time() - t0 < 0.5, "produce() blocked on an arm that is blocked on us"
+        assert time.time() - t0 < 10.0, "produce() blocked on an arm that is blocked on us"
+        assert not h._bridge_done, "the bridge was declared finished while it waited on us"
     finally:
         s._cleanup()
 

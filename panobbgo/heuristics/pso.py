@@ -190,7 +190,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from panobbgo.core import Heuristic
-from panobbgo.heuristics._tagged import emit_tagged, own_results
+from panobbgo.heuristics._tagged import emit_tagged, own_failures, own_results
 from panobbgo.lib import Result
 
 
@@ -867,6 +867,18 @@ class PSO(Heuristic):
             self._maybe_rebuild_random_adjacency(prev_gbest_result)
 
             # Emit the next trial for this particle.
+            self._generate_next(particle_idx)
+
+    def on_failed_evaluations(self, points) -> None:
+        """A particle whose trial failed to evaluate moves on without it.
+
+        No result comes back for a failed evaluation, so without this the
+        particle keeps a pending entry and never moves again.  Its personal
+        best is unchanged.
+        """
+        if self._positions is None or self._pbest_x is None:
+            return
+        for particle_idx in own_failures(self.name, points, self._pending):
             self._generate_next(particle_idx)
 
     def on_restart(self, center, reason: str = "") -> None:

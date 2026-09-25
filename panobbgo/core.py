@@ -2581,8 +2581,9 @@ class StrategyBase:
                 elif now - self._last_progress_at > self._deadlock_seconds:
                     self.logger.error(
                         "Deadlock backstop: %.0fs without a new result while the run still reports "
-                        "itself alive (pending=%d, bus=%d, ready=%s). This is a bug — a wedged "
-                        "worker or a handler that never returns. Results so far: %d/%s."
+                        "itself alive (pending=%d, bus=%d, ready=%s): an evaluation running longer than "
+                        "core.deadlock_seconds, a wedged worker, or a handler that never returns. "
+                        "Raise core.deadlock_seconds or set evaluation.timeout. Results so far: %d/%s."
                         % (
                             now - self._last_progress_at,
                             len(self.pending),

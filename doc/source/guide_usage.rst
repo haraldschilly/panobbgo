@@ -150,7 +150,8 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
        scheduler_address: tcp://localhost:8786
    constraints:
      handler: DefaultConstraintHandler
-     rho: 1.0
+     # rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's
+     # own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)
 
 Edit these files to customize behavior.
 
@@ -656,7 +657,7 @@ Override ``eval_constraints()`` to return violation vector:
 Constraint Handling Methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Panobbgo supports different constraint handling strategies, configurable in ``config.ini``:
+Panobbgo supports different constraint handling strategies, selected in ``config.yaml`` (``constraints: handler: ...``) or with the ``constraint_handler`` strategy argument:
 
 1. **DefaultConstraintHandler** (default):
    Lexicographic ordering. Prioritizes feasibility (cv=0) over objective function value.

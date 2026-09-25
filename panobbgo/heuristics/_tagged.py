@@ -20,8 +20,9 @@ Tagged trials
 Population heuristics (:class:`~.lshade.LSHADE` and its variants,
 :class:`~.pso.PSO`) tag every point they emit with a request id,
 ``who = "<name>:<req_id>"``, keep per-request bookkeeping in a ``pending``
-dict, and match each returning result back to it.  These two helpers are that
-round trip.
+dict, and match each returning result back to it.  These helpers are that round
+trip, including the case where an evaluation fails and no result returns
+(``failed_evaluations`` event).
 """
 
 from __future__ import annotations
@@ -69,3 +70,19 @@ def own_results(name: str, results: Iterable[Any], pending: Dict[str, Any]) -> I
         if meta is None:
             continue  # stale or unknown trial id
         yield r, meta
+
+
+def own_failures(name: str, points: Iterable[Any], pending: Dict[str, Any]) -> Iterator[Any]:
+    """Yield the pending *meta* of each failed point tagged ``"<name>:<req_id>"``.
+
+    The counterpart of :func:`own_results` for the ``failed_evaluations``
+    event: the entry is popped, so the trial no longer blocks its slot.
+    """
+    prefix = f"{name}:"
+    for p in points:
+        who: str = getattr(p, "who", "") or ""
+        if not who.startswith(prefix):
+            continue
+        meta = pending.pop(who[len(prefix) :], None)
+        if meta is not None:
+            yield meta

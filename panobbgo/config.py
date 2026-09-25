@@ -388,11 +388,8 @@ class Config:
         self.convergence_threshold = get_config("convergence.threshold", None, None, 1e-6, float)
         self.convergence_mode = get_config("convergence.mode", None, None, "std", str)
         self.convergence_require_feasibility = get_config("convergence.require_feasibility", None, None, False, bool)
-        # Default: the window size.  Only set when configured — the analyzer
-        # falls back to its window size when the attribute is absent.
-        min_evaluations = get_config("convergence.min_evaluations", None, None, None, int)
-        if min_evaluations is not None:
-            self.convergence_min_evaluations = min_evaluations
+        # ``None``: the analyzer uses its window size.
+        self.convergence_min_evaluations = get_config("convergence.min_evaluations", None, None, None, int)
 
         # Storage configuration
         self.storage_backend = get_config("storage.backend", "storage", "backend", None, str)

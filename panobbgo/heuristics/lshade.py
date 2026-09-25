@@ -155,7 +155,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from panobbgo.core import Heuristic, known_budget
-from panobbgo.heuristics._tagged import emit_tagged, own_results
+from panobbgo.heuristics._tagged import emit_tagged, own_failures, own_results
 from panobbgo.lib import Result
 from panobbgo.lib.constraints import result_key
 
@@ -1312,6 +1312,34 @@ class LSHADE(Heuristic):
                 self._generate_trial(slot_idx)
 
             # Wake up any idle live slots (filled, but no pending trial).
+            self._wake_idle_slots()
+
+    def on_failed_evaluations(self, points) -> None:
+        """Free the slots whose trial failed to evaluate, and keep them working.
+
+        A failed trial produces no result, so without this its slot keeps a
+        pending entry forever and is never woken again.  A failed initial
+        point is redrawn; a failed competitive trial counts as a lost one (the
+        target stays) and the slot gets its next trial.
+        """
+        if not self._population:
+            return
+        for meta in own_failures(self.name, points, self._pending):
+            slot_idx = meta.slot_idx
+            if slot_idx >= len(self._population):
+                continue
+            slot = self._population[slot_idx]
+            if isinstance(slot, _Dropped):
+                continue
+            if slot is None:
+                x = self.problem.random_point(rng=self._rng)
+                self._emit_trial(x, slot_idx, F=float("nan"), CR=float("nan"))
+            else:
+                self._gen_completed += 1
+                if self._gen_completed >= max(self._NP_current, 1):
+                    self._end_of_generation()
+                if slot_idx < len(self._population) and isinstance(self._population[slot_idx], Result):
+                    self._generate_trial(slot_idx)
             self._wake_idle_slots()
 
     def on_restart(self, center, reason: str = "") -> None:

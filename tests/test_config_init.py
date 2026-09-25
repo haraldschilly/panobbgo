@@ -163,7 +163,7 @@ def test_convergence_defaults_are_unchanged():
         c = Config(testing_mode=True)
     assert (c.convergence_window_size, c.convergence_threshold, c.convergence_mode) == (50, 1e-6, "std")
     assert c.convergence_require_feasibility is False
-    assert not hasattr(c, "convergence_min_evaluations")
+    assert c.convergence_min_evaluations is None
 
 
 if __name__ == "__main__":

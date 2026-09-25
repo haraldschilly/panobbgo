@@ -16,8 +16,9 @@ Remove an item when it is done; record the result in the planning log, not here.
   re-acquisition, both-sided and superadditive — a ratchet, §48/§50); it
   carries m and σ only, never the covariance shape (§49, §51).
 - **Bandit** allocation contributes nothing (§31); blocking itself is free (§50).
-- **Regime gate** step 1 landed (`regime_gate="table-v1"`, §45): masking is
-  cost-free, so the gate is worth exactly what its table is worth.
+- **Regime gate** step 1 landed as the oracle form
+  (`regime_gate="oracle:<class>"`, §45; the in-run probe `"table-v1"` is not
+  built): masking is cost-free, so the gate is worth exactly what its table is worth.
 - **§53**: at 200·dim the better arm flips per function (jSO vs CMA-ES); the
   cell-wise oracle is 0.015–0.039 above the portfolio. Remaining value is in
   **selection**, not in more sharing.

@@ -38,15 +38,19 @@ Heuristics without ``on_restart`` simply continue as before (graceful degradatio
 
 from __future__ import unicode_literals
 
+from typing import Optional
+
 import numpy as np
 from panobbgo.core import Analyzer
+from panobbgo.lib import Result
+from panobbgo.lib.constraints import result_key
 
 
 class Restart(Analyzer):
     """
     Detects search stagnation and publishes ``restart`` events.
 
-    Listens to ``new_results``, tracks the best penalty value of the current
+    Listens to ``new_results``, tracks the best result of the current
     *epoch* (the stretch since the last restart), and fires a ``restart`` event
     when no sufficient improvement on it is found within ``patience``
     evaluations.  The epoch best is reset on every restart: a fresh basin is
@@ -100,8 +104,8 @@ class Restart(Analyzer):
         self._max_restarts = max_restarts
         self._restart_strategy = restart_strategy
 
-        #: Best penalty of the current epoch (reset on every restart).
-        self._best_penalty: float = float("inf")
+        #: Best result of the current epoch (reset on every restart).
+        self._epoch_best: Optional[Result] = None
         self._evals_since_improvement = 0
         self._restart_count = 0
         self._previous_centers: list[np.ndarray] = []
@@ -129,17 +133,8 @@ class Restart(Analyzer):
             if r.fx is None:
                 self._evals_since_improvement += 1
                 continue
-            penalty = handler.get_penalty_value(r) if handler else r.fx
-
-            improved = False
-            if penalty < self._best_penalty:
-                if self._best_penalty == float("inf"):
-                    improved = True
-                else:
-                    rel_improvement = (self._best_penalty - penalty) / max(abs(self._best_penalty), 1e-12)
-                    improved = rel_improvement > self._improvement_threshold
-            if improved:
-                self._best_penalty = penalty
+            if self._improves(handler, r):
+                self._epoch_best = r
                 self._evals_since_improvement = 0
             else:
                 self._evals_since_improvement += 1
@@ -147,12 +142,37 @@ class Restart(Analyzer):
         if self._evals_since_improvement >= self._patience:
             self._trigger_restart()
 
+    def _improves(self, handler, r) -> bool:
+        """Does ``r`` improve on the epoch best by more than the threshold?
+
+        Ranked with the constraint handler's ordering (``rank_key``), the same
+        one ``Best`` uses — so e.g. a feasible point improves on an infeasible
+        one however large its ``fx``.  The relative threshold applies to the
+        last key component when the leading ones (feasibility tiers) tie; with
+        a scalar penalty that is the penalty itself.  The epoch best's key is
+        recomputed on every call, so a time-varying ordering is not cached.
+        """
+        best = self._epoch_best
+        if best is None:
+            return True
+        new_key = result_key(handler, r)
+        old_key = result_key(handler, best)
+        if not new_key < old_key:
+            return False
+        if new_key[:-1] != old_key[:-1]:
+            return True  # better in a leading (feasibility) component
+        old_v, new_v = old_key[-1], new_key[-1]
+        if old_v == float("inf"):
+            return True
+        rel_improvement = (old_v - new_v) / max(abs(old_v), 1e-12)
+        return rel_improvement > self._improvement_threshold
+
     def _trigger_restart(self):
         center = self._pick_new_center()
         self._restart_count += 1
         self._evals_since_improvement = 0
         # New epoch: the next basin is measured against its own best.
-        self._best_penalty = float("inf")
+        self._epoch_best = None
         self._previous_centers.append(center)
 
         reason = f"No improvement for {self._patience} evaluations (restart {self._restart_count}/{self._max_restarts})"

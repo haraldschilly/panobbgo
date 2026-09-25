@@ -87,18 +87,13 @@ class RegionUCB(Heuristic):
         box = leaf.box
         return box.box if hasattr(box, "box") else box
 
-    def _leaf_penalty(self, leaf):
-        """Best penalty value in the leaf (constraint-aware), or +inf if empty."""
-        if leaf.best is None:
-            return float("inf")
+    def _leaf_ranks(self, leafs):
+        """Dense rank of each leaf's best under the constraint handler's
+        ordering (``0`` = best; empty leaves last)."""
+        from panobbgo.lib.constraints import rank_positions
+
         handler = getattr(self.strategy, "constraint_handler", None)
-        if handler is not None:
-            try:
-                return handler.get_penalty_value(leaf.best)
-            except Exception:
-                pass
-        fx = leaf.best.fx
-        return float("inf") if fx is None else fx
+        return rank_positions(handler, [leaf.best for leaf in leafs])
 
     def select_leaf(self, leafs):
         """
@@ -113,7 +108,7 @@ class RegionUCB(Heuristic):
             return leafs[int(self.rng.choice(empty))]
 
         # rank-based quality in [0, 1]: best penalty -> 1, worst -> 0
-        penalties = np.array([self._leaf_penalty(leaf) for leaf in leafs])
+        penalties = self._leaf_ranks(leafs)
         order = np.argsort(np.argsort(penalties))  # rank, 0 = best
         if len(leafs) > 1:
             quality = 1.0 - order / (len(leafs) - 1.0)

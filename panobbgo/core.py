@@ -797,17 +797,18 @@ class Heuristic(Module):
             pool = list(getattr(region, "results", []))
         except Exception:
             return []
+        from panobbgo.lib.constraints import result_key
+
         handler = getattr(self._strategy, "constraint_handler", None)
 
-        def penalty(r: "Result") -> float:
+        def key(r: "Result") -> tuple:
+            # The handler's ordering (what ``Best`` and ``Archive`` rank by).
             try:
-                if handler is None:
-                    return float("inf") if r.fx is None else float(r.fx)
-                return float(handler.get_penalty_value(r))
+                return tuple(float(v) for v in result_key(handler, r))
             except (TypeError, ValueError):
-                return float("inf")
+                return (float("inf"),)
 
-        return sorted(pool, key=penalty)[:k]
+        return sorted(pool, key=key)[:k]
 
     def warm_start_now(self) -> bool:
         """Re-seed this heuristic from the shared archive, right now.

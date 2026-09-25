@@ -464,18 +464,25 @@ Implementing Constraint Handlers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can implement custom constraint handling logic by subclassing `ConstraintHandler`.
-This allows you to define how solutions are compared (`is_better`) and how improvement is calculated.
+A handler defines **one** ordering, ``rank_key`` (a tuple, lower is better);
+``is_better`` and ``calculate_improvement`` are derived from it, and every
+analyzer that ranks results (``Best``, ``Archive``, ``Restart``, ``Splitter``,
+...) uses it.  Override ``_improvement`` for the reward magnitude and
+``get_penalty_value`` for the scalar surrogate that local solvers minimise.
+Set ``time_invariant = True`` only if the ordering never changes during a run
+(consumers may then cache keys and penalty values).
 
 .. code-block:: python
 
    from panobbgo.lib.constraints import ConstraintHandler
 
    class MyConstraintHandler(ConstraintHandler):
-       def is_better(self, old_best, new_result):
-           # Custom logic, e.g., tolerance-based comparison
-           if new_result.cv < 1e-6 and old_best.cv < 1e-6:
-               return new_result.fx < old_best.fx
-           return new_result.cv < old_best.cv
+       time_invariant = True
+
+       def rank_key(self, result):
+           # Tolerance-based feasibility first, then the objective.
+           cv = result.cv if result.cv >= 1e-6 else 0.0
+           return (cv, result.fx)
 
 Constraint-Specific Heuristics
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

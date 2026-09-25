@@ -655,30 +655,19 @@ class Splitter(Analyzer):
             return dim if usable[dim] > 0.0 else None
 
         def _penalties(self):
-            """Constraint-aware objective values of this box's results.
+            """Constraint-aware order of this box's results, as dense ranks.
 
-            Non-finite values (``NaN``, ``+/-inf``) and missing ``fx`` map to
-            ``+inf``, i.e. "worst"; ranking them rather than using them
-            keeps the split rule scale-free and immune to a single blown-up
-            evaluation.
+            Position of each result under the constraint handler's ordering
+            (``rank_key``, the one ``Best`` uses), ``0`` = best.  Missing or
+            non-finite objectives rank last.  Only the order is used (see
+            :meth:`_ranks`), so ranks lose nothing against raw penalties — and
+            unlike ``get_penalty_value`` they agree with ``is_better`` for a
+            lexicographic handler.
             """
+            from panobbgo.lib.constraints import rank_positions
+
             handler = getattr(self.splitter.strategy, "constraint_handler", None)
-            out = np.empty(len(self.results), dtype=float)
-            for i, r in enumerate(self.results):
-                v = None
-                if handler is not None:
-                    try:
-                        v = handler.get_penalty_value(r)
-                    except Exception:
-                        v = None
-                if v is None:
-                    v = r.fx
-                try:
-                    v = float(v)  # pyright: ignore[reportArgumentType]
-                except (TypeError, ValueError):
-                    v = np.inf
-                out[i] = v if np.isfinite(v) else np.inf
-            return out
+            return rank_positions(handler, self.results)
 
         @staticmethod
         def _ranks(vals):

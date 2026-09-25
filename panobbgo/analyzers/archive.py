@@ -25,7 +25,9 @@ What the store offers today is either too little or too much: ``Results``
 only replays the last *n* rows as floats, ``Best`` collapses to a single
 incumbent, and ``Splitter.root.results`` is a complete but unsorted,
 unbounded ``list[Result]``.  This analyzer keeps the *K* best results seen so
-far, ranked by the constraint handler's penalty value and **not filtered by
+far, ranked by the constraint handler's ordering
+(:meth:`~panobbgo.lib.constraints.ConstraintHandler.rank_key`, the one ``Best``
+uses) and **not filtered by
 ``who``** — an arm that asks for a seed gets the best points in the run,
 whoever produced them.
 
@@ -52,6 +54,7 @@ import numpy as np
 
 from panobbgo.core import Analyzer
 from panobbgo.lib import Result
+from panobbgo.lib.constraints import result_key
 
 #: Default number of results retained.
 DEFAULT_K = 256
@@ -59,7 +62,14 @@ DEFAULT_K = 256
 
 class Archive(Analyzer):
     r"""
-    Bounded top-K of the shared result stream, ranked by penalty value.
+    Bounded top-K of the shared result stream, ranked by the constraint
+    handler's ordering (``rank_key``).
+
+    With a time-varying handler (``time_invariant`` is ``False``, e.g.
+    dynamic penalty or augmented Lagrangian) the retained entries are re-ranked
+    under the current ordering before every batch and every query, so the
+    heap order never goes stale; which results were *admitted* earlier still
+    reflects the ordering at the time.
 
     :param strategy: the owning strategy.
     :param k: how many results to retain (default :data:`DEFAULT_K`).
@@ -73,19 +83,31 @@ class Archive(Analyzer):
             raise ValueError(f"Archive: k must be >= 1, got {k}")
         Analyzer.__init__(self, strategy, name=name)
         self.K: int = int(k)
-        #: min-heap of ``(-penalty, -seq, result)``; the root is therefore the
-        #: *worst* retained entry, which is the one an incoming better result
-        #: replaces.  ``-seq`` breaks ties deterministically in favour of the
-        #: older result and keeps :class:`~panobbgo.lib.Result` out of the
-        #: comparison (``Result.__eq__`` only looks at ``fx``).
-        self._heap: List[Tuple[float, int, Result]] = []
+        #: min-heap of ``(-key, -seq, result)`` with ``-key`` the element-wise
+        #: negated ranking key; the root is therefore the *worst* retained
+        #: entry, which is the one an incoming better result replaces.
+        #: ``-seq`` breaks ties deterministically in favour of the older result
+        #: and keeps :class:`~panobbgo.lib.Result` out of the comparison
+        #: (``Result.__eq__`` only looks at ``fx``).
+        self._heap: List[Tuple[Tuple[float, ...], int, Result]] = []
         self._seq: int = 0
 
     # -- ingestion ---------------------------------------------------------
 
+    def _handler(self):
+        return getattr(self.strategy, "constraint_handler", None)
+
+    def _key(self, r: Result) -> Optional[Tuple[float, ...]]:
+        """The handler's ranking key of ``r``, or ``None`` if unusable."""
+        try:
+            key = tuple(float(v) for v in result_key(self._handler(), r))
+        except (TypeError, ValueError):
+            return None
+        return key if all(np.isfinite(v) for v in key) else None
+
     def _penalty(self, r: Result) -> Optional[float]:
-        """The scalar the constraint handler minimises, or ``None`` if unusable."""
-        handler = getattr(self.strategy, "constraint_handler", None)
+        """The handler's scalar penalty value, or ``None`` if unusable."""
+        handler = self._handler()
         try:
             if handler is None:
                 value = float("inf") if r.fx is None else float(r.fx)
@@ -95,14 +117,29 @@ class Archive(Analyzer):
             return None
         return value if np.isfinite(value) else None
 
+    def _rerank(self) -> None:
+        """Re-key the retained entries if the handler's ordering can change."""
+        handler = self._handler()
+        if handler is None or getattr(handler, "time_invariant", False) or not self._heap:
+            return
+        heap = []
+        for _, neg_seq, r in self._heap:
+            key = self._key(r)
+            if key is not None:
+                heap.append((tuple(-v for v in key), neg_seq, r))
+        heapq.heapify(heap)
+        self._heap = heap
+
     def on_new_results(self, results: Iterable[Result]) -> None:
-        """Fold every result into the bounded top-K.  ``O(log K)`` per result."""
+        """Fold every result into the bounded top-K.  ``O(log K)`` per result
+        (plus an ``O(K)`` re-rank per batch for a time-varying handler)."""
+        self._rerank()
         for r in results:
-            phi = self._penalty(r)
-            if phi is None:
+            key = self._key(r)
+            if key is None:
                 continue  # inf / nan / failed evaluation: no information
             self._seq += 1
-            item = (-phi, -self._seq, r)
+            item = (tuple(-v for v in key), -self._seq, r)
             if len(self._heap) < self.K:
                 heapq.heappush(self._heap, item)
             elif item > self._heap[0]:
@@ -116,10 +153,14 @@ class Archive(Analyzer):
     @property
     def results(self) -> List[Result]:
         """Every retained result, best first."""
+        self._rerank()
         return [r for _, _, r in sorted(self._heap, reverse=True)]
 
     def penalty_of(self, r: Result) -> float:
-        """Penalty value of ``r``, ``inf`` when it cannot be evaluated."""
+        """Scalar penalty value of ``r``, ``inf`` when it cannot be evaluated.
+
+        A magnitude, not the ranking: with a lexicographic handler it can
+        order two results differently from :meth:`top_k`."""
         phi = self._penalty(r)
         return float("inf") if phi is None else phi
 
@@ -139,15 +180,19 @@ class Archive(Analyzer):
         :param exclude_who: a ``who`` tag, or an iterable of them, to skip.
             Matching is by heuristic name, so ``"PSO"`` also drops
             ``"PSO:1a2b…"``.
-        :param fx_max: keep only results whose penalty is ``<= fx_max``.
+        :param fx_max: keep only results whose scalar penalty
+            (:meth:`penalty_of`) is ``<= fx_max``.
         """
         if k <= 0:
             return []
+        self._rerank()
         excluded = self._who_filter(exclude_who)
         out: List[Result] = []
-        for neg_phi, _, r in sorted(self._heap, reverse=True):
-            if fx_max is not None and -neg_phi > fx_max:
-                break  # sorted ascending in penalty: nothing later can pass
+        for _, _, r in sorted(self._heap, reverse=True):
+            # Not a ``break``: the order is the handler's ranking, which for a
+            # lexicographic handler is not monotone in the scalar penalty.
+            if fx_max is not None and self.penalty_of(r) > fx_max:
+                continue
             if excluded and self._who_of(r) in excluded:
                 continue
             if box is not None and not self._in_box(r, box):
@@ -200,7 +245,8 @@ class Archive(Analyzer):
             leafs = [box for box in splitter.leafs if getattr(box, "best", None) is not None]
         except Exception:
             return []
-        leafs.sort(key=lambda box: self.penalty_of(box.best))
+        handler = self._handler()
+        leafs.sort(key=lambda box: result_key(handler, box.best))
         out: List[Result] = []
         seen: Dict[int, bool] = {}
         for box in leafs:

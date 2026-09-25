@@ -28,6 +28,7 @@ from __future__ import unicode_literals
 
 import numpy as np
 from panobbgo.core import Analyzer
+from panobbgo.lib.constraints import dense_ranks, result_key
 from scipy.stats import spearmanr
 
 
@@ -35,8 +36,14 @@ class Sensitivity(Analyzer):
     """
     Estimates per-dimension sensitivity from evaluation history.
 
-    Listens to ``new_results`` events, accumulates X and y (penalty values),
-    and periodically computes importance scores for each dimension.
+    Listens to ``new_results`` events, accumulates X and y, and periodically
+    computes importance scores for each dimension.
+
+    ``"spearman"`` only needs the *order* of the results, and takes it from the
+    constraint handler's ranking key (``rank_key``, the ordering ``Best``
+    uses).  ``"partial"`` regresses on magnitudes, so it uses the scalar
+    ``get_penalty_value`` surrogate.  Both are recorded when a result arrives;
+    with a time-varying handler they reflect the ordering at that time.
 
     Configuration parameters:
 
@@ -60,6 +67,8 @@ class Sensitivity(Analyzer):
 
         self._X: np.ndarray | None = None
         self._y: np.ndarray | None = None
+        #: ranking keys, parallel to ``_y`` (see the class docstring)
+        self._keys: list[tuple] = []
         self._count_since_update = 0
         self._importance: np.ndarray | None = None
 
@@ -88,6 +97,7 @@ class Sensitivity(Analyzer):
 
         new_X = []
         new_y = []
+        new_keys = []
         for r in results:
             if r.x is None or r.fx is None or np.isnan(r.fx):
                 continue
@@ -97,10 +107,12 @@ class Sensitivity(Analyzer):
                 y_val = r.fx
             new_X.append(r.x)
             new_y.append(y_val)
+            new_keys.append(result_key(handler, r))
 
         if not new_X:
             return
 
+        self._keys.extend(new_keys)
         batch_X = np.array(new_X)
         batch_y = np.array(new_y)
 
@@ -118,7 +130,8 @@ class Sensitivity(Analyzer):
         if self._method == "partial":
             importance = self._partial_correlation(self._X, self._y)
         else:
-            importance = self._spearman_correlation(self._X, self._y, dim)
+            # Spearman is rank-based: the handler's order is exactly its input.
+            importance = self._spearman_correlation(self._X, dense_ranks(self._keys), dim)
 
         self._importance = importance
         self.logger.info(f"Sensitivity: {importance}")

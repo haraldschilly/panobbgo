@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2024 Panobbgo Contributors
+# Copyright 2024-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,16 +20,85 @@ Constraint Handling
 This module provides classes for handling constraints in optimization strategies,
 specifically for calculating "improvement" or "fitness" when comparing results
 that may differ in feasibility.
+
+Every handler has **one** ordering, :meth:`ConstraintHandler.rank_key` (a
+tuple, lower is better).  :meth:`~ConstraintHandler.is_better` and
+:meth:`~ConstraintHandler.calculate_improvement` are derived from it in the
+base class, and every consumer that *ranks* results (``Best``, ``Archive``,
+``Restart``, the ``Splitter``, ``RegionUCB``, ...) goes through it — so the
+incumbent and the rankings cannot disagree.
+
+:meth:`~ConstraintHandler.get_penalty_value` is something else: a *scalar
+surrogate* for consumers that need one number to minimise or regress on
+(scipy local solvers, surrogate models, CMA-ES fitness).  For the penalty
+handlers it defines the ordering; for the lexicographic handlers
+(``Default``, ``Epsilon``, ``Filter``) no scalar can, and it is only an
+approximation — do not rank with it.
+
+Some orderings change during a run (``DynamicPenalty``: ``rho`` grows with the
+number of results; ``Epsilon``: ``epsilon`` decays; ``AugmentedLagrangian``:
+``mu``/``lambda`` updates).  Those handlers set
+:attr:`ConstraintHandler.time_invariant` to ``False``; consumers must not
+cache keys or penalty values for them (a cached heap order, a box's ``best``,
+a memoised penalty all go stale).
 """
 
 from panobbgo.lib import Result, Point
 import numpy as np
 
 
+def _finite_or_inf(v) -> float:
+    """``v`` as a float, with ``None`` / ``NaN`` / non-numbers mapped to ``+inf`` ("worst")."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return float("inf")
+    return v if not np.isnan(v) else float("inf")
+
+
+def result_key(handler, result) -> tuple:
+    """The ranking key of ``result`` under ``handler`` (plain ``fx`` without one).
+
+    Lower is better; a missing result or objective ranks last.
+    """
+    if result is None or result.fx is None:
+        return (float("inf"),)
+    if handler is None:
+        return (_finite_or_inf(result.fx),)
+    rank_key = getattr(handler, "rank_key", None)
+    if rank_key is None:  # a duck-typed handler that only has a penalty
+        return (_finite_or_inf(handler.get_penalty_value(result)),)
+    return rank_key(result)
+
+
+def rank_positions(handler, results) -> np.ndarray:
+    """Dense ranks (``0`` = best, ties share a rank) of ``results`` under ``handler``.
+
+    For consumers that only need an order (rank statistics, UCB quality):
+    unlike ``get_penalty_value`` it agrees with :meth:`ConstraintHandler.is_better`.
+    """
+    return dense_ranks([result_key(handler, r) for r in results])
+
+
+def dense_ranks(keys) -> np.ndarray:
+    """Dense ranks (``0`` = smallest, ties share a rank) of comparable ``keys``."""
+    uniq = {k: i for i, k in enumerate(sorted(set(keys)))}
+    return np.array([uniq[k] for k in keys], dtype=float)
+
+
 class ConstraintHandler:
     """
     Abstract base class for constraint handlers.
+
+    Subclasses define the ordering by overriding :meth:`rank_key` (the default
+    ranks by :meth:`get_penalty_value`) and the reward magnitude by overriding
+    :meth:`_improvement`; :meth:`is_better` and :meth:`calculate_improvement`
+    are derived and should not be overridden.
     """
+
+    #: ``True`` when :meth:`rank_key` and :meth:`get_penalty_value` of a given
+    #: result never change during a run, so consumers may cache them.
+    time_invariant = False
 
     def __init__(self, strategy=None, **kwargs):
         """
@@ -45,9 +114,44 @@ class ConstraintHandler:
     def name(self):
         return self._name
 
+    def rank_key(self, result: Result) -> tuple:
+        """The ordering of this handler: a tuple, lower is better.
+
+        The single source of truth for "which result is better".  The default
+        ranks by the scalar :meth:`get_penalty_value`, which is right for the
+        penalty-type handlers; lexicographic handlers override it.
+
+        Args:
+            result (Result): a result with a non-``None`` ``fx``.
+
+        Returns:
+            tuple: comparable key; non-finite components are ``+inf``.
+        """
+        return (_finite_or_inf(self.get_penalty_value(result)),)
+
+    def is_better(self, old_best: Result, new_result: Result) -> bool:
+        """
+        Determines if new_result is better than old_best (derived from :meth:`rank_key`).
+
+        Args:
+            old_best (Result): The current best result (can be None).
+            new_result (Result): The new result to check.
+
+        Returns:
+            bool: True if new_result is better, False otherwise.
+        """
+        if old_best is None:
+            return True
+        if new_result is None or new_result.fx is None:
+            return False
+        return result_key(self, new_result) < result_key(self, old_best)
+
     def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
         """
         Calculates improvement magnitude between old and new best points.
+
+        Positive exactly when :meth:`is_better` holds, so a reward can never
+        contradict the ordering.
 
         Args:
             old_best (Result): The previous best result.
@@ -57,20 +161,24 @@ class ConstraintHandler:
             float: A non-negative scalar representing the magnitude of improvement.
                    Larger values indicate better improvement.
         """
-        raise NotImplementedError
+        if old_best is None:
+            # First point found is treated as a baseline improvement
+            return 1.0
+        if not self.is_better(old_best, new_best):
+            return 0.0
+        mag = _finite_or_inf(self._improvement(old_best, new_best))
+        if not mag > 0.0 or mag == float("inf"):
+            # Better by the ordering but no measurable magnitude (a tie-break,
+            # or an unbounded old value): still an improvement.
+            return float(np.finfo(float).eps) if not mag > 0.0 else 1.0
+        return float(mag)
 
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
+    def _improvement(self, old_best: Result, new_best: Result) -> float:
+        """Magnitude of the improvement; only called when ``new_best`` is better.
+
+        Default: the drop in :meth:`get_penalty_value`.
         """
-        Determines if new_result is better than old_best.
-
-        Args:
-            old_best (Result): The current best result (can be None).
-            new_result (Result): The new result to check.
-
-        Returns:
-            bool: True if new_result is better, False otherwise.
-        """
-        raise NotImplementedError
+        return self.get_penalty_value(old_best) - self.get_penalty_value(new_best)
 
     def get_penalty_value(self, result: Result) -> float:
         """
@@ -97,12 +205,18 @@ class DefaultConstraintHandler(ConstraintHandler):
     """
     Handles constraints by prioritizing feasibility (Lexicographic ordering).
 
-    Order of preference:
-    1. Feasible points (cv=0) with lower fx.
-    2. Infeasible points (cv>0) with lower cv.
+    Order of preference (:meth:`rank_key` = ``(cv, fx)``):
+    1. Lower constraint violation ``cv`` (so every feasible point beats every
+       infeasible one).
+    2. At equal ``cv`` (e.g. both feasible), lower ``fx``.
 
     If switching from Infeasible to Feasible, improvement is considered very high.
+
+    :meth:`get_penalty_value` (``fx + rho * cv``) is only a scalar surrogate for
+    solvers that need one number; it does not rank like this handler.
     """
+
+    time_invariant = True
 
     def __init__(self, strategy=None, rho=100.0, **kwargs):
         """
@@ -113,20 +227,18 @@ class DefaultConstraintHandler(ConstraintHandler):
         super().__init__(strategy, **kwargs)
         self.rho = rho
 
-    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
-        if old_best is None:
-            # First point found is treated as a baseline improvement
-            return 1.0
+    def rank_key(self, result: Result) -> tuple:
+        cv = result.cv if result.cv is not None else 0.0
+        return (_finite_or_inf(cv), _finite_or_inf(result.fx))
 
+    def _improvement(self, old_best: Result, new_best: Result) -> float:
         old_feasible = old_best.cv == 0
         new_feasible = new_best.cv == 0
 
         # Case 1: Both Feasible
         if old_feasible and new_feasible:
             # Standard improvement in objective function
-            if old_best.fx is None or new_best.fx is None:
-                return 0.0
-            return float(max(0.0, old_best.fx - new_best.fx))
+            return _finite_or_inf(old_best.fx) - _finite_or_inf(new_best.fx)
 
         # Case 2: Old Infeasible, New Feasible
         if not old_feasible and new_feasible:
@@ -135,38 +247,12 @@ class DefaultConstraintHandler(ConstraintHandler):
             # This ensures this transition is valued higher than small fx improvements.
             return float(10.0 + self.rho * old_best.cv)
 
-        # Case 3: Both Infeasible
-        if not old_feasible and not new_feasible:
-            # Primary goal is to reduce constraint violation
-            cv_improv = old_best.cv - new_best.cv
-            if cv_improv > 0:
-                return float(cv_improv * self.rho)
-
-            # If CV is same (unlikely with floats, but possible), check fx?
-            # Usually we stick to CV reduction.
-            return 0.0
-
-        # Case 4: Old Feasible, New Infeasible
-        # This implies a regression in quality, so 0 improvement.
-        return 0.0
-
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
-        if old_best is None:
-            return True
-
-        cv_old = old_best.cv if old_best.cv is not None else 0.0
-        cv_new = new_result.cv if new_result.cv is not None else 0.0
-
-        # Prioritize feasibility (CV)
-        if cv_new < cv_old:
-            return True
-        if cv_new > cv_old:
-            return False
-
-        # If CV is equal (e.g. both 0), check FX
-        if new_result.fx is None or old_best.fx is None:
-            return False
-        return new_result.fx < old_best.fx
+        # Case 3: Both Infeasible — primary goal is to reduce constraint violation;
+        # at equal violation the objective breaks the tie.
+        cv_improv = old_best.cv - new_best.cv
+        if cv_improv > 0:
+            return float(cv_improv * self.rho)
+        return _finite_or_inf(old_best.fx) - _finite_or_inf(new_best.fx)
 
 
 class PenaltyConstraintHandler(ConstraintHandler):
@@ -176,8 +262,10 @@ class PenaltyConstraintHandler(ConstraintHandler):
     The penalized objective function is:
         P(x) = f(x) + rho * cv(x)^exponent
 
-    Improvement is defined as reduction in P(x).
+    Improvement is defined as reduction in P(x); P is also the ordering.
     """
+
+    time_invariant = True
 
     def __init__(self, strategy=None, rho=100.0, exponent=1.0, **kwargs):
         """
@@ -189,34 +277,6 @@ class PenaltyConstraintHandler(ConstraintHandler):
         super().__init__(strategy, **kwargs)
         self.rho = rho
         self.exponent = exponent
-
-    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
-        if old_best is None:
-            return 1.0
-
-        # Calculate penalized values
-        # P(x) = f(x) + rho * cv(x)^exponent
-
-        # Handle potential None for cv (though Result.cv returns 0.0 if None)
-        cv_old = old_best.cv if old_best.cv is not None else 0.0
-        cv_new = new_best.cv if new_best.cv is not None else 0.0
-
-        p_old = old_best.fx + self.rho * (cv_old**self.exponent)
-        p_new = new_best.fx + self.rho * (cv_new**self.exponent)
-
-        return float(max(0.0, p_old - p_new))
-
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
-        if old_best is None:
-            return True
-
-        cv_old = old_best.cv if old_best.cv is not None else 0.0
-        cv_new = new_result.cv if new_result.cv is not None else 0.0
-
-        p_old = old_best.fx + self.rho * (cv_old**self.exponent)
-        p_new = new_result.fx + self.rho * (cv_new**self.exponent)
-
-        return p_new < p_old
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
@@ -234,6 +294,11 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
 
     Where rho(t) = rho_start * (1 + rate * t)
     and t is the number of evaluations or loops.
+
+    The ordering is P at the *current* rho, so it changes with every result
+    (:attr:`time_invariant` is ``False``): a ranking made earlier — a box's
+    ``best``, an archive heap, a memoised penalty — can be stale.  Consumers
+    that cache must re-rank; ``Best`` keeps the incumbent it had.
     """
 
     def __init__(self, strategy=None, rho_start=10.0, rate=0.01, exponent=2.0, **kwargs):
@@ -249,34 +314,6 @@ class DynamicPenaltyConstraintHandler(ConstraintHandler):
         # Use number of results as time proxy
         t = len(self.strategy.results)
         return self.rho_start * (1.0 + self.rate * t)
-
-    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
-        if old_best is None:
-            return 1.0
-
-        rho = self._get_current_rho()
-
-        cv_old = old_best.cv if old_best.cv is not None else 0.0
-        cv_new = new_best.cv if new_best.cv is not None else 0.0
-
-        p_old = old_best.fx + rho * (cv_old**self.exponent)
-        p_new = new_best.fx + rho * (cv_new**self.exponent)
-
-        return float(max(0.0, p_old - p_new))
-
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
-        if old_best is None:
-            return True
-
-        rho = self._get_current_rho()
-
-        cv_old = old_best.cv if old_best.cv is not None else 0.0
-        cv_new = new_result.cv if new_result.cv is not None else 0.0
-
-        p_old = old_best.fx + rho * (cv_old**self.exponent)
-        p_new = new_result.fx + rho * (cv_new**self.exponent)
-
-        return p_new < p_old
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
@@ -528,26 +565,6 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             if hasattr(self, "logger"):
                 self.logger.warning(f"Failed to scan history for new best in ALM: {e}")
 
-    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
-        # Calculate Lagrangian value for both
-        L_old = self._calculate_lagrangian(old_best)
-        L_new = self._calculate_lagrangian(new_best)
-        if L_old is None or L_new is None:
-            return 0.0
-        return float(max(0.0, float(L_old) - float(L_new)))
-
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
-        if old_best is None:
-            return True
-
-        L_old = self._calculate_lagrangian(old_best)
-        L_new = self._calculate_lagrangian(new_result)
-
-        if L_old is None or L_new is None:
-            return False
-
-        return float(L_new) < float(L_old)
-
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
             return float("inf")
@@ -633,18 +650,18 @@ class EpsilonConstraintHandler(ConstraintHandler):
         eps = self._get_current_epsilon()
         return max(0.0, cv - eps)
 
-    def calculate_improvement(self, old_best: Result, new_best: Result) -> float:
-        if old_best is None:
-            return 1.0
+    def rank_key(self, result: Result) -> tuple:
+        # Effectively feasible (phi == 0): by fx.  Otherwise by phi alone.
+        phi = self._phi(result)
+        return (phi, _finite_or_inf(result.fx) if phi == 0.0 else 0.0)
 
+    def _improvement(self, old_best: Result, new_best: Result) -> float:
         phi_old = self._phi(old_best)
         phi_new = self._phi(new_best)
 
         # Case 1: Both effectively feasible
         if phi_old == 0.0 and phi_new == 0.0:
-            if old_best.fx is None or new_best.fx is None:
-                return 0.0
-            return float(max(0.0, old_best.fx - new_best.fx))
+            return _finite_or_inf(old_best.fx) - _finite_or_inf(new_best.fx)
 
         # Case 2: Transition from infeasible to feasible (effectively)
         if phi_old > 0.0 and phi_new == 0.0:
@@ -652,36 +669,8 @@ class EpsilonConstraintHandler(ConstraintHandler):
             # Using rho similar to DefaultConstraintHandler
             return float(10.0 + self.rho * phi_old)
 
-        # Case 3: Both infeasible (effectively)
-        if phi_old > 0.0 and phi_new > 0.0:
-            # Compare effective violations
-            improv = phi_old - phi_new
-            if improv > 0:
-                return float(improv * self.rho)
-            return 0.0
-
-        return 0.0
-
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
-        if old_best is None:
-            return True
-
-        phi_old = self._phi(old_best)
-        phi_new = self._phi(new_result)
-
-        if phi_new == 0.0 and phi_old == 0.0:
-            if new_result.fx is None or old_best.fx is None:
-                return False
-            return new_result.fx < old_best.fx
-
-        if phi_new == 0.0 and phi_old > 0.0:
-            return True
-
-        if phi_new > 0.0 and phi_old == 0.0:
-            return False
-
-        # Both infeasible
-        return phi_new < phi_old
+        # Case 3: Both infeasible (effectively): compare effective violations
+        return float((phi_old - phi_new) * self.rho)
 
     def get_penalty_value(self, result: Result) -> float:
         if result is None or result.fx is None:
@@ -786,34 +775,9 @@ class FilterConstraintHandler(ConstraintHandler):
 
         return 0.0
 
-    def is_better(self, old_best: Result, new_result: Result) -> bool:
-        # Standard feasibility rules for "Global Best" tracking
-        if old_best is None:
-            return True
-
-        cv_old = old_best.cv if old_best.cv is not None else 0.0
-        cv_new = new_result.cv if new_result.cv is not None else 0.0
-
-        is_feasible_old = cv_old <= 1e-9
-        is_feasible_new = cv_new <= 1e-9
-
-        if is_feasible_new and is_feasible_old:
-            if new_result.fx is None or old_best.fx is None:
-                return False
-            return new_result.fx < old_best.fx
-
-        if is_feasible_new and not is_feasible_old:
-            return True
-
-        if not is_feasible_new and is_feasible_old:
-            return False
-
-        # Both infeasible: prefer lower CV
-        if cv_new < cv_old:
-            return True
-        if cv_new > cv_old:
-            return False
-
-        if new_result.fx is None or old_best.fx is None:
-            return False
-        return new_result.fx < old_best.fx
+    def rank_key(self, result: Result) -> tuple:
+        # Standard feasibility rules for "global best" tracking: feasible
+        # (cv <= 1e-9) by fx; infeasible by cv, then fx.
+        cv = result.cv if result.cv is not None else 0.0
+        cv = _finite_or_inf(cv)
+        return (cv if cv > 1e-9 else 0.0, _finite_or_inf(result.fx))

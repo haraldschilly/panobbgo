@@ -326,6 +326,11 @@ The composite score is **noisy**. Three symptoms to watch for:
 3. **Problem-specific over-fitting** — improving on a fixed problem set does
    not imply generalisation. This is the *central motivation* for the
    parametrically randomised battery described below.
+4. **Thread scheduling** — by default the harness evaluates on a thread pool,
+   so the same seed can give different trajectories.  ``run --sync-eval``
+   evaluates synchronously and makes a seeded run bit-reproducible; both
+   sides of a comparison must use the same mode (``compare`` warns if not).
+   The default stays asynchronous so the historical baseline is comparable.
 
 Recommended practice: run the same comparison at two different base seeds
 before accepting a ``+0.01`` to ``+0.03`` delta.

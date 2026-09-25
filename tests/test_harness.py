@@ -956,3 +956,170 @@ def test_statistical_compare(tmp_path):
     # Run compare with statistical flag
     ret = main(["compare", before, after, "--statistical"])
     assert ret in (0, 2)
+
+
+# ===========================================================================
+# Measurement integrity (TODO T1): sync_eval, budget truncation, timeout, dims
+# ===========================================================================
+
+
+def _flat_runs(result: HarnessResult) -> List[RunRecord]:
+    return [r for psr in result.problem_strategy_results for r in psr.runs]
+
+
+def _empty_result(**cfg_kwargs) -> HarnessResult:
+    return HarnessResult(
+        config=HarnessConfig(mode="quick", **cfg_kwargs),
+        timestamp="",
+        total_runs=0,
+        total_duration=0.0,
+        problem_strategy_results=[],
+        composite_score=0.0,
+    )
+
+
+class TestHarnessSyncEval:
+    def test_config_round_trip_and_old_files(self):
+        d = _empty_result(sync_eval=True).to_dict()
+        assert d["config"]["sync_eval"] is True
+        assert HarnessResult._from_dict(d).config.sync_eval is True
+        # A file written before the field existed loads as asynchronous.
+        del d["config"]["sync_eval"]
+        assert HarnessResult._from_dict(d).config.sync_eval is False
+
+    def test_same_seed_is_bit_reproducible(self):
+        def run() -> List[float]:
+            cfg = HarnessConfig(
+                mode="quick",
+                problems=["Rosenbrock_2D"],
+                strategies=["Rewarding_Diverse"],
+                budget=40,
+                reps=2,
+                seed=3,
+                sync_eval=True,
+            )
+            return [r.best_fx for r in _flat_runs(BenchmarkHarness(cfg).run(verbose=False))]
+
+        assert run() == run()
+
+    def test_compare_warns_on_mode_mismatch(self, tmp_path, capsys):
+        import sys
+
+        sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+        from benchmark_harness import main
+
+        paths = []
+        for sync in (False, True):
+            path = str(tmp_path / f"r_{sync}.json")
+            _empty_result(sync_eval=sync).save(path)
+            paths.append(path)
+        main(["compare", *paths])
+        assert "evaluation-mode mismatch" in capsys.readouterr().err
+
+
+def _overshooting_strategy(batches):
+    """A RoundRobin that bypasses the core budget clamp and emits fixed batches."""
+    from panobbgo.lib import Point
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class Overshoot(StrategyRoundRobin):
+        def _clamp_to_budget(self, points):
+            return points
+
+        def execute(self):
+            if not batches:
+                self.request_stop()
+                return []
+            return [Point(np.asarray(x, dtype=float), "Overshoot") for x in batches.pop(0)]
+
+    return Overshoot
+
+
+class TestHarnessBudgetTruncation:
+    def test_evaluations_past_budget_are_not_scored(self):
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.heuristics import Random
+
+        far = [3.0, 3.0]
+        # Budget 20: the second batch straddles it — one far point at
+        # evaluation 20, then the optimum at evaluations 21..30.
+        batches = [[far] * 19, [far] + [[0.0, 0.0]] * 10]
+        spec = StrategySpec(name="Overshoot", strategy_class=_overshooting_strategy(batches), heuristics=[(Random, {})])
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=20,
+            reps=1,
+            seed=0,
+            sync_eval=True,
+            strategies_override=[spec],
+        )
+        result = BenchmarkHarness(cfg).run(verbose=False)
+        (run,) = _flat_runs(result)
+        assert run.error is None, run.error
+        assert run.evaluations_used == 30  # the overshoot is reported ...
+        assert all(cp.eval_idx <= 20 for cp in run.convergence)  # ... but not scored
+        assert run.first_success_eval is None
+        assert not run.success
+        assert run.best_fx == pytest.approx(18.0)
+        assert result.composite_score == 0.0
+
+
+class TestHarnessTimeout:
+    def test_timeout_stops_the_runner_thread(self):
+        import time
+
+        from panobbgo.benchmark import StrategySpec
+        from panobbgo.heuristics import Random
+        from panobbgo.strategies import StrategyRoundRobin
+
+        captured = []
+
+        class Slow(StrategyRoundRobin):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                captured.append(self)
+
+            def execute(self):
+                time.sleep(0.01)
+                return super().execute()
+
+        spec = StrategySpec(name="Slow", strategy_class=Slow, heuristics=[(Random, {})])
+        cfg = HarnessConfig(
+            mode="quick",
+            problems=["DeJong_2D"],
+            budget=50000,
+            reps=1,
+            seed=0,
+            timeout_per_run=0.5,
+            sync_eval=True,
+            strategies_override=[spec],
+        )
+        (run,) = _flat_runs(BenchmarkHarness(cfg).run(verbose=False))
+        assert run.error is not None and "timed out" in run.error
+        (strategy,) = captured
+        # The main loop has ended and cleaned up: nothing keeps evaluating
+        # into the next run.
+        assert getattr(strategy, "_cleaned_up", False)
+        n = len(strategy.results)
+        time.sleep(0.1)
+        assert len(strategy.results) == n < 50000
+
+
+class TestHarnessProblemDim:
+    def test_mixed_dim_family_records_actual_dim(self):
+        from panobbgo.harness_randomized import make_highdim_families
+
+        cfg = HarnessConfig(
+            mode="quick",
+            randomize=True,
+            extra_families=make_highdim_families(),
+            problems=["Rosenbrock_HighDim_family"],
+            strategies=["RoundRobin_Random"],
+            budget=10,
+            reps=2,
+            seed=0,
+            sync_eval=True,
+        )
+        runs = _flat_runs(BenchmarkHarness(cfg).run(verbose=False))
+        assert [r.problem_dim for r in runs] == [2, 5]

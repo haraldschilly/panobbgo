@@ -659,6 +659,12 @@ class HarnessConfig:
             :attr:`strategies` (the name filter) and :attr:`include_baselines`
             still apply, but no fallback to the built-in mode strategies
             happens.
+        sync_eval: If True, every strategy runs with
+            ``config.sync_evaluation``: evaluations happen in submission
+            order on the strategy thread, so a seeded run is bit-reproducible.
+            ``False`` (default) keeps the threaded evaluator whose trajectory
+            depends on thread scheduling — the regime the historical
+            composite baseline was measured in.
     """
 
     mode: str = "quick"
@@ -693,6 +699,9 @@ class HarnessConfig:
     #: Caller-supplied strategy list that overrides the mode's default
     #: registry.  ``None`` keeps the factories selected by ``mode``.
     strategies_override: Optional[List[StrategySpec]] = None
+    #: Synchronous evaluation (reproducible).  Old result files lack the
+    #: key and load as ``False`` — the mode they were measured in.
+    sync_eval: bool = False
 
     def effective_budget(self) -> int:
         """Return the resolved evaluation budget."""
@@ -1991,11 +2000,17 @@ class BenchmarkHarness:
         f_opt = prob_spec.known_optima[0]["fx"]
         tolerance = prob_spec.tolerance
 
-        # Seed numpy for reproducibility (best-effort; threaded eval means
-        # some non-determinism remains, but repeated runs are comparable).
+        # Seed the global numpy RNG: the external baselines
+        # (``harness_baselines``) and a few legacy test functions draw from
+        # it.  Panobbgo's own heuristics use the strategy's ``seed``.  Runs
+        # are bit-reproducible only under ``HarnessConfig.sync_eval``.
         np.random.seed(seed)
 
         start = time.time()
+        # The instance's actual dimension: a randomized family with several
+        # ``dim_choices`` draws it per rep, so ``prob_spec.dims`` is only a
+        # placeholder there.  Kept at the spec's value if creation fails.
+        problem_dim = int(prob_spec.dims)
 
         try:
             # Create problem and strategy.  RandomizedProblemSpec draws a
@@ -2007,6 +2022,7 @@ class BenchmarkHarness:
                 problem = prob_spec.create_problem_for_rep(rep)
             else:
                 problem = prob_spec.create_problem()
+            problem_dim = int(problem.dim)
             # The budget goes in through the constructor: heuristics are built
             # inside create_strategy() and budget-adaptive ones
             # (``NP_init="auto"``) size themselves from ``config.max_eval``
@@ -2016,6 +2032,8 @@ class BenchmarkHarness:
             # Configure evaluation budget and method
             strategy.config.max_eval = budget
             strategy.config.evaluation_method = "threaded"
+            if self.config.sync_eval:
+                strategy.config.sync_evaluation = True
 
             # Run with optional wall-clock timeout.
             # We use a daemon thread + join(timeout) instead of SIGALRM
@@ -2035,12 +2053,12 @@ class BenchmarkHarness:
             runner.join(timeout=timeout)
 
             if runner.is_alive():
-                # Timed out — signal the strategy to stop gracefully
-                try:
-                    strategy._stopped = True  # type: ignore[attr-defined]
-                except Exception:
-                    pass
-                runner.join(timeout=5.0)
+                # Timed out — end the main loop and wait for it: a runner
+                # left behind keeps evaluating (and publishing on its bus)
+                # while the next run starts.  The loop checks the flag once
+                # per pass, and its own deadlock backstop bounds a wedged one.
+                strategy.request_stop()
+                runner.join()
                 raise TimeoutError(f"Run timed out after {timeout:.0f}s")
 
             if run_error is not None:
@@ -2050,8 +2068,6 @@ class BenchmarkHarness:
             best_result = strategy.best
             best_fx_raw = best_result.fx if best_result is not None and best_result.fx is not None else float("inf")
             best_fx = float(best_fx_raw)
-            func_distance = abs(best_fx - f_opt)
-            success = func_distance <= tolerance
 
             # Access the results DataFrame directly for reliable column access.
             # The DataFrame uses MultiIndex columns: ("fx", 0), ("who", 0), etc.
@@ -2069,17 +2085,24 @@ class BenchmarkHarness:
                 df = strategy.results.results
                 evaluations_used = len(df)
 
-                fx_values = self._get_column(df, "fx")
-                who_values = self._get_column(df, "who")
+                # Only the first ``budget`` evaluations are scored.  The core
+                # caps ``max_eval`` itself; this keeps an overshoot (a
+                # strategy that bypasses the main loop) out of the metrics.
+                fx_values = np.asarray(self._get_column(df, "fx"))[:budget]
+                who_values = np.asarray(self._get_column(df, "who"))[:budget]
+                if evaluations_used > budget:
+                    finite = [float(v) for v in fx_values if v is not None and np.isfinite(float(v))]
+                    best_fx = min(finite) if finite else float("inf")
 
                 convergence = self._build_convergence_from_arrays(fx_values, f_opt)
                 heuristic_counts = self._build_heuristic_counts_from_array(who_values)
 
+            func_distance = abs(best_fx - f_opt)
             duration = time.time() - start
 
-            return RunRecord(
+            record = RunRecord(
                 problem_name=prob_spec.name,
-                problem_dim=prob_spec.dims,
+                problem_dim=problem_dim,
                 strategy_name=strat_spec.name,
                 rep=rep,
                 seed=seed,
@@ -2089,18 +2112,23 @@ class BenchmarkHarness:
                 f_opt=f_opt,
                 func_distance=func_distance,
                 tolerance=tolerance,
-                success=success,
+                success=False,
                 convergence=convergence,
                 heuristic_counts=heuristic_counts,
                 duration=duration,
                 error=None,
             )
+            # Success is "tolerance met within the budget", the same event
+            # the score and ERT are computed from — not ``strategy.best``,
+            # which may come from an evaluation past the budget.
+            record.success = record.first_success_eval is not None
+            return record
 
         except Exception as exc:
             duration = time.time() - start
             return RunRecord(
                 problem_name=prob_spec.name,
-                problem_dim=prob_spec.dims,
+                problem_dim=problem_dim,
                 strategy_name=strat_spec.name,
                 rep=rep,
                 seed=seed,

@@ -146,6 +146,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         randomize=args.randomize,
         randomize_iteration=args.randomize_iteration,
         extra_families=_resolve_extra_families(args),
+        sync_eval=args.sync_eval,
     )
 
     harness = BenchmarkHarness(config)
@@ -224,6 +225,13 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     before = HarnessResult.load(args.before)
     after = HarnessResult.load(args.after)
+    if before.config.sync_eval != after.config.sync_eval:
+        print(
+            f"warning: evaluation-mode mismatch ({args.before} sync_eval={before.config.sync_eval}, "
+            f"{args.after} sync_eval={after.config.sync_eval}) — the two sides were measured under "
+            "different scheduling regimes; deltas are not decision-grade.",
+            file=sys.stderr,
+        )
 
     comparison = harness_compare(
         before,
@@ -424,6 +432,17 @@ def build_parser() -> argparse.ArgumentParser:
             " 2-D default battery — and thus the historical composite"
             " baseline — untouched; use --metric aocc for a responsive"
             " signal on this hard family."
+        ),
+    )
+    run_p.add_argument(
+        "--sync-eval",
+        dest="sync_eval",
+        action="store_true",
+        help=(
+            "Evaluate synchronously (config.sync_evaluation): a seeded run is"
+            " bit-reproducible instead of depending on thread scheduling."
+            "  Off by default so the historical composite baseline stays"
+            " comparable; compare warns when before/after differ in mode."
         ),
     )
     run_p.add_argument("--quiet", "-q", action="store_true", help="Suppress per-run output")

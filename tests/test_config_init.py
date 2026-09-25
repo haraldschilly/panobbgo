@@ -91,6 +91,13 @@ def test_parsed_sources_are_cached_per_file_version_and_copied(tmp_path, monkeyp
     os.utime(tmp_path / "config.yaml", ns=(1, 1))
     assert Config(testing_mode=True).max_eval == 1234
 
+    # Same size, same mtime, replaced by rename (a new inode): still re-read.
+    new = tmp_path / "config.yaml.new"
+    new.write_text("core:\n  max_eval: 4321\n")
+    os.utime(new, ns=(1, 1))
+    os.replace(new, tmp_path / "config.yaml")
+    assert Config(testing_mode=True).max_eval == 4321
+
 
 def test_default_ini_is_written_atomically_into_a_new_directory(tmp_path):
     from configparser import ConfigParser

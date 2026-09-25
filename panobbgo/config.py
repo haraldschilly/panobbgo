@@ -45,11 +45,17 @@ Sources: https://github.com/haraldschilly/panobbgo
 """
 
 
-def _file_key(path: str) -> Optional[Tuple[str, int, int]]:
-    """``(abspath, st_mtime_ns, st_size)`` of ``path``, ``None`` if it is not a file.
+#: ``(abspath, st_ino, st_mtime_ns, st_ctime_ns, st_size)`` of a config file.
+_FileKey = Tuple[str, int, int, int, int]
+
+
+def _file_key(path: str) -> Optional[_FileKey]:
+    """``(abspath, st_ino, st_mtime_ns, st_ctime_ns, st_size)`` of ``path``, ``None`` if it is not a file.
 
     The cache key of the parsed-source caches below: an edited file gets a new
-    key, so a long-lived process still sees changes.
+    key, so a long-lived process still sees changes.  The inode catches a file
+    replaced by rename (the atomic ``config.ini`` write), ``ctime`` an edit
+    that restored the old ``mtime`` and size.
     """
     ap = os.path.abspath(path)
     if not os.path.exists(ap):
@@ -58,11 +64,11 @@ def _file_key(path: str) -> Optional[Tuple[str, int, int]]:
         st = os.stat(ap)
     except OSError:
         return None
-    return ap, st.st_mtime_ns, st.st_size
+    return ap, st.st_ino, st.st_mtime_ns, st.st_ctime_ns, st.st_size
 
 
 @functools.lru_cache(maxsize=16)
-def _parse_yaml(key: Tuple[str, int, int]) -> Any:
+def _parse_yaml(key: _FileKey) -> Any:
     import yaml
 
     with open(key[0], "r") as f:
@@ -70,7 +76,7 @@ def _parse_yaml(key: Tuple[str, int, int]) -> Any:
 
 
 @functools.lru_cache(maxsize=16)
-def _parse_ini(key: Tuple[str, int, int]) -> Dict[str, Dict[str, str]]:
+def _parse_ini(key: _FileKey) -> Dict[str, Dict[str, str]]:
     from configparser import ConfigParser
 
     cfgp = ConfigParser()

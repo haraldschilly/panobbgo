@@ -1036,6 +1036,20 @@ class TestHarnessSyncEval:
         assert "evaluation-mode mismatch" in capsys.readouterr().err
 
 
+def test_compare_json_is_strict_json(tmp_path, capsys):
+    """relative_delta is inf when the before score is 0; --json must still be valid JSON."""
+    from benchmark_harness import main
+
+    paths = [str(tmp_path / "b.json"), str(tmp_path / "a.json")]
+    _empty_result().save(paths[0])
+    _empty_result().save(paths[1])
+    assert main(["compare", *paths, "--json"]) == 0
+    out = capsys.readouterr().out
+    payload = json.loads(out[out.index("{\n") :], parse_constant=lambda c: pytest.fail(f"non-JSON constant {c}"))
+    assert payload["relative_delta_pct"] is None
+    assert payload["common_delta"] is None
+
+
 def _overshooting_strategy(batches):
     """A RoundRobin that bypasses the core budget clamp and emits fixed batches."""
     from panobbgo.lib import Point

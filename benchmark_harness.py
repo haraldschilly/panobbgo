@@ -130,6 +130,23 @@ def _resolve_extra_families(args: argparse.Namespace) -> Optional[list]:
     return None
 
 
+def _json_safe(obj):
+    """``obj`` with every non-finite float (``inf`` / ``NaN``) replaced by ``None``."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
+def _json_dumps(obj) -> str:
+    """Strict JSON for ``--json`` output: ``json.dumps`` would write ``Infinity`` / ``NaN``,
+    which JSON parsers other than Python's reject."""
+    return json.dumps(_json_safe(obj), indent=2, allow_nan=False, default=float)
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Execute benchmark runs and save the result."""
     from panobbgo.harness import BenchmarkHarness, HarnessConfig
@@ -209,7 +226,7 @@ def cmd_score(args: argparse.Namespace) -> int:
                 for psr in result.problem_strategy_results
             ],
         }
-        print(json.dumps(summary, indent=2))
+        print(_json_dumps(summary))
 
     return 0
 
@@ -291,7 +308,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
         }
         if decision is not None:
             out["statistical"] = decision.to_dict()
-        print(json.dumps(out, indent=2))
+        print(_json_dumps(out))
 
     # Non-zero exit rules for scripted gating.
     # --statistical overrides the naive eps check when enabled.

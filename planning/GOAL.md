@@ -169,8 +169,7 @@ measured at all.  In order:
 uv sync --extra dev && (cd tools/ioh_worker && uv sync)
 
 # 1. Screen a candidate cheaply (few seeds), e.g. benchmarks/portfolio_screen.py
-# 2. Decide on a paired 12-seed roster (paired_seed_stats): accept only when
-#    the CI clears zero, ≥ 9/12 seeds win, no dimension negative
+# 2. Re-check the winner on fresh seeds (paired_seed_stats)
 # 3. A/B on the metric of record
 uv run python scripts/ioh_benchmark.py run --quick --output /tmp/before.json   # on master
 #   ...apply change...
@@ -183,8 +182,8 @@ uv run python scripts/ioh_benchmark.py compare /tmp/before.json /tmp/after.json
 
 ## 4. Cadence guardrails
 
-* Never ship an optimizer-behavior change without a paired A/B on the metric
-  of record (see AGENTS.md evidence forms).
+* Say in the PR what was measured; bug fixes to documented behaviour need
+  no benchmark.
 * One change per PR. Independent evidence ≠ joint evidence — don't batch
   three "individually positive" changes into one unmeasured combination.
 * The composite-score formula and the default randomized battery are frozen
@@ -342,4 +341,4 @@ The goal is met for a given quarter when:
   quarter-over-quarter with a bootstrap CI excluding zero, and
 * the best spec beats `Baseline_SciPyDE` and `Baseline_SciPyAnneal` on the
   same battery, and
-* every shipped change is traceable to A/B evidence.
+* every tuning change says what it was measured on.

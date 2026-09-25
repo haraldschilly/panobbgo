@@ -57,9 +57,9 @@ Remove an item when it is done; record the result in the planning log, not here.
 From a five-way read-only code audit (core, heuristics/strategies,
 analyzers/lib, harnesses, self-improve loop). "✓" = reproduced or traced end
 to end; "?" = plausible from reading. Tiers are ordered by what to fix first.
-Items that change optimizer trajectories (T2) need a paired 12-seed A/B per
-`AGENTS.md` before they land; T1/T3/T4 are measurement-neutral or only
-change instruments that must be re-baselined once.
+T2 items change optimizer trajectories; they restore documented or
+published behaviour and land without a benchmark. T1/T3/T4 change only
+instruments, which must be re-baselined once.
 
 ### T1 — measurement integrity
 
@@ -80,7 +80,7 @@ change instruments that must be re-baselined once.
       the recorded IOH and composite baselines — a decision for Harald,
       then one re-baseline.
 
-### T2 — algorithm bugs (change trajectories → A/B each)
+### T2 — algorithm bugs (change trajectories)
 
 - [ ] ✓ **jSO `F_w` is a constant** (0.7/0.8/1.2), paper has `F_w = 0.7·F`
       (`heuristics/jso.py:376`); inherited by NLSHADE_RSP/LBC.

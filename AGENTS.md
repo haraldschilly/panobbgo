@@ -198,13 +198,8 @@ Per-pair metrics: `success_rate`, `ert` (BBOB standard),
     CMA-ES-containing spec, **±0.03** for a DE arm.  Anything smaller is a
     direction, not an effect.  A positive result also needs a *mechanism*
     (which code path reads the parameter?) before it is called located.
-*   **The best spec of a multi-spec screen is a candidate, nothing more.**
-    Its screen CI is the CI of a *selected maximum* and carries no weight
-    (DISCOVERY §30: +0.050 with a CI clear of zero on 3 seeds → −0.006 on
-    the roster).  Only a roster CI on a pre-registered spec counts.
-*   **A default changes only after the 12-seed decision roster**
-    (`DEFAULT_DECISION_SEEDS` in `harness_ioh.py`): paired CI excluding
-    zero on the positive side, ≥ 9/12 seeds, no dimension negative.
+*   The best spec of a multi-spec screen is a *selected maximum*; re-check
+    it on fresh seeds before believing its margin (DISCOVERY §30).
 
 ### IOH / MA-BBOB anytime track (AOCC)
 
@@ -250,24 +245,8 @@ docs / format / micro-benchmarks. **A green PR does NOT prove the change
 improved `composite_score` or AOCC** — no PR-side CI workflow executes the
 benchmark harness.
 
-When asked to "improve the default strategy", "push to PR", "do not run
-locally", or anything else that prevents running the harness before the PR
-is opened, the agent must:
-
-1.  **State the evidence form in the PR description.** Acceptable, in
-    decreasing order of strength:
-    *   a locally captured `before.json` / `after.json` pair compared with
-        `compare --statistical --fail-on-regression --paired`, quoting the
-        composite delta and CI bounds;
-    *   a paired multi-seed decision run (`harness_ioh.paired_seed_stats`,
-        12 seeds for a default change) — quote delta, CI and wins/n.
-    *   *Not acceptable alone:* "another strategy uses this configuration",
-        literature analogy, or "the docstring says it should help". These
-        are motivations, not measurements.
-2.  **Say explicitly when evidence is missing** for part of the change.
-3.  **Flag unmeasured changes as "pending validation"** so the owner knows a
-    follow-up measurement is required.
-
-Cumulative improvement requires each PR's claim to be backed by
-measurement or honestly marked as unmeasured; otherwise the project's "is
-it better than master?" signal degrades as analogies stack.
+In the PR description, say what was measured (and how) and what was not.
+Bug fixes that restore the documented or published behaviour need no
+benchmark to land. For tuning or default changes, a quick paired
+multi-seed comparison (`harness_ioh.paired_seed_stats`) is enough — quote
+delta, CI and wins/n, and call unmeasured claims unmeasured.

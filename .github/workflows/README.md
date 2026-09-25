@@ -45,6 +45,9 @@ uv run sphinx-build -b html doc/source doc/build/html
 an artifact. On `master` the `deploy` job checks out the `gh-pages` branch,
 replaces its contents with the built HTML and pushes — that is what serves
 https://haraldschilly.github.io/panobbgo/.
+Concurrency is per ref (`docs-<ref>`): a new push to a PR cancels that PR's
+older build only, and deploys share one `pages-deploy` group, so they are
+serialised and never cancelled mid-push.
 
 ## Maintenance
 

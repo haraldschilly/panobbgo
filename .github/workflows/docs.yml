@@ -6,10 +6,13 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Allow one concurrent deployment
+# One run per ref: a new push to a PR supersedes (cancels) that PR's older
+# build, but builds of *different* PRs no longer share a group and cannot
+# cancel each other (the old global "pages" group did exactly that).
+# Pushes to master are not cancelled mid-run, so a deploy is never cut off.
 concurrency:
-  group: "pages"
-  cancel-in-progress: true
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Required permissions for pushing to gh-pages branch
 permissions:
@@ -70,6 +73,11 @@ jobs:
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: build
+    # Every deploy pushes to gh-pages: serialise them across all runs, and
+    # never cancel one that is already pushing.
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     steps:
       - name: Checkout gh-pages branch
         uses: actions/checkout@v6

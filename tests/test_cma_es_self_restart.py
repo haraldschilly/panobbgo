@@ -87,13 +87,17 @@ def test_self_restart_off_reproduces_the_pre_change_trajectory():
     ``_counteval`` now advances by λ per generation instead of μ (Hansen's
     ``counteval += λ``), which changes the h_σ generation counter and the
     lazy-eigendecomposition cadence.  The old pin was min 5.523971143576693e-09,
-    sum 701.1243094765689 at 400 evals.
+    sum 701.1243094765689 at 400 evals.  Re-pinned again in the same series
+    for the boundary repair (offspring projected onto the box enter the
+    update through ``y = (x_proj − m)/σ``; the optimum 0 sits near the lower
+    bound −2, so this run does project).  Intermediate pin (λ fix only):
+    min 3.559346295562978e-09, sum 744.6691896421944.
     """
     h, fx = _run(self_restart=False)
     assert h.n_restarts == 0
     assert len(fx) == 400
-    assert float(np.min(fx)) == pytest.approx(3.559346295562978e-09, rel=1e-6)  # BLAS order differs across CPUs
-    assert float(np.sum(fx)) == pytest.approx(744.6691896421944, rel=1e-9)
+    assert float(np.min(fx)) == pytest.approx(1.9189498767674838e-08, rel=1e-6)  # BLAS order differs across CPUs
+    assert float(np.sum(fx)) == pytest.approx(734.0431816205088, rel=1e-9)
 
 
 def test_restart_event_still_restarts():

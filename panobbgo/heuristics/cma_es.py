@@ -1005,7 +1005,9 @@ class CMAES(Heuristic):
             gen_bucket.append(
                 {
                     "penalty": penalty,
-                    "x": r.x.copy(),
+                    # The repaired position: the evaluated point unless the
+                    # boundary repair clipped its step — consistent with "y".
+                    "x": np.array(info["x"], dtype=float),
                     "y": info["y"],
                 }
             )
@@ -1533,19 +1535,30 @@ class CMAES(Heuristic):
         # never collect enough results to trigger the next update (deadlock).
         self.ensure_output_capacity(self._lam)
 
+        c_y = float(np.sqrt(n) + 2.0 * n / (n + 2.0))
         emitted = 0
         for i in range(self._lam):
             z = self.rng.standard_normal(n)
             # y = B D z  →  covariance = B D² Bᵀ = C
             y = self._B @ (self._D * z)
-            x = self._m + self._sigma * y
-            x = self.problem.project(x)
+            x_raw = self._m + self._sigma * y
+            x = self.problem.project(x_raw)
+            # Boundary repair (Hansen 2011, arXiv:1110.4181): a projected point
+            # enters the update through the step that *reaches* it, not the
+            # sampled one — otherwise p_σ, p_c and rank-μ see steps longer than
+            # the mean actually moves, and σ inflates against the wall.  The
+            # repaired step is Mahalanobis-clipped like an injected point, and
+            # the update uses ``m + σ·y`` so mean and paths stay consistent.
+            x_upd = x
+            if not np.array_equal(x, x_raw):
+                y = self._clip_injected((x - self._m) / self._sigma, self._B, self._D, c_y)
+                x_upd = self._m + self._sigma * y
 
             who = f"{self._who_prefix}g{gen}:i{i}"
             # Put directly to bypass emit()'s ndarray-only check,
             # preserving the custom 'who' tag needed for generation tracking.
             self._put(Point(x, who))
-            self._pending[who] = {"gen": gen, "i": i, "y": y}
+            self._pending[who] = {"gen": gen, "i": i, "y": y, "x": x_upd}
             emitted += 1
 
         self._gen_emitted[gen] = emitted

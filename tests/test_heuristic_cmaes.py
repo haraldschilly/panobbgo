@@ -235,6 +235,47 @@ class TestCMAES(PanobbgoTestCase):
         cma.on_new_results([Result(p, float(np.sum(p.x**2))) for p in points[:quorum]])
         assert cma._counteval == cma._lam
 
+    def test_boundary_repair_stores_the_step_that_reaches_the_projected_point(self):
+        """Regression: a projected offspring's ``y`` is ``(x_proj − m)/σ`` (Hansen's repair).
+
+        The old code kept the unprojected sample ``y`` for p_σ / p_c / rank-μ
+        while the mean moved to the projected ``x``.
+        """
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        box = self.problem.box.box
+        cma._m = box[:, 0] + 0.05 * (box[:, 1] - box[:, 0])  # near the lower corner
+        cma._sigma = 0.5 * float(np.mean(box[:, 1] - box[:, 0]))
+        cma.clear_output()
+        cma._pending.clear()
+        cma._emit_generation()
+        points = {p.who: p.x for p in cma.get_points(100)}
+        n_projected = 0
+        for who, info in cma._pending.items():
+            x = points[who]
+            on_wall = np.any(np.isclose(x, box[:, 0]) | np.isclose(x, box[:, 1]))
+            n_projected += int(on_wall)
+            np.testing.assert_allclose(info["x"], cma._m + cma._sigma * info["y"])
+            if np.allclose(info["x"], x):  # not Mahalanobis-clipped
+                np.testing.assert_allclose(info["y"], (x - cma._m) / cma._sigma)
+        assert n_projected > 0, "setup must push some offspring past the wall"
+
+    def test_sigma_does_not_inflate_against_the_wall(self):
+        """With the optimum in a box corner, σ must shrink, not blow up to its clamp."""
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        box = self.problem.box.box
+        sigma0 = cma._sigma
+        for _ in range(40):
+            points = cma.get_points(100)
+            cma.on_new_results([Result(p, float(np.sum(p.x - box[:, 0]))) for p in points])
+        assert cma._sigma < 0.1 * sigma0, f"σ {sigma0:.3g} -> {cma._sigma:.3g}"
+        np.testing.assert_allclose(cma._m, box[:, 0], atol=0.05 * float(np.max(box[:, 1] - box[:, 0])))
+
     def test_mean_shifts_toward_optimum(self):
         """After several updates with a shifted sphere, mean should move closer to optimum."""
         from panobbgo.heuristics import CMAES

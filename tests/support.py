@@ -22,6 +22,41 @@ from unittest import mock
 import numpy as np
 
 
+def rng_spawner(seed=0):
+    """A ``spawn_rng`` callable: independent generators derived from ``seed``.
+
+    The *k*-th call always returns the same stream, like
+    :meth:`panobbgo.core.StrategyBase.spawn_rng`, so modules built against a
+    test double are reproducible.
+    """
+    seq = np.random.SeedSequence(seed)
+    return lambda: np.random.default_rng(seq.spawn(1)[0])
+
+
+def attach_spawn_rng(strategy, seed=0):
+    """Give a strategy stand-in (``SimpleNamespace``, ``Mock``, ...) a ``spawn_rng``; returns it."""
+    strategy.seed = seed
+    strategy.spawn_rng = rng_spawner(seed)
+    return strategy
+
+
+class StrategyDouble:
+    """Base class for hand-rolled strategy stand-ins.
+
+    :class:`~panobbgo.core.Module` draws its generator from
+    ``strategy.spawn_rng()``; subclasses get a seeded one (class attribute
+    :attr:`seed`, or set ``self.seed`` before the first module is built).
+    """
+
+    seed = 0
+
+    def spawn_rng(self):
+        spawn = self.__dict__.get("_spawn_rng")
+        if spawn is None:
+            spawn = self.__dict__["_spawn_rng"] = rng_spawner(self.seed)
+        return spawn()
+
+
 def expected_failure(exptn, msg=None):
     """
     Wrapper for a test function, which expects a certain Exception.

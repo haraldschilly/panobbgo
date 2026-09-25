@@ -20,6 +20,7 @@ perturbations along important dimensions should be larger than along unimportant
 dimensions (on average over many trials).
 """
 
+from tests.support import attach_spawn_rng
 import numpy as np
 from unittest import mock
 
@@ -44,6 +45,7 @@ def _make_strategy(dim=4):
     problem = FlatProblem(dim=dim)
     config = Config(parse_args=False, testing_mode=True)
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = config
     return strategy, problem

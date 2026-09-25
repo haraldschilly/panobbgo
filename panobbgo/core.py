@@ -509,18 +509,22 @@ class Results:
 
 
 def _module_rng(strategy: Any) -> np.random.Generator:
-    """The generator a :class:`Module` owned by ``strategy`` should draw from.
+    """The generator a :class:`Module` owned by ``strategy`` draws from.
 
-    Normally this is a fresh stream from
-    :meth:`StrategyBase.spawn_rng`, which makes the module's randomness a
-    function of the strategy's seed.  Modules are also constructed against
-    strategy *stand-ins* in the test suite; one that does not implement the
-    method gets an independent generator so it can still be built, at the
-    cost of reproducibility.
+    A fresh stream from :meth:`StrategyBase.spawn_rng`, which makes the
+    module's randomness a function of the strategy's seed.  A strategy
+    stand-in must provide ``spawn_rng`` too (the test suite's
+    ``tests.support.StrategyDouble`` / ``attach_spawn_rng`` do): there is no
+    unseeded fallback, which would silently make the module irreproducible.
     """
     spawn = getattr(strategy, "spawn_rng", None)
     rng = spawn() if callable(spawn) else None
-    return rng if isinstance(rng, np.random.Generator) else np.random.default_rng()
+    if not isinstance(rng, np.random.Generator):
+        raise TypeError(
+            "%s.spawn_rng() must return a numpy Generator (got %r); modules draw their "
+            "randomness from the strategy's seed" % (type(strategy).__name__, type(rng).__name__)
+        )
+    return rng
 
 
 class Module:

@@ -1,3 +1,4 @@
+from tests.support import attach_spawn_rng
 import unittest
 import unittest.mock as mock
 import numpy as np
@@ -8,6 +9,7 @@ from panobbgo.heuristics.zero import Zero
 class TestZeroHeuristic(unittest.TestCase):
     def test_on_start(self):
         strategy_mock = mock.MagicMock()
+        attach_spawn_rng(strategy_mock)
         strategy_mock.problem.dim = 3
 
         with mock.patch("panobbgo.core.Heuristic.problem", new_callable=mock.PropertyMock) as prop_mock:

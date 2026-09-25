@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+from tests.support import attach_spawn_rng
 import numpy as np
 import pytest
 from unittest import mock
@@ -29,6 +30,7 @@ class ImprovingProblem(Problem):
 
 def _make_strategy(problem):
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = Config(parse_args=False, testing_mode=True)
     strategy.constraint_handler = None

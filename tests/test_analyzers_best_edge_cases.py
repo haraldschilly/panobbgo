@@ -1,3 +1,4 @@
+from tests.support import StrategyDouble
 from panobbgo.analyzers.best import Best
 from panobbgo.lib import Result, Point
 import numpy as np
@@ -9,7 +10,7 @@ class MockConstraintHandler:
         return new_result.fx < old_best.fx
 
 
-class MockStrategy:
+class MockStrategy(StrategyDouble):
     def __init__(self, problem=None):
         self.problem = problem
         self.config = MockConfig()
@@ -19,7 +20,7 @@ class MockStrategy:
         self.constraint_handler = MockConstraintHandler()
 
 
-class MockStrategyNoCH:
+class MockStrategyNoCH(StrategyDouble):
     def __init__(self, problem=None):
         self.problem = problem
         self.config = MockConfig()
@@ -29,7 +30,7 @@ class MockStrategyNoCH:
         self.constraint_handler = None
 
 
-class MockStrategyWithLogger:
+class MockStrategyWithLogger(StrategyDouble):
     def __init__(self, problem=None):
         self.problem = problem
         self.config = MockConfig()
@@ -44,7 +45,7 @@ class MockStrategyWithLogger:
         self._progress_updated = True
 
 
-class MockStrategyWithFailingLogger:
+class MockStrategyWithFailingLogger(StrategyDouble):
     def __init__(self, problem=None):
         self.problem = problem
         self.config = MockConfig()

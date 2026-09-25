@@ -1,10 +1,11 @@
+from tests.support import StrategyDouble
 from panobbgo.analyzers.convergence import Convergence
 from panobbgo.core import Event
 from panobbgo.lib import Result, Point
 import numpy as np
 
 
-class MockStrategy:
+class MockStrategy(StrategyDouble):
     def __init__(self, problem=None):
         self.problem = problem
         self.config = MockConfig()

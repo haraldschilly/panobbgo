@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+from tests.support import attach_spawn_rng
 import pytest
 import numpy as np
 from unittest import mock
@@ -26,6 +27,7 @@ def test_feasible_search_initialization(StrategyBaseMock):
     problem = MockProblem()
     config = Config(parse_args=False, testing_mode=True)
     strategy = StrategyBaseMock()
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = config
     h = FeasibleSearch(strategy)
@@ -38,6 +40,7 @@ def test_feasible_search_generates_points_when_infeasible(StrategyBaseMock):
     problem = MockProblem()
     config = Config(parse_args=False, testing_mode=True)
     strategy = StrategyBaseMock()
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = config
     h = FeasibleSearch(strategy, samples=5)
@@ -67,6 +70,7 @@ def test_feasible_search_idle_when_feasible(StrategyBaseMock):
     problem = MockProblem()
     config = Config(parse_args=False, testing_mode=True)
     strategy = StrategyBaseMock()
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = config
     h = FeasibleSearch(strategy, samples=5)
@@ -89,6 +93,7 @@ def test_feasible_search_boundary_search(StrategyBaseMock):
     problem = MockProblem()
     config = Config(parse_args=False, testing_mode=True)
     strategy = StrategyBaseMock()
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = config
     h = FeasibleSearch(strategy, samples=5)

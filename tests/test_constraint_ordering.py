@@ -21,6 +21,7 @@ the rankers (``Archive``, ``Restart``, the ``Splitter`` value rule,
 ``Best``.
 """
 
+from tests.support import attach_spawn_rng
 from unittest import mock
 
 import numpy as np
@@ -70,6 +71,7 @@ def test_improvement_positive_iff_better(cls):
     """``calculate_improvement`` never contradicts ``is_better`` (Filter's
     reward is the documented exception: it rewards any non-dominated point)."""
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.results = []
     h = cls(strategy=strategy)
     rng = np.random.default_rng(0)
@@ -126,6 +128,7 @@ def _dynamic_archive(k):
     from panobbgo.lib.classic import Rosenbrock
 
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.problem = Rosenbrock(dim=2)
     strategy.results = []
     strategy.constraint_handler = DynamicPenaltyConstraintHandler(strategy, rho_start=1.0, rate=1.0, exponent=1.0)
@@ -188,6 +191,7 @@ def test_missing_objective_ranks_last(cls):
     from panobbgo.lib.constraints import result_key
 
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.results = []
     h = cls(strategy=strategy)
     missing = Result(Point(np.zeros(2), "t"), None)
@@ -198,6 +202,7 @@ def test_missing_objective_ranks_last(cls):
 
 def test_epsilon_nan_violation_is_not_feasible():
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.results = []
     h = EpsilonConstraintHandler(strategy=strategy, epsilon_start=0.0)
     # ``Result.cv`` maps a NaN entry of ``cv_vec`` to ``inf``; a NaN ``cv``
@@ -228,6 +233,7 @@ def test_alm_nan_constraint_is_infeasible():
     """ALM applies the same policy: a NaN constraint value makes the
     Lagrangian ``inf`` (it used to be ``nan_to_num``-ed to 0.0 = satisfied)."""
     strategy = mock.MagicMock()
+    attach_spawn_rng(strategy)
     strategy.results = []
     h = AugmentedLagrangianConstraintHandler(strategy=strategy)
     h.lambdas = np.zeros(2)

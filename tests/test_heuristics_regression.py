@@ -21,6 +21,7 @@ Tests to ensure fixes for WeightedAverage crashes, NelderMead sorting,
 and GaussianProcess scalar indexing remain effective.
 """
 
+from tests.support import StrategyDouble
 import numpy as np
 import pytest
 from panobbgo.lib import Point, Result
@@ -61,7 +62,7 @@ class MockProblem:
         return x
 
 
-class MockStrategy:
+class MockStrategy(StrategyDouble):
     def __init__(self):
         self.config = MockConfig()
         self.constraint_handler = DefaultConstraintHandler(self, rho=100.0)

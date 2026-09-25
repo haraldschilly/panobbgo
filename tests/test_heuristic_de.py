@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+from tests.support import StrategyDouble
 import unittest
 from tests.support import PanobbgoTestCase
 from panobbgo.heuristics.differential_evolution import DifferentialEvolution
@@ -29,7 +30,7 @@ class MockLogger:
         pass
 
 
-class MockStrategy:
+class MockStrategy(StrategyDouble):
     def __init__(self, problem=None):
         self.problem = problem
         self.config = MockConfig()

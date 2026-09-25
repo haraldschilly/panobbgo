@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+from tests.support import attach_spawn_rng
 import unittest
 from unittest.mock import Mock
 from panobbgo.heuristics.lbfgsb import LBFGSB
@@ -9,6 +10,7 @@ import numpy as np
 class TestLBFGSBConstraints(unittest.TestCase):
     def setUp(self):
         self.strategy = Mock()
+        attach_spawn_rng(self.strategy)
         self.strategy.config = Mock()
         self.strategy.config.get_logger.return_value = Mock()
         self.strategy.config.capacity = 10

@@ -1,3 +1,4 @@
+from tests.support import StrategyDouble
 import pytest
 import numpy as np
 from panobbgo.analyzers.convergence import Convergence
@@ -5,7 +6,7 @@ from panobbgo.lib import Problem, Point, Result, BoundingBox
 from unittest import mock
 
 
-class MockStrategy:
+class MockStrategy(StrategyDouble):
     def __init__(self, problem):
         self.problem = problem
         self.config = mock.MagicMock()

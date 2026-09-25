@@ -1,3 +1,4 @@
+from tests.support import attach_spawn_rng
 import pytest
 import numpy as np
 from panobbgo.lib import Problem, Point, Result
@@ -36,6 +37,7 @@ def test_constraint_gradient_feasible_direction():
 
     # Mock strategy
     strategy = MagicMock(spec=StrategyBase)
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = MagicMock()
     strategy.config.capacity = 100  # Set valid capacity
@@ -113,6 +115,7 @@ def test_constraint_gradient_infeasible_repair():
 
     # Mock strategy
     strategy = MagicMock(spec=StrategyBase)
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = MagicMock()
     strategy.config.capacity = 100
@@ -172,6 +175,7 @@ def test_constraint_gradient_fallback_scalar():
     problem = ConstrainedSphere(dim=dim, center=0.0, bound=1.0)
 
     strategy = MagicMock(spec=StrategyBase)
+    attach_spawn_rng(strategy)
     strategy.problem = problem
     strategy.config = MagicMock()
     strategy.config.capacity = 100

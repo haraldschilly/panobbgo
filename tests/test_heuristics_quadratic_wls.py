@@ -1,3 +1,4 @@
+from tests.support import attach_spawn_rng
 import unittest
 import unittest.mock as mock
 import numpy as np
@@ -29,6 +30,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
 
     def test_on_new_best_box(self):
         strategy_mock = mock.MagicMock()
+        attach_spawn_rng(strategy_mock)
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
@@ -57,6 +59,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
 
     def test_on_new_best_box_timeout(self):
         strategy_mock = mock.MagicMock()
+        attach_spawn_rng(strategy_mock)
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
@@ -82,6 +85,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
 
     def test_on_new_best_box_exception(self):
         strategy_mock = mock.MagicMock()
+        attach_spawn_rng(strategy_mock)
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 
@@ -120,6 +124,7 @@ class TestQuadraticWLSModel(unittest.TestCase):
 
     def test_on_new_best_box_none_returned(self):
         strategy_mock = mock.MagicMock()
+        attach_spawn_rng(strategy_mock)
         strategy_mock.constraint_handler.get_penalty_value = lambda r: r.fx
         strategy_mock.problem.box.box = [(-5.0, 5.0), (-5.0, 5.0)]
 

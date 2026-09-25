@@ -575,3 +575,18 @@ def test_results_setter_resets_derived_state():
     r.results = old.iloc[:2]
     assert r._progress_ranks is None and r._last_nb == 2
     assert r._progress_stats()["current_best_fx"] == 0.0
+
+
+def test_module_requires_a_seeded_strategy_rng():
+    """No unseeded fallback: a stand-in without ``spawn_rng`` is an error."""
+    from types import SimpleNamespace
+
+    from panobbgo.config import Config
+    from tests.support import attach_spawn_rng
+
+    double = SimpleNamespace(config=Config(parse_args=False, testing_mode=True))
+    with pytest.raises(TypeError, match="spawn_rng"):
+        Module(double)
+    a = Module(attach_spawn_rng(double, seed=3)).rng.random()
+    b = Module(attach_spawn_rng(double, seed=3)).rng.random()
+    assert a == b

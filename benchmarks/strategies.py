@@ -35,13 +35,17 @@ class BenchmarkStrategy:
     heuristics: List[Any]
     config_overrides: Dict[str, Any]
     description: str
+    #: Seeded and synchronous, so a CI benchmark assertion is deterministic
+    #: instead of passing or failing with the run's luck.
+    seed: int = 42
 
     def create_strategy(self, problem):
         """Create a strategy instance with this configuration."""
-        strategy = self.strategy_class(problem, parse_args=False)
+        strategy = self.strategy_class(problem, parse_args=False, seed=self.seed)
 
         # Force threaded evaluation for benchmarks to ensure reliability
         strategy.config.evaluation_method = "threaded"
+        strategy.config.sync_evaluation = True
 
         # Apply configuration overrides
         for key, value in self.config_overrides.items():

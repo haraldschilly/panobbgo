@@ -273,10 +273,10 @@ Implemented Heuristics
   Differential Evolution (Tanabe & Fukunaga, CEC 2014 winner).  Adapts ``F`` and ``CR`` per-trial
   via per-bin Cauchy / Normal memories that update each generation by the weighted Lehmer mean of
   successful triples; uses the ``current-to-pbest/1`` mutation (Zhang & Sanderson 2009) with an
-  external archive of replaced parents.  The population shrinks linearly from ``NP_init`` (default 30)
+  external archive of replaced parents.  The population shrinks linearly from ``NP_init`` (default ``"auto"``, budget-adaptive)
   down to ``NP_min`` (default 4) over the strategy's evaluation budget — broad exploration early,
   focused exploitation late.  Strictly stronger than the basic DE on multimodal benchmarks; opt-in
-  via the structural mutation catalog.  Also supports IPOP-style warm restarts via
+  (``strategy.add(...)``).  Also supports IPOP-style warm restarts via
   :class:`~panobbgo.analyzers.restart.Restart`.
 
 - :class:`~panobbgo.heuristics.jso.JSO`: jSO refinement of L-SHADE (Brest, Maučec & Bošković,
@@ -292,9 +292,9 @@ Implemented Heuristics
   (``M ← (mean_WL + M) / 2``, from iL-SHADE) and reserves the last bin (``H − 1``) as an anchor
   sampled as ``0.9 / 0.9``.
   Inherits L-SHADE's asynchronous pipeline (per-slot pending dict, generation-by-count
-  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Both L-SHADE and
-  jSO ship in the structural mutation catalog so the bandit picks whichever DE-family variant
-  wins on the current battery.
+  book-keeping, archive trimming, LPSR shrinking, warm restart) unchanged.  Add L-SHADE and
+  jSO side by side and a bandit strategy picks whichever DE-family variant wins on the current
+  battery.
 
 - :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`: NL-SHADE-RSP (Stanovov, Akhmedova &
   Semenkin, CEC 2021 winner), a direct subclass of :class:`~panobbgo.heuristics.lshade.LSHADE`
@@ -336,8 +336,8 @@ Implemented Heuristics
   both phases).  Different *branch* of the DE family tree from jSO / NL-SHADE-RSP — all the other
   DE arms adapt ``F`` via the Cauchy memory; EpSin's deterministic-amplitude sinusoid is
   algorithmically distinct.  All six DE-family arms (DE / L-SHADE / jSO / NL-SHADE-RSP /
-  NL-SHADE-LBC / LSHADE-EpSin) ship in the structural catalog so the bandit picks whichever wins
-  on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
+  NL-SHADE-LBC / LSHADE-EpSin) are opt-in; add several and a bandit strategy picks whichever
+  wins on the current battery.  Direct precursor of the CEC-2017 co-winner LSHADE-cnEpSin (the same
   ensemble plus a covariance-matrix step — not ported here; CMA-ES is a separate Panobbgo
   heuristic).
 

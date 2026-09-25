@@ -125,24 +125,33 @@ def _git_head() -> str:
     """The commit of the panobbgo checkout this module was imported from.
 
     ``git`` runs in the package directory, not the caller's cwd (which may be
-    another repository, or none).  Anything that goes wrong — no ``git``,
-    an installed wheel outside any checkout, empty output — yields
+    another repository, or none), and the answer only counts if that
+    repository's top level is the directory holding the ``panobbgo``
+    package: an install into a virtualenv that sits inside some *other*
+    repository would otherwise report that repository's HEAD.  Anything
+    else — no ``git``, an installed wheel, empty output — yields
     ``"unknown"``.
     """
     import os
     import subprocess
 
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
     try:
         out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=os.path.dirname(os.path.abspath(__file__)),
+            ["git", "rev-parse", "--show-toplevel", "HEAD"],
+            cwd=pkg_dir,
             capture_output=True,
             text=True,
             timeout=10,
-        ).stdout.strip()
+        ).stdout.split()
     except (OSError, subprocess.SubprocessError):
         return "unknown"
-    return out.splitlines()[0] if out else "unknown"
+    if len(out) < 2:
+        return "unknown"
+    toplevel, head = out[0], out[1]
+    if os.path.realpath(toplevel) != os.path.realpath(os.path.dirname(pkg_dir)):
+        return "unknown"
+    return head
 
 
 @functools.lru_cache(maxsize=1)

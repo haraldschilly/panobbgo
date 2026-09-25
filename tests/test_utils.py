@@ -115,5 +115,29 @@ def test_info_reports_panobbgos_repo_not_the_cwd(monkeypatch, tmp_path):
     assert isinstance(head, str)
 
 
+def test_info_ignores_an_enclosing_foreign_repository(monkeypatch, tmp_path):
+    """Installed in a venv inside another repo: rev-parse answers for that repo -> 'unknown'."""
+    import subprocess
+
+    def run(args, **kw):
+        return subprocess.CompletedProcess(args, 0, stdout="%s\n%s\n" % (tmp_path, "f" * 40), stderr="")
+
+    assert _fresh_info(monkeypatch, run)["git HEAD"] == "unknown"
+
+
+def test_info_reports_the_head_of_panobbgos_own_checkout(monkeypatch):
+    import os
+    import subprocess
+
+    import panobbgo
+
+    top = os.path.dirname(os.path.dirname(os.path.abspath(panobbgo.utils.__file__)))
+
+    def run(args, **kw):
+        return subprocess.CompletedProcess(args, 0, stdout="%s\n%s\n" % (top, "a" * 40), stderr="")
+
+    assert _fresh_info(monkeypatch, run)["git HEAD"] == "a" * 40
+
+
 if __name__ == "__main__":
     unittest.main()

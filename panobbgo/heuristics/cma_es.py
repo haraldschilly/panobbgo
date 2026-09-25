@@ -563,32 +563,56 @@ class CMAES(Heuristic):
         w = raw / raw.sum()
         return w, float(1.0 / (w**2).sum())
 
-    def on_start(self) -> None:
-        """Initialise CMA-ES state and emit the first generation."""
+    def _set_population(self, lam: int) -> None:
+        """Set λ, μ = ⌊λ/2⌋, the recombination weights and every adaptation constant.
+
+        The constants are the defaults of Hansen's tutorial (2016, Table 1),
+        all functions of the dimension and ``μ_eff`` alone — so the initial
+        set-up and each restart's new λ derive them in this one place.
+        """
         n = self.problem.dim
-
-        # Population sizes
-        lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
         mu = lam // 2
-
         # Recombination weights (log-linear, positive) and the effective
         # number of parents they imply
         w, mu_eff = self._recombination_weights(mu)
+        self._lam, self._mu, self._w, self._mu_eff = lam, mu, w, mu_eff
 
         # Step-size control
-        c_sigma = (mu_eff + 2.0) / (n + mu_eff + 5.0)
-        d_sigma = 1.0 + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (n + 1.0)) - 1.0) + c_sigma
+        self._c_sigma = (mu_eff + 2.0) / (n + mu_eff + 5.0)
+        self._d_sigma = 1.0 + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (n + 1.0)) - 1.0) + self._c_sigma
 
         # Covariance matrix control
-        c_c = (4.0 + mu_eff / n) / (n + 4.0 + 2.0 * mu_eff / n)
-        c_1 = 2.0 / ((n + 1.3) ** 2 + mu_eff)
-        c_mu = min(
-            1.0 - c_1,
+        self._c_c = (4.0 + mu_eff / n) / (n + 4.0 + 2.0 * mu_eff / n)
+        self._c_1 = 2.0 / ((n + 1.3) ** 2 + mu_eff)
+        self._c_mu = min(
+            1.0 - self._c_1,
             2.0 * (mu_eff - 2.0 + 1.0 / mu_eff) / ((n + 2.0) ** 2 + mu_eff),
         )
 
         # Expected norm of N(0,I)
-        chi_n = np.sqrt(n) * (1.0 - 1.0 / (4.0 * n) + 1.0 / (21.0 * n**2))
+        self._chi_n = np.sqrt(n) * (1.0 - 1.0 / (4.0 * n) + 1.0 / (21.0 * n**2))
+
+    def _reset_distribution(self, m: np.ndarray, sigma: float) -> None:
+        """Start a fresh search distribution N(m, σ²I): zero paths, identity C, zero counters."""
+        n = self.problem.dim
+        self._m = m
+        self._sigma = sigma
+        self._C = np.eye(n)
+        self._p_c = np.zeros(n)
+        self._p_sigma = np.zeros(n)
+        self._B = np.eye(n)
+        self._D = np.ones(n)
+        self._eigeneval = 0
+        self._counteval = 0
+
+    def on_start(self) -> None:
+        """Initialise CMA-ES state and emit the first generation."""
+        n = self.problem.dim
+
+        # Population size, recombination weights and adaptation constants
+        lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
+        self._set_population(lam)
+        mu = self._mu
 
         # Search-space bounds
         box = self.problem.box.box
@@ -604,30 +628,11 @@ class CMAES(Heuristic):
         sigma = max(sigma, 1e-6)
 
         # Persist
-        self._lam = lam
-        self._mu = mu
-        self._w = w
-        self._mu_eff = mu_eff
-        self._c_sigma = c_sigma
-        self._d_sigma = d_sigma
-        self._c_c = c_c
-        self._c_1 = c_1
-        self._c_mu = c_mu
-        self._chi_n = chi_n
-
         self._lo = lo
         self._hi = hi
         self._ranges = ranges
 
-        self._m = m
-        self._sigma = sigma
-        self._C = np.eye(n)
-        self._p_c = np.zeros(n)
-        self._p_sigma = np.zeros(n)
-        self._B = np.eye(n)
-        self._D = np.ones(n)
-        self._eigeneval = 0
-        self._counteval = 0
+        self._reset_distribution(m, sigma)
 
         self._gen = 0
         self._pending = {}
@@ -969,11 +974,7 @@ class CMAES(Heuristic):
             return False
         self._total_evals += spent
 
-        self._pending.clear()
-        self._gen_results.clear()
-        self._gen_emitted.clear()
-        self._injected.clear()
-        self.clear_output()
+        self._drop_generation()
         self._reset_run_state()
         self._emit_generation()
         return True
@@ -1254,55 +1255,12 @@ class CMAES(Heuristic):
         self._restart_count += 1
 
         new_lam = max(new_lam, 4)  # CMA-ES requires λ ≥ 4
-        new_mu = max(new_lam // 2, 1)
-
-        # Recombination weights (log-linear, positive)
-        new_w, new_mu_eff = self._recombination_weights(new_mu)
-
-        n = self.problem.dim
-
-        # Recompute adaptation constants for new population size
-        new_c_sigma = (new_mu_eff + 2.0) / (n + new_mu_eff + 5.0)
-        new_d_sigma = 1.0 + 2.0 * max(0.0, np.sqrt((new_mu_eff - 1.0) / (n + 1.0)) - 1.0) + new_c_sigma
-        new_c_c = (4.0 + new_mu_eff / n) / (n + 4.0 + 2.0 * new_mu_eff / n)
-        new_c_1 = 2.0 / ((n + 1.3) ** 2 + new_mu_eff)
-        new_c_mu = min(
-            1.0 - new_c_1,
-            2.0 * (new_mu_eff - 2.0 + 1.0 / new_mu_eff) / ((n + 2.0) ** 2 + new_mu_eff),
-        )
-
-        new_m = self.problem.project(center)
-
-        self._lam = new_lam
-        self._mu = new_mu
-        self._w = new_w
-        self._mu_eff = new_mu_eff
-        self._c_sigma = new_c_sigma
-        self._d_sigma = new_d_sigma
-        self._c_c = new_c_c
-        self._c_1 = new_c_1
-        self._c_mu = new_c_mu
-
-        self._m = new_m
-        self._sigma = new_sigma
-        self._C = np.eye(n)
-        self._p_c = np.zeros(n)
-        self._p_sigma = np.zeros(n)
-        self._B = np.eye(n)
-        self._D = np.ones(n)
-        self._eigeneval = 0
-        self._counteval = 0
+        self._set_population(new_lam)
+        self._reset_distribution(self.problem.project(center), new_sigma)
 
         self._reset_run_state()
 
-        # Flush stale generation tracking and stale queued points — results for
-        # pre-restart points are ignored anyway, and clearing frees queue
-        # capacity for the (typically larger) new generation.
-        self._pending.clear()
-        self._gen_results.clear()
-        self._gen_emitted.clear()
-        self._injected.clear()
-        self.clear_output()
+        self._drop_generation()
 
         # Emit the first generation from the new distribution
         self._emit_generation()
@@ -1333,6 +1291,19 @@ class CMAES(Heuristic):
     # ------------------------------------------------------------------
     # Termination criteria and self-restart
     # ------------------------------------------------------------------
+
+    def _drop_generation(self) -> None:
+        """Flush the generation in flight: its tracking and its still-queued points.
+
+        Results for the dropped points are ignored when they arrive, and
+        clearing the queue frees its capacity for the (typically larger)
+        new generation.
+        """
+        self._pending.clear()
+        self._gen_results.clear()
+        self._gen_emitted.clear()
+        self._injected.clear()
+        self.clear_output()
 
     def _reset_run_state(self) -> None:
         """Reset the per-run bookkeeping the termination criteria read.

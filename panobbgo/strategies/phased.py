@@ -434,7 +434,13 @@ class StrategyPhased(StrategyBase):
             raise ValueError(f"Unknown strategy class: {strat_cls}")
         points = getattr(self, f"_execute_{policy}")(phase_heurs, strat_kwargs)
 
-        return points[:remaining]
+        if len(points) > remaining:
+            # Surplus goes back to its heuristic's queue, never dropped: a
+            # tagged trial (LSHADE/jSO/PSO) or an on-demand bridge point
+            # that is never evaluated freezes its slot/worker for good.
+            self._return_to_queues(list(points[remaining:]))
+            points = list(points[:remaining])
+        return points
 
     def _get_status_info(self):
         """Return strategy-specific status info."""

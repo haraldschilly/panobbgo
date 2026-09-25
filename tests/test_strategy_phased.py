@@ -375,3 +375,59 @@ class TestStrategyPhasedLinUCB(PanobbgoTestCase):
         assert inspect.signature(StrategyLinUCB.__init__).parameters["linucb_alpha"].default == LINUCB_ALPHA == 2.0
         # the phase reads the same default
         assert "LINUCB_ALPHA" in inspect.getsource(StrategyPhased._execute_linucb)
+
+
+class QueueHeuristic(Heuristic):
+    """Emits through the output queue (unlike :class:`SimpleHeuristic`) and counts what it emitted."""
+
+    def __init__(self, strategy, name="QueueH", **kwargs):
+        super().__init__(strategy, name=name)
+        self.emitted = 0
+
+    def on_start(self):
+        self._top_up(10)
+
+    def _top_up(self, n):
+        self.emit([self.problem.random_point() for _ in range(n)])
+        self.emitted += n
+
+    def get_points(self, limit=None):
+        points = super().get_points(limit)
+        self._top_up(len(points))  # keep the queue stocked, so the arm stays alive
+        return points
+
+
+class TestStrategyPhasedSurplus(PanobbgoTestCase):
+    def test_surplus_over_phase_budget_goes_back_to_the_queue(self):
+        """Regression: points cut at the phase cutoff were dropped, not returned to their queue.
+
+        A dropped tagged trial (LSHADE, jSO, PSO) stays in the arm's
+        ``_pending`` forever and freezes its population slot.
+        """
+        problem = TrackingProblem()
+        strategy = StrategyPhased(
+            problem,
+            phases=[
+                # cutoff 30 = 4 * 7 + 2: the fifth pull of 7 is cut to 2
+                {
+                    "pct": 30,
+                    "strategy": (StrategyRoundRobin, {"size": 7}),
+                    "heuristics": [(QueueHeuristic, {"name": "H_A"})],
+                },
+                {
+                    "strategy": (StrategyRoundRobin, {"size": 7}),
+                    "heuristics": [(QueueHeuristic, {"name": "H_B"})],
+                },
+            ],
+            parse_args=False,
+            seed=1,
+        )
+        strategy.config.max_eval = 100
+        strategy.config.sync_evaluation = True
+        strategy.config.stop_on_convergence = False
+        strategy.start()
+        h = strategy.heuristic("H_A")
+        evaluated = problem.call_counts.get("H_A", 0)
+        assert evaluated == 30
+        # every emitted point was either evaluated or is still queued (5 were dropped before the fix)
+        assert h._output.qsize() == h.emitted - evaluated

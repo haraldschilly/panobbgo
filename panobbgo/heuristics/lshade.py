@@ -67,7 +67,9 @@ Optionally pass ``F_schedule`` to enable an asymmetric F-cap schedule.
 Three named regimes ship out-of-the-box:
 
 * ``"jso"`` (Brest et al. 2017) — ``F ≤ 0.7`` while ``progress < 0.6``,
-  ``F ≤ 0.8`` while ``progress < 0.9``, unclamped in the final 10%.
+  unclamped after that.  (Until 2026-09 this regime had a second phase,
+  ``F ≤ 0.8`` while ``progress < 0.9``, which is in neither the jSO paper
+  nor its reference code.)
 * ``"early"`` — kicks in earlier with a tighter first cap: ``F ≤ 0.6``
   while ``progress < 0.4``, ``F ≤ 0.8`` while ``progress < 0.7``,
   unclamped after that.  Useful when the basin sits near the box centre
@@ -223,14 +225,17 @@ _CR_TERMINAL: float = -1.0
 #   phase1_bound ≤ progress < phase2_bound     → F ≤ phase2_cap
 #   progress ≥ phase2_bound                    → F unclamped (just F ≤ 1)
 #
-# The ``"jso"`` regime is the canonical Brest, Maučec & Bošković (2017,
-# §III-D) settings; ``"early"`` and ``"strict"`` extend the literature
+# The ``"jso"`` regime is the Brest, Maučec & Bošković (2017) cap — one
+# phase, ``F ≤ 0.7`` while ``progress < 0.6`` (reference code:
+# ``if (nfes < 0.6*max_num_evaluations && F > 0.7) F = 0.7``); its second
+# phase is empty (``phase2_bound == phase1_bound``).  ``"early"`` and
+# ``"strict"`` extend the literature
 # regime with tighter or earlier-kicking caps so the bandit can search
 # the broader cap geometry without changing the heuristic at all.
 # ``"off"`` / ``None`` / ``False`` all bypass the cap entirely
 # (byte-identical Tanabe-Fukunaga behaviour shipped 2026-05-10).
 _F_SCHEDULE_REGIMES: Dict[str, Tuple[float, float, float, float]] = {
-    "jso": (0.6, 0.9, 0.7, 0.8),
+    "jso": (0.6, 0.6, 0.7, 1.0),
     "early": (0.4, 0.7, 0.6, 0.8),
     "strict": (0.5, 0.85, 0.5, 0.7),
 }

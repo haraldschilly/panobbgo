@@ -953,13 +953,15 @@ class LSHADEAdaptivePBestTests(_MockStrategyMixin, PanobbgoTestCase):
 
 
 class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
-    """Opt-in jSO asymmetric F-cap (Brest et al. 2017) on the L-SHADE base.
+    """Opt-in jSO F-cap (Brest et al. 2017) on the L-SHADE base.
 
-    The cap is three-phase keyed on ``progress = len(results) / max_eval``:
+    The ``"jso"`` regime is keyed on ``progress = len(results) / max_eval``:
 
-    * ``progress < 0.6``        →  ``F ≤ 0.7``
-    * ``0.6 ≤ progress < 0.9``  →  ``F ≤ 0.8``
-    * ``progress ≥ 0.9``         →  ``F`` unclamped (still ≤ 1.0 from sampler)
+    * ``progress < 0.6``  →  ``F ≤ 0.7``
+    * ``progress ≥ 0.6``  →  ``F`` unclamped (still ≤ 1.0 from sampler)
+
+    (Until 2026-09 it had a second phase ``F ≤ 0.8`` for ``0.6 ≤ progress <
+    0.9`` — in neither the jSO paper nor its reference code.)
 
     Off by default (``F_schedule=None``); jSO opts in by construction.
     """
@@ -1040,42 +1042,23 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         assert h._apply_F_cap(0.85) == pytest.approx(0.7)
         assert h._apply_F_cap(1.0) == pytest.approx(0.7)
 
-    def test_apply_F_cap_phase2_clamps_to_08(self):
-        """``0.6 ≤ progress < 0.9`` clamps F at 0.8 under ``"jso"`` — the literature completion."""
-        from panobbgo.heuristics.lshade import LSHADE
+    def test_apply_F_cap_jso_has_no_second_phase(self):
+        """Regression: from ``progress = 0.6`` on, ``"jso"`` leaves F unclamped.
+
+        The old regime clamped F at 0.8 until ``progress = 0.9``; jSO's
+        reference code has only ``if (nfes < 0.6*max && F > 0.7) F = 0.7``.
+        """
+        from panobbgo.heuristics.lshade import LSHADE, _F_SCHEDULE_REGIMES
 
         h = LSHADE(self.strategy, F_schedule="jso")
         self.strategy.config.max_eval = 100
-        self.strategy.results = list(range(75))  # progress = 0.75 ∈ [0.6, 0.9)
-        # F up to 0.8 passes through; F > 0.8 clamped to 0.8.
-        assert h._apply_F_cap(0.5) == pytest.approx(0.5)
-        assert h._apply_F_cap(0.75) == pytest.approx(0.75)
-        assert h._apply_F_cap(0.8) == pytest.approx(0.8)
-        assert h._apply_F_cap(0.95) == pytest.approx(0.8)
-        assert h._apply_F_cap(1.0) == pytest.approx(0.8)
-
-    def test_apply_F_cap_phase3_unclamped(self):
-        """``progress ≥ 0.9`` releases the ``"jso"`` cap entirely (still F ≤ 1.0 from sampler)."""
-        from panobbgo.heuristics.lshade import LSHADE
-
-        h = LSHADE(self.strategy, F_schedule="jso")
-        self.strategy.config.max_eval = 100
-        self.strategy.results = list(range(95))  # progress = 0.95 ≥ 0.9
-        for F in (0.0, 0.5, 0.7, 0.85, 0.95, 1.0):
-            assert h._apply_F_cap(F) == pytest.approx(F)
-
-    def test_apply_F_cap_phase_boundaries(self):
-        """Phase boundaries are inclusive-lower: progress == 0.6 belongs to phase 2 (jso)."""
-        from panobbgo.heuristics.lshade import LSHADE
-
-        h = LSHADE(self.strategy, F_schedule="jso")
-        self.strategy.config.max_eval = 100
-        # progress = 0.6 exactly → phase 2 cap (0.8)
-        self.strategy.results = list(range(60))
-        assert h._apply_F_cap(0.95) == pytest.approx(0.8)
-        # progress = 0.9 exactly → phase 3 (unclamped)
-        self.strategy.results = list(range(90))
-        assert h._apply_F_cap(0.95) == pytest.approx(0.95)
+        for n in (60, 75, 89, 95):
+            self.strategy.results = list(range(n))
+            for F in (0.5, 0.75, 0.8, 0.95, 1.0):
+                assert h._apply_F_cap(F) == pytest.approx(F)
+        self.strategy.results = list(range(59))
+        assert h._apply_F_cap(0.95) == pytest.approx(0.7)
+        assert _F_SCHEDULE_REGIMES["jso"] == (0.6, 0.6, 0.7, 1.0)
 
     def test_apply_F_cap_bypassed_when_budget_unknown(self):
         """No ``max_eval`` → ``_apply_F_cap`` is a pass-through (matches LPSR fallback)."""
@@ -1143,7 +1126,8 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
         assert set(_F_SCHEDULE_REGIMES.keys()) == {"jso", "early", "strict"}
         for name, params in _F_SCHEDULE_REGIMES.items():
             bound1, bound2, cap1, cap2 = params
-            assert 0.0 < bound1 < bound2 <= 1.0, f"{name}: phase bounds malformed"
+            # ``bound1 == bound2`` is an empty second phase (the one-phase jSO cap).
+            assert 0.0 < bound1 <= bound2 <= 1.0, f"{name}: phase bounds malformed"
             assert 0.0 < cap1 <= cap2 <= 1.0, f"{name}: caps malformed"
 
     def test_sample_F_CR_respects_F_schedule(self):
@@ -1162,14 +1146,8 @@ class LSHADEAsymmetricFCapTests(_MockStrategyMixin, PanobbgoTestCase):
             F, _ = h._sample_F_CR()
             assert F <= 0.7 + 1e-12
 
-        # Phase 2.
+        # After progress 0.6 — unclamped: some draws exceed 0.8.
         self.strategy.results = list(range(75))  # progress = 0.75
-        for _ in range(500):
-            F, _ = h._sample_F_CR()
-            assert F <= 0.8 + 1e-12
-
-        # Phase 3 — at least one draw should exceed 0.8.
-        self.strategy.results = list(range(95))  # progress = 0.95
         any_above_08 = any(h._sample_F_CR()[0] > 0.8 for _ in range(500))
         assert any_above_08
 

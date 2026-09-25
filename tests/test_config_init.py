@@ -113,5 +113,29 @@ def test_default_ini_is_written_atomically_into_a_new_directory(tmp_path):
     assert sorted(p.name for p in path.parent.iterdir()) == ["config.ini"]  # no temp left
 
 
+def test_yaml_boolean_strings_are_parsed(tmp_path, monkeypatch):
+    """``bool("false")`` is True: a quoted "false"/"no"/"0" used to switch an option on."""
+    import pytest
+
+    monkeypatch.chdir(tmp_path)
+    for text, expected in (
+        ("'false'", False),
+        ("'no'", False),
+        ("'0'", False),
+        ("'Off'", False),
+        ("'true'", True),
+        ("'yes'", True),
+        ("false", False),
+        ("true", True),
+    ):
+        (tmp_path / "config.yaml").write_text("evaluation:\n  sync: %s\nstorage:\n  adopt_legacy: %s\n" % (text, text))
+        c = Config(testing_mode=True)
+        assert c.sync_evaluation is expected, text
+        assert c.storage_adopt_legacy is expected, text
+    (tmp_path / "config.yaml").write_text("evaluation:\n  sync: 'maybe'\n")
+    with pytest.raises(ValueError, match="maybe"):
+        Config(testing_mode=True)
+
+
 if __name__ == "__main__":
     unittest.main()

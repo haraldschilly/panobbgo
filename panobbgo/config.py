@@ -96,6 +96,29 @@ def _load_ini(path: str) -> Dict[str, Dict[str, str]]:
     return {sec: dict(items) for sec, items in _parse_ini(key).items()} if key is not None else {}
 
 
+_TRUE_STRINGS = frozenset({"1", "yes", "true", "on"})
+_FALSE_STRINGS = frozenset({"0", "no", "false", "off"})
+
+
+def _to_bool(val: Any) -> bool:
+    """A YAML config value as a boolean, parsing strings like ``ConfigParser.getboolean``.
+
+    ``bool("false")`` is ``True``, so a quoted ``"false"`` / ``"no"`` / ``"0"``
+    in ``config.yaml`` used to switch an option *on*.
+
+    Raises:
+        ValueError: ``val`` is a string that is not a recognised boolean.
+    """
+    if isinstance(val, str):
+        s = val.strip().lower()
+        if s in _TRUE_STRINGS:
+            return True
+        if s in _FALSE_STRINGS:
+            return False
+        raise ValueError("Not a boolean: %r" % val)
+    return bool(val)
+
+
 def _write_default_ini(path: str) -> None:
     """Write the default ``config.ini`` atomically (safe under ``pytest -n``)."""
     import tempfile
@@ -236,7 +259,7 @@ class Config:
                         val = None
                         break
                 if val is not None:
-                    return type_cast(val) if type_cast is not bool else bool(val)
+                    return _to_bool(val) if type_cast is bool else type_cast(val)
 
             # Fall back to INI
             if ini_section and ini_key and cfgp.has_option(ini_section, ini_key):

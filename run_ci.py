@@ -89,9 +89,7 @@ def run_command(command, job_name, step_name=None):
     print("-" * 50)
 
     try:
-        result = subprocess.run(
-            command, shell=True, check=True, text=True, capture_output=False
-        )  # Let output stream to console
+        subprocess.run(command, shell=True, check=True, text=True, capture_output=False)  # Let output stream to console
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Command failed with exit code {e.returncode}")

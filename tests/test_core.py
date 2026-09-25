@@ -121,9 +121,6 @@ class TestCoreEventBus(PanobbgoTestCase):
         eb.publish("unknown_event", event=Event())
 
 
-from unittest import mock
-
-
 def test_on_converged_stops_strategy():
     problem = mock.Mock()
     strategy = StrategyBase(problem, parse_args=False)

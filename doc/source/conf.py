@@ -70,7 +70,7 @@ rst_prolog = """\
 #
 # The short X.Y version.
 
-import panobbgo
+import panobbgo  # noqa: E402  # must follow the sys.path.insert() above
 
 version = panobbgo.__version__
 # The full version, including alpha/beta/rc tags.

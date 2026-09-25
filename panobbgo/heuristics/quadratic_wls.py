@@ -113,7 +113,7 @@ class QuadraticWlsModel(HeuristicSubprocess):
                 # Send None to indicate failure and prevent parent from hanging indefinitely
                 try:
                     pipe.send(None)
-                except:
+                except Exception:
                     pass
 
     def on_new_best_box(self, best_box):

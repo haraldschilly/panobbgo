@@ -477,7 +477,8 @@ class Config:
     def get_logger(self, name: str, loglevel: Optional[int] = None) -> logging.Logger:
         assert len(name) <= 5, 'Length of logger name > 5: "%s"' % name
         name = "%-5s" % name
-        loglevel = loglevel or self.loglevel
+        if loglevel is None:  # not ``or``: 0 is an explicit level
+            loglevel = self.loglevel
         # logger focus
         lf = [_.upper() for _ in ["%-5s" % _ for _ in self.logger_focus]]
         if name in lf:
@@ -488,8 +489,6 @@ class Config:
             return self._loggers[key]
         from .utils import create_logger
 
-        if loglevel is None:
-            loglevel = self.loglevel
         logger = create_logger(name, int(loglevel) if loglevel is not None else 40)
         self._loggers[key] = logger
         return logger

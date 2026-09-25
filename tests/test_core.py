@@ -154,9 +154,9 @@ def test_results_setter_exception():
     midx = pd.MultiIndex.from_tuples([("other", 0)], names=["prop", "dim"])
     df = pd.DataFrame([[1]], columns=midx)
 
-    # It should catch KeyError and set _best_fx to inf
+    # A frame without 'fx' is accepted as is (Results no longer derives a best fx from it)
     results.results = df
-    assert results._best_fx == float("inf")
+    assert results.results is df
 
 
 def test_add_results_exception():

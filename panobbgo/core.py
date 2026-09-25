@@ -127,7 +127,6 @@ class Results:
         self._results_df: Optional["DataFrame"] = None
         self._unmerged_dfs: List["DataFrame"] = []
         self._buffer: List["Result"] = []
-        self._best_fx: float = float("inf")
         self._last_nb: int = 0  # for logging
         # Order statistics of past fx for the progress reporter, built lazily
         # the first time a batch arrives with the reporter on; ``_fed`` is the
@@ -188,14 +187,6 @@ class Results:
             self._progress_ranks = None
             self._progress_ranks_fed = -1
             self._last_nb = 0 if value is None else len(value)
-            # Update best_fx from new results
-            if value is not None and not value.empty:
-                try:
-                    self._best_fx = float(value.xs(0, level=1, axis=1)["fx"].min())
-                except (KeyError, ValueError):
-                    self._best_fx = float("inf")
-            else:
-                self._best_fx = float("inf")
 
     def _flush_buffer(self) -> None:
         """
@@ -305,10 +296,6 @@ class Results:
         with self._lock:
             n_before = len(self)
             self._buffer.extend(new_results)
-
-            for r in new_results:
-                if r.fx is not None and r.fx < self._best_fx:
-                    self._best_fx = r.fx
 
             if reporting:
                 # The tracker covers ``_progress_ranks_fed`` results.  Extend
@@ -1116,13 +1103,7 @@ class HeuristicSubprocess(Heuristic):
                 end.close()
             except Exception:
                 pass
-        proc = self.__subprocess
-        if proc.is_alive():
-            proc.terminate()
-        proc.join(1)
-        if proc.is_alive():
-            proc.kill()
-            proc.join(1)
+        terminate_process(self.__subprocess)
 
     @staticmethod
     def subprocess(pipe: Any) -> None:

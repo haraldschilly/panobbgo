@@ -49,30 +49,31 @@ def run_strategy(strategy_class, problem, max_eval=MAX_EVAL, seed=SEED):
 
 
 @pytest.mark.parametrize(
-    "strategy_class, make_problem, center_fx, threshold, seed",
+    "strategy_class, make_problem, center_fx, threshold, max_eval",
     [
         # Rosenbrock variant, box [0,2] x [-5,5]: centre (1, 0) has f = 100,
         # a uniform draw's median is ~200; optimum f = 0 at (1, 1).
-        (StrategyRewarding, lambda: Rosenbrock(dims=2), 100.0, 1.0, SEED),
+        (StrategyRewarding, lambda: Rosenbrock(dims=2), 100.0, 1.0, MAX_EVAL),
         # Rastrigin on [-2, 5]^2: centre (1.5, 1.5) is a local maximum
         # (f = 44.5), uniform median ~32; optimum f = 0 at the origin.
-        # Re-pinned for keyed RNG streams, 2026-09-25: seed 0 -> 1.  At 100
-        # evaluations this threshold holds for 14/20 seeds (0..19) with keyed
-        # streams and held for 16/20 with the old order-based streams, so the
-        # case checks one seed, not a rate; seed 0 now ends at 12.94.
-        (StrategyRewarding, lambda: Rastrigin(dims=2, box=[(-2.0, 5.0)] * 2), 44.5, 5.0, 1),
+        # Re-pinned for keyed RNG streams, 2026-09-25: the old threshold 5.0 at
+        # 100 evaluations held for only 14/20 seeds (16/20 with the old
+        # streams) -- it sat right on the basin level 4.97.  6.5 lies between
+        # the basin levels 4.97 and 7.96, and 200 evaluations clear it on
+        # 20/20 seeds with a wide margin (review of PR #337).
+        (StrategyRewarding, lambda: Rastrigin(dims=2, box=[(-2.0, 5.0)] * 2), 44.5, 6.5, 200),
         # Ackley on [-1.7, 8.3]^2: centre (3.3, 3.3) has f ~ 11.6, uniform
         # median ~12.9; optimum f = 0 at the origin.
-        (StrategyUCB, lambda: Ackley(dims=2, box=[(-1.7, 8.3)] * 2), 11.647, 3.0, SEED),
+        (StrategyUCB, lambda: Ackley(dims=2, box=[(-1.7, 8.3)] * 2), 11.647, 3.0, MAX_EVAL),
     ],
     ids=["rosenbrock-rewarding", "rastrigin-rewarding", "ackley-ucb"],
 )
-def test_convergence(strategy_class, make_problem, center_fx, threshold, seed):
+def test_convergence(strategy_class, make_problem, center_fx, threshold, max_eval):
     """The strategy gets far below the box centre's value within the budget."""
     problem = make_problem()
     assert problem(Point(problem.center, "center")).fx == pytest.approx(center_fx, abs=1e-3)
 
-    strategy = run_strategy(strategy_class, problem, seed=seed)
+    strategy = run_strategy(strategy_class, problem, max_eval=max_eval)
 
     assert strategy.best.fx < threshold, (
         f"{strategy_class.__name__} failed to make progress on {type(problem).__name__}: best fx {strategy.best.fx}"

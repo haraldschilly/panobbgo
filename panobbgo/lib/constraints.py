@@ -568,7 +568,11 @@ class AugmentedLagrangianConstraintHandler(ConstraintHandler):
             else:
                 L_values = fx_all
 
-            # Find minimum
+            # Find minimum.  A NaN fx (an evaluation.timeout placeholder) would
+            # win ``argmin`` (NaN propagates as the minimum): rank it last.
+            L_values = np.where(np.isnan(L_values), np.inf, np.asarray(L_values, dtype=float))
+            if not np.isfinite(L_values).any():
+                return  # nothing but placeholders / unknowns: no candidate
             min_idx = np.argmin(L_values)
 
             # Construct Result

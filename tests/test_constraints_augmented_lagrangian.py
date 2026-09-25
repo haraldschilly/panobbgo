@@ -248,3 +248,29 @@ def test_augmented_lagrangian_stuck_incumbent_does_not_grow_mu():
         handler.on_new_results(results)
     assert handler.mu == 2.0
     assert np.allclose(handler.lambdas, np.array([2.0 * 200]))
+
+
+def test_scan_history_ranks_a_nan_fx_last():
+    """A timed-out placeholder (fx = NaN) must not win ``argmin`` over L."""
+    strategy = MockStrategy()
+    strategy.eventbus = MockEventBus()
+    strategy.problem = type("obj", (object,), {"dim": 1})
+    results_mock = MockResults()
+    results_mock.history = {
+        "x": np.array([[1.0], [2.0]]),
+        "fx": np.array([np.nan, 5.0]),
+        "cv_vec": None,
+        "who": np.array(["timeout", "p2"]),
+        "error": np.zeros(2),
+    }
+    strategy.results = results_mock
+    handler = AugmentedLagrangianConstraintHandler(strategy=strategy, rho=10.0)
+    handler.lambdas = np.zeros(0)
+    handler._scan_history_for_new_best()
+    [(key, kwargs)] = strategy.eventbus.published
+    assert kwargs["candidates"][0].fx == 5.0
+    # Only placeholders: no candidate at all.
+    strategy.eventbus.published.clear()
+    results_mock.history["fx"] = np.array([np.nan, np.nan])
+    handler._scan_history_for_new_best()
+    assert strategy.eventbus.published == []

@@ -37,9 +37,10 @@ Why a separate harness?
   competition draws from a documented instance distribution); they are
   not in Panobbgo's own problem registry and there is no need to mix the
   registries.
-* Forking the measurement track keeps the existing self-improvement
-  ledger (``planning/done/self_improve_ledger.jsonl``) honest: a change can be
-  good for ``composite_score`` and bad for AOCC, and we want to see both.
+* Forking the measurement track kept the self-improvement ledgers
+  honest (the loop was removed 2026-09-25; its dated ledgers are
+  ``planning/done/self_improve_ledger_*.jsonl``): a change can be good for
+  ``composite_score`` and bad for AOCC, and we want to see both.
 
 Public surface
 --------------

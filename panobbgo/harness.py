@@ -285,7 +285,8 @@ def _make_quick_strategies() -> List[StrategySpec]:
     dimension importances to ``Nearby`` once enough evaluations have
     accumulated; ``update_interval=25`` was selected by the self-
     improvement loop as a small but reproducible gain over the earlier
-    ``20`` (see ``planning/done/self_improve_ledger.jsonl`` iter 6).
+    ``20`` (see ``planning/done/self_improve_ledger_2026-05-31.jsonl``,
+    iteration 6, accepted 2026-05-15).
 
     CMA-ES is intentionally excluded from the quick strategy: with only 75 evaluations
     its covariance adaptation has too little data to converge, and the population overhead
@@ -309,8 +310,8 @@ def _make_quick_strategies() -> List[StrategySpec]:
                 # ``scramble=False`` codified 2026-05-31 from three independent
                 # self-improvement loop accepts (deltas +0.022 / +0.051 / +0.032,
                 # each with bootstrap-CI lower bound > 0 and no per-pair
-                # regression — see planning/done/self_improve_ledger.jsonl iter=9 /
-                # iter=15 / iter=17 in the 2026-05 ledger window).  At n=16 in
+                # regression — see planning/done/self_improve_ledger_2026-05-31.jsonl
+                # iterations 9 / 15 / 17, accepted 2026-05-25 / 05-22 / 05-30).  At n=16 in
                 # the quick-mode 2-D battery, the deterministic Sobol' grid is
                 # already optimally space-filling; Owen scrambling perturbs
                 # those grid points and slightly degrades the "first looks"

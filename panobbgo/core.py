@@ -51,10 +51,7 @@ import time as time_module
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, MultiIndex, concat
-import os
 import pickle
-import subprocess
-import tempfile
 import inspect
 import logging
 import uuid
@@ -64,7 +61,8 @@ import multiprocessing
 import collections
 import re
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from concurrent.futures import wait as futures_wait
 from .logging.progress import ProgressContext
 from typing import TYPE_CHECKING, Any, Callable, cast, Optional, List, Dict, Union, Tuple
@@ -1569,6 +1567,22 @@ class EventBus:
             self._thread.join(timeout=timeout)
 
 
+#: The problem a ``evaluation_method="processes"`` worker evaluates; set once
+#: per worker process by :func:`_process_worker_init`.
+_WORKER_PROBLEM: Any = None
+
+
+def _process_worker_init(payload: bytes) -> None:
+    """Pool initializer: unpickle the problem once per worker process."""
+    global _WORKER_PROBLEM
+    _WORKER_PROBLEM = pickle.loads(payload)
+
+
+def _process_worker_eval(point: "Point") -> Any:
+    """Evaluate ``point`` on this worker's problem (module level, so it pickles)."""
+    return _WORKER_PROBLEM(point)
+
+
 class _DirectEvaluators:
     """View of the in-process evaluation backend (threads or subprocesses).
 
@@ -1766,6 +1780,8 @@ class StrategyBase:
 
         # Validate framework setup before starting optimization
         self.validate_setup()
+
+        self._ensure_cluster()
 
         # Load previous results if storage is enabled
         if hasattr(self.results, "load_from_storage"):
@@ -2009,7 +2025,7 @@ class StrategyBase:
 
         Evaluation methods:
         - 'threaded': Thread pool for fast testing with pure Python functions (default for tests)
-        - 'processes': Subprocess evaluation for isolation (legacy, slower)
+        - 'processes': Spawned worker-process pool for isolation (picklable problem)
         - 'dask': Distributed evaluation for heavy workloads
         """
         if self.config.evaluation_method == "dask":
@@ -2024,31 +2040,55 @@ class StrategyBase:
             self._setup_threaded_evaluation(problem)
         else:
             raise ValueError(f"Unknown evaluation method: {self.config.evaluation_method}")
+        self._pool_method = self.config.evaluation_method
+
+    def _ensure_cluster(self):
+        """Rebuild the evaluation backend if ``evaluation_method`` changed after construction.
+
+        ``__init__`` sets the backend up from the config it was given; callers
+        (tests, the harness) often set ``config.evaluation_method`` on the
+        constructed strategy.  Without this the old backend kept evaluating
+        while the main loop routed by the new name.
+        """
+        old = getattr(self, "_pool_method", None)
+        if old == self.config.evaluation_method:
+            return
+        if old == "dask":
+            from . import dask_evaluation
+
+            dask_evaluation.close(self)
+        elif hasattr(self, "_thread_pool"):
+            self._thread_pool.shutdown(wait=False, cancel_futures=True)
+        self._setup_cluster(self.problem)
 
     def _setup_process_evaluation(self, problem):
-        """
-        Set up process pool evaluation using subprocesses.
-        """
-        # Store problem for subprocess evaluation
-        self._problem = problem
+        """Set up a spawn-context process pool (``evaluation_method="processes"``).
 
-        # Determine number of processes (default to number of CPU cores)
-        self._n_processes = (
-            self.config.dask_n_workers if hasattr(self.config, "dask_n_workers") else multiprocessing.cpu_count()
-        )
-        self.logger.info("Setting up process evaluation with %d subprocesses" % self._n_processes)
-
-        # Create a temporary file to store the problem for subprocesses
-        self._problem_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
+        Each worker is a fresh interpreter (``sys.executable``, ``spawn``
+        start method, so no forked locks or threads) that receives the
+        pickled problem once, through the pool initializer.  Submission,
+        harvesting, the budget accounting and the shutdown are those of the
+        threaded path — only the executor differs.  The problem must be
+        picklable, and a script using this mode needs the usual
+        ``if __name__ == "__main__":`` guard.
+        """
         try:
-            pickle.dump(problem, self._problem_file)
-            self._problem_file.close()
-        except Exception as e:
-            self._problem_file.close()
-            os.unlink(self._problem_file.name)
-            raise e
-
-        self.logger.info("Process evaluation ready")
+            payload = pickle.dumps(problem)
+        except Exception as exc:
+            raise TypeError(
+                "evaluation_method='processes' needs a picklable problem (defined at module level, "
+                f"no lambdas/closures): {exc!r}"
+            ) from exc
+        self._problem = problem
+        self._n_processes = int(self.config.dask_n_workers)
+        self._thread_pool = ProcessPoolExecutor(
+            max_workers=self._n_processes,
+            mp_context=multiprocessing.get_context("spawn"),
+            initializer=_process_worker_init,
+            initargs=(payload,),
+        )
+        self._futures = {}
+        self.logger.info("Process evaluation ready with %d worker processes" % self._n_processes)
 
     def _setup_threaded_evaluation(self, problem):
         """
@@ -2156,9 +2196,7 @@ class StrategyBase:
                 from . import dask_evaluation
 
                 self.results += dask_evaluation.run_evaluation(self, points)
-            elif self.config.evaluation_method == "processes":
-                self._run_process_evaluation(points)
-            elif self.config.evaluation_method == "threaded":
+            else:  # "threaded" or "processes": same bookkeeping, different pool
                 self._run_threaded_evaluation(points)
 
             if sync:
@@ -2310,175 +2348,98 @@ class StrategyBase:
         """
         self._stop_requested = True
 
-    def _run_process_evaluation(self, points):
-        """Run evaluation using subprocess calls."""
-        # Submit each point as a separate subprocess task
-        new_processes = []
-        temp_files = []
-        task_ids = []
+    def _submit(self, point):
+        """Submit one evaluation to the pool (threads or spawned processes)."""
+        if self.config.evaluation_method == "processes":
+            return self._thread_pool.submit(_process_worker_eval, point)
+        return self._thread_pool.submit(self._problem, point)
 
-        for i, point in enumerate(points):
-            # Create task ID
-            task_id = f"process_task_{self.loops}_{i}"
-            task_ids.append(task_id)
-
-            # Create temporary file for the point
-            point_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
-            try:
-                pickle.dump(point, point_file)
-                point_file.close()
-                temp_files.append(point_file.name)
-
-                # Create temporary file for the result
-                result_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
-                result_file.close()
-                temp_files.append(result_file.name)
-
-                # Launch subprocess
-                cmd = [
-                    "python3",
-                    "-c",
-                    f"""
-import pickle
-import sys
-sys.path.insert(0, '{os.path.dirname(os.path.abspath(__file__))}')
-from panobbgo.utils import evaluate_point_subprocess
-
-# Load problem and point
-with open('{self._problem_file.name}', 'rb') as f:
-    problem = pickle.load(f)
-with open('{point_file.name}', 'rb') as f:
-    point = pickle.load(f)
-
-# Evaluate and save result
-result = evaluate_point_subprocess(problem, point)
-with open('{result_file.name}', 'wb') as f:
-    pickle.dump(result, f)
-""",
-                ]
-
-                process = subprocess.Popen(cmd)
-                new_processes.append((process, result_file.name, task_id))
-
-            except Exception as e:
-                point_file.close()
-                os.unlink(point_file.name)
-                if "result_file" in locals():
-                    result_file.close()
-                    os.unlink(result_file.name)
-                raise e
-
-        # Add tasks to pending (for compatibility with existing code)
-        for task_id in task_ids:
-            self.pending[task_id] = task_id  # Mock pending entry
-
-        # Wait for all processes to complete and collect results
-        self.new_finished = []
-        new_results = []
-        for process, result_file, task_id in new_processes:
-            try:
-                process.wait(timeout=30)  # 30 second timeout per evaluation
-                if process.returncode == 0:
-                    with open(result_file, "rb") as f:
-                        result = pickle.load(f)
-                        if isinstance(result, list):
-                            new_results.extend(result)
-                        else:
-                            new_results.append(result)
-                    self.new_finished.append(task_id)
-                    self.finished.append(task_id)
-                else:
-                    self.logger.error("Subprocess evaluation failed with return code: %d" % process.returncode)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                self.logger.error("Subprocess evaluation timed out")
-            except Exception as e:
-                self.logger.error("Task failed with error: %s" % e)
-
-        # Remove completed tasks from pending
-        for task_id in self.new_finished:
-            self.pending.pop(task_id, None)
-
-        # Clean up temporary files
-        for temp_file in temp_files:
-            try:
-                os.unlink(temp_file)
-            except Exception:
-                pass
-
-        self.results += new_results
+    def _eval_timeout(self) -> Optional[float]:
+        """Per-evaluation timeout in seconds (``evaluation.timeout``); ``None`` = wait forever."""
+        t = getattr(self.config, "evaluation_timeout", None)
+        return float(t) if t else None
 
     def _run_threaded_evaluation(self, points):
-        """
-        Run evaluation using thread pool for fast testing.
+        """Evaluate on the local pool — threads or (``"processes"``) spawned workers.
 
-        This is much faster than subprocess evaluation for pure Python functions
-        since it avoids process creation overhead and pickle serialization.
+        An evaluation that raises, or runs past ``evaluation.timeout``, is
+        logged and leaves ``pending`` without a result; it stays charged
+        against the budget (see :meth:`_clamp_to_budget`).  A timed-out
+        evaluation cannot be interrupted, only abandoned: its worker keeps
+        running until the call returns or the pool is shut down.
         """
         # Prepare for result collection
         self.new_finished = []
         new_results = []
+        timeout = self._eval_timeout()
+
+        def _collect(future, wait: Optional[float] = None):
+            try:
+                result = future.result(timeout=wait)
+            except FuturesTimeoutError:
+                future.cancel()
+                self.logger.error("Evaluation timed out after %.1fs; abandoning it." % (timeout or 0.0))
+                return
+            except Exception as e:
+                self.logger.error("Evaluation failed: %r" % (e,))
+                return
+            if isinstance(result, list):
+                new_results.extend(result)
+            else:
+                new_results.append(result)
 
         if self.config.sync_evaluation:
-            # Reproducible mode: evaluate in submission order on this thread.
+            # Reproducible mode: results are taken in submission order.
             # A pool would return results in completion order, which makes
             # the evaluation trajectory (and every anytime metric computed
-            # from it) depend on thread scheduling.  For cheap objectives
-            # this is also faster than the pool round trip.
-            for i, point in enumerate(points):
+            # from it) depend on thread scheduling.  Threads evaluate on this
+            # thread (for cheap objectives faster than the pool round trip);
+            # processes run in parallel and are harvested in order.
+            procs = self.config.evaluation_method == "processes"
+            futures = [self._submit(p) for p in points] if procs else [None] * len(points)
+            for i, (point, future) in enumerate(zip(points, futures)):
                 task_id = f"sync_task_{self.loops}_{i}"
                 t0 = time_module.time()
-                try:
-                    result = self._problem(point)
-                    if isinstance(result, list):
-                        new_results.extend(result)
-                    else:
-                        new_results.append(result)
-                except Exception as e:
-                    self.logger.error("Evaluation failed: %s" % e)
+                if future is not None:
+                    _collect(future, timeout)
+                else:
+                    try:
+                        result = self._problem(point)
+                        if isinstance(result, list):
+                            new_results.extend(result)
+                        else:
+                            new_results.append(result)
+                    except Exception as e:
+                        self.logger.error("Evaluation failed: %r" % (e,))
                 self.tasks_walltimes[task_id] = time_module.time() - t0
                 self.new_finished.append(task_id)
                 self.finished.append(task_id)
             self.results += new_results
             return
 
-        # Submit all points to thread pool if any
-        if points:
-            for i, point in enumerate(points):
-                task_id = f"thread_task_{self.loops}_{i}"
-                future = self._thread_pool.submit(self._problem, point)
-                self._futures[task_id] = future
-                self.pending[task_id] = future
-                # Store start time for walltime calculation
-                if not hasattr(self, "_task_start_times"):
-                    self._task_start_times = {}
-                self._task_start_times[task_id] = time_module.time()
+        if not hasattr(self, "_task_start_times"):
+            self._task_start_times = {}
+        for i, point in enumerate(points):
+            task_id = f"thread_task_{self.loops}_{i}"
+            future = self._submit(point)
+            self._futures[task_id] = future
+            self.pending[task_id] = future
+            self._task_start_times[task_id] = time_module.time()
 
-        # Wait for completion with short timeout for responsiveness
-        self.new_finished = []
-        new_results = []
-
-        # Check which futures are done
+        # Harvest what is done (or has overrun its timeout); never block.
+        now = time_module.time()
         completed_ids = []
         for task_id, future in list(self._futures.items()):
-            if future.done():
-                completed_ids.append(task_id)
-                self.new_finished.append(task_id)
-                self.finished.append(task_id)
-
-                # Record wall time
-                if hasattr(self, "_task_start_times") and task_id in self._task_start_times:
-                    self.tasks_walltimes[task_id] = time_module.time() - self._task_start_times[task_id]
-                    self._task_start_times.pop(task_id)
-
-                try:
-                    result = future.result()
-                    if isinstance(result, list):
-                        new_results.extend(result)
-                    else:
-                        new_results.append(result)
-                except Exception as e:
-                    self.logger.error("Threaded evaluation failed: %s" % e)
+            started = self._task_start_times.get(task_id, now)
+            overdue = timeout is not None and now - started > timeout
+            if not (future.done() or overdue):
+                continue
+            completed_ids.append(task_id)
+            self.new_finished.append(task_id)
+            self.finished.append(task_id)
+            self.tasks_walltimes[task_id] = now - started
+            self._task_start_times.pop(task_id, None)
+            _collect(future, 0 if not future.done() else None)
 
         # Clean up completed futures
         for task_id in completed_ids:
@@ -2669,14 +2630,7 @@ with open('{result_file.name}', 'wb') as f:
 
             # Cancel outstanding futures, close client + cluster
             dask_evaluation.close(self)
-        elif self.config.evaluation_method == "processes":
-            # Clean up problem file for process evaluation
-            if hasattr(self, "_problem_file"):
-                try:
-                    os.unlink(self._problem_file.name)
-                except:
-                    pass
-        elif self.config.evaluation_method == "threaded":
+        else:  # "threaded" or "processes"
             # Drop queued evaluations and wait (bounded) for the ones already
             # running, so nothing of this run is still calling the objective
             # when the caller starts the next one.

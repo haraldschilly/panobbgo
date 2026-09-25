@@ -777,9 +777,10 @@ def test_an_empty_archive_degrades_to_the_cold_path():
 # ``_run`` above carries a JSO, a PSO and a CMAES, so the two contracts it
 # pins were only ever checked on those three.  The rest of the L-SHADE
 # family overrides pieces of the warm-start path, and one of those overrides
-# was randomised: ``NLSHADE_RSP._archive_cap`` samples the per-generation
-# archive cap from ``self._rng`` when ``adaptive_archive=True`` (its
-# default, inherited by ``NLSHADE_LBC``), and
+# was randomised: until 2026-09 ``NLSHADE_RSP._archive_cap`` sampled a
+# per-generation archive cap from ``self._rng`` (the removed
+# ``adaptive_archive`` option, inherited by ``NLSHADE_LBC``; both now use a
+# fixed paper cap), and
 # ``LSHADE._warm_start_population`` used to call it one line *before* the
 # "empty archive -> cold path" bail-out.  So on those two arms, passing
 # ``warm_start="archive"`` against an empty archive consumed a draw and

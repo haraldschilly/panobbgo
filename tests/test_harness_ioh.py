@@ -1054,3 +1054,23 @@ class TestFidReachesWorker:
             ("Baseline_Random", "separable"),
             ("Baseline_Random", "multimodal-weak"),
         }
+
+
+@requires_worker
+def test_ioh_smoke_script_is_seeded_and_uses_the_harness_path(capsys, monkeypatch):
+    """``scripts/ioh_smoke.py`` runs through ``_run_one``: budget respected, same seed -> same line."""
+    import runpy
+    import sys
+    from pathlib import Path
+
+    path = str(Path(__file__).resolve().parent.parent / "scripts" / "ioh_smoke.py")
+    lines = []
+    for _ in range(2):
+        monkeypatch.setattr(sys, "argv", ["ioh_smoke.py", "--max-eval", "60", "--seed", "3"])
+        with pytest.raises(SystemExit) as exc:
+            runpy.run_path(path, run_name="__main__")
+        assert exc.value.code == 0
+        out = capsys.readouterr().out.strip().splitlines()[-1]
+        lines.append(out.split("elapsed=")[0])
+    assert "n_evals=60/60" in lines[0]
+    assert lines[0] == lines[1]

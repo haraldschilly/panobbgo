@@ -313,9 +313,12 @@ class Config:
         # 2026-08-09); off by default — benchmark drivers opt in.
         self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
 
-        # Per-evaluation timeout in seconds for 'threaded' and 'processes'
-        # (YAML only).  An evaluation past it is logged and abandoned (no
-        # result, still charged to the budget).  Unset/0 = no timeout.
+        # Per-evaluation timeout in seconds of running time for 'threaded'
+        # and 'processes' (YAML only).  An evaluation past it is logged and
+        # fails (no result, still charged to the budget): processes kill the
+        # worker, threads abandon it (it keeps running; see
+        # panobbgo/local_pool.py).  Ignored — with a warning — for threaded
+        # evaluation under evaluation.sync (inline).  Unset/0 = no timeout.
         self.evaluation_timeout = get_config("evaluation.timeout", None, None, None, float)
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')

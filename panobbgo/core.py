@@ -2247,7 +2247,7 @@ class StrategyBase:
             # a stall: the question is whether anything *can* still produce.
             # ``_alive`` answers that from state alone — no wall clock.
             current_results_count = len(self.results)
-            progressed = len(points) > 0 or len(self.pending) > 0 or current_results_count != self._last_results_count
+            progressed = len(points) > 0 or current_results_count != self._last_results_count or self._pool_progressed()
             now = time_module.time()
             if progressed:
                 self._dead_loops = 0
@@ -2307,6 +2307,21 @@ class StrategyBase:
         # Final forced update to ensure UI shows 100% or final results
         self._update_progress_status(force=True)
         self._cleanup()
+
+    def _pool_progressed(self) -> bool:
+        """Is the in-flight work moving?
+
+        Dask: anything pending counts (as it always did).  Local pools: an
+        evaluation is running, or one started or finished since the last
+        pass.  Tasks that sit queued with nothing running (every worker
+        wedged) are *not* progress, so the deadlock backstop can fire.
+        """
+        pool = getattr(self, "_pool", None)
+        if self.config.evaluation_method == "dask" or pool is None:
+            return len(self.pending) > 0
+        events, last = pool.events, getattr(self, "_last_pool_events", None)
+        self._last_pool_events = events
+        return pool.running() > 0 or (last is not None and events != last)
 
     def _clamp_to_budget(self, points):
         """Cut a batch from :meth:`execute` to the evaluations the budget still allows.
@@ -2422,6 +2437,13 @@ class StrategyBase:
             else:
                 from .local_pool import Outcome
 
+                if timeout is not None and not getattr(self, "_warned_sync_timeout", False):
+                    self._warned_sync_timeout = True
+                    self.logger.warning(
+                        "evaluation.timeout is ignored for threaded evaluation with evaluation.sync: "
+                        "evaluations run inline on the main thread and cannot be interrupted. "
+                        "Use evaluation.method 'processes' to enforce it."
+                    )
                 for tid, point in zip(ids, points):
                     t0 = time_module.time()
                     try:

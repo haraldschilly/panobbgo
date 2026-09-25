@@ -207,3 +207,139 @@ def test_a_crashing_worker_fails_one_evaluation_and_the_run_goes_on(sync, tmp_pa
     assert (tmp_path / "crashed").exists()
     assert len(s.results) == 7
     assert s._dispatched == 8
+
+
+class _UnpicklableAnywhere(Problem):
+    def __init__(self):
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def __setstate__(self, state):
+        raise RuntimeError("cannot load me")
+
+    def eval(self, x):
+        return 0.0
+
+
+class _UnpicklableInWorkers(Problem):
+    """Unpickles in the creating process only -- like a class defined in __main__."""
+
+    def __init__(self):
+        import os
+
+        self.home_pid = os.getpid()
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def __setstate__(self, state):
+        import os
+
+        if state["home_pid"] != os.getpid():
+            raise RuntimeError("not importable here")
+        self.__dict__.update(state)
+
+    def eval(self, x):
+        return 0.0
+
+
+class _SigtermSelf(Problem):
+    def __init__(self):
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        import os
+        import signal
+
+        os.kill(os.getpid(), signal.SIGTERM)
+        time.sleep(5)
+        return 0.0
+
+
+def test_a_problem_that_does_not_unpickle_is_refused_at_setup():
+    with pytest.raises(TypeError, match="does not unpickle"):
+        _run(_UnpicklableAnywhere(), 4, True)
+
+
+@pytest.mark.parametrize("sync", [True, False], ids=["sync", "async"])
+def test_workers_that_cannot_load_the_problem_raise_instead_of_rebuilding_forever(sync):
+    from panobbgo.local_pool import WorkerInitError
+
+    t0 = time.time()
+    with pytest.raises(WorkerInitError, match="cannot initialise the problem"):
+        _run(_UnpicklableInWorkers(), 4, sync)
+    assert time.time() - t0 < 30
+
+
+def test_an_evaluation_whose_worker_is_sigtermed_is_not_retried_forever():
+    t0 = time.time()
+    s = _run(_SigtermSelf(), 2, False)
+    assert len(s.results) == 0
+    assert not s.pending
+    assert time.time() - t0 < 60
+
+
+class _WedgeFirstTwo(Problem):
+    """The first two evaluations hang for 3 s; the rest are instant."""
+
+    def __init__(self):
+        import itertools
+        import threading
+
+        self._calls = itertools.count()
+        self._lock = threading.Lock()
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        with self._lock:
+            n = next(self._calls)
+        if n < 2:
+            time.sleep(3.0)
+        return float(np.sum(x**2))
+
+
+def test_timed_out_threads_do_not_starve_the_queue():
+    """Two wedged threads held both slots of a 2-worker executor; the rest waited behind them."""
+    t0 = time.time()
+    s = _run(_WedgeFirstTwo(), 10, False, timeout=0.3, method="threaded")
+    assert len(s.results) == 8
+    assert time.time() - t0 < 2.5
+
+
+def test_sync_threaded_timeout_is_ignored_with_one_warning():
+    from unittest import mock
+
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s.config.max_eval = 6
+    s.config.sync_evaluation = True
+    s.config.evaluation_timeout = 1.0
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    with mock.patch.object(s.logger, "warning") as warn:
+        s.start()
+    msgs = [c.args[0] for c in warn.call_args_list if "evaluation.timeout is ignored" in c.args[0]]
+    assert len(msgs) == 1
+    assert len(s.results) == 6
+
+
+def test_queued_tasks_with_nothing_running_are_not_progress():
+    """The deadlock backstop must see a wedge: pending tasks that never start are not progress."""
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class FakePool:
+        events = 5
+
+        def running(self):
+            return 0
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    real = s._pool
+    s._pool = FakePool()
+    s.pending = {"queued": "queued"}
+    assert not s._pool_progressed()
+    assert not s._pool_progressed()
+    FakePool.events = 6
+    assert s._pool_progressed()
+    s._pool.running = lambda: 1
+    assert s._pool_progressed()
+    real.close(time.time())

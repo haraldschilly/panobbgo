@@ -31,13 +31,31 @@ What it guarantees beyond a bare executor:
 * **Processes: a timed-out evaluation is killed, not abandoned.**  The
   pool's workers are killed and a fresh pool takes over; the other
   in-flight tasks are resubmitted (they lose their progress, not their
-  place in the budget).  Threads cannot be interrupted: a timed-out thread
-  evaluation is abandoned and runs to completion in the background.
+  place in the budget).
+* **Threads: a timed-out evaluation is abandoned** — a thread cannot be
+  interrupted, so it runs to completion in the background.  So that it
+  cannot hold a worker slot forever, the executor is retired
+  (``shutdown(wait=False)``) and the tasks that had not started yet move to
+  a fresh ``ThreadPoolExecutor``.  ``ThreadPoolExecutor`` threads are not
+  daemon threads: an abandoned evaluation that never returns keeps the
+  interpreter from exiting.  Use ``"processes"`` for objectives that can
+  hang.
 * **Processes: a crashing evaluation does not end the run.**  A worker
   that dies (``os._exit``, a segfault, the OOM killer) breaks a
   ``ProcessPoolExecutor`` and fails every in-flight future with
   ``BrokenProcessPool``.  The task whose worker died is reported failed;
-  the ones merely caught in the break are resubmitted to a fresh pool.
+  the ones merely caught in the break are resubmitted to a fresh pool, and
+  every task that was running during a break gets a strike — after
+  :data:`MAX_BREAK_STRIKES` it is failed too, whatever the exit codes say,
+  so a task cannot be retried forever.  A task that had *finished* in the
+  worker but whose result had not arrived yet is evaluated again: the
+  budget is charged once, but side effects of the objective happen twice.
+* **Processes: workers that cannot load the problem are an error.**  If
+  the pool breaks before any evaluation started (the problem does not
+  unpickle in a fresh interpreter — a class defined in ``__main__`` or a
+  notebook, a ``__setstate__`` that raises), rebuilding cannot help:
+  :class:`WorkerInitError` is raised after :data:`MAX_IDLE_BREAKS` such
+  breaks in a row.
 * **Closing is bounded and leaves nothing running** (:meth:`close`): queued
   tasks are cancelled, running ones get until the deadline, then worker
   processes are killed.
@@ -62,6 +80,16 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 import multiprocessing
+
+#: Breaks a task may be caught in (running at the time) before it is failed.
+MAX_BREAK_STRIKES = 3
+#: Consecutive pool breaks with no evaluation started before giving up.
+MAX_IDLE_BREAKS = 2
+
+
+class WorkerInitError(RuntimeError):
+    """Worker processes die before evaluating anything: the problem cannot be loaded in them."""
+
 
 #: The problem a worker process evaluates and the queue it reports task
 #: starts on; set once per worker by :func:`_process_worker_init`.
@@ -121,6 +149,9 @@ class LocalPool:
         self._procs: Dict[int, Any] = {}
         self._payload: Optional[bytes] = None
         self._starts: Any = None
+        #: Starts and finishes seen: the caller's liveness check reads it.
+        self.events = 0
+        self._idle_breaks = 0
         if self.processes:
             try:
                 self._payload = pickle.dumps(problem)
@@ -129,6 +160,10 @@ class LocalPool:
                     "evaluation_method='processes' needs a picklable problem (defined at module level, "
                     f"no lambdas/closures): {exc!r}"
                 ) from exc
+            try:  # cheap probe; a spawned worker can still fail (e.g. a class from __main__)
+                pickle.loads(self._payload)
+            except Exception as exc:
+                raise TypeError(f"evaluation_method='processes': the problem does not unpickle: {exc!r}") from exc
         self._pool: Any = self._make_pool()
 
     # -- pool lifecycle ------------------------------------------------------
@@ -151,6 +186,7 @@ class LocalPool:
 
     def _thread_eval(self, task_id: str, point: Any) -> Any:
         self._started[task_id] = (threading.get_ident(), time.time())
+        self.events += 1
         return self.problem(point)
 
     def _submit_future(self, task_id: str, point: Any) -> Future:
@@ -159,7 +195,12 @@ class LocalPool:
         return self._pool.submit(self._thread_eval, task_id, point)
 
     def _replace_pool(self, kill: bool) -> None:
-        """Retire the current process pool (killing its workers if asked) and resubmit every task."""
+        """Retire the current pool and move tasks to a fresh one.
+
+        Processes: every task is resubmitted (the old workers are killed or
+        already dead).  Threads: only the tasks that had not started move;
+        the ones running finish in the retired executor's threads.
+        """
         old = self._pool
         if kill:
             old.kill_workers()
@@ -168,6 +209,8 @@ class LocalPool:
         self._pool = self._make_pool()
         self._procs = {}
         for tid, task in self._tasks.items():
+            if not self.processes and not task.future.cancelled():
+                continue  # running (or done) in the old executor: leave it there
             self._started.pop(tid, None)
             task.future = self._submit_future(tid, task.point)
 
@@ -189,6 +232,10 @@ class LocalPool:
         """Tasks queued or running."""
         return len(self._tasks)
 
+    def running(self) -> int:
+        """Tasks that a worker has picked up and that have not been harvested."""
+        return sum(1 for tid in self._tasks if tid in self._started)
+
     def task_ids(self) -> List[str]:
         return list(self._tasks)
 
@@ -200,6 +247,7 @@ class LocalPool:
                 tid, pid, t = self._starts.get()
                 if tid in self._tasks:
                     self._started[tid] = (pid, t)
+                    self.events += 1
         except (OSError, EOFError):  # pragma: no cover - queue torn down
             pass
         self._snapshot_procs()
@@ -228,7 +276,10 @@ class LocalPool:
                     continue
                 del self._tasks[tid]
                 self._started.pop(tid, None)
+                self.events += 1
                 t0 = started[1] if started else None
+                if started is not None:
+                    self._idle_breaks = 0  # an evaluation ran: the workers can load the problem
                 if exc is not None:
                     out.append(Outcome(tid, False, error=repr(exc), started=t0))
                 else:
@@ -240,8 +291,11 @@ class LocalPool:
             t0 = self._started.pop(tid)[1]
             action = "killed" if self.processes else "abandoned (a thread cannot be interrupted)"
             out.append(Outcome(tid, False, error="timed out after %.1fs; %s" % (timeout or 0.0, action), started=t0))
-        if timed_out and self.processes and not broken:
-            self._replace_pool(kill=True)
+        if timed_out and not broken:
+            # Processes: kill the timed-out worker (with the pool).  Threads:
+            # the abandoned thread keeps its slot, so move the waiting tasks
+            # to a fresh executor rather than let n wedged threads starve them.
+            self._replace_pool(kill=self.processes)
         if broken:
             out.extend(self._recover_broken())
         return out
@@ -264,24 +318,38 @@ class LocalPool:
                 continue  # finished just before the break: harvested next poll
             if tid in self._started:
                 suspects.append(tid)
+        if not suspects:
+            # Nothing was running: the workers died loading the problem.
+            self._idle_breaks += 1
+            if self._idle_breaks >= MAX_IDLE_BREAKS:
+                raise WorkerInitError(
+                    "Worker processes cannot initialise the problem: the process pool broke %d times before "
+                    "any evaluation started. Is the problem class importable in a fresh interpreter (not "
+                    "defined in __main__ or a notebook), and does it unpickle without errors?" % self._idle_breaks
+                )
+        else:
+            self._idle_breaks = 0
         codes = {tid: getattr(self._procs.get(self._started[tid][0]), "exitcode", None) for tid in suspects}
         for tid in suspects:
             code = codes[tid]
-            if code is not None:
-                # Died on its own, or terminated (SIGTERM) by the executor
-                # after another worker died.
-                culprit = code != -signal.SIGTERM
-            elif len(suspects) == 1:
+            task = self._tasks[tid]
+            task.strikes += 1  # caught in a break: capped whatever the exit code says
+            if code is not None and code != -signal.SIGTERM:
+                culprit = True  # its worker died on its own
+            elif code is None and len(suspects) == 1:
                 culprit = True  # the only evaluation that was running
             else:
-                task = self._tasks[tid]
-                task.strikes += 1  # cannot tell: fail it on its second break
-                culprit = task.strikes >= 2
+                culprit = task.strikes >= MAX_BREAK_STRIKES
             if culprit:
                 del self._tasks[tid]
                 t0 = self._started.pop(tid)[1]
                 out.append(
-                    Outcome(tid, False, error="worker process died (exit code %s) evaluating it" % code, started=t0)
+                    Outcome(
+                        tid,
+                        False,
+                        error="worker process died (exit code %s, break %d) evaluating it" % (code, task.strikes),
+                        started=t0,
+                    )
                 )
         if self.logger is not None:
             self.logger.error(

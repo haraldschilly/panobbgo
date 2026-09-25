@@ -246,6 +246,24 @@ class TestComputeErt:
         ert = compute_ert([run], tolerance=0.01, budget=100)
         assert math.isinf(ert)
 
+    def test_looser_tolerance_override_counts_the_first_hit_at_that_tolerance(self):
+        """Run tolerance 1e-3 never met; the override 0.5 was met at eval 10."""
+        run = _make_run(False, first_hit=None, func_distance=0.1, tolerance=1e-3)
+        run.convergence = [
+            ConvergencePoint(eval_idx=1, fx=2.0, func_distance=2.0),
+            ConvergencePoint(eval_idx=10, fx=0.3, func_distance=0.3),
+            ConvergencePoint(eval_idx=60, fx=0.1, func_distance=0.1),
+        ]
+        assert compute_ert([run]) == math.inf
+        assert compute_ert([run], tolerance=0.5) == pytest.approx(10.0)
+        assert compute_ert([run], tolerance=0.2) == pytest.approx(60.0)
+
+    def test_budget_override_drops_later_hits(self):
+        hit_late = _make_run(True, first_hit=80, budget=100)
+        hit_early = _make_run(True, first_hit=20, budget=100)
+        # Under a 50-eval budget the eval-80 hit is a failure costing 50.
+        assert compute_ert([hit_late, hit_early], budget=50) == pytest.approx((50 + 20) / 1)
+
 
 # ===========================================================================
 # 4. Unit tests – Serialisation (to_dict / save / load)

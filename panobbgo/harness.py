@@ -2344,9 +2344,11 @@ def compute_ert(
     Args:
         runs: List of :class:`RunRecord` from a single (problem, strategy) pair.
         tolerance: Override the per-run tolerance.  ``None`` uses each run's own
-            ``tolerance`` field.
-        budget: Override the budget used as penalty for failed runs.  ``None``
-            uses each run's ``budget`` field.
+            ``tolerance`` field.  A run succeeds at the first evaluation of
+            its convergence trace within this tolerance.
+        budget: Override the budget: only a hit at or before this
+            evaluation counts, and it is the penalty for a failed run.
+            ``None`` uses each run's ``budget`` field.
 
     Returns:
         ERT in number of evaluations, or ``inf`` if no run succeeded.
@@ -2356,8 +2358,11 @@ def compute_ert(
     for run in runs:
         tol = tolerance if tolerance is not None else run.tolerance
         bud = budget if budget is not None else run.budget
-        hit = run.first_success_eval
-        if hit is not None and run.func_distance <= tol:
+        # The first hit at *this* tolerance and within *this* budget —
+        # ``run.first_success_eval`` is at ``run.tolerance`` and ignores an
+        # overridden budget.
+        hit = next((pt.eval_idx for pt in run.convergence if pt.func_distance <= tol), None)
+        if hit is not None and hit <= bud:
             total += hit
             n_success += 1
         else:

@@ -658,8 +658,27 @@ def make_family_instances(
     list of (str, Family)
         ``name`` is ``problem.name`` (``<family>_d<dim>_i<index>``), so a
         caller can key on it without reaching into the object.
+
+    Raises
+    ------
+    ValueError
+        When two families share a label (:meth:`FamilyConfig.name`): they
+        would get the same instance seeds and the same record names.
     """
     cfgs = [FamilyConfig(base=f) if isinstance(f, str) else f for f in families]
+    # The label is the instance seed's and the record name's only family
+    # part, and it does not see ``condition`` / ``rotate`` / ``shift`` /
+    # ``extra``: two configs differing only there would draw the same seeds
+    # and write their results under the same names.
+    seen: Dict[str, FamilyConfig] = {}
+    for cfg in cfgs:
+        label = cfg.name()
+        if label in seen:
+            raise ValueError(
+                f"two families in one battery share the label {label!r} ({seen[label]!r} and {cfg!r}); "
+                "give them distinct FamilyConfig(label=...)"
+            )
+        seen[label] = cfg
     out: List[Tuple[str, Family]] = []
     for cfg in cfgs:
         label = cfg.name()

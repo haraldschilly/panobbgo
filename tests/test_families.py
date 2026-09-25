@@ -397,3 +397,22 @@ def test_parallel_family_run_matches_the_serial_one():
         return [{k: v for k, v in dataclasses.asdict(x).items() if k != "elapsed_s"} for x in r.runs]
 
     assert records(2) == records(1)
+
+
+def test_battery_rejects_two_families_with_the_same_label():
+    """``condition`` / ``rotate`` / ``shift`` / ``extra`` are not in the label.
+
+    Two configs differing only there used to get the same instance seeds and
+    the same record names (``ellipsoid_d2_i0``), so their results overwrote
+    each other.  A distinct ``label=`` keeps both.
+    """
+    from panobbgo.lib.families import FamilyConfig, make_family_instances
+
+    with pytest.raises(ValueError, match="share the label 'ellipsoid'"):
+        make_family_instances([FamilyConfig("ellipsoid"), FamilyConfig("ellipsoid", condition=1e3)], dims=[2])
+    pairs = make_family_instances(
+        [FamilyConfig("ellipsoid"), FamilyConfig("ellipsoid", condition=1e3, label="ellipsoid_c1e3")],
+        dims=[2],
+        n_instances=1,
+    )
+    assert [name for name, _ in pairs] == ["ellipsoid_d2_i0", "ellipsoid_c1e3_d2_i0"]

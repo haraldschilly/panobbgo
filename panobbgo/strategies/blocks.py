@@ -480,7 +480,8 @@ class StrategyBlockBandit(StrategyBase):
         if prior == "dim":
             # §3: seeded from the per-dimension means of the evaluation
             # battery.  It is an ablation that has to be held out at
-            # d = 10/20 before it can be trusted, so it stays unbuilt.
+            # d = 10/20 before it can be trusted, so it stays unbuilt.  It is
+            # also what the design's early prologue exit needs (see _select).
             raise NotImplementedError("prior='dim' is not implemented yet (design §3)")
         if prior != "none":
             raise ValueError("prior must be 'none' or 'dim', got %r" % prior)
@@ -1047,23 +1048,6 @@ class StrategyBlockBandit(StrategyBase):
             return q
         return q + c * float(np.sqrt(np.log(max(self._N, 1.0)) / n))
 
-    def _arm_prior(self, name: str) -> float:
-        """Optimistic prior of an arm that has not been measured yet."""
-        return 1.0  # prior="none"; prior="dim" is refused in __init__
-
-    def _maybe_end_prologue(self) -> None:
-        """Early exit: the leader's LCB already beats every untried arm's prior."""
-        if not self._prologue:
-            return
-        c = self.ucb_c
-        lcb = -float("inf")
-        for name, n in self._n.items():
-            if n > 0.0:
-                lcb = max(lcb, self._S[name] / n - c * float(np.sqrt(np.log(max(self._N, 1.0)) / n)))
-        if lcb > max(self._arm_prior(name) for name in self._prologue):
-            self.logger.debug("prologue cut short, leader LCB %.4f" % lcb)
-            self._prologue = []
-
     def _select(self) -> Optional[Heuristic]:
         """Owner of the next block, or ``None`` if no arm can produce."""
         self._prologue_pick = False
@@ -1081,7 +1065,10 @@ class StrategyBlockBandit(StrategyBase):
         if not ready:
             return None
 
-        self._maybe_end_prologue()
+        # The design's early prologue exit (leader's LCB above every untried
+        # arm's optimistic prior, §3) needs an informative prior: with
+        # prior="none" that prior is 1.0, the top of the [0, 1] reward band,
+        # so no LCB can beat it.  It belongs with prior="dim" when that exists.
         if self._prologue:
             for name in list(self._prologue):
                 for h in ready:

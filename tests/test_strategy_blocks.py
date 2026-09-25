@@ -263,6 +263,23 @@ def test_prologue_covers_every_arm():
     assert not any(b["prologue"] for b in s._blocks[len(names) :])
 
 
+def test_prologue_is_not_cut_short_by_a_perfect_leader():
+    """With ``prior="none"`` every untried arm gets its prologue block.
+
+    The early-exit branch this pins the removal of compared the leader's LCB
+    with an optimistic prior of 1.0 — the top of the clipped [0, 1] reward
+    band — so it could never fire; even a leader with reward 1.0 on every
+    block must not skip the remaining prologue.
+    """
+    s = _strategy(arms=(lambda st: Generational(st, name="A"), lambda st: Generational(st, name="B")))
+    for h in s.heuristics:
+        h.on_start()  # something in each queue, so both arms are ready
+    s._prologue = ["B"]
+    s._S, s._n, s._N = {"A": 50.0}, {"A": 50.0}, 50.0
+    assert s._select().name == "B"
+    assert s._prologue == [] and s._prologue_pick
+
+
 def test_tail_is_exploit_only():
     s = _strategy(max_eval=100, tail_frac=0.25, ucb_c=0.5, arms=())
     assert s._exploration_c() == pytest.approx(0.5)

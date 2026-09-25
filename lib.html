@@ -616,7 +616,11 @@ each constraint.</p></li>
 <p>The chosen norm of <a class="reference internal" href="#panobbgo.lib.Result.cv_vec" title="panobbgo.lib.Result.cv_vec"><code class="xref py py-attr docutils literal notranslate"><span class="pre">cv_vec</span></code></a>; see <code class="docutils literal notranslate"><span class="pre">cv_norm</span></code> in constructor.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Only the positive entries are used to calculate the norm!</p>
+<p>Only the positive entries are used to calculate the norm!
+A <code class="docutils literal notranslate"><span class="pre">NaN</span></code> entry is an <em>unknown</em> violation, not a satisfied
+constraint: the result is then <code class="docutils literal notranslate"><span class="pre">inf</span></code> (infeasible), never
+feasible.  (<code class="docutils literal notranslate"><span class="pre">cv_vec</span> <span class="pre">&gt;</span> <span class="pre">0.0</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code> for <code class="docutils literal notranslate"><span class="pre">NaN</span></code>, so the
+entry used to be silently dropped.)</p>
 </div>
 </dd></dl>
 

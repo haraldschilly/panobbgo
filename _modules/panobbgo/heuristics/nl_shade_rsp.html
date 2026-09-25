@@ -147,315 +147,470 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
 </span><span data-line="14"><span class="c1"># limitations under the License.</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="sd">"""</span>
-</span><span data-line="17"><span class="sd">NL-SHADE-RSP Heuristic</span>
-</span><span data-line="18"><span class="sd">======================</span>
-</span><span data-line="19">
-</span><span data-line="20"><span class="sd">NL-SHADE-RSP (Stanovov, Akhmedova &amp; Semenkin, CEC 2021) — winner of the</span>
-</span><span data-line="21"><span class="sd">CEC-2021 single-objective bound-constrained competition.  It is a direct</span>
-</span><span data-line="22"><span class="sd">refinement of jSO</span>
-</span><span data-line="23"><span class="sd">(:class:`~panobbgo.heuristics.jso.JSO`) and inherits the entire L-SHADE</span>
-</span><span data-line="24"><span class="sd">/ jSO asynchronous pipeline: per-slot pending dict, generation-by-count</span>
-</span><span data-line="25"><span class="sd">book-keeping, archive of replaced parents, success-history memory with</span>
-</span><span data-line="26"><span class="sd">the frozen jSO anchor bin, the linear ``p_best`` schedule, and the</span>
-</span><span data-line="27"><span class="sd">asymmetric F-cap.  The mutation is the paper's *unweighted*</span>
-</span><span data-line="28"><span class="sd">``current-to-pbest/1`` — ``v = x + F(x_pbest − x) + F(x_r1 − x_r2)`` —</span>
-</span><span data-line="29"><span class="sd">so jSO's ``F_w`` phase weighting is switched off</span>
-</span><span data-line="30"><span class="sd">(:meth:`_current_F_weight` returns ``1``).</span>
-</span><span data-line="31">
-</span><span data-line="32"><span class="sd">NL-SHADE-RSP adds three refinements on top of jSO.  This port implements</span>
-</span><span data-line="33"><span class="sd">the three that the asynchronous Panobbgo pipeline can carry cleanly:</span>
+</span><span data-line="16">
+</span><span data-line="17"><span class="sd">"""</span>
+</span><span data-line="18"><span class="sd">NL-SHADE-RSP Heuristic</span>
+</span><span data-line="19"><span class="sd">======================</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="sd">NL-SHADE-RSP (Stanovov, Akhmedova &amp; Semenkin, CEC 2021) — winner of the</span>
+</span><span data-line="22"><span class="sd">CEC-2021 single-objective bound-constrained competition.  It is a</span>
+</span><span data-line="23"><span class="sd">success-history adaptive DE in the L-SHADE family and builds on</span>
+</span><span data-line="24"><span class="sd">:class:`~panobbgo.heuristics.lshade.LSHADE`'s asynchronous pipeline</span>
+</span><span data-line="25"><span class="sd">(per-slot pending dict, generation-by-count book-keeping, archive of</span>
+</span><span data-line="26"><span class="sd">replaced parents, warm restart).  It is **not** a jSO: none of jSO's</span>
+</span><span data-line="27"><span class="sd">``F_w`` weighting, F cap, CR floors, anchor bin, memory averaging or</span>
+</span><span data-line="28"><span class="sd">``0.3 / 0.8`` memory initialisation is part of it.</span>
+</span><span data-line="29">
+</span><span data-line="30"><span class="sd">The port follows the authors' reference code (``nlshade-original.cpp``,</span>
+</span><span data-line="31"><span class="sd">mirrored in ``ewarchul/nlshade``) where it and the paper text disagree,</span>
+</span><span data-line="32"><span class="sd">and says so.  Per generation (``NP`` = current population size,</span>
+</span><span data-line="33"><span class="sd">``r = NFE / NFE_max``):</span>
 </span><span data-line="34">
-</span><span data-line="35"><span class="sd">1. **Non-Linear Population Size Reduction (NLPSR)**.  jSO (like L-SHADE)</span>
-</span><span data-line="36"><span class="sd">   shrinks the population *linearly* with budget progress.  NL-SHADE-RSP</span>
-</span><span data-line="37"><span class="sd">   uses a non-linear schedule that reduces the population *faster* in</span>
-</span><span data-line="38"><span class="sd">   the early phase::</span>
-</span><span data-line="39">
-</span><span data-line="40"><span class="sd">       NP(r) = round( (NP_min − NP_init) · r^(1 − r) + NP_init )</span>
-</span><span data-line="41">
-</span><span data-line="42"><span class="sd">   where ``r = len(strategy.results) / max_eval`` is budget progress in</span>
-</span><span data-line="43"><span class="sd">   ``[0, 1]``.  The exponent ``1 − r`` makes ``r^(1−r)`` lie *above* the</span>
-</span><span data-line="44"><span class="sd">   linear ``r`` for ``r ∈ (0, 1)`` (e.g. ``0.5^0.5 ≈ 0.707``), so a</span>
-</span><span data-line="45"><span class="sd">   larger fraction of the population is dropped early — concentrating</span>
-</span><span data-line="46"><span class="sd">   the late-search budget on a small, exploitative population sooner.</span>
-</span><span data-line="47"><span class="sd">   At ``r = 0`` the factor is ``0`` (``NP = NP_init``); at ``r = 1`` it</span>
-</span><span data-line="48"><span class="sd">   is ``1`` (``NP = NP_min``).  ``r^(1−r)`` is monotone increasing on</span>
-</span><span data-line="49"><span class="sd">   ``[0, 1]``, so the population is monotone non-increasing.</span>
-</span><span data-line="50">
-</span><span data-line="51"><span class="sd">2. **Rank-based Selective Pressure (RSP)**.  jSO picks the ``r1`` index</span>
-</span><span data-line="52"><span class="sd">   for the differential term uniformly from the live population.</span>
-</span><span data-line="53"><span class="sd">   NL-SHADE-RSP (following LSHADE-RSP, Stanovov et al. CEC 2018) biases</span>
-</span><span data-line="54"><span class="sd">   that draw toward *better* individuals.  After sorting the candidate</span>
-</span><span data-line="55"><span class="sd">   pool by fitness (best first), individual at sorted position ``i``</span>
-</span><span data-line="56"><span class="sd">   (0 = best) of ``n`` gets the rank weight::</span>
-</span><span data-line="57">
-</span><span data-line="58"><span class="sd">       w_i = k_rank · (n − i) / n + 1</span>
-</span><span data-line="59">
-</span><span data-line="60"><span class="sd">   and is drawn with probability ``w_i / Σ_j w_j``.  The best</span>
-</span><span data-line="61"><span class="sd">   individual's weight is ``k_rank + 1``; the worst's is</span>
-</span><span data-line="62"><span class="sd">   ``k_rank / n + 1 ≈ 1``.  ``k_rank = 0`` recovers uniform selection;</span>
-</span><span data-line="63"><span class="sd">   the literature default is ``k_rank = 3``.  Higher pressure pulls the</span>
-</span><span data-line="64"><span class="sd">   differential mutation toward the leading basin.</span>
-</span><span data-line="65">
-</span><span data-line="66"><span class="sd">3. **Adaptive (randomised) archive**.  L-SHADE / jSO cap the external</span>
-</span><span data-line="67"><span class="sd">   archive of replaced parents at a *fixed* ``archive_factor · NP``.</span>
-</span><span data-line="68"><span class="sd">   NL-SHADE-RSP resamples the effective cap *per generation* uniformly</span>
-</span><span data-line="69"><span class="sd">   in ``[0, A_max]`` (``A_max = round(archive_factor · NP_current)``),</span>
-</span><span data-line="70"><span class="sd">   randomising how much historical diversity the differential ``r2``</span>
-</span><span data-line="71"><span class="sd">   draw can reach.  This is the lightweight "randomised archive size"</span>
-</span><span data-line="72"><span class="sd">   variant from ``planning/done/SELF_IMPROVEMENT_LOOP.md`` §"Next iteration</span>
-</span><span data-line="73"><span class="sd">   ideas".  Set ``adaptive_archive=False`` to recover jSO's fixed cap.</span>
+</span><span data-line="35"><span class="sd">1. **Mutation** ``current-to-pbest/1``,</span>
+</span><span data-line="36"><span class="sd">   ``v = x + F(x_pbest − x) + F(x_r1 − x_r2)``, indices mutually distinct</span>
+</span><span data-line="37"><span class="sd">   and different from the target:</span>
+</span><span data-line="38">
+</span><span data-line="39"><span class="sd">   * ``pbest`` uniform among the best ``max(2, ⌊NP · (0.2 + 0.2 r)⌋)``.</span>
+</span><span data-line="40"><span class="sd">     **Paper vs. code:** the paper writes ``p`` decreasing ``0.4 → 0.2``;</span>
+</span><span data-line="41"><span class="sd">     the code computes ``psize = max(2, NP · (0.2/NFE_max · NFE + 0.2))``,</span>
+</span><span data-line="42"><span class="sd">     *rising* ``0.2 → 0.4``.  The code is followed</span>
+</span><span data-line="43"><span class="sd">     (``p_best = 0.2``, ``p_best_end = 0.4`` on the L-SHADE schedule).</span>
+</span><span data-line="44"><span class="sd">   * ``r1`` uniform from the population.</span>
+</span><span data-line="45"><span class="sd">   * ``r2`` from the archive with probability ``p_A`` (uniform), else from</span>
+</span><span data-line="46"><span class="sd">     the population with **rank-based selective pressure**: the individual</span>
+</span><span data-line="47"><span class="sd">     at rank ``i`` (``0`` = best) is drawn with probability</span>
+</span><span data-line="48"><span class="sd">     ``∝ exp(−k_rank · i / NP)``, ``k_rank = 1``.</span>
+</span><span data-line="49"><span class="sd">2. **Archive probability** ``p_A`` (initially ``0.5``), updated after each</span>
+</span><span data-line="50"><span class="sd">   generation from the mean improvement of the successful trials that</span>
+</span><span data-line="51"><span class="sd">   used the archive (``n_A`` of them) vs. the others::</span>
+</span><span data-line="52">
+</span><span data-line="53"><span class="sd">       p_A = (Δ_A / n_A) / (Δ_A / n_A + Δ_P / (n − n_A)),  clipped to [0.1, 0.9]</span>
+</span><span data-line="54">
+</span><span data-line="55"><span class="sd">   and reset to ``0.5`` when no archive trial succeeded (or ``Δ_A = 0``).</span>
+</span><span data-line="56"><span class="sd">   ``n_A`` counts *successful* archive trials, ``n`` all trials of the</span>
+</span><span data-line="57"><span class="sd">   generation — both as in the code.</span>
+</span><span data-line="58"><span class="sd">3. **Crossover**: once per generation a fair coin picks *binomial* or</span>
+</span><span data-line="59"><span class="sd">   *exponential* for the whole generation.  Each generation samples</span>
+</span><span data-line="60"><span class="sd">   ``NP`` values ``CR ~ N(M_CR, 0.1)`` and hands them out **sorted**, the</span>
+</span><span data-line="61"><span class="sd">   smallest to the best individual.  Exponential crossover copies a</span>
+</span><span data-line="62"><span class="sd">   contiguous run from a random start while ``rand &lt; CR`` (no</span>
+</span><span data-line="63"><span class="sd">   wrap-around).  Binomial crossover ignores that ``CR`` and uses</span>
+</span><span data-line="64"><span class="sd">   ``CR_b = 0`` in the first half of the budget and</span>
+</span><span data-line="65"><span class="sd">   ``CR_b = 2 (r − 0.5)`` after (plus the one forced component).</span>
+</span><span data-line="66"><span class="sd">4. **Bounds**: an out-of-box component is resampled uniformly in the box.</span>
+</span><span data-line="67"><span class="sd">5. **Memory**: ``H = 20 · D`` bins initialised at ``M_F = M_CR = 0.2``,</span>
+</span><span data-line="68"><span class="sd">   updated with the plain weighted Lehmer mean ``(p = 2, m = 1)`` of the</span>
+</span><span data-line="69"><span class="sd">   successful ``F`` / ``CR`` (the *sorted* ``CR`` a trial used); no</span>
+</span><span data-line="70"><span class="sd">   averaging, no anchor bin, no terminal ``CR``; a generation without</span>
+</span><span data-line="71"><span class="sd">   successes resets the current bin to ``0.5 / 0.5``.  ``F`` is Cauchy</span>
+</span><span data-line="72"><span class="sd">   ``(M_F, 0.1)``, redrawn while ``≤ 0``, clipped at 1, with **no F cap**.</span>
+</span><span data-line="73"><span class="sd">6. **NLPSR** (non-linear population size reduction)::</span>
 </span><span data-line="74">
-</span><span data-line="75"><span class="sd">Deviations from the full CEC-2021 paper</span>
-</span><span data-line="76"><span class="sd">---------------------------------------</span>
-</span><span data-line="77">
-</span><span data-line="78"><span class="sd">For transparency (the Panobbgo norm is literature-faithful ports): two</span>
-</span><span data-line="79"><span class="sd">NL-SHADE-RSP mechanisms are intentionally **not** ported here, because</span>
-</span><span data-line="80"><span class="sd">they interact with the synchronous generation model in ways the</span>
-</span><span data-line="81"><span class="sd">asynchronous pipeline does not expose cleanly:</span>
+</span><span data-line="75"><span class="sd">       NP(r) = round((NP_min − NP_init) · r^(1 − r) + NP_init)</span>
+</span><span data-line="76">
+</span><span data-line="77"><span class="sd">   and the archive size ``N_A = max(⌊2.1 · NP(r)⌋, NP_min)`` shrinks with</span>
+</span><span data-line="78"><span class="sd">   it.  A full archive replaces a random entry.</span>
+</span><span data-line="79">
+</span><span data-line="80"><span class="sd">Asynchronous port</span>
+</span><span data-line="81"><span class="sd">-----------------</span>
 </span><span data-line="82">
-</span><span data-line="83"><span class="sd">* the *adaptive binomial / exponential crossover* blend (the paper</span>
-</span><span data-line="84"><span class="sd">  adapts the probability of each crossover operator from their relative</span>
-</span><span data-line="85"><span class="sd">  success), and</span>
-</span><span data-line="86"><span class="sd">* the exact *success-ratio archive-probability* adaptation (the paper</span>
-</span><span data-line="87"><span class="sd">  adapts ``pA`` — the probability of drawing ``r2`` from the archive —</span>
-</span><span data-line="88"><span class="sd">  from the relative improvement of archive- vs population-sourced</span>
-</span><span data-line="89"><span class="sd">  trials).  The randomised-cap variant above is a simpler stand-in.</span>
-</span><span data-line="90">
-</span><span data-line="91"><span class="sd">Binomial crossover (inherited from jSO) and the randomised archive cap</span>
-</span><span data-line="92"><span class="sd">are used instead.  These are queued as follow-ups in the planning doc.</span>
-</span><span data-line="93">
-</span><span data-line="94"><span class="sd">Asynchronous execution</span>
-</span><span data-line="95"><span class="sd">----------------------</span>
-</span><span data-line="96">
-</span><span data-line="97"><span class="sd">Identical to jSO / L-SHADE.  The only methods that change are</span>
-</span><span data-line="98"><span class="sd">:meth:`_lpsr_target` (NLPSR), :meth:`_select_r1` (RSP),</span>
-</span><span data-line="99"><span class="sd">:meth:`_current_F_weight` (unweighted pbest term), and the archive</span>
-</span><span data-line="100"><span class="sd">cap pair :meth:`_archive_cap` / :meth:`_end_of_generation` (randomised</span>
-</span><span data-line="101"><span class="sd">archive).  Everything else — the per-slot pending dict, the</span>
-</span><span data-line="102"><span class="sd">generation-by-count cadence, the memory anchor bin, the warm restart —</span>
-</span><span data-line="103"><span class="sd">is inherited unchanged.</span>
-</span><span data-line="104">
-</span><span data-line="105"><span class="sd">References</span>
-</span><span data-line="106"><span class="sd">----------</span>
-</span><span data-line="107">
-</span><span data-line="108"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2021). "NL-SHADE-RSP</span>
-</span><span data-line="109"><span class="sd">  Algorithm with Adaptive Archive and Selective Pressure for CEC 2021</span>
-</span><span data-line="110"><span class="sd">  Numerical Optimization." *Proceedings of CEC 2021*.  Winner of the</span>
-</span><span data-line="111"><span class="sd">  CEC-2021 single-objective bound-constrained competition.</span>
-</span><span data-line="112"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2018). "LSHADE Algorithm</span>
-</span><span data-line="113"><span class="sd">  with Rank-Based Selective Pressure Strategy for Solving CEC 2017</span>
-</span><span data-line="114"><span class="sd">  Benchmark Problems." *Proceedings of CEC 2018*.  Introduces RSP.</span>
-</span><span data-line="115"><span class="sd">* J. Brest, M. S. Maučec &amp; B. Bošković (2017). "Single Objective</span>
-</span><span data-line="116"><span class="sd">  Real-Parameter Optimization: Algorithm jSO." *Proceedings of CEC</span>
-</span><span data-line="117"><span class="sd">  2017*.  The jSO foundation this refines.</span>
-</span><span data-line="118"><span class="sd">"""</span>
-</span><span data-line="119">
-</span><span data-line="120"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
-</span><span data-line="121">
-</span><span data-line="122"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
-</span><span data-line="123">
-</span><span data-line="124"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-</span><span data-line="125">
-</span><span data-line="126"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.jso</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="127">    <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
-</span><span data-line="128">    <span class="n">_DEFAULT_H</span><span class="p">,</span>
-</span><span data-line="129">    <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
-</span><span data-line="130">    <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
-</span><span data-line="131">    <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
-</span><span data-line="132">    <span class="n">JSO</span><span class="p">,</span>
-</span><span data-line="133"><span class="p">)</span>
-</span><span data-line="134">
-</span><span data-line="135"><span class="c1"># Default rank-based selective-pressure coefficient (Stanovov et al.).</span>
-</span><span data-line="136"><span class="n">_DEFAULT_K_RANK</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span>
-</span><span data-line="137">
-</span><span data-line="138">
+</span><span data-line="83"><span class="sd">A "generation" is ``NP_current`` completed trials, as for L-SHADE.  The</span>
+</span><span data-line="84"><span class="sd">sorted-``CR`` hand-out becomes an order statistic: a trial for the</span>
+</span><span data-line="85"><span class="sd">individual at rank ``i`` of ``n`` draws ``n`` values ``CR ~ N(M_CR, 0.1)``</span>
+</span><span data-line="86"><span class="sd">(each from a random bin), sorts them and uses the ``i``-th — the same</span>
+</span><span data-line="87"><span class="sd">marginal distribution the synchronous algorithm gives that rank.  The</span>
+</span><span data-line="88"><span class="sd">crossover coin is drawn lazily at the first trial of each generation.</span>
+</span><span data-line="89">
+</span><span data-line="90"><span class="sd">Deviations kept on purpose</span>
+</span><span data-line="91"><span class="sd">--------------------------</span>
+</span><span data-line="92">
+</span><span data-line="93"><span class="sd">* ``NP_init="auto"`` (``≈ 3·dim``, budget-adaptive; measured,</span>
+</span><span data-line="94"><span class="sd">  ``planning/DISCOVERY_2026-09-09.md`` §17) instead of the paper's</span>
+</span><span data-line="95"><span class="sd">  ``30 · D``.</span>
+</span><span data-line="96"><span class="sd">* The ``p_A`` improvements are the constraint handler's *absolute*</span>
+</span><span data-line="97"><span class="sd">  improvements (``calculate_improvement``), not the code's *relative*</span>
+</span><span data-line="98"><span class="sd">  ``(f_old − f_new) / f_old``, which is undefined for ``f ≤ 0`` and</span>
+</span><span data-line="99"><span class="sd">  meaningless under a penalty / feasibility ordering.</span>
+</span><span data-line="100"><span class="sd">* The success memory stores each trial's own ``F``.  (The reference code</span>
+</span><span data-line="101"><span class="sd">  stores the last ``F`` sampled in the generation for every success — a</span>
+</span><span data-line="102"><span class="sd">  bug that switches the ``F`` adaptation off.)</span>
+</span><span data-line="103"><span class="sd">* A trial that ties its parent keeps the parent (the code takes the trial</span>
+</span><span data-line="104"><span class="sd">  on ``≤``); ranking follows the strategy's constraint handler.</span>
+</span><span data-line="105">
+</span><span data-line="106"><span class="sd">References</span>
+</span><span data-line="107"><span class="sd">----------</span>
+</span><span data-line="108">
+</span><span data-line="109"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2021). "NL-SHADE-RSP</span>
+</span><span data-line="110"><span class="sd">  Algorithm with Adaptive Archive and Selective Pressure for CEC 2021</span>
+</span><span data-line="111"><span class="sd">  Numerical Optimization." *Proceedings of CEC 2021*.  Winner of the</span>
+</span><span data-line="112"><span class="sd">  CEC-2021 single-objective bound-constrained competition.</span>
+</span><span data-line="113"><span class="sd">* V. Stanovov, S. Akhmedova &amp; E. Semenkin (2018). "LSHADE Algorithm</span>
+</span><span data-line="114"><span class="sd">  with Rank-Based Selective Pressure Strategy for Solving CEC 2017</span>
+</span><span data-line="115"><span class="sd">  Benchmark Problems." *Proceedings of CEC 2018*.  Introduces RSP.</span>
+</span><span data-line="116"><span class="sd">* R. Tanabe &amp; A. Fukunaga (2014).  "Improving the Search Performance</span>
+</span><span data-line="117"><span class="sd">  of SHADE Using Linear Population Size Reduction."  *Proceedings of</span>
+</span><span data-line="118"><span class="sd">  CEC 2014*.  The L-SHADE foundation.</span>
+</span><span data-line="119"><span class="sd">"""</span>
+</span><span data-line="120">
+</span><span data-line="121"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="122">
+</span><span data-line="123"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+</span><span data-line="124">
+</span><span data-line="125"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="126">
+</span><span data-line="127"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics.lshade</span><span class="w"> </span><span class="kn">import</span> <span class="n">LSHADE</span><span class="p">,</span> <span class="n">_F_MAX_REDRAWS</span><span class="p">,</span> <span class="n">_PARAM_SCALE</span><span class="p">,</span> <span class="n">_TrialMeta</span>
+</span><span data-line="128">
+</span><span data-line="129"><span class="c1"># Defaults from the reference code (``nlshade-original.cpp``).</span>
+</span><span data-line="130"><span class="n">_DEFAULT_NP_MIN</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span>
+</span><span data-line="131"><span class="n">_DEFAULT_H_PER_DIM</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span>
+</span><span data-line="132"><span class="n">_DEFAULT_P_BEST</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span>
+</span><span data-line="133"><span class="n">_DEFAULT_P_BEST_END</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4</span>
+</span><span data-line="134"><span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.1</span>
+</span><span data-line="135"><span class="c1">#: Rank-pressure exponent: ``R_i = exp(−k_rank · i / NP)``.</span>
+</span><span data-line="136"><span class="n">_DEFAULT_K_RANK</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="137"><span class="n">_INIT_M_F</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span>
+</span><span data-line="138"><span class="n">_INIT_M_CR</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span>
+</span><span data-line="139"><span class="c1">#: Value a bin is reset to after a generation without successes.</span>
+</span><span data-line="140"><span class="n">_NO_SUCCESS_M</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span>
+</span><span data-line="141"><span class="n">_P_ARCHIVE_INIT</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span>
+</span><span data-line="142"><span class="n">_P_ARCHIVE_CLIP</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">)</span>
+</span><span data-line="143">
+</span><span data-line="144">
+</span><span data-line="145"><span class="k">def</span><span class="w"> </span><span class="nf">_default_H</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="146"><span class="w">    </span><span class="sd">"""``H = 20 · D`` (reference code), ``5`` if the dimension is unknown."""</span>
+</span><span data-line="147">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="148">        <span class="n">dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="149">    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="150">        <span class="n">dim</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="151">    <span class="k">return</span> <span class="n">_DEFAULT_H_PER_DIM</span> <span class="o">*</span> <span class="n">dim</span> <span class="k">if</span> <span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">5</span>
+</span><span data-line="152">
+</span><span data-line="153">
 <div class="viewcode-block" id="NLSHADE_RSP">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_RSP">[docs]</a>
-</span><span data-line="139"><span class="k">class</span><span class="w"> </span><span class="nc">NLSHADE_RSP</span><span class="p">(</span><span class="n">JSO</span><span class="p">):</span>
-</span><span data-line="140"><span class="w">    </span><span class="sd">"""NL-SHADE-RSP: non-linear reduction + rank selection + adaptive archive over jSO.</span>
-</span><span data-line="141">
-</span><span data-line="142"><span class="sd">    Args:</span>
-</span><span data-line="143"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
-</span><span data-line="144"><span class="sd">        NP_init: Initial population size, or ``"auto"`` for budget-adaptive</span>
-</span><span data-line="145"><span class="sd">            sizing (see :class:`~panobbgo.heuristics.lshade.LSHADE`).</span>
-</span><span data-line="146"><span class="sd">            Default ``"auto"``; the literature default of ``30`` is the</span>
-</span><span data-line="147"><span class="sd">            fallback when the budget is unknown.</span>
-</span><span data-line="148"><span class="sd">        NP_min: Minimum population size after non-linear reduction.</span>
-</span><span data-line="149"><span class="sd">            Default ``4``.</span>
-</span><span data-line="150"><span class="sd">        H: History memory size.  Default ``5`` (inherits the jSO anchor</span>
-</span><span data-line="151"><span class="sd">            bin; must be ``&gt;= 2``).</span>
-</span><span data-line="152"><span class="sd">        p_best_max: Upper bound on the linear ``p_best`` schedule.</span>
-</span><span data-line="153"><span class="sd">            Default ``0.25``.</span>
-</span><span data-line="154"><span class="sd">        p_best_min: Lower bound on the linear ``p_best`` schedule.</span>
-</span><span data-line="155"><span class="sd">            Default ``0.125``.</span>
-</span><span data-line="156"><span class="sd">        archive_factor: Multiplier for the *maximum* external archive</span>
-</span><span data-line="157"><span class="sd">            size.  Default ``1.0``.  With ``adaptive_archive=True`` the</span>
-</span><span data-line="158"><span class="sd">            effective cap is resampled per generation uniformly in</span>
-</span><span data-line="159"><span class="sd">            ``[0, round(archive_factor · NP_current)]``.</span>
-</span><span data-line="160"><span class="sd">        k_rank: Rank-based selective-pressure coefficient.  Default</span>
-</span><span data-line="161"><span class="sd">            ``3.0`` (Stanovov et al.).  Must be a finite float ``&gt;= 0``.</span>
-</span><span data-line="162"><span class="sd">            ``0`` recovers uniform ``r1`` selection (jSO behaviour);</span>
-</span><span data-line="163"><span class="sd">            larger values bias ``r1`` more strongly toward better</span>
-</span><span data-line="164"><span class="sd">            individuals.</span>
-</span><span data-line="165"><span class="sd">        adaptive_archive: When ``True`` (default), resample the archive</span>
-</span><span data-line="166"><span class="sd">            cap per generation (NL-SHADE-RSP).  When ``False``, use the</span>
-</span><span data-line="167"><span class="sd">            fixed jSO / L-SHADE cap.</span>
-</span><span data-line="168"><span class="sd">        warm_start: Optional archive-seeding mode; see</span>
-</span><span data-line="169"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE`.  Default ``None``</span>
-</span><span data-line="170"><span class="sd">            (cold start).</span>
-</span><span data-line="171"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
-</span><span data-line="172"><span class="sd">        name: Override the heuristic's display name.</span>
-</span><span data-line="173">
-</span><span data-line="174"><span class="sd">    Notes:</span>
-</span><span data-line="175"><span class="sd">        - All numeric arguments are validated; bad values raise</span>
-</span><span data-line="176"><span class="sd">          :class:`ValueError`.</span>
-</span><span data-line="177"><span class="sd">        - Like every Panobbgo heuristic, all state is per-instance.</span>
-</span><span data-line="178"><span class="sd">        - When the strategy budget is unknown, the non-linear reduction</span>
-</span><span data-line="179"><span class="sd">          (like LPSR) is skipped and the population stays at ``NP_init``;</span>
-</span><span data-line="180"><span class="sd">          the schedules inherited from jSO fall back to their early-phase</span>
-</span><span data-line="181"><span class="sd">          values.  RSP and the randomised archive are budget-independent</span>
-</span><span data-line="182"><span class="sd">          and stay active.</span>
+</span><span data-line="154"><span class="k">class</span><span class="w"> </span><span class="nc">NLSHADE_RSP</span><span class="p">(</span><span class="n">LSHADE</span><span class="p">):</span>
+</span><span data-line="155"><span class="w">    </span><span class="sd">"""NL-SHADE-RSP: NLPSR, rank-based ``r2`` pressure, adaptive archive use, mixed crossover.</span>
+</span><span data-line="156">
+</span><span data-line="157"><span class="sd">    Args:</span>
+</span><span data-line="158"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="159"><span class="sd">        NP_init: Initial population size, or ``"auto"`` for budget-adaptive</span>
+</span><span data-line="160"><span class="sd">            sizing (see :class:`~panobbgo.heuristics.lshade.LSHADE`).</span>
+</span><span data-line="161"><span class="sd">            Default ``"auto"`` — a measured project default; the paper uses</span>
+</span><span data-line="162"><span class="sd">            ``30 · D``.</span>
+</span><span data-line="163"><span class="sd">        NP_min: Minimum population size after non-linear reduction.</span>
+</span><span data-line="164"><span class="sd">            Default ``4``.</span>
+</span><span data-line="165"><span class="sd">        H: History memory size.  Default ``None`` → ``20 · D``.</span>
+</span><span data-line="166"><span class="sd">        p_best: ``pbest`` share at the start of the run.  Default ``0.2``.</span>
+</span><span data-line="167"><span class="sd">        p_best_end: ``pbest`` share at the end of the run.  Default ``0.4``</span>
+</span><span data-line="168"><span class="sd">            (rising, as in the reference code).</span>
+</span><span data-line="169"><span class="sd">        archive_factor: Archive size per individual, ``N_A = ⌊factor · NP⌋``</span>
+</span><span data-line="170"><span class="sd">            (at least ``NP_min``).  Default ``2.1``; ``0`` disables the</span>
+</span><span data-line="171"><span class="sd">            archive.</span>
+</span><span data-line="172"><span class="sd">        k_rank: Exponent of the rank weights ``exp(−k_rank · i / NP)`` for</span>
+</span><span data-line="173"><span class="sd">            the population draw of ``r2``.  Default ``1``; ``0`` is uniform.</span>
+</span><span data-line="174"><span class="sd">        warm_start: Optional archive-seeding mode; see</span>
+</span><span data-line="175"><span class="sd">            :class:`~panobbgo.heuristics.lshade.LSHADE`.</span>
+</span><span data-line="176"><span class="sd">        seed: Optional seed for the per-instance RNG.</span>
+</span><span data-line="177"><span class="sd">        name: Override the heuristic's display name.</span>
+</span><span data-line="178">
+</span><span data-line="179"><span class="sd">    Notes:</span>
+</span><span data-line="180"><span class="sd">        When the strategy budget is unknown, the population and archive stay</span>
+</span><span data-line="181"><span class="sd">        at their initial sizes, ``p_best`` stays at its start value and the</span>
+</span><span data-line="182"><span class="sd">        binomial crossover uses ``CR_b = 0`` (the first-half value).</span>
 </span><span data-line="183"><span class="sd">    """</span>
 </span><span data-line="184">
-</span><span data-line="185">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="186">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="187">        <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="188">        <span class="n">NP_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
-</span><span data-line="189">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
-</span><span data-line="190">        <span class="n">H</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_H</span><span class="p">,</span>
-</span><span data-line="191">        <span class="n">p_best_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MAX</span><span class="p">,</span>
-</span><span data-line="192">        <span class="n">p_best_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_MIN</span><span class="p">,</span>
-</span><span data-line="193">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
-</span><span data-line="194">        <span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_K_RANK</span><span class="p">,</span>
-</span><span data-line="195">        <span class="n">adaptive_archive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="196">        <span class="n">warm_start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="197">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="198">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-</span><span data-line="199">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="200">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">k_rank</span><span class="p">)</span> <span class="ow">or</span> <span class="n">k_rank</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
-</span><span data-line="201">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NLSHADE_RSP: k_rank must be a finite float &gt;= 0, got </span><span class="si">{</span><span class="n">k_rank</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="202">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">adaptive_archive</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-</span><span data-line="203">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NLSHADE_RSP: adaptive_archive must be a bool, got </span><span class="si">{</span><span class="n">adaptive_archive</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
-</span><span data-line="204">
-</span><span data-line="205">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-</span><span data-line="206">            <span class="n">strategy</span><span class="p">,</span>
-</span><span data-line="207">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
-</span><span data-line="208">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
-</span><span data-line="209">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
-</span><span data-line="210">            <span class="n">p_best_max</span><span class="o">=</span><span class="n">p_best_max</span><span class="p">,</span>
-</span><span data-line="211">            <span class="n">p_best_min</span><span class="o">=</span><span class="n">p_best_min</span><span class="p">,</span>
-</span><span data-line="212">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
-</span><span data-line="213">            <span class="n">warm_start</span><span class="o">=</span><span class="n">warm_start</span><span class="p">,</span>
-</span><span data-line="214">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
-</span><span data-line="215">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"NLSHADE_RSP"</span><span class="p">,</span>
-</span><span data-line="216">        <span class="p">)</span>
-</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">k_rank</span><span class="p">)</span>
-</span><span data-line="218">        <span class="bp">self</span><span class="o">.</span><span class="n">adaptive_archive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">adaptive_archive</span><span class="p">)</span>
-</span><span data-line="219">        <span class="c1"># Effective archive cap for the *current* generation; ``None``</span>
-</span><span data-line="220">        <span class="c1"># triggers a lazy first sample.  Reset on start / restart.</span>
-</span><span data-line="221">        <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="185">    <span class="c1">#: Initial ``(M_F, M_CR)``.</span>
+</span><span data-line="186">    <span class="n">INIT_MEMORY</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">_INIT_M_F</span><span class="p">,</span> <span class="n">_INIT_M_CR</span><span class="p">)</span>
+</span><span data-line="187">    <span class="c1">#: ``(M_F, M_CR)`` a bin is reset to after a generation without success.</span>
+</span><span data-line="188">    <span class="n">NO_SUCCESS_MEMORY</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">_NO_SUCCESS_M</span>
+</span><span data-line="189">
+</span><span data-line="190">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="191">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="192">        <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="193">        <span class="n">NP_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
+</span><span data-line="194">        <span class="n">NP_min</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">_DEFAULT_NP_MIN</span><span class="p">,</span>
+</span><span data-line="195">        <span class="n">H</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="196">        <span class="n">p_best</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST</span><span class="p">,</span>
+</span><span data-line="197">        <span class="n">p_best_end</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_P_BEST_END</span><span class="p">,</span>
+</span><span data-line="198">        <span class="n">archive_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_ARCHIVE_FACTOR</span><span class="p">,</span>
+</span><span data-line="199">        <span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_K_RANK</span><span class="p">,</span>
+</span><span data-line="200">        <span class="n">warm_start</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="201">        <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="202">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="203">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="204">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">k_rank</span><span class="p">)</span> <span class="ow">or</span> <span class="n">k_rank</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="205">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: k_rank must be a finite float &gt;= 0, got </span><span class="si">{</span><span class="n">k_rank</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span><span data-line="206">        <span class="k">if</span> <span class="n">H</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="207">            <span class="n">H</span> <span class="o">=</span> <span class="n">_default_H</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="208">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="209">            <span class="n">strategy</span><span class="p">,</span>
+</span><span data-line="210">            <span class="n">NP_init</span><span class="o">=</span><span class="n">NP_init</span><span class="p">,</span>
+</span><span data-line="211">            <span class="n">NP_min</span><span class="o">=</span><span class="n">NP_min</span><span class="p">,</span>
+</span><span data-line="212">            <span class="n">H</span><span class="o">=</span><span class="n">H</span><span class="p">,</span>
+</span><span data-line="213">            <span class="n">p_best</span><span class="o">=</span><span class="n">p_best</span><span class="p">,</span>
+</span><span data-line="214">            <span class="n">p_best_end</span><span class="o">=</span><span class="n">p_best_end</span><span class="p">,</span>
+</span><span data-line="215">            <span class="n">archive_factor</span><span class="o">=</span><span class="n">archive_factor</span><span class="p">,</span>
+</span><span data-line="216">            <span class="n">warm_start</span><span class="o">=</span><span class="n">warm_start</span><span class="p">,</span>
+</span><span data-line="217">            <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+</span><span data-line="218">            <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+</span><span data-line="219">        <span class="p">)</span>
+</span><span data-line="220">        <span class="bp">self</span><span class="o">.</span><span class="n">k_rank</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">k_rank</span><span class="p">)</span>
+</span><span data-line="221">        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_generation_state</span><span class="p">()</span>
 </span><span data-line="222">
 </span><span data-line="223">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="224">    <span class="c1"># Internal helpers</span>
+</span><span data-line="224">    <span class="c1"># State</span>
 </span><span data-line="225">    <span class="c1"># ------------------------------------------------------------------</span>
 </span><span data-line="226">
-</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="228"><span class="w">        </span><span class="sd">"""Upper bound on the archive cap (``round(archive_factor · NP)``)."""</span>
-</span><span data-line="229">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">archive_factor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
-</span><span data-line="230">
-</span><span data-line="231">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a_max</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="232"><span class="w">        </span><span class="sd">"""Draw a per-generation archive cap uniformly in ``[0, a_max]``."""</span>
-</span><span data-line="233">        <span class="k">if</span> <span class="n">a_max</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="234">            <span class="k">return</span> <span class="mi">0</span>
-</span><span data-line="235">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">a_max</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
-</span><span data-line="236">
-</span><span data-line="237">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="238">    <span class="c1"># Overrides</span>
-</span><span data-line="239">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="240">
-</span><span data-line="241">    <span class="k">def</span><span class="w"> </span><span class="nf">_lpsr_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="242"><span class="w">        </span><span class="sd">"""Non-Linear Population Size Reduction (NLPSR).</span>
+</span><span data-line="227">    <span class="k">def</span><span class="w"> </span><span class="nf">_reset_generation_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="228"><span class="w">        </span><span class="sd">"""Archive probability, its accumulators and the crossover coin."""</span>
+</span><span data-line="229">        <span class="c1">#: Probability of drawing ``r2`` from the archive.</span>
+</span><span data-line="230">        <span class="bp">self</span><span class="o">.</span><span class="n">p_archive</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_P_ARCHIVE_INIT</span>
+</span><span data-line="231">        <span class="bp">self</span><span class="o">.</span><span class="n">_arch_delta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="232">        <span class="bp">self</span><span class="o">.</span><span class="n">_arch_n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="233">        <span class="bp">self</span><span class="o">.</span><span class="n">_pop_delta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="234">        <span class="c1">#: This generation's crossover (``None`` until the first trial draws it).</span>
+</span><span data-line="235">        <span class="bp">self</span><span class="o">.</span><span class="n">_cross_exponential</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="236">        <span class="c1">#: Memory bin of the trial being built (for ``_resample_F``).</span>
+</span><span data-line="237">        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_bin</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="238">
+</span><span data-line="239">    <span class="k">def</span><span class="w"> </span><span class="nf">_init_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="240"><span class="w">        </span><span class="sd">"""``M_F``, ``M_CR`` start at :attr:`INIT_MEMORY`."""</span>
+</span><span data-line="241">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">INIT_MEMORY</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="242">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[:]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">INIT_MEMORY</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </span><span data-line="243">
-</span><span data-line="244"><span class="sd">        ``NP(r) = round((NP_min − NP_init) · r^(1 − r) + NP_init)``.</span>
-</span><span data-line="245"><span class="sd">        Reduces the population faster than the linear L-SHADE schedule</span>
-</span><span data-line="246"><span class="sd">        in the early phase while still reaching ``NP_min`` at ``r = 1``.</span>
-</span><span data-line="247"><span class="sd">        """</span>
-</span><span data-line="248">        <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">progress</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
-</span><span data-line="249">        <span class="n">factor</span> <span class="o">=</span> <span class="n">r</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
-</span><span data-line="250">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">)</span> <span class="o">*</span> <span class="n">factor</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">))</span>
+</span><span data-line="244">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="245">    <span class="c1"># Trial generation hooks</span>
+</span><span data-line="246">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="247">
+</span><span data-line="248">    <span class="k">def</span><span class="w"> </span><span class="nf">_pbest_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="249"><span class="w">        </span><span class="sd">"""``max(2, ⌊n · p⌋)`` with ``p`` on the ``p_best → p_best_end`` schedule."""</span>
+</span><span data-line="250">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current_p_best</span><span class="p">()),</span> <span class="mi">2</span><span class="p">)</span>
 </span><span data-line="251">
-</span><span data-line="252">    <span class="k">def</span><span class="w"> </span><span class="nf">_current_F_weight</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-</span><span data-line="253"><span class="w">        </span><span class="sd">"""Unweighted pbest term: ``F_w = F`` (factor ``1``).</span>
-</span><span data-line="254">
-</span><span data-line="255"><span class="sd">        NL-SHADE-RSP (and NL-SHADE-LBC) mutate with plain</span>
-</span><span data-line="256"><span class="sd">        ``current-to-pbest/1``, ``v = x + F(x_pbest − x) + F(x_r1 − x_r2)``;</span>
-</span><span data-line="257"><span class="sd">        jSO's phase-dependent ``0.7 / 0.8 / 1.2`` weighting of the pbest</span>
-</span><span data-line="258"><span class="sd">        term is not part of either paper.</span>
-</span><span data-line="259"><span class="sd">        """</span>
-</span><span data-line="260">        <span class="k">return</span> <span class="mf">1.0</span>
-</span><span data-line="261">
-</span><span data-line="262">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_r1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="263"><span class="w">        </span><span class="sd">"""Rank-based selective pressure (RSP) draw of the ``r1`` index.</span>
-</span><span data-line="264">
-</span><span data-line="265"><span class="sd">        Sorts the candidate pool (live slots excluding the target) by</span>
-</span><span data-line="266"><span class="sd">        fitness, assigns rank weights ``w_i = k_rank · (n − i) / n + 1``</span>
-</span><span data-line="267"><span class="sd">        (best first), and draws proportionally.  ``k_rank = 0`` degrades</span>
-</span><span data-line="268"><span class="sd">        to a uniform draw — but in that case the rank weights are all</span>
-</span><span data-line="269"><span class="sd">        equal, so the distribution still matches jSO's uniform selection.</span>
-</span><span data-line="270"><span class="sd">        """</span>
-</span><span data-line="271">        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
-</span><span data-line="272">        <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates</span><span class="p">:</span>
-</span><span data-line="273">            <span class="k">return</span> <span class="kc">None</span>
-</span><span data-line="274">        <span class="n">ordered</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank_of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="275">        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ordered</span><span class="p">)</span>
-</span><span data-line="276">        <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
-</span><span data-line="277">        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_rank</span> <span class="o">*</span> <span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">positions</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="o">+</span> <span class="mf">1.0</span>
-</span><span data-line="278">        <span class="n">probs</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">/</span> <span class="n">weights</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-</span><span data-line="279">        <span class="n">pos</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">probs</span><span class="p">))</span>
-</span><span data-line="280">        <span class="k">return</span> <span class="n">ordered</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span>
-</span><span data-line="281">
-</span><span data-line="282">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-</span><span data-line="283"><span class="w">        </span><span class="sd">"""Per-generation randomised archive cap (NL-SHADE-RSP adaptive archive).</span>
-</span><span data-line="284">
-</span><span data-line="285"><span class="sd">        When ``adaptive_archive`` is off this is the fixed jSO / L-SHADE</span>
-</span><span data-line="286"><span class="sd">        cap.  When on, the cap is resampled uniformly in ``[0, A_max]``</span>
-</span><span data-line="287"><span class="sd">        at generation boundaries (and lazily on first use); intermediate</span>
-</span><span data-line="288"><span class="sd">        :meth:`_trim_archive` calls reuse the current sample, clipped to</span>
-</span><span data-line="289"><span class="sd">        the live ``A_max`` (which may have shrunk under NLPSR).</span>
-</span><span data-line="290"><span class="sd">        """</span>
-</span><span data-line="291">        <span class="n">a_max</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_max</span><span class="p">()</span>
-</span><span data-line="292">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">adaptive_archive</span><span class="p">:</span>
-</span><span data-line="293">            <span class="k">return</span> <span class="n">a_max</span>
-</span><span data-line="294">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="295">            <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_archive_cap</span><span class="p">(</span><span class="n">a_max</span><span class="p">)</span>
-</span><span data-line="296">        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span><span class="p">,</span> <span class="n">a_max</span><span class="p">)</span>
-</span><span data-line="297">
-</span><span data-line="298">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_of_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="299"><span class="w">        </span><span class="sd">"""Run the jSO end-of-generation update, then resample the archive cap."""</span>
-</span><span data-line="300">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
-</span><span data-line="301">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">adaptive_archive</span><span class="p">:</span>
-</span><span data-line="302">            <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive_max</span><span class="p">())</span>
-</span><span data-line="303">            <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
-</span><span data-line="304">
-</span><span data-line="305">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="306">    <span class="c1"># Heuristic interface</span>
-</span><span data-line="307">    <span class="c1"># ------------------------------------------------------------------</span>
-</span><span data-line="308">
+</span><span data-line="252">    <span class="k">def</span><span class="w"> </span><span class="nf">_pbest_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sorted_live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="253"><span class="w">        </span><span class="sd">"""The top :meth:`_pbest_count` slots, without the target."""</span>
+</span><span data-line="254">        <span class="n">pool</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_pbest_pool</span><span class="p">(</span><span class="n">sorted_live</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">)</span>
+</span><span data-line="255">        <span class="n">others</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">pool</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
+</span><span data-line="256">        <span class="k">return</span> <span class="n">others</span> <span class="ow">or</span> <span class="n">pool</span>
+</span><span data-line="257">
+</span><span data-line="258">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_r1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pbest_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="259"><span class="w">        </span><span class="sd">"""``r1`` uniform from the population, distinct from target and ``pbest``."""</span>
+</span><span data-line="260">        <span class="n">pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">pbest_idx</span><span class="p">]</span>
+</span><span data-line="261">        <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
+</span><span data-line="262">            <span class="n">pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">live</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">target_idx</span><span class="p">]</span>
+</span><span data-line="263">        <span class="k">if</span> <span class="ow">not</span> <span class="n">pool</span><span class="p">:</span>
+</span><span data-line="264">            <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="265">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pool</span><span class="p">)))</span>
+</span><span data-line="266">
+</span><span data-line="267">    <span class="k">def</span><span class="w"> </span><span class="nf">_rank_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="268"><span class="w">        </span><span class="sd">"""``exp(−k_rank · i / n)`` for ranks ``i = 0 … n − 1`` (best first)."""</span>
+</span><span data-line="269">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">k_rank</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+</span><span data-line="270">
+</span><span data-line="271">    <span class="k">def</span><span class="w"> </span><span class="nf">_select_r2</span><span class="p">(</span>
+</span><span data-line="272">        <span class="bp">self</span><span class="p">,</span> <span class="n">live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">sorted_live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">r1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pbest_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>
+</span><span data-line="273">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]]:</span>
+</span><span data-line="274"><span class="w">        </span><span class="sd">"""``r2`` from the archive with probability :attr:`p_archive`, else rank-weighted.</span>
+</span><span data-line="275">
+</span><span data-line="276"><span class="sd">        The population draw weights the individual at rank ``i`` by</span>
+</span><span data-line="277"><span class="sd">        :meth:`_rank_weights` and excludes the target, ``pbest`` and ``r1``</span>
+</span><span data-line="278"><span class="sd">        (the reference code redraws until distinct).</span>
+</span><span data-line="279"><span class="sd">        """</span>
+</span><span data-line="280">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">())</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_archive</span><span class="p">:</span>
+</span><span data-line="281">            <span class="n">j</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)))</span>
+</span><span data-line="282">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="kc">True</span>
+</span><span data-line="283">        <span class="n">weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank_weights</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_live</span><span class="p">))</span>
+</span><span data-line="284">        <span class="n">excluded</span> <span class="o">=</span> <span class="p">{</span><span class="n">target_idx</span><span class="p">,</span> <span class="n">r1</span><span class="p">,</span> <span class="n">pbest_idx</span><span class="p">}</span>
+</span><span data-line="285">        <span class="n">keep</span> <span class="o">=</span> <span class="p">[</span><span class="n">pos</span> <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">sorted_live</span><span class="p">)</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">excluded</span><span class="p">]</span>
+</span><span data-line="286">        <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="p">:</span>
+</span><span data-line="287">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">:</span>
+</span><span data-line="288">                <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="289">            <span class="n">j</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)))</span>
+</span><span data-line="290">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="kc">True</span>
+</span><span data-line="291">        <span class="n">w</span> <span class="o">=</span> <span class="n">weights</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
+</span><span data-line="292">        <span class="n">pos</span> <span class="o">=</span> <span class="n">keep</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">keep</span><span class="p">),</span> <span class="n">p</span><span class="o">=</span><span class="n">w</span> <span class="o">/</span> <span class="n">w</span><span class="o">.</span><span class="n">sum</span><span class="p">()))]</span>
+</span><span data-line="293">        <span class="n">slot</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_population</span><span class="p">[</span><span class="n">sorted_live</span><span class="p">[</span><span class="n">pos</span><span class="p">]]</span>
+</span><span data-line="294">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">slot</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="kc">False</span>  <span class="c1"># type: ignore[union-attr]</span>
+</span><span data-line="295">
+</span><span data-line="296">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="297"><span class="w">        </span><span class="sd">"""``F ~ Cauchy(M_F[r], 0.1)``, redrawn while ``≤ 0``, clipped at 1.</span>
+</span><span data-line="298">
+</span><span data-line="299"><span class="sd">        ``r`` is the individual's memory bin; ``None`` draws a random one.</span>
+</span><span data-line="300"><span class="sd">        """</span>
+</span><span data-line="301">        <span class="k">if</span> <span class="n">r</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="302">            <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">))</span>
+</span><span data-line="303">        <span class="n">m_f</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">r</span><span class="p">])</span>
+</span><span data-line="304">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_F_MAX_REDRAWS</span><span class="p">):</span>
+</span><span data-line="305">            <span class="n">f</span> <span class="o">=</span> <span class="n">m_f</span> <span class="o">+</span> <span class="n">_PARAM_SCALE</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">standard_cauchy</span><span class="p">())</span>
+</span><span data-line="306">            <span class="k">if</span> <span class="n">f</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="307">                <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="308">        <span class="k">return</span> <span class="mf">0.5</span>
+</span><span data-line="309">
+</span><span data-line="310">    <span class="k">def</span><span class="w"> </span><span class="nf">_sample_CR_for_rank</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="311"><span class="w">        </span><span class="sd">"""The ``rank``-th smallest of ``n`` draws ``CR ~ N(M_CR[r], 0.1)`` clipped to ``[0, 1]``.</span>
+</span><span data-line="312">
+</span><span data-line="313"><span class="sd">        The asynchronous form of "every individual samples its bin ``r`` and</span>
+</span><span data-line="314"><span class="sd">        a ``CR`` from it, the ``NP`` values are sorted and the smallest goes to</span>
+</span><span data-line="315"><span class="sd">        the best individual".  Returns ``(CR, r)`` with ``r`` the bin of the</span>
+</span><span data-line="316"><span class="sd">        target's *own* draw (the first of the ``n``; all are i.i.d.), which</span>
+</span><span data-line="317"><span class="sd">        its ``F`` is then sampled from — one bin per individual for both, as</span>
+</span><span data-line="318"><span class="sd">        in the reference code.</span>
+</span><span data-line="319"><span class="sd">        """</span>
+</span><span data-line="320">        <span class="n">n</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="321">        <span class="n">bins</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">H</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="322">        <span class="n">crs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">bins</span><span class="p">],</span> <span class="n">_PARAM_SCALE</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="323">        <span class="n">own_bin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">bins</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span data-line="324">        <span class="n">crs</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+</span><span data-line="325">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">crs</span><span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]),</span> <span class="n">own_bin</span>
+</span><span data-line="326">
+</span><span data-line="327">    <span class="k">def</span><span class="w"> </span><span class="nf">_trial_F_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">sorted_live</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="328"><span class="w">        </span><span class="sd">"""``CR`` the order statistic for the target's rank; ``F`` from the target's own bin."""</span>
+</span><span data-line="329">        <span class="n">CR</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_CR_for_rank</span><span class="p">(</span><span class="n">sorted_live</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">target_idx</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_live</span><span class="p">))</span>
+</span><span data-line="330">        <span class="bp">self</span><span class="o">.</span><span class="n">_trial_bin</span> <span class="o">=</span> <span class="n">r</span>
+</span><span data-line="331">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="n">CR</span>
+</span><span data-line="332">
+</span><span data-line="333">    <span class="k">def</span><span class="w"> </span><span class="nf">_resample_F</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="334"><span class="w">        </span><span class="sd">"""A new ``F`` from the same individual's bin (NL-SHADE-LBC's regeneration)."""</span>
+</span><span data-line="335">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_F</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_trial_bin</span><span class="p">)</span>
+</span><span data-line="336">
+</span><span data-line="337">    <span class="k">def</span><span class="w"> </span><span class="nf">_binomial_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="338"><span class="w">        </span><span class="sd">"""``CR_b``: ``0`` in the first half of the budget, ``2 (r − 0.5)`` after."""</span>
+</span><span data-line="339">        <span class="n">progress</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_progress</span><span class="p">()</span>
+</span><span data-line="340">        <span class="k">if</span> <span class="n">progress</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">progress</span> <span class="o">&lt;=</span> <span class="mf">0.5</span><span class="p">:</span>
+</span><span data-line="341">            <span class="k">return</span> <span class="mf">0.0</span>
+</span><span data-line="342">        <span class="k">return</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="p">(</span><span class="n">progress</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span>
+</span><span data-line="343">
+</span><span data-line="344">    <span class="k">def</span><span class="w"> </span><span class="nf">_exponential_crossover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">x_target</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="345"><span class="w">        </span><span class="sd">"""Contiguous run from a random start, extended while ``rand &lt; CR`` (no wrap-around)."""</span>
+</span><span data-line="346">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="347">        <span class="n">start</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="348">        <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="mi">1</span>
+</span><span data-line="349">        <span class="k">while</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="n">dim</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">())</span> <span class="o">&lt;</span> <span class="n">CR</span><span class="p">:</span>
+</span><span data-line="350">            <span class="n">end</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="351">        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x_target</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="352">        <span class="n">u</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+</span><span data-line="353">        <span class="k">return</span> <span class="n">u</span>
+</span><span data-line="354">
+</span><span data-line="355">    <span class="k">def</span><span class="w"> </span><span class="nf">_crossover</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">x_target</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">CR</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="356"><span class="w">        </span><span class="sd">"""This generation's crossover: exponential with ``CR``, or binomial with ``CR_b``."""</span>
+</span><span data-line="357">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_exponential</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="358">            <span class="bp">self</span><span class="o">.</span><span class="n">_cross_exponential</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">)</span>
+</span><span data-line="359">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cross_exponential</span><span class="p">:</span>
+</span><span data-line="360">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_exponential_crossover</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">x_target</span><span class="p">,</span> <span class="n">CR</span><span class="p">)</span>
+</span><span data-line="361">        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_crossover</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">x_target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_binomial_CR</span><span class="p">())</span>
+</span><span data-line="362">
+</span><span data-line="363">    <span class="k">def</span><span class="w"> </span><span class="nf">_repair_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">x_target</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="364"><span class="w">        </span><span class="sd">"""Out-of-box components are resampled uniformly in the box."""</span>
+</span><span data-line="365">        <span class="n">lb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="366">        <span class="n">ub</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="367">        <span class="n">bad</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span> <span class="o">&lt;</span> <span class="n">lb</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">u</span> <span class="o">&gt;</span> <span class="n">ub</span><span class="p">)</span>
+</span><span data-line="368">        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">bad</span><span class="p">):</span>
+</span><span data-line="369">            <span class="k">return</span> <span class="n">u</span>
+</span><span data-line="370">        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="371">        <span class="n">out</span><span class="p">[</span><span class="n">bad</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">lb</span><span class="p">[</span><span class="n">bad</span><span class="p">],</span> <span class="n">ub</span><span class="p">[</span><span class="n">bad</span><span class="p">])</span>
+</span><span data-line="372">        <span class="k">return</span> <span class="n">out</span>
+</span><span data-line="373">
+</span><span data-line="374">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="375">    <span class="c1"># Archive</span>
+</span><span data-line="376">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="377">
+</span><span data-line="378">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_cap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="379"><span class="w">        </span><span class="sd">"""``N_A = max(⌊archive_factor · NP_current⌋, NP_min)``; ``0`` disables it."""</span>
+</span><span data-line="380">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">archive_factor</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="381">            <span class="k">return</span> <span class="mi">0</span>
+</span><span data-line="382">        <span class="k">return</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">archive_factor</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NP_current</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span><span class="p">)</span>
+</span><span data-line="383">
+</span><span data-line="384">    <span class="k">def</span><span class="w"> </span><span class="nf">_archive_insert</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parent</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="385"><span class="w">        </span><span class="sd">"""Append while there is room, else overwrite a random entry."""</span>
+</span><span data-line="386">        <span class="n">cap</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_archive_cap</span><span class="p">()</span>
+</span><span data-line="387">        <span class="k">if</span> <span class="n">cap</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="388">            <span class="k">return</span>
+</span><span data-line="389">        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">parent</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="390">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">cap</span><span class="p">:</span>
+</span><span data-line="391">            <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span data-line="392">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="393">            <span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_archive</span><span class="p">)))]</span> <span class="o">=</span> <span class="n">x</span>
+</span><span data-line="394">            <span class="bp">self</span><span class="o">.</span><span class="n">_trim_archive</span><span class="p">()</span>
+</span><span data-line="395">
+</span><span data-line="396">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="397">    <span class="c1"># Memory and generation bookkeeping</span>
+</span><span data-line="398">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="399">
+</span><span data-line="400">    <span class="k">def</span><span class="w"> </span><span class="nf">_cr_terminal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">CR_arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="401"><span class="w">        </span><span class="sd">"""No terminal ``CR`` in NL-SHADE-RSP."""</span>
+</span><span data-line="402">        <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="403">
+</span><span data-line="404">    <span class="k">def</span><span class="w"> </span><span class="nf">_mean_F</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">F_arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="405">        <span class="n">v</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_mean_F</span><span class="p">(</span><span class="n">F_arr</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+</span><span data-line="406">        <span class="k">return</span> <span class="mf">0.5</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v</span>
+</span><span data-line="407">
+</span><span data-line="408">    <span class="k">def</span><span class="w"> </span><span class="nf">_mean_CR</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">CR_arr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="409">        <span class="n">v</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_mean_CR</span><span class="p">(</span><span class="n">CR_arr</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+</span><span data-line="410">        <span class="k">return</span> <span class="mf">0.5</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">v</span>
+</span><span data-line="411">
+</span><span data-line="412">    <span class="k">def</span><span class="w"> </span><span class="nf">_memory_no_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="413"><span class="w">        </span><span class="sd">"""Reset bin ``k`` to :attr:`NO_SUCCESS_MEMORY` (the pointer does not move)."""</span>
+</span><span data-line="414">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_F</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_SUCCESS_MEMORY</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="415">        <span class="bp">self</span><span class="o">.</span><span class="n">_M_CR</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">NO_SUCCESS_MEMORY</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+</span><span data-line="416">
+</span><span data-line="417">    <span class="k">def</span><span class="w"> </span><span class="nf">_record_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta</span><span class="p">:</span> <span class="n">_TrialMeta</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="418"><span class="w">        </span><span class="sd">"""Accumulate the improvement per ``r2`` source for the ``p_A`` update."""</span>
+</span><span data-line="419">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_record_success</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">delta</span><span class="p">)</span>
+</span><span data-line="420">        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="s2">"from_archive"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="421">            <span class="bp">self</span><span class="o">.</span><span class="n">_arch_delta</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
+</span><span data-line="422">            <span class="bp">self</span><span class="o">.</span><span class="n">_arch_n</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="423">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="424">            <span class="bp">self</span><span class="o">.</span><span class="n">_pop_delta</span> <span class="o">+=</span> <span class="nb">float</span><span class="p">(</span><span class="n">delta</span><span class="p">)</span>
+</span><span data-line="425">
+</span><span data-line="426">    <span class="k">def</span><span class="w"> </span><span class="nf">_update_p_archive</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_trials</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="427"><span class="w">        </span><span class="sd">"""Adapt :attr:`p_archive` from this generation's archive vs. population successes."""</span>
+</span><span data-line="428">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arch_n</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="429">            <span class="n">mean_a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arch_delta</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arch_n</span>
+</span><span data-line="430">            <span class="n">rest</span> <span class="o">=</span> <span class="n">n_trials</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_arch_n</span>
+</span><span data-line="431">            <span class="n">mean_p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pop_delta</span> <span class="o">/</span> <span class="n">rest</span> <span class="k">if</span> <span class="n">rest</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mf">0.0</span>
+</span><span data-line="432">            <span class="k">if</span> <span class="n">mean_a</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">mean_a</span> <span class="o">+</span> <span class="n">mean_p</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="433">                <span class="bp">self</span><span class="o">.</span><span class="n">p_archive</span> <span class="o">=</span> <span class="n">_P_ARCHIVE_INIT</span>
+</span><span data-line="434">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="435">                <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">_P_ARCHIVE_CLIP</span>
+</span><span data-line="436">                <span class="bp">self</span><span class="o">.</span><span class="n">p_archive</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">mean_a</span> <span class="o">/</span> <span class="p">(</span><span class="n">mean_a</span> <span class="o">+</span> <span class="n">mean_p</span><span class="p">),</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">))</span>
+</span><span data-line="437">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="438">            <span class="bp">self</span><span class="o">.</span><span class="n">p_archive</span> <span class="o">=</span> <span class="n">_P_ARCHIVE_INIT</span>
+</span><span data-line="439">
+</span><span data-line="440">    <span class="k">def</span><span class="w"> </span><span class="nf">_end_of_generation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="441"><span class="w">        </span><span class="sd">"""``p_A`` update, then memory + NLPSR, then a fresh crossover coin."""</span>
+</span><span data-line="442">        <span class="bp">self</span><span class="o">.</span><span class="n">_update_p_archive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_gen_completed</span><span class="p">)</span>
+</span><span data-line="443">        <span class="bp">self</span><span class="o">.</span><span class="n">_arch_delta</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="444">        <span class="bp">self</span><span class="o">.</span><span class="n">_arch_n</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="445">        <span class="bp">self</span><span class="o">.</span><span class="n">_pop_delta</span> <span class="o">=</span> <span class="mf">0.0</span>
+</span><span data-line="446">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_end_of_generation</span><span class="p">()</span>
+</span><span data-line="447">        <span class="bp">self</span><span class="o">.</span><span class="n">_cross_exponential</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="448">
+</span><span data-line="449">    <span class="k">def</span><span class="w"> </span><span class="nf">_lpsr_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">progress</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="450"><span class="w">        </span><span class="sd">"""Non-Linear Population Size Reduction (NLPSR).</span>
+</span><span data-line="451">
+</span><span data-line="452"><span class="sd">        ``NP(r) = round((NP_min − NP_init) · r^(1 − r) + NP_init)``.</span>
+</span><span data-line="453"><span class="sd">        Reduces the population faster than the linear L-SHADE schedule</span>
+</span><span data-line="454"><span class="sd">        in the early phase while still reaching ``NP_min`` at ``r = 1``.</span>
+</span><span data-line="455"><span class="sd">        """</span>
+</span><span data-line="456">        <span class="n">r</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">progress</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+</span><span data-line="457">        <span class="n">factor</span> <span class="o">=</span> <span class="n">r</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">r</span><span class="p">)</span> <span class="k">if</span> <span class="n">r</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="k">else</span> <span class="mf">0.0</span>
+</span><span data-line="458">        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">NP_min</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">)</span> <span class="o">*</span> <span class="n">factor</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">NP_init</span><span class="p">))</span>
+</span><span data-line="459">
+</span><span data-line="460">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="461">    <span class="c1"># Heuristic interface</span>
+</span><span data-line="462">    <span class="c1"># ------------------------------------------------------------------</span>
+</span><span data-line="463">
 <div class="viewcode-block" id="NLSHADE_RSP.on_start">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_RSP.on_start">[docs]</a>
-</span><span data-line="309">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="310"><span class="w">        </span><span class="sd">"""Allocate state and reset the per-generation archive cap."""</span>
-</span><span data-line="311">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span>
-</span><span data-line="312">        <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="kc">None</span></div>
+</span><span data-line="464">    <span class="k">def</span><span class="w"> </span><span class="nf">on_start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="465"><span class="w">        </span><span class="sd">"""Reset ``p_A`` and the crossover coin, then start as L-SHADE."""</span>
+</span><span data-line="466">        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_generation_state</span><span class="p">()</span>
+</span><span data-line="467">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_start</span><span class="p">()</span></div>
 
-</span><span data-line="313">
+</span><span data-line="468">
 <div class="viewcode-block" id="NLSHADE_RSP.on_restart">
 <a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.NLSHADE_RSP.on_restart">[docs]</a>
-</span><span data-line="314">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="315"><span class="w">        </span><span class="sd">"""Reseed the population and reset the per-generation archive cap."""</span>
-</span><span data-line="316">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span>
-</span><span data-line="317">        <span class="bp">self</span><span class="o">.</span><span class="n">_rsp_archive_cap</span> <span class="o">=</span> <span class="kc">None</span></div>
+</span><span data-line="469">    <span class="k">def</span><span class="w"> </span><span class="nf">on_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="470"><span class="w">        </span><span class="sd">"""Reset ``p_A`` and the crossover coin, then restart as L-SHADE."""</span>
+</span><span data-line="471">        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_generation_state</span><span class="p">()</span>
+</span><span data-line="472">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">on_restart</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">reason</span><span class="p">)</span></div>
 </div>
 
 </span></pre></div>

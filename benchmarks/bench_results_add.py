@@ -26,6 +26,8 @@ class MockLogger:
 
 
 class MockProgressReporter:
+    enabled = True  # exercise the progress statistics path
+
     def report_evaluation(self, result, context):
         pass
 

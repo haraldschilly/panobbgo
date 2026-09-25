@@ -592,9 +592,16 @@ class StrategyBlockBandit(StrategyBase):
     LAMBDA_REF_DEFAULT: int = 5
 
     def _lambda_ref(self) -> int:
-        """Largest generation size the arms report, else :attr:`LAMBDA_REF_DEFAULT`."""
+        """Largest generation size the *enabled* arms report, else :attr:`LAMBDA_REF_DEFAULT`.
+
+        An arm the regime gate disabled never owns a block, so its
+        generation size must not set the block length.  The gate runs in
+        :meth:`execute` before the first :attr:`block_evals` access.
+        """
         best = 0
         for h in self._heuristics.values():
+            if not self._is_enabled(h):
+                continue
             for attr in self.GENERATION_ATTRS:
                 value = getattr(h, attr, None)
                 if isinstance(value, (int, np.integer)) and not isinstance(value, bool) and value > 0:

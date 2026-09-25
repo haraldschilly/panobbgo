@@ -550,3 +550,10 @@ def test_argument_validation():
         _strategy(prior="bogus")
     with pytest.raises(ValueError, match="block_evals"):
         _strategy(block_evals="bogus")
+
+
+def test_block_evals_auto_ignores_arms_the_regime_gate_disabled():
+    """Regression: a disabled arm's large generation still set the block length."""
+    s = _strategy(max_eval=1000, block_evals="auto", arms=(_sized_arm("A", "_lam", 6), _sized_arm("B", "NP_init", 50)))
+    s._enabled = {"A": True, "B": False}  # what _apply_regime_gate sets for a row keeping only A
+    assert s.block_evals == 24

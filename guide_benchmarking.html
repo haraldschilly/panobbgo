@@ -384,8 +384,8 @@ correct environment is used.</p>
 <h3><a class="toc-backref" href="#id7" role="doc-backlink">Reproducibility</a><a class="headerlink" href="#reproducibility" title="Link to this heading">#</a></h3>
 <p>Seeds are deterministic: each <code class="docutils literal notranslate"><span class="pre">(problem,</span> <span class="pre">strategy,</span> <span class="pre">rep)</span></code> triple derives its
 seed via SHA-256 from a base seed (default <code class="docutils literal notranslate"><span class="pre">42</span></code>). Re-running with the same
-base seed produces byte-identical convergence traces. See
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.harness.BenchmarkHarness._derive_seed()</span></code>.</p>
+base seed produces byte-identical convergence traces under the default
+<code class="docutils literal notranslate"><span class="pre">sync_eval</span></code>. See <code class="xref py py-meth docutils literal notranslate"><span class="pre">panobbgo.harness.BenchmarkHarness._derive_seed()</span></code>.</p>
 </section>
 </section>
 <section id="the-compare-workflow">
@@ -563,11 +563,18 @@ proof.</p></li>
 <li><p><strong>Problem-specific over-fitting</strong> — improving on a fixed problem set does
 not imply generalisation. This is the <em>central motivation</em> for the
 parametrically randomised battery described below.</p></li>
-<li><p><strong>Thread scheduling</strong> — by default the harness evaluates on a thread pool,
-so the same seed can give different trajectories.  <code class="docutils literal notranslate"><span class="pre">run</span> <span class="pre">--sync-eval</span></code>
-evaluates synchronously and makes a seeded run bit-reproducible; both
-sides of a comparison must use the same mode (<code class="docutils literal notranslate"><span class="pre">compare</span></code> warns if not).
-The default stays asynchronous so the historical baseline is comparable.</p></li>
+<li><p><strong>Thread scheduling</strong> — every harness entry point (<code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span>
+<span class="pre">run</span></code>, <code class="docutils literal notranslate"><span class="pre">scripts/ioh_benchmark.py</span> <span class="pre">run</span></code>, <code class="docutils literal notranslate"><span class="pre">run_ioh_harness</span></code>,
+<code class="docutils literal notranslate"><span class="pre">HarnessConfig</span></code>) evaluates synchronously by default (<code class="docutils literal notranslate"><span class="pre">sync_eval</span></code>,
+since 2026-09-25), so a seeded run is bit-reproducible.  The reason is
+reproducibility, not speed.  <code class="docutils literal notranslate"><span class="pre">--no-sync-eval</span></code> opts into the threaded
+evaluator, whose trajectory depends on thread scheduling.  Both sides of
+a comparison must use the same mode (<code class="docutils literal notranslate"><span class="pre">compare</span></code> warns if not); result
+files written before 2026-09-25 were measured asynchronously and load
+with <code class="docutils literal notranslate"><span class="pre">sync_eval</span> <span class="pre">=</span> <span class="pre">False</span></code>.  The library itself
+(<code class="docutils literal notranslate"><span class="pre">Config.sync_evaluation</span></code>, <code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code>) still defaults to the
+asynchronous evaluator, which keeps workers busy for real expensive
+objectives.</p></li>
 </ol>
 <p>Recommended practice: run the same comparison at two different base seeds
 before accepting a <code class="docutils literal notranslate"><span class="pre">+0.01</span></code> to <code class="docutils literal notranslate"><span class="pre">+0.03</span></code> delta.</p>

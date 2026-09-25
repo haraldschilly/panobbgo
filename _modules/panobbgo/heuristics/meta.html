@@ -158,12 +158,12 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="24">
 </span><span data-line="25"><span class="sd">Why a :class:`~panobbgo.core.Heuristic` and not an</span>
 </span><span data-line="26"><span class="sd">:class:`~panobbgo.core.Analyzer`: only a heuristic can emit points</span>
-</span><span data-line="27"><span class="sd">(``core.py``), and every extra module perturbs the per-module RNG streams</span>
-</span><span data-line="28"><span class="sd">(``spawn_rng`` is called once per module, in construction order).  **Append</span>
-</span><span data-line="29"><span class="sd">this module last** in a spec's heuristics list and give it a name that</span>
-</span><span data-line="30"><span class="sd">sorts after every arm's — ``"Meta"`` sorts after ``"CMAES"``, ``"JSO"``,</span>
-</span><span data-line="31"><span class="sd">``"LSHADE"`` — and both the construction order and the event-bus</span>
-</span><span data-line="32"><span class="sd">registration order of the arms are preserved bit for bit.  With</span>
+</span><span data-line="27"><span class="sd">(``core.py``).  Module RNG streams are keyed by name</span>
+</span><span data-line="28"><span class="sd">(:meth:`~panobbgo.core.StrategyBase.spawn_rng`), so adding this module does</span>
+</span><span data-line="29"><span class="sd">not change any arm's randomness.  **Append this module last** in a spec's</span>
+</span><span data-line="30"><span class="sd">heuristics list and give it a name that sorts after every arm's —</span>
+</span><span data-line="31"><span class="sd">``"Meta"`` sorts after ``"CMAES"``, ``"JSO"``, ``"LSHADE"`` — and the</span>
+</span><span data-line="32"><span class="sd">event-bus registration order of the arms is preserved bit for bit.  With</span>
 </span><span data-line="33"><span class="sd">``trigger="never"`` the module is then provably inert: :meth:`on_new_results`</span>
 </span><span data-line="34"><span class="sd">returns before it touches anything.</span>
 </span><span data-line="35">

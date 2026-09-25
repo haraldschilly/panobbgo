@@ -137,7 +137,7 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
 
    evaluation:
      method: threaded        # 'threaded', 'processes' or 'dask'
-     timeout: 60             # optional: seconds of running time per evaluation
+     timeout: 60             # optional per-call limit, seconds (see below)
      sync: false             # true: bit-reproducible seeded runs
    dask:
      cluster_type: local     # 'local' (auto-start) or 'remote'
@@ -148,10 +148,44 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
        dashboard_address: ':8787'
      remote:
        scheduler_address: tcp://localhost:8786
+
    constraints:
      handler: DefaultConstraintHandler
      # rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's
      # own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)
+
+``evaluation.timeout`` (seconds, default unset = no limit) is a **per-call**
+limit that applies to every evaluation in every backend and is enforced
+where the evaluation runs.  The clock starts when the call starts — time
+spent queued never counts.  An evaluation past the limit becomes a regular
+result with ``fx = NaN`` and ``cv = inf`` (infeasible; the violations are
+unknown, so ``cv_vec`` is ``None`` and the frame's ``cv_vec`` columns are
+``NaN``), marked ``Result.timed_out`` and in the ``("timed_out", 0)``
+column of the results frame; it is recorded, charged once against
+``max_eval`` and published through ``new_results`` like any result, so
+heuristics see a bad point and every ranking puts it last.
+
+* ``processes``: exactly the worker process running that call is killed
+  (a fresh one replaces it); every other in-flight evaluation keeps running.
+* ``dask``: the task on the dask worker runs the objective in a child
+  process (:func:`panobbgo.timeout_call.call_with_timeout`) and kills that
+  child when the call runs too long, so a hung objective never holds its
+  worker.  The problem must be serializable and importable in a fresh
+  interpreter on the worker (checked once before the first task).  Each call
+  evaluates a *fresh copy* of the problem, so state it accumulates while
+  evaluating does not carry over between calls — e.g. a
+  :class:`~panobbgo.lib.noise.NoisyProblem` with ``resample=True`` draws
+  the same noise on every re-evaluation (a warning says so).  Without a
+  timeout the objective runs in the worker itself, as before.
+* ``threaded``: a thread cannot be killed — a timed-out call is
+  *abandoned*: it keeps running in the background and its result is
+  discarded; abandoned threads are counted and warned about.  Use
+  ``processes`` or dask for objectives that can hang.  With
+  ``evaluation.sync``, a timeout routes each batch through the thread pool,
+  harvested in submission order.
+
+An objective that *raises* is still a failed evaluation (no result,
+``failed_evaluations`` event).
 
 Edit these files to customize behavior.
 
@@ -167,9 +201,13 @@ Edit these files to customize behavior.
 
    ``deadlock_seconds`` (default ``600``) is the remaining time-based knob and
    is **not** a scheduling parameter: it is an error backstop for a genuine
-   bug — a wedged subprocess, a handler that never returns — and tripping it
-   is logged at ``ERROR`` level with the state that caused it.  Leave it
-   alone unless an arm of yours legitimately takes minutes per evaluation.
+   bug — a heuristic that claims a point but never gives one, a handler that
+   never returns, queued evaluations with no live worker — and tripping it
+   is logged at ``ERROR`` level with the state that caused it.  It fires only
+   when *no evaluation is outstanding*: a running evaluation (thread, worker
+   process, any outstanding dask future) is waited for however long it takes,
+   so hour-long or remote evaluations never trip it.  Limit a single
+   evaluation with the opt-in ``evaluation.timeout`` instead.
    An old config file's ``max_stall_seconds`` entry is ignored.  See
    ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.
 
@@ -1315,8 +1353,8 @@ handler's penalty value and **not** filtered by ``who``, so an arm that asks
 for a seed gets the best points in the run whoever produced them.
 
 It is **opt-in** — :meth:`~panobbgo.core.StrategyBase.initialize` does not add
-it, so a run without warm-started arms keeps exactly the module construction
-order, and therefore the RNG streams, it had before:
+it, so a run without warm-started arms keeps exactly the modules it had
+before:
 
 .. code-block:: python
 
@@ -1777,7 +1815,12 @@ make a run a pure function of that seed:
 
 Two such runs evaluate exactly the same points in the same order.  Every
 module derives its own :class:`numpy.random.Generator` from the master seed
-(``self.rng``), the event bus delivers events serially, the main loop
+and its name (``self.rng``: ``SeedSequence(seed, spawn_key=(crc32(name), n))``
+for the *n*-th module of that name, see
+:meth:`~panobbgo.core.StrategyBase.spawn_rng`), so adding, removing or
+reordering one module leaves every other module's stream unchanged; the
+strategy's own draws (Thompson sampling, phases) use a separate keyed
+stream, ``strategy.rng``.  The event bus delivers events serially, the main loop
 waits for all handlers before drawing new points, and each batch is
 evaluated sequentially in submission order (a thread pool would return
 results in completion order).  Without ``seed`` the

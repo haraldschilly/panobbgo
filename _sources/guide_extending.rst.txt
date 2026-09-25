@@ -62,8 +62,9 @@ you need to do nothing to opt in.
 them — not a :class:`~panobbgo.lib.Point`; it projects each vector into the
 box and wraps it in a ``Point`` tagged with the heuristic's name, and raises
 ``TypeError`` for anything else.  Draw random numbers from ``self.rng`` (a
-per-module generator derived from the strategy's seed), not from
-``np.random``, so a seeded run stays reproducible.
+per-module generator derived from the strategy's seed and the module's
+name), not from ``np.random`` or ``strategy.rng``, so a seeded run stays
+reproducible and adding your module changes no other module's stream.
 
 The other contract exists for arms that can only compute **one point at a
 time, and only once the previous one has been evaluated** — a sequential

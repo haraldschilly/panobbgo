@@ -824,8 +824,10 @@ locking.  The sequence of handler calls is a pure function of the sequence of
 synchronous evaluation mode (<code class="docutils literal notranslate"><span class="pre">config.sync_evaluation</span></code>) waits for that before
 every draw of new points.</p>
 <p><strong>Randomness:</strong> every module owns a <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a>
-(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>) derived from the strategy’s master <code class="docutils literal notranslate"><span class="pre">seed</span></code> in construction
-order; modules never touch the global <code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> state.</p>
+(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>) derived from the strategy’s master <code class="docutils literal notranslate"><span class="pre">seed</span></code> and the module’s
+name (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">spawn_rng()</span></code></a>), so adding or removing
+one module does not change another’s stream; modules never touch the global
+<code class="docutils literal notranslate"><span class="pre">numpy.random</span></code> state.</p>
 </section>
 <section id="parallel-evaluation">
 <h3>Parallel Evaluation<a class="headerlink" href="#parallel-evaluation" title="Link to this heading">#</a></h3>
@@ -850,7 +852,7 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 working directory only; <code class="docutils literal notranslate"><span class="pre">~/.panobbgo/config.ini</span></code> has no section for them.</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
 </span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">  </span><span class="c1"># or 'processes' or 'dask'</span>
-</span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">       </span><span class="c1"># optional: seconds of *running* time per evaluation</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">       </span><span class="c1"># optional per-call limit in seconds (see below)</span>
 </span><span data-line="4"><span class="nt">dask</span><span class="p">:</span><span class="w">               </span><span class="c1"># top level, not under 'evaluation'</span>
 </span><span data-line="5"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">remote</span><span class="w">   </span><span class="c1"># 'local' (default) starts a LocalCluster</span>
 </span><span data-line="6"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
@@ -865,9 +867,57 @@ working directory only; <code class="docutils literal notranslate"><span class="
 needs an <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard (<a class="reference internal" href="guide_usage.html#spawn-guard"><span class="std std-ref">Scripts That Start Worker Processes: the __main__ Guard</span></a>).  Each worker evaluates its own
 <strong>copy</strong> of the problem, so state the problem object accumulates while
 evaluating (evaluation counters, traces, caches, loggers) lives in the
-workers and is not visible on the caller’s object.  An evaluation past
-<code class="docutils literal notranslate"><span class="pre">timeout</span></code> has its worker killed; a worker that crashes fails only its own
-evaluation.  Both still count against <code class="docutils literal notranslate"><span class="pre">max_eval</span></code>.</p>
+workers and is not visible on the caller’s object.  A worker that crashes
+fails only its own evaluation, which still counts against <code class="docutils literal notranslate"><span class="pre">max_eval</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> (seconds, default unset = no limit) is a <strong>per-call</strong>
+limit that applies to every evaluation in every backend and is enforced
+where the evaluation runs.  The clock starts when the call starts — time
+spent queued never counts.  An evaluation past the limit becomes a regular
+result with <code class="docutils literal notranslate"><span class="pre">fx</span> <span class="pre">=</span> <span class="pre">NaN</span></code> and <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">=</span> <span class="pre">inf</span></code> (infeasible; the violations are
+unknown, so <code class="docutils literal notranslate"><span class="pre">cv_vec</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and the frame’s <code class="docutils literal notranslate"><span class="pre">cv_vec</span></code> columns are
+<code class="docutils literal notranslate"><span class="pre">NaN</span></code>), marked <code class="docutils literal notranslate"><span class="pre">Result.timed_out</span></code> and in the <code class="docutils literal notranslate"><span class="pre">(&quot;timed_out&quot;,</span> <span class="pre">0)</span></code>
+column of the results frame; it is recorded, charged once against
+<code class="docutils literal notranslate"><span class="pre">max_eval</span></code> and published through <code class="docutils literal notranslate"><span class="pre">new_results</span></code> like any result, so
+heuristics see a bad point and every ranking puts it last.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">processes</span></code>: exactly the worker process running that call is killed
+(a fresh one replaces it); every other in-flight evaluation keeps running.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dask</span></code>: the task on the dask worker runs the objective in a child
+process (<a class="reference internal" href="core.html#panobbgo.timeout_call.call_with_timeout" title="panobbgo.timeout_call.call_with_timeout"><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.timeout_call.call_with_timeout()</span></code></a>) and kills that
+child when the call runs too long, so a hung objective never holds its
+worker.  The problem must be serializable and importable in a fresh
+interpreter on the worker (checked once before the first task).  Each call
+evaluates a <em>fresh copy</em> of the problem, so state it accumulates while
+evaluating does not carry over between calls — e.g. a
+<a class="reference internal" href="lib.html#panobbgo.lib.NoisyProblem" title="panobbgo.lib.noise.NoisyProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a> with <code class="docutils literal notranslate"><span class="pre">resample=True</span></code> draws
+the same noise on every re-evaluation (a warning says so).  Without a
+timeout the objective runs in the worker itself, as before.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">threaded</span></code>: a thread cannot be killed — a timed-out call is
+<em>abandoned</em>: it keeps running in the background and its result is
+discarded; abandoned threads are counted and warned about.  Use
+<code class="docutils literal notranslate"><span class="pre">processes</span></code> or dask for objectives that can hang.  With
+<code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code>, a timeout routes each batch through the thread pool,
+harvested in submission order.</p></li>
+</ul>
+<p>An objective that <em>raises</em> is still a failed evaluation (no result,
+<code class="docutils literal notranslate"><span class="pre">failed_evaluations</span></code> event).</p>
+<p><strong>Long evaluations and the deadlock backstop.</strong>  Evaluations may take hours
+and run remotely; the main loop then sits idle, waiting, and that is not a
+stall.  Any outstanding evaluation counts as progress for as long as it
+takes: a running thread, a process task that has started or is queued for
+live workers, and <em>any</em> outstanding dask future — the client cannot reliably
+tell queued from running, so every one is treated as “waiting”.  One
+evaluation’s run time is limited only by the opt-in <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>.
+<code class="docutils literal notranslate"><span class="pre">core.deadlock_seconds</span></code> (default 600) is an error backstop for a bug and
+fires only when there is nothing to wait for: no evaluation outstanding
+anywhere, yet the run reports itself alive (a heuristic claims a point it
+never gives, an event handler never returns, queued evaluations have no live
+worker) and nothing has changed for that long.  Tripping it is logged at
+<code class="docutils literal notranslate"><span class="pre">ERROR</span></code> level and ends the run.  Waiting is not silent either: while
+evaluations are outstanding and none finishes, a <code class="docutils literal notranslate"><span class="pre">WARNING</span></code> every
+<code class="docutils literal notranslate"><span class="pre">deadlock_seconds</span></code> reports how many are outstanding, how long ago the
+oldest started (or was submitted) and the <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> setting;
+for dask it also warns when the cluster reports zero workers.</p>
 <p>The heuristic queue size can be set in either file (YAML
 <code class="docutils literal notranslate"><span class="pre">heuristic:</span> <span class="pre">capacity:</span> <span class="pre">20</span></code>, or in <code class="docutils literal notranslate"><span class="pre">config.ini</span></code>):</p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">[heuristic]</span>

@@ -240,8 +240,9 @@ you need to do nothing to opt in.</p>
 them — not a <a class="reference internal" href="lib.html#panobbgo.lib.Point" title="panobbgo.lib.Point"><code class="xref py py-class docutils literal notranslate"><span class="pre">Point</span></code></a>; it projects each vector into the
 box and wraps it in a <code class="docutils literal notranslate"><span class="pre">Point</span></code> tagged with the heuristic’s name, and raises
 <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> for anything else.  Draw random numbers from <code class="docutils literal notranslate"><span class="pre">self.rng</span></code> (a
-per-module generator derived from the strategy’s seed), not from
-<code class="docutils literal notranslate"><span class="pre">np.random</span></code>, so a seeded run stays reproducible.</p>
+per-module generator derived from the strategy’s seed and the module’s
+name), not from <code class="docutils literal notranslate"><span class="pre">np.random</span></code> or <code class="docutils literal notranslate"><span class="pre">strategy.rng</span></code>, so a seeded run stays
+reproducible and adding your module changes no other module’s stream.</p>
 <p>The other contract exists for arms that can only compute <strong>one point at a
 time, and only once the previous one has been evaluated</strong> — a sequential
 solver whose next iterate is a function of <code class="docutils literal notranslate"><span class="pre">f</span></code> at the current one.  Such an

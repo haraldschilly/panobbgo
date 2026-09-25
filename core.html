@@ -203,6 +203,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.init_module"><code class="docutils literal notranslate"><span class="pre">StrategyBase.init_module()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.initialize"><code class="docutils literal notranslate"><span class="pre">StrategyBase.initialize()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.max_eval_or"><code class="docutils literal notranslate"><span class="pre">StrategyBase.max_eval_or()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.n_timed_out"><code class="docutils literal notranslate"><span class="pre">StrategyBase.n_timed_out</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.record_walltime"><code class="docutils literal notranslate"><span class="pre">StrategyBase.record_walltime()</span></code></a></li>
@@ -219,23 +220,36 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.core.budget_progress_of"><code class="docutils literal notranslate"><span class="pre">budget_progress_of()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.keyed_rng"><code class="docutils literal notranslate"><span class="pre">keyed_rng()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.known_budget"><code class="docutils literal notranslate"><span class="pre">known_budget()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.max_eval_or_default"><code class="docutils literal notranslate"><span class="pre">max_eval_or_default()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.pipe_objective"><code class="docutils literal notranslate"><span class="pre">pipe_objective()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.rng_stream_key"><code class="docutils literal notranslate"><span class="pre">rng_stream_key()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.safe_send"><code class="docutils literal notranslate"><span class="pre">safe_send()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.terminate_process"><code class="docutils literal notranslate"><span class="pre">terminate_process()</span></code></a></li>
 <li><a class="reference internal" href="#local-evaluation-pool">Local Evaluation Pool</a><ul>
 <li><a class="reference internal" href="#module-panobbgo.local_pool">Local evaluation pool</a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool"><code class="docutils literal notranslate"><span class="pre">LocalPool</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.abandoned"><code class="docutils literal notranslate"><span class="pre">LocalPool.abandoned</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.ages"><code class="docutils literal notranslate"><span class="pre">LocalPool.ages()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.close"><code class="docutils literal notranslate"><span class="pre">LocalPool.close()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.events"><code class="docutils literal notranslate"><span class="pre">LocalPool.events</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.poll"><code class="docutils literal notranslate"><span class="pre">LocalPool.poll()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.running"><code class="docutils literal notranslate"><span class="pre">LocalPool.running()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.submit"><code class="docutils literal notranslate"><span class="pre">LocalPool.submit()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.wait"><code class="docutils literal notranslate"><span class="pre">LocalPool.wait()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.LocalPool.waiting"><code class="docutils literal notranslate"><span class="pre">LocalPool.waiting()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.local_pool.Outcome"><code class="docutils literal notranslate"><span class="pre">Outcome</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.ProcessPool"><code class="docutils literal notranslate"><span class="pre">ProcessPool</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.local_pool.ProcessPool.close"><code class="docutils literal notranslate"><span class="pre">ProcessPool.close()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.ProcessPool.poll"><code class="docutils literal notranslate"><span class="pre">ProcessPool.poll()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.ProcessPool.submit"><code class="docutils literal notranslate"><span class="pre">ProcessPool.submit()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.ProcessPool.wait"><code class="docutils literal notranslate"><span class="pre">ProcessPool.wait()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.local_pool.ProcessPool.waiting"><code class="docutils literal notranslate"><span class="pre">ProcessPool.waiting()</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#dask-evaluation-backend">Dask Evaluation Backend</a><ul>
@@ -244,9 +258,17 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.DaskEvaluators.outstanding"><code class="docutils literal notranslate"><span class="pre">DaskEvaluators.outstanding</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.check_timeout_problem"><code class="docutils literal notranslate"><span class="pre">check_timeout_problem()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.close"><code class="docutils literal notranslate"><span class="pre">close()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.evaluate_point"><code class="docutils literal notranslate"><span class="pre">evaluate_point()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.run_evaluation"><code class="docutils literal notranslate"><span class="pre">run_evaluation()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.setup_cluster"><code class="docutils literal notranslate"><span class="pre">setup_cluster()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#per-call-timeout-in-a-child-process">Per-call timeout in a child process</a><ul>
+<li><a class="reference internal" href="#one-evaluation-under-a-hard-time-limit-in-a-child-interpreter">One evaluation under a hard time limit, in a child interpreter</a></li>
+<li><a class="reference internal" href="#panobbgo.timeout_call.TimedCall"><code class="docutils literal notranslate"><span class="pre">TimedCall</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.timeout_call.call_with_timeout"><code class="docutils literal notranslate"><span class="pre">call_with_timeout()</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -810,8 +832,9 @@ declares it here; see <a class="reference internal" href="#panobbgo.core.Module.
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.Module.rng">
 <span class="sig-name descname"><span class="pre">rng</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span><a class="headerlink" href="#panobbgo.core.Module.rng" title="Link to this definition">#</a></dt>
-<dd><p>Per-module random generator, seeded deterministically from the
-strategy’s master seed (see <a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase.spawn_rng()</span></code></a>).
+<dd><p>Per-module random generator, keyed by the master seed and this
+module’s name (see <a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase.spawn_rng()</span></code></a>): adding,
+removing or reordering <em>other</em> modules does not change it.
 Modules must draw randomness from here, never from the global
 <code class="docutils literal notranslate"><span class="pre">np.random</span></code> state.</p>
 </dd></dl>
@@ -1227,6 +1250,13 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 <dd><p>The evaluation budget as an <code class="docutils literal notranslate"><span class="pre">int</span></code>, or <em>default</em> when it is unknown (<a class="reference internal" href="#panobbgo.core.Module.max_eval_or" title="panobbgo.core.Module.max_eval_or"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Module.max_eval_or()</span></code></a>).</p>
 </dd></dl>
 
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.n_timed_out">
+<span class="sig-name descname"><span class="pre">n_timed_out</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.n_timed_out" title="Link to this definition">#</a></dt>
+<dd><p>Evaluations that hit <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> and were booked as a
+<code class="docutils literal notranslate"><span class="pre">NaN</span></code> result (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_timed_out_result()</span></code>).</p>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.name">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.name" title="Link to this definition">#</a></dt>
@@ -1262,8 +1292,9 @@ In-flight evaluations of an asynchronous run are abandoned.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.rng">
 <span class="sig-name descname"><span class="pre">rng</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span><a class="headerlink" href="#panobbgo.core.StrategyBase.rng" title="Link to this definition">#</a></dt>
-<dd><p>Master generator; every <a class="reference internal" href="#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> derives its own stream
-from it via <a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">spawn_rng()</span></code></a> in construction order.</p>
+<dd><p>Strategy-level generator (Thompson sampling, phase draws, …):
+its own keyed stream of <a class="reference internal" href="#panobbgo.core.StrategyBase.seed" title="panobbgo.core.StrategyBase.seed"><code class="xref py py-attr docutils literal notranslate"><span class="pre">seed</span></code></a>, independent of the module
+streams <a class="reference internal" href="#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">spawn_rng()</span></code></a> hands out, so neither shifts the other.</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -1273,11 +1304,15 @@ from it via <a class="reference internal" href="#panobbgo.core.StrategyBase.spaw
 
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.spawn_rng">
-<span class="sig-name descname"><span class="pre">spawn_rng</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.spawn_rng"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.spawn_rng" title="Link to this definition">#</a></dt>
-<dd><p>Return a fresh <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a> derived from the master seed.</p>
-<p>Streams are independent and reproducible: the <em>k</em>-th call always
-yields the same generator for a given <a class="reference internal" href="#panobbgo.core.StrategyBase.seed" title="panobbgo.core.StrategyBase.seed"><code class="xref py py-attr docutils literal notranslate"><span class="pre">seed</span></code></a>, so modules
-constructed in the same order draw the same random numbers.</p>
+<span class="sig-name descname"><span class="pre">spawn_rng</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.spawn_rng"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.spawn_rng" title="Link to this definition">#</a></dt>
+<dd><p>Return the next generator for <code class="docutils literal notranslate"><span class="pre">key</span></code> derived from the master seed.</p>
+<p>The stream of the <em>n</em>-th call with a given <code class="docutils literal notranslate"><span class="pre">key</span></code> is
+<code class="docutils literal notranslate"><span class="pre">SeedSequence(seed,</span> <span class="pre">spawn_key=(crc32(key),</span> <span class="pre">n))</span></code> — a function of
+<a class="reference internal" href="#panobbgo.core.StrategyBase.seed" title="panobbgo.core.StrategyBase.seed"><code class="xref py py-attr docutils literal notranslate"><span class="pre">seed</span></code></a>, <code class="docutils literal notranslate"><span class="pre">key</span></code> and <code class="docutils literal notranslate"><span class="pre">n</span></code> only.  <a class="reference internal" href="#panobbgo.core.Module" title="panobbgo.core.Module"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> passes its
+name, so a module’s randomness does not change when an unrelated
+module is added, removed or reordered, and two instances of one class
+(same name) still get distinct streams.  It never draws from
+<a class="reference internal" href="#panobbgo.core.StrategyBase.rng" title="panobbgo.core.StrategyBase.rng"><code class="xref py py-attr docutils literal notranslate"><span class="pre">rng</span></code></a>, the strategy-level stream.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1326,6 +1361,15 @@ degrades to <code class="docutils literal notranslate"><span class="pre">None</s
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.core.keyed_rng">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">keyed_rng</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">spawn_key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><span class="pre">Generator</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#keyed_rng"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.keyed_rng" title="Link to this definition">#</a></dt>
+<dd><p>A generator derived from the master <code class="docutils literal notranslate"><span class="pre">seed</span></code> and a stable <code class="docutils literal notranslate"><span class="pre">spawn_key</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SeedSequence(seed,</span> <span class="pre">spawn_key=...)</span></code> streams are independent for
+distinct keys and depend on nothing else — not on how many other
+streams were drawn before, nor in which order.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="panobbgo.core.known_budget">
 <span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">known_budget</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_eval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#known_budget"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.known_budget" title="Link to this definition">#</a></dt>
 <dd><p><code class="docutils literal notranslate"><span class="pre">max_eval</span></code> as a positive finite float, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when the budget is unknown.</p>
@@ -1350,6 +1394,12 @@ worker shuts down cleanly when the parent terminates it.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.core.rng_stream_key">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">rng_stream_key</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">occurrence</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/core.html#rng_stream_key"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.rng_stream_key" title="Link to this definition">#</a></dt>
+<dd><p>The <code class="docutils literal notranslate"><span class="pre">SeedSequence</span></code> <code class="docutils literal notranslate"><span class="pre">spawn_key</span></code> of the <code class="docutils literal notranslate"><span class="pre">occurrence</span></code>-th module called <code class="docutils literal notranslate"><span class="pre">name</span></code>.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="panobbgo.core.safe_send">
 <span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">safe_send</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">payload</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#safe_send"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.safe_send" title="Link to this definition">#</a></dt>
 <dd><p>Worker side: send <code class="docutils literal notranslate"><span class="pre">payload</span></code> over the status pipe, ignoring a parent that already went away.</p>
@@ -1366,44 +1416,42 @@ worker shuts down cleanly when the parent terminates it.</p>
 <p>Backend of <code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;threaded&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code>.</p>
 <section id="module-panobbgo.local_pool">
 <span id="id1"></span><h3>Local evaluation pool<a class="headerlink" href="#module-panobbgo.local_pool" title="Link to this heading">#</a></h3>
-<p>The backend of <code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;threaded&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code>:
-evaluations are submitted by task id and harvested without blocking by
-<a class="reference internal" href="#panobbgo.local_pool.LocalPool.poll" title="panobbgo.local_pool.LocalPool.poll"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LocalPool.poll()</span></code></a>, which reports every task exactly once, as a result
-or as a failure.</p>
+<p>The backend of <code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;threaded&quot;</span></code> (<a class="reference internal" href="#panobbgo.local_pool.LocalPool" title="panobbgo.local_pool.LocalPool"><code class="xref py py-class docutils literal notranslate"><span class="pre">LocalPool</span></code></a>) and
+<code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code> (<a class="reference internal" href="#panobbgo.local_pool.ProcessPool" title="panobbgo.local_pool.ProcessPool"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProcessPool</span></code></a>): evaluations are submitted by task
+id and harvested without blocking by <a class="reference internal" href="#panobbgo.local_pool.LocalPool.poll" title="panobbgo.local_pool.LocalPool.poll"><code class="xref py py-meth docutils literal notranslate"><span class="pre">LocalPool.poll()</span></code></a>, which reports
+every task exactly once, as a result or as a failure.</p>
 <p>What it guarantees beyond a bare executor:</p>
 <ul class="simple">
+<li><p><strong>A timed-out task is reported with</strong> <code class="docutils literal notranslate"><span class="pre">Outcome.timed_out</span></code>; the
+strategy books it as a <code class="docutils literal notranslate"><span class="pre">NaN</span></code> result (<code class="docutils literal notranslate"><span class="pre">Result.timed_out</span></code>), not a
+failure.  <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> is a limit on <em>one call</em>.</p></li>
 <li><p><strong>The timeout counts running time only.</strong>  The clock of a task starts
 when a worker picks it up (a thread records it; a worker process reports
-it through a queue), so time spent queued behind other evaluations never
+it over its pipe), so time spent queued behind other evaluations never
 times a task out.</p></li>
-<li><p><strong>Processes: a timed-out evaluation is killed, not abandoned.</strong>  The
-pool’s workers are killed and a fresh pool takes over; the other
-in-flight tasks are resubmitted (they lose their progress, not their
-place in the budget).</p></li>
+<li><p><strong>Processes: only the timed-out call dies.</strong>  <a class="reference internal" href="#panobbgo.local_pool.ProcessPool" title="panobbgo.local_pool.ProcessPool"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProcessPool</span></code></a> runs
+its own worker processes, one task at a time each, and kills exactly the
+worker whose call ran past the limit; a fresh worker replaces it.  Every
+other in-flight evaluation keeps running undisturbed.</p></li>
 <li><p><strong>Threads: a timed-out evaluation is abandoned</strong> — a thread cannot be
-interrupted, so it runs to completion in the background.  So that it
-cannot hold a worker slot forever, the executor is retired
-(<code class="docutils literal notranslate"><span class="pre">shutdown(wait=False)</span></code>) and the tasks that had not started yet move to
-a fresh <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code>.  <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code> threads are not
-daemon threads: an abandoned evaluation that never returns keeps the
-interpreter from exiting.  Use <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code> for objectives that can
-hang.</p></li>
+killed, so the call runs to completion in the background and its result
+is discarded.  So that it cannot hold a worker slot forever, the
+executor is retired (<code class="docutils literal notranslate"><span class="pre">shutdown(wait=False)</span></code>) and the tasks that had not
+started yet move to a fresh <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code>.  <code class="docutils literal notranslate"><span class="pre">ThreadPoolExecutor</span></code>
+threads are not daemon threads: an abandoned evaluation that never
+returns keeps the interpreter from exiting.  Abandoned threads are
+counted and warned about.  <strong>Use</strong> <code class="docutils literal notranslate"><span class="pre">&quot;processes&quot;</span></code> <strong>(or dask) for
+objectives that can hang.</strong></p></li>
 <li><p><strong>Processes: a crashing evaluation does not end the run.</strong>  A worker
-that dies (<code class="docutils literal notranslate"><span class="pre">os._exit</span></code>, a segfault, the OOM killer) breaks a
-<code class="docutils literal notranslate"><span class="pre">ProcessPoolExecutor</span></code> and fails every in-flight future with
-<code class="docutils literal notranslate"><span class="pre">BrokenProcessPool</span></code>.  The task whose worker died is reported failed;
-the ones merely caught in the break are resubmitted to a fresh pool, and
-every task that was running during a break gets a strike — after
-<code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_BREAK_STRIKES</span></code> it is failed too, whatever the exit codes say,
-so a task cannot be retried forever.  A task that had <em>finished</em> in the
-worker but whose result had not arrived yet is evaluated again: the
-budget is charged once, but side effects of the objective happen twice.</p></li>
+that dies (<code class="docutils literal notranslate"><span class="pre">os._exit</span></code>, a segfault, the OOM killer, a signal) while
+evaluating fails exactly its own task — attribution is exact, because a
+worker runs one task at a time.  A task whose worker died before the
+call <em>started</em> (still loading the problem) is re-queued, not failed.</p></li>
 <li><p><strong>Processes: workers that cannot load the problem are an error.</strong>  If
-the pool breaks before any evaluation started (the problem does not
-unpickle in a fresh interpreter — a class defined in <code class="docutils literal notranslate"><span class="pre">__main__</span></code> or a
-notebook, a <code class="docutils literal notranslate"><span class="pre">__setstate__</span></code> that raises), rebuilding cannot help:
-<code class="xref py py-class docutils literal notranslate"><span class="pre">WorkerInitError</span></code> is raised after <code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_IDLE_BREAKS</span></code> such
-breaks in a row.</p></li>
+<code class="xref py py-data docutils literal notranslate"><span class="pre">MAX_IDLE_BREAKS</span></code> workers in a row die before any evaluation
+started (the problem does not unpickle in a fresh interpreter — a class
+defined in <code class="docutils literal notranslate"><span class="pre">__main__</span></code> or a notebook, a <code class="docutils literal notranslate"><span class="pre">__setstate__</span></code> that raises),
+respawning cannot help: <code class="xref py py-class docutils literal notranslate"><span class="pre">WorkerInitError</span></code> is raised.</p></li>
 <li><p><strong>Closing is bounded and leaves nothing running</strong> (<code class="xref py py-meth docutils literal notranslate"><span class="pre">close()</span></code>): queued
 tasks are cancelled, running ones get until the deadline, then worker
 processes are killed.</p></li>
@@ -1415,16 +1463,29 @@ caller’s object.</p>
 </section>
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">LocalPool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool" title="Link to this definition">#</a></dt>
-<dd><p>Threads or spawned worker processes evaluating <code class="docutils literal notranslate"><span class="pre">problem</span></code> (see the module docstring).</p>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">LocalPool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool" title="Link to this definition">#</a></dt>
+<dd><p>Threads evaluating <code class="docutils literal notranslate"><span class="pre">problem</span></code> (see the module docstring).</p>
+<p><code class="docutils literal notranslate"><span class="pre">LocalPool(...,</span> <span class="pre">processes=True)</span></code> returns a <a class="reference internal" href="#panobbgo.local_pool.ProcessPool" title="panobbgo.local_pool.ProcessPool"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProcessPool</span></code></a>.</p>
 <p>Not thread-safe: one thread (the strategy’s main loop) submits, polls
 and closes.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.abandoned">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">abandoned</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.local_pool.LocalPool.abandoned" title="Link to this definition">#</a></dt>
+<dd><p>Timed-out evaluation threads that are still running.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.ages">
+<span class="sig-name descname"><span class="pre">ages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">now</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.ages"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.ages" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">(outstanding,</span> <span class="pre">oldest</span> <span class="pre">running</span> <span class="pre">age,</span> <span class="pre">oldest</span> <span class="pre">queued</span> <span class="pre">age)</span></code> in seconds (<code class="docutils literal notranslate"><span class="pre">None</span></code>: none such).</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.close">
 <span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deadline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.close" title="Link to this definition">#</a></dt>
 <dd><p>Cancel queued tasks, give running ones until <code class="docutils literal notranslate"><span class="pre">deadline</span></code>, then stop the workers.</p>
 <p>Returns the number of evaluations still running at the deadline
-(killed for processes, abandoned for threads).</p>
+(abandoned: a thread cannot be killed).</p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -1464,14 +1525,71 @@ and closes.</p>
 <dd><p>Block until a task can be harvested (or <code class="docutils literal notranslate"><span class="pre">deadline</span></code>).</p>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.LocalPool.waiting">
+<span class="sig-name descname"><span class="pre">waiting</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#LocalPool.waiting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.LocalPool.waiting" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> while an outstanding task is legitimately being waited for.</p>
+<p>A task is running (a worker picked it up and it has not been
+harvested), or it is queued on a pool whose workers can still pick it
+up.  How long a task runs is limited only by <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>;
+the caller’s deadlock backstop reads this so that it never cuts a
+running evaluation.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.local_pool.Outcome">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">Outcome</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ok</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">started</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finished</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#Outcome"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.Outcome" title="Link to this definition">#</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">Outcome</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">ok</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">started</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">finished</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timed_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#Outcome"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.Outcome" title="Link to this definition">#</a></dt>
 <dd><p>What became of one task: <code class="docutils literal notranslate"><span class="pre">ok</span></code> with its <code class="docutils literal notranslate"><span class="pre">result</span></code>, or failed with an <code class="docutils literal notranslate"><span class="pre">error</span></code> message.</p>
 <p><code class="docutils literal notranslate"><span class="pre">point</span></code> is the evaluated point, so a failure can be reported to the
-module that asked for it (the <code class="docutils literal notranslate"><span class="pre">failed_evaluations</span></code> event).</p>
+module that asked for it (the <code class="docutils literal notranslate"><span class="pre">failed_evaluations</span></code> event).
+<code class="docutils literal notranslate"><span class="pre">timed_out</span></code> marks a failure by <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>: the caller books
+it as a <code class="docutils literal notranslate"><span class="pre">NaN</span></code> result rather than a failure.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.local_pool.ProcessPool">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.local_pool.</span></span><span class="sig-name descname"><span class="pre">ProcessPool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">processes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/local_pool.html#ProcessPool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.ProcessPool" title="Link to this definition">#</a></dt>
+<dd><p>Spawned worker processes evaluating <code class="docutils literal notranslate"><span class="pre">problem</span></code>, each one task at a time.</p>
+<p>The pool owns its workers (no <code class="docutils literal notranslate"><span class="pre">ProcessPoolExecutor</span></code>), so a timed-out
+call is killed by killing exactly its worker, and a crash is attributed
+exactly to the task that worker was running.  Workers are spawned on
+demand, up to <code class="docutils literal notranslate"><span class="pre">n_workers</span></code>, and replaced when they die.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.ProcessPool.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deadline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#ProcessPool.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.ProcessPool.close" title="Link to this definition">#</a></dt>
+<dd><p>Cancel queued tasks, give running ones until <code class="docutils literal notranslate"><span class="pre">deadline</span></code>, then kill the workers.</p>
+<p>Returns the number of evaluations still running at the deadline.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.ProcessPool.poll">
+<span class="sig-name descname"><span class="pre">poll</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#panobbgo.local_pool.Outcome" title="panobbgo.local_pool.Outcome"><span class="pre">Outcome</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#ProcessPool.poll"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.ProcessPool.poll" title="Link to this definition">#</a></dt>
+<dd><p>Harvest finished, failed and timed-out tasks without blocking.</p>
+<p><code class="docutils literal notranslate"><span class="pre">timeout</span></code> is the per-evaluation limit in seconds of <em>running</em> time
+(<code class="docutils literal notranslate"><span class="pre">None</span></code>: no limit); a call past it is killed with its worker, and
+only that call.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.ProcessPool.submit">
+<span class="sig-name descname"><span class="pre">submit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">task_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#ProcessPool.submit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.ProcessPool.submit" title="Link to this definition">#</a></dt>
+<dd><p>Queue one evaluation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.ProcessPool.wait">
+<span class="sig-name descname"><span class="pre">wait</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deadline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poll_interval</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.001</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#ProcessPool.wait"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.ProcessPool.wait" title="Link to this definition">#</a></dt>
+<dd><p>Block until a worker reports something or dies (or <code class="docutils literal notranslate"><span class="pre">deadline</span></code>).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.local_pool.ProcessPool.waiting">
+<span class="sig-name descname"><span class="pre">waiting</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/local_pool.html#ProcessPool.waiting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.local_pool.ProcessPool.waiting" title="Link to this definition">#</a></dt>
+<dd><p>Outstanding tasks are always waited for: the pool spawns the workers it needs.</p>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -1503,9 +1621,38 @@ that reference <code class="docutils literal notranslate"><span class="pre">stra
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.check_timeout_problem">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">check_timeout_problem</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#check_timeout_problem"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.check_timeout_problem" title="Link to this definition">#</a></dt>
+<dd><p>Check once, before any task is submitted, that <code class="docutils literal notranslate"><span class="pre">problem</span></code> works under <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>.</p>
+<p>With a timeout every call runs in a child interpreter
+(<a class="reference internal" href="#module-panobbgo.timeout_call" title="panobbgo.timeout_call"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.timeout_call</span></code></a>), so the problem must serialize — failing
+here with a clear <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">TypeError</span></code></a> beats failing point by point on the
+workers.  Also warns that a <a class="reference internal" href="lib.html#panobbgo.lib.NoisyProblem" title="panobbgo.lib.noise.NoisyProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a>
+with <code class="docutils literal notranslate"><span class="pre">resample=True</span></code> loses its per-point draw counter between calls
+(each call evaluates a fresh copy), so its noise becomes frozen per point.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="panobbgo.dask_evaluation.close">
 <span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.close" title="Link to this definition">#</a></dt>
 <dd><p>Cancel any outstanding Dask futures and close client + cluster.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.evaluate_point">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">evaluate_point</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#evaluate_point"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.evaluate_point" title="Link to this definition">#</a></dt>
+<dd><p>The dask task: evaluate one point; returns <code class="docutils literal notranslate"><span class="pre">(result,</span> <span class="pre">walltime</span> <span class="pre">in</span> <span class="pre">seconds,</span> <span class="pre">error,</span> <span class="pre">timed_out)</span></code>.</p>
+<p>A raising objective is reported as <code class="docutils literal notranslate"><span class="pre">(None,</span> <span class="pre">walltime,</span> <span class="pre">repr(exc),</span> <span class="pre">False)</span></code>
+rather than raised, so its walltime is booked like the local pool books a
+failed task’s.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">timeout</span></code> (<code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>) the limit is enforced <strong>here, on
+the worker, per call</strong>: the objective runs in a child process
+(<a class="reference internal" href="#panobbgo.timeout_call.call_with_timeout" title="panobbgo.timeout_call.call_with_timeout"><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.timeout_call.call_with_timeout()</span></code></a>) whose clock starts when
+the call starts — queue time on the cluster never counts — and which is
+killed on expiry, so a hung objective never holds its dask worker.  The
+task then returns <code class="docutils literal notranslate"><span class="pre">(None,</span> <span class="pre">walltime,</span> <span class="pre">None,</span> <span class="pre">True)</span></code> and the client books a
+<code class="docutils literal notranslate"><span class="pre">NaN</span></code> placeholder.  Without <code class="docutils literal notranslate"><span class="pre">timeout</span></code> the objective runs in the
+worker itself, as before (no subprocess overhead).</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1514,6 +1661,12 @@ that reference <code class="docutils literal notranslate"><span class="pre">stra
 <dd><p>Run evaluation using Dask distributed computing.</p>
 <p>Submits each point as a Dask future, updates the strategy’s task
 accounting, and returns the newly finished results.</p>
+<p><code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> is enforced on the worker (<a class="reference internal" href="#panobbgo.dask_evaluation.evaluate_point" title="panobbgo.dask_evaluation.evaluate_point"><code class="xref py py-func docutils literal notranslate"><span class="pre">evaluate_point()</span></code></a>);
+the client does not expire futures itself.  A worker that dies loses its
+task to dask’s own recovery (it reruns elsewhere, or the future fails and
+the evaluation is booked as failed), and a task that cannot run because
+the cluster has no workers is reported by the strategy’s waiting WARNING
+— neither needs a client-side clock, which would charge queue time.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -1521,6 +1674,71 @@ accounting, and returns the newly finished results.</p>
 <span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">setup_cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#setup_cluster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.setup_cluster" title="Link to this definition">#</a></dt>
 <dd><p>Set up a Dask cluster based on configuration.
 Supports both local and remote clusters.</p>
+</dd></dl>
+
+</section>
+<section id="per-call-timeout-in-a-child-process">
+<h2>Per-call timeout in a child process<a class="headerlink" href="#per-call-timeout-in-a-child-process" title="Link to this heading">#</a></h2>
+<p>How <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> is enforced on a dask worker.</p>
+<section id="one-evaluation-under-a-hard-time-limit-in-a-child-interpreter">
+<span id="module-panobbgo.timeout_call"></span><h3>One evaluation under a hard time limit, in a child interpreter<a class="headerlink" href="#one-evaluation-under-a-hard-time-limit-in-a-child-interpreter" title="Link to this heading">#</a></h3>
+<p><a class="reference internal" href="#panobbgo.timeout_call.call_with_timeout" title="panobbgo.timeout_call.call_with_timeout"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_with_timeout()</span></code></a> evaluates <code class="docutils literal notranslate"><span class="pre">problem(point)</span></code> in a fresh child
+Python process and kills that child — with everything it started — when the
+call runs longer than <code class="docutils literal notranslate"><span class="pre">timeout</span></code> seconds.  It is how <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>
+is enforced <strong>where the evaluation runs</strong> on a dask worker
+(<a class="reference internal" href="#module-panobbgo.dask_evaluation" title="panobbgo.dask_evaluation"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.dask_evaluation</span></code></a>): the clock starts when the call starts in
+the child — not at submission, so queue time on the cluster never counts —
+and expiry kills exactly that call, so a hung objective never holds its
+dask worker.</p>
+<p>Mechanics:</p>
+<ul class="simple">
+<li><p>The child is started with <a class="reference external" href="https://docs.python.org/3/library/subprocess.html#module-subprocess" title="(in Python v3.14)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">subprocess</span></code></a> (<code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-P</span> <span class="pre">-m</span>
+<span class="pre">panobbgo.timeout_call</span></code>), not <a class="reference external" href="https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing" title="(in Python v3.14)"><code class="xref py py-mod docutils literal notranslate"><span class="pre">multiprocessing</span></code></a>: dask worker
+processes are daemonic by default, and a daemonic process may not have
+<code class="docutils literal notranslate"><span class="pre">multiprocessing</span></code> children.  Its import path is exactly the parent’s
+<code class="docutils literal notranslate"><span class="pre">sys.path</span></code> (<code class="docutils literal notranslate"><span class="pre">-P</span></code>: the child’s cwd is not prepended).</p></li>
+<li><p>It runs in its own process group; the parent always ends the call with
+<code class="docutils literal notranslate"><span class="pre">killpg</span></code> — after a timeout, and also after a successful call, so no
+background grandchild of the objective outlives it.</p></li>
+<li><p><strong>Orphan protection.</strong>  The child watches a dedicated pipe from the
+parent: when the parent dies (a dask worker killed by the nanny), the
+pipe hits EOF and the child kills its own process group.  On Linux the
+kernel also sends it <code class="docutils literal notranslate"><span class="pre">SIGTERM</span></code> when its parent dies
+(<code class="docutils literal notranslate"><span class="pre">PR_SET_PDEATHSIG</span></code>), whose handler kills the whole group — not just
+the child, which would leave the objective’s subprocesses running
+(<code class="xref py py-func docutils literal notranslate"><span class="pre">kill_group_with_parent()</span></code>).</p></li>
+<li><p>The result travels as a length-prefixed frame (8-byte big-endian length
++ pickle) over a private copy of the child’s stdout; the parent reads
+exactly that many bytes, so an objective that forks (keeping the pipe
+open) cannot make a finished call look timed out.  Whatever the objective
+prints goes to stderr.  The child ends with <code class="docutils literal notranslate"><span class="pre">os._exit</span></code> once the frame
+is written, so a non-daemon thread left by the objective cannot keep it
+alive.</p></li>
+</ul>
+<p><strong>State caveat.</strong>  Each call evaluates a <em>fresh copy</em> of the problem (the
+worker’s copy, serialized once per worker and cached).  State the problem
+object accumulates while evaluating does not carry over from one call to
+the next — counters, caches, a problem-held RNG (which would repeat its
+draws).  In particular <a class="reference internal" href="lib.html#panobbgo.lib.NoisyProblem" title="panobbgo.lib.noise.NoisyProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a> with
+<code class="docutils literal notranslate"><span class="pre">resample=True</span></code> counts evaluations per point in the problem object, so
+under dask with <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> every re-evaluation of a point draws
+the <em>same</em> noise (as with <code class="docutils literal notranslate"><span class="pre">resample=False</span></code>);
+<a class="reference internal" href="#panobbgo.dask_evaluation.check_timeout_problem" title="panobbgo.dask_evaluation.check_timeout_problem"><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.dask_evaluation.check_timeout_problem()</span></code></a> warns about it.</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.timeout_call.TimedCall">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.timeout_call.</span></span><span class="sig-name descname"><span class="pre">TimedCall</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timed_out</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seconds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/timeout_call.html#TimedCall"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.timeout_call.TimedCall" title="Link to this definition">#</a></dt>
+<dd><p>The outcome of <a class="reference internal" href="#panobbgo.timeout_call.call_with_timeout" title="panobbgo.timeout_call.call_with_timeout"><code class="xref py py-func docutils literal notranslate"><span class="pre">call_with_timeout()</span></code></a>.</p>
+<p>Exactly one of: <code class="docutils literal notranslate"><span class="pre">result</span></code> (the objective returned), <code class="docutils literal notranslate"><span class="pre">error</span></code> (it
+raised, or the child could not start/load it), <code class="docutils literal notranslate"><span class="pre">timed_out</span></code>.
+<code class="docutils literal notranslate"><span class="pre">seconds</span></code> is the running time of the call itself (child start-up
+excluded).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.timeout_call.call_with_timeout">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.timeout_call.</span></span><span class="sig-name descname"><span class="pre">call_with_timeout</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">point</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#panobbgo.timeout_call.TimedCall" title="panobbgo.timeout_call.TimedCall"><span class="pre">TimedCall</span></a></span></span><a class="reference internal" href="_modules/panobbgo/timeout_call.html#call_with_timeout"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.timeout_call.call_with_timeout" title="Link to this definition">#</a></dt>
+<dd><p>Evaluate <code class="docutils literal notranslate"><span class="pre">problem(point)</span></code> in a child process, killing it after <code class="docutils literal notranslate"><span class="pre">timeout</span></code> seconds of running time.</p>
 </dd></dl>
 
 </section>

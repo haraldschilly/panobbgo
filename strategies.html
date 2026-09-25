@@ -219,9 +219,9 @@ the noise class as given (the benchmark harness knows it; see
 <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_regime_gating_2026-09-11.md</span></code> §1, raises
 <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code> until the oracle has cleared its battery.</p>
 <p>Two contracts worth knowing.  <strong>Every arm is always constructed</strong>, gate or
-no gate: <code class="docutils literal notranslate"><span class="pre">StrategyBase</span></code> spawns each module’s RNG stream in construction
-order, so building an arm lazily would shift every later stream and change
-the run bit-for-bit.  The gate is a per-arm <em>enabled</em> bit read at one
+no gate, so the run holds the same modules in the same event-bus order
+either way (module RNG streams are keyed by name, so building an arm or not
+would not shift another module’s stream).  The gate is a per-arm <em>enabled</em> bit read at one
 place, the <code class="docutils literal notranslate"><span class="pre">ready</span></code> list of block selection, plus a filtered prologue —
 <code class="docutils literal notranslate"><span class="pre">regime_gate=None</span></code> is byte-identical to a run without the feature, and a
 gate that enables every arm is byte-identical to <code class="docutils literal notranslate"><span class="pre">None</span></code>.  And a disabled

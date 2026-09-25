@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.timeout_call - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.timeout_call"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_benchmarking.html">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.timeout_call</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.timeout_call</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="c1"># Copyright 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
+</span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="7"><span class="c1">#</span>
+</span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="9"><span class="c1">#</span>
+</span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
+</span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="14"><span class="c1"># limitations under the License.</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="sd">"""</span>
+</span><span data-line="17"><span class="sd">One evaluation under a hard time limit, in a child interpreter</span>
+</span><span data-line="18"><span class="sd">==============================================================</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">:func:`call_with_timeout` evaluates ``problem(point)`` in a fresh child</span>
+</span><span data-line="21"><span class="sd">Python process and kills that child — with everything it started — when the</span>
+</span><span data-line="22"><span class="sd">call runs longer than ``timeout`` seconds.  It is how ``evaluation.timeout``</span>
+</span><span data-line="23"><span class="sd">is enforced **where the evaluation runs** on a dask worker</span>
+</span><span data-line="24"><span class="sd">(:mod:`panobbgo.dask_evaluation`): the clock starts when the call starts in</span>
+</span><span data-line="25"><span class="sd">the child — not at submission, so queue time on the cluster never counts —</span>
+</span><span data-line="26"><span class="sd">and expiry kills exactly that call, so a hung objective never holds its</span>
+</span><span data-line="27"><span class="sd">dask worker.</span>
+</span><span data-line="28">
+</span><span data-line="29"><span class="sd">Mechanics:</span>
+</span><span data-line="30">
+</span><span data-line="31"><span class="sd">* The child is started with :mod:`subprocess` (``python -P -m</span>
+</span><span data-line="32"><span class="sd">  panobbgo.timeout_call``), not :mod:`multiprocessing`: dask worker</span>
+</span><span data-line="33"><span class="sd">  processes are daemonic by default, and a daemonic process may not have</span>
+</span><span data-line="34"><span class="sd">  ``multiprocessing`` children.  Its import path is exactly the parent's</span>
+</span><span data-line="35"><span class="sd">  ``sys.path`` (``-P``: the child's cwd is not prepended).</span>
+</span><span data-line="36"><span class="sd">* It runs in its own process group; the parent always ends the call with</span>
+</span><span data-line="37"><span class="sd">  ``killpg`` — after a timeout, and also after a successful call, so no</span>
+</span><span data-line="38"><span class="sd">  background grandchild of the objective outlives it.</span>
+</span><span data-line="39"><span class="sd">* **Orphan protection.**  The child watches a dedicated pipe from the</span>
+</span><span data-line="40"><span class="sd">  parent: when the parent dies (a dask worker killed by the nanny), the</span>
+</span><span data-line="41"><span class="sd">  pipe hits EOF and the child kills its own process group.  On Linux the</span>
+</span><span data-line="42"><span class="sd">  kernel also sends it ``SIGTERM`` when its parent dies</span>
+</span><span data-line="43"><span class="sd">  (``PR_SET_PDEATHSIG``), whose handler kills the whole group — not just</span>
+</span><span data-line="44"><span class="sd">  the child, which would leave the objective's subprocesses running</span>
+</span><span data-line="45"><span class="sd">  (:func:`kill_group_with_parent`).</span>
+</span><span data-line="46"><span class="sd">* The result travels as a length-prefixed frame (8-byte big-endian length</span>
+</span><span data-line="47"><span class="sd">  + pickle) over a private copy of the child's stdout; the parent reads</span>
+</span><span data-line="48"><span class="sd">  exactly that many bytes, so an objective that forks (keeping the pipe</span>
+</span><span data-line="49"><span class="sd">  open) cannot make a finished call look timed out.  Whatever the objective</span>
+</span><span data-line="50"><span class="sd">  prints goes to stderr.  The child ends with ``os._exit`` once the frame</span>
+</span><span data-line="51"><span class="sd">  is written, so a non-daemon thread left by the objective cannot keep it</span>
+</span><span data-line="52"><span class="sd">  alive.</span>
+</span><span data-line="53">
+</span><span data-line="54"><span class="sd">**State caveat.**  Each call evaluates a *fresh copy* of the problem (the</span>
+</span><span data-line="55"><span class="sd">worker's copy, serialized once per worker and cached).  State the problem</span>
+</span><span data-line="56"><span class="sd">object accumulates while evaluating does not carry over from one call to</span>
+</span><span data-line="57"><span class="sd">the next — counters, caches, a problem-held RNG (which would repeat its</span>
+</span><span data-line="58"><span class="sd">draws).  In particular :class:`~panobbgo.lib.noise.NoisyProblem` with</span>
+</span><span data-line="59"><span class="sd">``resample=True`` counts evaluations per point in the problem object, so</span>
+</span><span data-line="60"><span class="sd">under dask with ``evaluation.timeout`` every re-evaluation of a point draws</span>
+</span><span data-line="61"><span class="sd">the *same* noise (as with ``resample=False``);</span>
+</span><span data-line="62"><span class="sd">:func:`panobbgo.dask_evaluation.check_timeout_problem` warns about it.</span>
+</span><span data-line="63"><span class="sd">"""</span>
+</span><span data-line="64">
+</span><span data-line="65"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="66">
+</span><span data-line="67"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span data-line="68"><span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+</span><span data-line="69"><span class="kn">import</span><span class="w"> </span><span class="nn">selectors</span>
+</span><span data-line="70"><span class="kn">import</span><span class="w"> </span><span class="nn">signal</span>
+</span><span data-line="71"><span class="kn">import</span><span class="w"> </span><span class="nn">struct</span>
+</span><span data-line="72"><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span>
+</span><span data-line="73"><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+</span><span data-line="74"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="75"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="76"><span class="kn">import</span><span class="w"> </span><span class="nn">weakref</span>
+</span><span data-line="77"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+</span><span data-line="78"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span data-line="79">
+</span><span data-line="80"><span class="c1">#: How long the child may take to start and load the problem before the</span>
+</span><span data-line="81"><span class="c1">#: call counts as failed (a problem that cannot load in a fresh interpreter).</span>
+</span><span data-line="82"><span class="n">STARTUP_LIMIT_S</span> <span class="o">=</span> <span class="mf">300.0</span>
+</span><span data-line="83">
+</span><span data-line="84"><span class="n">_STARTED</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">"S"</span>
+</span><span data-line="85"><span class="n">_LEN</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">"&gt;Q"</span><span class="p">)</span>
+</span><span data-line="86">
+</span><span data-line="87">
+<div class="viewcode-block" id="TimedCall">
+<a class="viewcode-back" href="../../core.html#panobbgo.timeout_call.TimedCall">[docs]</a>
+</span><span data-line="88"><span class="nd">@dataclass</span>
+</span><span data-line="89"><span class="k">class</span><span class="w"> </span><span class="nc">TimedCall</span><span class="p">:</span>
+</span><span data-line="90"><span class="w">    </span><span class="sd">"""The outcome of :func:`call_with_timeout`.</span>
+</span><span data-line="91">
+</span><span data-line="92"><span class="sd">    Exactly one of: ``result`` (the objective returned), ``error`` (it</span>
+</span><span data-line="93"><span class="sd">    raised, or the child could not start/load it), ``timed_out``.</span>
+</span><span data-line="94"><span class="sd">    ``seconds`` is the running time of the call itself (child start-up</span>
+</span><span data-line="95"><span class="sd">    excluded).</span>
+</span><span data-line="96"><span class="sd">    """</span>
+</span><span data-line="97">
+</span><span data-line="98">    <span class="n">result</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="99">    <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="100">    <span class="n">timed_out</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="101">    <span class="n">seconds</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span></div>
+
+</span><span data-line="102">
+</span><span data-line="103">
+</span><span data-line="104"><span class="k">def</span><span class="w"> </span><span class="nf">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="105"><span class="w">    </span><span class="sd">"""Serialize like dask does (``cloudpickle`` when available)."""</span>
+</span><span data-line="106">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="107">        <span class="kn">import</span><span class="w"> </span><span class="nn">cloudpickle</span>  <span class="c1"># dask's own serializer: also handles interactively defined problems</span>
+</span><span data-line="108">    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>  <span class="c1"># pragma: no cover - dask depends on it</span>
+</span><span data-line="109">        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+</span><span data-line="110">    <span class="k">return</span> <span class="n">cloudpickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+</span><span data-line="111">
+</span><span data-line="112">
+</span><span data-line="113"><span class="c1">#: id(problem) -&gt; (weakref or the object, serialized bytes): a worker's</span>
+</span><span data-line="114"><span class="c1">#: problem copy is serialized once, not per call.  **Do not mutate the</span>
+</span><span data-line="115"><span class="c1">#: problem object during a run**: a changed problem is not re-serialized</span>
+</span><span data-line="116"><span class="c1">#: (on a dask worker nothing mutates it — the calls run in children).</span>
+</span><span data-line="117"><span class="n">_PAYLOADS</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="118"><span class="n">_PAYLOADS_LOCK</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+</span><span data-line="119">
+</span><span data-line="120">
+</span><span data-line="121"><span class="k">def</span><span class="w"> </span><span class="nf">_problem_bytes</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+</span><span data-line="122">    <span class="n">key</span> <span class="o">=</span> <span class="nb">id</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="123">    <span class="k">with</span> <span class="n">_PAYLOADS_LOCK</span><span class="p">:</span>
+</span><span data-line="124">        <span class="n">hit</span> <span class="o">=</span> <span class="n">_PAYLOADS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+</span><span data-line="125">        <span class="k">if</span> <span class="n">hit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="126">            <span class="n">ref</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">hit</span>
+</span><span data-line="127">            <span class="n">obj</span> <span class="o">=</span> <span class="n">ref</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">weakref</span><span class="o">.</span><span class="n">ref</span><span class="p">)</span> <span class="k">else</span> <span class="n">ref</span>
+</span><span data-line="128">            <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="n">problem</span><span class="p">:</span>
+</span><span data-line="129">                <span class="k">return</span> <span class="n">data</span>
+</span><span data-line="130">    <span class="n">data</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="131">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="132">        <span class="n">ref</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">weakref</span><span class="o">.</span><span class="n">ref</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">_r</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">key</span><span class="p">:</span> <span class="n">_PAYLOADS</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">))</span>
+</span><span data-line="133">    <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
+</span><span data-line="134">        <span class="k">return</span> <span class="n">data</span>  <span class="c1"># not weak-referenceable: no cache</span>
+</span><span data-line="135">    <span class="k">with</span> <span class="n">_PAYLOADS_LOCK</span><span class="p">:</span>
+</span><span data-line="136">        <span class="n">_PAYLOADS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+</span><span data-line="137">    <span class="k">return</span> <span class="n">data</span>
+</span><span data-line="138">
+</span><span data-line="139">
+</span><span data-line="140"><span class="k">def</span><span class="w"> </span><span class="nf">_killpg</span><span class="p">(</span><span class="n">proc</span><span class="p">:</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="141"><span class="w">    </span><span class="sd">"""Kill the child and everything it started (its own process group), bounded."""</span>
+</span><span data-line="142">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="143">        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="s2">"posix"</span><span class="p">:</span>
+</span><span data-line="144">            <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGKILL</span><span class="p">)</span>
+</span><span data-line="145">        <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+</span><span data-line="146">            <span class="n">proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
+</span><span data-line="147">    <span class="k">except</span> <span class="p">(</span><span class="ne">ProcessLookupError</span><span class="p">,</span> <span class="ne">PermissionError</span><span class="p">):</span>
+</span><span data-line="148">        <span class="k">pass</span>
+</span><span data-line="149">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="150">        <span class="n">proc</span><span class="o">.</span><span class="n">wait</span><span class="p">(</span><span class="mf">5.0</span><span class="p">)</span>
+</span><span data-line="151">    <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">TimeoutExpired</span><span class="p">:</span>  <span class="c1"># pragma: no cover - a process in uninterruptible sleep</span>
+</span><span data-line="152">        <span class="k">pass</span>
+</span><span data-line="153">
+</span><span data-line="154">
+</span><span data-line="155"><span class="k">def</span><span class="w"> </span><span class="nf">_read_exact</span><span class="p">(</span><span class="n">fd</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">deadline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+</span><span data-line="156"><span class="w">    </span><span class="sd">"""Read exactly ``n`` bytes from ``fd``; ``None`` on ``deadline``, short bytes on EOF."""</span>
+</span><span data-line="157">    <span class="n">sel</span> <span class="o">=</span> <span class="n">selectors</span><span class="o">.</span><span class="n">DefaultSelector</span><span class="p">()</span>
+</span><span data-line="158">    <span class="n">sel</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">selectors</span><span class="o">.</span><span class="n">EVENT_READ</span><span class="p">)</span>
+</span><span data-line="159">    <span class="n">chunks</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="160">    <span class="n">got</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="161">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="162">        <span class="k">while</span> <span class="n">got</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+</span><span data-line="163">            <span class="n">rest</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">deadline</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">deadline</span> <span class="o">-</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+</span><span data-line="164">            <span class="k">if</span> <span class="n">rest</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">rest</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="165">                <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="166">            <span class="k">if</span> <span class="ow">not</span> <span class="n">sel</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">rest</span><span class="p">):</span>
+</span><span data-line="167">                <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="168">            <span class="n">chunk</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="n">got</span><span class="p">,</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="mi">20</span><span class="p">))</span>
+</span><span data-line="169">            <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="p">:</span>
+</span><span data-line="170">                <span class="k">break</span>  <span class="c1"># EOF</span>
+</span><span data-line="171">            <span class="n">chunks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+</span><span data-line="172">            <span class="n">got</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+</span><span data-line="173">    <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="174">        <span class="n">sel</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="175">    <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+</span><span data-line="176">
+</span><span data-line="177">
+<div class="viewcode-block" id="call_with_timeout">
+<a class="viewcode-back" href="../../core.html#panobbgo.timeout_call.call_with_timeout">[docs]</a>
+</span><span data-line="178"><span class="k">def</span><span class="w"> </span><span class="nf">call_with_timeout</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TimedCall</span><span class="p">:</span>
+</span><span data-line="179"><span class="w">    </span><span class="sd">"""Evaluate ``problem(point)`` in a child process, killing it after ``timeout`` seconds of running time."""</span>
+</span><span data-line="180">    <span class="n">problem_bytes</span> <span class="o">=</span> <span class="n">_problem_bytes</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="181">    <span class="n">point_bytes</span> <span class="o">=</span> <span class="n">dumps</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="182">    <span class="n">env</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+</span><span data-line="183">    <span class="n">env</span><span class="p">[</span><span class="s2">"PYTHONPATH"</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">path</span> <span class="k">if</span> <span class="n">p</span><span class="p">)</span>
+</span><span data-line="184">    <span class="n">watch_r</span><span class="p">,</span> <span class="n">watch_w</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">pipe</span><span class="p">()</span>  <span class="c1"># the child's lifeline: EOF means the parent is gone</span>
+</span><span data-line="185">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="186">        <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+</span><span data-line="187">            <span class="p">[</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="s2">"-P"</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="s2">"panobbgo.timeout_call"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">watch_r</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">())],</span>
+</span><span data-line="188">            <span class="n">stdin</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+</span><span data-line="189">            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+</span><span data-line="190">            <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+</span><span data-line="191">            <span class="n">pass_fds</span><span class="o">=</span><span class="p">(</span><span class="n">watch_r</span><span class="p">,),</span>
+</span><span data-line="192">            <span class="n">start_new_session</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># its own process group: a kill reaches its children too</span>
+</span><span data-line="193">        <span class="p">)</span>
+</span><span data-line="194">    <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="195">        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">watch_r</span><span class="p">)</span>
+</span><span data-line="196">    <span class="k">assert</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="197">    <span class="n">fd</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">fileno</span><span class="p">()</span>
+</span><span data-line="198">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="199">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="200">            <span class="n">proc</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">_LEN</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">problem_bytes</span><span class="p">))</span> <span class="o">+</span> <span class="n">problem_bytes</span> <span class="o">+</span> <span class="n">point_bytes</span><span class="p">)</span>
+</span><span data-line="201">            <span class="n">proc</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="202">        <span class="k">except</span> <span class="ne">BrokenPipeError</span><span class="p">:</span>
+</span><span data-line="203">            <span class="k">pass</span>  <span class="c1"># the child died loading; reported below</span>
+</span><span data-line="204">        <span class="n">started</span> <span class="o">=</span> <span class="n">_read_exact</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">+</span> <span class="n">STARTUP_LIMIT_S</span><span class="p">)</span>
+</span><span data-line="205">        <span class="k">if</span> <span class="n">started</span> <span class="o">!=</span> <span class="n">_STARTED</span><span class="p">:</span>
+</span><span data-line="206">            <span class="k">return</span> <span class="n">TimedCall</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="s2">"evaluation child did not start (exit code </span><span class="si">%s</span><span class="s2">)"</span> <span class="o">%</span> <span class="n">proc</span><span class="o">.</span><span class="n">poll</span><span class="p">())</span>
+</span><span data-line="207">        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+</span><span data-line="208">        <span class="n">deadline</span> <span class="o">=</span> <span class="n">t0</span> <span class="o">+</span> <span class="nb">float</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
+</span><span data-line="209">        <span class="n">head</span> <span class="o">=</span> <span class="n">_read_exact</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">_LEN</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">deadline</span><span class="p">)</span>
+</span><span data-line="210">        <span class="k">if</span> <span class="n">head</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="211">            <span class="k">return</span> <span class="n">TimedCall</span><span class="p">(</span><span class="n">timed_out</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span>
+</span><span data-line="212">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">head</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">_LEN</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+</span><span data-line="213">            <span class="k">return</span> <span class="n">TimedCall</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="s2">"evaluation child died (exit code </span><span class="si">%s</span><span class="s2">)"</span> <span class="o">%</span> <span class="n">proc</span><span class="o">.</span><span class="n">poll</span><span class="p">(),</span> <span class="n">seconds</span><span class="o">=</span><span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)</span>
+</span><span data-line="214">        <span class="p">(</span><span class="n">n</span><span class="p">,)</span> <span class="o">=</span> <span class="n">_LEN</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">head</span><span class="p">)</span>
+</span><span data-line="215">        <span class="c1"># The frame is being written: finish reading it even if that runs a</span>
+</span><span data-line="216">        <span class="c1"># moment past the deadline — the call itself has returned.</span>
+</span><span data-line="217">        <span class="n">body</span> <span class="o">=</span> <span class="n">_read_exact</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="218">        <span class="n">seconds</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+</span><span data-line="219">        <span class="k">if</span> <span class="n">body</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+</span><span data-line="220">            <span class="k">return</span> <span class="n">TimedCall</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="s2">"evaluation child died writing its result"</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="n">seconds</span><span class="p">)</span>
+</span><span data-line="221">        <span class="n">kind</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+</span><span data-line="222">        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"ok"</span><span class="p">:</span>
+</span><span data-line="223">            <span class="k">return</span> <span class="n">TimedCall</span><span class="p">(</span><span class="n">result</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">seconds</span><span class="o">=</span><span class="n">seconds</span><span class="p">)</span>
+</span><span data-line="224">        <span class="k">return</span> <span class="n">TimedCall</span><span class="p">(</span><span class="n">error</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">),</span> <span class="n">seconds</span><span class="o">=</span><span class="n">seconds</span><span class="p">)</span>
+</span><span data-line="225">    <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="226">        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">watch_w</span><span class="p">)</span>
+</span><span data-line="227">        <span class="n">_killpg</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>  <span class="c1"># always: a timed-out call, and background grandchildren of a finished one</span>
+</span><span data-line="228">        <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+</span><span data-line="229">
+</span><span data-line="230">
+</span><span data-line="231"><span class="k">def</span><span class="w"> </span><span class="nf">_watchdog</span><span class="p">(</span><span class="n">fd</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="232"><span class="w">    </span><span class="sd">"""Child side: the parent closed the lifeline (or died) — kill this process group."""</span>
+</span><span data-line="233">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="234">        <span class="k">while</span> <span class="n">os</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+</span><span data-line="235">            <span class="k">pass</span>
+</span><span data-line="236">    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+</span><span data-line="237">        <span class="k">pass</span>
+</span><span data-line="238">    <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGKILL</span><span class="p">)</span>
+</span><span data-line="239">
+</span><span data-line="240">
+</span><span data-line="241"><span class="k">def</span><span class="w"> </span><span class="nf">_kill_own_group</span><span class="p">(</span><span class="n">signum</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="242"><span class="w">    </span><span class="sd">"""Kill this process group — the calling process, the objective and everything it started."""</span>
+</span><span data-line="243">    <span class="n">os</span><span class="o">.</span><span class="n">killpg</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">signal</span><span class="o">.</span><span class="n">SIGKILL</span><span class="p">)</span>
+</span><span data-line="244">
+</span><span data-line="245">
+</span><span data-line="246"><span class="k">def</span><span class="w"> </span><span class="nf">kill_group_with_parent</span><span class="p">(</span><span class="n">parent_pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="247"><span class="w">    </span><span class="sd">"""Make the calling process group die with its parent (Linux; call it in a process-group leader).</span>
+</span><span data-line="248">
+</span><span data-line="249"><span class="sd">    ``PR_SET_PDEATHSIG`` delivers ``SIGTERM`` when the parent dies, and the</span>
+</span><span data-line="250"><span class="sd">    handler kills the *whole group* — a ``SIGKILL`` there would kill only this</span>
+</span><span data-line="251"><span class="sd">    process and leave the objective's own subprocesses running.  The check of</span>
+</span><span data-line="252"><span class="sd">    ``getppid`` covers a parent that died before the ``prctl``.  Must run in</span>
+</span><span data-line="253"><span class="sd">    the main thread (it installs a signal handler).  Elsewhere than Linux it</span>
+</span><span data-line="254"><span class="sd">    does nothing; the callers have other lifelines (a watchdog pipe, the</span>
+</span><span data-line="255"><span class="sd">    pool's close/atexit).</span>
+</span><span data-line="256"><span class="sd">    """</span>
+</span><span data-line="257">    <span class="k">if</span> <span class="ow">not</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"linux"</span><span class="p">):</span>
+</span><span data-line="258">        <span class="k">return</span>
+</span><span data-line="259">    <span class="n">signal</span><span class="o">.</span><span class="n">signal</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGTERM</span><span class="p">,</span> <span class="n">_kill_own_group</span><span class="p">)</span>
+</span><span data-line="260">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="261">        <span class="kn">import</span><span class="w"> </span><span class="nn">ctypes</span>
+</span><span data-line="262">
+</span><span data-line="263">        <span class="n">libc</span> <span class="o">=</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">CDLL</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">use_errno</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="264">        <span class="n">libc</span><span class="o">.</span><span class="n">prctl</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">SIGTERM</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>  <span class="c1"># PR_SET_PDEATHSIG</span>
+</span><span data-line="265">    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+</span><span data-line="266">        <span class="k">return</span>
+</span><span data-line="267">    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">getppid</span><span class="p">()</span> <span class="o">!=</span> <span class="n">parent_pid</span><span class="p">:</span>  <span class="c1"># the parent is already gone</span>
+</span><span data-line="268">        <span class="n">_kill_own_group</span><span class="p">()</span>
+</span><span data-line="269">
+</span><span data-line="270">
+</span><span data-line="271"><span class="k">def</span><span class="w"> </span><span class="nf">_child</span><span class="p">(</span><span class="n">watch_fd</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">parent_pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="272"><span class="w">    </span><span class="sd">"""``python -m panobbgo.timeout_call FD PPID``: evaluate one pickled ``(problem, point)`` from stdin."""</span>
+</span><span data-line="273">    <span class="n">kill_group_with_parent</span><span class="p">(</span><span class="n">parent_pid</span><span class="p">)</span>
+</span><span data-line="274">    <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">_watchdog</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">watch_fd</span><span class="p">,),</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="275">    <span class="n">out</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">dup</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="276">    <span class="n">os</span><span class="o">.</span><span class="n">dup2</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># the objective's prints go to stderr, not into the protocol</span>
+</span><span data-line="277">    <span class="n">data</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdin</span><span class="o">.</span><span class="n">buffer</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</span><span data-line="278">    <span class="p">(</span><span class="n">n</span><span class="p">,)</span> <span class="o">=</span> <span class="n">_LEN</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">data</span><span class="p">[:</span> <span class="n">_LEN</span><span class="o">.</span><span class="n">size</span><span class="p">])</span>
+</span><span data-line="279">    <span class="n">problem</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">_LEN</span><span class="o">.</span><span class="n">size</span> <span class="p">:</span> <span class="n">_LEN</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">n</span><span class="p">])</span>
+</span><span data-line="280">    <span class="n">point</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">_LEN</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">n</span> <span class="p">:])</span>
+</span><span data-line="281">    <span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">_STARTED</span><span class="p">)</span>
+</span><span data-line="282">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="283">        <span class="n">res</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"ok"</span><span class="p">,</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">))</span>
+</span><span data-line="284">    <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - reported to the parent</span>
+</span><span data-line="285">        <span class="n">res</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"err"</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+</span><span data-line="286">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="287">        <span class="n">body</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+</span><span data-line="288">    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="289">        <span class="n">body</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">dumps</span><span class="p">((</span><span class="s2">"err"</span><span class="p">,</span> <span class="s2">"result could not be pickled: </span><span class="si">%r</span><span class="s2">"</span> <span class="o">%</span> <span class="n">exc</span><span class="p">))</span>
+</span><span data-line="290">    <span class="n">view</span> <span class="o">=</span> <span class="nb">memoryview</span><span class="p">(</span><span class="n">_LEN</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">body</span><span class="p">))</span> <span class="o">+</span> <span class="n">body</span><span class="p">)</span>
+</span><span data-line="291">    <span class="k">while</span> <span class="n">view</span><span class="p">:</span>
+</span><span data-line="292">        <span class="n">view</span> <span class="o">=</span> <span class="n">view</span><span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">view</span><span class="p">)</span> <span class="p">:]</span>
+</span><span data-line="293">    <span class="n">os</span><span class="o">.</span><span class="n">_exit</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># a non-daemon thread left by the objective must not keep this process alive</span>
+</span><span data-line="294">
+</span><span data-line="295">
+</span><span data-line="296"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span data-line="297">    <span class="n">_child</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

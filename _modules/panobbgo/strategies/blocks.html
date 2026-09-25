@@ -314,20 +314,20 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="180"><span class="sd">(``planning/DISCOVERY_2026-09-09.md`` §42/§44), so on most batteries the</span>
 </span><span data-line="181"><span class="sd">gate means "CMA-ES alone".</span>
 </span><span data-line="182">
-</span><span data-line="183"><span class="sd">Every arm is **always constructed**, gate or no gate.  ``StrategyBase``</span>
-</span><span data-line="184"><span class="sd">spawns each module's RNG stream from the master generator in construction</span>
-</span><span data-line="185"><span class="sd">order, so an arm that is built lazily — or not at all — shifts every later</span>
-</span><span data-line="186"><span class="sd">stream and changes the run bit-for-bit.  The gate therefore only flips a</span>
-</span><span data-line="187"><span class="sd">per-arm ``enabled`` bit, read at exactly one place, the ``ready`` list of</span>
-</span><span data-line="188"><span class="sd">:meth:`~StrategyBlockBandit._select`, and filters the prologue at the</span>
-</span><span data-line="189"><span class="sd">moment the mask is set.  ``regime_gate=None`` is byte-identical to a run</span>
-</span><span data-line="190"><span class="sd">without the feature, and a gate that enables every arm is byte-identical to</span>
-</span><span data-line="191"><span class="sd">``None`` (``tests/test_regime_gate.py``).</span>
-</span><span data-line="192">
-</span><span data-line="193"><span class="sd">A disabled arm is a paused arm (see above): it keeps receiving</span>
-</span><span data-line="194"><span class="sd">``on_new_results`` and keeps topping its queue up, so its own stream</span>
-</span><span data-line="195"><span class="sd">advances, and the analyzers' streams are spawned one slot later than in a</span>
-</span><span data-line="196"><span class="sd">one-arm strategy.  "CMA-ES alone via the gate" is therefore not</span>
+</span><span data-line="183"><span class="sd">Every arm is **always constructed**, gate or no gate, so the run holds</span>
+</span><span data-line="184"><span class="sd">the same modules in the same event-bus registration order either way.</span>
+</span><span data-line="185"><span class="sd">(Module RNG streams are keyed by the module's name since 2026-09-25 —</span>
+</span><span data-line="186"><span class="sd">:meth:`~panobbgo.core.StrategyBase.spawn_rng` — so building an arm or not</span>
+</span><span data-line="187"><span class="sd">no longer shifts another module's stream.)  The gate therefore only flips a</span>
+</span><span data-line="188"><span class="sd">per-arm ``enabled`` bit, read at exactly one place, the ``ready`` list of</span>
+</span><span data-line="189"><span class="sd">:meth:`~StrategyBlockBandit._select`, and filters the prologue at the</span>
+</span><span data-line="190"><span class="sd">moment the mask is set.  ``regime_gate=None`` is byte-identical to a run</span>
+</span><span data-line="191"><span class="sd">without the feature, and a gate that enables every arm is byte-identical to</span>
+</span><span data-line="192"><span class="sd">``None`` (``tests/test_regime_gate.py``).</span>
+</span><span data-line="193">
+</span><span data-line="194"><span class="sd">A disabled arm is a paused arm (see above): it keeps receiving</span>
+</span><span data-line="195"><span class="sd">``on_new_results`` and keeps topping its queue up, so its own stream</span>
+</span><span data-line="196"><span class="sd">advances.  "CMA-ES alone via the gate" is therefore not</span>
 </span><span data-line="197"><span class="sd">*guaranteed* byte-identical to ``StrategyRoundRobin`` with CMA-ES — a</span>
 </span><span data-line="198"><span class="sd">warm start on a consecutive block (``not h.has_points`` at block open) or</span>
 </span><span data-line="199"><span class="sd">an analyzer that feeds the arm could in principle differ.  Measured, it</span>
@@ -335,7 +335,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="201"><span class="sd">every one of the 276 runs the gate reduced to CMA-ES was bit-identical to</span>
 </span><span data-line="202"><span class="sd">``CMAES_alone``, and every one of the 360 runs it left both arms on</span>
 </span><span data-line="203"><span class="sd">(unif, gauss, 200·dim) was bit-identical to the ungated portfolio —</span>
-</span><span data-line="204"><span class="sd">because the enabled arm is the first RNG spawn in both specs, the masked</span>
+</span><span data-line="204"><span class="sd">because the enabled arm drew the same RNG stream in both specs, the masked</span>
 </span><span data-line="205"><span class="sd">arm never touches the run, and the warm start never fired on a</span>
 </span><span data-line="206"><span class="sd">self-refilling CMA-ES (``planning/results/2026-09-11/rg_*.json``).  Deterministic under</span>
 </span><span data-line="207"><span class="sd">``sync_evaluation`` either way.</span>

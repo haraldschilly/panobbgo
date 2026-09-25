@@ -342,7 +342,7 @@ defaults.  On first run Panobbgo writes a default <code class="docutils literal 
 logging settings are <strong>YAML only</strong> — <code class="docutils literal notranslate"><span class="pre">config.ini</span></code> has no section for them:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
 </span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">        </span><span class="c1"># 'threaded', 'processes' or 'dask'</span>
-</span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">             </span><span class="c1"># optional: seconds of running time per evaluation</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">             </span><span class="c1"># optional per-call limit, seconds (see below)</span>
 </span><span data-line="4"><span class="w">  </span><span class="nt">sync</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">             </span><span class="c1"># true: bit-reproducible seeded runs</span>
 </span><span data-line="5"><span class="nt">dask</span><span class="p">:</span>
 </span><span data-line="6"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span><span class="w">     </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
@@ -353,12 +353,45 @@ logging settings are <strong>YAML only</strong> — <code class="docutils litera
 </span><span data-line="11"><span class="w">    </span><span class="nt">dashboard_address</span><span class="p">:</span><span class="w"> </span><span class="s">':8787'</span>
 </span><span data-line="12"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
 </span><span data-line="13"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
-</span><span data-line="14"><span class="nt">constraints</span><span class="p">:</span>
-</span><span data-line="15"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
-</span><span data-line="16"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
-</span><span data-line="17"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="nt">constraints</span><span class="p">:</span>
+</span><span data-line="16"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
+</span><span data-line="17"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
+</span><span data-line="18"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
 </span></pre></div>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> (seconds, default unset = no limit) is a <strong>per-call</strong>
+limit that applies to every evaluation in every backend and is enforced
+where the evaluation runs.  The clock starts when the call starts — time
+spent queued never counts.  An evaluation past the limit becomes a regular
+result with <code class="docutils literal notranslate"><span class="pre">fx</span> <span class="pre">=</span> <span class="pre">NaN</span></code> and <code class="docutils literal notranslate"><span class="pre">cv</span> <span class="pre">=</span> <span class="pre">inf</span></code> (infeasible; the violations are
+unknown, so <code class="docutils literal notranslate"><span class="pre">cv_vec</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and the frame’s <code class="docutils literal notranslate"><span class="pre">cv_vec</span></code> columns are
+<code class="docutils literal notranslate"><span class="pre">NaN</span></code>), marked <code class="docutils literal notranslate"><span class="pre">Result.timed_out</span></code> and in the <code class="docutils literal notranslate"><span class="pre">(&quot;timed_out&quot;,</span> <span class="pre">0)</span></code>
+column of the results frame; it is recorded, charged once against
+<code class="docutils literal notranslate"><span class="pre">max_eval</span></code> and published through <code class="docutils literal notranslate"><span class="pre">new_results</span></code> like any result, so
+heuristics see a bad point and every ranking puts it last.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">processes</span></code>: exactly the worker process running that call is killed
+(a fresh one replaces it); every other in-flight evaluation keeps running.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dask</span></code>: the task on the dask worker runs the objective in a child
+process (<a class="reference internal" href="core.html#panobbgo.timeout_call.call_with_timeout" title="panobbgo.timeout_call.call_with_timeout"><code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.timeout_call.call_with_timeout()</span></code></a>) and kills that
+child when the call runs too long, so a hung objective never holds its
+worker.  The problem must be serializable and importable in a fresh
+interpreter on the worker (checked once before the first task).  Each call
+evaluates a <em>fresh copy</em> of the problem, so state it accumulates while
+evaluating does not carry over between calls — e.g. a
+<a class="reference internal" href="lib.html#panobbgo.lib.NoisyProblem" title="panobbgo.lib.noise.NoisyProblem"><code class="xref py py-class docutils literal notranslate"><span class="pre">NoisyProblem</span></code></a> with <code class="docutils literal notranslate"><span class="pre">resample=True</span></code> draws
+the same noise on every re-evaluation (a warning says so).  Without a
+timeout the objective runs in the worker itself, as before.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">threaded</span></code>: a thread cannot be killed — a timed-out call is
+<em>abandoned</em>: it keeps running in the background and its result is
+discarded; abandoned threads are counted and warned about.  Use
+<code class="docutils literal notranslate"><span class="pre">processes</span></code> or dask for objectives that can hang.  With
+<code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code>, a timeout routes each batch through the thread pool,
+harvested in submission order.</p></li>
+</ul>
+<p>An objective that <em>raises</em> is still a failed evaluation (no result,
+<code class="docutils literal notranslate"><span class="pre">failed_evaluations</span></code> event).</p>
 <p>Edit these files to customize behavior.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -371,9 +404,13 @@ point to give.  Progress is counted in evaluations; a slow arm makes a run
 take longer, never shorter.</p>
 <p><code class="docutils literal notranslate"><span class="pre">deadlock_seconds</span></code> (default <code class="docutils literal notranslate"><span class="pre">600</span></code>) is the remaining time-based knob and
 is <strong>not</strong> a scheduling parameter: it is an error backstop for a genuine
-bug — a wedged subprocess, a handler that never returns — and tripping it
-is logged at <code class="docutils literal notranslate"><span class="pre">ERROR</span></code> level with the state that caused it.  Leave it
-alone unless an arm of yours legitimately takes minutes per evaluation.
+bug — a heuristic that claims a point but never gives one, a handler that
+never returns, queued evaluations with no live worker — and tripping it
+is logged at <code class="docutils literal notranslate"><span class="pre">ERROR</span></code> level with the state that caused it.  It fires only
+when <em>no evaluation is outstanding</em>: a running evaluation (thread, worker
+process, any outstanding dask future) is waited for however long it takes,
+so hour-long or remote evaluations never trip it.  Limit a single
+evaluation with the opt-in <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> instead.
 An old config file’s <code class="docutils literal notranslate"><span class="pre">max_stall_seconds</span></code> entry is ignored.  See
 <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §2.</p>
 <p>Passing it as a <em>keyword argument</em> is an error, though: a strategy’s
@@ -1481,8 +1518,8 @@ a bounded top-K of the whole result stream, ranked by the constraint
 handler’s penalty value and <strong>not</strong> filtered by <code class="docutils literal notranslate"><span class="pre">who</span></code>, so an arm that asks
 for a seed gets the best points in the run whoever produced them.</p>
 <p>It is <strong>opt-in</strong> — <a class="reference internal" href="core.html#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a> does not add
-it, so a run without warm-started arms keeps exactly the module construction
-order, and therefore the RNG streams, it had before:</p>
+it, so a run without warm-started arms keeps exactly the modules it had
+before:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.analyzers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Archive</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">LSHADE</span>
 </span><span data-line="3">
@@ -1925,7 +1962,12 @@ make a run a pure function of that seed:</p>
 </div>
 <p>Two such runs evaluate exactly the same points in the same order.  Every
 module derives its own <a class="reference external" href="https://numpy.org/doc/stable/reference/random/generator.html#numpy.random.Generator" title="(in NumPy v2.5)"><code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.random.Generator</span></code></a> from the master seed
-(<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>), the event bus delivers events serially, the main loop
+and its name (<code class="docutils literal notranslate"><span class="pre">self.rng</span></code>: <code class="docutils literal notranslate"><span class="pre">SeedSequence(seed,</span> <span class="pre">spawn_key=(crc32(name),</span> <span class="pre">n))</span></code>
+for the <em>n</em>-th module of that name, see
+<a class="reference internal" href="core.html#panobbgo.core.StrategyBase.spawn_rng" title="panobbgo.core.StrategyBase.spawn_rng"><code class="xref py py-meth docutils literal notranslate"><span class="pre">spawn_rng()</span></code></a>), so adding, removing or
+reordering one module leaves every other module’s stream unchanged; the
+strategy’s own draws (Thompson sampling, phases) use a separate keyed
+stream, <code class="docutils literal notranslate"><span class="pre">strategy.rng</span></code>.  The event bus delivers events serially, the main loop
 waits for all handlers before drawing new points, and each batch is
 evaluated sequentially in submission order (a thread pool would return
 results in completion order).  Without <code class="docutils literal notranslate"><span class="pre">seed</span></code> the

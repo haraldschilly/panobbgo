@@ -293,9 +293,8 @@ and are made a handful of times per run, so they are deliberately simple.</p>
 <p class="admonition-title">Note</p>
 <p>This analyzer is <strong>opt-in</strong>: <a class="reference internal" href="core.html#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a>
 does not add it.  Ship it via <code class="docutils literal notranslate"><span class="pre">StrategySpec.analyzers</span></code> (or
-<code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code>) so a run without warm-started arms keeps the exact
-module construction order — and therefore the exact RNG streams — it had
-before.</p>
+<code class="docutils literal notranslate"><span class="pre">add_analyzer</span></code>) so a run without warm-started arms keeps exactly the
+modules — and the event-bus registration order — it had before.</p>
 </div>
 </section>
 <dl class="py class">

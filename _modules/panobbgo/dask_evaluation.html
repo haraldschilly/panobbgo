@@ -164,7 +164,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="30"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 </span><span data-line="31">
 </span><span data-line="32"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">time_module</span>
-</span><span data-line="33"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span>
+</span><span data-line="33"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 </span><span data-line="34">
 </span><span data-line="35"><span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
 </span><span data-line="36">    <span class="kn">from</span><span class="w"> </span><span class="nn">.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyBase</span>
@@ -229,150 +229,228 @@ data-aria-dark="Switch to auto color mode">
 
 </span><span data-line="90">
 </span><span data-line="91">
+<div class="viewcode-block" id="evaluate_point">
+<a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.evaluate_point">[docs]</a>
+</span><span data-line="92"><span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+</span><span data-line="93"><span class="w">    </span><span class="sd">"""The dask task: evaluate one point; returns ``(result, walltime in seconds, error, timed_out)``.</span>
+</span><span data-line="94">
+</span><span data-line="95"><span class="sd">    A raising objective is reported as ``(None, walltime, repr(exc), False)``</span>
+</span><span data-line="96"><span class="sd">    rather than raised, so its walltime is booked like the local pool books a</span>
+</span><span data-line="97"><span class="sd">    failed task's.</span>
+</span><span data-line="98">
+</span><span data-line="99"><span class="sd">    With ``timeout`` (``evaluation.timeout``) the limit is enforced **here, on</span>
+</span><span data-line="100"><span class="sd">    the worker, per call**: the objective runs in a child process</span>
+</span><span data-line="101"><span class="sd">    (:func:`panobbgo.timeout_call.call_with_timeout`) whose clock starts when</span>
+</span><span data-line="102"><span class="sd">    the call starts — queue time on the cluster never counts — and which is</span>
+</span><span data-line="103"><span class="sd">    killed on expiry, so a hung objective never holds its dask worker.  The</span>
+</span><span data-line="104"><span class="sd">    task then returns ``(None, walltime, None, True)`` and the client books a</span>
+</span><span data-line="105"><span class="sd">    ``NaN`` placeholder.  Without ``timeout`` the objective runs in the</span>
+</span><span data-line="106"><span class="sd">    worker itself, as before (no subprocess overhead).</span>
+</span><span data-line="107"><span class="sd">    """</span>
+</span><span data-line="108">    <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="109">
+</span><span data-line="110">    <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="111">        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+</span><span data-line="112">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="113">            <span class="n">result</span> <span class="o">=</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="114">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="115">            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">),</span> <span class="kc">False</span>
+</span><span data-line="116">        <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">False</span>
+</span><span data-line="117">
+</span><span data-line="118">    <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.timeout_call</span><span class="w"> </span><span class="kn">import</span> <span class="n">call_with_timeout</span>
+</span><span data-line="119">
+</span><span data-line="120">    <span class="n">call</span> <span class="o">=</span> <span class="n">call_with_timeout</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span>
+</span><span data-line="121">    <span class="k">return</span> <span class="n">call</span><span class="o">.</span><span class="n">result</span><span class="p">,</span> <span class="n">call</span><span class="o">.</span><span class="n">seconds</span><span class="p">,</span> <span class="n">call</span><span class="o">.</span><span class="n">error</span><span class="p">,</span> <span class="n">call</span><span class="o">.</span><span class="n">timed_out</span></div>
+
+</span><span data-line="122">
+</span><span data-line="123">
+</span><span data-line="124"><span class="k">def</span><span class="w"> </span><span class="nf">_resampling_noise</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">16</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="125"><span class="w">    </span><span class="sd">"""Is ``problem`` — or a problem it wraps (``inner`` / ``problem`` / ``wrapped``) — resampling noise?"""</span>
+</span><span data-line="126">    <span class="n">seen</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+</span><span data-line="127">    <span class="k">while</span> <span class="n">problem</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">depth</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="nb">id</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+</span><span data-line="128">        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="s2">"resample"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+</span><span data-line="129">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="130">        <span class="n">seen</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="nb">id</span><span class="p">(</span><span class="n">problem</span><span class="p">))</span>
+</span><span data-line="131">        <span class="n">problem</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+</span><span data-line="132">            <span class="p">(</span>
+</span><span data-line="133">                <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>
+</span><span data-line="134">                <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"inner"</span><span class="p">,</span> <span class="s2">"problem"</span><span class="p">,</span> <span class="s2">"wrapped"</span><span class="p">,</span> <span class="s2">"_problem"</span><span class="p">)</span>
+</span><span data-line="135">                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="136">            <span class="p">),</span>
+</span><span data-line="137">            <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="138">        <span class="p">)</span>
+</span><span data-line="139">        <span class="n">depth</span> <span class="o">-=</span> <span class="mi">1</span>
+</span><span data-line="140">    <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="141">
+</span><span data-line="142">
+<div class="viewcode-block" id="check_timeout_problem">
+<a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.check_timeout_problem">[docs]</a>
+</span><span data-line="143"><span class="k">def</span><span class="w"> </span><span class="nf">check_timeout_problem</span><span class="p">(</span><span class="n">problem</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="144"><span class="w">    </span><span class="sd">"""Check once, before any task is submitted, that ``problem`` works under ``evaluation.timeout``.</span>
+</span><span data-line="145">
+</span><span data-line="146"><span class="sd">    With a timeout every call runs in a child interpreter</span>
+</span><span data-line="147"><span class="sd">    (:mod:`panobbgo.timeout_call`), so the problem must serialize — failing</span>
+</span><span data-line="148"><span class="sd">    here with a clear :class:`TypeError` beats failing point by point on the</span>
+</span><span data-line="149"><span class="sd">    workers.  Also warns that a :class:`~panobbgo.lib.noise.NoisyProblem`</span>
+</span><span data-line="150"><span class="sd">    with ``resample=True`` loses its per-point draw counter between calls</span>
+</span><span data-line="151"><span class="sd">    (each call evaluates a fresh copy), so its noise becomes frozen per point.</span>
+</span><span data-line="152"><span class="sd">    """</span>
+</span><span data-line="153">    <span class="k">if</span> <span class="n">problem</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="154">        <span class="k">return</span>
+</span><span data-line="155">    <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.timeout_call</span><span class="w"> </span><span class="kn">import</span> <span class="n">dumps</span>
+</span><span data-line="156">
+</span><span data-line="157">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="158">        <span class="n">dumps</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span>
+</span><span data-line="159">    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span data-line="160">        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+</span><span data-line="161">            <span class="s2">"evaluation.timeout with evaluation.method 'dask' runs every call in a child process, so the "</span>
+</span><span data-line="162">            <span class="s2">"problem must be serializable (cloudpickle): </span><span class="si">%r</span><span class="s2">"</span> <span class="o">%</span> <span class="n">exc</span>
+</span><span data-line="163">        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+</span><span data-line="164">    <span class="k">if</span> <span class="n">_resampling_noise</span><span class="p">(</span><span class="n">problem</span><span class="p">)</span> <span class="ow">and</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="165">        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="166">            <span class="s2">"evaluation.timeout with dask evaluates a fresh copy of the problem per call: "</span>
+</span><span data-line="167">            <span class="s2">"NoisyProblem(resample=True) cannot count re-evaluations, so a point re-evaluated draws the "</span>
+</span><span data-line="168">            <span class="s2">"same noise (as with resample=False)."</span>
+</span><span data-line="169">        <span class="p">)</span></div>
+
+</span><span data-line="170">
+</span><span data-line="171">
 <div class="viewcode-block" id="run_evaluation">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.run_evaluation">[docs]</a>
-</span><span data-line="92"><span class="k">def</span><span class="w"> </span><span class="nf">run_evaluation</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
-</span><span data-line="93"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="94"><span class="sd">    Run evaluation using Dask distributed computing.</span>
-</span><span data-line="95">
-</span><span data-line="96"><span class="sd">    Submits each point as a Dask future, updates the strategy's task</span>
-</span><span data-line="97"><span class="sd">    accounting, and returns the newly finished results.</span>
-</span><span data-line="98"><span class="sd">    """</span>
-</span><span data-line="99">
-</span><span data-line="100">    <span class="c1"># Helper function to evaluate a point using the problem</span>
-</span><span data-line="101">    <span class="k">def</span><span class="w"> </span><span class="nf">evaluate_point</span><span class="p">(</span><span class="n">problem</span><span class="p">,</span> <span class="n">point</span><span class="p">):</span>
-</span><span data-line="102"><span class="w">        </span><span class="sd">"""Evaluate one point; returns ``(result, walltime in seconds, error)``.</span>
-</span><span data-line="103">
-</span><span data-line="104"><span class="sd">        A raising objective is reported as ``(None, walltime, repr(exc))``</span>
-</span><span data-line="105"><span class="sd">        rather than raised, so its walltime is booked like the local pool</span>
-</span><span data-line="106"><span class="sd">        books a failed task's.</span>
-</span><span data-line="107"><span class="sd">        """</span>
-</span><span data-line="108">        <span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="109">
-</span><span data-line="110">        <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-</span><span data-line="111">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="112">            <span class="n">result</span> <span class="o">=</span> <span class="n">problem</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="113">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span data-line="114">            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-</span><span data-line="115">        <span class="k">return</span> <span class="n">result</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span><span class="p">,</span> <span class="kc">None</span>
-</span><span data-line="116">
-</span><span data-line="117">    <span class="n">_warn_ignored_options</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="118">
-</span><span data-line="119">    <span class="c1"># distribute work using Dask futures</span>
-</span><span data-line="120">    <span class="c1"># Submit each point as a separate task; remember its point so a failure</span>
-</span><span data-line="121">    <span class="c1"># can be reported (``failed_evaluations``).</span>
-</span><span data-line="122">    <span class="n">points_by_key</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"_dask_points"</span><span class="p">,</span> <span class="p">{})</span>
-</span><span data-line="123">    <span class="n">new_futures</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="124">    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
-</span><span data-line="125">        <span class="n">future</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-</span><span data-line="126">            <span class="n">evaluate_point</span><span class="p">,</span>
-</span><span data-line="127">            <span class="n">strategy</span><span class="o">.</span><span class="n">_problem_future</span><span class="p">,</span>
-</span><span data-line="128">            <span class="n">point</span><span class="p">,</span>
-</span><span data-line="129">            <span class="n">pure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Function may have side effects</span>
-</span><span data-line="130">        <span class="p">)</span>
-</span><span data-line="131">        <span class="n">points_by_key</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">point</span>
-</span><span data-line="132">        <span class="n">new_futures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
-</span><span data-line="133">
-</span><span data-line="134">    <span class="c1"># and don't forget, this updates the statistics</span>
-</span><span data-line="135">    <span class="n">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">)</span>
-</span><span data-line="136">
-</span><span data-line="137">    <span class="c1"># collect new results for each finished task, hand them over to result DB</span>
-</span><span data-line="138">    <span class="n">new_results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="139">    <span class="n">failed</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="140">    <span class="k">for</span> <span class="n">future_id</span> <span class="ow">in</span> <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span><span class="p">:</span>
-</span><span data-line="141">        <span class="n">future</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">future_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="142">        <span class="n">point</span> <span class="o">=</span> <span class="n">points_by_key</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">future_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-</span><span data-line="143">        <span class="k">if</span> <span class="n">future</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="144">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="145">                <span class="n">result</span><span class="p">,</span> <span class="n">walltime</span><span class="p">,</span> <span class="n">error</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-</span><span data-line="146">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span data-line="147">                <span class="c1"># Lost worker, cancellation, ...: no timing to book.</span>
-</span><span data-line="148">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"Task failed with error: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
-</span><span data-line="149">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="150">                    <span class="n">failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="151">                <span class="k">continue</span>
-</span><span data-line="152">            <span class="n">strategy</span><span class="o">.</span><span class="n">record_walltime</span><span class="p">(</span><span class="n">walltime</span><span class="p">)</span>
-</span><span data-line="153">            <span class="k">if</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="154">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"Evaluation failed: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">error</span><span class="p">)</span>
-</span><span data-line="155">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="156">                    <span class="n">failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="157">            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span data-line="158">                <span class="n">new_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="159">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="160">                <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="161">
-</span><span data-line="162">    <span class="n">strategy</span><span class="o">.</span><span class="n">_publish_failures</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span>
-</span><span data-line="163">    <span class="k">return</span> <span class="n">new_results</span></div>
-
-</span><span data-line="164">
-</span><span data-line="165">
-</span><span data-line="166"><span class="k">def</span><span class="w"> </span><span class="nf">_warn_ignored_options</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="167"><span class="w">    </span><span class="sd">"""Warn once that ``evaluation.timeout`` and ``evaluation.sync`` do not apply to dask.</span>
-</span><span data-line="168">
-</span><span data-line="169"><span class="sd">    Nothing is cancelled on a timeout and results arrive in completion</span>
-</span><span data-line="170"><span class="sd">    order; both options used to be dropped silently.</span>
-</span><span data-line="171"><span class="sd">    """</span>
-</span><span data-line="172">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-</span><span data-line="173">        <span class="k">return</span>
-</span><span data-line="174">    <span class="n">config</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">config</span>
-</span><span data-line="175">    <span class="n">ignored</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="176">        <span class="n">name</span>
-</span><span data-line="177">        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">(</span>
-</span><span data-line="178">            <span class="p">(</span><span class="s2">"evaluation.timeout"</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">"evaluation_timeout"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)),</span>
-</span><span data-line="179">            <span class="p">(</span><span class="s2">"evaluation.sync"</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">"sync_evaluation"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
-</span><span data-line="180">        <span class="p">)</span>
-</span><span data-line="181">        <span class="k">if</span> <span class="n">value</span>
-</span><span data-line="182">    <span class="p">]</span>
-</span><span data-line="183">    <span class="k">if</span> <span class="n">ignored</span><span class="p">:</span>
-</span><span data-line="184">        <span class="nb">setattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span data-line="185">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-</span><span data-line="186">            <span class="s2">"</span><span class="si">%s</span><span class="s2"> ignored for evaluation.method 'dask': evaluations are not timed out and results "</span>
-</span><span data-line="187">            <span class="s2">"arrive in completion order. Use 'threaded' or 'processes' for them."</span> <span class="o">%</span> <span class="s2">" and "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ignored</span><span class="p">)</span>
-</span><span data-line="188">        <span class="p">)</span>
-</span><span data-line="189">
-</span><span data-line="190">
-</span><span data-line="191"><span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="192"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="193"><span class="sd">    Accounting routine for the parallel Dask tasks</span>
-</span><span data-line="194"><span class="sd">    (moved from ``StrategyBase._add_tasks``).</span>
-</span><span data-line="195"><span class="sd">    """</span>
-</span><span data-line="196">    <span class="k">if</span> <span class="n">new_futures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="197">        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">new_futures</span><span class="p">:</span>
-</span><span data-line="198">            <span class="c1"># Use future.key as identifier</span>
-</span><span data-line="199">            <span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">future</span>
-</span><span data-line="200">
-</span><span data-line="201">    <span class="c1"># Find completed futures</span>
-</span><span data-line="202">    <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="203">    <span class="n">completed_keys</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="204">
-</span><span data-line="205">    <span class="k">for</span> <span class="n">future_id</span><span class="p">,</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-</span><span data-line="206">        <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
-</span><span data-line="207">            <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
-</span><span data-line="208">            <span class="n">completed_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
-</span><span data-line="209">            <span class="n">strategy</span><span class="o">.</span><span class="n">n_finished</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="172"><span class="k">def</span><span class="w"> </span><span class="nf">run_evaluation</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+</span><span data-line="173"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="174"><span class="sd">    Run evaluation using Dask distributed computing.</span>
+</span><span data-line="175">
+</span><span data-line="176"><span class="sd">    Submits each point as a Dask future, updates the strategy's task</span>
+</span><span data-line="177"><span class="sd">    accounting, and returns the newly finished results.</span>
+</span><span data-line="178">
+</span><span data-line="179"><span class="sd">    ``evaluation.timeout`` is enforced on the worker (:func:`evaluate_point`);</span>
+</span><span data-line="180"><span class="sd">    the client does not expire futures itself.  A worker that dies loses its</span>
+</span><span data-line="181"><span class="sd">    task to dask's own recovery (it reruns elsewhere, or the future fails and</span>
+</span><span data-line="182"><span class="sd">    the evaluation is booked as failed), and a task that cannot run because</span>
+</span><span data-line="183"><span class="sd">    the cluster has no workers is reported by the strategy's waiting WARNING</span>
+</span><span data-line="184"><span class="sd">    — neither needs a client-side clock, which would charge queue time.</span>
+</span><span data-line="185"><span class="sd">    """</span>
+</span><span data-line="186">    <span class="n">_warn_ignored_options</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="187">    <span class="n">t</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">"evaluation_timeout"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="188">    <span class="n">timeout</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">if</span> <span class="n">t</span> <span class="k">else</span> <span class="kc">None</span>
+</span><span data-line="189">    <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_dask_timeout_checked"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="190">        <span class="n">check_timeout_problem</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"problem"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+</span><span data-line="191">        <span class="nb">setattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_dask_timeout_checked"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="192">
+</span><span data-line="193">    <span class="c1"># distribute work using Dask futures</span>
+</span><span data-line="194">    <span class="c1"># Submit each point as a separate task; remember its point so a failure</span>
+</span><span data-line="195">    <span class="c1"># can be reported (``failed_evaluations``).</span>
+</span><span data-line="196">    <span class="n">points_by_key</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"_dask_points"</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="197">    <span class="n">submitted_at</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"_dask_submitted"</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="198">    <span class="n">new_futures</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="199">    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+</span><span data-line="200">        <span class="n">future</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+</span><span data-line="201">            <span class="n">evaluate_point</span><span class="p">,</span>
+</span><span data-line="202">            <span class="n">strategy</span><span class="o">.</span><span class="n">_problem_future</span><span class="p">,</span>
+</span><span data-line="203">            <span class="n">point</span><span class="p">,</span>
+</span><span data-line="204">            <span class="n">timeout</span><span class="p">,</span>
+</span><span data-line="205">            <span class="n">pure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>  <span class="c1"># Function may have side effects</span>
+</span><span data-line="206">        <span class="p">)</span>
+</span><span data-line="207">        <span class="n">points_by_key</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">point</span>
+</span><span data-line="208">        <span class="n">submitted_at</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="209">        <span class="n">new_futures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
 </span><span data-line="210">
-</span><span data-line="211">    <span class="k">if</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">show_interval</span><span class="p">):</span>
-</span><span data-line="212">        <span class="n">strategy</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
-</span><span data-line="213">        <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span data-line="214">
-</span><span data-line="215">
+</span><span data-line="211">    <span class="c1"># and don't forget, this updates the statistics</span>
+</span><span data-line="212">    <span class="n">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">)</span>
+</span><span data-line="213">
+</span><span data-line="214">    <span class="c1"># collect new results for each finished task, hand them over to result DB</span>
+</span><span data-line="215">    <span class="n">new_results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="216">    <span class="n">failed</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="217">    <span class="k">for</span> <span class="n">future_id</span> <span class="ow">in</span> <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span><span class="p">:</span>
+</span><span data-line="218">        <span class="n">future</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">future_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="219">        <span class="n">point</span> <span class="o">=</span> <span class="n">points_by_key</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">future_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="220">        <span class="n">submitted_at</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">future_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="221">        <span class="k">if</span> <span class="n">future</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="222">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="223">                <span class="n">result</span><span class="p">,</span> <span class="n">walltime</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">timed_out</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+</span><span data-line="224">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span data-line="225">                <span class="c1"># Lost worker, cancellation, ...: no timing to book.</span>
+</span><span data-line="226">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"Task failed with error: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">e</span><span class="p">)</span>
+</span><span data-line="227">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="228">                    <span class="n">failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="229">                <span class="k">continue</span>
+</span><span data-line="230">            <span class="n">strategy</span><span class="o">.</span><span class="n">record_walltime</span><span class="p">(</span><span class="n">walltime</span><span class="p">)</span>
+</span><span data-line="231">            <span class="k">if</span> <span class="n">timed_out</span><span class="p">:</span>
+</span><span data-line="232">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="233">                    <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_timed_out_result</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">walltime</span><span class="p">))</span>
+</span><span data-line="234">            <span class="k">elif</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="235">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"Evaluation failed: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">error</span><span class="p">)</span>
+</span><span data-line="236">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="237">                    <span class="n">failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="238">            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span data-line="239">                <span class="n">new_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="240">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="241">                <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="242">
+</span><span data-line="243">    <span class="n">strategy</span><span class="o">.</span><span class="n">_publish_failures</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span>
+</span><span data-line="244">    <span class="k">return</span> <span class="n">new_results</span></div>
+
+</span><span data-line="245">
+</span><span data-line="246">
+</span><span data-line="247"><span class="k">def</span><span class="w"> </span><span class="nf">_warn_ignored_options</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="248"><span class="w">    </span><span class="sd">"""Warn once that ``evaluation.sync`` does not apply to dask.</span>
+</span><span data-line="249">
+</span><span data-line="250"><span class="sd">    Results arrive in completion order; the option used to be dropped</span>
+</span><span data-line="251"><span class="sd">    silently.  (``evaluation.timeout`` does apply: see :func:`evaluate_point`.)</span>
+</span><span data-line="252"><span class="sd">    """</span>
+</span><span data-line="253">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="254">        <span class="k">return</span>
+</span><span data-line="255">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">"sync_evaluation"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="256">        <span class="nb">setattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="257">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="258">            <span class="s2">"evaluation.sync ignored for evaluation.method 'dask': results arrive in completion order. "</span>
+</span><span data-line="259">            <span class="s2">"Use 'threaded' or 'processes' for reproducible runs."</span>
+</span><span data-line="260">        <span class="p">)</span>
+</span><span data-line="261">
+</span><span data-line="262">
+</span><span data-line="263"><span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="264"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="265"><span class="sd">    Accounting routine for the parallel Dask tasks</span>
+</span><span data-line="266"><span class="sd">    (moved from ``StrategyBase._add_tasks``).</span>
+</span><span data-line="267"><span class="sd">    """</span>
+</span><span data-line="268">    <span class="k">if</span> <span class="n">new_futures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="269">        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">new_futures</span><span class="p">:</span>
+</span><span data-line="270">            <span class="c1"># Use future.key as identifier</span>
+</span><span data-line="271">            <span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">future</span>
+</span><span data-line="272">
+</span><span data-line="273">    <span class="c1"># Find completed futures</span>
+</span><span data-line="274">    <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="275">    <span class="n">completed_keys</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="276">
+</span><span data-line="277">    <span class="k">for</span> <span class="n">future_id</span><span class="p">,</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+</span><span data-line="278">        <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+</span><span data-line="279">            <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
+</span><span data-line="280">            <span class="n">completed_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
+</span><span data-line="281">            <span class="n">strategy</span><span class="o">.</span><span class="n">n_finished</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="282">
+</span><span data-line="283">    <span class="k">if</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">show_interval</span><span class="p">):</span>
+</span><span data-line="284">        <span class="n">strategy</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+</span><span data-line="285">        <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="286">
+</span><span data-line="287">
 <div class="viewcode-block" id="close">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.close">[docs]</a>
-</span><span data-line="216"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="217"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="218"><span class="sd">    Cancel any outstanding Dask futures and close client + cluster.</span>
-</span><span data-line="219"><span class="sd">    """</span>
-</span><span data-line="220">    <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-</span><span data-line="221">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="222">            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
-</span><span data-line="223">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="224">            <span class="k">pass</span>
-</span><span data-line="225">
-</span><span data-line="226">    <span class="c1"># Close Dask client and cluster</span>
-</span><span data-line="227">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_client"</span><span class="p">):</span>
-</span><span data-line="228">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="229">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_cluster"</span><span class="p">):</span>
-</span><span data-line="230">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</span><span data-line="288"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="289"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="290"><span class="sd">    Cancel any outstanding Dask futures and close client + cluster.</span>
+</span><span data-line="291"><span class="sd">    """</span>
+</span><span data-line="292">    <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+</span><span data-line="293">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="294">            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+</span><span data-line="295">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="296">            <span class="k">pass</span>
+</span><span data-line="297">
+</span><span data-line="298">    <span class="c1"># Close Dask client and cluster</span>
+</span><span data-line="299">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_client"</span><span class="p">):</span>
+</span><span data-line="300">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="301">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_cluster"</span><span class="p">):</span>
+</span><span data-line="302">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

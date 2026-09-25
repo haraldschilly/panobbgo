@@ -144,8 +144,8 @@ Reproducibility
 
 Seeds are deterministic: each ``(problem, strategy, rep)`` triple derives its
 seed via SHA-256 from a base seed (default ``42``). Re-running with the same
-base seed produces byte-identical convergence traces. See
-:meth:`panobbgo.harness.BenchmarkHarness._derive_seed`.
+base seed produces byte-identical convergence traces under the default
+``sync_eval``. See :meth:`panobbgo.harness.BenchmarkHarness._derive_seed`.
 
 
 The ``compare`` workflow
@@ -326,11 +326,18 @@ The composite score is **noisy**. Three symptoms to watch for:
 3. **Problem-specific over-fitting** — improving on a fixed problem set does
    not imply generalisation. This is the *central motivation* for the
    parametrically randomised battery described below.
-4. **Thread scheduling** — by default the harness evaluates on a thread pool,
-   so the same seed can give different trajectories.  ``run --sync-eval``
-   evaluates synchronously and makes a seeded run bit-reproducible; both
-   sides of a comparison must use the same mode (``compare`` warns if not).
-   The default stays asynchronous so the historical baseline is comparable.
+4. **Thread scheduling** — every harness entry point (``benchmark_harness.py
+   run``, ``scripts/ioh_benchmark.py run``, ``run_ioh_harness``,
+   ``HarnessConfig``) evaluates synchronously by default (``sync_eval``,
+   since 2026-09-25), so a seeded run is bit-reproducible.  The reason is
+   reproducibility, not speed.  ``--no-sync-eval`` opts into the threaded
+   evaluator, whose trajectory depends on thread scheduling.  Both sides of
+   a comparison must use the same mode (``compare`` warns if not); result
+   files written before 2026-09-25 were measured asynchronously and load
+   with ``sync_eval = False``.  The library itself
+   (``Config.sync_evaluation``, ``evaluation.sync``) still defaults to the
+   asynchronous evaluator, which keeps workers busy for real expensive
+   objectives.
 
 Recommended practice: run the same comparison at two different base seeds
 before accepting a ``+0.01`` to ``+0.03`` delta.

@@ -126,12 +126,6 @@ Analyzers process results and maintain derived information:
    * - :class:`~panobbgo.analyzers.splitter.Splitter`
      - Hierarchical box decomposition
      - ``new_split``, identifies best leaf box
-   * - :class:`~panobbgo.analyzers.grid.Grid`
-     - Spatial grid grouping
-     - Grid-based neighborhoods
-   * - :class:`~panobbgo.analyzers.dedensifyer.Dedensifyer`
-     - Hierarchical grid
-     - Min/max representatives per region
    * - :class:`~panobbgo.analyzers.convergence.Convergence`
      - Recent objective statistics (std / improvement)
      - ``converged``

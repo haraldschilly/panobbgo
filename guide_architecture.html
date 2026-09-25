@@ -613,12 +613,6 @@ effect on the consumers that read the tree.</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">new_split</span></code>: A box was split into children</p></li>
 </ul>
-<p><strong>Grid</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.grid.Grid" title="panobbgo.analyzers.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a> maintains a simple spatial grid for grouping nearby points.
-Experimental and not installed by default (nothing reads it); add it explicitly.</p>
-<p><strong>Dedensifyer</strong></p>
-<p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a> maintains a hierarchical grid to avoid
-clustering, keeping only min/max representatives per region.</p>
 <p><strong>Sensitivity</strong></p>
 <p><a class="reference internal" href="analyzers.html#panobbgo.analyzers.Sensitivity" title="panobbgo.analyzers.sensitivity.Sensitivity"><code class="xref py py-class docutils literal notranslate"><span class="pre">Sensitivity</span></code></a> estimates per-dimension importance from
 evaluation history using rank correlation. Publishes <code class="docutils literal notranslate"><span class="pre">new_sensitivity</span></code> events that heuristics
@@ -859,7 +853,7 @@ lazily — install the optional extra (<code class="docutils literal notranslate
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">processes</span></code> evaluates in a pool of spawned worker processes
 (<a class="reference internal" href="core.html#module-panobbgo.local_pool" title="panobbgo.local_pool"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.local_pool</span></code></a>): the problem must be picklable, and the script
-needs an <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard.  Each worker evaluates its own
+needs an <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard (<a class="reference internal" href="guide_usage.html#spawn-guard"><span class="std std-ref">Scripts That Start Worker Processes: the __main__ Guard</span></a>).  Each worker evaluates its own
 <strong>copy</strong> of the problem, so state the problem object accumulates while
 evaluating (evaluation counters, traces, caches, loggers) lives in the
 workers and is not visible on the caller’s object.  An evaluation past

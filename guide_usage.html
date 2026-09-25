@@ -111,6 +111,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#basic-usage">Basic Usage</a><ul>
 <li><a class="reference internal" href="#minimal-example">Minimal Example</a></li>
 <li><a class="reference internal" href="#complete-example">Complete Example</a></li>
+<li><a class="reference internal" href="#scripts-that-start-worker-processes-the-main-guard">Scripts That Start Worker Processes: the <code class="docutils literal notranslate"><span class="pre">__main__</span></code> Guard</a></li>
 <li><a class="reference internal" href="#verified-walkthrough">Verified Walkthrough</a></li>
 </ul>
 </li>
@@ -356,8 +357,7 @@ is <strong>not</strong> a scheduling parameter: it is an error backstop for a ge
 bug — a wedged subprocess, a handler that never returns — and tripping it
 is logged at <code class="docutils literal notranslate"><span class="pre">ERROR</span></code> level with the state that caused it.  Leave it
 alone unless an arm of yours legitimately takes minutes per evaluation.
-<code class="docutils literal notranslate"><span class="pre">max_stall_seconds</span></code> is still accepted so old config files keep loading,
-but it is <strong>inert</strong>.  See
+An old config file’s <code class="docutils literal notranslate"><span class="pre">max_stall_seconds</span></code> entry is ignored.  See
 <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §2.</p>
 </div>
 </section>
@@ -438,6 +438,51 @@ but it is <strong>inert</strong>.  See
 </span><span data-line="43"><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 </span></pre></div>
 </div>
+</section>
+<section id="scripts-that-start-worker-processes-the-main-guard">
+<span id="spawn-guard"></span><h3>Scripts That Start Worker Processes: the <code class="docutils literal notranslate"><span class="pre">__main__</span></code> Guard<a class="headerlink" href="#scripts-that-start-worker-processes-the-main-guard" title="Link to this heading">#</a></h3>
+<p>Some parts of Panobbgo run in <strong>child processes</strong> started with
+multiprocessing’s <code class="docutils literal notranslate"><span class="pre">&quot;spawn&quot;</span></code> method:</p>
+<ul class="simple">
+<li><p>the solver bridges <a class="reference internal" href="heuristics.html#panobbgo.heuristics.LBFGSB" title="panobbgo.heuristics.lbfgsb.LBFGSB"><code class="xref py py-class docutils literal notranslate"><span class="pre">LBFGSB</span></code></a>,
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a> and
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.LocalPenaltySearch" title="panobbgo.heuristics.local_penalty_search.LocalPenaltySearch"><code class="xref py py-class docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code></a>,</p></li>
+<li><p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.QuadraticWlsModel" title="panobbgo.heuristics.quadratic_wls.QuadraticWlsModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code></a> (a
+<a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess" title="panobbgo.core.HeuristicSubprocess"><code class="xref py py-class docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a>),</p></li>
+<li><p>the <code class="docutils literal notranslate"><span class="pre">processes</span></code> evaluation backend (<code class="docutils literal notranslate"><span class="pre">evaluation:</span> <span class="pre">method:</span> <span class="pre">processes</span></code>,
+or <code class="docutils literal notranslate"><span class="pre">strategy.config.evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;processes&quot;</span></code>).</p></li>
+</ul>
+<p>A spawned child starts a fresh interpreter and <strong>re-imports your script</strong>.
+If the script builds and starts the strategy at module level, the child
+runs that code again and tries to start processes of its own, which fails
+(<code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">An</span> <span class="pre">attempt</span> <span class="pre">has</span> <span class="pre">been</span> <span class="pre">made</span> <span class="pre">to</span> <span class="pre">start</span> <span class="pre">a</span> <span class="pre">new</span> <span class="pre">process</span> <span class="pre">before</span> <span class="pre">the</span>
+<span class="pre">current</span> <span class="pre">process</span> <span class="pre">has</span> <span class="pre">finished</span> <span class="pre">its</span> <span class="pre">bootstrapping</span> <span class="pre">phase</span></code>) or, at best, starts
+a second optimization.  Put everything that runs the optimization under an
+<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.heuristics</span><span class="w"> </span><span class="kn">import</span> <span class="n">LBFGSB</span><span class="p">,</span> <span class="n">Random</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib.classic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Rosenbrock</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRewarding</span>
+</span><span data-line="4">
+</span><span data-line="5">
+</span><span data-line="6"><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span data-line="7">    <span class="n">strategy</span> <span class="o">=</span> <span class="n">StrategyRewarding</span><span class="p">(</span><span class="n">Rosenbrock</span><span class="p">(</span><span class="n">dims</span><span class="o">=</span><span class="mi">5</span><span class="p">),</span> <span class="n">max_evaluations</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+</span><span data-line="8">    <span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Random</span><span class="p">)</span>
+</span><span data-line="9">    <span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LBFGSB</span><span class="p">)</span>
+</span><span data-line="10">    <span class="n">strategy</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="11">    <span class="nb">print</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">best</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13">
+</span><span data-line="14"><span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">"__main__"</span><span class="p">:</span>
+</span><span data-line="15">    <span class="n">main</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>Imports, problem classes and helper functions may stay at module level;
+only the code that <em>runs</em> belongs under the guard.  The guard is harmless
+for the other heuristics, so using it in every script is the simple rule.
+In a notebook there is no script to re-import, but
+the <code class="docutils literal notranslate"><span class="pre">processes</span></code> backend still needs a problem class that a fresh
+interpreter can import (not one defined in the notebook or in
+<code class="docutils literal notranslate"><span class="pre">__main__</span></code>).</p>
 </section>
 <section id="verified-walkthrough">
 <h3>Verified Walkthrough<a class="headerlink" href="#verified-walkthrough" title="Link to this heading">#</a></h3>
@@ -812,6 +857,12 @@ This heuristic is specifically designed to:</p>
 </span><span data-line="4"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">LocalPenaltySearch</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"L-BFGS-B"</span><span class="p">)</span>
 </span></pre></div>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code> runs its optimizer in a spawned subprocess: a
+script using it needs an <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard (see
+<a class="reference internal" href="#spawn-guard"><span class="std std-ref">Scripts That Start Worker Processes: the __main__ Guard</span></a>).</p>
+</div>
 </section>
 <section id="claudeheuristic-cluster-based-adaptive-search">
 <h3>ClaudeHeuristic (Cluster-Based Adaptive Search)<a class="headerlink" href="#claudeheuristic-cluster-based-adaptive-search" title="Link to this heading">#</a></h3>
@@ -939,6 +990,9 @@ optimization initial designs (lower discrepancy than LHS)</p></td>
 </tbody>
 </table>
 </div>
+<p><code class="docutils literal notranslate"><span class="pre">LBFGSB</span></code>, <code class="docutils literal notranslate"><span class="pre">COBYQA</span></code>, <code class="docutils literal notranslate"><span class="pre">LocalPenaltySearch</span></code> and <code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code> run
+in spawned subprocesses; scripts that use them need an
+<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard (see <a class="reference internal" href="#spawn-guard"><span class="std std-ref">Scripts That Start Worker Processes: the __main__ Guard</span></a>).</p>
 </section>
 <section id="recommended-configurations">
 <h3>Recommended Configurations<a class="headerlink" href="#recommended-configurations" title="Link to this heading">#</a></h3>
@@ -1888,6 +1942,10 @@ a population method) if you want the rest of the budget spent.</p>
 </span><span data-line="6"><span class="c1"># Unknown keyword arguments raise TypeError (they used to be ignored).</span>
 </span></pre></div>
 </div>
+<p>With <code class="docutils literal notranslate"><span class="pre">strategy.config.evaluation_method</span> <span class="pre">=</span> <span class="pre">&quot;processes&quot;</span></code> the evaluations run
+in spawned worker processes: the script needs an
+<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">__name__</span> <span class="pre">==</span> <span class="pre">&quot;__main__&quot;:</span></code> guard (see <a class="reference internal" href="#spawn-guard"><span class="std std-ref">Scripts That Start Worker Processes: the __main__ Guard</span></a>) and the
+problem must be picklable.</p>
 </section>
 <section id="multi-start-optimization">
 <h3>Multi-start Optimization<a class="headerlink" href="#multi-start-optimization" title="Link to this heading">#</a></h3>

@@ -442,16 +442,6 @@ effect on the consumers that read the tree.
 
 - ``new_split``: A box was split into children
 
-**Grid**
-
-:class:`~panobbgo.analyzers.grid.Grid` maintains a simple spatial grid for grouping nearby points.
-Experimental and not installed by default (nothing reads it); add it explicitly.
-
-**Dedensifyer**
-
-:class:`~panobbgo.analyzers.dedensifyer.Dedensifyer` maintains a hierarchical grid to avoid
-clustering, keeping only min/max representatives per region.
-
 **Sensitivity**
 
 :class:`~panobbgo.analyzers.sensitivity.Sensitivity` estimates per-dimension importance from
@@ -716,7 +706,7 @@ Parallelism parameters in ``config.yaml`` or ``~/.panobbgo/config.ini``:
 
 ``processes`` evaluates in a pool of spawned worker processes
 (:mod:`panobbgo.local_pool`): the problem must be picklable, and the script
-needs an ``if __name__ == "__main__":`` guard.  Each worker evaluates its own
+needs an ``if __name__ == "__main__":`` guard (:ref:`spawn-guard`).  Each worker evaluates its own
 **copy** of the problem, so state the problem object accumulates while
 evaluating (evaluation counters, traces, caches, loggers) lives in the
 workers and is not visible on the caller's object.  An evaluation past

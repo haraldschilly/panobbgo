@@ -130,22 +130,6 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.convergence.Convergence.on_new_results"><code class="docutils literal notranslate"><span class="pre">Convergence.on_new_results()</span></code></a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid"><code class="docutils literal notranslate"><span class="pre">Grid</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid.in_same_grid"><code class="docutils literal notranslate"><span class="pre">Grid.in_same_grid()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.grid.Grid.on_new_results"><code class="docutils literal notranslate"><span class="pre">Grid.on_new_results()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Box"><code class="docutils literal notranslate"><span class="pre">Box</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Box.register"><code class="docutils literal notranslate"><span class="pre">Box.register()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.get_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.gridkey()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.register()</span></code></a></li>
-</ul>
-</li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.CUT_RULES"><code class="docutils literal notranslate"><span class="pre">CUT_RULES</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.DEFAULT_CUT_RULE"><code class="docutils literal notranslate"><span class="pre">DEFAULT_CUT_RULE</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.splitter.DEFAULT_SPLIT_RULE"><code class="docutils literal notranslate"><span class="pre">DEFAULT_SPLIT_RULE</span></code></a></li>
@@ -203,18 +187,6 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Convergence"><code class="docutils literal notranslate"><span class="pre">Convergence</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.Convergence.on_new_results"><code class="docutils literal notranslate"><span class="pre">Convergence.on_new_results()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer"><code class="docutils literal notranslate"><span class="pre">Dedensifyer</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.get_box"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.get_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.gridkey"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.gridkey()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.on_new_results"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.on_new_results()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Dedensifyer.register"><code class="docutils literal notranslate"><span class="pre">Dedensifyer.register()</span></code></a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Grid"><code class="docutils literal notranslate"><span class="pre">Grid</span></code></a><ul>
-<li><a class="reference internal" href="#panobbgo.analyzers.Grid.in_same_grid"><code class="docutils literal notranslate"><span class="pre">Grid.in_same_grid()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.analyzers.Grid.on_new_results"><code class="docutils literal notranslate"><span class="pre">Grid.on_new_results()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart"><code class="docutils literal notranslate"><span class="pre">Restart</span></code></a><ul>
@@ -290,8 +262,6 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Convergence</strong>: Monitors optimization progress; publishes a <code class="docutils literal notranslate"><span class="pre">converged</span></code> event using <code class="docutils literal notranslate"><span class="pre">std</span></code> or <code class="docutils literal notranslate"><span class="pre">improv</span></code> mode</p></li>
 <li><p><strong>Sensitivity</strong>: Estimates per-dimension importance via rank correlation; enables sensitivity-aware perturbations in <code class="docutils literal notranslate"><span class="pre">Nearby</span></code></p></li>
 <li><p><strong>Restart</strong>: Detects stagnation (no improvement within <code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations) and triggers multi-start restarts; pairs with CMAES for IPOP-CMA-ES</p></li>
-<li><p><strong>Grid</strong>: Simple spatial grid grouping of nearby points (experimental, not installed by default)</p></li>
-<li><p><strong>Dedensifyer</strong>: Hierarchical grid that avoids point clustering by keeping only min/max representatives per region</p></li>
 <li><p><strong>Splitter</strong>: Adaptive hierarchical box-decomposition of the search space; publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> and identifies the best leaf box.  Resolution scales with the evaluation budget (<code class="docutils literal notranslate"><span class="pre">leaf_size</span></code> / <code class="docutils literal notranslate"><span class="pre">min_leaf_size</span></code> / <code class="docutils literal notranslate"><span class="pre">max_leaves</span></code>); <code class="docutils literal notranslate"><span class="pre">split_rule</span></code> and <code class="docutils literal notranslate"><span class="pre">cut_rule</span></code> select the cut, <code class="docutils literal notranslate"><span class="pre">legacy=True</span></code> restores the fixed-resolution tree</p></li>
 <li><p><strong>Archive</strong>: Opt-in bounded top-K of the <em>shared</em> result stream, ranked by penalty and unfiltered by <code class="docutils literal notranslate"><span class="pre">who</span></code>; the query layer heuristics warm-start from</p></li>
 </ul>
@@ -577,88 +547,6 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 <dt class="sig sig-object py" id="panobbgo.analyzers.convergence.Convergence.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.convergence.Convergence.on_new_results" title="Link to this definition">#</a></dt>
 <dd><p>Listen to all results to detect stagnation (no improvement for many evaluations).</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class" id="module-panobbgo.analyzers.grid">
-<dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.grid.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>Packs nearby points into grid boxes.</p>
-<p>Experimental: not installed by default, since no heuristic reads it
-(until 2026-09 it was, and stored every result for nothing).  Add it with
-<code class="docutils literal notranslate"><span class="pre">strategy.add_analyzer(Grid(strategy))</span></code> to use <a class="reference internal" href="#panobbgo.analyzers.grid.Grid.in_same_grid" title="panobbgo.analyzers.grid.Grid.in_same_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_same_grid()</span></code></a>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
-</ul>
-</dd>
-</dl>
-<p>&#64;type strategy: StrategyBase</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid.in_same_grid">
-<span class="sig-name descname"><span class="pre">in_same_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.in_same_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid.in_same_grid" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.grid.Grid.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.grid.Grid.on_new_results" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class" id="module-panobbgo.analyzers.dedensifyer">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Box">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.dedensifyer.</span></span><span class="sig-name descname"><span class="pre">Box</span></span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Box" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p><a class="reference internal" href="#panobbgo.analyzers.dedensifyer.Dedensifyer" title="panobbgo.analyzers.dedensifyer.Dedensifyer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Dedensifyer's</span></code></a> helper class, that registeres points for the given box.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Box.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Box.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Box.register" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.dedensifyer.</span></span><span class="sig-name descname"><span class="pre">Dedensifyer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>This analyzer stores points in a fixed hierarchical grid.
-It discards previously added points in order to avoid a high number of points
-in a close neighbourhood. The rules for discarding older points take
-the function value and the constraint violation into account to store
-the minimal and maximal representants for that region.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
-</ul>
-</dd>
-</dl>
-<p>&#64;type strategy: StrategyBase</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.get_box">
-<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.get_box" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey">
-<span class="sig-name descname"><span class="pre">gridkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.gridkey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.gridkey" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.on_new_results" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.dedensifyer.Dedensifyer.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.dedensifyer.Dedensifyer.register" title="Link to this definition">#</a></dt>
-<dd><p>analyzes a new result</p>
 </dd></dl>
 
 </dd></dl>
@@ -1191,76 +1079,6 @@ it publishes a <code class="docutils literal notranslate"><span class="pre">conv
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/convergence.html#Convergence.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Convergence.on_new_results" title="Link to this definition">#</a></dt>
 <dd><p>Listen to all results to detect stagnation (no improvement for many evaluations).</p>
 </dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Dedensifyer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>This analyzer stores points in a fixed hierarchical grid.
-It discards previously added points in order to avoid a high number of points
-in a close neighbourhood. The rules for discarding older points take
-the function value and the constraint violation into account to store
-the minimal and maximal representants for that region.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
-</ul>
-</dd>
-</dl>
-<p>&#64;type strategy: StrategyBase</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.get_box">
-<span class="sig-name descname"><span class="pre">get_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.get_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.get_box" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.gridkey">
-<span class="sig-name descname"><span class="pre">gridkey</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depth</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.gridkey"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.gridkey" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.on_new_results" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Dedensifyer.register">
-<span class="sig-name descname"><span class="pre">register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">result</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/dedensifyer.html#Dedensifyer.register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Dedensifyer.register" title="Link to this definition">#</a></dt>
-<dd><p>analyzes a new result</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Grid">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
-<p>Packs nearby points into grid boxes.</p>
-<p>Experimental: not installed by default, since no heuristic reads it
-(until 2026-09 it was, and stored every result for nothing).  Add it with
-<code class="docutils literal notranslate"><span class="pre">strategy.add_analyzer(Grid(strategy))</span></code> to use <a class="reference internal" href="#panobbgo.analyzers.Grid.in_same_grid" title="panobbgo.analyzers.Grid.in_same_grid"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_same_grid()</span></code></a>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>)</p></li>
-<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>)</p></li>
-</ul>
-</dd>
-</dl>
-<p>&#64;type strategy: StrategyBase</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Grid.in_same_grid">
-<span class="sig-name descname"><span class="pre">in_same_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">point</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.in_same_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid.in_same_grid" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="panobbgo.analyzers.Grid.on_new_results">
-<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/grid.html#Grid.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Grid.on_new_results" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
 
 </dd></dl>
 

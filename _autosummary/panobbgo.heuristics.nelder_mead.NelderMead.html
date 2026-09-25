@@ -193,7 +193,7 @@ its output queue up on every result batch.  It never sleeps or polls.</p>
 <td><p>This is used to send out new search points for evaluation.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_points</span></code>([limit])</p></td>
-<td><p>this drains the output Queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code> elements are removed or the Queue is empty.</p></td>
+<td><p>Drain the output queue until <code class="docutils literal notranslate"><span class="pre">limit</span></code> points are removed or it is empty.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">gram_schmidt</span></code>(dim, results[, tol])</p></td>
 <td><p>Tries to calculate an orthogonal base of dimension <cite>dim</cite> with given list of <a class="reference internal" href="../lib.html#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Results</span></code></a> points.</p></td>

@@ -26,7 +26,7 @@ from tests.support import PanobbgoTestCase
 class SobolHeuristicTests(PanobbgoTestCase):
     """Construction-time validation, sampling primitives, and emit behaviour.
 
-    Inherits the :class:`~panobbgo.utils.PanobbgoTestCase` mock-strategy
+    Inherits the :class:`~tests.support.PanobbgoTestCase` mock-strategy
     + ``Rosenbrock(2)`` problem fixture used by every other heuristic test.
     """
 

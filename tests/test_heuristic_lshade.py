@@ -29,7 +29,7 @@ class _MockStrategyMixin:
     Most LSHADE behaviour reads ``strategy.constraint_handler`` (for
     fitness ranking and is_better comparisons) plus
     ``strategy.config.max_eval`` (for LPSR pacing).  The
-    :class:`~panobbgo.utils.PanobbgoTestCase` mock strategy lacks the
+    :class:`~tests.support.PanobbgoTestCase` mock strategy lacks the
     constraint handler and reuses the :class:`~panobbgo.config.Config`
     *singleton*; mutating ``config.max_eval`` directly would leak the
     setting to every later test.  Instead we save/restore the original

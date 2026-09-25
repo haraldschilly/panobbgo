@@ -222,6 +222,11 @@ class SQLiteStorage(StorageBackend):
                     """
                 )
                 self._conn.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
+                # ``evaluation.timeout`` placeholders (Result.timed_out); added
+                # in place to databases written before the column existed.
+                cols = {row[1] for row in self._conn.execute("PRAGMA table_info(results)")}
+                if "timed_out" not in cols:
+                    self._conn.execute("ALTER TABLE results ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0")
                 # No explicit commit needed, context manager handles it
 
     def save(self, results: List[Result]):
@@ -244,6 +249,7 @@ class SQLiteStorage(StorageBackend):
                     r.who,
                     r.error,
                     timestamp,
+                    int(bool(getattr(r, "timed_out", False))),
                 )
             )
 
@@ -253,8 +259,8 @@ class SQLiteStorage(StorageBackend):
             with self._conn:
                 self._conn.executemany(
                     """
-                    INSERT INTO results (x, fx, cv_vec, who, error, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO results (x, fx, cv_vec, who, error, timestamp, timed_out)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     data,
                 )
@@ -266,10 +272,16 @@ class SQLiteStorage(StorageBackend):
                 return []
             # We don't need transaction for read, but it's fine.
             # Using cursor directly.
-            cursor = self._conn.execute("SELECT x, fx, cv_vec, who, error, timestamp FROM results ORDER BY id ASC")
+            cursor = self._conn.execute(
+                "SELECT x, fx, cv_vec, who, error, timestamp, timed_out FROM results ORDER BY id ASC"
+            )
             try:
                 for row in cursor:
-                    x_json, fx, cv_vec_json, who, error, timestamp = row
+                    x_json, fx, cv_vec_json, who, error, timestamp, timed_out = row
+                    # SQLite has no NaN: the NaN fx of an evaluation.timeout
+                    # placeholder is stored as NULL.  Restore it as NaN.
+                    if fx is None and timed_out:
+                        fx = float("nan")
 
                     try:
                         x = np.array(json.loads(x_json), dtype=np.float64)
@@ -283,7 +295,7 @@ class SQLiteStorage(StorageBackend):
                         cv_vec = None
 
                     point = Point(x, who)
-                    result = Result(point, fx, cv_vec=cv_vec, error=error)
+                    result = Result(point, fx, cv_vec=cv_vec, error=error, timed_out=bool(timed_out))
                     # Ideally restore timestamp too, but Result doesn't expose it in init.
                     # We can manually set it if needed, but it's internal.
                     if hasattr(result, "_time"):

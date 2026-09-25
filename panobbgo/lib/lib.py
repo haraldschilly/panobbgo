@@ -107,6 +107,7 @@ class Result:
         cv_vec: Optional[np.ndarray] = None,
         cv_norm: Optional[Union[int, float, str]] = None,
         error: float = 0.0,
+        timed_out: bool = False,
     ) -> None:
         """
         Args:
@@ -114,6 +115,8 @@ class Result:
         - ``cv_vec``: the constraint violation vector
         - ``cv_norm``: the norm used to calculate :attr:`.cv`.
           (see :func:`numpy.linalg.norm`, default ``None`` means 2-norm)
+        - ``timed_out``: the evaluation hit ``evaluation.timeout``; ``fx``
+          (and every ``cv_vec`` entry) is then ``NaN`` — see :attr:`timed_out`.
         """
         if point is not None and not isinstance(point, Point):
             raise ValueError("point must be an instance of lib.Point")
@@ -122,6 +125,7 @@ class Result:
         self._error: float = error
         self._cv_vec: Optional[np.ndarray] = cv_vec
         self._cv_norm: Optional[Union[int, float, str]] = cv_norm
+        self._timed_out: bool = bool(timed_out)
         self._time: float = time.time()
         # :attr:`cv` memo: ``cv_vec`` and ``cv_norm`` never change after
         # construction, and rankers ask for ``cv`` on every comparison.
@@ -213,6 +217,18 @@ class Result:
         Error margin of function evaluation, usually 0.0.
         """
         return self._error
+
+    @property
+    def timed_out(self) -> bool:
+        """``True`` iff this is the placeholder of an evaluation that hit ``evaluation.timeout``.
+
+        Such a result is a regular one — recorded, charged once against the
+        budget, published through ``new_results`` — with ``fx = NaN`` (and
+        ``NaN`` constraint violations on a constrained problem, i.e.
+        infeasible), so every ranking puts it last and heuristics see a bad
+        point.
+        """
+        return self._timed_out
 
     def __lt__(self, other: Any) -> bool:
         """

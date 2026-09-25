@@ -64,8 +64,8 @@ def test_failed_task_walltime_is_booked_like_a_successful_one():
     assert s.failed == ["bad"]  # published as failed_evaluations, not only logged
 
 
-def test_timeout_and_sync_are_ignored_with_one_warning():
-    """Both options were dropped silently for dask."""
+def test_sync_is_ignored_with_one_warning():
+    """evaluation.sync was dropped silently for dask (evaluation.timeout applies since 2026-09-25)."""
     s = _strategy(lambda point: point)
     warnings = []
     s.logger = SimpleNamespace(error=s.errors.append, warning=warnings.append)
@@ -73,10 +73,44 @@ def test_timeout_and_sync_are_ignored_with_one_warning():
     dask_evaluation.run_evaluation(s, ["a"])
     dask_evaluation.run_evaluation(s, ["b"])
     assert len(warnings) == 1
-    assert "evaluation.timeout" in warnings[0] and "evaluation.sync" in warnings[0]
+    assert "evaluation.sync" in warnings[0] and "evaluation.timeout" not in warnings[0]
 
 
 def test_no_warning_without_the_options():
     s = _strategy(lambda point: point)
     s.logger = SimpleNamespace(error=s.errors.append, warning=lambda msg: (_ for _ in ()).throw(AssertionError(msg)))
     dask_evaluation.run_evaluation(s, ["a"])
+
+
+class _Hanging:
+    """A future that never finishes (a task stuck on the cluster)."""
+
+    def __init__(self, fn, *args):
+        self.key = "h%d" % id(self)
+        self.cancelled = False
+
+    def done(self):
+        return False
+
+    def cancel(self):
+        self.cancelled = True
+
+
+def test_timeout_books_an_outstanding_future_as_a_nan_placeholder():
+    """evaluation.timeout for dask: measured from submission, released, booked once."""
+    import time
+
+    s = _strategy(lambda point: point)
+    s._client = SimpleNamespace(submit=lambda fn, *args, **kw: _Hanging(fn, *args))
+    s.config = SimpleNamespace(show_interval=1e9, evaluation_timeout=0.05, sync_evaluation=False)
+    s.logger = SimpleNamespace(error=s.errors.append, warning=lambda msg: None)
+    booked = []
+    s._timed_out_result = lambda point, seconds=None: booked.append(point) or ("nan-result", point)
+    assert dask_evaluation.run_evaluation(s, ["slow"]) == []  # not yet past the limit
+    [future] = s.pending.values()
+    time.sleep(0.1)
+    out = dask_evaluation.run_evaluation(s, [])
+    assert out == [("nan-result", "slow")]
+    assert booked == ["slow"] and future.cancelled
+    assert not s.pending and s.n_finished == 1 and len(s.walltimes) == 1
+    assert dask_evaluation.run_evaluation(s, []) == []  # booked once

@@ -24,6 +24,9 @@ or as a failure.
 
 What it guarantees beyond a bare executor:
 
+* **A timed-out task is reported with** ``Outcome.timed_out``; the
+  strategy books it as a ``NaN`` result (``Result.timed_out``), not a
+  failure.
 * **The timeout counts running time only.**  The clock of a task starts
   when a worker picks it up (a thread records it; a worker process reports
   it through a queue), so time spent queued behind other evaluations never
@@ -125,6 +128,8 @@ class Outcome:
 
     ``point`` is the evaluated point, so a failure can be reported to the
     module that asked for it (the ``failed_evaluations`` event).
+    ``timed_out`` marks a failure by ``evaluation.timeout``: the caller books
+    it as a ``NaN`` result rather than a failure.
     """
 
     task_id: str
@@ -134,6 +139,7 @@ class Outcome:
     started: Optional[float] = None
     finished: float = field(default_factory=time.time)
     point: Any = None
+    timed_out: bool = False
 
 
 class LocalPool:
@@ -337,6 +343,7 @@ class LocalPool:
                     error="timed out after %.1fs; %s" % (timeout or 0.0, action),
                     started=t0,
                     point=task.point,
+                    timed_out=True,
                 )
             )
         if timed_out and not broken:

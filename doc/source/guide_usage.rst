@@ -137,7 +137,7 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
 
    evaluation:
      method: threaded        # 'threaded', 'processes' or 'dask'
-     timeout: 60             # optional: seconds of running time per evaluation
+     timeout: 60             # optional per-call limit, seconds (see below)
      sync: false             # true: bit-reproducible seeded runs
    dask:
      cluster_type: local     # 'local' (auto-start) or 'remote'
@@ -148,6 +148,23 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
        dashboard_address: ':8787'
      remote:
        scheduler_address: tcp://localhost:8786
+
+``evaluation.timeout`` (seconds, default unset = no limit) is a **per-call**
+limit that applies to every evaluation in every backend.  ``threaded`` and
+``processes`` measure *running* time (the clock starts when a worker picks
+the task up); ``dask`` measures from *submission*, because the client cannot
+observe when a worker starts a task.  An evaluation past the limit becomes a
+regular result with ``fx = NaN`` (and ``NaN`` constraint violations on a
+constrained problem, i.e. infeasible), marked ``Result.timed_out`` and in the
+``("timed_out", 0)`` column of the results frame; it is recorded, charged
+once against ``max_eval`` and published through ``new_results`` like any
+result, so heuristics see a bad point and every ranking puts it last.
+Processes kill (and replace) the worker; threads abandon the call (it runs
+to completion in the background); dask releases the future (a task already
+running on a worker is not interrupted).  With ``evaluation.sync`` and
+threads, a timeout routes each batch through the thread pool, harvested in
+submission order.  An objective that *raises* is still a failed evaluation
+(no result, ``failed_evaluations`` event).
    constraints:
      handler: DefaultConstraintHandler
      # rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's

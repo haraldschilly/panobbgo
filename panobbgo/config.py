@@ -336,13 +336,17 @@ class Config:
         # supported by 'dask' (ignored with a warning).
         self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
 
-        # Per-evaluation timeout in seconds of running time for 'threaded'
-        # and 'processes' (YAML only).  An evaluation past it is logged and
-        # fails (no result, still charged to the budget): processes kill the
-        # worker, threads abandon it (it keeps running; see
-        # panobbgo/local_pool.py).  Ignored — with a warning — for threaded
-        # evaluation under evaluation.sync (inline) and for 'dask'.
-        # Unset/0 = no timeout.
+        # Per-call evaluation limit in seconds (YAML only), for every backend:
+        # 'threaded' and 'processes' count running time, 'dask' counts from
+        # submission (the client cannot see a task start).  An evaluation
+        # past it becomes a regular Result with fx = NaN (NaN cv_vec on a
+        # constrained problem: infeasible), marked Result.timed_out, recorded
+        # and charged once, published through new_results.  Processes kill
+        # the worker, threads abandon the call (see panobbgo/local_pool.py),
+        # dask releases the future.  Threaded evaluation under
+        # evaluation.sync goes through the pool when this is set.  An
+        # objective that raises is still a failed evaluation.  Unset/0 = no
+        # limit (the default).
         self.evaluation_timeout = get_config("evaluation.timeout", None, None, None, float)
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')

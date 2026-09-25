@@ -204,7 +204,9 @@ class Results:
                 cv_vec = r.cv_vec
                 len_cv_vec = 0 if cv_vec is None else np.atleast_1d(cv_vec).size
                 midx_cv = [("cv_vec", _) for _ in range(len_cv_vec)]
-                midx = MultiIndex.from_tuples(midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0)])
+                midx = MultiIndex.from_tuples(
+                    midx_x + [("fx", 0)] + midx_cv + [("cv", 0), ("who", 0), ("error", 0), ("timed_out", 0)]
+                )
                 self._results_df = DataFrame(columns=midx)
 
             # Build data with explicit types to avoid mixed-type array issues
@@ -225,6 +227,7 @@ class Results:
             cv_data = np.empty(n_results, dtype=np.float64)
             who_data = np.empty(n_results, dtype=object)  # strings
             error_data = np.empty(n_results, dtype=np.float64)
+            timed_out_data = np.zeros(n_results, dtype=bool)
 
             for i, r in enumerate(self._buffer):
                 x_data[i, :] = r.x
@@ -234,6 +237,7 @@ class Results:
                 cv_data[i] = r.cv if r.cv is not None else 0.0
                 who_data[i] = r.who
                 error_data[i] = r.error if r.error is not None else 0.0
+                timed_out_data[i] = bool(getattr(r, "timed_out", False))
 
             # Build DataFrame with proper column types
             data_dict = {}
@@ -246,6 +250,8 @@ class Results:
             data_dict[("cv", 0)] = cv_data
             data_dict[("who", 0)] = who_data
             data_dict[("error", 0)] = error_data
+            # ``evaluation.timeout`` placeholders (fx = NaN): see Result.timed_out.
+            data_dict[("timed_out", 0)] = timed_out_data
 
             results_new = DataFrame(
                 data_dict, columns=self._results_df.columns if self._results_df is not None else midx
@@ -484,8 +490,8 @@ class Results:
                 # If we can't determine improvement status, skip it
                 pass
 
-        # Check for failure (fx is None or has error)
-        if result.fx is None or (result.error and result.error > 0):
+        # Check for failure (fx is None or has error, or an evaluation.timeout placeholder)
+        if result.fx is None or getattr(result, "timed_out", False) or (result.error and result.error > 0):
             context.evaluation_failed = True
 
         # Check for warnings (constraint violations, etc.)
@@ -1999,6 +2005,9 @@ class StrategyBase:
         self.pending = {}  # dict mapping future id to future object
         self.new_finished = []
         self.n_finished = 0  # number of finished tasks
+        #: Evaluations that hit ``evaluation.timeout`` and were booked as a
+        #: ``NaN`` result (:meth:`_timed_out_result`).
+        self.n_timed_out = 0
 
         # init & start everything
         self._setup_cluster(problem)
@@ -2756,11 +2765,49 @@ class StrategyBase:
         t = getattr(self.config, "evaluation_timeout", None)
         return float(t) if t else None
 
+    def _timeout_cv_vec(self) -> Optional[np.ndarray]:
+        """``NaN`` constraint violations for a timed-out point, ``None`` on an unconstrained problem.
+
+        The length is that of the problem's constraint vector, evaluated once
+        at the box centre (:meth:`~panobbgo.lib.Problem.is_constrained` does
+        the same; no objective evaluation) and cached.  ``NaN`` entries are an
+        *unknown* violation: :attr:`~panobbgo.lib.Result.cv` is ``inf``, i.e.
+        infeasible.
+        """
+        if not hasattr(self, "_timeout_cv_len"):
+            n: Optional[int] = None
+            try:
+                problem = self.problem
+                v = problem.eval_constraints(problem._untranslate(np.asarray(problem.center, dtype=np.float64)))
+                n = None if v is None else int(np.atleast_1d(v).size)
+            except Exception as exc:  # a wrapper without constraints support
+                self.logger.debug("timeout: constraint vector length unknown (%r); none recorded" % exc)
+            self._timeout_cv_len = n
+        n = self._timeout_cv_len
+        return None if n is None else np.full(n, np.nan)
+
+    def _timed_out_result(self, point, seconds: Optional[float] = None) -> Result:
+        """The regular :class:`~panobbgo.lib.Result` booked for an evaluation past ``evaluation.timeout``.
+
+        ``fx = NaN`` (and ``NaN`` violations on a constrained problem), marked
+        :attr:`~panobbgo.lib.Result.timed_out`: it is recorded in the results,
+        charged once against the budget and published through
+        ``new_results`` like any result, so heuristics see a bad point and
+        every ranking puts it last.
+        """
+        self.n_timed_out += 1
+        self.logger.warning(
+            "Evaluation of %s timed out%s (evaluation.timeout): recorded as fx=NaN."
+            % (getattr(point, "who", "?"), "" if seconds is None else " after %.1fs" % seconds)
+        )
+        return Result(point, float("nan"), cv_vec=self._timeout_cv_vec(), timed_out=True)
+
     def _harvest(self, outcomes, new_results, failed):
         """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``.
 
         The points of failed evaluations are appended to ``failed`` (see
-        :meth:`_publish_failures`).
+        :meth:`_publish_failures`); an evaluation past ``evaluation.timeout``
+        becomes a ``NaN`` result instead (:meth:`_timed_out_result`).
         """
         for o in outcomes:
             self.pending.pop(o.task_id, None)
@@ -2768,7 +2815,10 @@ class StrategyBase:
             self.n_finished += 1
             if o.started is not None:
                 self.record_walltime(o.finished - o.started)
-            if not o.ok:
+            if not o.ok and getattr(o, "timed_out", False) and o.point is not None:
+                seconds = None if o.started is None else o.finished - o.started
+                new_results.append(self._timed_out_result(o.point, seconds))
+            elif not o.ok:
                 self.logger.error("Evaluation failed: %s" % o.error)
                 if o.point is not None:
                     failed.append(o.point)
@@ -2780,8 +2830,8 @@ class StrategyBase:
     def _publish_failures(self, points):
         """Publish ``failed_evaluations`` (``points``: the :class:`~panobbgo.lib.Point`\\ s that left no result).
 
-        A failure (the objective raised, ``evaluation.timeout`` fired, the
-        worker process died) used to be only logged.  A module waiting for
+        A failure (the objective raised, the worker process died) used to be
+        only logged.  A module waiting for
         the result of its own point -- a solver bridge's outstanding round
         trip -- then waited forever.  Published only when someone listens,
         so runs without failures see no extra event.
@@ -2792,10 +2842,12 @@ class StrategyBase:
     def _run_threaded_evaluation(self, points):
         """Evaluate on the local pool — threads or (``"processes"``) spawned workers.
 
-        An evaluation that raises, whose worker process dies, or that runs
-        longer than ``evaluation.timeout`` is logged and leaves ``pending``
-        without a result; it stays charged against the budget (see
-        :meth:`_clamp_to_budget`).  See :mod:`panobbgo.local_pool`.
+        An evaluation that raises or whose worker process dies is logged and
+        leaves ``pending`` without a result; it stays charged against the
+        budget (see :meth:`_clamp_to_budget`).  One that runs longer than
+        ``evaluation.timeout`` is booked as a ``NaN`` result
+        (:meth:`_timed_out_result`), in every mode.  See
+        :mod:`panobbgo.local_pool`.
         """
         self.new_finished = []
         new_results = []
@@ -2809,9 +2861,11 @@ class StrategyBase:
             # the evaluation trajectory (and every anytime metric computed
             # from it) depend on thread scheduling.  Threads evaluate on this
             # thread (for cheap objectives faster than the pool round trip);
-            # processes run in parallel and are harvested in order.
+            # processes run in parallel and are harvested in order.  With
+            # ``evaluation.timeout`` threads go through the pool too: an
+            # inline call on this thread could not be timed out.
             ids = [f"sync_task_{self.loops}_{i}" for i in range(len(points))]
-            if self.config.evaluation_method == "processes":
+            if self.config.evaluation_method == "processes" or timeout is not None:
                 for tid, point in zip(ids, points):
                     pool.submit(tid, point)
                 outcomes = {}
@@ -2848,13 +2902,6 @@ class StrategyBase:
             else:
                 from .local_pool import Outcome
 
-                if timeout is not None and not getattr(self, "_warned_sync_timeout", False):
-                    self._warned_sync_timeout = True
-                    self.logger.warning(
-                        "evaluation.timeout is ignored for threaded evaluation with evaluation.sync: "
-                        "evaluations run inline on the main thread and cannot be interrupted. "
-                        "Use evaluation.method 'processes' to enforce it."
-                    )
                 for tid, point in zip(ids, points):
                     t0 = time_module.time()
                     try:

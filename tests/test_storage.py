@@ -139,3 +139,29 @@ def test_storage_backend_abstract_methods():
     assert dummy.count() is None
     dummy.clear()
     dummy.close()
+
+
+def test_timed_out_placeholder_round_trips(storage_uri):
+    """An evaluation.timeout placeholder (fx = NaN, NaN violations) survives a save/load."""
+    storage = SQLiteStorage(storage_uri)
+    r = Result(Point(np.array([1.0, 2.0]), "h"), float("nan"), cv_vec=np.full(2, np.nan), timed_out=True)
+    storage.save([r, Result(Point(np.array([0.0, 0.0]), "h"), 1.0)])
+    a, b = storage.load()
+    assert a.timed_out and np.isnan(a.fx) and np.isnan(a.cv_vec).all() and a.cv == float("inf")
+    assert not b.timed_out and b.fx == 1.0
+
+
+def test_a_database_without_the_timed_out_column_is_migrated(storage_uri):
+    import sqlite3
+
+    conn = sqlite3.connect(storage_uri)
+    conn.execute(
+        "CREATE TABLE results (id INTEGER PRIMARY KEY AUTOINCREMENT, x TEXT, fx REAL, cv_vec TEXT, "
+        "who TEXT, error REAL, timestamp REAL)"
+    )
+    conn.execute("INSERT INTO results (x, fx, cv_vec, who, error, timestamp) VALUES ('[1.0]', 2.0, '[]', 'h', 0, 0)")
+    conn.commit()
+    conn.close()
+    storage = SQLiteStorage(storage_uri, adopt_legacy=True)
+    [r] = storage.load()
+    assert r.fx == 2.0 and not r.timed_out

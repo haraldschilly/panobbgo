@@ -706,7 +706,7 @@ working directory only; ``~/.panobbgo/config.ini`` has no section for them.
 
    evaluation:
      method: threaded  # or 'processes' or 'dask'
-     timeout: 60       # optional: seconds of *running* time per evaluation
+     timeout: 60       # optional per-call limit in seconds (see below)
    dask:               # top level, not under 'evaluation'
      cluster_type: remote   # 'local' (default) starts a LocalCluster
      remote:
@@ -720,9 +720,25 @@ working directory only; ``~/.panobbgo/config.ini`` has no section for them.
 needs an ``if __name__ == "__main__":`` guard (:ref:`spawn-guard`).  Each worker evaluates its own
 **copy** of the problem, so state the problem object accumulates while
 evaluating (evaluation counters, traces, caches, loggers) lives in the
-workers and is not visible on the caller's object.  An evaluation past
-``timeout`` has its worker killed; a worker that crashes fails only its own
-evaluation.  Both still count against ``max_eval``.
+workers and is not visible on the caller's object.  A worker that crashes
+fails only its own evaluation, which still counts against ``max_eval``.
+
+``evaluation.timeout`` (seconds, default unset = no limit) is a **per-call**
+limit that applies to every evaluation in every backend.  ``threaded`` and
+``processes`` measure *running* time (the clock starts when a worker picks
+the task up); ``dask`` measures from *submission*, because the client cannot
+observe when a worker starts a task.  An evaluation past the limit becomes a
+regular result with ``fx = NaN`` (and ``NaN`` constraint violations on a
+constrained problem, i.e. infeasible), marked ``Result.timed_out`` and in the
+``("timed_out", 0)`` column of the results frame; it is recorded, charged
+once against ``max_eval`` and published through ``new_results`` like any
+result, so heuristics see a bad point and every ranking puts it last.
+Processes kill (and replace) the worker; threads abandon the call (it runs
+to completion in the background); dask releases the future (a task already
+running on a worker is not interrupted).  With ``evaluation.sync`` and
+threads, a timeout routes each batch through the thread pool, harvested in
+submission order.  An objective that *raises* is still a failed evaluation
+(no result, ``failed_evaluations`` event).
 
 **Long evaluations and the deadlock backstop.**  Evaluations may take hours
 and run remotely; the main loop then sits idle, waiting, and that is not a

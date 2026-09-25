@@ -120,6 +120,7 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
     # Submit each point as a separate task; remember its point so a failure
     # can be reported (``failed_evaluations``).
     points_by_key = strategy.__dict__.setdefault("_dask_points", {})
+    submitted_at = strategy.__dict__.setdefault("_dask_submitted", {})
     new_futures = []
     for point in points:
         future = strategy._client.submit(
@@ -129,6 +130,7 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
             pure=False,  # Function may have side effects
         )
         points_by_key[future.key] = point
+        submitted_at[future.key] = time_module.time()
         new_futures.append(future)
 
     # and don't forget, this updates the statistics
@@ -140,6 +142,7 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
     for future_id in strategy.new_finished:
         future = strategy.pending.pop(future_id, None)
         point = points_by_key.pop(future_id, None)
+        submitted_at.pop(future_id, None)
         if future is not None:
             try:
                 result, walltime, error = future.result()
@@ -159,32 +162,59 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
             else:
                 new_results.append(result)
 
+    new_results.extend(_expire_timed_out(strategy, points_by_key, submitted_at))
     strategy._publish_failures(failed)
     return new_results
 
 
-def _warn_ignored_options(strategy: "StrategyBase") -> None:
-    """Warn once that ``evaluation.timeout`` and ``evaluation.sync`` do not apply to dask.
+def _expire_timed_out(strategy: "StrategyBase", points_by_key: dict, submitted_at: dict) -> List[Any]:
+    """``evaluation.timeout`` for dask: book outstanding futures past it as ``NaN`` results.
 
-    Nothing is cancelled on a timeout and results arrive in completion
-    order; both options used to be dropped silently.
+    The client cannot observe when a worker *starts* a task, so the clock
+    runs from **submission** (queue time on the cluster counts).  An expired
+    future is released (``cancel``) and its point booked through
+    :meth:`~panobbgo.core.StrategyBase._timed_out_result` — a regular result
+    with ``fx = NaN``, charged once.  Dask cannot interrupt a task that is
+    already running on a worker: it runs to completion there and its
+    result is discarded.
+    """
+    t = getattr(strategy.config, "evaluation_timeout", None)
+    if not t:
+        return []
+    timeout = float(t)
+    now = time_module.time()
+    out = []
+    for key, future in list(strategy.pending.items()):
+        t0 = submitted_at.get(key)
+        if t0 is None or now - t0 <= timeout or future.done():
+            continue
+        del strategy.pending[key]
+        submitted_at.pop(key, None)
+        point = points_by_key.pop(key, None)
+        try:
+            future.cancel()
+        except Exception:  # pragma: no cover - a client already gone
+            pass
+        strategy.n_finished += 1
+        strategy.record_walltime(now - t0)
+        if point is not None:
+            out.append(strategy._timed_out_result(point, now - t0))
+    return out
+
+
+def _warn_ignored_options(strategy: "StrategyBase") -> None:
+    """Warn once that ``evaluation.sync`` does not apply to dask.
+
+    Results arrive in completion order; the option used to be dropped
+    silently.  (``evaluation.timeout`` does apply: see :func:`_expire_timed_out`.)
     """
     if getattr(strategy, "_warned_dask_options", False):
         return
-    config = strategy.config
-    ignored = [
-        name
-        for name, value in (
-            ("evaluation.timeout", getattr(config, "evaluation_timeout", None)),
-            ("evaluation.sync", getattr(config, "sync_evaluation", False)),
-        )
-        if value
-    ]
-    if ignored:
+    if getattr(strategy.config, "sync_evaluation", False):
         setattr(strategy, "_warned_dask_options", True)
         strategy.logger.warning(
-            "%s ignored for evaluation.method 'dask': evaluations are not timed out and results "
-            "arrive in completion order. Use 'threaded' or 'processes' for them." % " and ".join(ignored)
+            "evaluation.sync ignored for evaluation.method 'dask': results arrive in completion order. "
+            "Use 'threaded' or 'processes' for reproducible runs."
         )
 
 

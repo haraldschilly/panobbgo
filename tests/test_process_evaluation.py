@@ -129,11 +129,22 @@ def test_unpicklable_problem_is_a_clear_error():
         _run(p, 4, True)
 
 
+def _assert_timed_out(s, n):
+    """``n`` evaluation.timeout placeholders: NaN results, marked, in the frame."""
+    df = s.results.results
+    assert int(df[("timed_out", 0)].astype(bool).sum()) == n
+    assert np.isnan(df[("fx", 0)].to_numpy(dtype=float)).sum() == n
+    assert s.n_timed_out == n
+
+
 @pytest.mark.parametrize("sync", [True, False], ids=["sync", "async"])
-def test_timeout_is_configurable_and_abandons_the_evaluation(sync):
+def test_timeout_is_configurable_and_books_a_nan_result(sync):
+    """A timed-out evaluation is a regular NaN result (owner decision 2026-09-25), not a failure."""
     t0 = time.time()
     s = _run(_Slow(1.5), 2, sync, timeout=0.3)
-    assert len(s.results) == 0
+    assert len(s.results) == 2  # recorded ...
+    assert s._dispatched == 2  # ... and charged once
+    _assert_timed_out(s, 2)
     assert not s.pending
     assert time.time() - t0 < 15
 
@@ -192,7 +203,8 @@ def test_timeout_counts_running_time_not_queue_wait(method):
 def test_timed_out_worker_processes_are_killed(sync, tmp_path):
     t0 = time.time()
     s = _run(_PidSleeper(25.0, tmp_path), 3, sync, timeout=0.5)
-    assert len(s.results) == 0
+    assert len(s.results) == 3  # NaN placeholders, one per killed evaluation
+    _assert_timed_out(s, 3)
     assert time.time() - t0 < 15
     pids = [int(p.name) for p in tmp_path.iterdir()]
     assert pids
@@ -343,29 +355,87 @@ def test_timed_out_threads_do_not_starve_the_queue():
     problem = _WedgeFirstTwo(release)
     try:
         s = _run(problem, 10, False, timeout=0.3, method="threaded")
-        assert len(s.results) == 8
+        assert len(s.results) == 10  # 8 evaluated + 2 NaN placeholders
+        _assert_timed_out(s, 2)
         assert problem.wedged_returned == 0
     finally:
         release.set()
 
 
-def test_sync_threaded_timeout_is_ignored_with_one_warning():
-    from unittest import mock
+def test_sync_threaded_timeout_is_enforced():
+    """It used to be ignored (inline evaluation); with a timeout the batch goes through the pool."""
+    import threading
 
+    release = threading.Event()
+    problem = _BlockFirst(release, 10.0)
+    try:
+        s = _run(problem, 6, True, timeout=0.3, method="threaded")
+        assert len(s.results) == 6
+        _assert_timed_out(s, 1)
+        # Booked in submission order: the placeholder is the first result.
+        assert bool(s.results.results[("timed_out", 0)].iloc[0])
+        assert not problem.first_returned
+    finally:
+        release.set()
+
+
+def test_sync_threaded_with_a_timeout_matches_inline_when_nothing_times_out():
+    a = _run(Rosenbrock(dim=2), 8, True, method="threaded")
+    b = _run(Rosenbrock(dim=2), 8, True, timeout=30.0, method="threaded")
+    assert np.array_equal(_fx(a), _fx(b))
+
+
+class _ConstrainedSlow(Problem):
+    """Two constraints; the first evaluation sleeps (threads)."""
+
+    def __init__(self, release):
+        import itertools
+
+        self.release = release
+        self._calls = itertools.count()
+        super().__init__([(-1, 1), (-1, 1)])
+
+    def eval(self, x):
+        if next(self._calls) == 0:
+            self.release.wait(10.0)
+        return float(np.sum(x**2))
+
+    def eval_constraints(self, x):
+        return np.array([x[0] - 2.0, x[1] - 2.0])
+
+
+def test_a_timed_out_constrained_evaluation_is_infeasible():
+    """NaN violations: cv = inf (infeasible), cv_vec as long as the problem's."""
+    import threading
+
+    from panobbgo.core import Analyzer
     from panobbgo.heuristics import Random
     from panobbgo.strategies import StrategyRoundRobin
 
-    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
-    s.config.max_eval = 6
+    seen = []
+
+    class Listener(Analyzer):
+        def on_new_results(self, results):
+            seen.extend(r for r in results if r.timed_out)
+
+    release = threading.Event()
+    s = StrategyRoundRobin(_ConstrainedSlow(release), parse_args=False, testing_mode=True, seed=3)
+    s.config.max_eval = 4
     s.config.sync_evaluation = True
-    s.config.evaluation_timeout = 1.0
+    s.config.evaluation_timeout = 0.3
     s.config.stop_on_convergence = False
     s.add(Random)
-    with mock.patch.object(s.logger, "warning") as warn:
+    s.add_analyzer(Listener(s))
+    try:
         s.start()
-    msgs = [c.args[0] for c in warn.call_args_list if "evaluation.timeout is ignored" in c.args[0]]
-    assert len(msgs) == 1
-    assert len(s.results) == 6
+        s.eventbus.wait_idle(timeout=5.0)
+    finally:
+        release.set()
+    assert len(seen) == 1  # published through new_results like any result
+    r = seen[0]
+    assert np.isnan(r.fx) and r.cv == float("inf")
+    assert r.cv_vec is not None and r.cv_vec.shape == (2,) and np.isnan(r.cv_vec).all()
+    assert s.best is not None and not s.best.timed_out and np.isfinite(s.best.fx)
 
 
 class _BlockFirst(Problem):
@@ -479,6 +549,38 @@ def test_a_long_outstanding_dask_future_is_never_cut_by_the_backstop(monkeypatch
     s.add(Random)
     s.start()
     assert len(s.results) == 2  # both futures resolved after 1.5 s > deadlock_seconds
+
+
+def test_dask_timeout_books_nan_results_and_the_run_goes_on(monkeypatch):
+    """evaluation.timeout applies to dask: a future that never finishes becomes a NaN result."""
+    import panobbgo.dask_evaluation as dask_evaluation
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    def fake_setup(strategy, problem):
+        calls = iter(range(10**6))
+
+        class Client:
+            def submit(self, fn, *args, pure=False):
+                # The first task hangs on the "cluster"; the others take 50 ms.
+                return _FakeDaskFuture(fn, args, delay=1e9 if next(calls) == 0 else 0.05)
+
+            def close(self):
+                pass
+
+        strategy._client = Client()
+        strategy._problem_future = problem
+
+    monkeypatch.setattr(dask_evaluation, "setup_cluster", fake_setup)
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = "dask"
+    s.config.max_eval = 4
+    s.config.evaluation_timeout = 0.3
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.start()
+    assert len(s.results) == 4 and s._dispatched == 4
+    _assert_timed_out(s, 1)
 
 
 def test_a_claimed_point_that_never_comes_trips_the_backstop():

@@ -42,9 +42,10 @@ def run(
     max_eval=150,
     size=SIZE,
     strategy_cls=StrategyRoundRobin,
+    **config,
 ):
     """A seeded, synchronous run; returns ``(fx, who, strategy)``."""
-    s = strategy_cls(problem or DeJong(dims=3), parse_args=False, testing_mode=True, seed=seed, size=size)
+    s = strategy_cls(problem or DeJong(dims=3), parse_args=False, testing_mode=True, seed=seed, size=size, **config)
     s.config.max_eval = max_eval
     s.config.sync_evaluation = True
     s.config.stop_on_convergence = False
@@ -118,11 +119,17 @@ def test_local_penalty_search_contributes_on_a_constrained_problem():
 
 
 def test_local_penalty_search_spends_the_budget_alone():
-    """Solo it drives the whole run: one evaluation per descent step."""
+    """Solo it drives the whole run: one evaluation per descent step.
+
+    ``rho=1.0`` keeps the descent from converging early: with the default
+    penalty weight (100 since 2026-09-25) it stops after ~56 evaluations
+    and nothing restarts it, which is correct but not what this test is about.
+    """
     fx, who, _ = run(
         [lambda st: LocalPenaltySearch(st)],
         problem=RosenbrockConstraint(3),
         max_eval=120,
+        rho=1.0,
     )
     assert len(fx) >= 120
     assert set(counts(who)) == {"LocalPenaltySearch"}

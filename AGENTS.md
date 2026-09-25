@@ -53,7 +53,7 @@ than the cost of moving early. Pre-releases and release candidates are
 When bumping: raise the floors, `uv lock`, `uv sync --extra dev --extra
 dask`, run the full suite, `ruff check`, `pyright panobbgo` and both
 Sphinx builds, and bump `PYTHON` in `.github/workflows/tests.yml`
-plus `python-version` in `docs.yml` in the
+and in `docs.yml` in the
 same change — the CI pin is part of the dependency set.
 
 One deliberate exception: `tools/ioh_worker/` is pinned to
@@ -72,7 +72,7 @@ uv run flake8 panobbgo                    # advisory only (CI: continue-on-error
 uv run sphinx-build -b doctest doc/source doc/build/doctest   # docs doctests (CI gate)
 uv run sphinx-build -b html doc/source doc/build/html         # docs HTML (docs.yml)
 uv run pytest benchmarks/ --benchmark-min-rounds=1 --benchmark-max-time=0.1 -q  # micro-benchmarks (CI gate)
-./test.sh                                 # replicate the whole CI pipeline locally (runs run_ci.py)
+./test.sh                                 # run every CI job locally, incl. both Sphinx builds (run_ci.py; --job NAME for one, --dry-run to list)
 ```
 
 CI (`.github/workflows/tests.yml`) gates on: pytest, pyright, `ruff format

@@ -265,7 +265,6 @@ class AnalyzersUtils(PanobbgoTestCase):
 
         # Check pareto front contains expected points
         fx_values = [r.fx for r in pareto_front]
-        cv_values = [np.sum(r.cv_vec) if r.cv_vec is not None else 0 for r in pareto_front]
 
         # Should have non-dominated solutions
         assert len(fx_values) >= 1
@@ -467,7 +466,7 @@ class AnalyzersUtils(PanobbgoTestCase):
             conv._check_convergence()
             assert not conv._converged
 
-    def test_convergence_improv_mode(self):
+    def test_convergence_improv_mode_check_convergence_thresholds(self):
         """Test convergence detection in improv mode."""
         from panobbgo.analyzers.convergence import Convergence
         import unittest.mock as mock
@@ -498,7 +497,7 @@ class AnalyzersUtils(PanobbgoTestCase):
             conv._check_convergence()
             mock_trigger.assert_called_once()
 
-    def test_convergence_slope_mode(self):
+    def test_convergence_slope_mode_check_convergence_thresholds(self):
         """Test convergence detection in slope mode."""
         from panobbgo.analyzers.convergence import Convergence
         import unittest.mock as mock

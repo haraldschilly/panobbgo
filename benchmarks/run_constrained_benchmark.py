@@ -94,7 +94,6 @@ def run_experiment(problem_class, problem_kwargs, problem_name, handler_name, ha
     current_best_feasible = float("inf")
 
     # Also track best-infeasible (min cv) if no feasible point found yet
-    min_cv_trace = []
     current_min_cv = float("inf")
 
     final_cv = float("inf")

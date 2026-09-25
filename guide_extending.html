@@ -292,6 +292,13 @@ solver living in a subprocess, and is the base class of
 <a class="reference internal" href="heuristics.html#panobbgo.heuristics.COBYQA" title="panobbgo.heuristics.cobyqa.COBYQA"><code class="xref py py-class docutils literal notranslate"><span class="pre">COBYQA</span></code></a>.  Subclass it rather than
 rebuilding the pipe protocol.  Design and measurements:
 <code class="docutils literal notranslate"><span class="pre">planning/DESIGN_pump_and_stall_2026-09-11.md</span></code> §1.</p>
+<p><a class="reference internal" href="heuristics.html#panobbgo.heuristics.QuadraticWlsModel" title="panobbgo.heuristics.quadratic_wls.QuadraticWlsModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code></a> is the
+request/reply variant: its worker is a model fit rather than a solver
+waiting on <code class="docutils literal notranslate"><span class="pre">f(x)</span></code>.  The event handler only records the input (the latest
+best box); <code class="docutils literal notranslate"><span class="pre">produce()</span></code> sends it and collects the reply.  The only wait is
+for the worker’s <em>computation</em>, never for an evaluation we owe, and only
+under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> — there it keeps the emitted point independent of
+machine speed.  Asynchronous runs return <code class="docutils literal notranslate"><span class="pre">[]</span></code> until the reply is ready.</p>
 </section>
 <section id="example-gradient-sampling">
 <h3>Example: Gradient Sampling<a class="headerlink" href="#example-gradient-sampling" title="Link to this heading">#</a></h3>

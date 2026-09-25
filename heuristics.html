@@ -273,8 +273,11 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.can_produce"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.can_produce</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.fit_timeout"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.fit_timeout</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.on_demand"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.on_demand</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.on_new_best_box()</span></code></a></li>
-<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.reply_timeout"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.reply_timeout</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.produce()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.requires_analyzers"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.requires_analyzers</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.subprocess"><code class="docutils literal notranslate"><span class="pre">QuadraticWlsModel.subprocess()</span></code></a></li>
 </ul>
@@ -355,7 +358,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Extremal</strong>: Samples from the boundaries of the search space.</p></li>
 <li><p><strong>Nearby</strong>: Gaussian perturbations around current best points (sensitivity-aware when paired with the Sensitivity analyzer).</p></li>
 <li><p><strong>WeightedAverage</strong>: Averages points in the best region.</p></li>
-<li><p><strong>QuadraticWlsModel</strong>: Fits a weighted least-squares quadratic surrogate model.</p></li>
+<li><p><strong>QuadraticWlsModel</strong>: Fits a weighted least-squares quadratic surrogate model to the Splitter’s best box and proposes its minimiser within the problem box.  The fit runs in a subprocess and is an <em>on-demand</em> arm: the <code class="docutils literal notranslate"><span class="pre">new_best_box</span></code> handler only records the latest box (boxes arriving between two pulls coalesce), and <code class="docutils literal notranslate"><span class="pre">produce()</span></code> sends it to the worker on the scheduler’s thread.  Under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> the pull waits for the fit, so the run is reproducible; otherwise it hands out the answer on a later pull once it is ready.  The event bus is never blocked by a slow fit.</p></li>
 <li><p><strong>GaussianProcessHeuristic</strong>: Gaussian Process surrogate with EI / UCB / PI acquisition functions; uses Expected Improvement with Constraints (EIC) when constraints are active.</p></li>
 <li><p><strong>NelderMead</strong>: Simplex optimization method.</p></li>
 <li><p><strong>LBFGSB</strong>: Multi-start, bound-constrained quasi-Newton local optimizer (Zhu-Byrd-Lu-Nocedal 1997) backed by <code class="docutils literal notranslate"><span class="pre">scipy.optimize.fmin_l_bfgs_b</span></code> with finite-difference gradients.  The <em>only</em> gradient-based arm in the portfolio — it complements the derivative-free generators (DE family, PSO, CMA-ES, Nelder-Mead, COBYQA) on smooth, ill-conditioned <em>valleys</em> such as Rosenbrock, where a curvature estimate converges in a fraction of the evaluations a population method needs (a single dedicated descent solves <code class="docutils literal notranslate"><span class="pre">Rosenbrock_5D</span></code> at a 200-eval budget, where every default Panobbgo <em>strategy</em> scores <code class="docutils literal notranslate"><span class="pre">0.0</span></code>).  Runs L-BFGS-B <strong>repeatedly</strong> — the first descent starts from the box centre, each subsequent descent from a fresh uniform-random restart (random-restart L-BFGS-B), using the whole strategy budget instead of stopping after one convergence; <code class="docutils literal notranslate"><span class="pre">on_restart</span></code> warm-starts the next descent at the Restart analyzer’s centre.  Subprocess-backed (the solver is synchronous; the pipe round-trips <code class="docutils literal notranslate"><span class="pre">f(x)</span></code>), <code class="docutils literal notranslate"><span class="pre">cap=1</span></code> — an <em>on-demand</em> arm built on <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a>: it produces its next point when the scheduler asks, on the scheduler’s thread, so it is reproducible under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> and cannot be starved by a competitor with a stocked queue.  Opt-in: add it to a strategy with <code class="docutils literal notranslate"><span class="pre">strategy.add(...)</span></code>.</p></li>
@@ -2481,9 +2484,29 @@ schedule are left alone — this is a re-seeding, not a restart.</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.heuristics.</span></span><span class="sig-name descname"><span class="pre">QuadraticWlsModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/quadratic_wls.html#QuadraticWlsModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.HeuristicSubprocess" title="panobbgo.core.HeuristicSubprocess"><code class="xref py py-class docutils literal notranslate"><span class="pre">HeuristicSubprocess</span></code></a></p>
-<p>This heuristic uses an quadratic OLS model to find an approximate new best point
-for each new best box (the latter is subject to change).</p>
-<p>The actual calculation is performed out of process.</p>
+<p>Fit a weighted quadratic model to the best box and propose its minimiser.</p>
+<p>For each new best box the results in it are fitted by weighted least
+squares (weights <code class="xref py py-func docutils literal notranslate"><span class="pre">rank_weights()</span></code> of the distance to the box’s best
+point), and the minimiser of the fitted quadratic within the problem box
+becomes the next search point.</p>
+<p>The fit runs in a worker subprocess and is <strong>pulled</strong> from the main
+loop’s thread, like the solver bridges
+(<a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a>):</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box" title="panobbgo.heuristics.QuadraticWlsModel.on_new_best_box"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_new_best_box()</span></code></a> runs on the event-bus thread and only
+<em>records</em> a snapshot of the latest best box.  It never touches the
+pipe, so a slow fit cannot stall the other handlers.  Boxes that
+arrive before the next <a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="panobbgo.heuristics.QuadraticWlsModel.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> coalesce: the latest one wins.</p></li>
+<li><p><a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="panobbgo.heuristics.QuadraticWlsModel.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> (main thread) sends the recorded box to the worker and
+collects its answer.  Under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> it waits for the fit —
+<a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.fit_timeout" title="panobbgo.heuristics.QuadraticWlsModel.fit_timeout"><code class="xref py py-attr docutils literal notranslate"><span class="pre">fit_timeout</span></code></a> is only a deadlock backstop for a wedged worker —
+so the emitted point is a function of the event sequence, not of
+machine speed.  Otherwise it takes an answer only when one is ready
+and returns <code class="docutils literal notranslate"><span class="pre">[]</span></code> in the meantime.</p></li>
+</ul>
+<p>At most one fit is outstanding.  Every request carries an id and every
+reply echoes it, so a reply to an abandoned request (after the backstop
+fired) is recognised and dropped.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -2493,15 +2516,45 @@ for each new best box (the latter is subject to change).</p>
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.can_produce">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">can_produce</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.can_produce" title="Link to this definition">#</a></dt>
+<dd><p>A queued point, a recorded box to fit, or a fit on its way.</p>
+<p><code class="docutils literal notranslate"><span class="pre">True</span></code> while a fit is in flight even though an asynchronous
+<a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="panobbgo.heuristics.QuadraticWlsModel.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a> may still return <code class="docutils literal notranslate"><span class="pre">[]</span></code> (the reply is not ready yet) —
+the same convention as <a class="reference internal" href="core.html#panobbgo.core.PipeBridgeHeuristic" title="panobbgo.core.PipeBridgeHeuristic"><code class="xref py py-class docutils literal notranslate"><span class="pre">PipeBridgeHeuristic</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.fit_timeout">
+<span class="sig-name descname"><span class="pre">fit_timeout</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60.0</span></span><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.fit_timeout" title="Link to this definition">#</a></dt>
+<dd><p>Deadlock backstop for the synchronous wait in <a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="panobbgo.heuristics.QuadraticWlsModel.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>, in
+seconds.  Not a scheduling parameter: it only expires when the worker
+is wedged or slower than <code class="docutils literal notranslate"><span class="pre">fit_timeout</span></code>; the worker is then
+terminated and the arm retires for the rest of the run.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.on_demand">
+<span class="sig-name descname"><span class="pre">on_demand</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></span><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.on_demand" title="Link to this definition">#</a></dt>
+<dd><p>Points are produced on the caller’s thread (see <a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="panobbgo.heuristics.QuadraticWlsModel.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>).</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.on_new_best_box">
 <span class="sig-name descname"><span class="pre">on_new_best_box</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">best_box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/quadratic_wls.html#QuadraticWlsModel.on_new_best_box"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Record a snapshot of <code class="docutils literal notranslate"><span class="pre">best_box</span></code> for the next <a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="panobbgo.heuristics.QuadraticWlsModel.produce"><code class="xref py py-meth docutils literal notranslate"><span class="pre">produce()</span></code></a>.</p>
+<p>Runs on the event-bus thread: cheap, no pipe I/O.  The arrays are
+copied here because the box keeps changing as results arrive.</p>
+</dd></dl>
 
-<dl class="py attribute">
-<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.reply_timeout">
-<span class="sig-name descname"><span class="pre">reply_timeout</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10.0</span></span><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.reply_timeout" title="Link to this definition">#</a></dt>
-<dd><p>Seconds <a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.on_new_best_box" title="panobbgo.heuristics.QuadraticWlsModel.on_new_best_box"><code class="xref py py-meth docutils literal notranslate"><span class="pre">on_new_best_box()</span></code></a> waits for the worker’s fit.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.QuadraticWlsModel.produce">
+<span class="sig-name descname"><span class="pre">produce</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/quadratic_wls.html#QuadraticWlsModel.produce"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.QuadraticWlsModel.produce" title="Link to this definition">#</a></dt>
+<dd><p>Send the latest recorded box to the worker and hand out its answer.</p>
+<p>Under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> this waits for the fit (<code class="docutils literal notranslate"><span class="pre">timeout</span></code>, default
+<a class="reference internal" href="#panobbgo.heuristics.QuadraticWlsModel.fit_timeout" title="panobbgo.heuristics.QuadraticWlsModel.fit_timeout"><code class="xref py py-attr docutils literal notranslate"><span class="pre">fit_timeout</span></code></a>, is a deadlock backstop only); otherwise it never
+blocks and returns <code class="docutils literal notranslate"><span class="pre">[]</span></code> while the fit is still running.</p>
 </dd></dl>
 
 <dl class="py attribute">

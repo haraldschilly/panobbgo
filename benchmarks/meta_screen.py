@@ -48,7 +48,7 @@ Pre-registered drop rules:
 Usage::
 
     uv run python benchmarks/meta_screen.py OUT.json SEED [SEED ...] \
-        [dims=5] [bm=500] [insts=0,1,2] [specs=name,name]
+        [dims=5] [bm=500] [insts=0,1,2] [specs=name,name] [jobs=N]
     uv run python benchmarks/meta_screen.py from=OUT.json [specs=a,b]
 """
 
@@ -61,6 +61,7 @@ from collections import defaultdict
 
 from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
+from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, MetaAnalyst, RegionUCB
 from panobbgo.heuristics.meta import budget_fraction, stagnation
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
@@ -165,6 +166,7 @@ for a in sys.argv[1:]:
         pos.append(a)
 
 src = opts.get("from")
+JOBS = 1 if src else screen_jobs(opts)
 names = [n for n in opts["specs"].split(",") if n] if opts.get("specs") else list(SPECS)
 unknown = [n for n in names if n not in SPECS]
 if unknown:
@@ -209,7 +211,7 @@ else:
     specs = [spec(n) for n in names]
     rows, t0 = [], time.perf_counter()
     for seed in seeds:
-        r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True)
+        r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
         rows += [
             {
                 "seed": seed,

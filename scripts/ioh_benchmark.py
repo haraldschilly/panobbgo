@@ -203,6 +203,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             progress=not args.quiet,
             battery_name=name,
             timeout_s=args.timeout,
+            jobs=args.jobs,
         )
     else:
         battery = _resolve_battery(args)
@@ -221,6 +222,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 progress=not args.quiet,
                 sync_eval=args.sync_eval,
                 timeout_s=args.timeout,
+                jobs=args.jobs,
             )
         else:
             result = run_ioh_harness(
@@ -230,6 +232,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 progress=not args.quiet,
                 sync_eval=args.sync_eval,
                 timeout_s=args.timeout,
+                jobs=args.jobs,
             )
     result.print_summary()
     if args.output:
@@ -427,6 +430,7 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     )
     run_p.add_argument("--output", help="Save full result as JSON.")
     run_p.add_argument("--quiet", action="store_true", help="Suppress per-run progress lines.")
+    local_run.add_jobs_argument(run_p)
     run_p.set_defaults(func=cmd_run)
 
     cmp_p = sub.add_parser("compare", help="Compare two saved IOH harness results.")

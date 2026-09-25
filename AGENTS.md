@@ -87,6 +87,12 @@ Useful `gh` commands: `gh pr checks <N>`, `gh run list`,
 
 *   Long benchmark or pytest runs go through `nice -n 15` so the machine
     stays usable, e.g. `nice -n 15 uv run python benchmark_harness.py run --standard ...`.
+*   Multi-seed screens (`benchmarks/*_screen.py`, `arm_sweep.py`,
+    `oracle.py`, `np_accept.py`) take `jobs=N`, and `scripts/ioh_benchmark.py
+    run` takes `--jobs N`: independent (seed, cell) runs go to N niced
+    `spawn` worker processes (`panobbgo.local_run.TaskPool`).  Under
+    `sync_eval` the records do not depend on N.  Size N to the free cores
+    and memory of a shared machine.
 *   Measure progress in **evaluations**, not wall time. Wall time depends on
     machine load and the evaluator thread pool; evaluation counts are the
     comparable quantity (see "Domain context").

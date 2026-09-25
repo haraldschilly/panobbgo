@@ -22,13 +22,14 @@ simple selector can actually carry.
 Usage::
 
     uv run python benchmarks/oracle.py OUT.json SEED [SEED ...] \
-        [dims=2,5] [bm=500] [arms=cmaes,lbc,jso,lshade,pso] [--defaults]
+        [dims=2,5] [bm=500] [arms=cmaes,lbc,jso,lshade,pso] [--defaults] [jobs=N]
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three shows the shape, twelve decides
     dims      battery dimensions (default 2,5 — the standard battery)
     bm        budget multiplier; the budget per run is ``bm * dim``
     arms      subset of ``ARMS`` to compare (default: all of them)
+    jobs      run the (seed, cell) runs in N worker processes; results do not depend on N
     --defaults  run every arm with an EMPTY kwargs dict instead of the
                 tuned settings in ``ARMS``, to see whether tuning the
                 arms moved the oracle or only moved the arms
@@ -51,6 +52,7 @@ import time
 from collections import defaultdict
 from itertools import combinations
 from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
+from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyRoundRobin
 
@@ -80,6 +82,7 @@ for a in _args:
     else:
         pos.append(a)
 
+JOBS = screen_jobs(opts) if not opts.get("from") else 1
 defaults = "defaults" in flags or opts.get("defaults", "0") not in ("0", "", "no", "false")
 src = opts.get("from")
 arms = [a for a in opts["arms"].split(",") if a] if opts.get("arms") else list(ARMS)
@@ -131,7 +134,7 @@ else:
     specs = [solo(a, ARMS[a][0], {} if defaults else dict(ARMS[a][1])) for a in arms]
     rows, t0 = [], time.perf_counter()
     for seed in seeds:
-        r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True)
+        r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
         rows += [
             {
                 "seed": seed,

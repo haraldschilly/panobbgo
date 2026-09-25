@@ -27,11 +27,12 @@ seed, and paired-per-seed t-CIs reported overall and per dimension.
 Usage::
 
     uv run python benchmarks/np_accept.py ARM OUT.json SEED [SEED ...] \
-        [dims=2,5] [bm=500]
+        [dims=2,5] [bm=500] [jobs=N]
 
     ARM   one of: lshade, jso, lbc
     SEED  base seeds; the canonical decision roster is the 12 seeds in
           ``panobbgo.harness_ioh.DEFAULT_DECISION_SEEDS``
+    jobs  run the (seed, cell) runs in N worker processes; results do not depend on N (default 1)
 """
 
 import sys
@@ -41,6 +42,7 @@ import statistics as st
 import time
 from collections import defaultdict
 from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
+from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import JSO, LSHADE, NLSHADE_LBC
 from panobbgo.strategies import StrategyRoundRobin
 
@@ -69,6 +71,7 @@ arm, out = sys.argv[1], sys.argv[2]
 _opts = {k: v for k, _, v in (a.partition("=") for a in sys.argv[3:] if "=" in a)}
 seeds = [int(x) for x in sys.argv[3:] if "=" not in x]
 cls, base_kw = ARMS[arm]
+JOBS = screen_jobs(_opts)
 
 battery = make_standard_battery()
 if "dims" in _opts or "bm" in _opts:
@@ -111,7 +114,7 @@ rows, t0 = [], time.perf_counter()
 for seed in seeds:
     for d in battery.dims:
         one_dim = dataclasses.replace(battery, dims=(d,))
-        r = run_ioh_harness(specs_for(d), one_dim, base_seed=seed, progress=False, sync_eval=True)
+        r = run_ioh_harness(specs_for(d), one_dim, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
         rows += [
             {
                 "seed": seed,

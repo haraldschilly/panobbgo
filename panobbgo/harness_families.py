@@ -101,6 +101,8 @@ from panobbgo.harness_ioh import (
     IOHRunRecord,
     IOHTracker,
     _derive_seed,
+    _print_run,
+    _run_tasks_in_pool,
     _run_tracked,
     _TrackedRun,
 )
@@ -339,6 +341,7 @@ def run_family_harness(
     progress: bool = True,
     battery_name: str = "families",
     timeout_s: Optional[float] = None,
+    jobs: int = 1,
 ) -> IOHHarnessResult:
     """Score every spec on every instance and return an AOCC result.
 
@@ -372,6 +375,11 @@ def run_family_harness(
         <panobbgo.harness_ioh.run_ioh_harness>`: evaluations past it are
         not counted, the strategy is stopped, and the run keeps its AOCC
         up to the deadline but is recorded with a ``TimeoutError``.
+    jobs
+        ``> 1`` runs the (instance, spec, rep) cells in that many worker
+        processes, as in :func:`run_ioh_harness
+        <panobbgo.harness_ioh.run_ioh_harness>`; the records are the same
+        for every ``jobs`` (except ``elapsed_s``) and in cell order.
 
     Returns
     -------
@@ -380,10 +388,11 @@ def run_family_harness(
         the instance index, so the ``f"{kind}_d{dim}_i{inst}"`` key used
         throughout the IOH analysis code stays unique.
 
-    Runs serially; the strategies use internal threading.
+    Runs serially unless ``jobs > 1``; the strategies use internal threading.
     """
     total = len(instances) * len(specs) * int(reps)
     runs: List[IOHRunRecord] = []
+    tasks: List[Dict[str, Any]] = []
     idx = 0
     for _name, problem in instances:
         budget = int(budget_multiplier) * problem.dim
@@ -391,13 +400,7 @@ def run_family_harness(
             for rep in range(int(reps)):
                 idx += 1
                 seed = _derive_seed(base_seed, problem.family, problem.dim, problem.instance, spec.rng_identity, rep)
-                if progress:
-                    print(
-                        f"  [{idx:>3d}/{total:>3d}] {problem.family:<18s} "
-                        f"dim={problem.dim:<2d} inst={problem.instance:<2d} rep={rep} {spec.name}",
-                        flush=True,
-                    )
-                rec = _run_one(
+                task: Dict[str, Any] = dict(
                     strategy_spec=spec,
                     problem=problem,
                     rep=rep,
@@ -408,14 +411,21 @@ def run_family_harness(
                     sync_eval=sync_eval,
                     timeout_s=timeout_s,
                 )
+                if jobs > 1:
+                    tasks.append(task)
+                    continue
                 if progress:
-                    tag = "ERR " if rec.error else ""
                     print(
-                        f"      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
-                        f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s" + (f"  ({rec.error})" if rec.error else ""),
+                        f"  [{idx:>3d}/{total:>3d}] {problem.family:<18s} "
+                        f"dim={problem.dim:<2d} inst={problem.instance:<2d} rep={rep} {spec.name}",
                         flush=True,
                     )
+                rec = _run_one(**task)
+                if progress:
+                    _print_run(rec, budget)
                 runs.append(rec)
+    if tasks:
+        runs = _run_tasks_in_pool(tasks, jobs, total, progress, fn=_run_one)
 
     return IOHHarnessResult(
         battery_name=battery_name,

@@ -367,3 +367,33 @@ def test_timeout_reaches_the_family_run():
     # The strategy was stopped rather than left to spin through 1000 no-op
     # evaluations; a zero deadline leaves the run with little wall time.
     assert run.elapsed_s < 30.0
+
+
+def test_family_instances_pickle_and_evaluate_identically():
+    """``jobs=N`` ships instances to worker processes: the base-function
+    closure is rebuilt on unpickling and must evaluate bit-identically."""
+    import pickle
+
+    rng = np.random.default_rng(0)
+    batteries = make_families_battery(dims=(2, 5), n_instances=1) + make_constrained_battery(dims=(2,), n_instances=1)
+    for _n, p in batteries:
+        q = pickle.loads(pickle.dumps(p))
+        for _ in range(5):
+            x = rng.uniform(-5, 5, p.dim)
+            assert q.eval(x) == p.eval(x)
+            gp, gq = p.eval_constraints(x), q.eval_constraints(x)
+            assert (gp is None and gq is None) or np.array_equal(gp, gq)
+
+
+def test_parallel_family_run_matches_the_serial_one():
+    """``jobs=2`` gives the serial records (all but wall time), in cell order."""
+    import dataclasses
+
+    instances = make_families_battery(dims=(2,), n_instances=2)[:3]
+    specs = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"]
+
+    def records(jobs):
+        r = run_family_harness(specs, instances, budget_multiplier=20, base_seed=7, progress=False, jobs=jobs)
+        return [{k: v for k, v in dataclasses.asdict(x).items() if k != "elapsed_s"} for x in r.runs]
+
+    assert records(2) == records(1)

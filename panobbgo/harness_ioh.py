@@ -946,8 +946,13 @@ def run_ioh_harness_multi_seed(
     timeout_s: Optional[float] = None,
     progress: bool = True,
     sync_eval: bool = False,
+    jobs: int = 1,
 ) -> IOHMultiSeedResult:
-    """Run :func:`run_ioh_harness` once per seed in ``base_seeds``."""
+    """Run :func:`run_ioh_harness` once per seed in ``base_seeds``.
+
+    ``jobs > 1`` runs each seed's cells in that many worker processes (see
+    :func:`run_ioh_harness`).
+    """
     if not base_seeds:
         raise ValueError("base_seeds must be non-empty")
     results: List[IOHHarnessResult] = []
@@ -964,6 +969,7 @@ def run_ioh_harness_multi_seed(
                 timeout_s=timeout_s,
                 progress=progress,
                 sync_eval=sync_eval,
+                jobs=jobs,
             )
         )
     return IOHMultiSeedResult(
@@ -1379,6 +1385,40 @@ def _run_one(
 # ---------------------------------------------------------------------------
 
 
+def _print_run(rec: IOHRunRecord, budget: int, prefix: str = "") -> None:
+    tag = "ERR " if rec.error else ""
+    print(
+        f"{prefix}      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
+        f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s" + (f"  ({rec.error})" if rec.error else ""),
+        flush=True,
+    )
+
+
+def _run_tasks_in_pool(
+    tasks: List[Dict[str, Any]],
+    jobs: int,
+    total: int,
+    progress: bool,
+    fn: Optional[Callable[..., IOHRunRecord]] = None,
+) -> List[IOHRunRecord]:
+    """Run ``fn(**task)`` (default :func:`_run_one`) for every task in a worker pool; results in task order."""
+    from panobbgo.local_run import shared_pool
+
+    done = [0]
+
+    def on_done(i: int, rec: IOHRunRecord) -> None:
+        done[0] += 1
+        if progress:
+            print(
+                f"  [{done[0]:>4d}/{total:>4d}] #{i + 1} {rec.problem_kind} dim={rec.dim} "
+                f"inst={rec.instance} rep={rec.rep} {rec.strategy_name}",
+                flush=True,
+            )
+            _print_run(rec, rec.budget)
+
+    return shared_pool(jobs).map(fn or _run_one, tasks, on_done=on_done)
+
+
 def run_ioh_harness(
     strategies: Sequence[StrategySpec],
     battery: IOHBatterySpec,
@@ -1389,12 +1429,16 @@ def run_ioh_harness(
     timeout_s: Optional[float] = None,
     progress: bool = True,
     sync_eval: bool = False,
+    jobs: int = 1,
 ) -> IOHHarnessResult:
     """Run every strategy against every (fid, dim, instance, rep) in ``battery``.
 
-    Runs serially; the underlying strategies use internal threading.  For
-    large batteries, drive multiple ``run_ioh_harness`` calls from outside
-    if you need outer parallelism.
+    Runs serially by default; the underlying strategies use internal
+    threading.  ``jobs > 1`` runs the cells in that many ``spawn`` worker
+    processes (:func:`panobbgo.local_run.shared_pool`, niced, memory-floor
+    throttled).  Every cell derives its own seed, so with ``sync_eval`` the
+    records are the same for every ``jobs`` and come back in cell order;
+    only ``elapsed_s`` differs.
 
     ``sync_eval=True`` enables the synchronous-harvest evaluation mode
     (``config.sync_evaluation``) on every strategy: deterministic result
@@ -1410,6 +1454,7 @@ def run_ioh_harness(
     builder_kwargs = battery.builder_kwargs()
     total = battery.pair_count(len(strategies))
     runs: List[IOHRunRecord] = []
+    tasks: List[Dict[str, Any]] = []
     # ``fid_axis`` is ``(None,)`` on a battery with no function axis, so
     # this is the same single pass the loop has always made.
     cells = itertools.product(battery.fid_axis, battery.dims, battery.instances, strategies, range(battery.reps))
@@ -1424,15 +1469,11 @@ def run_ioh_harness(
         # of one arm can opt into a shared RNG stream so an A/B
         # measures the parameter, not the run-to-run variance.
         seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep, noise_seed, fid)
-        if progress:
-            fid_tag = f"f{fid:<2d} " if fid is not None else ""
-            print(
-                f"  [{idx:>4d}/{total:>4d}] {battery.problem_kind} "
-                f"{fid_tag}dim={dim:<2d} inst={instance:<2d} rep={rep} "
-                f"{spec.name}",
-                flush=True,
-            )
-        rec = _run_one(
+        fid_tag = f"f{fid:<2d} " if fid is not None else ""
+        label = f"{battery.problem_kind} {fid_tag}dim={dim:<2d} inst={instance:<2d} rep={rep} {spec.name}"
+        if progress and jobs <= 1:
+            print(f"  [{idx:>4d}/{total:>4d}] {label}", flush=True)
+        task: Dict[str, Any] = dict(
             strategy_spec=spec,
             problem_kind=battery.problem_kind,
             dim=dim,
@@ -1450,14 +1491,16 @@ def run_ioh_harness(
             noise_resample=battery.noise_resample,
             fid=fid,
         )
+        if jobs > 1:
+            tasks.append(task)
+            continue
+        rec = _run_one(**task)
         if progress:
-            tag = "ERR " if rec.error else ""
-            print(
-                f"      {tag}AOCC={rec.aocc:.4f}  evals={rec.n_evals}/{budget}  "
-                f"prec={rec.precision:.3e}  t={rec.elapsed_s:.1f}s" + (f"  ({rec.error})" if rec.error else ""),
-                flush=True,
-            )
+            _print_run(rec, budget)
         runs.append(rec)
+
+    if tasks:
+        runs = _run_tasks_in_pool(tasks, jobs, total, progress)
 
     return IOHHarnessResult(
         battery_name=battery.name,

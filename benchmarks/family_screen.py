@@ -32,7 +32,7 @@ Usage::
 
     uv run python benchmarks/family_screen.py OUT.json SEED [SEED ...] \
         [preset=free|constrained] [dims=2,5,10] [bm=500] [ninst=3] \
-        [specs=name,name] [timeout=SECONDS]
+        [specs=name,name] [timeout=SECONDS] [jobs=N]
 
 ``timeout`` is a per-run wall-clock deadline (default: none); a run past it
 is stopped, scored so far and counted under ``errors``.
@@ -43,6 +43,7 @@ is stopped, scored so far and counted under ``errors``.
     dims      override the preset's dimensions
     bm        budget multiplier; the budget per run is ``bm * dim``
     ninst     instances per (family, dim)
+    jobs      run the (seed, cell) runs in N worker processes; results do not depend on N
 
 Re-analysis of a finished run is free::
 
@@ -64,6 +65,7 @@ from collections import defaultdict
 from panobbgo.analyzers import Archive
 from panobbgo.harness_families import make_constrained_battery, make_families_battery, run_family_harness
 from panobbgo.harness_ioh import make_ioh_strategies, t_ci
+from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
 
@@ -130,6 +132,7 @@ for a in sys.argv[1:]:
         pos.append(a)
 
 src = opts.get("from")
+JOBS = 1 if src else screen_jobs(opts)
 names = [n for n in opts["specs"].split(",") if n] if opts.get("specs") else list(SPECS)
 unknown = [n for n in names if n not in SPECS]
 if unknown:
@@ -187,7 +190,14 @@ else:
     rows, t0 = [], time.perf_counter()
     for seed in seeds:
         r = run_family_harness(
-            specs, instances, budget_multiplier=bm, base_seed=seed, progress=False, sync_eval=True, timeout_s=timeout_s
+            specs,
+            instances,
+            budget_multiplier=bm,
+            base_seed=seed,
+            progress=False,
+            sync_eval=True,
+            timeout_s=timeout_s,
+            jobs=JOBS,
         )
         rows += [
             {

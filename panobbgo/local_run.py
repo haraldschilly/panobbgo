@@ -25,14 +25,24 @@ entry point therefore
 
 Use :func:`add_arguments` on the script's ``ArgumentParser`` and
 :func:`apply` on the parsed namespace.
+
+Independent runs (one per seed and battery cell) are deterministic under
+``sync_eval``, so they can run in parallel worker processes without
+changing a number: :class:`TaskPool` / :func:`shared_pool`, selected with
+``--jobs N`` (:func:`add_jobs_argument`) or a screen's ``jobs=N``.
 """
 
 from __future__ import annotations
 
 import argparse
+import atexit
+import contextlib
+import multiprocessing
 import os
 import sys
-from typing import Optional
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor
+from concurrent.futures import wait as futures_wait
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 DEFAULT_NICENESS = 15
 DEFAULT_MIN_FREE_GB = 2.0
@@ -111,3 +121,175 @@ def apply(args: argparse.Namespace) -> None:
         check_free_memory(args.min_free_mem_gb)
     if not args.no_nice:
         be_nice(args.nice)
+
+
+# -- a process pool for independent runs -------------------------------------
+
+
+def add_jobs_argument(parser: argparse.ArgumentParser) -> None:
+    """Add ``--jobs N`` (independent runs in parallel worker processes) to ``parser``."""
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        metavar="N",
+        help="run independent (seed, cell) runs in N worker processes; results do not depend on N "
+        "(default: %(default)s, in-process)",
+    )
+
+
+def screen_jobs(opts: Mapping[str, str]) -> int:
+    """``jobs=N`` from a screen's ``key=value`` options (default ``1``).
+
+    With ``N > 1`` the memory floor is checked and this process niced
+    before the pool starts (the workers nice themselves too).
+    """
+    jobs = max(int(opts.get("jobs") or 1), 1)
+    if jobs > 1:
+        check_free_memory(DEFAULT_MIN_FREE_GB)
+        be_nice(DEFAULT_NICENESS)
+    return jobs
+
+
+def _worker_init(niceness: Optional[int]) -> None:
+    if niceness is not None:
+        be_nice(niceness)
+
+
+@contextlib.contextmanager
+def _main_not_reimported():
+    """Keep spawned workers from re-running the caller's ``__main__`` script.
+
+    A ``spawn`` child re-executes the parent's main *script* (as
+    ``__mp_main__``) unless the main module's ``__spec__`` names a
+    ``__main__`` module — the case ``python -m pkg`` relies on.  The
+    benchmark screens are plain top-level scripts without a
+    ``if __name__ == "__main__"`` guard, so re-running them in every worker
+    would start the whole screen again.  The tasks this pool runs are
+    functions of importable ``panobbgo`` modules, so a worker needs nothing
+    from the script: the main module gets a ``__main__`` spec while a task is
+    submitted, which is when the executor starts the workers it needs.
+    """
+    main = sys.modules.get("__main__")
+    if main is None or getattr(main, "__spec__", None) is not None:
+        yield
+        return
+    import importlib.machinery
+
+    main.__spec__ = importlib.machinery.ModuleSpec("__main__", None)
+    try:
+        yield
+    finally:
+        main.__spec__ = None
+
+
+class TaskPool:
+    """A ``spawn`` process pool for independent, deterministic runs.
+
+    ``map(fn, tasks)`` runs ``fn(**task)`` for every task and returns the
+    results **in task order**, whatever order they finish in — so a caller
+    that folds them gets the same answer for every ``jobs``.  ``fn`` and the
+    task payloads must pickle by reference to importable modules (nothing
+    defined in a script's ``__main__``).
+
+    Workers lower their priority to ``niceness`` (``None`` leaves it) and a
+    new task is not handed out while less than ``min_free_gb`` GiB of memory
+    is available and another task is still running (it waits for one to
+    finish instead of pushing the machine into swap).
+
+    ``jobs <= 1`` runs everything in the calling process.
+    """
+
+    def __init__(
+        self,
+        jobs: int,
+        *,
+        niceness: Optional[int] = DEFAULT_NICENESS,
+        min_free_gb: float = DEFAULT_MIN_FREE_GB,
+    ) -> None:
+        self.jobs = max(int(jobs), 1)
+        self.niceness = niceness
+        self.min_free_gb = float(min_free_gb)
+        self._executor: Optional[ProcessPoolExecutor] = None
+        if self.jobs > 1:
+            ctx = multiprocessing.get_context("spawn")
+            self._executor = ProcessPoolExecutor(
+                max_workers=self.jobs, mp_context=ctx, initializer=_worker_init, initargs=(niceness,)
+            )
+
+    def _memory_low(self) -> bool:
+        if self.min_free_gb <= 0:
+            return False
+        avail = available_memory_gb()
+        return avail is not None and avail < self.min_free_gb
+
+    def map(
+        self,
+        fn: Callable[..., Any],
+        tasks: Sequence[Dict[str, Any]],
+        on_done: Optional[Callable[[int, Any], None]] = None,
+    ) -> List[Any]:
+        """``[fn(**t) for t in tasks]``, in parallel; ``on_done(i, result)`` as each finishes."""
+        results: List[Any] = [None] * len(tasks)
+        if self._executor is None:
+            for i, task in enumerate(tasks):
+                results[i] = fn(**task)
+                if on_done is not None:
+                    on_done(i, results[i])
+            return results
+        pending: Dict[Future, int] = {}
+        todo = list(enumerate(tasks))
+        todo.reverse()
+        while todo or pending:
+            while todo and len(pending) < self.jobs and not (pending and self._memory_low()):
+                i, task = todo.pop()
+                # ``submit`` is where the executor starts a worker it needs.
+                with _main_not_reimported():
+                    pending[self._executor.submit(_call, fn, task)] = i
+            done, _ = futures_wait(list(pending), return_when=FIRST_COMPLETED)
+            for fut in done:
+                i = pending.pop(fut)
+                results[i] = fut.result()
+                if on_done is not None:
+                    on_done(i, results[i])
+        return results
+
+    def close(self) -> None:
+        if self._executor is not None:
+            self._executor.shutdown(wait=True, cancel_futures=True)
+            self._executor = None
+
+    def __enter__(self) -> "TaskPool":
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.close()
+
+
+def _call(fn: Callable[..., Any], task: Dict[str, Any]) -> Any:
+    return fn(**task)
+
+
+_SHARED: Dict[int, TaskPool] = {}
+
+
+def shared_pool(jobs: int) -> TaskPool:
+    """A process-wide :class:`TaskPool` with ``jobs`` workers, created on first use.
+
+    Callers that run many batches (one per seed) reuse the same workers
+    instead of paying the interpreter start-up per batch; the pools are
+    closed at exit.
+    """
+    jobs = max(int(jobs), 1)
+    pool = _SHARED.get(jobs)
+    if pool is None:
+        pool = _SHARED[jobs] = TaskPool(jobs)
+        if len(_SHARED) == 1:
+            atexit.register(_close_shared)
+    return pool
+
+
+def _close_shared() -> None:
+    for pool in _SHARED.values():
+        pool.close()
+    _SHARED.clear()

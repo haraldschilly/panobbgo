@@ -9,7 +9,7 @@ default.
 Usage::
 
     uv run python benchmarks/arm_sweep.py ARM OUT.json SEED [SEED ...] \
-        [dims=2,5] [bm=500]
+        [dims=2,5] [bm=500] [jobs=N]
 
     ARM   one of: cmaes, lbc, jso, lshade, pso
     SEED  base seeds; three is enough to see a large effect, twelve is
@@ -17,6 +17,7 @@ Usage::
     dims  battery dimensions (default 2,5 — the standard battery)
     grid  NP_init grid for the DE arms (default 4,6,8,10,12,15,20)
     bm    budget multiplier; the budget per run is ``bm * dim``
+    jobs  run the (seed, cell) runs in N worker processes; results do not depend on N (default 1)
 
 The report breaks every delta down **per dimension** as well as overall.
 That is not cosmetic: the standard battery's budget is ``500 * dim``, so
@@ -38,6 +39,7 @@ import time
 from collections import defaultdict
 from panobbgo.harness_ioh import make_ioh_strategies, make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
+from panobbgo.local_run import screen_jobs
 from panobbgo.strategies import StrategyRoundRobin
 
 BASE = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"][0]
@@ -94,6 +96,7 @@ ARMS = {
 
 arm, out = sys.argv[1], sys.argv[2]
 opts = _opts
+JOBS = screen_jobs(opts)
 seeds = [int(x) for x in sys.argv[3:] if "=" not in x]
 cls, base_kw, variants = ARMS[arm]
 
@@ -126,7 +129,7 @@ def solo(name, kw):
 specs = [solo("default", dict(base_kw))] + [solo(n, {**base_kw, **kw}) for n, kw in variants.items()]
 rows, t0 = [], time.perf_counter()
 for seed in seeds:
-    r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True)
+    r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
     rows += [
         {
             "seed": seed,

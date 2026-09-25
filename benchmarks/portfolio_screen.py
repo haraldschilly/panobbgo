@@ -37,7 +37,7 @@ Usage::
 
     uv run python benchmarks/portfolio_screen.py OUT.json SEED [SEED ...] \
         [kind=standard] [dims=2,5] [bm=500] [insts=0,1,2] [fids=1,2,3] \
-        [specs=name,name]
+        [specs=name,name] [jobs=N]
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
@@ -49,6 +49,7 @@ Usage::
               With a function axis the screen also prints the paired
               deltas grouped by COCO class.
     specs     subset of ``SPECS`` to run (default: all of them)
+    jobs      run the (seed, cell) runs in N worker processes; results do not depend on N
 
 Re-analysis of a finished run is free::
 
@@ -81,6 +82,7 @@ from panobbgo.harness_ioh import (
     run_ioh_harness,
     t_ci,
 )
+from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.strategies import StrategyBlockBandit, StrategyRewarding, StrategyRoundRobin
 
@@ -795,6 +797,7 @@ for a in sys.argv[1:]:
         pos.append(a)
 
 src = opts.get("from")
+JOBS = 1 if src else screen_jobs(opts)
 names = [n for n in opts["specs"].split(",") if n] if opts.get("specs") else list(SPECS)
 unknown = [n for n in names if n not in SPECS]
 if unknown:
@@ -874,7 +877,7 @@ else:
             )
     rows, t0 = [], time.perf_counter()
     for seed in seeds:
-        r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True)
+        r = run_ioh_harness(specs, battery, base_seed=seed, progress=False, sync_eval=True, jobs=JOBS)
         rows += [
             {
                 "seed": seed,

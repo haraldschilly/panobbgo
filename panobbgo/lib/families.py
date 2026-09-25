@@ -548,6 +548,19 @@ class Family(Problem):
         tail = "" if not self.n_constraints else f", {self.n_constraints} {self.constraint_kind} constraint(s)"
         return f"Family '{self.name}': base={self.base}, dim={self.dim}, f_opt={self._f_opt:g}{tail}"
 
+    # The base function is a closure (not picklable); it is a pure function
+    # of ``(base, dim)``, so a pickle carries the drawn instance data and the
+    # receiver rebuilds the closure.  Needed to run a family battery in
+    # worker processes (``jobs=N``).
+    def __getstate__(self) -> Dict[str, Any]:
+        state = self.__dict__.copy()
+        state.pop("_base_fn", None)
+        return state
+
+    def __setstate__(self, state: Dict[str, Any]) -> None:
+        self.__dict__.update(state)
+        self._base_fn = BASE_FUNCTIONS[self.base](self.dim)
+
 
 # ---------------------------------------------------------------------------
 # Instance generation

@@ -99,8 +99,12 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
 
     # Helper function to evaluate a point using the problem
     def evaluate_point(problem, point):
-        """Evaluate a single point using the problem instance"""
-        return problem(point)
+        """Evaluate a single point; returns ``(result, walltime in seconds)``."""
+        import time
+
+        t0 = time.perf_counter()
+        result = problem(point)
+        return result, time.perf_counter() - t0
 
     # distribute work using Dask futures
     # Submit each point as a separate task
@@ -123,7 +127,8 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
         future = strategy.pending.pop(future_id, None)
         if future is not None:
             try:
-                result = future.result()
+                result, walltime = future.result()
+                strategy.record_walltime(walltime)
                 if isinstance(result, list):
                     new_results.extend(result)
                 else:
@@ -152,16 +157,7 @@ def _add_tasks(strategy: "StrategyBase", new_futures: List[Any]) -> None:
         if future.done():
             strategy.new_finished.append(future_id)
             completed_keys.append(future_id)
-            strategy.finished.append(future_id)
-
-            # Calculate elapsed time if available
-            if hasattr(future, "done") and future.done():
-                try:
-                    # Get task duration from Dask
-                    # Note: This is approximate, based on completion time
-                    strategy.tasks_walltimes[future_id] = 0.1  # placeholder
-                except Exception:
-                    pass
+            strategy.n_finished += 1
 
     if time_module.time() - strategy.show_last > float(strategy.config.show_interval):
         strategy.info()

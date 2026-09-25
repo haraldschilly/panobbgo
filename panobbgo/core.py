@@ -1743,13 +1743,15 @@ class StrategyBase:
         self.show_last = 0.0  # for throttling the info line (see dask_evaluation._add_tasks)
         self._last_status_update = 0  # for throttling _update_progress_status
         self.time_start = time_module.time()
-        self.tasks_walltimes = {}
+        # Running count and sum of task walltimes (see avg_time_per_task).
+        self._walltime_n = 0
+        self._walltime_sum = 0.0
 
         # task accounting (tasks != points !!!)
         self.jobs_per_client = 1  # number of tasks per client in 'chunksize'
         self.pending = {}  # dict mapping future id to future object
         self.new_finished = []
-        self.finished = []
+        self.n_finished = 0  # number of finished tasks
 
         # init & start everything
         self._setup_cluster(problem)
@@ -2266,7 +2268,11 @@ class StrategyBase:
                 self.eventbus.wait_idle()
                 self.jobs_per_client = max(1, int(self.config.max_eval / 50.0))
             else:
-                self.jobs_per_client = max(1, int(min(self.config.max_eval / 50.0, 1.0 / self.avg_time_per_task)))
+                per_client = self.config.max_eval / 50.0
+                avg = self.avg_time_per_task
+                if avg > 0:  # NaN (no task timed yet) compares False
+                    per_client = min(per_client, 1.0 / avg)
+                self.jobs_per_client = max(1, int(per_client))
 
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
@@ -2428,9 +2434,9 @@ class StrategyBase:
         for o in outcomes:
             self.pending.pop(o.task_id, None)
             self.new_finished.append(o.task_id)
-            self.finished.append(o.task_id)
+            self.n_finished += 1
             if o.started is not None:
-                self.tasks_walltimes[o.task_id] = o.finished - o.started
+                self.record_walltime(o.finished - o.started)
             if not o.ok:
                 self.logger.error("Evaluation failed: %s" % o.error)
             elif isinstance(o.result, list):
@@ -2751,7 +2757,7 @@ class StrategyBase:
         """ """
         avg = self.avg_time_per_task
         pend = len(self.pending)
-        fini = len(self.finished)
+        fini = self.n_finished
         peval = len(self.results)
         s = (
             "{0:4d} ({1:4d}) pnts | Tasks: {2:3d} pend, {3:3d} finished | "
@@ -2761,15 +2767,21 @@ class StrategyBase:
         )
         self.slogger.info(s)
 
+    def record_walltime(self, seconds: float) -> None:
+        """Book the walltime of one finished task (for :attr:`avg_time_per_task`)."""
+        self._walltime_n += 1
+        self._walltime_sum += float(seconds)
+
     @property
-    def avg_time_per_task(self):
+    def avg_time_per_task(self) -> float:
         """
-        :return float: average time per task
+        :return float: average walltime per finished task, ``NaN`` before the first one.
+
+        O(1): a running count and sum, since the main loop reads it every pass.
         """
-        if len(self.tasks_walltimes) > 1:
-            return np.average(list(self.tasks_walltimes.values()))
-        self.slogger.warning("avg time per task for 0 tasks! -> returning NaN")
-        return np.nan
+        if self._walltime_n > 0:
+            return self._walltime_sum / self._walltime_n
+        return float("nan")
 
     @property
     def time_wall(self):

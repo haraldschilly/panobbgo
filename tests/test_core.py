@@ -486,3 +486,12 @@ def test_progress_reporter_off_skips_stats_and_rebuilds_when_enabled_later():
     ctxs = _progress_contexts(batches, toggle_at=3)
     # Only the batches after the toggle are reported, against the full history.
     assert [c.is_global_best for c in ctxs] == [False, True]
+
+
+def test_avg_time_per_task_is_a_running_mean_defined_from_one_task():
+    s = StrategyBase(Rosenbrock(dim=2), parse_args=False)
+    assert np.isnan(s.avg_time_per_task)
+    s.record_walltime(0.5)
+    assert s.avg_time_per_task == 0.5  # was NaN below two tasks
+    s.record_walltime(1.5)
+    assert s.avg_time_per_task == 1.0

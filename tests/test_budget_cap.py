@@ -131,7 +131,9 @@ def test_cleanup_cancels_queued_evaluations():
         gate.wait(5.0)
         ran.append(i)
 
-    s._futures = {i: s._thread_pool.submit(slow, i) for i in range(50)}
+    s._pool.problem = slow
+    for i in range(50):
+        s._pool.submit(str(i), i)
     time.sleep(0.05)
     threading.Timer(0.3, gate.set).start()  # release the running ones mid-cleanup
     s._cleanup()

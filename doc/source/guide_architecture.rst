@@ -699,10 +699,20 @@ Parallelism parameters in ``config.yaml`` or ``~/.panobbgo/config.ini``:
 .. code-block:: yaml
 
    evaluation:
-     method: threaded  # or 'dask'
+     method: threaded  # or 'processes' or 'dask'
+     timeout: 60       # optional: seconds of *running* time per evaluation
      # Dask specific configuration
      dask:
        address: localhost:8786
+
+``processes`` evaluates in a pool of spawned worker processes
+(:mod:`panobbgo.local_pool`): the problem must be picklable, and the script
+needs an ``if __name__ == "__main__":`` guard.  Each worker evaluates its own
+**copy** of the problem, so state the problem object accumulates while
+evaluating (evaluation counters, traces, caches, loggers) lives in the
+workers and is not visible on the caller's object.  An evaluation past
+``timeout`` has its worker killed; a worker that crashes fails only its own
+evaluation.  Both still count against ``max_eval``.
 
 .. code-block:: ini
 

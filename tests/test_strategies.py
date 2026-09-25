@@ -258,13 +258,12 @@ class TestEvaluationModes(PanobbgoTestCase):
         # Re-setup cluster with threaded mode
         strategy._setup_threaded_evaluation(self.problem)
 
-        assert hasattr(strategy, "_thread_pool"), "Should have thread pool"
-        assert hasattr(strategy, "_futures"), "Should have futures dict"
+        assert hasattr(strategy, "_pool"), "Should have a local pool"
         assert hasattr(strategy, "_n_processes"), "Should have process count"
         assert strategy._n_processes > 0, "Should have at least 1 thread"
 
         # Cleanup
-        strategy._thread_pool.shutdown(wait=False)
+        strategy._pool.close(0.0)
 
     def test_threaded_evaluation_run(self):
         """Test that threaded evaluation actually evaluates points."""
@@ -300,7 +299,7 @@ class TestEvaluationModes(PanobbgoTestCase):
         assert len(strategy.results) >= 1, f"Should have at least 1 result, got {len(strategy.results)}"
 
         # Cleanup
-        strategy._thread_pool.shutdown(wait=True)
+        strategy._pool.close(time.time() + 5)
 
     def test_evaluators_property(self):
         """Test evaluators property for different modes."""
@@ -318,7 +317,7 @@ class TestEvaluationModes(PanobbgoTestCase):
         assert len(evaluators) > 0, "Should have at least 1 evaluator"
 
         # Cleanup
-        strategy._thread_pool.shutdown(wait=False)
+        strategy._pool.close(0.0)
 
 
 class TestStrategyBase(PanobbgoTestCase):

@@ -51,7 +51,6 @@ import time as time_module
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, MultiIndex, concat
-import pickle
 import inspect
 import logging
 import uuid
@@ -61,9 +60,6 @@ import multiprocessing
 import collections
 import re
 import threading
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FuturesTimeoutError
-from concurrent.futures import wait as futures_wait
 from .logging.progress import ProgressContext
 from typing import TYPE_CHECKING, Any, Callable, cast, Optional, List, Dict, Union, Tuple
 
@@ -1606,22 +1602,6 @@ class EventBus:
             t.join(timeout=timeout)
 
 
-#: The problem a ``evaluation_method="processes"`` worker evaluates; set once
-#: per worker process by :func:`_process_worker_init`.
-_WORKER_PROBLEM: Any = None
-
-
-def _process_worker_init(payload: bytes) -> None:
-    """Pool initializer: unpickle the problem once per worker process."""
-    global _WORKER_PROBLEM
-    _WORKER_PROBLEM = pickle.loads(payload)
-
-
-def _process_worker_eval(point: "Point") -> Any:
-    """Evaluate ``point`` on this worker's problem (module level, so it pickles)."""
-    return _WORKER_PROBLEM(point)
-
-
 def _config_keys(config: Any) -> set:
     """Public, non-callable attributes of a :class:`Config` — the settable keys."""
     return {k for k, v in vars(config).items() if not k.startswith("_") and not callable(v)}
@@ -2110,37 +2090,27 @@ class StrategyBase:
             from . import dask_evaluation
 
             dask_evaluation.close(self)
-        elif hasattr(self, "_thread_pool"):
-            self._thread_pool.shutdown(wait=False, cancel_futures=True)
+        elif getattr(self, "_pool", None) is not None:
+            self._pool.close(time_module.time())
         self._setup_cluster(self.problem)
 
     def _setup_process_evaluation(self, problem):
         """Set up a spawn-context process pool (``evaluation_method="processes"``).
 
         Each worker is a fresh interpreter (``sys.executable``, ``spawn``
-        start method, so no forked locks or threads) that receives the
-        pickled problem once, through the pool initializer.  Submission,
-        harvesting, the budget accounting and the shutdown are those of the
-        threaded path — only the executor differs.  The problem must be
-        picklable, and a script using this mode needs the usual
-        ``if __name__ == "__main__":`` guard.
+        start method) that receives the pickled problem once.  Submission,
+        harvesting and budget accounting are those of the threaded path; see
+        :mod:`panobbgo.local_pool` for timeouts (killed), crashing workers
+        (the task fails, the run goes on) and shutdown.  The problem must be
+        picklable, a script using this mode needs the usual
+        ``if __name__ == "__main__":`` guard, and state the problem object
+        accumulates while evaluating lives in the worker copies.
         """
-        try:
-            payload = pickle.dumps(problem)
-        except Exception as exc:
-            raise TypeError(
-                "evaluation_method='processes' needs a picklable problem (defined at module level, "
-                f"no lambdas/closures): {exc!r}"
-            ) from exc
+        from .local_pool import LocalPool
+
         self._problem = problem
         self._n_processes = int(self.config.dask_n_workers)
-        self._thread_pool = ProcessPoolExecutor(
-            max_workers=self._n_processes,
-            mp_context=multiprocessing.get_context("spawn"),
-            initializer=_process_worker_init,
-            initargs=(payload,),
-        )
-        self._futures = {}
+        self._pool = LocalPool(problem, self._n_processes, processes=True, logger=self.logger)
         self.logger.info("Process evaluation ready with %d worker processes" % self._n_processes)
 
     def _setup_threaded_evaluation(self, problem):
@@ -2157,16 +2127,12 @@ class StrategyBase:
         - Functions that release the GIL
         - CPU-intensive parallel work (use Dask instead)
         """
+        from .local_pool import LocalPool
+
         # Store problem directly (shared memory, no pickling needed)
         self._problem = problem
-
-        # Determine number of threads
         self._n_processes = int(self.config.dask_n_workers)
-
-        # Create thread pool
-        self._thread_pool = ThreadPoolExecutor(max_workers=int(self._n_processes))
-        self._futures = {}  # Track pending futures
-
+        self._pool = LocalPool(problem, self._n_processes, processes=False, logger=self.logger)
         self.logger.info("Threaded evaluation ready with %d threads" % self._n_processes)
 
     @property
@@ -2399,104 +2365,75 @@ class StrategyBase:
         """
         self._stop_requested = True
 
-    def _submit(self, point):
-        """Submit one evaluation to the pool (threads or spawned processes)."""
-        if self.config.evaluation_method == "processes":
-            return self._thread_pool.submit(_process_worker_eval, point)
-        return self._thread_pool.submit(self._problem, point)
-
     def _eval_timeout(self) -> Optional[float]:
-        """Per-evaluation timeout in seconds (``evaluation.timeout``); ``None`` = wait forever."""
+        """Per-evaluation timeout in seconds of running time (``evaluation.timeout``); ``None`` = none."""
         t = getattr(self.config, "evaluation_timeout", None)
         return float(t) if t else None
+
+    def _harvest(self, outcomes, new_results):
+        """Book :class:`~panobbgo.local_pool.Outcome`\\ s: results, failures, walltimes, ``pending``."""
+        for o in outcomes:
+            self.pending.pop(o.task_id, None)
+            self.new_finished.append(o.task_id)
+            self.finished.append(o.task_id)
+            if o.started is not None:
+                self.tasks_walltimes[o.task_id] = o.finished - o.started
+            if not o.ok:
+                self.logger.error("Evaluation failed: %s" % o.error)
+            elif isinstance(o.result, list):
+                new_results.extend(o.result)
+            else:
+                new_results.append(o.result)
 
     def _run_threaded_evaluation(self, points):
         """Evaluate on the local pool — threads or (``"processes"``) spawned workers.
 
-        An evaluation that raises, or runs past ``evaluation.timeout``, is
-        logged and leaves ``pending`` without a result; it stays charged
-        against the budget (see :meth:`_clamp_to_budget`).  A timed-out
-        evaluation cannot be interrupted, only abandoned: its worker keeps
-        running until the call returns or the pool is shut down.
+        An evaluation that raises, whose worker process dies, or that runs
+        longer than ``evaluation.timeout`` is logged and leaves ``pending``
+        without a result; it stays charged against the budget (see
+        :meth:`_clamp_to_budget`).  See :mod:`panobbgo.local_pool`.
         """
-        # Prepare for result collection
         self.new_finished = []
         new_results = []
         timeout = self._eval_timeout()
-
-        def _collect(future, wait: Optional[float] = None):
-            try:
-                result = future.result(timeout=wait)
-            except FuturesTimeoutError:
-                future.cancel()
-                self.logger.error("Evaluation timed out after %.1fs; abandoning it." % (timeout or 0.0))
-                return
-            except Exception as e:
-                self.logger.error("Evaluation failed: %r" % (e,))
-                return
-            if isinstance(result, list):
-                new_results.extend(result)
-            else:
-                new_results.append(result)
+        pool = self._pool
 
         if self.config.sync_evaluation:
-            # Reproducible mode: results are taken in submission order.
+            # Reproducible mode: results are booked in submission order.
             # A pool would return results in completion order, which makes
             # the evaluation trajectory (and every anytime metric computed
             # from it) depend on thread scheduling.  Threads evaluate on this
             # thread (for cheap objectives faster than the pool round trip);
             # processes run in parallel and are harvested in order.
-            procs = self.config.evaluation_method == "processes"
-            futures = [self._submit(p) for p in points] if procs else [None] * len(points)
-            for i, (point, future) in enumerate(zip(points, futures)):
-                task_id = f"sync_task_{self.loops}_{i}"
-                t0 = time_module.time()
-                if future is not None:
-                    _collect(future, timeout)
-                else:
+            ids = [f"sync_task_{self.loops}_{i}" for i in range(len(points))]
+            if self.config.evaluation_method == "processes":
+                for tid, point in zip(ids, points):
+                    pool.submit(tid, point)
+                outcomes = {}
+                while len(pool):
+                    for o in pool.poll(timeout):
+                        outcomes[o.task_id] = o
+                    if len(pool):
+                        pool.wait()
+                self._harvest([outcomes[t] for t in ids if t in outcomes], new_results)
+            else:
+                from .local_pool import Outcome
+
+                for tid, point in zip(ids, points):
+                    t0 = time_module.time()
                     try:
-                        result = self._problem(point)
-                        if isinstance(result, list):
-                            new_results.extend(result)
-                        else:
-                            new_results.append(result)
+                        o = Outcome(tid, True, result=self._problem(point), started=t0)
                     except Exception as e:
-                        self.logger.error("Evaluation failed: %r" % (e,))
-                self.tasks_walltimes[task_id] = time_module.time() - t0
-                self.new_finished.append(task_id)
-                self.finished.append(task_id)
+                        o = Outcome(tid, False, error=repr(e), started=t0)
+                    self._harvest([o], new_results)
             self.results += new_results
             return
 
-        if not hasattr(self, "_task_start_times"):
-            self._task_start_times = {}
         for i, point in enumerate(points):
             task_id = f"thread_task_{self.loops}_{i}"
-            future = self._submit(point)
-            self._futures[task_id] = future
-            self.pending[task_id] = future
-            self._task_start_times[task_id] = time_module.time()
-
-        # Harvest what is done (or has overrun its timeout); never block.
-        now = time_module.time()
-        completed_ids = []
-        for task_id, future in list(self._futures.items()):
-            started = self._task_start_times.get(task_id, now)
-            overdue = timeout is not None and now - started > timeout
-            if not (future.done() or overdue):
-                continue
-            completed_ids.append(task_id)
-            self.new_finished.append(task_id)
-            self.finished.append(task_id)
-            self.tasks_walltimes[task_id] = now - started
-            self._task_start_times.pop(task_id, None)
-            _collect(future, 0 if not future.done() else None)
-
-        # Clean up completed futures
-        for task_id in completed_ids:
-            self._futures.pop(task_id, None)
-            self.pending.pop(task_id, None)
-
+            pool.submit(task_id, point)
+            self.pending[task_id] = task_id
+        self._harvest(pool.poll(timeout), new_results)
         self.results += new_results
 
     def _update_progress_status(self, force=False):
@@ -2672,6 +2609,14 @@ class StrategyBase:
             return
         self._cleaned_up = True
         self.logger.info("Cleaning up strategy...")
+        # One deadline for the whole cleanup: the pool, the bus drain and the
+        # dispatcher join share ``shutdown_grace_seconds`` (the harness joins a
+        # timed-out run for deadlock_seconds + shutdown_grace_seconds).
+        deadline = time_module.time() + float(self.config.shutdown_grace_seconds)
+
+        def remaining() -> float:
+            return max(0.0, deadline - time_module.time())
+
         # Signal termination to all event bus subscribers
         self.eventbus.publish("finished", terminate=True)
         self._end = time_module.time()
@@ -2684,18 +2629,15 @@ class StrategyBase:
         else:  # "threaded" or "processes"
             # Drop queued evaluations and wait (bounded) for the ones already
             # running, so nothing of this run is still calling the objective
-            # when the caller starts the next one.
-            if hasattr(self, "_thread_pool"):
-                self._thread_pool.shutdown(wait=False, cancel_futures=True)
-                running = [f for f in getattr(self, "_futures", {}).values() if not f.done()]
-                if running:
-                    grace = float(self.config.shutdown_grace_seconds)
-                    _done, still = futures_wait(running, timeout=grace)
-                    if still:
-                        self.logger.error(
-                            "%d evaluation(s) still running %.0fs after shutdown; abandoning them."
-                            % (len(still), grace)
-                        )
+            # when the caller starts the next one; worker processes still
+            # running at the deadline are killed.
+            if getattr(self, "_pool", None) is not None:
+                still = self._pool.close(deadline)
+                if still:
+                    self.logger.error(
+                        "%d evaluation(s) still running at the shutdown deadline; %s."
+                        % (still, "killed" if self._pool.processes else "abandoning them")
+                    )
 
         # Finalize progress reporting
         if hasattr(self, "panobbgo_logger"):
@@ -2713,7 +2655,7 @@ class StrategyBase:
         # wedged handler — and skipped on the bus thread, which cannot wait
         # for itself.
         if threading.current_thread() is not self.eventbus._thread:
-            self.eventbus.wait_idle(timeout=float(self.config.shutdown_grace_seconds))
+            self.eventbus.wait_idle(timeout=remaining())
         # *Every* module, not ``self.heuristics`` — that property filters on
         # ``active``, so a heuristic that had already exhausted itself (the F1
         # shape) never got its ``__stop__`` and kept its subprocess alive.
@@ -2723,7 +2665,7 @@ class StrategyBase:
             except Exception as exc:
                 self.logger.debug("%s.__stop__() failed: %r" % (getattr(m, "name", m), exc))
         # Deliver what is still queued (e.g. on_finished), then stop the dispatcher.
-        self.eventbus.shutdown()
+        self.eventbus.shutdown(timeout=min(2.0, remaining()))
         self.results.close()
 
         # Close Dask client and cluster

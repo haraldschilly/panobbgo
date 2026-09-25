@@ -376,6 +376,18 @@ class Config:
         self.constraint_handler = get_config("constraints.handler", None, None, "DefaultConstraintHandler", str)
         self.logging = get_config("logging", None, None, {}, dict)
 
+        # Convergence analyzer settings (YAML only; panobbgo.analyzers.convergence
+        # reads them through ``strategy.config``, its constructor kwargs win).
+        self.convergence_window_size = get_config("convergence.window_size", None, None, 50, int)
+        self.convergence_threshold = get_config("convergence.threshold", None, None, 1e-6, float)
+        self.convergence_mode = get_config("convergence.mode", None, None, "std", str)
+        self.convergence_require_feasibility = get_config("convergence.require_feasibility", None, None, False, bool)
+        # Default: the window size.  Only set when configured — the analyzer
+        # falls back to its window size when the attribute is absent.
+        min_evaluations = get_config("convergence.min_evaluations", None, None, None, int)
+        if min_evaluations is not None:
+            self.convergence_min_evaluations = min_evaluations
+
         # Storage configuration
         self.storage_backend = get_config("storage.backend", "storage", "backend", None, str)
         self.storage_uri = get_config("storage.uri", "storage", "uri", "panobbgo.db", str)

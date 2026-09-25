@@ -137,5 +137,34 @@ def test_yaml_boolean_strings_are_parsed(tmp_path, monkeypatch):
         Config(testing_mode=True)
 
 
+def test_convergence_settings_come_from_config_yaml(tmp_path, monkeypatch):
+    """The Convergence docstring promised config settings, but Config had no convergence_* keys."""
+    from panobbgo.analyzers.convergence import Convergence
+    from panobbgo.lib.classic import Rosenbrock
+    from panobbgo.strategies import StrategyRoundRobin
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config.yaml").write_text(
+        "convergence:\n  window_size: 7\n  threshold: 0.25\n  mode: slope\n"
+        "  min_evaluations: 11\n  require_feasibility: true\n"
+    )
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    try:
+        c = Convergence(s)
+        assert (c.window_size, c.threshold, c.mode, c.min_evaluations) == (7, 0.25, "slope", 11)
+        assert c.require_feasibility is True
+    finally:
+        s._cleanup()
+
+
+def test_convergence_defaults_are_unchanged():
+    p1, p2 = _no_yaml()
+    with p1, p2:
+        c = Config(testing_mode=True)
+    assert (c.convergence_window_size, c.convergence_threshold, c.convergence_mode) == (50, 1e-6, "std")
+    assert c.convergence_require_feasibility is False
+    assert not hasattr(c, "convergence_min_evaluations")
+
+
 if __name__ == "__main__":
     unittest.main()

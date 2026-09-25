@@ -647,3 +647,30 @@ def test_default_analyzers_do_not_depend_on_the_package_namespace(monkeypatch):
         assert {"Best", "Convergence"} <= set(s._analyzers)
     finally:
         s._cleanup()
+
+
+def test_collect_points_does_not_wait_for_pending_evaluations():
+    """Pending results cannot land inside ``execute()``: the selector used to be retried 20 x 10 ms."""
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=0)
+    try:
+        s.pending = {"t": "t"}  # an evaluation in flight, the event bus idle
+        calls = []
+
+        def selector():
+            calls.append(1)
+            return []
+
+        assert s._collect_points_safely(3, selector) == []
+        assert len(calls) == 1
+
+        # A handler on the bus *can* refill a queue mid-pass: keep retrying then.
+        calls.clear()
+        with mock.patch.object(type(s.eventbus), "inflight", new_callable=mock.PropertyMock, return_value=1):
+            with mock.patch("panobbgo.core.time_module.sleep"):
+                s._collect_points_safely(3, selector)
+        assert len(calls) > 1
+    finally:
+        s.pending = {}
+        s._cleanup()

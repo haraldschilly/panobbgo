@@ -2879,13 +2879,15 @@ class StrategyBase:
         return any(h.can_produce for h in self.heuristics)
 
     def _can_still_produce(self) -> bool:
-        """``True`` if points may still arrive without a new result batch.
+        """``True`` while an evaluation is in flight, i.e. a later result batch may wake a starved arm.
 
-        Narrower than :meth:`_alive`, deliberately: it is consulted inside a
-        single ``execute()`` (``_collect_points_safely``) to decide whether
-        *retrying the selector* can help, and a retry loop is not where a run
-        should be kept alive.  An evaluation in flight is the one thing that
-        can still change the answer within one pass.
+        Narrower than :meth:`_alive`: the block scheduler
+        (:class:`~panobbgo.strategies.blocks.StrategyBlockBandit`) asks it
+        whether an arm that cannot produce now may produce again.  It is
+        *not* the right question inside one ``execute()``: pending results
+        are harvested by the main loop only after ``execute`` returns, so
+        they cannot refill a queue mid-pass (see
+        :meth:`_collect_points_safely`).
 
         Until the pull bridge of ``DESIGN_pump_and_stall_2026-09-11.md`` §1
         this also counted a live pump thread — which never exits, so for any
@@ -2925,7 +2927,13 @@ class StrategyBase:
 
             # Check progress
             if len(points) == initial_count:
-                if not self._can_still_produce():
+                # Only a handler still on the event bus can refill a queue
+                # within this pass.  In-flight evaluations cannot: the main
+                # loop harvests them after ``execute`` returns.  (Waiting on
+                # them cost 20 x 10 ms per empty draw -- 9.6 s of a 9.7 s
+                # async StrategyRewarding run on Rosenbrock(2) -- and made
+                # point collection depend on timing.)
+                if self.eventbus.inflight <= 0:
                     break  # nothing will arrive until the next result batch
                 attempts += 1
                 if attempts >= max_attempts:

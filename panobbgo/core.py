@@ -2503,9 +2503,12 @@ class StrategyBase:
         self._max_dead_loops = 1 if self.config.sync_evaluation else 3
         self._last_progress_at: Optional[float] = None
         #: Wall-clock **backstop for a bug**, not a scheduling parameter: it
-        #: can only fire while :meth:`_alive` says something is running yet
-        #: nothing arrives — a wedged subprocess, a handler in an infinite
-        #: loop.  A healthy run, however slow its arms, never reaches it.
+        #: fires only when there is nothing to wait for — no evaluation
+        #: outstanding anywhere (see :meth:`_pool_progressed`) — yet
+        #: :meth:`_alive` says the run can go on and nothing has changed for
+        #: this long: a heuristic that claims a point but never gives one, a
+        #: handler that never returns.  It never cuts a running evaluation;
+        #: per-evaluation run time is limited only by ``evaluation.timeout``.
         #: See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.3.
         self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
         sync = bool(self.config.sync_evaluation)
@@ -2557,9 +2560,16 @@ class StrategyBase:
                 # undelivered, and the stall guard below ended the run at
                 # whatever evaluation count the machine's speed happened to
                 # produce.  Progress is counted in evaluations (AGENTS.md
-                # "Local runs"); the deadlock backstop below is the only clock
-                # left, and it is an error path.
-                self.eventbus.wait_idle()
+                # "Local runs"); the deadlock backstop is the only clock left,
+                # and it is an error path: a handler that has not returned
+                # after ``deadlock_seconds`` never will.
+                if not self.eventbus.wait_idle(timeout=self._deadlock_seconds):
+                    self.logger.error(
+                        "Deadlock backstop: an event handler has not returned for %.0fs (core.deadlock_seconds; "
+                        "bus=%d). Ending the run; results so far: %d/%s."
+                        % (self._deadlock_seconds, self.eventbus.inflight, len(self.results), self.config.max_eval)
+                    )
+                    break
                 self.jobs_per_client = max(1, int(self.config.max_eval / 50.0))
             else:
                 per_client = self.config.max_eval / 50.0
@@ -2574,7 +2584,9 @@ class StrategyBase:
 
             # Progress / liveness check.  A pass that produced nothing is not
             # a stall: the question is whether anything *can* still produce.
-            # ``_alive`` answers that from state alone — no wall clock.
+            # ``_alive`` answers that from state alone — no wall clock.  An
+            # outstanding evaluation (running, queued for live workers, any
+            # dask future) counts as progress for as long as it takes.
             current_results_count = len(self.results)
             progressed = (
                 len(points) > 0
@@ -2600,17 +2612,18 @@ class StrategyBase:
                     )
                     break
             else:
-                # Something claims to be running.  Give it as long as it needs;
-                # only a genuine wedge trips the backstop below.
+                # Nothing to wait for — no evaluation outstanding — yet the run
+                # claims it can go on.  Only a genuine wedge stays here for
+                # ``deadlock_seconds``.
                 self._dead_loops = 0
                 if self._last_progress_at is None:
                     self._last_progress_at = now
                 elif now - self._last_progress_at > self._deadlock_seconds:
                     self.logger.error(
-                        "Deadlock backstop: %.0fs without a new result while the run still reports "
-                        "itself alive (pending=%d, bus=%d, ready=%s): an evaluation running longer than "
-                        "core.deadlock_seconds, a wedged worker, or a handler that never returns. "
-                        "Raise core.deadlock_seconds or set evaluation.timeout. Results so far: %d/%s."
+                        "Deadlock backstop: %.0fs with no evaluation outstanding and nothing new while the "
+                        "run still reports itself alive (pending=%d, bus=%d, ready=%s): a heuristic that "
+                        "claims a point but never gives one, a handler that never returns, or queued "
+                        "evaluations without a live worker (core.deadlock_seconds). Results so far: %d/%s."
                         % (
                             now - self._last_progress_at,
                             len(self.pending),
@@ -2648,30 +2661,35 @@ class StrategyBase:
         self._cleanup()
 
     def _pool_progressed(self) -> bool:
-        """Did the in-flight work move since the last pass?
+        """Is an evaluation outstanding, or did the pool move since the last pass?
 
-        Progress is an *event*: an evaluation started or finished since the
-        last pass (finished dask tasks show up in ``n_finished``, which the
-        main loop checks itself).  An evaluation that is merely running is
-        not progress — otherwise one that hangs (with the default
-        ``evaluation.timeout`` of ``None``) kept the deadlock backstop from
-        ever firing and the run never ended.  So a single evaluation that
-        runs longer than ``core.deadlock_seconds`` with nothing else
-        happening ends the run; raise ``deadlock_seconds`` above the longest
-        legitimate evaluation.
+        Evaluations can legitimately take hours and run remotely; the
+        machinery then sits idle, waiting.  So *any* outstanding evaluation
+        counts as progress, indefinitely:
 
-        One exception, for processes: queued tasks with *nothing started*
-        are workers spawning (after start, or after a timeout or a crash
-        replaced the pool), which takes seconds on a loaded machine.
+        * dask: any outstanding future, queued or running — the client
+          cannot reliably tell the two apart, so every one is "waiting",
+          never a stall;
+        * threads / processes: a task a worker has started, or a task
+          queued on a pool whose workers are alive
+          (:meth:`~panobbgo.local_pool.LocalPool.waiting`) — which covers
+          queued tasks while worker processes spawn.
+
+        The deadlock backstop therefore never cuts a running evaluation;
+        per-evaluation run time is limited only by the opt-in
+        ``evaluation.timeout``.  A pool event (a start or finish since the
+        last pass) is progress too.
         """
+        if self.config.evaluation_method == "dask":
+            return bool(self.pending)
         pool = getattr(self, "_pool", None)
-        if pool is None or self.config.evaluation_method == "dask":
+        if pool is None:
             return False
         events, last = pool.events, getattr(self, "_last_pool_events", None)
         self._last_pool_events = events
         if last is not None and events != last:
             return True
-        return bool(pool.processes) and len(pool) > 0 and pool.running() == 0
+        return bool(pool.waiting())
 
     def _clamp_to_budget(self, points):
         """Cut a batch from :meth:`execute` to the evaluations the budget still allows.
@@ -2798,26 +2816,26 @@ class StrategyBase:
                     pool.submit(tid, point)
                 outcomes = {}
                 # The deadlock backstop of ``_run`` never sees this loop, so it
-                # applies its own: no start or finish for ``deadlock_seconds``
-                # while an evaluation runs (a hung objective without
-                # ``evaluation.timeout``) ends the run instead of blocking forever.
+                # applies its own — with the same rule: a running evaluation,
+                # or one queued for live workers, is waited for as long as it
+                # takes (only ``evaluation.timeout`` limits it).  Only tasks
+                # that no worker can pick up for ``deadlock_seconds`` end the
+                # run instead of blocking forever.
                 deadlock = float(getattr(self, "_deadlock_seconds", self.config.deadlock_seconds))
                 events, moved_at = pool.events, time_module.time()
                 while len(pool):
                     for o in pool.poll(timeout):
                         outcomes[o.task_id] = o
                     now = time_module.time()
-                    if pool.events != events or pool.running() == 0:  # moving, or workers spawning
+                    if pool.events != events or pool.waiting():  # moving, running, or queued for live workers
                         events, moved_at = pool.events, now
                     elif now - moved_at > deadlock:
                         self.logger.error(
-                            "Deadlock backstop: %.0fs without an evaluation starting or finishing "
-                            "(%d running, %d queued). A hung objective? Set evaluation.timeout. "
-                            "Ending the run; results so far: %d/%s."
+                            "Deadlock backstop: %.0fs with %d evaluation(s) queued and no live worker to "
+                            "run them (core.deadlock_seconds). Ending the run; results so far: %d/%s."
                             % (
                                 now - moved_at,
-                                pool.running(),
-                                len(pool) - pool.running(),
+                                len(pool),
                                 len(self.results),
                                 self.config.max_eval,
                             )

@@ -387,15 +387,19 @@ class _BlockFirst(Problem):
         return float(np.sum(x**2))
 
 
-def test_a_hung_threaded_evaluation_trips_the_deadlock_backstop():
-    """A running-but-silent evaluation counted as progress, so a hang (no timeout) never ended the run."""
+def test_a_long_threaded_evaluation_is_never_cut_by_the_backstop():
+    """A running evaluation is waited for however long it takes (owner decision 2026-09-25).
+
+    Only ``evaluation.timeout`` limits one evaluation; the deadlock backstop
+    (here 0.5 s) must not end the run while the 3 s evaluation runs.
+    """
     import threading
 
     from panobbgo.heuristics import Random
     from panobbgo.strategies import StrategyRoundRobin
 
     release = threading.Event()
-    problem = _BlockFirst(release, 30.0)
+    problem = _BlockFirst(release, 3.0)
     s = StrategyRoundRobin(problem, parse_args=False, testing_mode=True, seed=3)
     s.config.max_eval = 3
     s.config.sync_evaluation = False
@@ -405,29 +409,102 @@ def test_a_hung_threaded_evaluation_trips_the_deadlock_backstop():
     s.add(Random)
     try:
         s.start()
-        # The run ended while the evaluation still hung (it used to wait it out).
-        assert not problem.first_returned
-        assert len(s.results) == 2  # the other two evaluations of the budget
+        assert problem.first_returned
+        assert len(s.results) == 3
     finally:
         release.set()
 
 
-def test_a_hung_sync_process_evaluation_trips_the_deadlock_backstop():
-    """The sync processes harvest loop waited for the pool with no bound at all."""
+def test_a_long_sync_process_evaluation_is_never_cut_by_the_backstop():
+    """The sync processes harvest loop waits for running evaluations too."""
     from panobbgo.heuristics import Random
     from panobbgo.strategies import StrategyRoundRobin
 
-    s = StrategyRoundRobin(_Slow(8.0), parse_args=False, testing_mode=True, seed=3)
+    s = StrategyRoundRobin(_Slow(3.0), parse_args=False, testing_mode=True, seed=3)
     s.config.evaluation_method = "processes"
     s.config.dask_n_workers = 2
     s.config.max_eval = 2
     s.config.sync_evaluation = True
-    s.config.deadlock_seconds = 1.0
+    s.config.deadlock_seconds = 0.5
     s.config.shutdown_grace_seconds = 0.0
     s.config.stop_on_convergence = False
     s.add(Random)
     s.start()
-    assert len(s.results) == 0  # both evaluations were still hanging (they finish at 8 s)
+    assert len(s.results) == 2  # both 3 s evaluations completed
+
+
+class _FakeDaskFuture:
+    """A dask-like future that is done ``delay`` seconds after submission."""
+
+    _keys = iter(range(10**6))
+
+    def __init__(self, fn, args, delay):
+        self.key = "fake-%d" % next(self._keys)
+        self._fn, self._args = fn, args
+        self._ready_at = time.time() + delay
+
+    def done(self):
+        return time.time() >= self._ready_at
+
+    def result(self):
+        return self._fn(*self._args)
+
+    def cancel(self):
+        pass
+
+
+def test_a_long_outstanding_dask_future_is_never_cut_by_the_backstop(monkeypatch):
+    """Dask: any outstanding future is "waiting" (the client cannot tell queued from running)."""
+    import panobbgo.dask_evaluation as dask_evaluation
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    def fake_setup(strategy, problem):
+        class Client:
+            def submit(self, fn, *args, pure=False):
+                return _FakeDaskFuture(fn, args, delay=1.5)
+
+            def close(self):
+                pass
+
+        strategy._client = Client()
+        strategy._problem_future = problem
+
+    monkeypatch.setattr(dask_evaluation, "setup_cluster", fake_setup)
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s.config.evaluation_method = "dask"
+    s.config.max_eval = 2
+    s.config.deadlock_seconds = 0.3
+    s.config.stop_on_convergence = False
+    s.add(Random)
+    s.start()
+    assert len(s.results) == 2  # both futures resolved after 1.5 s > deadlock_seconds
+
+
+def test_a_claimed_point_that_never_comes_trips_the_backstop():
+    """Nothing outstanding, yet the run reports itself alive: that is the deadlock."""
+    from panobbgo.core import Heuristic
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class Liar(Heuristic):
+        @property
+        def can_produce(self):
+            return True  # claims a point, never emits one
+
+        @property
+        def active(self):
+            return True
+
+    s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
+    s.config.max_eval = 5
+    s.config.sync_evaluation = False
+    s.config.deadlock_seconds = 0.5
+    s.config.stop_on_convergence = False
+    s.add(Liar)
+    t0 = time.time()
+    s.start()
+    assert len(s.results) == 0
+    assert time.time() - t0 < 30
 
 
 class _WaitForLoops(Problem):
@@ -472,37 +549,67 @@ def test_idle_passes_do_not_end_a_run_with_a_slow_evaluation(monkeypatch):
     assert len(s.results) == 1
 
 
-def test_queued_tasks_with_nothing_running_are_not_progress():
-    """The deadlock backstop must see a wedge: pending tasks that never start are not progress."""
+def test_outstanding_evaluations_are_progress_and_orphans_are_not():
+    """What the deadlock backstop waits for: any outstanding evaluation, never an orphaned queue."""
     from panobbgo.strategies import StrategyRoundRobin
 
     class FakePool:
         events = 5
-        processes = False
+        is_waiting = False
 
-        def running(self):
-            return 0
+        def waiting(self):
+            return self.is_waiting
 
     s = StrategyRoundRobin(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3)
     real = s._pool
     s._pool = FakePool()
     s.pending = {"queued": "queued"}
+    # Queued tasks no worker can pick up: not progress, the backstop may fire.
     assert not s._pool_progressed()
     assert not s._pool_progressed()
-    FakePool.events = 6
+    FakePool.events = 6  # a start or finish
     assert s._pool_progressed()
-    # A running evaluation that neither starts nor finishes anything is not
-    # progress either: a hung objective used to keep the backstop off forever.
-    s._pool.running = lambda: 1
     assert not s._pool_progressed()
-    # Processes: queued tasks with nothing started are workers spawning.
-    FakePool.processes = True
-    FakePool.__len__ = lambda self: 1
-    s._pool.running = lambda: 0
+    # A running evaluation (or one queued for live workers) is progress,
+    # however long it takes.
+    FakePool.is_waiting = True
     assert s._pool_progressed()
-    s._pool.running = lambda: 1
+    assert s._pool_progressed()
+    # Dask: every outstanding future counts, queued or running.
+    s.config.evaluation_method = "dask"
+    assert s._pool_progressed()
+    s.pending = {}
     assert not s._pool_progressed()
+    s.config.evaluation_method = "threaded"
     real.close(time.time())
+
+
+def test_local_pool_waiting():
+    """LocalPool.waiting: running, or queued for live workers."""
+    import threading
+
+    from panobbgo.lib import Point
+    from panobbgo.local_pool import LocalPool
+
+    release = threading.Event()
+    pool = LocalPool(_BlockFirst(release, 10.0), 1, processes=False)
+    assert not pool.waiting()  # nothing outstanding
+    try:
+        pool.submit("a", Point(np.zeros(2), "t"))
+        pool.submit("b", Point(np.zeros(2), "t"))
+        deadline = time.time() + 5
+        while pool.running() == 0 and time.time() < deadline:
+            time.sleep(1e-3)
+        assert pool.running() == 1 and pool.waiting()  # "a" runs, "b" queued behind it
+        pool._tasks.pop("a")
+        pool._started.pop("a", None)
+        assert pool.waiting()  # "b" queued for a live executor
+        pool._pool._shutdown = True  # an executor that can no longer run anything
+        assert not pool.waiting()
+        pool._pool._shutdown = False
+    finally:
+        release.set()
+        pool.close(time.time() + 5)
 
 
 class _CrashOnceAbove(Problem):

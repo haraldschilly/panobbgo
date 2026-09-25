@@ -167,9 +167,13 @@ Edit these files to customize behavior.
 
    ``deadlock_seconds`` (default ``600``) is the remaining time-based knob and
    is **not** a scheduling parameter: it is an error backstop for a genuine
-   bug — a wedged subprocess, a handler that never returns — and tripping it
-   is logged at ``ERROR`` level with the state that caused it.  Leave it
-   alone unless an arm of yours legitimately takes minutes per evaluation.
+   bug — a heuristic that claims a point but never gives one, a handler that
+   never returns, queued evaluations with no live worker — and tripping it
+   is logged at ``ERROR`` level with the state that caused it.  It fires only
+   when *no evaluation is outstanding*: a running evaluation (thread, worker
+   process, any outstanding dask future) is waited for however long it takes,
+   so hour-long or remote evaluations never trip it.  Limit a single
+   evaluation with the opt-in ``evaluation.timeout`` instead.
    An old config file's ``max_stall_seconds`` entry is ignored.  See
    ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.
 

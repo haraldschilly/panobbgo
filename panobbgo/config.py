@@ -300,18 +300,20 @@ class Config:
         # used to cut a 2500-evaluation run down to ~100.  The event is still
         # published for listeners; opt in to stop early.
         self.stop_on_convergence = get_config("core.stop_on_convergence", "core", "stop_on_convergence", False, bool)
-        # Last-resort backstop for a *bug*, not a scheduling parameter: abort
-        # the main loop when nothing has arrived for this many seconds *while*
-        # StrategyBase._alive() still reports the run as running (a wedged
-        # worker subprocess, a handler that never returns).  A correct run —
-        # however slow its arms — ends via the liveness predicate instead and
-        # never reaches this.  600 s is deliberately far outside any
-        # legitimate slow-arm regime; a smaller value reintroduces the
-        # truncation of F4 at a larger constant.  A running evaluation is
-        # not "something arriving": one evaluation that runs longer than
-        # this with nothing else starting or finishing (a hung objective
-        # without evaluation.timeout) ends the run — raise it above the
-        # longest legitimate evaluation.
+        # Last-resort backstop for a *bug*, not a scheduling parameter.  It
+        # fires only when there is nothing to wait for: NO evaluation is
+        # outstanding anywhere, yet StrategyBase._alive() still reports the
+        # run as running and nothing has changed for this many seconds (a
+        # heuristic that claims a point but never gives one, an event handler
+        # that never returns, queued evaluations with no live worker).  It
+        # NEVER cuts a legitimately running evaluation: a running thread, a
+        # process task started or queued for live workers, and any
+        # outstanding dask future (queued or running) all count as progress,
+        # indefinitely — evaluations may take hours or run remotely.
+        # Per-evaluation run time is limited only by the opt-in
+        # ``evaluation.timeout``.  A correct run ends via the liveness
+        # predicate and never reaches this; 600 s is deliberately far outside
+        # any legitimate handler time.
         self.deadlock_seconds = get_config("core.deadlock_seconds", "core", "deadlock_seconds", 600.0, float)
         # How long cleanup waits for evaluations already running when a run
         # ends (queued ones are cancelled).

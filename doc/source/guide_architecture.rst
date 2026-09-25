@@ -672,8 +672,10 @@ synchronous evaluation mode (``config.sync_evaluation``) waits for that before
 every draw of new points.
 
 **Randomness:** every module owns a :class:`numpy.random.Generator`
-(``self.rng``) derived from the strategy's master ``seed`` in construction
-order; modules never touch the global ``numpy.random`` state.
+(``self.rng``) derived from the strategy's master ``seed`` and the module's
+name (:meth:`~panobbgo.core.StrategyBase.spawn_rng`), so adding or removing
+one module does not change another's stream; modules never touch the global
+``numpy.random`` state.
 
 Parallel Evaluation
 ~~~~~~~~~~~~~~~~~~~
@@ -721,6 +723,20 @@ evaluating (evaluation counters, traces, caches, loggers) lives in the
 workers and is not visible on the caller's object.  An evaluation past
 ``timeout`` has its worker killed; a worker that crashes fails only its own
 evaluation.  Both still count against ``max_eval``.
+
+**Long evaluations and the deadlock backstop.**  Evaluations may take hours
+and run remotely; the main loop then sits idle, waiting, and that is not a
+stall.  Any outstanding evaluation counts as progress for as long as it
+takes: a running thread, a process task that has started or is queued for
+live workers, and *any* outstanding dask future — the client cannot reliably
+tell queued from running, so every one is treated as "waiting".  One
+evaluation's run time is limited only by the opt-in ``evaluation.timeout``.
+``core.deadlock_seconds`` (default 600) is an error backstop for a bug and
+fires only when there is nothing to wait for: no evaluation outstanding
+anywhere, yet the run reports itself alive (a heuristic claims a point it
+never gives, an event handler never returns, queued evaluations have no live
+worker) and nothing has changed for that long.  Tripping it is logged at
+``ERROR`` level and ends the run.
 
 The heuristic queue size can be set in either file (YAML
 ``heuristic: capacity: 20``, or in ``config.ini``):

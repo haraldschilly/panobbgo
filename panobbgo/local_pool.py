@@ -252,6 +252,32 @@ class LocalPool:
     def task_ids(self) -> List[str]:
         return list(self._tasks)
 
+    def waiting(self) -> bool:
+        """``True`` while an outstanding task is legitimately being waited for.
+
+        A task is running (a worker picked it up and it has not been
+        harvested), or it is queued on a pool whose workers can still pick it
+        up: worker processes alive (or not spawned yet), a thread executor not
+        shut down.  How long a task runs is limited only by
+        ``evaluation.timeout``; the caller's deadlock backstop reads this so
+        that it never cuts a running evaluation.
+        """
+        if not self._tasks:
+            return False
+        if self.running() > 0:
+            return True
+        return self._workers_alive()
+
+    def _workers_alive(self) -> bool:
+        pool = self._pool
+        if getattr(pool, "_broken", False):
+            return False  # poll() recovers a broken pool; until then nothing can start
+        if self.processes:
+            procs = getattr(pool, "_processes", None) or {}
+            # No process yet: the executor spawns its workers on submit.
+            return not procs or any(proc.is_alive() for proc in procs.values())
+        return not getattr(pool, "_shutdown", False)
+
     def _drain_starts(self) -> None:
         if not self.processes or self._starts is None:
             return

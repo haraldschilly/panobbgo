@@ -62,6 +62,12 @@ from panobbgo.heuristics import CMAES, JSO, MetaAnalyst, RegionUCB
 from panobbgo.heuristics.meta import budget_fraction, stagnation
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
 
+if __package__:  # ``python -m benchmarks.<screen>``: make ``_screen`` importable by name
+    import sys
+
+    from . import _screen as _screen_module
+
+    sys.modules.setdefault("_screen", _screen_module)
 from _screen import IOH_FIELDS_BUDGET, base_spec, csv_of, delta, fold, int_tuple, load_rows, match, mean_of
 from _screen import mean_or_nan, paired, parse_argv, print_delta_table, print_means, print_run_health, run_seeds
 from _screen import runs_to_rows, select_names, table_spec

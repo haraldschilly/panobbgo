@@ -39,6 +39,12 @@ from panobbgo.harness_ioh import make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO
 from panobbgo.local_run import screen_jobs
 
+if __package__:  # ``python -m benchmarks.<screen>``: make ``_screen`` importable by name
+    import sys
+
+    from . import _screen as _screen_module
+
+    sys.modules.setdefault("_screen", _screen_module)
 from _screen import base_spec, fold, int_tuple, match, mean_of, paired, parse_argv, run_seeds, runs_to_rows, solo_spec
 
 

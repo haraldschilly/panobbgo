@@ -63,6 +63,12 @@ from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
 
+if __package__:  # ``python -m benchmarks.<screen>``: make ``_screen`` importable by name
+    import sys
+
+    from . import _screen as _screen_module
+
+    sys.modules.setdefault("_screen", _screen_module)
 from _screen import base_spec, fold, load_rows, match, mean_of, mean_or_nan, paired, parse_argv, print_delta_table
 from _screen import print_means, print_run_health, run_seeds, runs_to_rows, select_names, table_spec
 

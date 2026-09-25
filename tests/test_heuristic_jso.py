@@ -535,7 +535,7 @@ class JSOGenerateTrialTests(_MockStrategyMixin, PanobbgoTestCase):
         h._sample_F_CR = lambda: (0.5, 1.0)  # type: ignore[method-assign]
         self.strategy.results = [None] * int(factor_progress * self.strategy.config.max_eval)
         captured = []
-        h._emit_trial = lambda u, idx, F, CR: captured.append(np.asarray(u)) or True  # type: ignore[method-assign]
+        h._emit_trial = lambda u, idx, F, CR, **kw: captured.append(np.asarray(u)) or True  # type: ignore[method-assign]
         h._generate_trial(0)
         assert len(captured) == 1
         return float(np.mean((captured[0] - center) / d))

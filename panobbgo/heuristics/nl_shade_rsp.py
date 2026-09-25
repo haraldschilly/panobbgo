@@ -259,7 +259,7 @@ class NLSHADE_RSP(JSO):
         """
         return 1.0
 
-    def _select_r1(self, live: List[int], target_idx: int) -> Optional[int]:
+    def _select_r1(self, live: List[int], target_idx: int, pbest_idx: Optional[int] = None) -> Optional[int]:
         """Rank-based selective pressure (RSP) draw of the ``r1`` index.
 
         Sorts the candidate pool (live slots excluding the target) by

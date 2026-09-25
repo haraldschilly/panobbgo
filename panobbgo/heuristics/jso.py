@@ -80,10 +80,11 @@ Asynchronous execution
 jSO inherits the entire async pipeline from
 :class:`~panobbgo.heuristics.lshade.LSHADE`: per-slot pending dict,
 generation-by-count book-keeping, archive of replaced parents, and
-warm restart via :meth:`on_restart`.  The only methods that change
-are :meth:`_generate_trial` (``F_w`` weighting + linear ``p_best``)
-and :meth:`_update_memory` (skip the anchor bin, advance pointer
-mod ``H − 1``).  The asymmetric F-cap is inherited from
+warm restart via :meth:`on_restart`.  jSO only overrides the small
+hooks of L-SHADE's trial and memory templates: :meth:`_current_F_weight`
+(``F_w``), :meth:`_current_p_best` (linear ``p_best``),
+:meth:`_select_pbest` (the optional shared pbest), :meth:`_init_memory`
+and :meth:`_next_mem_ptr` (the anchor bin).  The F-cap is inherited from
 :meth:`LSHADE._apply_F_cap` via ``F_schedule="jso"``.
 
 Progress measurement uses ``len(strategy.results) / max_eval`` —
@@ -111,11 +112,11 @@ References
 
 from __future__ import annotations
 
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 
-from panobbgo.heuristics.lshade import LSHADE, _CR_TERMINAL
+from panobbgo.heuristics.lshade import LSHADE
 from panobbgo.lib import Result
 
 
@@ -240,13 +241,7 @@ class JSO(LSHADE):
         #: Shared-pbest seam (§2.2): widen the pbest pool with the best
         #: foreign results from the shared archive.
         self.shared_pbest: bool = bool(shared_pbest)
-
-        # Re-initialize memory bins per jSO defaults (L-SHADE used 0.5).
-        self._M_F[:] = _INIT_M_F
-        self._M_CR[:] = _INIT_M_CR
-        # Anchor bin is frozen at sample-time-only values.
-        self._M_F[-1] = _ANCHOR_M_F
-        self._M_CR[-1] = _ANCHOR_M_CR
+        # ``LSHADE.__init__`` planted the jSO memory through ``_init_memory``.
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -255,12 +250,11 @@ class JSO(LSHADE):
     def _init_memory(self) -> None:
         """Plant the jSO initial memory and the frozen anchor bin.
 
-        Overrides :meth:`LSHADE._init_memory` so the values are in place
-        *before* the first trial is generated.  It matters on the
-        ``warm_start`` path only, where ``on_start`` seeds the population
-        and immediately generates a full generation of trials — the
-        post-``super()`` re-stamping in :meth:`on_start` would come too late
-        for those.
+        Overrides :meth:`LSHADE._init_memory`, which the base class calls at
+        construction, in :meth:`on_start` and in :meth:`on_restart` — so the
+        values are in place *before* the first trial is generated, including
+        on the ``warm_start`` path, where ``on_start`` seeds the population
+        and immediately generates a full generation of trials.
         """
         self._M_F[:] = _INIT_M_F
         self._M_CR[:] = _INIT_M_CR
@@ -304,161 +298,31 @@ class JSO(LSHADE):
     # Overrides
     # ------------------------------------------------------------------
 
-    def _generate_trial(self, target_idx: int) -> None:
-        """Build and emit one ``current-to-pbest-w/1`` trial vector.
+    def _select_pbest(self, sorted_live: List[int], target_idx: int) -> Optional[Tuple[np.ndarray, Optional[int]]]:
+        """``pbest`` from the linear-``p_best`` pool, optionally widened (§2.2).
 
-        Differs from L-SHADE's ``current-to-pbest/1`` by:
-
-        * applying the linear ``p_best`` schedule (``_current_p_best``)
-          when picking the pbest pool size;
-        * weighting the pbest direction by ``F_w`` (``_current_F_weight``)
-          while keeping the differential ``F`` unchanged;
-        * with ``shared_pbest=True`` (§2.2), widening the pool with the best
-          foreign results from the shared archive.
+        With ``shared_pbest=True`` the pool is widened with the best foreign
+        results from the shared archive.  An empty ``foreign`` (no
+        ``shared_pbest``, no ``Archive`` analyzer, or nothing foreign in it
+        yet) falls through to exactly the L-SHADE draw — no extra RNG call is
+        spent finding that out.
         """
-        live = self._live_indices()
-        if len(live) < 4 or target_idx not in live:
-            return
-        slot = self._population[target_idx]
-        if not isinstance(slot, Result):
-            return
-
-        F, CR = self._sample_F_CR()
-        # jSO: F_w = {0.7, 0.8, 1.2} · F — the phase factor scales the sampled
-        # F, it does not replace it (Brest et al. 2017, the jSO mutation).
-        F_w = self._current_F_weight() * F
-        x_target = np.asarray(slot.x, dtype=float)
-
-        # pbest: top p% of live population by fitness, with linear p_best schedule.
-        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
-        p_best = self._current_p_best()
-        p_count = max(int(np.ceil(p_best * len(sorted_live))), 1)
-        pbest_pool = sorted_live[:p_count]
-
-        # §2.2: widen the pool with the best foreign archive results.  An
-        # empty ``foreign`` (no ``shared_pbest``, no ``Archive`` analyzer, or
-        # nothing foreign in it yet) falls through to exactly today's draw —
-        # no extra RNG call is spent finding that out.
         foreign: List[Result] = []
         if self.shared_pbest:
             archive = self._archive_analyzer()
             if archive is not None:
-                foreign = archive.top_k(p_count, exclude_who=self.name)
+                foreign = archive.top_k(self._pbest_count(len(sorted_live)), exclude_who=self.name)
+        if not foreign:
+            return super()._select_pbest(sorted_live, target_idx)
 
-        if foreign:
-            union: List[Result] = [self._population[i] for i in pbest_pool] + list(foreign)  # type: ignore[misc]
-            pbest_slot = union[int(self._rng.integers(0, len(union)))]
-        else:
-            pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
-            pbest_slot = self._population[pbest_idx]
+        pbest_pool = sorted_live[: self._pbest_count(len(sorted_live))]
+        union: List[Result] = [self._population[i] for i in pbest_pool] + list(foreign)  # type: ignore[misc]
+        j = int(self._rng.integers(0, len(union)))
+        pbest_slot = union[j]
         if not isinstance(pbest_slot, Result):
-            return
-        x_pbest = np.asarray(pbest_slot.x, dtype=float)
+            return None
+        return np.asarray(pbest_slot.x, dtype=float), (pbest_pool[j] if j < len(pbest_pool) else None)
 
-        # r1 from live population, distinct from target.
-        r1 = self._select_r1(live, target_idx)
-        if r1 is None:
-            return
-        r1_slot = self._population[r1]
-        if not isinstance(r1_slot, Result):
-            return
-        x_r1 = np.asarray(r1_slot.x, dtype=float)
-
-        # r2 from (live ∪ archive) \ {target, r1}.
-        union: list[np.ndarray] = []
-        for i in live:
-            if i == target_idx or i == r1:
-                continue
-            slot_i = self._population[i]
-            if isinstance(slot_i, Result):
-                union.append(np.asarray(slot_i.x, dtype=float))
-        union.extend(self._archive)
-        if not union:
-            return
-        x_r2 = union[int(self._rng.integers(0, len(union)))]
-
-        # Mutation: current-to-pbest-w/1 — weighted pbest term, unweighted differential.
-        v = x_target + F_w * (x_pbest - x_target) + F * (x_r1 - x_r2)
-        v = self._reflect_bounds(v, x_target)
-
-        # Binomial crossover with at least one component swapped.
-        dim = self.problem.dim
-        cross = self._rng.random(dim) < CR
-        j_rand = int(self._rng.integers(0, dim))
-        cross[j_rand] = True
-        u = np.where(cross, v, x_target)
-
-        self._emit_trial(u, target_idx, F, CR)
-
-    def _update_memory(self) -> None:
-        """Apply the Lehmer-mean memory update, skipping the anchor bin.
-
-        Identical to :meth:`LSHADE._update_memory` except the writable
-        index range is ``[0, H − 2]`` (the anchor bin ``H − 1`` is
-        frozen).  The pointer wraps modulo ``H − 1``.
-        """
-        if not self._success_F:
-            return
-        if self.H < 2:  # defensive — constructor enforces H >= 2
-            return
-
-        F_arr = np.asarray(self._success_F, dtype=float)
-        CR_arr = np.asarray(self._success_CR, dtype=float)
-        delta_arr = np.asarray(self._success_delta, dtype=float)
-        total = float(delta_arr.sum())
-        if total > 0.0:
-            w = delta_arr / total
-        else:
-            w = np.full_like(delta_arr, 1.0 / len(delta_arr))
-
-        # Writable pointer must stay strictly below the anchor index.
-        write_idx = self._mem_ptr
-        if write_idx >= self.H - 1:
-            write_idx = 0  # defensive — should be impossible by construction
-
-        # F: weighted Lehmer mean.
-        F_num = float(np.sum(w * F_arr * F_arr))
-        F_den = float(np.sum(w * F_arr))
-        if F_den > 0.0:
-            self._M_F[write_idx] = float(np.clip(F_num / F_den, 0.0, 1.0))
-
-        # CR: terminal sentinel rule + weighted Lehmer mean.
-        cr_max = float(CR_arr.max())
-        if cr_max <= 0.0 or self._M_CR[write_idx] < 0.0:
-            self._M_CR[write_idx] = _CR_TERMINAL
-        else:
-            CR_num = float(np.sum(w * CR_arr * CR_arr))
-            CR_den = float(np.sum(w * CR_arr))
-            if CR_den > 0.0:
-                self._M_CR[write_idx] = float(np.clip(CR_num / CR_den, 0.0, 1.0))
-
-        # Advance pointer over writable range only.
-        self._mem_ptr = (write_idx + 1) % (self.H - 1)
-
-    # ------------------------------------------------------------------
-    # Heuristic interface
-    # ------------------------------------------------------------------
-
-    def on_start(self) -> None:
-        """Allocate state, plant the anchor bin, and emit initial trials."""
-        super().on_start()
-        # ``LSHADE.on_start`` resets memory to ``0.5`` — re-stamp the jSO
-        # initial values *and* the frozen anchor bin afterwards.
-        self._M_F[:] = _INIT_M_F
-        self._M_CR[:] = _INIT_M_CR
-        self._M_F[-1] = _ANCHOR_M_F
-        self._M_CR[-1] = _ANCHOR_M_CR
-
-    def on_restart(self, center, reason: str = "") -> None:
-        """Drop in-flight state and reseed the population around ``center``.
-
-        Mirrors :meth:`LSHADE.on_restart` but re-stamps the jSO initial
-        memory values and the frozen anchor bin so the warm-restart
-        memory matches construction-time.
-        """
-        super().on_restart(center, reason)
-        # ``LSHADE.on_restart`` resets memory to ``0.5`` — re-stamp jSO.
-        self._M_F[:] = _INIT_M_F
-        self._M_CR[:] = _INIT_M_CR
-        self._M_F[-1] = _ANCHOR_M_F
-        self._M_CR[-1] = _ANCHOR_M_CR
+    def _next_mem_ptr(self, k: int) -> int:
+        """Advance the pointer over the writable bins ``[0, H − 2]`` only."""
+        return (k + 1) % (self.H - 1)

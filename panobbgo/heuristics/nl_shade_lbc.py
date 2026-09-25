@@ -98,8 +98,8 @@ passing both raises :class:`ValueError`.  Mirrors
 Asynchronous execution
 ----------------------
 
-Identical to NL-SHADE-RSP / jSO / L-SHADE.  The only method that
-changes is :meth:`_update_memory` (the Lehmer-mean computation).
+Identical to NL-SHADE-RSP / jSO / L-SHADE.  The only hooks that
+change are :meth:`_mean_F` / :meth:`_mean_CR` (the Lehmer-mean computation).
 Everything else — NLPSR, RSP r1 selection, the randomised adaptive
 archive, the jSO frozen anchor bin and pointer-skip rule, warm
 restart — is inherited unchanged.
@@ -160,7 +160,6 @@ from panobbgo.heuristics.jso import (
     _DEFAULT_P_BEST_MAX,
     _DEFAULT_P_BEST_MIN,
 )
-from panobbgo.heuristics.lshade import _CR_TERMINAL
 from panobbgo.heuristics.nl_shade_rsp import NLSHADE_RSP, _DEFAULT_K_RANK
 
 # Defaults from Stanovov, Akhmedova & Semenkin (2022) — also published
@@ -418,61 +417,20 @@ class NLSHADE_LBC(NLSHADE_RSP):
     # Overrides
     # ------------------------------------------------------------------
 
-    def _update_memory(self) -> None:
-        """Apply the LBC generalized Lehmer mean for one generation.
+    def _mean_F(self, F_arr: np.ndarray, w: np.ndarray) -> Optional[float]:
+        """LBC Lehmer mean of the successful ``F``: ``Σ w·F^p / Σ w·F^(p − m)``.
 
-        Identical to :meth:`JSO._update_memory` except the fixed
-        ``s^2 / s^1`` exponents are replaced by the LBC schedule
-        ``s^p(r) / s^(p(r) − m_lbc)``.  The jSO anchor-bin skip and
-        pointer-modulo logic (write range ``[0, H − 2]``, advance
-        ``% (H − 1)``) is preserved by writing through ``write_idx``
-        rather than ``self._mem_ptr`` directly.
+        ``p = p_F(r)`` follows the linear bias change; ``F > 0`` by the
+        Cauchy redraw, so no zero handling is needed.
         """
-        if not self._success_F:
-            return
-        if self.H < 2:  # defensive — constructor enforces H >= 2
-            return
-
-        F_arr = np.asarray(self._success_F, dtype=float)
-        CR_arr = np.asarray(self._success_CR, dtype=float)
-        delta_arr = np.asarray(self._success_delta, dtype=float)
-        total = float(delta_arr.sum())
-        if total > 0.0:
-            w = delta_arr / total
-        else:
-            w = np.full_like(delta_arr, 1.0 / len(delta_arr))
-
-        # jSO-style anchor-bin skip: only bins [0, H-2] are writable.
-        write_idx = self._mem_ptr
-        if write_idx >= self.H - 1:
-            write_idx = 0  # defensive — should be impossible by construction
-
-        # F memory: LBC Lehmer mean.  F > 0 is guaranteed by the Cauchy
-        # redraw logic, so no zero-handling is required.
         p_F = self._lbc_exponent(self.p_F_init, self.p_F_final)
-        F_num = float(np.sum(w * F_arr**p_F))
-        F_den = float(np.sum(w * F_arr ** (p_F - self.m_lbc)))
-        if F_den > 0.0:
-            self._M_F[write_idx] = float(np.clip(F_num / F_den, 0.0, 1.0))
+        return self._weighted_lehmer(F_arr, w, p_F, self.m_lbc)
 
-        # CR memory: terminal-sentinel rule preserved; LBC Lehmer mean on
-        # the strictly-positive subset (so ``CR^{negative}`` is never
-        # evaluated at zero).
-        cr_max = float(CR_arr.max())
-        if cr_max <= 0.0 or self._M_CR[write_idx] < 0.0:
-            self._M_CR[write_idx] = _CR_TERMINAL
-        else:
-            positive = CR_arr > 0.0
-            w_pos = w[positive]
-            CR_pos = CR_arr[positive]
-            w_sum = float(w_pos.sum())
-            if w_sum > 0.0:
-                w_pos = w_pos / w_sum
-                p_CR = self._lbc_exponent(self.p_CR_init, self.p_CR_final)
-                CR_num = float(np.sum(w_pos * CR_pos**p_CR))
-                CR_den = float(np.sum(w_pos * CR_pos ** (p_CR - self.m_lbc)))
-                if CR_den > 0.0:
-                    self._M_CR[write_idx] = float(np.clip(CR_num / CR_den, 0.0, 1.0))
+    def _mean_CR(self, CR_arr: np.ndarray, w: np.ndarray) -> Optional[float]:
+        """LBC Lehmer mean of the successful ``CR`` on the strictly positive subset.
 
-        # Advance pointer over writable range only.
-        self._mem_ptr = (write_idx + 1) % (self.H - 1)
+        ``p_CR − m_lbc`` is negative for the default schedule, so
+        ``CR^(p − m)`` is never evaluated at zero.
+        """
+        p_CR = self._lbc_exponent(self.p_CR_init, self.p_CR_final)
+        return self._weighted_lehmer(CR_arr, w, p_CR, self.m_lbc, positive_only=True)

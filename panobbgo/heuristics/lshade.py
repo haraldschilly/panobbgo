@@ -504,9 +504,11 @@ class LSHADE(Heuristic):
         self._rank_cache: Dict[int, tuple] = {}
         self._rank_keep: List[Result] = []
 
-        # Success-history memory.  Initial value 0.5 per the SHADE paper.
+        # Success-history memory, planted by :meth:`_init_memory` (0.5 / 0.5
+        # per the SHADE paper; subclasses plant their own initial values).
         self._M_F: np.ndarray = np.full(H, 0.5, dtype=float)
         self._M_CR: np.ndarray = np.full(H, 0.5, dtype=float)
+        self._init_memory()
         self._mem_ptr: int = 0
 
         # Population bookkeeping.  ``_population[i]`` is one of:
@@ -639,8 +641,13 @@ class LSHADE(Heuristic):
         """
         return
 
-    def _emit_trial(self, x: np.ndarray, slot_idx: int, F: float, CR: float) -> bool:
-        """Project, queue, and book-keep one candidate point."""
+    def _emit_trial(self, x: np.ndarray, slot_idx: int, F: float, CR: float, from_archive: bool = False) -> bool:
+        """Project, queue, and book-keep one candidate point.
+
+        ``from_archive`` records whether the difference vector's ``r2`` came
+        from the external archive (NL-SHADE-RSP adapts its archive-usage
+        probability from that).
+        """
         if self._stopped:
             return False
         try:
@@ -654,7 +661,9 @@ class LSHADE(Heuristic):
         who = self.new_who(self._rng)
         req_id = who.split(":", 1)[1]
         self._put(Point(x_proj, who))
-        self._pending[req_id] = self._make_trial_meta(slot_idx, F, CR)
+        meta = self._make_trial_meta(slot_idx, F, CR)
+        meta.from_archive = from_archive
+        self._pending[req_id] = meta
         return True
 
     def _live_indices(self) -> List[int]:
@@ -696,10 +705,9 @@ class LSHADE(Heuristic):
     def _archive_cap(self) -> int:
         """Maximum number of replaced parents the external archive retains.
 
-        Default is the fixed ``archive_factor · NP_current`` cap from
-        Tanabe-Fukunaga (2014).  Subclasses (e.g.
-        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override
-        this to randomise the cap per generation.
+        The fixed ``archive_factor · NP_current`` cap from Tanabe-Fukunaga
+        (2014).  Subclasses (e.g.
+        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override it.
         """
         return max(int(round(self.archive_factor * self._NP_current)), 0)
 
@@ -710,36 +718,149 @@ class LSHADE(Heuristic):
             j = int(self._rng.integers(0, len(self._archive)))
             self._archive.pop(j)
 
-    def _select_r1(self, live: List[int], target_idx: int) -> Optional[int]:
+    def _archive_insert(self, parent: Result) -> None:
+        """Push a parent that lost to its trial onto the external archive.
+
+        L-SHADE: append, then trim back to the cap by dropping random
+        entries.  NL-SHADE-RSP / -LBC override the replacement rule.
+        """
+        self._archive.append(np.asarray(parent.x, dtype=float))
+        self._trim_archive()
+
+    # -- trial generation: one template, small hooks ---------------------
+
+    #: Mutation attempts per trial.  ``1`` everywhere except NL-SHADE-LBC,
+    #: which regenerates an out-of-bounds trial (new ``F``, ``pbest``, ``r1``,
+    #: ``r2``) up to 100 times before repairing it.
+    _TRIAL_ATTEMPTS: int = 1
+
+    def _pbest_count(self, n: int) -> int:
+        """Size of the ``pbest`` pool among ``n`` ranked live individuals.
+
+        L-SHADE: ``ceil(p · n)``, at least one.
+        """
+        return max(int(np.ceil(self._current_p_best() * n)), 1)
+
+    def _select_pbest(self, sorted_live: List[int], target_idx: int) -> Optional[Tuple[np.ndarray, Optional[int]]]:
+        """Pick ``x_pbest`` uniformly from the top :meth:`_pbest_count` slots.
+
+        Returns ``(x_pbest, slot index)`` — the index is ``None`` when the
+        point does not come from the live population (jSO's shared pbest) —
+        or ``None`` to abort the trial.
+        """
+        pbest_pool = sorted_live[: self._pbest_count(len(sorted_live))]
+        pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
+        pbest_slot = self._population[pbest_idx]
+        if not isinstance(pbest_slot, Result):
+            return None
+        return np.asarray(pbest_slot.x, dtype=float), pbest_idx
+
+    def _select_r1(self, live: List[int], target_idx: int, pbest_idx: Optional[int] = None) -> Optional[int]:
         """Pick the index ``r1`` for the differential ``F · (x_r1 − x_r2)`` term.
 
         Default: uniform over live slots excluding the target — the
-        Tanabe-Fukunaga / jSO behaviour.  Subclasses (e.g.
-        :class:`~panobbgo.heuristics.nl_shade_rsp.NLSHADE_RSP`) override
-        this to bias the choice toward higher-ranked individuals
-        (rank-based selective pressure).  Returns ``None`` when no
-        candidate is available so the caller can abort the trial.
+        Tanabe-Fukunaga / jSO behaviour (``pbest_idx`` is not excluded).
+        Returns ``None`` when no candidate is available so the caller can
+        abort the trial.
         """
         r1_pool = [i for i in live if i != target_idx]
         if not r1_pool:
             return None
         return int(self._rng.choice(np.asarray(r1_pool)))
 
+    def _select_r2(
+        self, live: List[int], sorted_live: List[int], target_idx: int, r1: int, pbest_idx: Optional[int]
+    ) -> Optional[Tuple[np.ndarray, bool]]:
+        """Pick ``x_r2`` uniformly from ``(live ∪ archive)`` minus ``{target, r1}``.
+
+        Returns ``(x_r2, from_archive)`` or ``None`` when the union is empty.
+        """
+        union: List[np.ndarray] = []
+        for i in live:
+            if i == target_idx or i == r1:
+                continue
+            slot_i = self._population[i]
+            if isinstance(slot_i, Result):
+                union.append(np.asarray(slot_i.x, dtype=float))
+        n_pop = len(union)
+        union.extend(self._archive)
+        if not union:
+            return None
+        j = int(self._rng.integers(0, len(union)))
+        return union[j], j >= n_pop
+
+    def _mutation_vectors(
+        self, target_idx: int, live: List[int], sorted_live: List[int]
+    ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, bool]]:
+        """Draw ``(x_pbest, x_r1, x_r2, r2_from_archive)`` for one trial."""
+        picked = self._select_pbest(sorted_live, target_idx)
+        if picked is None:
+            return None
+        x_pbest, pbest_idx = picked
+        r1 = self._select_r1(live, target_idx, pbest_idx)
+        if r1 is None:
+            return None
+        r1_slot = self._population[r1]
+        if not isinstance(r1_slot, Result):
+            return None
+        r2 = self._select_r2(live, sorted_live, target_idx, r1, pbest_idx)
+        if r2 is None:
+            return None
+        x_r2, from_archive = r2
+        return x_pbest, np.asarray(r1_slot.x, dtype=float), x_r2, from_archive
+
+    def _current_F_weight(self) -> float:
+        """Factor ``c`` of the pbest term, ``F_w = c · F``.  ``1`` except in jSO."""
+        return 1.0
+
+    def _trial_F_CR(self, target_idx: int, sorted_live: List[int]) -> Tuple[float, float]:
+        """``(F, CR)`` for the trial of ``target_idx``.  Default: :meth:`_sample_F_CR`."""
+        return self._sample_F_CR()
+
+    def _resample_F(self) -> float:
+        """A fresh ``F`` for a repeated attempt (only with ``_TRIAL_ATTEMPTS > 1``)."""
+        return self._sample_F_CR()[0]
+
+    def _crossover(self, v: np.ndarray, x_target: np.ndarray, CR: float) -> np.ndarray:
+        """Binomial crossover with rate ``CR``, at least one component from ``v``."""
+        dim = self.problem.dim
+        cross = self._rng.random(dim) < CR
+        j_rand = int(self._rng.integers(0, dim))
+        cross[j_rand] = True
+        return np.where(cross, v, x_target)
+
+    def _in_box(self, u: np.ndarray) -> bool:
+        """Whether ``u`` lies inside the problem box."""
+        box = self.problem.box
+        return bool(np.all(u >= box[:, 0]) and np.all(u <= box[:, 1]))
+
+    def _repair_bounds(self, u: np.ndarray, x_target: np.ndarray) -> np.ndarray:
+        """Bounds repair of the trial.  Default: midpoint target (:meth:`_reflect_bounds`)."""
+        return self._reflect_bounds(u, x_target)
+
+    def _apply_CR_floor(self, CR: float) -> float:
+        """Progress-dependent lower bound on a sampled ``CR``.  Identity except in jSO."""
+        return CR
+
+    def _memory_bin(self, r: int) -> Tuple[float, float]:
+        """``(M_CR[r], M_F[r])`` as the sampler sees them."""
+        return float(self._M_CR[r]), float(self._M_F[r])
+
     def _sample_F_CR(self) -> tuple[float, float]:
         """Draw one ``(F, CR)`` pair from a random history bin."""
         r = int(self._rng.integers(0, self.H))
+        m_cr, m_f = self._memory_bin(r)
         # CR sampling: Normal(M_CR[r], 0.1), clamped to [0, 1].  The
         # M_CR = -1 sentinel collapses to deterministic CR = 0.
-        m_cr = float(self._M_CR[r])
         if m_cr < 0:
             CR = 0.0
         else:
             CR = float(self._rng.normal(m_cr, _PARAM_SCALE))
             CR = float(np.clip(CR, 0.0, 1.0))
+        CR = self._apply_CR_floor(CR)
 
         # F sampling: Cauchy(M_F[r], 0.1), regenerate while F <= 0,
         # clip at 1.  Bounded redraws to prevent worst-case loops.
-        m_f = float(self._M_F[r])
         F = 0.5
         for _ in range(_F_MAX_REDRAWS):
             f = m_f + _PARAM_SCALE * float(self._rng.standard_cauchy())
@@ -762,7 +883,20 @@ class LSHADE(Heuristic):
         return out
 
     def _generate_trial(self, target_idx: int) -> None:
-        """Build and emit one ``current-to-pbest/1`` trial vector."""
+        """Build and emit one ``current-to-pbest/1`` trial vector.
+
+        The template every variant shares::
+
+            v = x + F_w · (x_pbest − x) + F · (x_r1 − x_r2),   F_w = c · F
+            u = crossover(v, x, CR);  u = repair(u, x)
+
+        with the variant-specific parts behind hooks: :meth:`_trial_F_CR`,
+        :meth:`_select_pbest` / :meth:`_select_r1` / :meth:`_select_r2`,
+        :meth:`_current_F_weight`, :meth:`_crossover`, :meth:`_repair_bounds`
+        and :data:`_TRIAL_ATTEMPTS`.  The repair runs after the crossover; for
+        the midpoint rule that is the same point as repairing ``v`` first,
+        since the components taken from ``x`` are inside the box already.
+        """
         live = self._live_indices()
         if len(live) < 4 or target_idx not in live:
             return
@@ -770,62 +904,98 @@ class LSHADE(Heuristic):
         if not isinstance(slot, Result):
             return
 
-        F, CR = self._sample_F_CR()
+        # Best first, by the constraint handler's ranking key.
+        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
+        F, CR = self._trial_F_CR(target_idx, sorted_live)
         x_target = np.asarray(slot.x, dtype=float)
 
-        # pbest: top p% of live population by fitness (ascending — best first).
-        # ``_current_p_best`` honours the optional iLSHADE / jSO linearly-
-        # decreasing schedule when ``p_best_end`` is set; otherwise it is
-        # the constant ``self.p_best``.
-        sorted_live = sorted(live, key=lambda i: self._rank_of(self._population[i]))  # type: ignore[arg-type]
-        p_eff = self._current_p_best()
-        p_count = max(int(np.ceil(p_eff * len(sorted_live))), 1)
-        pbest_pool = sorted_live[:p_count]
-        pbest_idx = int(self._rng.choice(np.asarray(pbest_pool)))
-        pbest_slot = self._population[pbest_idx]
-        if not isinstance(pbest_slot, Result):
-            return
-        x_pbest = np.asarray(pbest_slot.x, dtype=float)
+        attempts = max(int(self._TRIAL_ATTEMPTS), 1)
+        u = x_target
+        from_archive = False
+        for attempt in range(attempts):
+            if attempt > 0:
+                F = self._resample_F()
+            vecs = self._mutation_vectors(target_idx, live, sorted_live)
+            if vecs is None:
+                return
+            x_pbest, x_r1, x_r2, from_archive = vecs
+            F_w = self._current_F_weight() * F
+            v = x_target + F_w * (x_pbest - x_target) + F * (x_r1 - x_r2)
+            u = self._crossover(v, x_target, CR)
+            if attempts == 1 or self._in_box(u):
+                break
+        u = self._repair_bounds(u, x_target)
+        self._emit_trial(u, target_idx, F, CR, from_archive=from_archive)
 
-        # r1 from live population, distinct from target.
-        r1 = self._select_r1(live, target_idx)
-        if r1 is None:
-            return
-        r1_slot = self._population[r1]
-        if not isinstance(r1_slot, Result):
-            return
-        x_r1 = np.asarray(r1_slot.x, dtype=float)
+    # -- success-history memory: one update, small hooks -----------------
 
-        # r2 from (live ∪ archive) \ {target, r1}.
-        union: List[np.ndarray] = []
-        for i in live:
-            if i == target_idx or i == r1:
-                continue
-            slot_i = self._population[i]
-            if isinstance(slot_i, Result):
-                union.append(np.asarray(slot_i.x, dtype=float))
-        union.extend(self._archive)
-        if not union:
-            return
-        x_r2 = union[int(self._rng.integers(0, len(union)))]
+    @staticmethod
+    def _weighted_lehmer(
+        values: np.ndarray,
+        w: np.ndarray,
+        p: Optional[float] = None,
+        m: Optional[float] = None,
+        positive_only: bool = False,
+    ) -> Optional[float]:
+        """Generalised weighted Lehmer mean ``Σ w·s^p / Σ w·s^(p−m)``, clipped to ``[0, 1]``.
 
-        # Mutation: current-to-pbest/1.
-        v = x_target + F * (x_pbest - x_target) + F * (x_r1 - x_r2)
-        v = self._reflect_bounds(v, x_target)
+        ``p = m = None`` is the SHADE contraharmonic mean (``p = 2, m = 1``),
+        evaluated as ``Σ w·s·s / Σ w·s``.  ``positive_only``
+        restricts the sums to ``s > 0`` (weights renormalised) — needed when
+        ``p − m < 0``, where ``0^(p−m)`` is infinite.  Returns ``None`` when
+        the denominator is not positive (the caller then leaves the bin).
+        """
+        if positive_only:
+            keep = values > 0.0
+            w = w[keep]
+            values = values[keep]
+            w_sum = float(w.sum())
+            if w_sum <= 0.0:
+                return None
+            w = w / w_sum
+        if p is None or m is None:
+            num = float(np.sum(w * values * values))
+            den = float(np.sum(w * values))
+        else:
+            num = float(np.sum(w * values**p))
+            den = float(np.sum(w * values ** (p - m)))
+        if den > 0.0:
+            return float(np.clip(num / den, 0.0, 1.0))
+        return None
 
-        # Binomial crossover with at least one component swapped.
-        dim = self.problem.dim
-        cross = self._rng.random(dim) < CR
-        j_rand = int(self._rng.integers(0, dim))
-        cross[j_rand] = True
-        u = np.where(cross, v, x_target)
+    def _mean_F(self, F_arr: np.ndarray, w: np.ndarray) -> Optional[float]:
+        """New ``M_F`` entry from this generation's successful ``F`` values."""
+        return self._weighted_lehmer(F_arr, w)
 
-        self._emit_trial(u, target_idx, F, CR)
+    def _mean_CR(self, CR_arr: np.ndarray, w: np.ndarray) -> Optional[float]:
+        """New ``M_CR`` entry from this generation's successful ``CR`` values."""
+        return self._weighted_lehmer(CR_arr, w)
+
+    def _cr_terminal(self, CR_arr: np.ndarray, k: int) -> bool:
+        """Tanabe-Fukunaga terminal rule: every successful ``CR`` is 0, or bin ``k`` already is terminal."""
+        return float(CR_arr.max()) <= 0.0 or self._M_CR[k] < 0.0
+
+    def _store_memory(self, k: int, new_F: Optional[float], new_CR: Optional[float]) -> None:
+        """Write the new means into bin ``k`` (``None`` leaves that entry)."""
+        if new_F is not None:
+            self._M_F[k] = new_F
+        if new_CR is not None:
+            self._M_CR[k] = new_CR
+
+    def _next_mem_ptr(self, k: int) -> int:
+        """Bin written by the next update."""
+        return (k + 1) % self.H
+
+    def _memory_no_success(self, k: int) -> None:
+        """A generation without a single success.  L-SHADE leaves the memory alone."""
+        return
 
     def _update_memory(self) -> None:
         """Apply the weighted Lehmer-mean memory update for one generation."""
+        k = self._mem_ptr
         if not self._success_F:
-            return  # no successes — leave memory untouched
+            self._memory_no_success(k)
+            return
         F_arr = np.asarray(self._success_F, dtype=float)
         CR_arr = np.asarray(self._success_CR, dtype=float)
         delta_arr = np.asarray(self._success_delta, dtype=float)
@@ -835,24 +1005,10 @@ class LSHADE(Heuristic):
         else:
             w = np.full_like(delta_arr, 1.0 / len(delta_arr))
 
-        # F: weighted Lehmer mean; F is always > 0 by construction.
-        F_num = float(np.sum(w * F_arr * F_arr))
-        F_den = float(np.sum(w * F_arr))
-        if F_den > 0.0:
-            self._M_F[self._mem_ptr] = float(np.clip(F_num / F_den, 0.0, 1.0))
-
-        # CR: if all successes had CR = 0 OR the bin is already terminal,
-        # plant the terminal sentinel (-1).  Otherwise weighted Lehmer mean.
-        cr_max = float(CR_arr.max())
-        if cr_max <= 0.0 or self._M_CR[self._mem_ptr] < 0.0:
-            self._M_CR[self._mem_ptr] = _CR_TERMINAL
-        else:
-            CR_num = float(np.sum(w * CR_arr * CR_arr))
-            CR_den = float(np.sum(w * CR_arr))
-            if CR_den > 0.0:
-                self._M_CR[self._mem_ptr] = float(np.clip(CR_num / CR_den, 0.0, 1.0))
-
-        self._mem_ptr = (self._mem_ptr + 1) % self.H
+        new_F = self._mean_F(F_arr, w)
+        new_CR = _CR_TERMINAL if self._cr_terminal(CR_arr, k) else self._mean_CR(CR_arr, w)
+        self._store_memory(k, new_F, new_CR)
+        self._mem_ptr = self._next_mem_ptr(k)
 
     def _lpsr_target(self, progress: float) -> int:
         """Target population size at ``progress`` (Tanabe-Fukunaga 2014, linear).
@@ -1076,8 +1232,7 @@ class LSHADE(Heuristic):
                     # Magnitude from the same ordering as the comparison
                     # above (``> 0`` exactly when ``is_better``).
                     delta = handler.calculate_improvement(target, r)
-                    self._archive.append(np.asarray(target.x, dtype=float))
-                    self._trim_archive()
+                    self._archive_insert(target)
                     self._population[slot_idx] = r
                     if not np.isnan(meta.F) and not np.isnan(meta.CR):
                         self._success_F.append(meta.F)
@@ -1151,9 +1306,11 @@ class LSHADE(Heuristic):
 class _TrialMeta:
     """Per-trial bookkeeping used to identify which slot/F/CR a result came from."""
 
-    __slots__ = ("slot_idx", "F", "CR")
+    __slots__ = ("slot_idx", "F", "CR", "from_archive")
 
     def __init__(self, slot_idx: int, F: float, CR: float) -> None:
         self.slot_idx = slot_idx
         self.F = F
         self.CR = CR
+        #: whether ``r2`` came from the external archive (set by ``_emit_trial``)
+        self.from_archive = False

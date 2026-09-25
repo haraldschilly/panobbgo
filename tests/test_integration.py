@@ -132,7 +132,7 @@ def test_styblinski_tang_function():
     global_min_point = Point([global_min_approx, global_min_approx], "global_min")
     result = problem(global_min_point)
     print(f"Styblinski-Tang at approx global minimum {global_min_point.x} -> f(x) = {result.fx}")
-    expected_min = -39.16617 * 2  # Approximately -78.33234 for 2D
+    expected_min = -39.1661657 * 2  # -78.3323314 for 2D
     assert abs(result.fx - expected_min) < 0.1, f"Global minimum should be ~{expected_min}, got {result.fx}"
 
     # Test some other point

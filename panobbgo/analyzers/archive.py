@@ -94,7 +94,7 @@ class Archive(Analyzer):
         #: entry, which is the one an incoming better result replaces.
         #: ``-seq`` breaks ties deterministically in favour of the older result
         #: and keeps :class:`~panobbgo.lib.Result` out of the comparison
-        #: (``Result.__eq__`` only looks at ``fx``).
+        #: (Results order by ``fx`` only and compare equal by identity).
         self._heap: List[Tuple[Tuple[float, ...], int, Result]] = []
         self._seq: int = 0
         self._lock = threading.RLock()

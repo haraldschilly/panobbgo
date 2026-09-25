@@ -208,7 +208,7 @@ def _make_standard_problems() -> List[ProblemSpec]:
             name="StyblinskiTang_2D",
             problem_class=StyblinskiTang,
             dims=2,
-            known_optima=[{"x": [-2.903534, -2.903534], "fx": -78.33234}],
+            known_optima=[{"x": [-2.903534, -2.903534], "fx": -78.33233140754284}],
             tolerance=0.5,
             max_evaluations=200,
         ),
@@ -237,7 +237,8 @@ def _make_full_problems() -> List[ProblemSpec]:
             name="Schwefel_2D",
             problem_class=Schwefel,
             dims=2,
-            known_optima=[{"x": [420.9687, 420.9687], "fx": 0.0}],
+            # Not 0: the rounded constant 418.9829 leaves ~1.27e-5 per dimension.
+            known_optima=[{"x": [420.968746, 420.968746], "fx": 2.5455132458773733e-05}],
             tolerance=0.5,
             max_evaluations=500,
         ),

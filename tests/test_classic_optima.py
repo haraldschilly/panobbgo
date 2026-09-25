@@ -62,7 +62,7 @@ def test_f_at_x_opt_is_f_opt_and_de_cannot_beat_it(cls, kwargs):
     from scipy.optimize import differential_evolution
 
     prob = cls(**kwargs)
-    x_opt = np.asarray(prob.x_opt, dtype=np.float64)
+    x_opt = np.asarray(prob.x_opt if prob.x_opt is not None else prob.x_opt_example, dtype=np.float64)
     f_opt = float(prob.f_opt)
     box = np.asarray(prob.box.box)
     assert x_opt.shape == (prob.dim,)

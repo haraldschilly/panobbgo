@@ -52,8 +52,8 @@ class BenchmarkCase:
     problem_name: str
     dimension: int
     shift_vector: np.ndarray  # Shift the global optimum
-    global_optimum: Optional[np.ndarray]
-    global_minimum: float
+    global_optimum: Optional[np.ndarray]  # None: unknown, or not a single point (Box's line, Step's plateau)
+    global_minimum: float  # NaN: unknown (random instances, constrained problems)
     search_bounds: Tuple[float, float]
     difficulty: str
     separable: bool
@@ -61,22 +61,7 @@ class BenchmarkCase:
 
     def create_problem(self):
         """Create the actual problem instance."""
-        problem_class = PROBLEM_CLASSES[self.problem_name]
-        try:
-            problem = problem_class(dims=self.dimension)
-        except TypeError:
-            # Some problems don't accept dims in __init__ if they are fixed dim
-            # or if they auto-detect from other args.
-            # Check if it's one of those fixed dim problems
-            try:
-                problem = problem_class()
-            except Exception:
-                # Try with dim instead of dims (though most use dims or just **kwargs)
-                try:
-                    problem = problem_class(dim=self.dimension)
-                except:
-                    # Fallback for fixed dim problems that might ignore dims or fail
-                    problem = problem_class()
+        problem = _construct(PROBLEM_CLASSES[self.problem_name], self.dimension)
 
         # Check if dimension matches requested
         if hasattr(problem, "dim") and problem.dim != self.dimension:
@@ -90,6 +75,27 @@ class BenchmarkCase:
             problem = ShiftedProblem(problem, self.shift_vector)
 
         return problem
+
+
+def _construct(problem_class, dimension: int):
+    """Instantiate ``problem_class`` in ``dimension`` (``dims=``, else ``dim=``, else fixed-dimension)."""
+    for kwargs in ({"dims": dimension}, {"dim": dimension}, {}):
+        try:
+            return problem_class(**kwargs)
+        except TypeError:
+            continue
+    raise TypeError(f"cannot construct {problem_class.__name__}")
+
+
+def _known_optimum(problem_name: str, dimension: int) -> Tuple[float, Optional[np.ndarray]]:
+    """``(global minimum, minimiser)`` from the class's ``f_opt`` / ``x_opt``; NaN / None when unknown."""
+    prob = _construct(PROBLEM_CLASSES[problem_name], dimension)
+    f_opt = getattr(prob, "f_opt", None)
+    x_opt = getattr(prob, "x_opt", None)
+    return (
+        float(f_opt) if f_opt is not None else float("nan"),
+        np.asarray(x_opt, dtype=float) if x_opt is not None else None,
+    )
 
 
 class ShiftedProblem:
@@ -206,50 +212,9 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
 
     for problem_name in all_2d:
         for shift in shifts_2d:
-            # Determine global optimum and minimum
-            global_min = 0.0  # Default for many
-            global_opt = None
-
-            if problem_name == "Branin":
-                global_min = 0.397887
-                global_opt = np.array([-np.pi, 12.275]) + shift
-            elif problem_name == "GoldsteinPrice":
-                global_min = 3.0
-                global_opt = np.array([0.0, -1.0]) + shift
-            elif problem_name == "Himmelblau":
-                global_min = 0.0
-                global_opt = np.array([3.0, 2.0]) + shift  # One of the optima
-            elif problem_name == "StyblinskiTang":
-                # -39.16617 * 2 = -78.33234
-                global_min = -39.16617 * 2
-                global_opt = np.array([-2.903534, -2.903534]) + shift
-            elif problem_name == "Schwefel":
-                global_min = 0.0
-                global_opt = np.array([420.9687, 420.9687]) + shift
-            elif problem_name == "RosenbrockModified":
-                # Not f(-1, -1) = 0 (that point is 78): see RosenbrockModified.x_opt / f_opt.
-                global_min = RosenbrockModified.f_opt
-                global_opt = np.array(RosenbrockModified.x_opt) + shift
-            elif (
-                problem_name == "Ackley"
-                or problem_name == "Rastrigin"
-                or problem_name == "Griewank"
-                or problem_name == "DeJong"
-                or problem_name == "Quadruple"
-                or problem_name == "Step"
-                or problem_name == "SumDifferentPower"
-                or problem_name == "RotatedEllipse"
-                or problem_name == "RotatedEllipse2"
-                or problem_name == "Zakharov"
-            ):
-                global_min = 0.0
-                global_opt = shift.copy()  # At origin (0,0) + shift
-            elif problem_name == "Rosenbrock":
-                global_min = 0.0
-                global_opt = np.array([1.0, 1.0]) + shift
-
-            # If we don't know the exact location easily, we set global_opt to None to skip param distance check
-            # For many fixed ones, we might not have exact coords handy in this script yet.
+            # From the classes' declared optima (lib/classic.py x_opt / f_opt).
+            global_min, x_opt = _known_optimum(problem_name, 2)
+            global_opt = x_opt + shift if x_opt is not None else None
 
             case = BenchmarkCase(
                 problem_name=problem_name,
@@ -268,15 +233,7 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
     for problem_name in fixed_dim_problems_3d:
         dim = 3
         shift = np.zeros(dim)
-        global_min = 0.0
-        global_opt = None
-
-        # HelicalValley min is at (1, 0, 0) if x1 > 0
-        if problem_name == "HelicalValley":
-            global_opt = np.array([1.0, 0.0, 0.0])
-        elif problem_name == "Box":
-            # One of several minimisers (a line x1 = x2, x3 = 0; also (1, 10, 1)).
-            global_opt = np.array(Box.x_opt)
+        global_min, global_opt = _known_optimum(problem_name, dim)
 
         case = BenchmarkCase(
             problem_name=problem_name,
@@ -295,13 +252,7 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
     for problem_name in fixed_dim_problems_4d:
         dim = 4
         shift = np.zeros(dim)
-        global_min = 0.0
-        global_opt = None
-
-        if problem_name == "Wood":
-            global_opt = np.ones(dim)
-        elif problem_name == "Powell":
-            global_opt = np.zeros(dim)
+        global_min, global_opt = _known_optimum(problem_name, dim)
 
         case = BenchmarkCase(
             problem_name=problem_name,
@@ -329,21 +280,7 @@ def generate_benchmark_battery() -> List[BenchmarkCase]:
     ]:
         dim = 5
         shift = np.zeros(dim)
-
-        global_min = 0.0
-        global_opt = None
-
-        if problem_name == "StyblinskiTang":
-            global_min = -39.16617 * dim
-            global_opt = np.full(dim, -2.903534)
-        elif problem_name == "Schwefel":
-            global_min = 0.0
-            global_opt = np.full(dim, 420.9687)
-        elif problem_name == "Rosenbrock":
-            global_min = 0.0
-            global_opt = np.ones(dim)
-        else:
-            global_opt = np.zeros(dim)
+        global_min, global_opt = _known_optimum(problem_name, dim)
 
         case = BenchmarkCase(
             problem_name=problem_name,

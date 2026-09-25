@@ -566,7 +566,7 @@ def create_standard_problems() -> List[ProblemSpec]:
 
     # Styblinski-Tang function - minimum at approximately (-2.903534, -2.903534, ...)
     styblinski_min_x = -2.903534
-    styblinski_min_fx = -39.16617 * 2  # For 2D
+    styblinski_min_fx = -39.16616570377142 * 2  # For 2D (StyblinskiTang(dims=2).f_opt)
     problems.append(
         ProblemSpec(
             name="StyblinskiTang_2D",

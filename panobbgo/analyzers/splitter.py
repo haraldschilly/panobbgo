@@ -399,15 +399,8 @@ class Splitter(Analyzer):
                 self.best_box = new_box
             elif best_box_was_parent:
                 # If we are splitting the best box, and this child contains the best point
-                # (or an equally good one), we move ownership to the child.
-                # Result equality checks fx. We might need checking identity or value equality.
-                # If fx is same and cv is same (implied by not is_better and not reverse is_better),
-                # we can assume it's the same point or equivalent.
-
-                # Check if new_box.best is effectively "equal" to best_box.best
-                # (Since is_better returned False)
-                # We simply check if new_box.best.fx <= best_box.best.fx (and handling constraints if needed)
-                # But is_better already checked that.
+                # (or an equally good one), we move ownership to the child: the same
+                # Result (identity), or one with equal fx and cv.
                 # If the parent contained the best point, one child MUST contain it.
                 # So we just need to find WHICH child contains it.
 

@@ -23,7 +23,8 @@ This file contains the basic objects to build a problem and to do a single evalu
 Known optima
 ------------
 A problem whose global minimum is known declares it as ``x_opt`` (a point
-in the default box) and ``f_opt`` (the value there) — class attributes for
+in the default box, or ``None`` when the minimisers are not isolated — then
+``x_opt_example`` is one of them) and ``f_opt`` (the value there) — class attributes for
 fixed-dimension problems, properties where they depend on ``dim``.  A
 problem constructed with a non-default ``box`` or parameters may not keep
 them; they describe the defaults.  ``tests/test_classic_optima.py`` checks
@@ -476,7 +477,7 @@ class StyblinskiTang(Problem):
     Each dimension contributes a quartic term with multiple local optima.
     The function has a global minimum at :math:`x_i \approx -2.903534` for all dimensions.
 
-    Global minimum: :math:`f(-2.903534,\dots,-2.903534) \approx -39.16617 \cdot n`
+    Global minimum: :math:`f(-2.903534,\dots,-2.903534) \approx -39.1661657 \cdot n`
 
     References
     ----------
@@ -514,11 +515,12 @@ class Schwefel(Problem):
 
       f(\mathbf{x}) = 418.9829 \cdot n + \sum_{i=1}^{n} \left( -x_i \sin\left(\sqrt{|x_i|}\right) \right)
 
-    The function has a global minimum at :math:`x_i \approx 420.9687` for all dimensions,
-    where :math:`f(\mathbf{x}) = 0`. The many local minima and the narrow valley leading
+    The function has a global minimum at :math:`x_i \approx 420.968746` for all dimensions.
+    With the rounded constant 418.9829 its value there is :math:`\approx 1.27 \cdot 10^{-5}\,n`,
+    not exactly 0 (``f_opt``).  The many local minima and the narrow valley leading
     to the global optimum make this function particularly difficult to optimize.
 
-    Global minimum: :math:`f(420.9687,\dots,420.9687) = 0`
+    Global minimum: :math:`f(420.968746,\dots,420.968746) \approx 1.27 \cdot 10^{-5}\,n`
 
     References
     ----------
@@ -597,18 +599,15 @@ class Zakharov(Problem):
     r"""
     Zakharov function.
 
-    The Zakharov function is a multimodal test function for optimization algorithms.
-    It combines a quadratic term with polynomial terms involving weighted sums,
-    creating multiple local optima that challenge optimization algorithms.
+    The Zakharov function is a unimodal, convex test function: a quadratic
+    term plus the square and fourth power of a weighted sum, which makes it
+    ill-conditioned and non-separable but leaves a single minimum.
 
     .. math::
 
       f(\mathbf{x}) = \sum_{i=1}^{n} x_i^2 + \left(\frac{1}{2} \sum_{i=1}^{n} i x_i \right)^2 + \left(\frac{1}{2} \sum_{i=1}^{n} i x_i \right)^4
 
-    The function has a global minimum at the origin and multiple local minima
-    due to the higher-order polynomial terms.
-
-    Global minimum: :math:`f(0,\dots,0) = 0`
+    Global minimum: :math:`f(0,\dots,0) = 0` (the only stationary point).
 
     References
     ----------
@@ -1147,16 +1146,18 @@ class Step(Problem):
         F(x) = \sum_{i=1}^n \lfloor x_i + 0.5 \rfloor^2
 
     Piecewise constant (the floor was missing, which made it a smooth
-    sphere); minimum 0 on :math:`[-0.5, 0.5)^n`.
+    sphere); minimum 0 on the plateau :math:`[-0.5, 0.5)^n`, so ``x_opt`` is
+    ``None`` (no single minimiser) and ``x_opt_example`` is its centre.
     """
 
     #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
     formula_version = 2
 
     f_opt = 0.0
+    x_opt = None
 
     @property
-    def x_opt(self) -> np.ndarray:
+    def x_opt_example(self) -> np.ndarray:
         return np.zeros(self.dim)
 
     def __init__(self, dims, box=None, **kwargs):
@@ -1184,8 +1185,11 @@ class Box(Problem):
     #: Formula corrected in 2026-09 (storage fingerprints of older runs do not match).
     formula_version = 2
 
-    #: On the degenerate line of minimisers; (1, 10, 1) is outside the default box.
-    x_opt = (1.0, 1.0, 0.0)
+    #: Not a single point: the minimisers include a whole line, so no
+    #: distance-to-optimum is meaningful.  ``x_opt_example`` is one of them
+    #: inside the default box ((1, 10, 1) is outside it).
+    x_opt = None
+    x_opt_example = (1.0, 1.0, 0.0)
     f_opt = 0.0
 
     def __init__(self, m: int = 10, box: Optional[Sequence[Tuple[float, float]]] = None, **kwargs: Any):
@@ -1536,7 +1540,9 @@ class PressureVessel(Problem):
     x3: R (inner radius) [10, 200]
     x4: L (length) [10, 200]
 
-    Best known solution: f(x) approx 6059.7143
+    Optimum of this continuous version: f(x) approx 5885.3326 at
+    (0.7781686, 0.3846492, 40.3196187, 200).  The often-quoted 6059.7143 is the
+    mixed-integer variant, where the thicknesses x1, x2 are multiples of 0.0625.
     """
 
     def __init__(self, **kwargs: Any):

@@ -380,6 +380,27 @@ def test_simple_benchmark_structure():
     print(f"Simple benchmark completed: {result['evaluations']} evaluations, best f(x) = {result['best_fx']:.6f}")
 
 
+def test_battery_expectations_match_the_declared_optima():
+    """Every case's stated minimum is attained at its stated optimum; unknown minima are NaN."""
+    import numpy as np
+    from benchmarks.problems import generate_benchmark_battery
+    from panobbgo.lib import Point
+
+    cases = generate_benchmark_battery()
+    by_name = {c.problem_name: c for c in cases if c.dimension == 2 and not np.any(c.shift_vector)}
+    assert by_name["Ripple1"].global_minimum == -2.2  # was 0.0: the true optimum counted as a failure
+    assert by_name["Ripple25"].global_minimum == -2.0
+    for name in ("RosenbrockConstraint", "RosenbrockAbsConstraint", "NesterovQuadratic"):
+        assert np.isnan(by_name[name].global_minimum)
+    assert by_name["Step"].global_optimum is None  # a plateau, not a point
+    for c in cases:
+        problem = c.create_problem()
+        assert problem.dim == c.dimension, c.problem_name  # Arwhead used to build 3-D for "2-D"
+        if c.global_optimum is not None:
+            fx = problem(Point(np.asarray(c.global_optimum, dtype=float), "opt")).fx
+            assert np.isclose(fx, c.global_minimum, atol=1e-6), (c.problem_name, fx, c.global_minimum)
+
+
 if __name__ == "__main__":
     # Allow running benchmarks manually for debugging
     import sys

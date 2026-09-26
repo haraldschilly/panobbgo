@@ -660,7 +660,9 @@ class _PycmaRestartAdapter(AskTellAdapter):
         self._sigma0 = float(sigma0)
         self._incpopsize = 2
         self._popsize0 = max(4.0 + 3.0 * math.log(self._dim), float(batch_size))
-        self._maxiter0: Optional[float] = None
+        # pycma's default ``100 + 150 * (N+3)**2 // popsize**0.5``, evaluated as
+        # fmin2 does with the float base population (3330 at N=5, not 3494).
+        self._maxiter0 = float(100 + 150 * (self._dim + 3) ** 2 // math.sqrt(self._popsize0))
         self._irun = 0
         self._runs_with_small = 0
         self._poptype = "small"
@@ -673,7 +675,7 @@ class _PycmaRestartAdapter(AskTellAdapter):
         self._gen_f: Dict[int, float] = {}
         self._undispatched: List[int] = []
         self._es: Any = None
-        self._start_run(self._popsize0, self._sigma0, None)
+        self._start_run(self._popsize0, self._sigma0, self._maxiter0)
 
     @property
     def restarts(self) -> int:
@@ -703,8 +705,6 @@ class _PycmaRestartAdapter(AskTellAdapter):
             opts["maxiter"] = maxiter
         x0 = self._rng.uniform(0.0, 1.0, size=self._dim)
         self._es = self._cma.CMAEvolutionStrategy(x0, sigma, opts)
-        if self._maxiter0 is None:
-            self._maxiter0 = float(self._es.opts["maxiter"])
         self._run_evals = 0
 
     def _restart(self) -> None:
@@ -713,7 +713,6 @@ class _PycmaRestartAdapter(AskTellAdapter):
         else:
             self._evals_large += self._run_evals
         self._irun += 1
-        assert self._maxiter0 is not None
         if not self._bipop:
             self._start_run(self._popsize0 * self._incpopsize**self._irun, self._sigma0, self._maxiter0)
         elif self._evals_small < max(1, self._evals_large):
@@ -809,6 +808,10 @@ def _patch_nevergrad_metamodel() -> None:
 
 #: Seed source for ``cma.fmin`` calls made by Nevergrad while a Nevergrad
 #: adapter is live (``None`` otherwise).  See :func:`_hook_cma_fmin_seed`.
+#: Owned by the adapter that set it (identity check on release), so an
+#: adapter can only unset its own generator.  One process-wide slot:
+#: determinism holds for one live Nevergrad adapter per process at a time
+#: (the harnesses run one run per process or thread at a time).
 _CMA_FMIN_SEEDS: Optional[np.random.Generator] = None
 
 
@@ -873,7 +876,7 @@ class _NevergradAdapter(AskTellAdapter):
         _patch_nevergrad_metamodel()
         _hook_cma_fmin_seed()
         rng = np.random.default_rng(_seed32(seed))
-        _CMA_FMIN_SEEDS = np.random.default_rng(rng.integers(0, 2**32))
+        self._fmin_seeds = np.random.default_rng(rng.integers(0, 2**32))
         lo = np.asarray(lo, dtype=np.float64)
         hi = np.asarray(hi, dtype=np.float64)
         param = ng.p.Array(init=rng.uniform(lo, hi), lower=lo, upper=hi)
@@ -884,6 +887,10 @@ class _NevergradAdapter(AskTellAdapter):
         )
         self._pending: Dict[int, Any] = {}
         self._next_key = 0
+        # Last, once nothing above can raise: a failed constructor never
+        # takes the slot, so it has nothing to release.  No ``cma.fmin`` runs
+        # before the first ``ask`` (the recast thread starts there).
+        _CMA_FMIN_SEEDS = self._fmin_seeds
 
     def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
         out: List[Tuple[int, np.ndarray]] = []
@@ -934,7 +941,8 @@ class _NevergradAdapter(AskTellAdapter):
             thread = vars(opt).get("_messaging_thread")
             if thread is not None:
                 thread.stop()
-        _CMA_FMIN_SEEDS = None
+        if _CMA_FMIN_SEEDS is self._fmin_seeds:
+            _CMA_FMIN_SEEDS = None
 
 
 class NevergradStrategy(AskTellBaselineStrategy):
@@ -1010,7 +1018,11 @@ class _OptunaAdapter(AskTellAdapter):
             _require("cmaes")  # CmaEsSampler's backend, not an Optuna dependency
             rng = np.random.default_rng(_seed32(seed))
             x0 = {k: float(v) for k, v in zip(names, rng.uniform(lo, hi))}
-            smp = optuna.samplers.CmaEsSampler(x0=x0, seed=_seed32(seed), warn_independent_sampling=False)
+            with warnings.catch_warnings():
+                # ``x0`` is deprecated since Optuna 4.9 (removal planned for
+                # 6.0); without it the sampler starts at the box centre.
+                warnings.simplefilter("ignore", FutureWarning)
+                smp = optuna.samplers.CmaEsSampler(x0=x0, seed=_seed32(seed), warn_independent_sampling=False)
         elif sampler == "tpe":
             smp = optuna.samplers.TPESampler(seed=_seed32(seed))
         else:

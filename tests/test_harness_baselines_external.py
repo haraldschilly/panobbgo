@@ -163,29 +163,86 @@ def test_run_restores_the_global_rng():
     assert np.array_equal(np.random.get_state()[1], state)
 
 
+def _record_library_tells(adapter, told):
+    """Wrap the library call behind ``adapter.tell`` so it appends every told value to ``told``."""
+    if isinstance(adapter, _PycmaRestartAdapter):
+        es = adapter._es
+        inner = es.tell
+        es.tell = lambda xs, fs, *a, **k: (told.extend(fs), inner(xs, fs, *a, **k))[1]
+    elif hasattr(adapter, "_study"):
+        inner = adapter._study.tell
+        adapter._study.tell = lambda key, value=None, *a, **k: (told.append(value), inner(key, value, *a, **k))[1]
+    else:
+        inner = adapter._opt.tell
+        adapter._opt.tell = lambda cand, loss, *a, **k: (told.append(loss), inner(cand, loss, *a, **k))[1]
+
+
 @pytest.mark.parametrize("cls", ADAPTERS)
 def test_nan_is_told_as_worst(cls):
-    """One failed-value rule: NaN -> +inf (Optuna: a COMPLETE trial), and the run goes on."""
+    """One failed-value rule: the library receives +inf for NaN, other values unchanged."""
     strategy = cls(Rosenbrock(dims=2), seed=2)
     adapter = strategy.make_adapter(2, 30, 1)
+    told: List[float] = []
+    _record_library_tells(adapter, told)
+    sent: List[float] = []
     try:
-        for i in range(12):
+        for i in range(12):  # two full pycma generations (popsize 6 at dim 2)
             for key, _x in adapter.ask(1):
-                adapter.tell(key, float("nan") if i % 3 == 0 else float(i))
-        if isinstance(strategy, (OptunaCmaEsStrategy, OptunaTPEStrategy)):
-            trials = adapter._study.trials
-            assert all(t.state.name == "COMPLETE" for t in trials)
-            assert trials[0].value == float("inf")
+                fx = float("nan") if i % 3 == 0 else float(i)
+                sent.append(fx)
+                adapter.tell(key, fx)
+        assert len(told) == len(sent) == 12
+        for fx, got in zip(sent, told):
+            assert got == (float("inf") if np.isnan(fx) else fx)
+        if hasattr(adapter, "_study"):
+            assert all(t.state.name == "COMPLETE" for t in adapter._study.trials)
     finally:
         adapter.close()
 
 
-@pytest.mark.parametrize("cls", ADAPTERS)
-def test_start_point_is_not_the_centre(cls):
-    _, strategy = _run(cls, max_eval=1, seed=9)
-    x = strategy.results.results[[("x", 0), ("x", 1)]].to_numpy()[0]
+def _start_point(adapter) -> np.ndarray:
+    """The start point the library itself holds, in the unit cube of the box."""
+    if isinstance(adapter, _PycmaRestartAdapter):
+        return np.asarray(adapter._es.mean, dtype=np.float64)
     box = Rosenbrock(dims=2).box
-    assert not np.allclose(x, (box[:, 0] + box[:, 1]) / 2)
+    if hasattr(adapter, "_study"):
+        x0 = adapter._study.sampler._x0
+        x = np.array([x0["x0"], x0["x1"]])
+    else:
+        x = np.asarray(adapter._opt.parametrization.value, dtype=np.float64)
+    return (x - box[:, 0]) / (box[:, 1] - box[:, 0])
+
+
+@pytest.mark.parametrize("cls", [p for p in ADAPTERS if p.id != "Optuna_TPE"])  # TPE has no start point
+def test_start_point_is_random_not_the_centre(cls):
+    starts = []
+    for seed in (9, 10):
+        adapter = cls(Rosenbrock(dims=2), seed=seed).make_adapter(seed, 50, 1)
+        try:
+            starts.append(_start_point(adapter))
+        finally:
+            adapter.close()
+    assert not np.allclose(starts[0], 0.5)
+    assert not np.allclose(starts[0], starts[1])  # drawn per seed
+
+
+@_needs("cma")
+def test_pycma_first_run_maxiter_matches_fmin2():
+    adapter = _PycmaRestartAdapter(np.zeros(5), np.ones(5), seed=1, bipop=False)
+    assert adapter._es.opts["maxiter"] == 3330
+
+
+@_needs("nevergrad")
+def test_fmin_seed_slot_is_released_only_by_its_owner():
+    import panobbgo.harness_baselines as hb
+
+    a = NevergradNGOptStrategy(Rosenbrock(dims=2), seed=1).make_adapter(1, 30, 1)
+    b = NevergradNGOptStrategy(Rosenbrock(dims=2), seed=2).make_adapter(2, 30, 1)
+    assert hb._CMA_FMIN_SEEDS is b._fmin_seeds
+    a.close()  # not the owner: leaves b's generator in place
+    assert hb._CMA_FMIN_SEEDS is b._fmin_seeds
+    b.close()
+    assert hb._CMA_FMIN_SEEDS is None
 
 
 @_needs("cma")

@@ -131,6 +131,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#expensive-track-baselines-botorch-turbo-smac3-py-bobyqa">Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#real-world-problems-cec-2020">Real-world problems (CEC 2020)</a></li>
 <li><a class="reference internal" href="#parallel-behaviour-on-a-virtual-clock">Parallel behaviour on a virtual clock</a></li>
 <li><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol">Per-arm sweeps and the decision protocol</a><ul>
 <li><a class="reference internal" href="#pair-the-variants-seed-name">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></li>
@@ -225,24 +226,25 @@ change is an improvement.</p>
 <li><p><a class="reference internal" href="#expensive-track-baselines-botorch-turbo-smac3-py-bobyqa" id="id23">Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#parallel-behaviour-on-a-virtual-clock" id="id24">Parallel behaviour on a virtual clock</a></p></li>
-<li><p><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol" id="id25">Per-arm sweeps and the decision protocol</a></p>
+<li><p><a class="reference internal" href="#real-world-problems-cec-2020" id="id24">Real-world problems (CEC 2020)</a></p></li>
+<li><p><a class="reference internal" href="#parallel-behaviour-on-a-virtual-clock" id="id25">Parallel behaviour on a virtual clock</a></p></li>
+<li><p><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol" id="id26">Per-arm sweeps and the decision protocol</a></p>
 <ul>
-<li><p><a class="reference internal" href="#pair-the-variants-seed-name" id="id26">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></p></li>
-<li><p><a class="reference internal" href="#the-null-floor" id="id27">The null floor</a></p></li>
-<li><p><a class="reference internal" href="#the-sweep-tools" id="id28">The sweep tools</a></p></li>
-<li><p><a class="reference internal" href="#the-sealed-test-set" id="id29">The sealed test set</a></p></li>
-<li><p><a class="reference internal" href="#when-a-default-may-change" id="id30">When a default may change</a></p></li>
+<li><p><a class="reference internal" href="#pair-the-variants-seed-name" id="id27">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></p></li>
+<li><p><a class="reference internal" href="#the-null-floor" id="id28">The null floor</a></p></li>
+<li><p><a class="reference internal" href="#the-sweep-tools" id="id29">The sweep tools</a></p></li>
+<li><p><a class="reference internal" href="#the-sealed-test-set" id="id30">The sealed test set</a></p></li>
+<li><p><a class="reference internal" href="#when-a-default-may-change" id="id31">When a default may change</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id31">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id32">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id32">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id33">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id34">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id33">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id34">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id35">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id35">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id36">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -993,8 +995,111 @@ benchmark objectives it behaves like qLogEI.)  Py-BOBYQA’s
 has no torch and skips them.</p>
 </section>
 </section>
+<section id="real-world-problems-cec-2020">
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">Real-world problems (CEC 2020)</a><a class="headerlink" href="#real-world-problems-cec-2020" title="Link to this heading">#</a></h2>
+<p>Synthetic landscapes are tidy; real problems have plateaus, equality
+constraints, hidden infeasible regions and evaluations that fail.  The
+real-world set (<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.lib.realworld</span></code>, runner
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_realworld</span></code>) is a subset of the CEC 2020 real-world
+constrained suite (Kumar et al., <em>Swarm and Evolutionary Computation</em> 56,
+2020): 19 of its 57 problems, 2 to 14 variables —</p>
+<ul class="simple">
+<li><p>industrial chemical processes RC01u, RC02u, RC03–RC05 (heat-exchanger
+networks, an alkylation unit, a reactor network, Haverly’s pooling
+problem), with up to 9 equality constraints;</p></li>
+<li><p>process synthesis RC09, RC10 (one binary variable each);</p></li>
+<li><p>mechanical design RC15–RC21, RC23, RC25, RC28, RC29, RC32 (speed reducer,
+refrigeration system, spring, pressure vessel, welded beam, three-bar
+truss, clutch brake, step-cone pulley, thrust bearing, rolling bearing,
+gas compressor, Himmelblau).</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/ioh_benchmark.py<span class="w"> </span>run<span class="w"> </span>--realworld<span class="w">                    </span><span class="c1"># all 19, budget 500*dim</span>
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/ioh_benchmark.py<span class="w"> </span>run<span class="w"> </span>--realworld<span class="w"> </span>--realworld-problems<span class="w"> </span>RC17<span class="w"> </span>RC18
+</span><span data-line="3">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/ioh_benchmark.py<span class="w"> </span>run<span class="w"> </span>--realworld<span class="w"> </span>--budget-multiplier<span class="w"> </span><span class="m">20</span>
+</span><span data-line="4">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/ioh_benchmark.py<span class="w"> </span>run<span class="w"> </span>--realworld-quick<span class="w">              </span><span class="c1"># smoke test</span>
+</span></pre></div>
+</div>
+<p>The battery is opt-in: no preset, no default battery and no re-baseline
+suite includes it.  Every model follows the suite’s reference code
+(<code class="docutils literal notranslate"><span class="pre">cec20_func.m</span></code>); the paper gave the equations and their numbering, and
+<code class="xref py py-attr docutils literal notranslate"><span class="pre">RealWorldSpec.notes</span></code>
+lists where the printed equation differs.</p>
+<p><strong>Constraints</strong> follow the suite: <span class="math notranslate nohighlight">\(g_i(x) \le 0\)</span>, and each equality
+as <span class="math notranslate nohighlight">\(|h_j(x)| - 10^{-4} \le 0\)</span>.  Panobbgo’s constraint handling sees
+the combined vector through <code class="docutils literal notranslate"><span class="pre">eval_constraints</span></code>; a point is feasible when
+every entry is <span class="math notranslate nohighlight">\(\le 0\)</span>.  Integer variables are rounded inside the
+model (the suite’s convention, MATLAB rounding), so the optimiser sees
+plateaus.</p>
+<p><strong>The metric</strong> is AOCC on the <em>feasible relative gap</em></p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[v(x) = \frac{f(x) - f_{\mathrm{best}}}{|f_{\mathrm{best}}|}
+\quad\text{if } x \text{ is feasible, else } +\infty ,\]</div>
+</div>
+<p>over the targets <span class="math notranslate nohighlight">\(10^{-8} \dots 10^{0}\)</span> (<code class="docutils literal notranslate"><span class="pre">log_hi</span> <span class="pre">=</span> <span class="pre">0</span></code>): a relative
+gap of 100 % scores nothing, so a random feasible point does not score for
+being feasible.  Unlike the constrained families, whose optimum is the
+minimum of <span class="math notranslate nohighlight">\(f\)</span> over the whole box, a real problem’s constrained
+optimum can be undercut by an infeasible point: a penalty
+<span class="math notranslate nohighlight">\(f + \rho\,\mathrm{cv}\)</span> would give full credit to a slightly
+infeasible point with a large Lagrange multiplier.  So only feasible points
+count, as in the suite’s own ranking, and the relative gap removes the
+problems’ units (the objective values span 0.013 to 3·10<sup>6</sup>).  A run
+that never finds a feasible point scores 0; a point below the best-known
+value gets full credit.  Each record’s <code class="docutils literal notranslate"><span class="pre">f_opt</span></code> is 0, <code class="docutils literal notranslate"><span class="pre">best_fx</span></code> the best
+relative gap, and <code class="docutils literal notranslate"><span class="pre">feasible</span></code>, <code class="docutils literal notranslate"><span class="pre">best_violation</span></code> (the smallest mean
+violation <span class="math notranslate nohighlight">\(\nu\)</span>) and <code class="docutils literal notranslate"><span class="pre">first_feasible_eval</span></code> rank the runs that score
+0.  The result file says <code class="docutils literal notranslate"><span class="pre">&quot;scored&quot;:</span> <span class="pre">&quot;relative_feasible_gap&quot;</span></code> (every other
+track: <code class="docutils literal notranslate"><span class="pre">&quot;objective&quot;</span></code>) and <code class="docutils literal notranslate"><span class="pre">log_hi:</span> <span class="pre">0</span></code>; <code class="docutils literal notranslate"><span class="pre">compare</span></code> refuses to compare
+results that score different quantities or over different bounds.  The
+summary adds a per-problem table (AOCC and feasible runs per strategy).</p>
+<p><strong>Baselines on constrained problems.</strong>  The baselines have no constraint
+handling of their own.  On every constrained problem — this track and the
+constrained families — their objective is the penalty value
+<span class="math notranslate nohighlight">\(f + 100\,\mathrm{cv}\)</span> (<code class="docutils literal notranslate"><span class="pre">harness_baselines.penalized_value</span></code>) —
+the scalar surrogate of panobbgo’s default constraint handler
+(<code class="docutils literal notranslate"><span class="pre">get_penalty_value</span></code>, same <span class="math notranslate nohighlight">\(\rho\)</span> and <span class="math notranslate nohighlight">\(\mathrm{cv}\)</span>; the
+handler itself ranks by <code class="docutils literal notranslate"><span class="pre">(cv,</span> <span class="pre">fx)</span></code>) — not the bare <span class="math notranslate nohighlight">\(f\)</span>, so they do
+not score by luck on whichever side of the constraints they land.  Unconstrained problems are unchanged, bit for bit.  (This changed the
+baselines’ numbers on <code class="docutils literal notranslate"><span class="pre">--families-constrained</span></code> on 2026-09-26; older
+reference files for that battery are not comparable for the baselines.)</p>
+<p><strong>Failures are real.</strong>  Where a formula is undefined, the evaluation raises
+<a class="reference internal" href="lib.html#panobbgo.lib.EvaluationCrashed" title="panobbgo.lib.lib.EvaluationCrashed"><code class="xref py py-class docutils literal notranslate"><span class="pre">EvaluationCrashed</span></code></a> and the call is spent budget
+without progress, exactly like the failure-region families: the logarithm of
+a negative temperature difference in the heat-exchanger networks (about
+31 % of the box for RC01u, about half of it for RC02u), and a division by
+zero on the lower bound of RC20.  The suite’s reference code guards most of
+these logarithms; this transcription does not, on purpose, so <strong>RC01u and
+RC02u are variants</strong> (“u” for unguarded) with the suite’s optimum and
+best-known value, but run statistics on them are <strong>not comparable with
+published CEC 2020 results</strong>.</p>
+<p><strong>Verification.</strong>  Every problem carries a feasible reference point, its
+value, and the best-known value — Kumar et al., Table 3, except RC25 (the
+updated value of the competition guidelines, 22 July 2020, Table 4) and
+RC18 (the proven optimum of the integer problem, 6059.714335, from the
+suite’s <code class="docutils literal notranslate"><span class="pre">Revision.docx</span></code>; Table 3 lists the continuous-thickness value).
+RC28 uses the paper’s bound <span class="math notranslate nohighlight">\(Z \ge 4\)</span> (the reference <code class="docutils literal notranslate"><span class="pre">Cal_par.m</span></code>
+has 4.51, which excludes Table 3’s value).  <code class="docutils literal notranslate"><span class="pre">tests/test_realworld.py</span></code>
+checks all three, plus published points of the classic problems (CEC 2006
+g04 for RC32, Haverly’s optimum, the integer pressure vessel, spring,
+truss, gas compressor).  Details per problem:
+<code class="xref py py-data docutils literal notranslate"><span class="pre">panobbgo.lib.realworld.REALWORLD_SPECS</span></code>.</p>
+<p><strong>Resolution limit.</strong>  At <code class="docutils literal notranslate"><span class="pre">500·dim</span></code> the equality-heavy RC01u and RC02u
+are rarely made feasible, and on RC03, RC16 and RC23 most strategies score
+0 too; read the battery per problem, and rank the zero-AOCC runs by
+<code class="docutils literal notranslate"><span class="pre">best_violation</span></code>.  On RC04 and RC05 the best-known values use the 1e-4
+equality tolerance: an optimiser that satisfies the equalities exactly
+stops at a relative gap of 4.6e-4 (RC04) or 1.4e-5 (RC05), which caps its
+AOCC below 1.</p>
+<p><strong>Not included</strong> (roadmap §3.3 candidates): YAHPO Gym needs <code class="docutils literal notranslate"><span class="pre">numpy</span> <span class="pre">&lt;</span> <span class="pre">2</span></code>
+and <code class="docutils literal notranslate"><span class="pre">ConfigSpace</span> <span class="pre">&lt;=</span> <span class="pre">0.6.1</span></code> and cannot be installed next to NumPy 2.5;
+HPOBench is not on PyPI (git install, containers); the ESA GTOP trajectory
+problems are in <code class="docutils literal notranslate"><span class="pre">pykep</span></code>, which has no Python 3.14 wheels (<code class="docutils literal notranslate"><span class="pre">pygmo</span></code> has
+Linux-only 3.14 wheels but not GTOP).  COCO <code class="docutils literal notranslate"><span class="pre">bbob-constrained</span></code> /
+<code class="docutils literal notranslate"><span class="pre">bbob-mixint</span></code> are separate follow-ups.</p>
+</section>
 <section id="parallel-behaviour-on-a-virtual-clock">
-<h2><a class="toc-backref" href="#id24" role="doc-backlink">Parallel behaviour on a virtual clock</a><a class="headerlink" href="#parallel-behaviour-on-a-virtual-clock" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">Parallel behaviour on a virtual clock</a><a class="headerlink" href="#parallel-behaviour-on-a-virtual-clock" title="Link to this heading">#</a></h2>
 <p>The primary battlefield is <em>expensive, parallel</em> evaluation: <code class="docutils literal notranslate"><span class="pre">q</span></code> workers,
 calls of uneven duration.  Measuring that with real threads makes every
 number a function of the machine.  The AOCC track can instead run each
@@ -1090,13 +1195,13 @@ warns.  <code class="docutils literal notranslate"><span class="pre">compare</sp
 AOCC one.</p>
 </section>
 <section id="per-arm-sweeps-and-the-decision-protocol">
-<h2><a class="toc-backref" href="#id25" role="doc-backlink">Per-arm sweeps and the decision protocol</a><a class="headerlink" href="#per-arm-sweeps-and-the-decision-protocol" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id26" role="doc-backlink">Per-arm sweeps and the decision protocol</a><a class="headerlink" href="#per-arm-sweeps-and-the-decision-protocol" title="Link to this heading">#</a></h2>
 <p>The composite score and the AOCC batteries answer “is the framework better”.
 A different question — “is <em>this parameter</em> of <em>that arm</em> better” — needs a
 tighter protocol, because at three seeds the effect being hunted is usually
 the same size as the noise.  Three rules and four tools make up that protocol.</p>
 <section id="pair-the-variants-seed-name">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a><a class="headerlink" href="#pair-the-variants-seed-name" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a><a class="headerlink" href="#pair-the-variants-seed-name" title="Link to this heading">#</a></h3>
 <p>The harnesses derive every run’s seed by hashing a strategy label.  By
 default that label is the spec’s <code class="docutils literal notranslate"><span class="pre">name</span></code> — so two specs that differ <em>only</em>
 in their display name run on <strong>different RNG streams</strong>, and an A/B between
@@ -1121,7 +1226,7 @@ parameter yields <strong>exactly zero</strong> and a live one shows only its own
 actually hashes is <code class="docutils literal notranslate"><span class="pre">StrategySpec.rng_identity</span></code> = <code class="docutils literal notranslate"><span class="pre">seed_name</span> <span class="pre">or</span> <span class="pre">name</span></code>.</p>
 </section>
 <section id="the-null-floor">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">The null floor</a><a class="headerlink" href="#the-null-floor" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">The null floor</a><a class="headerlink" href="#the-null-floor" title="Link to this heading">#</a></h3>
 <p>How large is “the same size as the noise”?  Measured directly: one
 configuration run under six different spec names — six RNG streams, nothing
 else changed — on the standard battery, seeds 42 / 7 / 1234, paired per seed
@@ -1165,7 +1270,7 @@ arm’s, and a result that is “positive on every seed” is not by itself
 evidence.</p>
 </section>
 <section id="the-sweep-tools">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">The sweep tools</a><a class="headerlink" href="#the-sweep-tools" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">The sweep tools</a><a class="headerlink" href="#the-sweep-tools" title="Link to this heading">#</a></h3>
 <p>Five scripts under <code class="docutils literal notranslate"><span class="pre">benchmarks/</span></code>, most of them running arms <strong>solo</strong> via
 <code class="docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code>, all paired per seed on one RNG stream, all flushing
 their rows after every seed so an interrupted run loses nothing:</p>
@@ -1243,7 +1348,7 @@ scores 0.  Every AOCC run pins BLAS to one thread (recorded as
 heuristics are not for d ≥ 30.</p>
 </section>
 <section id="the-sealed-test-set">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">The sealed test set</a><a class="headerlink" href="#the-sealed-test-set" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">The sealed test set</a><a class="headerlink" href="#the-sealed-test-set" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--sealed</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-sealed</span></code> run a held-out
 battery: 20 fresh MA-BBOB instances and fresh family instances at d 2 to 40
 (<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.sealed</span></code>) that no development battery can contain.  The
@@ -1258,7 +1363,7 @@ wall-clock):</p>
 </div>
 </section>
 <section id="when-a-default-may-change">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
 <p>A three-seed sweep <em>locates</em> a candidate; it never ships one.  A default
 change needs a <strong>paired multi-seed comparison</strong> on fresh seeds
 (<code class="docutils literal notranslate"><span class="pre">harness_ioh.paired_seed_stats</span></code>), reported as delta, CI and
@@ -1281,9 +1386,9 @@ instead of a point estimate.  Only the re-check on fresh seeds decides.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id31" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id32" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -1293,7 +1398,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id33" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -1303,7 +1408,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id34" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -1312,7 +1417,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id35" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id36" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

@@ -779,6 +779,120 @@ CI runs these tests in a separate ``test-bo`` job; the default test job
 has no torch and skips them.
 
 
+Real-world problems (CEC 2020)
+------------------------------
+
+Synthetic landscapes are tidy; real problems have plateaus, equality
+constraints, hidden infeasible regions and evaluations that fail.  The
+real-world set (:mod:`panobbgo.lib.realworld`, runner
+:mod:`panobbgo.harness_realworld`) is a subset of the CEC 2020 real-world
+constrained suite (Kumar et al., *Swarm and Evolutionary Computation* 56,
+2020): 19 of its 57 problems, 2 to 14 variables —
+
+- industrial chemical processes RC01u, RC02u, RC03–RC05 (heat-exchanger
+  networks, an alkylation unit, a reactor network, Haverly's pooling
+  problem), with up to 9 equality constraints;
+- process synthesis RC09, RC10 (one binary variable each);
+- mechanical design RC15–RC21, RC23, RC25, RC28, RC29, RC32 (speed reducer,
+  refrigeration system, spring, pressure vessel, welded beam, three-bar
+  truss, clutch brake, step-cone pulley, thrust bearing, rolling bearing,
+  gas compressor, Himmelblau).
+
+.. code-block:: bash
+
+   uv run python scripts/ioh_benchmark.py run --realworld                    # all 19, budget 500*dim
+   uv run python scripts/ioh_benchmark.py run --realworld --realworld-problems RC17 RC18
+   uv run python scripts/ioh_benchmark.py run --realworld --budget-multiplier 20
+   uv run python scripts/ioh_benchmark.py run --realworld-quick              # smoke test
+
+The battery is opt-in: no preset, no default battery and no re-baseline
+suite includes it.  Every model follows the suite's reference code
+(``cec20_func.m``); the paper gave the equations and their numbering, and
+:attr:`RealWorldSpec.notes <panobbgo.lib.realworld.RealWorldSpec.notes>`
+lists where the printed equation differs.
+
+**Constraints** follow the suite: :math:`g_i(x) \le 0`, and each equality
+as :math:`|h_j(x)| - 10^{-4} \le 0`.  Panobbgo's constraint handling sees
+the combined vector through ``eval_constraints``; a point is feasible when
+every entry is :math:`\le 0`.  Integer variables are rounded inside the
+model (the suite's convention, MATLAB rounding), so the optimiser sees
+plateaus.
+
+**The metric** is AOCC on the *feasible relative gap*
+
+.. math::
+
+   v(x) = \frac{f(x) - f_{\mathrm{best}}}{|f_{\mathrm{best}}|}
+   \quad\text{if } x \text{ is feasible, else } +\infty ,
+
+over the targets :math:`10^{-8} \dots 10^{0}` (``log_hi = 0``): a relative
+gap of 100 % scores nothing, so a random feasible point does not score for
+being feasible.  Unlike the constrained families, whose optimum is the
+minimum of :math:`f` over the whole box, a real problem's constrained
+optimum can be undercut by an infeasible point: a penalty
+:math:`f + \rho\,\mathrm{cv}` would give full credit to a slightly
+infeasible point with a large Lagrange multiplier.  So only feasible points
+count, as in the suite's own ranking, and the relative gap removes the
+problems' units (the objective values span 0.013 to 3·10\ :sup:`6`).  A run
+that never finds a feasible point scores 0; a point below the best-known
+value gets full credit.  Each record's ``f_opt`` is 0, ``best_fx`` the best
+relative gap, and ``feasible``, ``best_violation`` (the smallest mean
+violation :math:`\nu`) and ``first_feasible_eval`` rank the runs that score
+0.  The result file says ``"scored": "relative_feasible_gap"`` (every other
+track: ``"objective"``) and ``log_hi: 0``; ``compare`` refuses to compare
+results that score different quantities or over different bounds.  The
+summary adds a per-problem table (AOCC and feasible runs per strategy).
+
+**Baselines on constrained problems.**  The baselines have no constraint
+handling of their own.  On every constrained problem — this track and the
+constrained families — their objective is the penalty value
+:math:`f + 100\,\mathrm{cv}` (``harness_baselines.penalized_value``) —
+the scalar surrogate of panobbgo's default constraint handler
+(``get_penalty_value``, same :math:`\rho` and :math:`\mathrm{cv}`; the
+handler itself ranks by ``(cv, fx)``) — not the bare :math:`f`, so they do
+not score by luck on whichever side of the constraints they land.  Unconstrained problems are unchanged, bit for bit.  (This changed the
+baselines' numbers on ``--families-constrained`` on 2026-09-26; older
+reference files for that battery are not comparable for the baselines.)
+
+**Failures are real.**  Where a formula is undefined, the evaluation raises
+:class:`~panobbgo.lib.lib.EvaluationCrashed` and the call is spent budget
+without progress, exactly like the failure-region families: the logarithm of
+a negative temperature difference in the heat-exchanger networks (about
+31 % of the box for RC01u, about half of it for RC02u), and a division by
+zero on the lower bound of RC20.  The suite's reference code guards most of
+these logarithms; this transcription does not, on purpose, so **RC01u and
+RC02u are variants** ("u" for unguarded) with the suite's optimum and
+best-known value, but run statistics on them are **not comparable with
+published CEC 2020 results**.
+
+**Verification.**  Every problem carries a feasible reference point, its
+value, and the best-known value — Kumar et al., Table 3, except RC25 (the
+updated value of the competition guidelines, 22 July 2020, Table 4) and
+RC18 (the proven optimum of the integer problem, 6059.714335, from the
+suite's ``Revision.docx``; Table 3 lists the continuous-thickness value).
+RC28 uses the paper's bound :math:`Z \ge 4` (the reference ``Cal_par.m``
+has 4.51, which excludes Table 3's value).  ``tests/test_realworld.py``
+checks all three, plus published points of the classic problems (CEC 2006
+g04 for RC32, Haverly's optimum, the integer pressure vessel, spring,
+truss, gas compressor).  Details per problem:
+:data:`panobbgo.lib.realworld.REALWORLD_SPECS`.
+
+**Resolution limit.**  At ``500·dim`` the equality-heavy RC01u and RC02u
+are rarely made feasible, and on RC03, RC16 and RC23 most strategies score
+0 too; read the battery per problem, and rank the zero-AOCC runs by
+``best_violation``.  On RC04 and RC05 the best-known values use the 1e-4
+equality tolerance: an optimiser that satisfies the equalities exactly
+stops at a relative gap of 4.6e-4 (RC04) or 1.4e-5 (RC05), which caps its
+AOCC below 1.
+
+**Not included** (roadmap §3.3 candidates): YAHPO Gym needs ``numpy < 2``
+and ``ConfigSpace <= 0.6.1`` and cannot be installed next to NumPy 2.5;
+HPOBench is not on PyPI (git install, containers); the ESA GTOP trajectory
+problems are in ``pykep``, which has no Python 3.14 wheels (``pygmo`` has
+Linux-only 3.14 wheels but not GTOP).  COCO ``bbob-constrained`` /
+``bbob-mixint`` are separate follow-ups.
+
+
 Parallel behaviour on a virtual clock
 -------------------------------------
 

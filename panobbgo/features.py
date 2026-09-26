@@ -29,13 +29,16 @@ comes from a private generator with a fixed seed).
 * Every ``f``-based quantity is computed on **ranks** (constrained problems:
   feasible points by ``f``, then infeasible ones by violation), so it is
   invariant to ``f -> a·f + b`` (``a > 0``) and to every strictly monotone
-  transform of ``f`` — including the meta-model R² values, which are fitted
-  to the normalised ranks, not to raw ``f``.
+  transform of ``f`` — including the meta-model R² values ("rank-R²"),
+  which are fitted to the normalised ranks, not to raw ``f``.  Landscape and
+  arm features use *average* ranks, so ties (plateaus) do not depend on the
+  order the points were sampled in.
 * ``x`` is normalised to the unit box and every distance is divided by
   :math:`\sqrt d`.  With equal box ranges, the distance-based features and
   the linear / full-quadratic R² and Hessian condition are invariant to a
-  rotation of ``x``; the separability ratio (additive vs full quadratic R²)
-  and the per-axis spread / region features are *deliberately* not.
+  rotation of ``x`` (so is ``spread_iso``); the separability ratio (additive
+  vs full quadratic R²) and the per-axis spread / region features are
+  *deliberately* not.
 * Budget quantities are per dimension (``evals / d``, rates per ``d``
   evaluations).
 
@@ -118,23 +121,50 @@ def _compact(d: Dict[str, Any]) -> Dict[str, Any]:
     return {k: (_compact(v) if isinstance(v, dict) else _c(v)) for k, v in d.items()}
 
 
+def _key(fx: np.ndarray, cv: Optional[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+    """``(infeasible, key)``: feasible points keyed by ``fx``, infeasible ones by ``cv`` (a NaN ``cv`` is infeasible)."""
+    fx = np.asarray(fx, dtype=np.float64)
+    if cv is None:
+        return np.zeros(fx.size, dtype=bool), fx
+    cv = np.nan_to_num(np.asarray(cv, dtype=np.float64), nan=np.inf)
+    infeasible = cv > 0
+    return infeasible, np.where(infeasible, cv, fx)
+
+
 def rank_order(fx: np.ndarray, cv: Optional[np.ndarray] = None) -> np.ndarray:
     """Ordinal ranks ``0..n-1`` (0 = best): feasible by ``fx``, then infeasible by ``cv``; ties by index.
 
-    Invariant to every strictly increasing transform of ``fx`` (and of ``cv``).
+    Used only where an order is needed (best-so-far and improvement detection
+    in :func:`trajectory_features`); the landscape and arm features use
+    :func:`avg_ranks`, which do not depend on the sampling order.  Invariant
+    to every strictly increasing transform of ``fx`` (and of ``cv``).
     ``fx`` must be finite.
     """
-    fx = np.asarray(fx, dtype=np.float64)
-    n = fx.size
-    if cv is None:
-        cv = np.zeros(n)
-    cv = np.nan_to_num(np.asarray(cv, dtype=np.float64), nan=0.0)
-    infeasible = cv > 0
-    key = np.where(infeasible, cv, fx)
+    infeasible, key = _key(fx, cv)
+    n = key.size
     order = np.lexsort((np.arange(n), key, infeasible))
     ranks = np.empty(n, dtype=np.int64)
     ranks[order] = np.arange(n)
     return ranks
+
+
+def avg_ranks(fx: np.ndarray, cv: Optional[np.ndarray] = None) -> np.ndarray:
+    """0-based average ranks on the key of :func:`rank_order`: tied points share their mean rank.
+
+    Invariant to monotone transforms of ``fx`` *and* to the order the points
+    were sampled in (a plateau is one rank, whoever reached it first).
+    """
+    from scipy.stats import rankdata
+
+    infeasible, key = _key(fx, cv)
+    r = np.empty(key.size, dtype=np.float64)
+    feas = ~infeasible
+    n_feas = int(feas.sum())
+    if n_feas:
+        r[feas] = rankdata(key[feas], method="average") - 1.0
+    if n_feas < key.size:
+        r[infeasible] = n_feas + rankdata(key[infeasible], method="average") - 1.0
+    return r
 
 
 def _avg_ranks(a: np.ndarray) -> np.ndarray:
@@ -167,17 +197,38 @@ def _sqdist(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def _adj_r2(design: np.ndarray, y: np.ndarray) -> Tuple[float, Optional[np.ndarray]]:
-    """Adjusted R² of a least-squares fit (first column the intercept); ``NaN`` unless ``n > p``."""
+    """Adjusted R² of a least-squares fit (first column the intercept); ``NaN`` unless ``n > p``.
+
+    Large designs (the full quadratic at d >= 15) are solved through the
+    normal equations with a vanishing ridge (Cholesky; ~6x faster than an SVD
+    at d = 40); a failed factorisation falls back to :func:`numpy.linalg.lstsq`.
+    """
     n, p = design.shape
     if n <= p:
         return float("nan"), None
-    coef, *_ = np.linalg.lstsq(design, y, rcond=None)
+    coef: Optional[np.ndarray] = None
+    if p > 100:
+        from scipy.linalg import LinAlgError, cho_factor, cho_solve
+
+        gram = design.T @ design
+        gram[np.diag_indices(p)] += 1e-12 * float(np.trace(gram)) / p
+        try:
+            coef = cho_solve(cho_factor(gram, check_finite=False), design.T @ y, check_finite=False)
+        except LinAlgError:
+            coef = None
+    if coef is None:
+        coef, *_ = np.linalg.lstsq(design, y, rcond=None)
     resid = y - design @ coef
     sst = float(((y - y.mean()) ** 2).sum())
     if sst <= 0:
         return float("nan"), None
     r2 = 1.0 - float(resid @ resid) / sst
     return 1.0 - (1.0 - r2) * (n - 1) / (n - p), coef
+
+
+def n_quad_coefficients(d: int) -> int:
+    """Coefficients of the full quadratic model in ``d`` dimensions: ``1 + 2d + d(d-1)/2``."""
+    return 1 + 2 * d + d * (d - 1) // 2
 
 
 def _subsample(n: int, k: int, keep: int) -> np.ndarray:
@@ -196,47 +247,72 @@ def _subsample(n: int, k: int, keep: int) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
+def _quad_design(c: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    m, d = c.shape
+    ii, jj = np.triu_indices(d, 1)
+    return np.hstack([np.ones((m, 1)), c, c * c, c[:, ii] * c[:, jj]]), ii, jj
+
+
 def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAULT_MAX_POINTS) -> Dict[str, float]:
-    """ELA-lite on points ``u`` (unit box, ``n x d``) with ordinal ``ranks`` (0 = best).
+    """ELA-lite on points ``u`` (unit box, ``n x d``) with ``ranks`` (0 = best; ties allowed).
 
-    Keys (all rank-based, distances / √d):
+    Every quantity uses average ranks, so it depends neither on monotone
+    transforms of ``f`` nor on the order the points were sampled in (up to
+    the evenly spaced subsample of at most ``max_points`` points).
+    Distances are divided by √d.  Keys:
 
-    * ``fdc`` — Spearman correlation of rank vs distance to the best point.
-    * ``nbc_mean_ratio``, ``nbc_sd_ratio`` — mean / sd of nearest-neighbour
-      over nearest-*better* distances; ``nbc_rank_cor`` — Spearman of the
-      ratio nb/nn vs rank.
+    * ``fdc`` — Spearman correlation of rank vs distance to the nearest of
+      the best points.
+    * Nearest-better clustering (Kerschke et al. 2015; *nearest better* is
+      strictly better): ``nbc_mean_ratio`` / ``nbc_sd_ratio`` — mean / sd of
+      nearest-neighbour over nearest-better distances; ``nbc_nn_nb_cor`` —
+      their Pearson correlation; ``nbc_dist_ratio_cv`` — coefficient of
+      variation of nn / nb; ``nbc_nb_fitness_cor`` — Spearman correlation of
+      each point's nearest-better in-degree with its rank.
     * ``disp_10``, ``disp_25`` — mean pairwise distance among the top 10 / 25 %
-      over that among all.
-    * ``r2_lin``, ``r2_add``, ``r2_quad`` — adjusted R² of linear, additive
-      quadratic (no interactions) and full quadratic models of the normalised
-      ranks; ``None`` unless the subsample has more points than coefficients.
-    * ``sep_ratio`` — ``r2_add / r2_quad`` (1 = separable; not rotation-invariant).
-    * ``log10_cond`` — log10 of max|λ|/min|λ| of the full quadratic's Hessian;
-      ``hess_pos`` — share of its positive eigenvalues.
+      (ties at the cut included) over that among all.
+    * ``r2_lin``, ``r2_add``, ``r2_quad`` — **rank-R²**: adjusted R² of a
+      linear, an additive quadratic (no interactions) and a full quadratic
+      model of the normalised ranks (not of ``f``).  The full quadratic
+      (``p = 1 + 2d + d(d-1)/2`` coefficients) is fitted only with at least
+      ``2p`` points — above ``max_points`` from a larger subsample of its
+      own (at d = 30 / 40: 992 / 1722 points) — else ``None``.
+    * ``sep_ratio`` — ``max(r2_add, 0) / r2_quad`` on the quadratic's sample,
+      ``None`` unless ``r2_quad > 0.05`` (1 = separable; not rotation-invariant).
+    * ``log10_cond`` — log10 of max|λ|/min|λ| of the fitted quadratic's
+      Hessian (capped at 12); ``hess_pos`` — share of its positive
+      eigenvalues.  A condition estimate from a fit near its sample limit is
+      noisy and grows with d even on a sphere: compare it within one d.
     """
+    from scipy.stats import rankdata
+
     n, d = u.shape
     nan = float("nan")
-    keys = ("fdc", "nbc_mean_ratio", "nbc_sd_ratio", "nbc_rank_cor")
+    keys = ("fdc", "nbc_mean_ratio", "nbc_sd_ratio", "nbc_nn_nb_cor", "nbc_dist_ratio_cv", "nbc_nb_fitness_cor")
     keys += tuple(f"disp_{round(q * 100)}" for q in DISPERSION_FRACTIONS)
     keys += ("r2_lin", "r2_add", "r2_quad", "sep_ratio", "log10_cond", "hess_pos")
     out = {k: nan for k in keys}
     if n < 4:
         return out
-    idx = _subsample(n, max_points, int(np.argmin(ranks)))
+    ranks = np.asarray(ranks, dtype=np.float64)
+    keep = int(np.argmin(ranks))
+    idx = _subsample(n, max_points, keep)
     us = u[idx]
     m = us.shape[0]
-    r = rank_order(ranks[idx].astype(np.float64)).astype(np.float64)  # 0..m-1 within the subsample
+    r = rankdata(ranks[idx], method="average") - 1.0  # average ranks within the subsample
     sq = math.sqrt(d)
     dist = np.sqrt(_sqdist(us, us)) / sq
-    best = int(np.argmin(r))
-    others = np.arange(m) != best
-    out["fdc"] = spearman(r[others], dist[best, others])
+    best = r == r.min()
+    others = ~best
+    if others.sum() >= 3:
+        out["fdc"] = spearman(r[others], dist[best].min(axis=0)[others])
 
-    # nearest-better clustering
+    # nearest-better clustering: nearest *strictly* better point
     np.fill_diagonal(dist, np.inf)
     nn = dist.min(axis=1)
-    better = r[None, :] < r[:, None]  # [i, j]: j is better than i
-    nb = np.where(better, dist, np.inf).min(axis=1)
+    masked = np.where(r[None, :] < r[:, None], dist, np.inf)  # [i, j]: j strictly better than i
+    nb_idx = masked.argmin(axis=1)
+    nb = masked[np.arange(m), nb_idx]
     ok = others & np.isfinite(nb) & np.isfinite(nn)
     if ok.sum() >= 3:
         nn_o, nb_o = nn[ok], nb[ok]
@@ -244,44 +320,58 @@ def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAU
             out["nbc_mean_ratio"] = float(nn_o.mean() / nb_o.mean())
         if nb_o.std() > 0:
             out["nbc_sd_ratio"] = float(nn_o.std() / nb_o.std())
-        with np.errstate(divide="ignore", invalid="ignore"):
-            ratio = np.where(nn_o > 0, nb_o / nn_o, np.inf)
-        out["nbc_rank_cor"] = spearman(ratio, r[ok])
+            if nn_o.std() > 0:
+                out["nbc_nn_nb_cor"] = float(np.corrcoef(nn_o, nb_o)[0, 1])
+        pos = nb_o > 0
+        if pos.sum() >= 3:
+            ratio = nn_o[pos] / nb_o[pos]
+            if ratio.mean() > 0:
+                out["nbc_dist_ratio_cv"] = float(ratio.std() / ratio.mean())
+        indegree = np.bincount(nb_idx[ok], minlength=m).astype(np.float64)
+        out["nbc_nb_fitness_cor"] = spearman(indegree, r)
     np.fill_diagonal(dist, 0.0)
 
-    # dispersion of the top q vs all
-    # symmetric with a zero diagonal: the mean over pairs is sum / (m (m - 1))
+    # dispersion of the top q vs all (symmetric, zero diagonal: pair mean = sum / (m (m - 1)))
     mean_all = float(dist.sum()) / (m * (m - 1))
-    order = np.argsort(r)
+    r_sorted = np.sort(r)
     for q in DISPERSION_FRACTIONS:
         k = max(2, int(math.ceil(q * m)))
-        if k < m and mean_all > 0:
-            top = order[:k]
-            sub = dist[np.ix_(top, top)]
-            out[f"disp_{round(q * 100)}"] = float(sub.sum()) / (k * (k - 1)) / mean_all
+        top = np.flatnonzero(r <= r_sorted[k - 1])  # ties at the cut included: order-free
+        kk = top.size
+        if kk < m and mean_all > 0:
+            out[f"disp_{round(q * 100)}"] = float(dist[np.ix_(top, top)].sum()) / (kk * (kk - 1)) / mean_all
 
-    # meta-models on normalised ranks
-    y = r / max(m - 1, 1)
+    # meta-models on normalised ranks (rank-R²)
     c = us - 0.5
+    y = r / max(m - 1, 1)
     ones = np.ones((m, 1))
     out["r2_lin"], _ = _adj_r2(np.hstack([ones, c]), y)
     out["r2_add"], _ = _adj_r2(np.hstack([ones, c, c * c]), y)
-    ii, jj = np.triu_indices(d, 1)
-    cross = c[:, ii] * c[:, jj]
-    r2q, coef = _adj_r2(np.hstack([ones, c, c * c, cross]), y)
-    out["r2_quad"] = r2q
-    if math.isfinite(r2q) and r2q > 1e-12 and math.isfinite(out["r2_add"]):
-        out["sep_ratio"] = out["r2_add"] / r2q
-    if coef is not None:
-        h = np.zeros((d, d))
-        h[np.diag_indices(d)] = 2.0 * coef[1 + d : 1 + 2 * d]
-        h[ii, jj] = coef[1 + 2 * d :]
-        h[jj, ii] = coef[1 + 2 * d :]
-        ev = np.linalg.eigvalsh(h)
-        a = np.abs(ev)
-        if a.max() > 0:
-            out["log10_cond"] = float(min(12.0, math.log10(a.max() / max(a.min(), a.max() * 1e-12))))
-            out["hess_pos"] = float((ev > 0).mean())
+    need = 2 * n_quad_coefficients(d)
+    if n >= need:
+        if m >= need:
+            cq, yq, r2_add_q = c, y, out["r2_add"]
+        else:
+            idq = _subsample(n, need, keep)
+            cq = u[idq] - 0.5
+            rq = rankdata(ranks[idq], method="average") - 1.0
+            yq = rq / max(idq.size - 1, 1)
+            r2_add_q, _ = _adj_r2(np.hstack([np.ones((idq.size, 1)), cq, cq * cq]), yq)
+        design, ii, jj = _quad_design(cq)
+        r2q, coef = _adj_r2(design, yq)
+        out["r2_quad"] = r2q
+        if math.isfinite(r2q) and r2q > 0.05 and math.isfinite(r2_add_q):
+            out["sep_ratio"] = max(r2_add_q, 0.0) / r2q
+        if coef is not None:
+            h = np.zeros((d, d))
+            h[np.diag_indices(d)] = 2.0 * coef[1 + d : 1 + 2 * d]
+            h[ii, jj] = coef[1 + 2 * d :]
+            h[jj, ii] = coef[1 + 2 * d :]
+            ev = np.linalg.eigvalsh(h)
+            a = np.abs(ev)
+            if a.max() > 0:
+                out["log10_cond"] = float(min(12.0, math.log10(a.max() / max(a.min(), a.max() * 1e-12))))
+                out["hess_pos"] = float((ev > 0).mean())
     return out
 
 
@@ -290,10 +380,12 @@ def coverage_features(u: np.ndarray, probes: np.ndarray) -> Dict[str, float]:
 
     * ``probe_mean``, ``probe_max`` — mean / max distance (/ √d) from uniform
       probe points to the nearest evaluated point.
-    * ``coverage_ratio`` — ``probe_mean`` over its expectation for as many
-      uniformly spread points (a Poisson approximation, boundary effects
-      ignored): about 1 for a uniform design, above 1 when the samples
-      cluster and leave regions empty.
+    * ``coverage_ratio`` — ``probe_mean`` over the nearest-neighbour distance
+      expected for as many uniform points in an *unbounded* region (a Poisson
+      approximation).  Boundary effects make a uniform design score above 1,
+      increasingly with d (about 1.00 / 1.10 / 1.15 / 1.22 / 1.31 at d = 2 /
+      5 / 10 / 20 / 40); larger values mean the samples cluster and leave
+      regions empty.  Compare it within one d.
     """
     n, d = u.shape
     nan = float("nan")
@@ -314,8 +406,9 @@ def trajectory_features(
 ) -> Tuple[Dict[str, float], np.ndarray, int]:
     """Progress features of the archive in booking order.
 
-    ``ranks`` holds the ordinal rank of every *finite* result (in archive
-    order; ``finite`` marks which archive rows those are).  Returns the
+    ``ranks`` holds the ordinal rank (:func:`rank_order`, ties by index) of
+    every *finite* result, in archive order (``finite`` marks which archive
+    rows those are): an order is what best-so-far needs.  Returns the
     features, the archive indices that improved the best-so-far, and the
     start of the recent window.
 
@@ -329,8 +422,12 @@ def trajectory_features(
       ``stall_share`` — the same over all evaluations so far.
     * ``improve_recent`` — improvements per evaluation in the recent window
       (the last ``max(d, 20 %)`` evaluations).
-    * ``fail_share`` — failed (crashed, timed out, non-finite) evaluations
-      over all spent ones.
+    * ``fail_share`` — failed over spent evaluations.  With a tracker,
+      "failed" is its ``n_failed``: calls whose objective raised
+      :class:`~panobbgo.lib.lib.EvaluationFailed` (a simulated crash or
+      timeout) and failed / timed-out calls on the virtual clock; an
+      ``evaluation.timeout`` placeholder whose objective still returned is
+      not counted.  Without one, the archive's non-finite rows.
     """
     nan = float("nan")
     n = finite.size
@@ -399,7 +496,9 @@ def arm_features(
       (``None`` if there were none); ``best_rank`` — its best normalised rank
       (0 = it holds the incumbent);
     * ``spread`` — geometric mean over the axes of the samples' std (unit box;
-      per axis, so not rotation-invariant); ``spread_trend`` — log10 of
+      per axis, so not rotation-invariant); ``spread_iso`` — its
+      rotation-invariant companion ``det(Cov)^(1/2d)``, the geometric-mean std
+      along the principal axes; ``spread_trend`` — log10 of
       ``spread`` over that of the arm's previous as many points (negative =
       contracting);
     * ``novelty`` — median distance (/ √d) from each recent point to the
@@ -422,6 +521,7 @@ def arm_features(
             "credit": (float((imp_arms == arm).sum()) / n_imp_recent) if n_imp_recent else nan,
             "best_rank": float(np.nanmin(rank_norm[rows])) if np.isfinite(rank_norm[rows]).any() else nan,
             "spread": nan,
+            "spread_iso": nan,
             "spread_trend": nan,
             "novelty": nan,
             "revisit": nan,
@@ -433,6 +533,8 @@ def arm_features(
             std = ur.std(axis=0)
             spread = float(np.exp(np.log(np.maximum(std, 1e-12)).mean()))
             f["spread"] = spread
+            ev = np.linalg.eigvalsh(np.atleast_2d(np.cov(ur, rowvar=False, bias=True)))
+            f["spread_iso"] = float(np.exp(0.5 * np.log(np.maximum(ev, 1e-24)).mean()))
             prev = rows[-2 * w : -w] if rows.size > w else rows[:0]
             if prev.size >= 3:
                 sp_prev = float(np.exp(np.log(np.maximum(u[prev].std(axis=0), 1e-12)).mean()))
@@ -455,9 +557,12 @@ def arm_features(
 def heuristic_state(strategy: Any) -> Dict[str, Dict[str, float]]:
     """Optional per-arm internals, where a heuristic exposes them (CMA-ES).
 
-    ``sigma_rel`` — step size over the mean box range; ``log10_cond_c`` —
-    log10 condition of the covariance matrix (``(max D / min D)²``);
-    ``restarts`` — restarts so far.  Read only; never calls into the heuristic.
+    On the box-normalised covariance ``Cn = diag(1/range) · C · diag(1/range)``
+    (a read-only copy of the heuristic's current ``C``, not its lazily
+    refreshed eigendecomposition): ``sigma_rel`` — the step size in the unit
+    box, ``sigma · det(Cn)^(1/2d)`` (geometric mean over the principal axes);
+    ``log10_cond_c`` — log10 of ``cond(Cn)``; ``restarts`` — restarts so far.
+    Read only; never calls into the heuristic.
     """
     out: Dict[str, Dict[str, float]] = {}
     try:
@@ -465,16 +570,21 @@ def heuristic_state(strategy: Any) -> Dict[str, Dict[str, float]]:
         ranges = np.asarray(strategy.problem.ranges, dtype=np.float64)
     except Exception:
         return out
-    mean_range = float(ranges.mean()) if ranges.size else float("nan")
+    inv = np.where(ranges > 0, 1.0 / np.where(ranges > 0, ranges, 1.0), 1.0)
     for h in heuristics:
         sigma = getattr(h, "_sigma", None)
-        dvec = getattr(h, "_D", None)
-        if not isinstance(sigma, (float, int)) or dvec is None:
+        cmat = getattr(h, "_C", None)
+        if not isinstance(sigma, (float, int)) or cmat is None:
             continue
-        dvec = np.asarray(dvec, dtype=np.float64)
-        st: Dict[str, float] = {"sigma_rel": float(sigma) / mean_range if mean_range > 0 else float("nan")}
-        if dvec.size and np.all(np.isfinite(dvec)) and dvec.min() > 0:
-            st["log10_cond_c"] = 2.0 * math.log10(float(dvec.max() / dvec.min()))
+        cmat = np.array(cmat, dtype=np.float64, copy=True)
+        if cmat.shape != (ranges.size, ranges.size) or not np.all(np.isfinite(cmat)):
+            continue
+        cn = inv[:, None] * cmat * inv[None, :]
+        ev = np.linalg.eigvalsh(0.5 * (cn + cn.T))
+        st: Dict[str, float] = {}
+        if ev.min() > 0:
+            st["sigma_rel"] = float(sigma) * float(np.exp(0.5 * np.log(ev).mean()))
+            st["log10_cond_c"] = math.log10(float(ev.max() / ev.min()))
         restarts = getattr(type(h), "n_restarts", None)
         if isinstance(restarts, property):
             try:
@@ -514,20 +624,37 @@ def compute_features(
     finite = np.isfinite(fx)
     if cv is not None:
         cv = np.asarray(cv, dtype=np.float64)
-    ranks = rank_order(fx[finite], None if cv is None else cv[finite])
+    cvf = None if cv is None else cv[finite]
+    ranks = rank_order(fx[finite], cvf)  # ordinal: best-so-far and improvements only
+    aranks = avg_ranks(fx[finite], cvf)  # order-free: landscape and arm features
     rank_norm = np.full(n, np.nan)
     if ranks.size:
-        rank_norm[finite] = ranks / max(ranks.size - 1, 1)
+        rank_norm[finite] = aranks / max(ranks.size - 1, 1)
     spent = n if n_spent is None else int(n_spent)
     failed = int((~finite).sum()) if n_failed is None else int(n_failed)
     traj, imp_idx, window_start = trajectory_features(ranks, finite, d, failed, spent)
-    land = landscape_features(u[finite], ranks, max_points=max_points)
+    land = landscape_features(u[finite], aranks, max_points=max_points)
     if probes is None:
         probes = np.random.Generator(np.random.PCG64(_PROBE_SEED)).random((N_PROBES, d))
     land.update(coverage_features(u, probes))
     tags, inverse = np.unique(np.asarray(who, dtype=str), return_inverse=True)
     arms = np.array([arm_of(t) for t in tags], dtype=object)[inverse.reshape(-1)]
     return {"land": land, "traj": traj, "arms": arm_features(u, arms, rank_norm, imp_idx, window_start)}
+
+
+def _provenance(strategy: Any) -> Dict[str, Any]:
+    """Where in the run a snapshot was taken: main-loop pass, dispatched and in-flight calls, virtual time."""
+    out: Dict[str, Any] = {
+        "pass": int(getattr(strategy, "loops", 0)),
+        "dispatched": int(getattr(strategy, "_dispatched", 0)),
+    }
+    clock = getattr(strategy, "_virtual_clock", None)
+    if clock is not None and getattr(strategy.config, "evaluation_method", None) == "virtual":
+        out["in_flight"] = int(clock.busy)
+        out["vtime"] = float(clock.now)
+    else:
+        out["in_flight"] = len(getattr(strategy, "pending", None) or ())
+    return out
 
 
 class FeatureLogger:
@@ -546,6 +673,19 @@ class FeatureLogger:
     tracker's ``n_evals`` / ``n_failed``); without them the archive is
     counted.  ``context`` holds the run-level keys the strategy cannot see
     (``q``, ``noisy``).
+
+    Each record carries the provenance a counterfactual branch needs to
+    restart from exactly this state: ``ctx.pass`` (the main-loop pass,
+    ``strategy.loops``), ``ctx.dispatched`` (evaluations charged against the
+    budget), ``ctx.in_flight`` (dispatched, not yet booked) and, on the
+    virtual clock, ``ctx.vtime``.
+
+    Ranks are of what the *strategy* observes (the noisy value on a noisy
+    battery; constrained: feasible by ``f``, then infeasible by violation),
+    not of the tracker's metric (the true value, the penalty ``f + 100·cv``,
+    or the feasible gap): the features describe what a selector can see at
+    run time.
+
     """
 
     def __init__(
@@ -632,5 +772,6 @@ class FeatureLogger:
             "q": int(self.context.get("q", 1)),
             "noisy": bool(self.context.get("noisy", False)),
             "constrained": bool(constrained),
+            **_provenance(strategy),
         }
         return _compact({"ctx": ctx, "land": feats["land"], "traj": feats["traj"], "arms": feats["arms"]})

@@ -10,11 +10,11 @@ env:
 jobs:
   stress:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     env:
       OPENBLAS_CORETYPE: Haswell
       NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
@@ -24,6 +24,8 @@ jobs:
       ONEDNN_MAX_CPU_ISA: AVX2
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON }}
@@ -33,16 +35,35 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - run: uv sync --extra dev --extra baselines
       - run: lscpu | grep -E 'Model name|^CPU\(s\)'; nproc
-      - name: Loop the timeout test file + feature tests
+      - name: Variants
         run: |
-          crashes=0
-          for i in $(seq 1 12); do
-            set +e
-            uv run python -X faulthandler -m pytest -q -p no:randomly --cov=panobbgo \
-              tests/test_families_shapes_failures.py tests/test_features.py > out.log 2>&1
-            rc=$?
-            set -e
-            echo "iter $i rc=$rc $(tail -1 out.log)"
-            if [ $rc -gt 1 ]; then crashes=$((crashes+1)); grep -A3 "Fatal Python\|Current thread" out.log | head -20; grep "Binary file" out.log | tail -3; fi
-          done
-          echo "CRASHES=$crashes/12"
+          git worktree add ../fix origin/fix/blas-pin-abandoned-threads
+          (cd ../fix && uv sync --extra dev --extra baselines -q)
+          T=tests/test_families_shapes_failures.py::test_a_timeout_abandoned_in_flight_is_not_an_early_end
+          Q=tests/test_features.py::test_quadratic_fit_needs_twice_its_coefficients_and_works_at_d30
+          run() {  # name, dir, env..., -- pytest args / python args
+            name=$1; dir=$2; shift 2
+            res=""
+            for i in 1 2 3; do
+              set +e
+              (cd "$dir" && env "$@" > /tmp/out.log 2>&1)
+              rc=$?
+              set -e
+              res="$res $rc"
+            done
+            echo "VARIANT $name rc:$res"
+          }
+          PT="uv run python -X faulthandler -m pytest -q -p no:randomly -p no:cacheprovider"
+          LSQ='import numpy as np; r=np.random.default_rng(2); A=r.random((1002,496)); b=r.random(1002); [np.linalg.lstsq(A,b,rcond=None) for _ in range(5)]; print("ok")'
+          run lstsq_numpy_4thr . OPENBLAS_NUM_THREADS=4 uv run python -X faulthandler -c "$LSQ"
+          run lstsq_numpy_default . uv run python -X faulthandler -c "$LSQ"
+          run lstsq_numpy_1thr . OPENBLAS_NUM_THREADS=1 uv run python -X faulthandler -c "$LSQ"
+          run master_Q_alone . $PT $Q
+          run master_Q_alone_1thr . OPENBLAS_NUM_THREADS=1 $PT $Q
+          run master_features_file . $PT tests/test_features.py
+          run master_T_then_Q . $PT $T $Q
+          run master_T_then_Q_1thr . OPENBLAS_NUM_THREADS=1 $PT $T $Q
+          run fix_Q_alone ../fix $PT $Q
+          run fix_T_then_Q ../fix $PT $T $Q
+          run fix_both_files ../fix $PT --cov=panobbgo tests/test_families_shapes_failures.py tests/test_features.py
+          run master_both_files . $PT --cov=panobbgo tests/test_families_shapes_failures.py tests/test_features.py

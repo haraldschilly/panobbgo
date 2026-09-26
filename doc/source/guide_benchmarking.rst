@@ -715,12 +715,16 @@ engines are seeded explicitly, SMAC gets ``Scenario(seed=...)``; a fixed
 seed reproduces a run exactly (``tests/test_harness_baselines_bo.py``).
 
 **Wall time.**  The GP fits dominate; evaluations are what is scored, but
-size runner jobs by it.  Per proposal at dim 10 on a loaded laptop:
-BoTorch qLogEI 2–12 s (grows with the data), TuRBO 0.3–12 s per batch,
-SMAC ≈ SMAC_PER_ASK.  A run at dim 10, budget 200 thus costs about
-QLOGEI_RUN for BoTorch at ``q = 1`` (a quarter of it at ``q = 4``: one
-proposal per batch), TURBO_RUN for TuRBO, SMAC_RUN for SMAC and under a
-second for Py-BOBYQA.  Use ``--no-timeout`` with ``benchmark_harness.py``.
+size runner jobs by it.  Measured on a heavily loaded 16-core laptop
+(load 12–50; rough, a quiet runner is faster), at dim 10 and up to 200
+observations: BoTorch qLogEI 2–12 s per proposal (growing with the data),
+TuRBO 0.3–12 s per batch, SMAC 2–7 s per ask after its 50-point design (a
+whole budget-200 run: 6.5 min with 2 BLAS threads).  A dim-10, budget-200
+run thus costs roughly 15–20 min for BoTorch qLogEI at ``q = 1`` (one
+proposal per batch, so about a quarter of that at ``q = 4``), 5–10 min
+for TuRBO at ``q = 1``, 5–7 min for SMAC and under a second for
+Py-BOBYQA.  Budget one GitHub runner job per (baseline, few problems),
+not per battery.  Use ``--no-timeout`` with ``benchmark_harness.py``.
 
 **Not included.**  HEBO 0.3.6 (the latest release, 2024) pins
 ``numpy<1.25`` and ``pymoo==0.6.0`` and cannot be installed next to

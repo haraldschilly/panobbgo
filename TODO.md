@@ -23,6 +23,17 @@ Remove an item when it is done; record the result in the planning log, not here.
   cell-wise oracle is 0.015–0.039 above the portfolio. Remaining value is in
   **selection**, not in more sharing.
 
+## Roadmap step 1 — instrument (2026-09-26, `planning/DESIGN_roadmap_2026-09-26.md` §3)
+
+- [ ] External baselines, batch-capable: pycma IPOP/BIPOP, Nevergrad NGOpt,
+      Optuna (CMA, TPE); then BoTorch/Ax, SMAC3, HEBO, PDFO in an optional extra.
+- [ ] Virtual-clock parallel simulator (q workers, duration models); AOCC over
+      evaluations and virtual time, q ∈ {1, 4, 16, 64}.
+- [ ] Failure-region families (half-space / ball / boxes; crash vs timeout).
+- [ ] Dims 30/40; real-world set; sealed test set.
+- [ ] Feature logging at checkpoints (training data for the selector).
+- [ ] Then: measure panobbgo vs the incumbents on both tracks (roadmap §5.2).
+
 ## Waiting for Harald
 
 - [ ] **Defaults** — `regime_gate="oracle:clean"` and `block_evals="auto"` for

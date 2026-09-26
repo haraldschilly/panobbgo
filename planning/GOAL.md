@@ -10,6 +10,16 @@ exists and is tested unless it is marked removed — no setup beyond
 
 ## 1. North star (the measurable goal)
 
+**Direction since 2026-09-26** (`planning/DESIGN_roadmap_2026-09-26.md`):
+the primary battlefield is **expensive, parallel evaluations at small
+budgets** (10…200·dim, q workers, failing calls); the cheap-evaluation
+MA-BBOB track below stays the **floor** every change must hold.  The
+target claim: never much worse than the best single solver on any
+class, clearly better on average, on a sealed test set, against the
+real incumbents (pycma, NGOpt, Optuna, BoTorch/Ax, SMAC3, HEBO).
+
+The cheap-evaluation track, as set before:
+
 Maximize **mean AOCC** (Area Over the Convergence Curve, the IOHprofiler /
 MA-BBOB Anytime competition metric) of the best panobbgo strategy on the
 MA-BBOB battery, at competition-style budgets, without regressing the frozen
@@ -128,7 +138,14 @@ level and a two-arm sharing portfolio was level with them (+0.019,
 nothing (§26–§31).  §5.2 was retracted.  The 2026-08-11 nightly-loop
 snapshot is in `planning/done/LOOP_DIAGNOSIS_2026-08-11.md`.
 
-## 2c. Plan of record (set 2026-09-25)
+## 2c. Plan of record (set 2026-09-25, re-ordered 2026-09-26)
+
+**2026-09-26:** the roadmap (`DESIGN_roadmap_2026-09-26.md` §5) comes
+first after the re-baseline: instrument (external baselines, virtual-clock
+parallel simulator, failure-region families, sealed test set, feature
+logging), measure against the incumbents, then failure regions (D),
+learned probe→select cycles with forecast allocation (A+B), new sharing
+payloads (C).  The items below remain the cheap-track research line.
 
 Sharing is settled as a low-budget mechanism and its payload is fully
 characterised; what is left is choosing the arm per problem.  In order

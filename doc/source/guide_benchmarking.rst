@@ -1144,6 +1144,13 @@ scores 0.  Every AOCC run pins BLAS to one thread (recorded as
 ``blas_threads``).  The GP, QuadraticWLS and ``Nearby(quadratic=True)``
 heuristics are not for d ≥ 30.
 
+The 24 plain BBOB functions (the function axis that
+``portfolio_screen.py kind=bbob`` screens) are ``ioh_benchmark.py run
+--bbob``, with ``--bbob-dims``, ``--bbob-instances`` and ``--bbob-fids``
+(defaults: d 2/5, instances 0–2, all 24) and ``--budget-multiplier``
+(default 200·d).  Each run record carries its ``fid``, so a result can be
+read per COCO class (``harness_ioh.bbob_class_of``).
+
 The sealed test set
 ~~~~~~~~~~~~~~~~~~~
 

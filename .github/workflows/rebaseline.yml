@@ -18,7 +18,9 @@ on:
         description: >-
           'all' or a comma list of: composite-quick, composite-standard,
           ioh-quick, ioh-standard, ioh-external, families-free,
-          families-constrained, families-shapes, families-failure
+          families-constrained, families-shapes, families-failure;
+          opt-in A/B suites, never in 'all' (use release=none):
+          ioh-cma-ab, ioh-cma-ab-bbob-b200, ioh-cma-ab-bbob-b500
         type: string
         default: all
       seeds:

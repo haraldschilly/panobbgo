@@ -196,7 +196,8 @@ for a subset, `--budget-multiplier N` for another budget) and
     gap at 4.6e-4 / 1.4e-5).
 *   **Baselines on constrained problems** (this track and
     `--families-constrained`) minimise `f + 100·cv`, the default constraint
-    handler's penalty value (`harness_baselines.penalized_value`), not the
+    handler's scalar surrogate (`get_penalty_value`; the handler itself ranks
+    by `(cv, fx)`) via `harness_baselines.penalized_value`, not the
     bare `f`; unconstrained problems are bit-identical.  This changed the
     baselines' numbers on the constrained families (2026-09-26).
 *   Not in any preset, not in `scripts/rebaseline.py` (a follow-up in

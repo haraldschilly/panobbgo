@@ -485,3 +485,45 @@ def test_cli_compare_refuses_a_different_scored_quantity(tmp_path, capsys):
     assert cli.main(["compare", str(rw), str(obj)]) == 2
     assert "different quantities" in capsys.readouterr().err
     assert cli.main(["compare", str(rw), str(rw2)]) == 0
+
+
+def test_cli_scored_of_reads_multi_seed_files():
+    cli = _cli()
+    one = {"scored": SCORED_RELATIVE_FEASIBLE_GAP}
+    assert cli._scored_of(one) == SCORED_RELATIVE_FEASIBLE_GAP
+    multi = {"multi_seed": True, "results": [{"scored": SCORED_RELATIVE_FEASIBLE_GAP}, {}]}
+    assert cli._scored_of(multi) == SCORED_RELATIVE_FEASIBLE_GAP
+    assert cli._scored_of({"multi_seed": True, "results": [{}]}) == SCORED_OBJECTIVE
+    assert cli._scored_of({}) == SCORED_OBJECTIVE  # an older file
+
+
+def test_penalty_rho_is_the_same_everywhere():
+    from panobbgo.harness_families import PENALTY_RHO
+    from panobbgo.lib.constraints import DefaultConstraintHandler
+
+    assert BASELINE_PENALTY_RHO == DefaultConstraintHandler().rho == PENALTY_RHO == 100.0
+
+
+def test_equality_exactly_at_the_tolerance_is_feasible():
+    p = RealWorldProblem(REALWORLD_SPECS["rc05_haverly_pooling"])
+    x = np.array([0, 200, 0, 100, 0, 100, 0, 100, 1], dtype=np.float64)
+    x[0] = 1e-4  # h2 = x1 - x5 - x7 = 1e-4 exactly
+    _f, _g, h = p.evaluate(x)
+    assert abs(h[1]) == EQ_TOL
+    assert p.is_feasible(x) and p.violation(x) == 0.0
+    assert p.constraint_status(x) == (True, 0.0)
+
+
+def test_family_penalty_tracker_treats_nan_constraints_as_infeasible():
+    """As ``Result.cv``: an unknown (NaN) violation is infinite, never feasible."""
+    from panobbgo.harness_families import PenaltyTracker
+    from panobbgo.lib.families import Family
+
+    p = Family("sphere", dim=2, seed=3, n_constraints=1, constraint_kind="linear")
+    p.eval_constraints = lambda x: np.array([np.nan])  # type: ignore[method-assign]
+    tracker = PenaltyTracker(p, budget=5)
+    try:
+        p.eval(p.x_opt)
+        assert tracker.best_so_far == [float("inf")] and tracker.best_cv == float("inf")
+    finally:
+        tracker.restore()

@@ -109,19 +109,17 @@ Cheap-track items, in GOAL §2c order:
 
 ## 4. Engineering backlog
 
-- [ ] **CI segfault: OpenBLAS 0.3.34 + `OPENBLAS_CORETYPE=Haswell` on
-      AVX-512 Zen 4 runners** (AMD EPYC 9V74, about 1 runner in 4).  Any
-      `dgemm` of a few hundred rows (`A @ B` at 1002x496x496, `lstsq`,
-      `svd`, `qr`) crashes in `dgemm_kernel_HASWELL` (stack overflow; the
-      frame is overwritten with matrix data), also single-threaded and
-      without any threads or tests involved; auto-detected (SkylakeX) and
-      SandyBridge kernels are fine; EPYC 7763 and Xeon runners are fine.
-      Upstream: OpenMathLib/OpenBLAS#6013, #6021, fixed for 0.3.35.  In the
-      suite the first such call is `test_features.py::test_quadratic_fit_…_d30`
-      (#361).  Decision needed: a numpy / scipy-openblas pin to OpenBLAS
-      0.3.33 until 0.3.35, or wait (FP-exact references were measured with
-      0.3.34); measure/rebaseline jobs at `d >= 30` can hit it too.
-
+- [ ] **OpenBLAS Zen 4 override (#6021) follow-ups.**  The FP pin now sets
+      `OPENBLAS_L2_SIZE=2048` (`panobbgo/fp_env.py`, `doc/dev/benchmarking.md`):
+      without it OpenBLAS 0.3.34 segfaults in `dgemm_kernel_HASWELL` on
+      AVX-512 EPYC 9V74 runners and gives other GEMM bits there.  Open:
+      (a) two shards of the FP-exact re-baseline run 36265786623
+      (`composite-quick 01`, `ioh-external 01`) ran on such hosts without
+      it — re-run those two shards and compare bit for bit (GEMMs with
+      K <= 320 are unaffected, so they are probably identical);
+      (b) when numpy / scipy ship an OpenBLAS whose override skips a forced
+      coretype (upstream #6021, not the 0.3.35 `NO_AVX512` fix), bump them,
+      re-run `fp-check` and drop the variable if it is no longer needed.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
       selection is clean) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.

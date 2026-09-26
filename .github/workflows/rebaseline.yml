@@ -96,6 +96,7 @@ jobs:
     # AVX2 and AVX-512 runners then run the same kernels.
     env:
       OPENBLAS_CORETYPE: Haswell
+      OPENBLAS_L2_SIZE: "2048"  # OpenBLAS 0.3.34 Zen 4 override (panobbgo/fp_env.py)
       NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
       ATEN_CPU_CAPABILITY: avx2
       MKL_CBWR: AVX2

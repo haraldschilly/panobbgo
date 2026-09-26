@@ -5,7 +5,7 @@
 
 The engine behind ``.github/workflows/fp-check.yml``: every matrix job runs
 the same family screen (``benchmarks/family_screen.py``, one seed) and
-saves its rows plus its FP environment (``python -m panobbgo.fp_env``) into
+saves its rows plus its FP environment (``python -m panobbgo.fp_pin``) into
 ``<dir>/<job>/rows.json`` and ``<dir>/<job>/fp_env.json``.  This script
 reads them all, prints one line per job (CPU, AVX-512, BLAS kernels, numpy
 SIMD targets, ``fp_env_id``, a digest of the rows) and exits 1 unless every

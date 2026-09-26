@@ -16,11 +16,20 @@
 
 The benchmark entry points import this module first, so OpenBLAS and numpy
 load with fixed kernels (:func:`panobbgo.fp_env.pin_fp_env`; opt out with
-``PANOBBGO_FP_PIN=0``).  A library user who wants the same pin imports it
-at the top of their script.
+``PANOBBGO_FP_PIN=0``).  ``import panobbgo`` pins too; this module makes
+the order explicit in a script and records :data:`PINNED`.
+
+``python -m panobbgo.fp_pin`` prints this machine's FP record
+(:func:`panobbgo.fp_env.collect`) as JSON, pinned like the entry points.
 """
 
-from panobbgo.fp_env import pin_fp_env
+import json
+
+from panobbgo.fp_env import collect, pin_fp_env
 
 #: Whether the pin is in effect for this process.
 PINNED = pin_fp_env()
+
+
+if __name__ == "__main__":
+    print(json.dumps(collect(), indent=2))

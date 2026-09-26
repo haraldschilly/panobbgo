@@ -50,6 +50,7 @@ import dataclasses
 import statistics as st
 from collections import defaultdict
 from itertools import combinations
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 from panobbgo.harness_ioh import make_standard_battery, run_ioh_harness, t_ci
 from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE, NLSHADE_LBC, PSO

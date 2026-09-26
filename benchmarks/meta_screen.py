@@ -55,6 +55,7 @@ Usage::
 import dataclasses
 import sys
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import make_standard_battery, run_ioh_harness
 from panobbgo.local_run import screen_jobs

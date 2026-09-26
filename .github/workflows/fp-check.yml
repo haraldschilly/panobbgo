@@ -76,7 +76,7 @@ jobs:
           JOB: ${{ matrix.job }}
         run: |
           mkdir -p "fp-check/job$JOB"
-          uv run python -m panobbgo.fp_env > "fp-check/job$JOB/fp_env.json"
+          uv run python -m panobbgo.fp_pin > "fp-check/job$JOB/fp_env.json"
           cat "fp-check/job$JOB/fp_env.json"
           uv run python benchmarks/family_screen.py "fp-check/job$JOB/rows.json" 42 preset=free dims=2,5 \
             jobs="$(nproc)"

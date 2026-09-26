@@ -189,11 +189,16 @@ per run).  They live in a GitHub release that the job creates:
     point at the measured commit.  `-f release=<tag>` names the release
     explicitly (it must start with `rebaseline-`; a smoke test:
     `-f release=rebaseline-smoke-<date>`), `-f release=none` skips it.
-    With `auto`, a run with failed shards is not published (the step
-    fails; the artifact is still uploaded) — publish it under an explicit
-    tag if it is still wanted.  A local `publish` without a single run id
-    needs `--tag` and has no fallback.  Only one aggregate job publishes
-    at a time (`concurrency: rebaseline-release`).
+    With `auto`, an incomplete run is not published (the step fails; the
+    artifact is still uploaded): a shard that failed, a planned shard that
+    left no result (timeout, lost runner, cancelled job — `aggregate
+    --plan` compares against the matrix), or any `measure` job not
+    `success`.  Publish it under an explicit tag if it is still wanted.  A
+    local `publish` without a single run id needs `--tag` and has no
+    fallback.  Only one aggregate job publishes at a time (`concurrency:
+    rebaseline-release`); GitHub keeps one pending job per group, so a third
+    queued run's aggregate cancels the pending one — its shard artifacts
+    survive (aggregate and publish it locally, below).
 *   **Assets**: `<tag>.tar.gz` (every `ref_*.json`, flat), and
     `ref_MANIFEST.json` and `SUMMARY.json` separately.
 *   **Immutable.**  The repository has immutable releases enabled: once
@@ -220,7 +225,8 @@ uv run python benchmark_harness.py compare planning/results/2026-09-26/ref_compo
 
 Without the workflow (e.g. a job that failed after measuring):
 `gh run download <RUN_ID> --pattern 'shard-*' --dir rebaseline-raw`, then
-`scripts/rebaseline.py aggregate rebaseline-raw` (→ `planning/results/<UTC
-date>/`) and `scripts/rebaseline.py publish planning/results/<date> --target
+`scripts/rebaseline.py aggregate rebaseline-raw --plan plan.json` (the
+matrix, `scripts/rebaseline.py plan --suites ... --seeds ... > plan.json`;
+→ `planning/results/<UTC date>/`) and `scripts/rebaseline.py publish planning/results/<date> --target
 <measured sha>`.  The job also keeps the aggregated directory as the
 artifact `rebaseline-references` for 90 days.

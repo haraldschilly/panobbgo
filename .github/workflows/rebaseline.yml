@@ -61,9 +61,12 @@ jobs:
           RELEASE: ${{ inputs.release }}
         run: |
           # Validate the release input now, not after hours of measuring.
-          if ! [[ "$RELEASE" =~ ^(auto|none|rebaseline-[A-Za-z0-9][A-Za-z0-9._-]*)$ ]]; then
-            echo "::error::release must be 'auto', 'none' or a tag 'rebaseline-...' ([A-Za-z0-9._-]); got '$RELEASE'"
-            exit 1
+          if [ "$RELEASE" != auto ] && [ "$RELEASE" != none ]; then
+            if ! [[ "$RELEASE" =~ ^rebaseline-[A-Za-z0-9][A-Za-z0-9._-]*$ ]] \
+                || ! git check-ref-format "refs/tags/$RELEASE"; then
+              echo "::error::release must be 'auto', 'none' or a valid tag 'rebaseline-...' ([A-Za-z0-9._-]); got '$RELEASE'"
+              exit 1
+            fi
           fi
           matrix=$(python3 scripts/rebaseline.py plan --suites "$SUITES" --seeds "$SEEDS")
           sha=$(git rev-parse HEAD)
@@ -162,7 +165,9 @@ jobs:
     # Only this job writes: it creates the release that holds the reference files.
     permissions:
       contents: write
-    # Two runs never resolve and create release tags at the same time.
+    # Two runs never resolve and create release tags at the same time.  GitHub
+    # keeps one pending job per group: a third run's aggregate cancels the
+    # pending one (its shard artifacts survive; aggregate + publish locally).
     concurrency:
       group: rebaseline-release
       cancel-in-progress: false
@@ -206,9 +211,13 @@ jobs:
           path: rebaseline-raw
 
       - name: Aggregate
+        env:
+          # The planned matrix: a shard that left no meta file counts as failed.
+          PLAN: ${{ needs.plan.outputs.matrix }}
         run: |
           set -o pipefail
-          uv run python scripts/rebaseline.py aggregate rebaseline-raw --out-dir references 2>&1 \
+          printf '%s' "$PLAN" > plan.json
+          uv run python scripts/rebaseline.py aggregate rebaseline-raw --out-dir references --plan plan.json 2>&1 \
             | tee aggregate.log
           { echo '### Re-baseline references'; echo '```'; cat aggregate.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
@@ -222,13 +231,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE: ${{ inputs.release }}
           SHA: ${{ needs.plan.outputs.sha }}
+          # 'auto' publishes only a complete run (publish refuses otherwise).
+          MEASURE: ${{ needs.measure.result }}
         run: |
           set -o pipefail
           tag_args=()
           if [ "$RELEASE" != "auto" ]; then tag_args=(--tag "$RELEASE"); fi
           uv run python scripts/rebaseline.py publish references "${tag_args[@]}" \
-            --repo "$GITHUB_REPOSITORY" --target "$SHA" 2>&1 | tee publish.log
-          uv run python scripts/rebaseline.py summarize references > summary.md
+            --repo "$GITHUB_REPOSITORY" --target "$SHA" --measure-result "$MEASURE" 2>&1 | tee publish.log
+          uv run python scripts/rebaseline.py summarize references --print > summary.md
           { echo '### Release'; tail -n 1 publish.log; echo; cat summary.md; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload references

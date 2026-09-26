@@ -1003,13 +1003,13 @@ wall-clock):</p>
 </section>
 <section id="when-a-default-may-change">
 <h3><a class="toc-backref" href="#id27" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
-<p>A three-seed sweep <em>locates</em> a candidate; it never ships one.  A library
-default changes only after the candidate is accepted on the <strong>12-seed
-roster</strong>, paired, as a library default rather than as a harness spec — CI
-excluding zero on the positive side, a clear majority of seeds positive, and
-no dimension excluding zero on the negative side.  On top of that, a positive
+<p>A three-seed sweep <em>locates</em> a candidate; it never ships one.  A default
+change needs a <strong>paired multi-seed comparison</strong> on fresh seeds
+(<code class="docutils literal notranslate"><span class="pre">harness_ioh.paired_seed_stats</span></code>), reported as delta, CI and
+wins/n.  (Until 2026-09-25 this was a fixed 12-seed decision roster; the
+numbers quoted in this guide come from it.)  On top of that, a positive
 result needs a <strong>mechanism</strong>: a claim about which code path the parameter
-changes.  <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> passed all three tests (read in <code class="docutils literal notranslate"><span class="pre">__init__</span></code>, effect
+changes.  <code class="docutils literal notranslate"><span class="pre">NP_init</span></code> passed both tests (read in <code class="docutils literal notranslate"><span class="pre">__init__</span></code>, effect
 of +0.1 … +0.2 far above the floor, and a visible collapse at <code class="docutils literal notranslate"><span class="pre">NP_init=4</span></code>);
 the secondary knobs of the first sweep pass (<code class="docutils literal notranslate"><span class="pre">H</span></code>, <code class="docutils literal notranslate"><span class="pre">k_rank</span></code>,
 <code class="docutils literal notranslate"><span class="pre">archive_factor</span></code>, <code class="docutils literal notranslate"><span class="pre">F_schedule</span></code>, <code class="docutils literal notranslate"><span class="pre">lbest</span></code>) did not, and are recorded as
@@ -1018,10 +1018,10 @@ the secondary knobs of the first sweep pass (<code class="docutils literal notra
 maximum’s own CI carries no weight.</strong>  A screen reports the best of many
 specs, and a confidence interval computed on a selected winner is not the
 interval of a pre-registered spec.  <code class="docutils literal notranslate"><span class="pre">soft_be25</span></code> led a fourteen-spec screen
-at +0.050 with a three-seed CI excluding zero, and returned <strong>−0.006</strong> on the
-roster (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §30).  This is the same
-mechanism as the dead-parameter story above, passing through a CI instead of
-a point estimate.  Only the roster CI decides.</p>
+at +0.050 with a three-seed CI excluding zero, and returned <strong>−0.006</strong> on
+twelve fresh seeds (<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §30).  This is the
+same mechanism as the dead-parameter story above, passing through a CI
+instead of a point estimate.  Only the re-check on fresh seeds decides.</p>
 </section>
 </section>
 <section id="extending-the-harness">

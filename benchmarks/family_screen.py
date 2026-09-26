@@ -22,12 +22,11 @@ is for.  This screen runs the same four specs over
   crash or time out (half-space with the optimum on its boundary, ball,
   random boxes), at ``d`` = 2 and 5.  Failed calls are spent budget;
 * the **large** preset — the free and shapes families at ``d`` = 30 and
-  40 (every other preset takes ``dims=30,40`` as well);
-* the **sealed** preset — the SEALED test set (``panobbgo.sealed``):
-  fresh instances of every class at ``d`` = 2 to 40.  Run it only to
-  report a result or back a claim; never tune, screen or select on it
-  (``doc/dev/benchmarking.md``, "The sealed test set").  It takes no
-  ``dims``/``ninst`` override.
+  40 (every other preset takes ``dims=30,40`` as well).
+
+This is a development (tuning) tool, so the sealed test set is
+deliberately not a preset here: it runs only through
+``ioh_benchmark.py run --families-sealed`` (``doc/dev/benchmarking.md``).
 
 The specs are copied verbatim from ``benchmarks/portfolio_screen.py`` so
 the two screens are the same comparison on different problems:
@@ -44,7 +43,7 @@ the strategy's own effect (``StrategySpec.seed_name``, §18).
 Usage::
 
     uv run python benchmarks/family_screen.py OUT.json SEED [SEED ...] \
-        [preset=free|constrained|shapes|failure|large|sealed] [dims=2,5,10] [bm=500] [ninst=3] \
+        [preset=free|constrained|shapes|failure|large] [dims=2,5,10] [bm=500] [ninst=3] \
         [specs=name,name] [timeout=SECONDS] [jobs=N]
 
 ``timeout`` is a per-run wall-clock deadline (default: none); a run past it
@@ -52,7 +51,7 @@ is stopped, scored so far and counted under ``errors``.
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
-    preset    which battery: free (default), constrained, shapes, failure, large, sealed (claims only)
+    preset    which battery: free (default), constrained, shapes, failure, large
     dims      override the preset's dimensions
     bm        budget multiplier; the budget per run is ``bm * dim``
     ninst     instances per (family, dim)
@@ -76,7 +75,6 @@ from panobbgo.harness_families import (
     make_failure_battery,
     make_families_battery,
     make_large_families_battery,
-    make_sealed_families_battery,
     make_shapes_battery,
     run_family_harness,
 )
@@ -149,7 +147,6 @@ def main():
         "shapes": make_shapes_battery,
         "failure": make_failure_battery,
         "large": make_large_families_battery,
-        "sealed": make_sealed_families_battery,
     }
 
     # --- argv: `key=value` options, then positionals ---------------------------
@@ -169,8 +166,6 @@ def main():
         kwargs["dims"] = tuple(int(d) for d in opts["dims"].split(","))
     if "ninst" in opts:
         kwargs["n_instances"] = int(opts["ninst"])
-    if preset == "sealed" and kwargs:
-        sys.exit("preset=sealed is fixed: no dims= or ninst= override (panobbgo.sealed)")
 
     if src:
         rows, seeds, names = load_rows(src, opts, names, SPECS)

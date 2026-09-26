@@ -90,6 +90,8 @@ from panobbgo.harness_families import (
     run_family_harness,
 )
 from panobbgo.harness_ioh import (
+    AOCC_LOG_HI,
+    AOCC_LOG_LO,
     DEFAULT_DECISION_SEEDS,
     IOHBatterySpec,
     IOHHarnessResult,
@@ -248,7 +250,31 @@ def _non_negative_float(text: str) -> float:
     return v
 
 
+#: Flags whose batteries refuse ``--legacy`` (the composite registry's GP /
+#: quadratic heuristics do not scale to these dims) and, for the sealed ones,
+#: ``--reps``.
+_LARGE_FLAGS = ("large", "largescale", "families_large", "sealed", "families_sealed")
+_SEALED_FLAGS = ("sealed", "families_sealed")
+
+
+def _check_battery_options(args: argparse.Namespace) -> None:
+    """Refuse the option combinations the large and sealed batteries do not take."""
+    chosen = [f for f in _LARGE_FLAGS if getattr(args, f, False)]
+    if not chosen:
+        return
+    flag = "--" + chosen[0].replace("_", "-")
+    if getattr(args, "legacy", False):
+        raise SystemExit(
+            f"error: {flag} does not take --legacy: the composite registry's GP / QuadraticWLS / "
+            "Nearby(quadratic) heuristics are not for d >= 30 (a Nearby quadratic fit takes seconds and "
+            "up to 1 GB per new best at d = 160)"
+        )
+    if chosen[0] in _SEALED_FLAGS and getattr(args, "reps", None) is not None:
+        raise SystemExit(f"error: {flag} is fixed: no --reps (panobbgo.sealed)")
+
+
 def cmd_run(args: argparse.Namespace) -> int:
+    _check_battery_options(args)
     strategies = _resolve_strategies(args)
     if not strategies:
         print("No strategies selected.", file=sys.stderr)
@@ -471,6 +497,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
         )
         if args.fail_on_regression:
             return 2
+    bounds = [(float(d.get("log_lo", AOCC_LOG_LO)), float(d.get("log_hi", AOCC_LOG_HI))) for d in (d_before, d_after)]
+    if bounds[0] != bounds[1]:
+        # AOCC over different target ranges is a different number (the
+        # largescale slice is scored up to 1e6, not 1e2): refuse outright.
+        print(
+            f"Cannot compare AOCC over different target ranges ({args.before} log bounds {bounds[0]}, "
+            f"{args.after} {bounds[1]}).",
+            file=sys.stderr,
+        )
+        return 2
     b_multi = bool(d_before.get("multi_seed"))
     a_multi = bool(d_after.get("multi_seed"))
     if b_multi != a_multi:
@@ -548,7 +584,7 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "--largescale",
         action="store_true",
         help="A bbob-largescale-style slice: plain BBOB f2/f8/f10/f15/f21 at dims (80, 160), instances 0-2, "
-        "budget 200*d (full rotations, not COCO's block rotations).",
+        "budget 500*d, AOCC targets up to 1e6 (full rotations, not COCO's block rotations).",
     )
     grp.add_argument(
         "--families-large",
@@ -558,14 +594,14 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     grp.add_argument(
         "--sealed",
         action="store_true",
-        help="SEALED MA-BBOB test set (fresh instances, dims 2-40): only to report a result or back a "
-        "claim, never for tuning or screening (doc/dev/benchmarking.md).",
+        help="SEALED MA-BBOB test set (20 fresh instances, dims 2-40, 500*d): only to report a result or "
+        "back a claim, never for tuning or screening (doc/dev/benchmarking.md).  No --reps / --legacy.",
     )
     grp.add_argument(
         "--families-sealed",
         action="store_true",
-        help="SEALED family test set (fresh instances of every family class, dims 2-40): claims only, "
-        "never for tuning or screening (doc/dev/benchmarking.md).",
+        help="SEALED family test set (fresh instances of every family class, dims 2-40, 500*d): claims "
+        "only, never for tuning or screening (doc/dev/benchmarking.md).  No --reps / --legacy.",
     )
     run_p.add_argument(
         "--noisy-severe",

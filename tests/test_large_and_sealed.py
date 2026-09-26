@@ -20,7 +20,7 @@ Three kinds of test:
   master before the large and sealed batteries existed (2026-09-26,
   commit 306a8d3).  The exact part (names, instance seeds, battery
   fields) must match exactly; the numeric part (``x_opt``, ``R``,
-  ``f(x)`` at fixed points) is rounded to 9 significant digits so a BLAS
+  ``f(x)`` at fixed points) is rounded to 10 significant digits so a BLAS
   kernel that differs in the last bit on another machine cannot fail it.
 * **The new batteries have the documented shape** and build fast.
 * **The sealed set is disjoint from everything else**, and hard to
@@ -30,9 +30,11 @@ Three kinds of test:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import importlib.util
 import inspect
+import json
 import re
 import time
 from pathlib import Path
@@ -42,13 +44,18 @@ import numpy as np
 import pytest
 
 from panobbgo import harness_families, harness_ioh
+from panobbgo.harness_ioh import IOHHarnessResult, IOHMultiSeedResult
 from panobbgo.lib.families import EvaluationCrashed, EvaluationTimedOut, _instance_seed, make_family_instances
 from panobbgo.lib.ioh_wrapper import IOHProblem, worker_available
+from panobbgo.local_run import BLAS_THREADS
 from panobbgo.sealed import (
+    DEV_INSTANCE_LIMIT,
     SEALED_FAMILY_SEED,
     SEALED_INSTANCE_MIN,
     SEALED_MABBOB_DIMS,
     SEALED_MABBOB_INSTANCES,
+    alias_residues,
+    is_dev_instance_id,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -219,44 +226,116 @@ def test_ioh_large_and_largescale_batteries():
     ls = harness_ioh.make_largescale_battery()
     assert ls.problem_kind == "BBOB" and ls.dims == (80, 160) and ls.fids == harness_ioh.LARGESCALE_FIDS
     assert [harness_ioh.bbob_class_of(f) for f in ls.fids] == list(harness_ioh.BBOB_CLASS_ORDER)
+    assert ls.budget_for(160) == 500 * 160
     assert not large.sealed and not ls.sealed
+    # The widened AOCC range travels with the battery into the result file.
+    assert ls.log_hi == harness_ioh.LARGESCALE_LOG_HI == 6.0 and large.log_hi is None
+    assert ls.aocc_bounds() == (harness_ioh.AOCC_LOG_LO, 6.0)
+    assert large.aocc_bounds() == (harness_ioh.AOCC_LOG_LO, harness_ioh.AOCC_LOG_HI)
+    with pytest.raises(ValueError, match="log_hi"):
+        ls.aocc_bounds(log_hi=4.0)
+    res = harness_ioh.run_ioh_harness([], ls, progress=False)  # no cells: no worker needed
+    assert res.log_hi == 6.0 and IOHHarnessResult.from_dict(res.to_dict()).log_hi == 6.0
+    multi = harness_ioh.run_ioh_harness_multi_seed([], ls, [1, 2], progress=False)
+    assert multi.log_hi == 6.0 and all(r.log_hi == 6.0 for r in multi.results)
 
 
-def _load_cli():
-    path = ROOT / "scripts" / "ioh_benchmark.py"
-    spec = importlib.util.spec_from_file_location("ioh_benchmark_cli_large", path)
+def test_compare_refuses_different_aocc_bounds(tmp_path, capsys):
+    cli = _load_script("ioh_benchmark")
+    wide = tmp_path / "wide.json"
+    std = tmp_path / "std.json"
+    wide.write_text(harness_ioh.run_ioh_harness([], harness_ioh.make_largescale_battery(), progress=False).to_json())
+    std.write_text(harness_ioh.run_ioh_harness([], harness_ioh.make_large_battery(), progress=False).to_json())
+    assert cli.main(["compare", str(std), str(wide)]) == 2
+    assert "different target ranges" in capsys.readouterr().err
+
+
+def test_cmaes_smoke_at_d40():
+    """One CMA-ES run on a family instance at d = 40, 10*d evaluations: the high-d path end to end (~1 s)."""
+    spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_CMAES"]
+    inst = harness_families.make_families_battery(dims=(40,), n_instances=1)[:1]
+    res = harness_families.run_family_harness(spec, inst, budget_multiplier=10, progress=False)
+    (rec,) = res.runs
+    assert rec.dim == 40 and rec.n_evals == 400 and rec.error is None and np.isfinite(rec.best_fx)
+    assert res.blas_threads == BLAS_THREADS == 1 and not res.sealed and not rec.sealed
+
+
+def test_runs_are_blas_pinned(monkeypatch):
+    """Every AOCC run goes through ``_run_tracked``, which pins BLAS to one thread."""
+    from threadpoolctl import threadpool_info
+
+    seen = []
+    real = harness_ioh._run_tracked_unpinned
+
+    def spy(*args, **kwargs):
+        seen.extend(lib["num_threads"] for lib in threadpool_info() if lib.get("user_api") == "blas")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(harness_ioh, "_run_tracked_unpinned", spy)
+    spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_Random"]
+    inst = harness_families.make_families_battery(dims=(2,), n_instances=1)[:1]
+    harness_families.run_family_harness(spec, inst, budget_multiplier=3, progress=False)
+    assert seen and set(seen) == {1}
+
+
+def _load_script(name: str):
+    path = ROOT / "scripts" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(f"{name}_under_test", path)
     assert spec is not None and spec.loader is not None
-    cli = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(cli)
-    return cli
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _ns(**kw):
+    base = dict(
+        full=False,
+        standard=False,
+        noisy=None,
+        noisy_highdim=None,
+        highdim=False,
+        noisy_severe=False,
+        reps=None,
+        legacy=False,
+        families_quick=False,
+        families_constrained=False,
+        families=False,
+    )
+    base.update(kw)
+    return argparse.Namespace(**base)
 
 
 def test_cli_flags_select_the_new_batteries():
-    cli = _load_cli()
+    cli = _load_script("ioh_benchmark")
+    assert cli._resolve_battery(_ns(large=True)).name == "ioh-large"
+    assert cli._resolve_battery(_ns(largescale=True)).name == "ioh-bbob-largescale"
+    assert cli._resolve_battery(_ns(sealed=True)) == harness_ioh.make_sealed_battery()
+    name, inst, bm = cli._resolve_family_battery(_ns(families_large=True))
+    assert name == "families-large" and len(inst) == 60 and bm == 500
+    name, inst, bm = cli._resolve_family_battery(_ns(families_sealed=True))
+    assert name.startswith("sealed") and len(inst) == 252 and all(p.sealed for _n, p in inst) and bm == 500
+    assert cli._resolve_family_battery(_ns()) is None
 
-    def ns(**kw):
-        base = dict(
-            full=False,
-            standard=False,
-            noisy=None,
-            noisy_highdim=None,
-            highdim=False,
-            noisy_severe=False,
-            reps=None,
-            families_quick=False,
-            families_constrained=False,
-            families=False,
-        )
-        base.update(kw)
-        return argparse.Namespace(**base)
 
-    assert cli._resolve_battery(ns(large=True)).name == "ioh-large"
-    assert cli._resolve_battery(ns(largescale=True)).name == "ioh-bbob-largescale"
-    assert cli._resolve_battery(ns(sealed=True)).sealed
-    assert cli._resolve_battery(ns(sealed=True, reps=2)).sealed  # dataclasses.replace keeps the mark
-    name, inst, _bm = cli._resolve_family_battery(ns(families_large=True))
-    assert name == "families-large" and len(inst) == 60
-    assert cli._resolve_family_battery(ns()) is None
+@pytest.mark.parametrize("flag", ["large", "largescale", "families_large", "sealed", "families_sealed"])
+def test_cli_refuses_legacy_with_the_large_and_sealed_batteries(flag):
+    cli = _load_script("ioh_benchmark")
+    with pytest.raises(SystemExit, match="--legacy"):
+        cli._check_battery_options(_ns(**{flag: True, "legacy": True}))
+    cli._check_battery_options(_ns(**{flag: True}))  # alone: fine
+
+
+@pytest.mark.parametrize("flag", ["sealed", "families_sealed"])
+def test_cli_refuses_reps_on_the_sealed_set(flag):
+    cli = _load_script("ioh_benchmark")
+    with pytest.raises(SystemExit, match="--reps"):
+        cli._check_battery_options(_ns(**{flag: True, "reps": 2}))
+    cli._check_battery_options(_ns(large=True, reps=2))  # a development battery takes it
+
+
+def test_family_screen_has_no_sealed_preset():
+    text = (ROOT / "benchmarks" / "family_screen.py").read_text()
+    assert "make_sealed" not in text and '"sealed"' not in text
 
 
 # ---------------------------------------------------------------------------
@@ -267,18 +346,44 @@ def test_cli_flags_select_the_new_batteries():
 def test_sealed_mabbob_battery_shape():
     b = harness_ioh.make_sealed_battery()
     assert b.sealed and b.problem_kind == "MA-BBOB" and b.name.startswith("sealed")
-    assert b.instances == SEALED_MABBOB_INSTANCES and len(set(b.instances)) == 5
+    assert b.instances == SEALED_MABBOB_INSTANCES and len(set(b.instances)) == 20
     assert b.dims == SEALED_MABBOB_DIMS and {30, 40} <= set(b.dims)
     assert all(SEALED_INSTANCE_MIN <= i < 2**31 - 1 for i in b.instances)
 
 
-def test_ioh_development_instances_are_disjoint_from_the_sealed_ones():
+def test_sealed_ids_follow_the_documented_derivation():
+    lo, hi = SEALED_INSTANCE_MIN, 2**31 - 1
+    derived = tuple(
+        lo
+        + int.from_bytes(hashlib.sha256(f"panobbgo-sealed-2026-09-26|mabbob|{k}".encode()).digest()[:8], "little")
+        % (hi - lo)
+        for k in range(20)
+    )
+    assert derived == SEALED_MABBOB_INSTANCES
+
+
+def test_no_development_id_aliases_a_sealed_id():
+    """ioh seeds BBOB sub-transforms with ``fid + 10000*id`` in 32 bits: residues mod 2**28 must stay apart."""
+    seen: set = set()
+    for s in SEALED_MABBOB_INSTANCES:
+        res = alias_residues(s)
+        assert min(res) >= DEV_INSTANCE_LIMIT  # a development id is its own residue
+        assert not res & seen
+        seen |= res
+    # The collision rule itself: 10000*(i - j) = fid' - fid (mod 2**32) exactly for the listed residues.
+    for s in SEALED_MABBOB_INSTANCES[:3]:
+        for r in alias_residues(s):
+            delta = (10000 * (r - s)) % 2**32
+            assert delta in (0, 16, 2**32 - 16)
+
+
+def test_ioh_development_instances_are_in_the_window():
     batteries = list(_ioh_presets().values()) + [
         harness_ioh.make_large_battery(),
         harness_ioh.make_largescale_battery(),
     ]
     dev = {int(i) for b in batteries for i in b.instances}
-    assert dev and max(dev) < SEALED_INSTANCE_MIN
+    assert dev and all(is_dev_instance_id(i) for i in dev)
     assert not dev & set(SEALED_MABBOB_INSTANCES)
     # Every battery builder of the module is covered above; a new one must be added here.
     builders = {
@@ -298,14 +403,58 @@ def test_ioh_development_instances_are_disjoint_from_the_sealed_ones():
     }
 
 
-def test_the_sealed_range_is_refused_outside_the_sealed_battery():
+@pytest.mark.parametrize(
+    "bad", [-1, DEV_INSTANCE_LIMIT, 211613860, SEALED_INSTANCE_MIN + 5, SEALED_MABBOB_INSTANCES[0]]
+)
+def test_ids_outside_the_development_window_are_refused(bad):
+    with pytest.raises(ValueError, match="development window"):
+        harness_ioh.IOHBatterySpec(name="x", problem_kind="MA-BBOB", dims=(2,), instances=(0, bad))
+
+
+def test_the_sealed_spec_is_exactly_the_sealed_battery():
     spec = harness_ioh.IOHBatterySpec
+    ok = spec(
+        name="sealed-mabbob",
+        problem_kind="MA-BBOB",
+        dims=SEALED_MABBOB_DIMS,
+        instances=SEALED_MABBOB_INSTANCES,
+        budget_multiplier=500,
+        sealed=True,
+    )
+    assert ok == harness_ioh.make_sealed_battery()
+    sealed = harness_ioh.make_sealed_battery()
+    for change in (
+        dict(instances=SEALED_MABBOB_INSTANCES[:5]),
+        dict(instances=tuple(reversed(SEALED_MABBOB_INSTANCES))),
+        dict(instances=(0, 1, 2)),
+        dict(dims=(2, 5)),
+        dict(reps=3),
+        dict(budget_multiplier=100),
+        dict(name="mine"),
+        dict(log_hi=6.0),
+    ):
+        with pytest.raises(ValueError, match="sealed"):
+            dataclasses.replace(sealed, **change)
+
+
+def test_a_single_run_cannot_reach_the_sealed_set():
+    spec = harness_ioh.make_ioh_strategies()[0]
+    run = harness_ioh._run_one
+    with pytest.raises(ValueError, match="development window"):
+        run(spec, "MA-BBOB", 2, SEALED_MABBOB_INSTANCES[0], 0, 10, 1, {}, -8.0, 2.0)
     with pytest.raises(ValueError, match="sealed"):
-        spec(name="x", problem_kind="MA-BBOB", dims=(2,), instances=(SEALED_MABBOB_INSTANCES[0],))
-    with pytest.raises(ValueError, match="sealed"):
-        spec(name="x", problem_kind="MA-BBOB", dims=(2,), instances=(SEALED_INSTANCE_MIN + 5,))
-    with pytest.raises(ValueError, match="sealed"):
-        spec(name="x", problem_kind="MA-BBOB", dims=(2,), instances=(0,), sealed=True)
+        run(spec, "MA-BBOB", 2, 0, 0, 10, 1, {}, -8.0, 2.0, sealed=True)
+    smoke = _load_script("ioh_smoke")
+    for inst in (SEALED_MABBOB_INSTANCES[0], -3):
+        with pytest.raises(SystemExit):
+            import sys
+
+            argv = sys.argv
+            sys.argv = ["ioh_smoke.py", "--instance", str(inst)]
+            try:
+                smoke.main()
+            finally:
+                sys.argv = argv
 
 
 def _dev_family_seeds() -> set:
@@ -328,12 +477,18 @@ def _dev_family_seeds() -> set:
     }
 
 
-def test_sealed_families_battery_is_disjoint_and_marked():
-    sealed = harness_families.make_sealed_families_battery()
+@pytest.fixture(scope="module")
+def sealed_families():
+    return harness_families.make_sealed_families_battery()
+
+
+def test_sealed_families_battery_is_disjoint_and_marked(sealed_families):
+    sealed = sealed_families
     d = harness_families.describe_instances(sealed)
     assert d["n_instances"] == 10 * 6 * 3 + 8 * 3 * 3
     assert d["dims"] == [2, 5, 10, 20, 30, 40] and d["constrained"] and len(d["failure"]) == 4
     assert all(p.sealed for _n, p in sealed)
+    assert {(p.family, p.dim, p.instance) for _n, p in sealed} == harness_families.sealed_family_keys()
     assert SEALED_FAMILY_SEED != harness_families.DEFAULT_BATTERY_SEED
     sealed_seeds = {p.seed for _n, p in sealed}
     assert len(sealed_seeds) == len(sealed)
@@ -353,18 +508,43 @@ def test_the_sealed_family_seed_is_refused_elsewhere():
         make_family_instances(["sphere"], dims=(2,), seed=7, sealed=True)
 
 
-def test_the_harnesses_print_the_banner(capsys):
-    spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_Random"]
-    sealed = harness_families.make_sealed_families_battery()[:1]
-    res = harness_families.run_family_harness(spec, sealed, budget_multiplier=3, progress=False)
-    assert len(res.runs) == 1 and res.runs[0].n_evals == 6
-    assert "SEALED TEST SET" in capsys.readouterr().err
+def test_the_sealed_family_set_runs_whole_and_is_marked(sealed_families, capsys):
+    run = harness_families.run_family_harness
     plain = harness_families.make_families_battery(dims=(2,), n_instances=1)[:1]
-    harness_families.run_family_harness(spec, plain, budget_multiplier=3, progress=False)
-    assert "SEALED" not in capsys.readouterr().err
-    # IOH: the banner comes before any cell runs (no strategies: no worker needed).
-    harness_ioh.run_ioh_harness([], harness_ioh.make_sealed_battery(), progress=False)
+    with pytest.raises(ValueError, match="sub-selection"):
+        run([], sealed_families[:10], progress=False)
+    with pytest.raises(ValueError, match="mixing"):
+        run([], sealed_families + plain, progress=False)
+    with pytest.raises(ValueError, match="500"):
+        run([], sealed_families, budget_multiplier=100, progress=False)
+    with pytest.raises(ValueError, match="reps"):
+        run([], sealed_families, reps=2, progress=False)
+    capsys.readouterr()
+    res = run([], sealed_families, progress=False, battery_name="families")
+    assert res.sealed and res.battery_name == "sealed-families"
+    assert "SEALED TEST SET: sealed-families" in capsys.readouterr().err
+    back = IOHHarnessResult.from_dict(res.to_dict())
+    assert back.sealed and back.blas_threads == 1
+
+
+def test_sealed_runs_are_marked_per_record(monkeypatch, sealed_families):
+    """Each record of a sealed run says so (checked on one cell: the others take the same path)."""
+    spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_Random"]
+    rec = harness_families._run_one(spec[0], sealed_families[0][1], 0, 6, 1, -8.0, 2.0, True)
+    assert rec.sealed
+    plain = harness_families.make_families_battery(dims=(2,), n_instances=1)[0][1]
+    assert not harness_families._run_one(spec[0], plain, 0, 6, 1, -8.0, 2.0, True).sealed
+
+
+def test_the_ioh_harness_prints_the_banner_and_marks_the_result(capsys):
+    res = harness_ioh.run_ioh_harness([], harness_ioh.make_sealed_battery(), progress=False)
     assert "SEALED TEST SET: sealed-mabbob" in capsys.readouterr().err
+    assert res.sealed and res.blas_threads == 1
+    multi = harness_ioh.run_ioh_harness_multi_seed([], harness_ioh.make_sealed_battery(), [1], progress=False)
+    assert multi.sealed and IOHMultiSeedResult.from_dict(json.loads(multi.to_json())).sealed
+    assert "SEALED TEST SET" in capsys.readouterr().err
+    plain = harness_ioh.run_ioh_harness([], harness_ioh.make_quick_battery(), progress=False)
+    assert not plain.sealed and "SEALED" not in capsys.readouterr().err
 
 
 def test_sealed_ids_appear_in_no_other_code():
@@ -392,15 +572,48 @@ def test_sealed_ids_appear_in_no_other_code():
             assert "sealed" not in path.read_text().lower(), f"{path.relative_to(ROOT)} names the sealed set"
 
 
+# ---------------------------------------------------------------------------
+# Fingerprints of the sealed MA-BBOB problems (need the ioh worker)
+# ---------------------------------------------------------------------------
+
+
+def _sealed_fingerprint() -> str:
+    """Digest of every sealed MA-BBOB problem at d 2 and 40: ``f_opt`` and ``f`` at three fixed points.
+
+    ``f`` at a point depends on the weights, ``x_opt`` and every
+    sub-problem transform, so an ``ioh`` upgrade that redraws any of them
+    changes the digest.  Rounded to 10 significant digits.
+    """
+    h = hashlib.sha256()
+    for inst in SEALED_MABBOB_INSTANCES:
+        for dim in (2, 40):
+            p = IOHProblem("MA-BBOB", inst, dim)
+            try:
+                rng = np.random.default_rng(2026)
+                vals = [p.optimum_y] + [p.eval(rng.uniform(-5.0, 5.0, size=dim)) for _ in range(3)]
+            finally:
+                p.close()
+            h.update(("|".join(_num(v) for v in vals) + "\n").encode())
+    return h.hexdigest()[:16]
+
+
+#: Pinned with ioh 0.3.22 (``tools/ioh_worker/uv.lock``), 2026-09-26.
+PINNED_SEALED_FINGERPRINT = "4aa1e64d20e42bfa"
+
+
 @pytest.mark.skipif(not worker_available(), reason="ioh worker venv not set up")
-def test_ioh_builds_sealed_and_largescale_problems():
-    for kind, inst, dim, fid in (("MA-BBOB", SEALED_MABBOB_INSTANCES[0], 40, None), ("BBOB", 0, 160, 21)):
-        p = IOHProblem(kind, inst, dim, fid=fid)
-        try:
-            fx = p.eval(np.zeros(dim))
-            assert np.isfinite(fx) and fx >= p.optimum_y
-        finally:
-            p.close()
+def test_sealed_mabbob_problems_are_pinned():
+    assert _sealed_fingerprint() == PINNED_SEALED_FINGERPRINT
+
+
+@pytest.mark.skipif(not worker_available(), reason="ioh worker venv not set up")
+def test_ioh_builds_largescale_problems():
+    p = IOHProblem("BBOB", 0, 160, fid=21)
+    try:
+        fx = p.eval(np.zeros(160))
+        assert np.isfinite(fx) and fx >= p.optimum_y
+    finally:
+        p.close()
 
 
 if __name__ == "__main__":  # pragma: no cover - prints the pinned values
@@ -409,3 +622,5 @@ if __name__ == "__main__":  # pragma: no cover - prints the pinned values
     for key, spec in _ioh_presets().items():
         print(key, _ioh_digest(spec))
     print("run seeds", _run_seed_digest())
+    if worker_available():
+        print("sealed fingerprint", _sealed_fingerprint())

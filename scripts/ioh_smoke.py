@@ -23,6 +23,7 @@ from panobbgo.harness import _make_full_strategies, _make_quick_strategies, _mak
 from panobbgo.harness_baselines import make_baseline_strategies
 from panobbgo.harness_ioh import _run_one
 from panobbgo.ioh_runner import AOCC_LOG_HI, AOCC_LOG_LO
+from panobbgo.sealed import DEV_INSTANCE_LIMIT, is_dev_instance_id
 
 
 def _specs():
@@ -47,6 +48,9 @@ def main() -> int:
         help="Override budget; default is 2000*d per MA-BBOB anytime rules.",
     )
     args = parser.parse_args()
+    if not is_dev_instance_id(args.instance):
+        # The sealed test set runs only as a whole battery (ioh_benchmark.py run --sealed).
+        parser.error(f"--instance must be a development id, 0 <= id < {DEV_INSTANCE_LIMIT} (panobbgo.sealed)")
 
     budget = args.max_eval if args.max_eval is not None else 2000 * args.dim
     rec = _run_one(

@@ -186,7 +186,7 @@ class _CrashOnce(Problem):
 def _proc_alive(pid):
     try:
         with open("/proc/%d/stat" % pid) as f:
-            return f.read().split(")")[-1].split()[0] != "Z"
+            return f.read().split(")")[-1].split()[0] not in ("Z", "X", "x")  # zombie, or dead mid-reap
     except (FileNotFoundError, ProcessLookupError):
         # reaped between open() and read(): procfs raises ESRCH
         return False

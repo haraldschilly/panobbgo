@@ -435,6 +435,10 @@ def host_info() -> Dict[str, Any]:
                 "OPENBLAS_NUM_THREADS",
                 "OMP_NUM_THREADS",
                 "MKL_NUM_THREADS",
+                "ATEN_CPU_CAPABILITY",
+                "MKL_CBWR",
+                "MKL_ENABLE_INSTRUCTIONS",
+                "ONEDNN_MAX_CPU_ISA",
             )
             if os.environ.get(k) is not None
         },
@@ -533,10 +537,7 @@ def _git_sha() -> str:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    try:  # the FP pin (PR #359), before numpy loads; a no-op until it exists
-        import panobbgo.fp_pin  # noqa: F401  # pyright: ignore[reportMissingImports, reportUnusedImport]
-    except ImportError:
-        pass
+    import panobbgo.fp_pin  # noqa: F401  # pyright: ignore[reportUnusedImport]  (the FP pin, before numpy loads)
     from panobbgo import local_run
 
     if not args.no_nice:

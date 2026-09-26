@@ -7,6 +7,21 @@ import pytest
 _REAL_HOME = Path.home()
 
 
+def pytest_configure(config):
+    """Pin BLAS to one thread for the whole test process, as every harness run pins it.
+
+    The first harness run would pin it anyway (``local_run.pin_blas``, never
+    lifted); pinning up front makes every test see the same BLAS whatever
+    ran before it, and keeps OpenBLAS's thread pool out of the tests: threads
+    abandoned by ``evaluation.timeout`` tests keep calling numpy while later
+    tests run.  Only the loaded libraries are limited, not the environment,
+    so child processes still show whether their own pinning works.
+    """
+    from panobbgo.local_run import pin_blas
+
+    pin_blas()
+
+
 @pytest.fixture(autouse=True)
 def _hermetic_home_and_cwd(monkeypatch, tmp_path_factory):
     """Run every test with a private ``HOME`` and working directory.

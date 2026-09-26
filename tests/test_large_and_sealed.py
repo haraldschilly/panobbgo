@@ -270,10 +270,11 @@ def test_runs_are_blas_pinned(monkeypatch):
     import threadpoolctl
     from threadpoolctl import threadpool_info
 
-    seen = []
+    seen, runs = [], []
     real = harness_ioh._run_tracked_unpinned
 
     def spy(*args, **kwargs):
+        runs.append(len(pins))
         seen.extend(lib["num_threads"] for lib in threadpool_info() if lib.get("user_api") == "blas")
         return real(*args, **kwargs)
 
@@ -284,12 +285,21 @@ def test_runs_are_blas_pinned(monkeypatch):
             restores.append(self)
             return super().restore_original_limits()
 
+    pins = []
+    real_pin = harness_ioh.pin_blas
+
+    def pin_spy(*args, **kwargs):
+        pins.append(args)
+        return real_pin(*args, **kwargs)
+
     monkeypatch.setattr(harness_ioh, "_run_tracked_unpinned", spy)
+    monkeypatch.setattr(harness_ioh, "pin_blas", pin_spy)
     monkeypatch.setattr(threadpoolctl, "threadpool_limits", Limits)
     spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_Random"]
     inst = harness_families.make_families_battery(dims=(2,), n_instances=1)[:1]
     harness_families.run_family_harness(spec, inst, budget_multiplier=3, progress=False)
     assert seen and set(seen) == {1}
+    assert runs and runs == list(range(1, len(runs) + 1))  # pinned before every run
     assert restores == []  # the limit is never restored (raised) behind a run
     assert set(lib["num_threads"] for lib in threadpool_info() if lib.get("user_api") == "blas") == {1}
 
@@ -301,6 +311,35 @@ def test_pool_workers_run_with_blas_pinned():
     with TaskPool(2, niceness=None, min_free_gb=0.0) as pool:
         counts = pool.map(blas_thread_counts, [{}, {}, {}])
     assert all(c and set(c) == {1} for c in counts)
+
+
+def test_pool_workers_pin_blas_when_numpy_loads_before_the_initializer(tmp_path):
+    """A spawned worker whose main module imports numpy at top level still runs BLAS at one thread.
+
+    Spawn re-imports the parent's main module before the pool initializer
+    runs, so numpy (and OpenBLAS, with its default thread count) is loaded
+    before ``pin_blas_env`` could matter; ``pin_blas`` in ``_worker_init``
+    must limit the loaded library.  The BLAS variables are unset.
+    """
+    import os
+    import subprocess
+    import sys
+
+    script = tmp_path / "pool_main.py"
+    script.write_text(
+        "import json\n"
+        "import numpy  # noqa: F401  (loaded in the worker before the initializer)\n"
+        "from panobbgo.local_run import TaskPool, blas_thread_counts\n"
+        "if __name__ == '__main__':\n"
+        "    with TaskPool(2, niceness=None, min_free_gb=0.0) as pool:\n"
+        "        print(json.dumps(pool.map(blas_thread_counts, [{}, {}])))\n"
+    )
+    blas_vars = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+    env = {k: v for k, v in os.environ.items() if k not in blas_vars}
+    r = subprocess.run([sys.executable, str(script)], env=env, capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr
+    counts = json.loads(r.stdout.strip().splitlines()[-1])
+    assert counts and all(c and set(c) == {1} for c in counts)
 
 
 def test_family_harness_in_workers_matches_in_process():

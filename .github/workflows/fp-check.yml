@@ -2,9 +2,10 @@ name: FP check
 
 # Checks the FP pin (panobbgo/fp_env.py, doc/dev/benchmarking.md):
 # the SAME seeded family screen (preset free, seed 42, dims 2/5) on 8
-# runners, which land on AVX2 and AVX-512 hosts at random.  The last job
-# asserts that all 8 produced bit-identical rows and reports each job's CPU
-# and FP environment.  Manual only.
+# runners, which land on AVX2 and AVX-512 hosts at random, plus large
+# BLAS / LAPACK digests (scripts/fp_blas_digest.py).  The last job asserts
+# that all 8 produced bit-identical rows and digests and reports each job's
+# CPU and FP environment.  Manual only.
 
 on:
   workflow_dispatch:
@@ -78,6 +79,9 @@ jobs:
           mkdir -p "fp-check/job$JOB"
           uv run python -m panobbgo.fp_pin > "fp-check/job$JOB/fp_env.json"
           cat "fp-check/job$JOB/fp_env.json"
+          # Large GEMM / lstsq / eigh (the screen's are small): must match on every runner.
+          uv run python scripts/fp_blas_digest.py > "fp-check/job$JOB/blas_digest.txt"
+          cat "fp-check/job$JOB/blas_digest.txt"
           uv run python benchmarks/family_screen.py "fp-check/job$JOB/rows.json" 42 preset=free dims=2,5 \
             jobs="$(nproc)"
 
@@ -110,6 +114,14 @@ jobs:
         run: |
           rc=0
           python3 scripts/fp_check.py fp-check-raw > fp-check.log 2>&1 || rc=$?
+          n_jobs=$(ls -d fp-check-raw/*/ | wc -l)
+          n_digest=$(ls fp-check-raw/*/*/blas_digest.txt 2>/dev/null | wc -l)
+          n_distinct=$(cat fp-check-raw/*/*/blas_digest.txt 2>/dev/null | sort -u | wc -l)
+          n_files=$(md5sum fp-check-raw/*/*/blas_digest.txt 2>/dev/null | cut -d' ' -f1 | sort -u | wc -l)
+          echo "BLAS digests: $n_digest of $n_jobs jobs, $n_files distinct file(s), $n_distinct distinct line(s)" >> fp-check.log
+          if [ "$n_digest" -ne "$n_jobs" ] || [ "$n_files" -ne 1 ]; then
+            echo "BLAS digests differ between runners, or a job did not write them (crash?)" >> fp-check.log; rc=1
+          fi
           cat fp-check.log
           { echo '### FP check'; echo '```'; cat fp-check.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $rc

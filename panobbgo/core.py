@@ -1989,6 +1989,12 @@ class StrategyBase:
     _client: Any
     _cluster: Any
     _problem_future: Any
+    #: Evaluation observer of a virtual-clock run (an IOH tracker; see
+    #: :mod:`panobbgo.virtual_clock`), set by ``VirtualSpec.apply``.
+    _virtual_observer: Any = None
+    #: See the instance attribute set in ``__init__`` (class-level so test
+    #: doubles that skip ``__init__`` still read ``None``).
+    request_cap: Optional[int] = None
 
     def __init__(self, problem, parse_args=False, testing_mode=False, **kwargs):
         """
@@ -2073,6 +2079,16 @@ class StrategyBase:
         self.problem = problem
         self._stop_requested = False
         self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
+        #: How many points :meth:`execute` may hand back in the current pass,
+        #: or ``None`` for no limit.  Set by the main loop before each
+        #: ``execute`` call where the evaluation mode knows it — the virtual
+        #: clock's async policy: its free workers, within the budget — and
+        #: honoured by the strategies (:meth:`cap_request`,
+        #: :func:`~panobbgo.strategies._bandit.collect_pulls`), so a strategy
+        #: only does its bookkeeping (pull counts, discounts, block lengths)
+        #: for points that are dispatched.  The seam for any pull-when-free
+        #: evaluation loop.
+        self.request_cap: Optional[int] = None
 
         # Configure Constraint Handler.  A setting left unset (``None``) is
         # not passed, so each handler keeps its own class default (see the
@@ -2181,7 +2197,7 @@ class StrategyBase:
         # points.  Under ``sync_evaluation`` this must not be bounded by a
         # clock: a slow ``on_start`` (a GP prior, a large LHS design) that
         # timed out here silently changed which points the run began with.
-        self.eventbus.wait_idle(timeout=None if self.config.sync_evaluation else 5.0)
+        self.eventbus.wait_idle(timeout=None if self._sync_mode else 5.0)
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' initialized" % self._name)
@@ -2429,9 +2445,13 @@ class StrategyBase:
             errors.append(f"smooth must be a valid float, got {self.config.smooth}")
 
         # Check evaluation method
-        valid_methods = ["threaded", "processes", "dask"]
+        valid_methods = ["threaded", "processes", "dask", "virtual"]
         if self.config.evaluation_method not in valid_methods:
             errors.append(f"evaluation_method must be one of {valid_methods}, got '{self.config.evaluation_method}'")
+        elif self.config.evaluation_method == "virtual":
+            from .virtual_clock import validate_config
+
+            errors.extend(validate_config(self.config))
 
         return errors
 
@@ -2453,6 +2473,7 @@ class StrategyBase:
         - 'threaded': Thread pool for fast testing with pure Python functions (default for tests)
         - 'processes': Spawned worker-process pool for isolation (picklable problem)
         - 'dask': Distributed evaluation for heavy workloads
+        - 'virtual': Simulated parallel workers on a virtual clock (:mod:`panobbgo.virtual_clock`)
         """
         if self.config.evaluation_method == "dask":
             # Dask is fully isolated in its own module and imported lazily —
@@ -2464,6 +2485,13 @@ class StrategyBase:
             self._setup_process_evaluation(problem)
         elif self.config.evaluation_method == "threaded":
             self._setup_threaded_evaluation(problem)
+        elif self.config.evaluation_method == "virtual":
+            from .virtual_clock import VirtualClock
+
+            self._problem = problem
+            self.__dict__.pop("_pool", None)  # no pool: _ensure_cluster closed a previous one
+            self._virtual_clock = VirtualClock(self)
+            self._virtual_clock.configure()
         else:
             raise ValueError(f"Unknown evaluation method: {self.config.evaluation_method}")
         self._pool_method = self.config.evaluation_method
@@ -2478,6 +2506,8 @@ class StrategyBase:
         """
         old = getattr(self, "_pool_method", None)
         if old == self.config.evaluation_method:
+            if old == "virtual":
+                self._virtual_clock.configure()  # settings may have changed since construction
             return
         if old == "dask":
             from . import dask_evaluation
@@ -2528,6 +2558,26 @@ class StrategyBase:
         self._pool = LocalPool(problem, self._n_processes, processes=False, logger=self.logger)
         self.logger.info("Threaded evaluation ready with %d threads" % self._n_processes)
 
+    def cap_request(self, n: int) -> int:
+        """``n`` limited by :attr:`request_cap` (unchanged without a cap)."""
+        cap = self.request_cap
+        return int(n) if cap is None else max(0, min(int(n), int(cap)))
+
+    def _exact_split_rng(self) -> Optional[np.random.Generator]:
+        """The generator for an exact, capped selector split, or ``None`` without a request cap.
+
+        The toggle is what keeps uncapped runs bit-identical: without a cap
+        the selectors take their historical (rounded, uncapped) path and draw
+        nothing from :attr:`rng`; only under a cap do they split exactly by
+        a multinomial draw on it (:func:`~panobbgo.strategies._bandit.proportional_counts`).
+        """
+        return self.rng if self.request_cap is not None else None
+
+    @property
+    def _sync_mode(self) -> bool:
+        """Does the main loop run synchronously (``evaluation.sync``, or the virtual clock, which implies it)?"""
+        return bool(self.config.sync_evaluation) or self.config.evaluation_method == "virtual"
+
     @property
     def best(self):
         best_analyzer = self._analyzers.get("Best")
@@ -2563,7 +2613,7 @@ class StrategyBase:
         #: asynchronous path allows a small margin for the window in
         #: :meth:`_run_threaded_evaluation` where a task is submitted but not
         #: yet in ``pending``.
-        self._max_dead_loops = 1 if self.config.sync_evaluation else 3
+        self._max_dead_loops = 1 if self._sync_mode else 3
         self._last_progress_at: Optional[float] = None
         #: Wall-clock **backstop for a bug**, not a scheduling parameter: it
         #: fires only when there is nothing to wait for — no evaluation
@@ -2574,7 +2624,8 @@ class StrategyBase:
         #: per-evaluation run time is limited only by ``evaluation.timeout``.
         #: See ``planning/DESIGN_pump_and_stall_2026-09-11.md`` §2.3.
         self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
-        sync = bool(self.config.sync_evaluation)
+        sync = self._sync_mode
+        virtual = self.config.evaluation_method == "virtual"
         self._last_n_finished = self.n_finished
         #: Evaluations charged against ``max_eval``: incremented when a point
         #: is *dispatched*, so a failing evaluation (no result) is charged
@@ -2598,7 +2649,11 @@ class StrategyBase:
             if self.config.max_eval and self._dispatched >= self.config.max_eval:
                 points = []
             else:
-                points = self._clamp_to_budget(self.execute())
+                self.request_cap = self._virtual_clock.request_cap() if virtual else None
+                proposed = self.execute() if self.request_cap != 0 else []
+                if virtual:  # safety net: the async policy never queues past the free workers
+                    proposed = self._virtual_clock.admit(proposed)
+                points = self._clamp_to_budget(proposed)
 
             # Update progress status
             self._update_progress_status()
@@ -2607,6 +2662,8 @@ class StrategyBase:
                 from . import dask_evaluation
 
                 self.results += dask_evaluation.run_evaluation(self, points)
+            elif virtual:
+                self._virtual_clock.step(points)
             else:  # "threaded" or "processes": same bookkeeping, different pool
                 self._run_threaded_evaluation(points)
 
@@ -2633,7 +2690,8 @@ class StrategyBase:
                         % (self._deadlock_seconds, self.eventbus.inflight, len(self.results), self.config.max_eval)
                     )
                     break
-                self.jobs_per_client = max(1, int(self.config.max_eval / 50.0))
+                jpc = self._virtual_clock.jobs_per_client if virtual else None
+                self.jobs_per_client = jpc or max(1, int(self.config.max_eval / 50.0))
             else:
                 per_client = self.config.max_eval / 50.0
                 avg = self.avg_time_per_task
@@ -2714,12 +2772,13 @@ class StrategyBase:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
                 break
 
-            if not sync or self.pending:
+            if not sync or (self.pending and not virtual):
                 # Limit loop speed while evaluations are in flight.  Under
                 # sync threaded/processes evaluation nothing is in flight here
                 # (the sleep would be pure latency); dask ignores
                 # ``evaluation.sync`` and keeps ``pending`` filled, and without
-                # the sleep that loop spun at full CPU.
+                # the sleep that loop spun at full CPU.  The virtual clock's
+                # in-flight calls are simulated: nothing to wait for.
                 time_module.sleep(1e-3)
 
         # Final forced update to ensure UI shows 100% or final results
@@ -3234,6 +3293,9 @@ class StrategyBase:
                         "%d evaluation(s) still running at the shutdown deadline; %s."
                         % (still, "killed" if self._pool.processes else "abandoning them")
                     )
+
+        if getattr(self, "_pool_method", None) == "virtual":
+            self._virtual_clock.finish()
 
         # Finalize progress reporting
         if hasattr(self, "panobbgo_logger"):

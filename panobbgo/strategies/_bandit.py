@@ -225,15 +225,54 @@ def collect_pulls(strategy, selector, count_outstanding: bool = True) -> list:
     many evaluations are outstanding.  With *count_outstanding* the
     collection stops once outstanding plus collected points reach the target
     (one-point pulls), otherwise once the collected points alone do.
+
+    Under a request cap (:attr:`StrategyBase.request_cap
+    <panobbgo.core.StrategyBase.request_cap>`, e.g. the free workers of the
+    virtual clock's async policy) at most that many points are collected, and
+    each ``selector(n)`` call is asked for the ``n`` points still allowed: a
+    selector then produces *at most* ``n`` (:func:`ema_select` and
+    :func:`rewarding_select` with an ``rng``), so its bookkeeping only ever
+    covers points that are dispatched.
     """
     target = strategy.jobs_per_client * len(strategy.evaluators)
-    if len(strategy.evaluators.outstanding) >= target:
+    outstanding = len(strategy.evaluators.outstanding)
+    if outstanding >= target:
         return []
+    cap = getattr(strategy, "request_cap", None)
+    if cap is None:
 
-    def until(points, target):
-        return len(strategy.evaluators.outstanding) + len(points) >= target
+        def until(points, target):
+            return len(strategy.evaluators.outstanding) + len(points) >= target
 
-    return strategy._collect_points_safely(target, lambda: selector(target), until=until if count_outstanding else None)
+        return strategy._collect_points_safely(
+            target, lambda: selector(target), until=until if count_outstanding else None
+        )
+
+    limit = min(int(cap), target - outstanding if count_outstanding else target)
+    collected = [0]
+
+    def pull():
+        left = limit - collected[0]
+        if left <= 0:
+            return None
+        points = selector(left)
+        if points:
+            collected[0] += len(points)
+        return points
+
+    return strategy._collect_points_safely(limit, pull)
+
+
+def proportional_counts(rng, probs, k: int) -> np.ndarray:
+    """``k`` pulls split over arms by ``probs``: a multinomial draw (the capped, exact form of a selector round).
+
+    Under a request cap smaller than the number of arms a deterministic
+    rounding would always hand the few slots to the same arms (ties go to
+    list order); a draw follows the bandit's probabilities in expectation.
+    """
+    probs = np.asarray(probs, dtype=float)
+    probs = probs / probs.sum()
+    return rng.multinomial(int(k), probs)
 
 
 def ucb_select(owner, heurs, c: float):
@@ -321,12 +360,14 @@ def linucb_select(heurs, context: np.ndarray, alpha: float, d: int = LINUCB_DIM)
     return []
 
 
-def ema_select(heurs, target: int, explore: float) -> list:
+def ema_select(heurs, target: int, explore: float, rng=None) -> list:
     """One EMA Rewarding round: probability matching with an exploration floor.
 
     Over the heuristics that can produce, each emits ``≈ target · p`` points
     (at least one) with ``p = (1 - explore)·perf/Σperf + explore/n``, or
-    uniform when no performance is positive.
+    uniform when no performance is positive.  With ``rng`` (a request cap,
+    see :func:`collect_pulls`) exactly ``target`` points are split over the
+    heuristics by a multinomial draw on ``p`` (:func:`proportional_counts`).
     """
     ready = [h for h in heurs if h.can_produce]
     if not ready:
@@ -338,26 +379,42 @@ def ema_select(heurs, target: int, explore: float) -> list:
     else:
         probs = (1.0 - explore) * perf / perf.sum() + explore / n
     batch = []
+    if rng is not None:
+        for h, nb_h in zip(ready, proportional_counts(rng, probs, target)):
+            if nb_h > 0:
+                batch.extend(h.produce(int(nb_h)))
+        return batch
     for h, p in zip(ready, probs):
         nb_h = max(1, int(round(target * p)))
         batch.extend(h.produce(nb_h))
     return batch
 
 
-def rewarding_select(heurs, target: int, smooth: float, discount):
+def rewarding_select(heurs, target: int, smooth: float, discount, rng=None):
     """One legacy Rewarding round: each heuristic emits ∝ ``performance + smooth``.
 
     Every emitted point multiplies the emitter's ``performance`` by
-    :func:`discount_factor` of *discount*.
+    :func:`discount_factor` of *discount*.  With ``rng`` (a request cap, see
+    :func:`collect_pulls`) exactly ``target`` points are split over the
+    heuristics that can produce by a multinomial draw on those probabilities.
     """
     if not heurs:
         return None
+    if rng is not None:
+        heurs = [h for h in heurs if h.can_produce]
+        if not heurs:
+            return []
     batch = []
     perf_sum = sum(h.performance for h in heurs)
-    for h in heurs:
-        prob = (h.performance + smooth) / (perf_sum + smooth * len(heurs))
-        nb_h = max(1, round(target * prob))
-        h_pts = h.produce(nb_h)
+    probs = [(h.performance + smooth) / (perf_sum + smooth * len(heurs)) for h in heurs]
+    if rng is not None:
+        counts = proportional_counts(rng, np.maximum(probs, 0.0) + 1e-12, target)
+    else:
+        counts = [max(1, round(target * prob)) for prob in probs]
+    for h, nb_h in zip(heurs, counts):
+        if nb_h <= 0:
+            continue
+        h_pts = h.produce(int(nb_h))
         if h_pts:
             h.performance *= discount_factor(discount) ** len(h_pts)
             batch.extend(h_pts)

@@ -73,13 +73,22 @@ import hashlib
 import itertools
 import json
 import time
-from dataclasses import asdict, dataclass, field
+import warnings
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
 from panobbgo.benchmark import StrategySpec
-from panobbgo.ioh_runner import AOCC_LOG_HI, AOCC_LOG_LO, IOHTracker, _BudgetExhausted, aocc  # noqa: F401
+from panobbgo.ioh_runner import (  # noqa: F401
+    AOCC_LOG_HI,
+    AOCC_LOG_LO,
+    IOHTracker,
+    _BudgetExhausted,
+    aocc,
+    aocc_virtual_time,
+)
+from panobbgo.virtual_clock import VirtualSpec
 
 
 # ---------------------------------------------------------------------------
@@ -720,6 +729,9 @@ class IOHRunRecord:
     #: point currently has the best observed value.  ``aocc - aocc_reco``
     #: is the price of being fooled by the noise.
     aocc_reco: Optional[float] = None
+    #: AOCC over *virtual time* (:func:`~panobbgo.ioh_runner.aocc_virtual_time`)
+    #: of a virtual-clock run (``IOHHarnessResult.virtual``); ``None`` otherwise.
+    aocc_time: Optional[float] = None
 
     @property
     def precision(self) -> float:
@@ -741,6 +753,29 @@ class IOHRunRecord:
         return self.error is not None and not self.timed_out and not self.ended_early
 
 
+def time_score(r: IOHRunRecord) -> Optional[float]:
+    """A run's AOCC over virtual time for the aggregates: 0 for a crash, ``None`` if it has none."""
+    return 0.0 if r.crashed else r.aocc_time
+
+
+def run_record_from_dict(row: Dict[str, Any]) -> IOHRunRecord:
+    """:class:`IOHRunRecord` from a JSON row, ignoring keys this version does not know (newer files)."""
+    known = {f.name for f in fields(IOHRunRecord)}
+    return IOHRunRecord(**{k: v for k, v in row.items() if k in known})
+
+
+def warn_missing_time_scores(result: "IOHHarnessResult") -> None:
+    """Warn when strategies of a virtual-clock result have no time score (see ``strategies_without_time_score``)."""
+    missing = result.strategies_without_time_score()
+    if missing:
+        warnings.warn(
+            "no AOCC over virtual time for %s: these strategies did not run on the virtual clock "
+            "and are left out of the time aggregates" % ", ".join(missing),
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
 @dataclass
 class IOHHarnessResult:
     """Aggregate over a battery."""
@@ -755,6 +790,11 @@ class IOHHarnessResult:
     #: Results measured under different modes are not comparable —
     #: ``ioh_benchmark.py compare`` warns on a mismatch.
     sync_eval: bool = False
+    #: Virtual-clock settings (:meth:`VirtualSpec.to_dict
+    #: <panobbgo.virtual_clock.VirtualSpec.to_dict>`: workers, duration
+    #: model) when the runs were simulated on ``q`` virtual workers, else
+    #: ``None``.  Each run then also carries ``aocc_time``.
+    virtual: Optional[Dict[str, Any]] = None
 
     # Every run counts, the way ``benchmarks/_screen.fold`` counts them: a
     # timed-out run with its AOCC up to the deadline, a crashed run with
@@ -766,6 +806,38 @@ class IOHHarnessResult:
         """Mean AOCC over all runs (crashes score 0, timeouts their partial AOCC)."""
         scores = [r.aocc for r in self.runs]
         return float(np.mean(scores)) if scores else 0.0
+
+    @property
+    def mean_aocc_time(self) -> Optional[float]:
+        """Mean AOCC over virtual time over the runs that have one (:func:`time_score`).
+
+        ``None`` unless a virtual-clock run with at least one time score.
+        Runs without one (a strategy that does not run on the clock) are
+        left out, not counted as 0: see :attr:`n_aocc_time` and
+        :meth:`strategies_without_time_score`.
+        """
+        if self.virtual is None:
+            return None
+        vals = [v for v in (time_score(r) for r in self.runs) if v is not None]
+        return float(np.mean(vals)) if vals else None
+
+    @property
+    def n_aocc_time(self) -> int:
+        """Number of runs behind :attr:`mean_aocc_time`."""
+        return sum(time_score(r) is not None for r in self.runs) if self.virtual is not None else 0
+
+    def per_strategy_aocc_time(self) -> Dict[str, float]:
+        """``{strategy_name: mean AOCC over virtual time}`` over the runs that have one."""
+        if self.virtual is None:
+            return {}
+        return self._mean_aocc_by(lambda r: r.strategy_name, value=time_score)
+
+    def strategies_without_time_score(self) -> List[str]:
+        """Strategies of a virtual-clock result with no time score at all (they did not run on the clock)."""
+        if self.virtual is None:
+            return []
+        scored = set(self.per_strategy_aocc_time())
+        return sorted({r.strategy_name for r in self.runs} - scored)
 
     def per_strategy_aocc(self) -> Dict[str, float]:
         """Return ``{strategy_name: mean AOCC over all runs}`` (crashes score 0)."""
@@ -782,13 +854,18 @@ class IOHHarnessResult:
             c["ended_early"] += int(r.ended_early)
         return out
 
-    def _mean_aocc_by(self, key_fn: Callable[[IOHRunRecord], Any]) -> Dict[Any, float]:
-        """Mean AOCC of all runs grouped by ``key_fn(run)``; a ``None`` key skips the run."""
+    def _mean_aocc_by(
+        self,
+        key_fn: Callable[[IOHRunRecord], Any],
+        value: Callable[[IOHRunRecord], Optional[float]] = lambda r: r.aocc,
+    ) -> Dict[Any, float]:
+        """Mean ``value(run)`` (default AOCC) grouped by ``key_fn(run)``; a ``None`` key or value skips the run."""
         by: Dict[Any, List[float]] = {}
         for r in self.runs:
             key = key_fn(r)
-            if key is not None:
-                by.setdefault(key, []).append(r.aocc)
+            v = value(r)
+            if key is not None and v is not None:
+                by.setdefault(key, []).append(v)
         return {k: float(np.mean(v)) for k, v in by.items()}
 
     def per_strategy_per_dim_aocc(self) -> Dict[Tuple[str, int], float]:
@@ -808,6 +885,15 @@ class IOHHarnessResult:
             "per_strategy_aocc": self.per_strategy_aocc(),
             "timestamp": self.timestamp,
             "sync_eval": self.sync_eval,
+            **(
+                {}
+                if self.virtual is None
+                else {
+                    "virtual": self.virtual,
+                    "mean_aocc_time": self.mean_aocc_time,
+                    "per_strategy_aocc_time": self.per_strategy_aocc_time(),
+                }
+            ),
             "runs": [asdict(r) for r in self.runs],
         }
 
@@ -816,7 +902,7 @@ class IOHHarnessResult:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "IOHHarnessResult":
-        runs = [IOHRunRecord(**r) for r in d.get("runs", [])]
+        runs = [run_record_from_dict(r) for r in d.get("runs", [])]
         return cls(
             battery_name=d["battery_name"],
             problem_kind=d["problem_kind"],
@@ -825,14 +911,25 @@ class IOHHarnessResult:
             runs=runs,
             timestamp=d.get("timestamp", time.time()),
             sync_eval=bool(d.get("sync_eval", False)),
+            virtual=d.get("virtual"),
         )
 
     def print_summary(self) -> None:
         print(f"\nIOH battery: {self.battery_name}  ({self.problem_kind})")
-        if self.sync_eval:
+        if self.virtual is not None:
+            print(f"  eval mode:    virtual clock {self.virtual}")
+        elif self.sync_eval:
             print("  eval mode:    sync (deterministic result batches)")
         print(f"  log targets:  [10^{self.log_lo:.0f}, 10^{self.log_hi:.0f}]")
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.runs)} run(s)")
+        if self.mean_aocc_time is not None:
+            print(
+                f"  AOCC (time):  {self.mean_aocc_time:.4f}    over virtual time, horizon budget/q mean durations "
+                f"({self.n_aocc_time} run(s))"
+            )
+        missing = self.strategies_without_time_score()
+        if missing:
+            print(f"  (no time score, not on the virtual clock: {', '.join(missing)})")
         n_crash = sum(r.crashed for r in self.runs)
         n_timeout = sum(r.timed_out for r in self.runs)
         n_early = sum(r.ended_early for r in self.runs)
@@ -848,10 +945,12 @@ class IOHHarnessResult:
             print(f", recommendation {float(np.mean(reco)):.4f})" if reco else ")")
         print("\n  per strategy:")
         counts = self.per_strategy_counts()
+        per_time = self.per_strategy_aocc_time()
         for name, val in sorted(self.per_strategy_aocc().items(), key=lambda kv: -kv[1]):
             c = counts[name]
             bad = [f"{c.get(k, 0)} {k.replace('_', ' ')}" for k in ("crashed", "timed_out", "ended_early") if c.get(k)]
-            print(f"    {name:32s}  {val:.4f}  (n={c['n']}{', ' + ', '.join(bad) if bad else ''})")
+            t = f"  time {per_time[name]:.4f}" if name in per_time else ""
+            print(f"    {name:32s}  {val:.4f}{t}  (n={c['n']}{', ' + ', '.join(bad) if bad else ''})")
         per_dim = self.per_strategy_per_dim_aocc()
         dims = sorted({d for _, d in per_dim})
         if len(dims) > 1:
@@ -915,12 +1014,20 @@ class IOHMultiSeedResult:
     #: Whether the synchronous-harvest evaluation mode was active (see
     #: :class:`IOHHarnessResult.sync_eval`).
     sync_eval: bool = False
+    #: Virtual-clock settings (see :class:`IOHHarnessResult.virtual`).
+    virtual: Optional[Dict[str, Any]] = None
 
     @property
     def mean_aocc(self) -> float:
         """Mean AOCC with equal weight per seed."""
         vals = [r.mean_aocc for r in self.results]
         return float(np.mean(vals)) if vals else 0.0
+
+    @property
+    def mean_aocc_time(self) -> Optional[float]:
+        """Mean AOCC over virtual time with equal weight per seed; ``None`` without one."""
+        vals = [v for v in (r.mean_aocc_time for r in self.results) if v is not None]
+        return float(np.mean(vals)) if vals else None
 
     def per_strategy_seed_aocc(self) -> Dict[str, List[float]]:
         """Return ``{strategy: [mean AOCC at base_seeds[i]]}``.
@@ -952,6 +1059,7 @@ class IOHMultiSeedResult:
             "per_strategy_aocc": self.per_strategy_aocc(),
             "timestamp": self.timestamp,
             "sync_eval": self.sync_eval,
+            **({} if self.virtual is None else {"virtual": self.virtual, "mean_aocc_time": self.mean_aocc_time}),
             "results": [r.to_dict() for r in self.results],
         }
 
@@ -969,6 +1077,7 @@ class IOHMultiSeedResult:
             results=[IOHHarnessResult.from_dict(r) for r in d.get("results", [])],
             timestamp=d.get("timestamp", time.time()),
             sync_eval=bool(d.get("sync_eval", False)),
+            virtual=d.get("virtual"),
         )
 
     def print_summary(self) -> None:
@@ -978,6 +1087,8 @@ class IOHMultiSeedResult:
         print(f"  seeds ({len(self.base_seeds)}): {', '.join(str(s) for s in self.base_seeds)}")
         n_runs = sum(len(r.runs) for r in self.results)
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.base_seeds)} seed(s), {n_runs} run(s)")
+        if self.mean_aocc_time is not None:
+            print(f"  AOCC (time):  {self.mean_aocc_time:.4f}    over virtual time ({self.virtual})")
         print("\n  per strategy (mean ± sd across seeds):")
         matrix = self.per_strategy_seed_aocc()
         for name, vals in sorted(matrix.items(), key=lambda kv: -float(np.mean(kv[1]))):
@@ -997,6 +1108,7 @@ def run_ioh_harness_multi_seed(
     progress: bool = True,
     sync_eval: bool = True,
     jobs: int = 1,
+    virtual: Optional[VirtualSpec] = None,
 ) -> IOHMultiSeedResult:
     """Run :func:`run_ioh_harness` once per seed in ``base_seeds``.
 
@@ -1020,6 +1132,7 @@ def run_ioh_harness_multi_seed(
                 progress=progress,
                 sync_eval=sync_eval,
                 jobs=jobs,
+                virtual=virtual,
             )
         )
     return IOHMultiSeedResult(
@@ -1029,7 +1142,8 @@ def run_ioh_harness_multi_seed(
         log_hi=log_hi,
         base_seeds=[int(s) for s in base_seeds],
         results=results,
-        sync_eval=sync_eval,
+        sync_eval=sync_eval or virtual is not None,
+        virtual=None if virtual is None else virtual.to_dict(),
     )
 
 
@@ -1239,6 +1353,7 @@ class _TrackedRun:
     aocc_observed: Optional[float] = None
     aocc_reco: Optional[float] = None
     error: Optional[str] = None
+    aocc_time: Optional[float] = None
 
 
 def _run_tracked(
@@ -1253,6 +1368,7 @@ def _run_tracked(
     log_lo: float,
     log_hi: float,
     timeout_s: Optional[float],
+    virtual: Optional[VirtualSpec] = None,
 ) -> _TrackedRun:
     """Run one strategy under an installed tracker and score its trace.
 
@@ -1263,6 +1379,12 @@ def _run_tracked(
     around ``problem`` (an :class:`IOHTracker` or a subclass such as the
     families' penalty tracker) and is restored here.  Exceptions
     propagate; the caller records them.
+
+    With ``virtual`` the strategy runs on the virtual clock
+    (:mod:`panobbgo.virtual_clock`) with the tracker as its observer: the
+    traces are recorded in completion order, failed and timed-out calls
+    count as spent evaluations, and ``aocc_time`` is scored as well
+    (:func:`~panobbgo.ioh_runner.aocc_virtual_time`).
     """
     np.random.seed(seed)
     try:
@@ -1287,6 +1409,8 @@ def _run_tracked(
         # analyzer still fires its event for any listeners; we simply
         # tell the strategy not to honour it as a stop signal.)
         strategy.config.stop_on_convergence = False
+        if virtual is not None:
+            virtual.apply(strategy, observer=tracker)
         # Past the deadline the tracker stops counting; this also ends the
         # main loop instead of letting it spin through no-op evaluations.
         tracker.on_timeout = getattr(strategy, "request_stop", None)
@@ -1313,6 +1437,19 @@ def _run_tracked(
     else:
         out.aocc = score(tracker.best_so_far)
         out.trace_evals, out.trace_fx = _downsample_trajectory(tracker.best_so_far, budget=budget)
+    if virtual is not None and tracker.timeline and len(tracker.timeline) == tracker.n_evals:
+        # Every counted call carries its completion time (a strategy that
+        # evaluates outside the main loop, e.g. an external baseline, does
+        # not run on the clock and gets no time score).
+        out.aocc_time = aocc_virtual_time(
+            tracker.timeline,
+            budget=budget,
+            workers=virtual.workers,
+            f_opt=f_opt,
+            mean_duration=virtual.model().mean,
+            log_lo=log_lo,
+            log_hi=log_hi,
+        )
     if tracker.timed_out:
         # Scored above on the trajectory up to the deadline; the error
         # marks it so no table mistakes a cut-off run for a finished one.
@@ -1355,6 +1492,7 @@ def _run_one(
     noise_level: str = "moderate",
     noise_resample: bool = False,
     fid: Optional[int] = None,
+    virtual: Optional[VirtualSpec] = None,
 ) -> IOHRunRecord:
     """Run one strategy on one (problem, fid, instance) and return its record."""
     from panobbgo.lib.ioh_wrapper import IOHProblem
@@ -1416,6 +1554,7 @@ def _run_one(
             log_lo=log_lo,
             log_hi=log_hi,
             timeout_s=timeout_s,
+            virtual=virtual,
         )
     except Exception as e:  # noqa: BLE001  — record and continue
         tracked.error = f"{type(e).__name__}: {e}"
@@ -1446,6 +1585,7 @@ def _run_one(
         aocc_observed=tracked.aocc_observed,
         aocc_reco=tracked.aocc_reco,
         fid=fid,
+        aocc_time=tracked.aocc_time,
     )
 
 
@@ -1499,6 +1639,7 @@ def run_ioh_harness(
     progress: bool = True,
     sync_eval: bool = True,
     jobs: int = 1,
+    virtual: Optional[VirtualSpec] = None,
 ) -> IOHHarnessResult:
     """Run every strategy against every (fid, dim, instance, rep) in ``battery``.
 
@@ -1519,6 +1660,11 @@ def run_ioh_harness(
     ``timeout_s`` is a per-run wall-clock deadline, enforced by the
     tracker: evaluations past it are not counted, and the run keeps its
     AOCC up to the deadline but is recorded with a ``TimeoutError``.
+
+    ``virtual`` runs every strategy on the virtual clock
+    (:class:`~panobbgo.virtual_clock.VirtualSpec`: ``q`` simulated workers
+    and a duration model) and scores ``aocc_time`` next to ``aocc``.  The
+    run seeds do not depend on it, so a sweep over ``q`` is paired.
     """
     if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
@@ -1561,6 +1707,7 @@ def run_ioh_harness(
             noise_level=battery.noise_level,
             noise_resample=battery.noise_resample,
             fid=fid,
+            virtual=virtual,
         )
         if jobs > 1:
             tasks.append(task)
@@ -1573,11 +1720,14 @@ def run_ioh_harness(
     if tasks:
         runs = _run_tasks_in_pool(tasks, jobs, total, progress)
 
-    return IOHHarnessResult(
+    result = IOHHarnessResult(
         battery_name=battery.name,
         problem_kind=battery.problem_kind,
         log_lo=log_lo,
         log_hi=log_hi,
-        sync_eval=sync_eval,
+        sync_eval=sync_eval or virtual is not None,
         runs=runs,
+        virtual=None if virtual is None else virtual.to_dict(),
     )
+    warn_missing_time_scores(result)
+    return result

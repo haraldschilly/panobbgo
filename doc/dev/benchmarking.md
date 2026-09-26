@@ -109,6 +109,33 @@ also has `preset=shapes` (BBOB f6/f7/f12/f21/f24 × dims 2/5/10) and
 `lib.families.FailureRegion`; failed calls are spent budget, and a run that
 stops below its budget is recorded as `EndedEarly`).
 
+**Parallel behaviour (virtual clock).**  `--virtual-workers Q` runs every
+strategy on a deterministic simulation of Q workers
+(`panobbgo/virtual_clock.py`, `evaluation.method = "virtual"`; no real
+waiting, bit-reproducible) and scores `aocc_time` (AOCC over virtual time,
+horizon budget/Q mean durations) next to `aocc`.  Benchmark at
+q ∈ {1, 4, 16, 64}, one output file per q, the same q, duration model and
+policy on both sides of a compare (`compare` warns on a mismatch and refuses
+to gate):
+
+```bash
+for q in 1 4 16 64; do
+  uv run python scripts/ioh_benchmark.py run --families --virtual-workers $q \
+      --duration lognormal --output virtual_q$q.json
+done
+```
+
+The default `--virtual-policy async` decides at every completion and asks the
+strategy for at most the free workers (`StrategyBase.request_cap`; q = 1:
+strictly one call at a time) — an idealized pull-when-free loop that the
+real threaded loop does not implement yet (`TODO.md`).  `--virtual-policy
+sync` is a regression mode: with q = 1, `--duration constant` and
+`dask.local.n_workers = 1` it reproduces the `sync_eval` run exactly (then
+`aocc_time == aocc`).  Failed and timed-out calls count as spent evaluations
+in both metrics.  The ask/tell external baselines run on the same clock; the
+SciPy baselines get no `aocc_time`.  Metric, model and the metric's caps
+across q: guide, "Parallel behaviour on a virtual clock".
+
 ## Comparability
 
 Result files from before **2026-09-25** are not comparable with newer ones:

@@ -325,7 +325,8 @@ class Config:
         )
 
         # Evaluation method configuration (YAML only)
-        # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed)
+        # Options: 'threaded' (fast, for testing), 'processes' (isolated), 'dask' (distributed),
+        # 'virtual' (simulated parallel workers on a virtual clock, see virtual_clock.py)
         self.evaluation_method = get_config("evaluation.method", None, None, "threaded", str)
 
         # Synchronous harvest for threaded evaluation (YAML only).  When
@@ -353,6 +354,23 @@ class Config:
         # objective that raises is still a failed evaluation.  Unset/0 = no
         # limit (the default).
         self.evaluation_timeout = get_config("evaluation.timeout", None, None, None, float)
+
+        # Virtual-clock parallel evaluation (evaluation.method = 'virtual',
+        # YAML only; panobbgo/virtual_clock.py): a deterministic simulation
+        # of virtual_workers parallel workers.  virtual_duration is
+        # 'constant' (1 time unit per call), 'lognormal' (mean 1, log-space
+        # sd virtual_duration_sigma), a number, or — set on the strategy — a
+        # DurationModel or a callable f(x) (with virtual_duration_mean).
+        # evaluation.timeout is then in virtual time units.
+        self.virtual_workers = get_config("evaluation.virtual_workers", None, None, 4, int)
+        self.virtual_duration = get_config("evaluation.virtual_duration", None, None, "constant", str)
+        self.virtual_duration_sigma = get_config("evaluation.virtual_duration_sigma", None, None, 0.5, float)
+        # Nominal mean duration (the unit of the virtual-time metric); unset =
+        # 1 for 'constant'/'lognormal', required for a callable.
+        self.virtual_duration_mean = get_config("evaluation.virtual_duration_mean", None, None, None, float)
+        # 'async' (default): a decision at every completion, candidates only for
+        # the free workers; 'sync': the synchronous batch policy (regression mode).
+        self.virtual_policy = get_config("evaluation.virtual_policy", None, None, "async", str)
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
         self.dask_cluster_type = get_config("dask.cluster_type", None, None, "local", str)

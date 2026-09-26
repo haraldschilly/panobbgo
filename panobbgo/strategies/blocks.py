@@ -1163,7 +1163,11 @@ class StrategyBlockBandit(StrategyBase):
         # spent`` would both cut generations and make the single-arm case
         # differ from StrategyRoundRobin for no gain -- the overshoot is at
         # most ``size - 1`` evaluations per block.
-        points = owner.produce(self.size)
+        # Under a request cap (the free workers of the virtual clock's async
+        # policy) only what can be dispatched now is drawn, so ``_block_n``
+        # counts dispatched evaluations and ``_block_drained`` reads the
+        # owner's queue as it really is.
+        points = owner.produce(self.cap_request(self.size))
         self._block_n += len(points)
         self._block_drained = not owner.has_points
         return points

@@ -27,8 +27,19 @@ Remove an item when it is done; record the result in the planning log, not here.
 
 - [ ] External baselines, batch-capable: pycma IPOP/BIPOP, Nevergrad NGOpt,
       Optuna (CMA, TPE); then BoTorch/Ax, SMAC3, HEBO, PDFO in an optional extra.
-- [ ] Virtual-clock parallel simulator (q workers, duration models); AOCC over
-      evaluations and virtual time, q ∈ {1, 4, 16, 64}.
+- [ ] Measure on the virtual clock at q ∈ {1, 4, 16, 64} (simulator built
+      2026-09-26: `panobbgo/virtual_clock.py`, `ioh_benchmark.py run
+      --virtual-workers Q`, `aocc_time`; default policy "async": a
+      decision at every completion, candidates only for the free workers).
+- [ ] Virtual clock, capped bandits: a generational arm (CMA-ES, DE)
+      drains its queued generation at the bandit's share of the free
+      workers, so candidates get stale (max age 49 evaluations vs 7 before
+      the request cap).  Prefer an arm with a partly dispatched generation,
+      or pull in generation-sized chunks.
+- [ ] Bring the *real* asynchronous loop (threaded / processes / dask) to
+      the same pull-when-free policy as the virtual clock's "async" policy:
+      today it sizes batches by `jobs_per_client` from wall-clock timings and
+      can queue past the free workers.
 - [ ] Failure-region families (half-space / ball / boxes; crash vs timeout).
 - [ ] Dims 30/40; real-world set; sealed test set.
 - [ ] Feature logging at checkpoints (training data for the selector).

@@ -1360,6 +1360,12 @@ as <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py
 scores 0.  Every AOCC run pins BLAS to one thread (recorded as
 <code class="docutils literal notranslate"><span class="pre">blas_threads</span></code>).  The GP, QuadraticWLS and <code class="docutils literal notranslate"><span class="pre">Nearby(quadratic=True)</span></code>
 heuristics are not for d ≥ 30.</p>
+<p>The 24 plain BBOB functions (the function axis that
+<code class="docutils literal notranslate"><span class="pre">portfolio_screen.py</span> <span class="pre">kind=bbob</span></code> screens) are <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span>
+<span class="pre">--bbob</span></code>, with <code class="docutils literal notranslate"><span class="pre">--bbob-dims</span></code>, <code class="docutils literal notranslate"><span class="pre">--bbob-instances</span></code> and <code class="docutils literal notranslate"><span class="pre">--bbob-fids</span></code>
+(defaults: d 2/5, instances 0–2, all 24) and <code class="docutils literal notranslate"><span class="pre">--budget-multiplier</span></code>
+(default 200·d).  Each run record carries its <code class="docutils literal notranslate"><span class="pre">fid</span></code>, so a result can be
+read per COCO class (<code class="docutils literal notranslate"><span class="pre">harness_ioh.bbob_class_of</span></code>).</p>
 </section>
 <section id="the-sealed-test-set">
 <h3><a class="toc-backref" href="#id30" role="doc-backlink">The sealed test set</a><a class="headerlink" href="#the-sealed-test-set" title="Link to this heading">#</a></h3>

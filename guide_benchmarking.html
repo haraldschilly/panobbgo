@@ -135,6 +135,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#pair-the-variants-seed-name">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></li>
 <li><a class="reference internal" href="#the-null-floor">The null floor</a></li>
 <li><a class="reference internal" href="#the-sweep-tools">The sweep tools</a></li>
+<li><a class="reference internal" href="#the-sealed-test-set">The sealed test set</a></li>
 <li><a class="reference internal" href="#when-a-default-may-change">When a default may change</a></li>
 </ul>
 </li>
@@ -228,17 +229,18 @@ change is an improvement.</p>
 <li><p><a class="reference internal" href="#pair-the-variants-seed-name" id="id25">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></p></li>
 <li><p><a class="reference internal" href="#the-null-floor" id="id26">The null floor</a></p></li>
 <li><p><a class="reference internal" href="#the-sweep-tools" id="id27">The sweep tools</a></p></li>
-<li><p><a class="reference internal" href="#when-a-default-may-change" id="id28">When a default may change</a></p></li>
+<li><p><a class="reference internal" href="#the-sealed-test-set" id="id28">The sealed test set</a></p></li>
+<li><p><a class="reference internal" href="#when-a-default-may-change" id="id29">When a default may change</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id29">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id30">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id30">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id31">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id32">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id31">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id32">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id33">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id33">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id34">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -1090,13 +1092,32 @@ peaks, attractive sector, step ellipsoid and bent cigar × dims
 where evaluations crash or time out; failed calls are spent budget;
 a run that stops by itself below its budget is scored on its short
 trace and marked <code class="docutils literal notranslate"><span class="pre">EndedEarly</span></code> in <code class="docutils literal notranslate"><span class="pre">IOHRunRecord.error</span></code>).
+<code class="docutils literal notranslate"><span class="pre">preset=large</span></code> is the free and shapes families at dims 30/40 (every
+preset also takes <code class="docutils literal notranslate"><span class="pre">dims=30,40</span></code>).  The sealed test set is
+deliberately not a screen preset (see below).
 Single runs of the same batteries are also reachable from the IOH CLI
-as <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--families</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-constrained</span></code>
-(and <code class="docutils literal notranslate"><span class="pre">--families-quick</span></code> for a smoke test).</p></td>
+as <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--families</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-constrained</span></code> /
+<code class="docutils literal notranslate"><span class="pre">--families-large</span></code> (and <code class="docutils literal notranslate"><span class="pre">--families-quick</span></code> for a smoke test).</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>Dimensions 30/40 on MA-BBOB are <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--large</span></code>, and a
+<code class="docutils literal notranslate"><span class="pre">bbob-largescale</span></code>-style slice (plain BBOB, five functions at d 80/160,
+500·d) is <code class="docutils literal notranslate"><span class="pre">--largescale</span></code>; that slice is scored on AOCC targets up to
+<code class="docutils literal notranslate"><span class="pre">1e6</span></code> rather than <code class="docutils literal notranslate"><span class="pre">1e2</span></code>, because at the standard bound almost every run
+scores 0.  Every AOCC run pins BLAS to one thread (recorded as
+<code class="docutils literal notranslate"><span class="pre">blas_threads</span></code>).  The GP, QuadraticWLS and <code class="docutils literal notranslate"><span class="pre">Nearby(quadratic=True)</span></code>
+heuristics are not for d ≥ 30.</p>
+</section>
+<section id="the-sealed-test-set">
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">The sealed test set</a><a class="headerlink" href="#the-sealed-test-set" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--sealed</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-sealed</span></code> run a held-out
+battery: 20 fresh MA-BBOB instances and fresh family instances at d 2 to 40
+(<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.sealed</span></code>) that no development battery can contain.  The
+result files are marked <code class="docutils literal notranslate"><span class="pre">sealed</span></code>.  Run it only to report a result or back a claim; never
+tune, screen, select or train on it.  A number from it that steers a
+decision burns the set.  The harness prints a warning banner every time.</p>
 <p>Typical invocation (<code class="docutils literal notranslate"><span class="pre">nice</span></code> it; progress is counted in evaluations, not
 wall-clock):</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>benchmarks/arm_sweep.py<span class="w"> </span>jso<span class="w"> </span>out.json<span class="w"> </span><span class="m">42</span><span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="m">1234</span><span class="w"> </span><span class="nv">dims</span><span class="o">=</span><span class="m">2</span>,5<span class="w"> </span><span class="nv">bm</span><span class="o">=</span><span class="m">500</span>
@@ -1105,7 +1126,7 @@ wall-clock):</p>
 </div>
 </section>
 <section id="when-a-default-may-change">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
 <p>A three-seed sweep <em>locates</em> a candidate; it never ships one.  A default
 change needs a <strong>paired multi-seed comparison</strong> on fresh seeds
 (<code class="docutils literal notranslate"><span class="pre">harness_ioh.paired_seed_stats</span></code>), reported as delta, CI and
@@ -1128,9 +1149,9 @@ instead of a point estimate.  Only the re-check on fresh seeds decides.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id29" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id30" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id30" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -1140,7 +1161,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id31" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -1150,7 +1171,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -1159,7 +1180,7 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id33" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id34" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies

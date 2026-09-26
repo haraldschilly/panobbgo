@@ -100,6 +100,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from panobbgo.benchmark import StrategySpec
+from panobbgo.local_run import BLAS_THREADS
 from panobbgo.harness_ioh import (
     AOCC_LOG_HI,
     AOCC_LOG_LO,
@@ -362,12 +363,18 @@ def make_large_families_battery(
     here because nothing in their handling has been measured above
     ``d = 5`` yet.
 
-    Cost, measured 2026-09-26 (laptop, ``nice -n 15``, ``sync_eval``):
-    a run at *d* = 40 and ``500·d`` (20 000 evaluations) takes 1.3-1.5 s
-    for CMA-ES alone and 2.4-3.4 s for the two portfolio specs of
+    Cost, measured 2026-09-26 (16-core laptop, ``nice -n 15``,
+    ``sync_eval``, one BLAS thread, light load): a run at *d* = 40 and
+    ``500·d`` (20 000 evaluations) takes 1.3-1.5 s for CMA-ES alone and
+    2.4-3.4 s for the two portfolio specs of
     :func:`~panobbgo.harness_ioh.make_ioh_strategies`, 0.07-0.17 ms per
     evaluation.  The 60 runs of the preset are ≈ 1.2-3 min per strategy and
     seed.
+
+    Resolution limit: at this budget CMA-ES scores AOCC exactly 0 on the
+    ellipsoid and Lunacek families at *d* = 40 — its best value never gets
+    below the ``1e2`` upper target.  Those cells rank nothing; read the
+    preset per family, not only as a mean.
     """
     families = list(FREE_FAMILIES) + list(SHAPES_FAMILIES)
     return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
@@ -391,11 +398,14 @@ def make_sealed_families_battery() -> FamilyInstances:
     * the constrained and failure families (8) at *d* ∈ {2, 5, 10},
       3 instances each — 72 instances.
 
-    :func:`run_family_harness` prints a warning banner when it runs it.
-    Rules: ``doc/dev/benchmarking.md``, "The sealed test set".  Cost at
-    ``500·d`` (1.8 M evaluations per strategy and seed): ≈ 3-6 min per
-    strategy and seed at the measured 0.07-0.17 ms per evaluation.  No
-    arguments, on purpose (see :func:`~panobbgo.harness_ioh.make_sealed_battery`).
+    :func:`run_family_harness` prints a warning banner when it runs it,
+    names the result ``sealed-…`` and marks every record ``sealed``; it
+    refuses a sub-selection of the set, a mix with development instances,
+    ``reps != 1`` and a budget other than ``500·d``.  Rules:
+    ``doc/dev/benchmarking.md``, "The sealed test set".  Cost at ``500·d``
+    (1.8 M evaluations per strategy and seed): ≈ 3-6 min per strategy and
+    seed at 0.07-0.17 ms per evaluation (one BLAS thread).  No arguments, on
+    purpose (see :func:`~panobbgo.harness_ioh.make_sealed_battery`).
     """
     easy = list(FREE_FAMILIES) + list(SHAPES_FAMILIES)
     hard = list(CONSTRAINED_FAMILIES) + list(FAILURE_FAMILIES)
@@ -404,6 +414,37 @@ def make_sealed_families_battery() -> FamilyInstances:
         hard, dims=SEALED_FAMILY_DIMS_HARD, n_instances=3, seed=SEALED_FAMILY_SEED, sealed=True
     )
     return out
+
+
+#: Budget multiplier of the sealed family set.
+SEALED_FAMILY_BUDGET_MULTIPLIER: int = 500
+
+
+def sealed_family_keys() -> set:
+    """``{(family, dim, instance)}`` of :func:`make_sealed_families_battery`, without building it."""
+    easy = list(FREE_FAMILIES) + list(SHAPES_FAMILIES)
+    hard = list(CONSTRAINED_FAMILIES) + list(FAILURE_FAMILIES)
+    return {(cfg.name(), d, i) for cfg in easy for d in SEALED_FAMILY_DIMS for i in range(3)} | {
+        (cfg.name(), d, i) for cfg in hard for d in SEALED_FAMILY_DIMS_HARD for i in range(3)
+    }
+
+
+def _check_sealed_run(instances: Sequence[Tuple[str, Family]], budget_multiplier: int, reps: int) -> bool:
+    """``True`` for the whole sealed set; ``False`` for none of it; ``ValueError`` for anything between."""
+    marks = [bool(getattr(p, "sealed", False)) for _n, p in instances]
+    if not any(marks):
+        return False
+    if not all(marks):
+        raise ValueError("a battery mixing sealed and development instances is refused (panobbgo.sealed)")
+    keys = [(p.family, p.dim, p.instance) for _n, p in instances]
+    if len(keys) != len(set(keys)) or set(keys) != sealed_family_keys():
+        raise ValueError("the sealed family set runs whole: no sub-selection (panobbgo.sealed)")
+    if int(budget_multiplier) != SEALED_FAMILY_BUDGET_MULTIPLIER or int(reps) != 1:
+        raise ValueError(
+            f"the sealed family set runs at {SEALED_FAMILY_BUDGET_MULTIPLIER}*d with reps=1, "
+            f"not {budget_multiplier}*d, reps={reps}"
+        )
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +505,7 @@ def _run_one(
         trace_evals=tracked.trace_evals,
         trace_fx=tracked.trace_fx,
         aocc_time=tracked.aocc_time,
+        sealed=bool(getattr(problem, "sealed", False)),
     )
 
 
@@ -539,7 +581,10 @@ def run_family_harness(
 
     Runs serially unless ``jobs > 1``; the strategies use internal threading.
     """
-    if any(getattr(p, "sealed", False) for _n, p in instances):
+    sealed = _check_sealed_run(instances, budget_multiplier, reps)
+    if sealed:
+        if not battery_name.startswith("sealed"):
+            battery_name = f"sealed-{battery_name}"
         print_sealed_banner(battery_name)
     total = len(instances) * len(specs) * int(reps)
     runs: List[IOHRunRecord] = []
@@ -587,6 +632,8 @@ def run_family_harness(
         sync_eval=sync_eval or virtual is not None,
         runs=runs,
         virtual=None if virtual is None else virtual.to_dict(),
+        sealed=sealed,
+        blas_threads=BLAS_THREADS,
     )
 
     warn_missing_time_scores(result)

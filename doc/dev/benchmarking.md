@@ -119,12 +119,35 @@ family preset takes `dims=30,40` in `family_screen.py`.  New presets:
 `ioh_benchmark.py run --large` (MA-BBOB, d 30/40, instances 0–2, 500·d),
 `--families-large` / `family_screen.py preset=large` (free + shapes
 families at d 30/40), and `--largescale` (plain BBOB f2/f8/f10/f15/f21 at
-d 80/160, 200·d; full rotations, so not comparable with COCO's
-`bbob-largescale` numbers).  Measured cost (2026-09-26, laptop, niced): at
-d = 40 and 500·d (20 000 evaluations) a run takes 1.3–3.4 s on the families
-and 6.6–8.6 s on MA-BBOB (0.07–0.17 and 0.3–0.45 ms per evaluation); a
-d = 160 BBOB run at 100·d takes 5–14 s.  The large presets are ≈ 1–3 min
-per strategy and seed, the largescale slice ≈ 10–20 min.
+d 80/160, 500·d; full rotations, so not comparable with COCO's
+`bbob-largescale` numbers).
+
+*   **The largescale slice is scored on a wider AOCC range, targets
+    `[1e-8, 1e6]`** (`log_hi = 6`, stored in the battery and in every
+    result file): with the standard `1e2` bound CMA-ES scored exactly 0 on
+    f2/f10/f15 at d = 80 and on four of five functions at d = 160.  Its
+    numbers are not comparable with standard-bound ones; `compare` sees
+    the bounds in the files.
+*   **Resolution limit at d 30/40:** at 500·d CMA-ES still scores 0 on
+    the ellipsoid and Lunacek families at d = 40 (never below `1e2`).
+    Those cells rank nothing; read the large presets per family.
+*   **Not for d ≥ 30:** the GP, QuadraticWLS and `Nearby(quadratic=True)`
+    heuristics (a Nearby quadratic fit takes 7–77 s and up to 1 GB per new
+    best at d = 160).  `ioh_benchmark.py` refuses `--legacy` (the composite
+    registry, which has them) with the large and sealed batteries.
+*   **BLAS is pinned to one thread** for every AOCC run
+    (`local_run.BLAS_THREADS`, recorded as `blas_threads` in the results).
+    At d ≥ 80 a seeded result depends on the OpenBLAS thread count
+    (CMA-ES's `eigh`), and an unpinned pool is 7–70× slower under load.
+    At d ≤ 40 pinned and 16-thread runs are bit-identical (checked
+    2026-09-26: 69 runs, both tracks, d 2/5/40, 500·d).
+*   **Cost** (2026-09-26, 16-core laptop, `nice -n 15`, `sync_eval`, one
+    BLAS thread, light load; one run per `make_ioh_strategies` spec): at
+    d = 40 and 500·d (20 000 evaluations) 1.3–3.4 s on the families and
+    6.6–8.6 s on MA-BBOB (0.07–0.17 and 0.3–0.45 ms per evaluation); BBOB at
+    500·d takes ≈ 6 s per run at d = 80 and 20–42 s at d = 160.  Per
+    strategy and seed: large presets ≈ 1–3 min, the largescale slice
+    ≈ 7–10 min.
 
 **Parallel behaviour (virtual clock).**  `--virtual-workers Q` runs every
 strategy on a deterministic simulation of Q workers
@@ -155,13 +178,13 @@ across q: guide, "Parallel behaviour on a virtual clock".
 
 ## The sealed test set
 
-A held-out battery for **claims only**: fresh MA-BBOB instances and fresh
-family instances of every class, at d 2–40 (`panobbgo/sealed.py`).
+A held-out battery for **claims only**: 20 fresh MA-BBOB instances and
+fresh instances of every family class, at d 2–40 (`panobbgo/sealed.py`).
+It runs only through `ioh_benchmark.py`, never through a screen:
 
 ```bash
 uv run python scripts/ioh_benchmark.py run --sealed --decision-seeds --output claim_mabbob.json
 uv run python scripts/ioh_benchmark.py run --families-sealed --output claim_families.json
-uv run python benchmarks/family_screen.py claim.json 42 7 1234 preset=sealed
 ```
 
 *   **Run it only to report a result or back a claim** (a README number, a
@@ -170,14 +193,28 @@ uv run python benchmarks/family_screen.py claim.json 42 7 1234 preset=sealed
 *   A number from it that steers a decision burns the set: log it, and
     draw a new sealed set (new reserved ids and seed in
     `panobbgo/sealed.py`) before the next claim.
-*   The harnesses print a warning banner whenever they run it.  The
-    batteries take no knobs; the re-baseline workflow never runs it.
-*   Disjoint by construction: MA-BBOB ids come from a reserved range that
-    `IOHBatterySpec` refuses outside the sealed battery, and the family
-    battery seed is refused outside `make_sealed_families_battery()`
-    (`tests/test_large_and_sealed.py` checks both).
-*   Cost at 500·d: ≈ 2 min (MA-BBOB) and ≈ 3–6 min (families) per strategy
-    and seed.
+*   **Unit of inference:** a claim is a paired comparison over base seeds
+    (`paired_seed_stats`, the 12-seed decision roster) on *these*
+    instances — it generalises over optimizer randomness, and over the 20
+    MA-BBOB instances only as far as 20 draws allow.  Report it per
+    dimension (the summary prints the per-d table), not only as a mean.
+*   The harnesses print a warning banner whenever they run it, and mark
+    the result and every run record `sealed` (a family result is named
+    `sealed-…`).  The batteries take no knobs: `IOHBatterySpec` refuses
+    any variant of the sealed spec (sub-selection, dims, reps, budget), the
+    family harness refuses a partial or mixed sealed set, and the CLI
+    refuses `--reps` and `--legacy`.  The re-baseline workflow never runs it.
+*   Disjoint by construction: development ids must lie in
+    `0 <= id < 2**20`, and `IOHBatterySpec`, `harness_ioh._run_one` and
+    `scripts/ioh_smoke.py` refuse any other id outside the sealed battery.
+    The window matters because `ioh` seeds BBOB sub-problems with
+    `fid + 10000·id` in 32 bits, so ids alias modulo `2**28`; every sealed
+    id's alias residues stay above the window.  The family battery seed is
+    refused outside `make_sealed_families_battery()`.  A worker-gated test
+    pins the sealed MA-BBOB problems (`f` at fixed points), so an `ioh`
+    upgrade cannot change the set unnoticed (`tests/test_large_and_sealed.py`).
+*   Cost at 500·d (one BLAS thread): ≈ 7 min (MA-BBOB) and ≈ 3–6 min
+    (families) per strategy and seed.
 
 ## Comparability
 

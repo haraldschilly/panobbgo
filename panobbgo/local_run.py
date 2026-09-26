@@ -30,6 +30,14 @@ Independent runs (one per seed and battery cell) are deterministic under
 ``sync_eval``, so they can run in parallel worker processes without
 changing a number: :class:`TaskPool` / :func:`shared_pool`, selected with
 ``--jobs N`` (:func:`add_jobs_argument`) or a screen's ``jobs=N``.
+
+BLAS threads are pinned to :data:`BLAS_THREADS` (one) for every
+measurement: at ``d >= 80`` a seeded run's numbers depend on the OpenBLAS
+thread count (CMA-ES's ``eigh``), and an unpinned BLAS pool fighting the
+other jobs makes a ``d = 160`` run 7-70x slower under load.  The harnesses
+pin it per run (:func:`blas_limit`, in ``harness_ioh._run_tracked``);
+:func:`apply` and the pool workers also set the environment variables, so
+child processes inherit them.
 """
 
 from __future__ import annotations
@@ -46,6 +54,27 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 DEFAULT_NICENESS = 15
 DEFAULT_MIN_FREE_GB = 2.0
+
+#: BLAS / OpenMP threads per measurement process (recorded in every result).
+BLAS_THREADS = 1
+_BLAS_ENV_VARS = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+
+
+def pin_blas_env(threads: int = BLAS_THREADS) -> None:
+    """Set the BLAS / OpenMP thread variables, for this process's children.
+
+    A library already loaded in this process ignores them; :func:`blas_limit`
+    covers that case.
+    """
+    for var in _BLAS_ENV_VARS:
+        os.environ[var] = str(int(threads))
+
+
+def blas_limit(threads: int = BLAS_THREADS) -> Any:
+    """``threadpoolctl.threadpool_limits(threads)``: a context manager, or a global limit when not entered."""
+    from threadpoolctl import threadpool_limits
+
+    return threadpool_limits(limits=int(threads))
 
 
 def be_nice(niceness: int = DEFAULT_NICENESS) -> int:
@@ -121,6 +150,8 @@ def apply(args: argparse.Namespace) -> None:
         check_free_memory(args.min_free_mem_gb)
     if not args.no_nice:
         be_nice(args.nice)
+    pin_blas_env()
+    blas_limit()
 
 
 # -- a process pool for independent runs -------------------------------------
@@ -152,6 +183,8 @@ def screen_jobs(opts: Mapping[str, str]) -> int:
 
 
 def _worker_init(niceness: Optional[int]) -> None:
+    pin_blas_env()
+    blas_limit()
     if niceness is not None:
         be_nice(niceness)
 

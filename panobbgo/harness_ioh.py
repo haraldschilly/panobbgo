@@ -93,10 +93,13 @@ from panobbgo.ioh_runner import (  # noqa: F401
     aocc,
     aocc_virtual_time,
 )
+from panobbgo.local_run import BLAS_THREADS, blas_limit
 from panobbgo.sealed import (
+    DEV_INSTANCE_LIMIT,
     SEALED_MABBOB_DIMS,
     SEALED_MABBOB_INSTANCES,
-    is_sealed_instance_id,
+    check_sealed_mabbob_instances,
+    is_dev_instance_id,
     print_sealed_banner,
 )
 from panobbgo.virtual_clock import VirtualSpec
@@ -244,6 +247,25 @@ def bbob_classes_present(fids: Iterable[int]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+#: Every field of the one sealed MA-BBOB battery (:func:`make_sealed_battery`);
+#: :class:`IOHBatterySpec` refuses ``sealed=True`` with anything else.
+_SEALED_FIELDS: Dict[str, Any] = dict(
+    name="sealed-mabbob",
+    problem_kind="MA-BBOB",
+    dims=SEALED_MABBOB_DIMS,
+    instances=SEALED_MABBOB_INSTANCES,
+    reps=1,
+    budget_multiplier=500,
+    extra_builder_kwargs=(),
+    noise_level="moderate",
+    noise_resample=False,
+    fids=(),
+    sealed=True,
+    log_lo=None,
+    log_hi=None,
+)
+
+
 @dataclass(frozen=True)
 class IOHBatterySpec:
     """A (problem kind, dims, instances, budget) cube to evaluate.
@@ -292,11 +314,21 @@ class IOHBatterySpec:
         ``True`` draws fresh noise per call.  See
         :mod:`panobbgo.lib.noise`.
     sealed
-        ``True`` only for the sealed test set (:mod:`panobbgo.sealed`,
-        :func:`make_sealed_battery`).  Instance ids in the reserved sealed
-        range are refused without it, and ids outside the range with it,
-        so a development battery cannot contain a sealed instance.
+        ``True`` only for the sealed test set (:mod:`panobbgo.sealed`),
+        and then the spec must be exactly :func:`make_sealed_battery` —
+        a ``dataclasses.replace`` sub-selection or any other change is
+        refused.  Without it every instance id must lie in the development
+        window ``0 <= id < DEV_INSTANCE_LIMIT`` (``2**20``), outside which
+        ``ioh`` ids alias each other (:mod:`panobbgo.sealed`).
         :func:`run_ioh_harness` prints a warning banner for a sealed spec.
+    log_lo, log_hi
+        The AOCC target range of this battery, ``None`` for the standard
+        :data:`~panobbgo.ioh_runner.AOCC_LOG_LO` /
+        :data:`~panobbgo.ioh_runner.AOCC_LOG_HI`.  A battery whose runs sit
+        above the standard upper bound for most of the budget (the
+        largescale slice) widens it here, so the bound travels with the
+        battery into every result file (``IOHHarnessResult.log_hi``) and
+        cannot be mixed up with a standard-bound number.
     """
 
     name: str
@@ -310,6 +342,8 @@ class IOHBatterySpec:
     noise_resample: bool = False
     fids: Tuple[int, ...] = ()
     sealed: bool = False
+    log_lo: Optional[float] = None
+    log_hi: Optional[float] = None
 
     def __post_init__(self) -> None:
         # ``fids`` is normalised the way callers already hand ``instances``
@@ -334,16 +368,40 @@ class IOHBatterySpec:
                     "and extra_builder_kwargs only for a builder argument that has no field"
                 )
         object.__setattr__(self, "fids", fids)
-        in_range = [int(i) for i in self.instances if is_sealed_instance_id(int(i))]
         if self.sealed:
-            outside = [int(i) for i in self.instances if not is_sealed_instance_id(int(i))]
-            if outside:
-                raise ValueError(f"a sealed battery takes only sealed-range instance ids; got {outside}")
-        elif in_range:
-            raise ValueError(
-                f"instance ids {in_range} are in the reserved sealed range (panobbgo.sealed); "
-                "the sealed test set is make_sealed_battery(), for claims only"
-            )
+            check_sealed_mabbob_instances(self.instances)
+            if any(getattr(self, k) != v for k, v in _SEALED_FIELDS.items()):
+                raise ValueError(
+                    "a sealed battery is exactly make_sealed_battery(): no sub-selection or other "
+                    "change (dims, reps, budget, ...) of the sealed set (panobbgo.sealed)"
+                )
+        else:
+            bad = [int(i) for i in self.instances if not is_dev_instance_id(int(i))]
+            if bad:
+                raise ValueError(
+                    f"instance ids {bad} are outside the development window 0 <= id < {DEV_INSTANCE_LIMIT} "
+                    "(panobbgo.sealed: ids outside it alias the sealed set's); the sealed test set is "
+                    "make_sealed_battery(), for claims only"
+                )
+
+    def aocc_bounds(self, log_lo: float = AOCC_LOG_LO, log_hi: float = AOCC_LOG_HI) -> Tuple[float, float]:
+        """The AOCC bounds to score this battery with: its own where it has them.
+
+        A caller's bound that differs from both the standard one and the
+        battery's is refused rather than silently overridden.
+        """
+        out = []
+        for mine, given, std, label in (
+            (self.log_lo, log_lo, AOCC_LOG_LO, "log_lo"),
+            (self.log_hi, log_hi, AOCC_LOG_HI, "log_hi"),
+        ):
+            if mine is None:
+                out.append(float(given))
+            elif float(given) in (float(std), float(mine)):
+                out.append(float(mine))
+            else:
+                raise ValueError(f"battery {self.name!r} is scored with {label}={mine}, not {given}")
+        return out[0], out[1]
 
     @property
     def is_noisy(self) -> bool:
@@ -565,12 +623,18 @@ def make_bbob_battery(
 # ---------------------------------------------------------------------------
 #
 # ``planning/DESIGN_roadmap_2026-09-26.md`` §3.3.  Opt-in presets: none of
-# the batteries above changes.  Measured cost (2026-09-26, laptop, ``nice
-# -n 15``, ``sync_eval``, one run of each ``make_ioh_strategies`` spec):
-# MA-BBOB at d = 40 and 500·d (20 000 evaluations) takes 6.6 s (CMA-ES) to
-# 8.6 s (the portfolios), 0.3-0.45 ms per evaluation, most of it the worker
-# round-trip; plain BBOB f10 at d = 160 and 100·d takes 5-14 s.  Building an
-# ``ioh`` problem at d = 160 takes 0.03 s (BBOB) and 0.8 s (MA-BBOB).
+# the batteries above changes.  Measured cost (2026-09-26, 16-core laptop,
+# ``nice -n 15``, ``sync_eval``, one BLAS thread, light load; one run of each
+# ``make_ioh_strategies`` spec): MA-BBOB at d = 40 and 500·d (20 000
+# evaluations) takes 6.6 s (CMA-ES) to 8.6 s (the portfolios), 0.3-0.45 ms
+# per evaluation, most of it the worker round-trip; plain BBOB at 500·d
+# takes ≈ 6 s per run at d = 80 and 20-42 s at d = 160.  Building an ``ioh``
+# problem at d = 160 takes 0.03 s (BBOB) and 0.8 s (MA-BBOB).
+#
+# None of the GP / QuadraticWLS / ``Nearby(quadratic=True)`` heuristics is
+# for d >= 30 (a Nearby quadratic fit takes seconds and up to 1 GB per new
+# best at d = 160); ``ioh_benchmark.py`` refuses ``--legacy`` with these
+# batteries.
 
 
 #: One function per COCO class for the largescale slice: separable
@@ -587,10 +651,10 @@ def make_large_battery(
 
     Three instances per dim (the :func:`make_highdim_battery` shape) and
     15 000 / 20 000 evaluations per run.  Cost: ≈ 7-9 s per run at
-    *d* = 40 (measured 2026-09-26), so the 2 × 3 cube is ≈ 1 min per
-    strategy per seed.  At this budget a *d* = 40 run is far from
-    converged: this battery asks how fast a strategy makes progress, not
-    whether it finishes.
+    *d* = 40 (measured 2026-09-26, laptop, one BLAS thread), so the 2 × 3
+    cube is ≈ 1 min per strategy per seed.  At this budget a *d* = 40 run
+    is far from converged: this battery asks how fast a strategy makes
+    progress, not whether it finishes.
     """
     return IOHBatterySpec(
         name="ioh-large",
@@ -602,10 +666,17 @@ def make_large_battery(
     )
 
 
+#: Upper AOCC bound of the largescale slice (standard: ``AOCC_LOG_HI = 2``).
+LARGESCALE_LOG_HI: float = 6.0
+
+#: Budget multiplier of the largescale slice.
+LARGESCALE_BUDGET_MULTIPLIER: int = 500
+
+
 def make_largescale_battery(
     dims: Sequence[int] = (80, 160),
     instances: Sequence[int] = (0, 1, 2),
-    budget_multiplier: int = 200,
+    budget_multiplier: int = LARGESCALE_BUDGET_MULTIPLIER,
     fids: Sequence[int] = LARGESCALE_FIDS,
 ) -> IOHBatterySpec:
     """A ``bbob-largescale``-style slice: five BBOB functions at *d* = 80 and 160.
@@ -617,10 +688,19 @@ def make_largescale_battery(
     landscapes are the same classes.  A rotation at *d* = 160 is 200 KB and
     built in ~0.03 s, so the full rotation costs nothing here.
 
-    ``5 × 2 × 3 = 30`` runs per strategy and seed at ``200·d`` (16 000 /
-    32 000 evaluations), the :func:`make_bbob_battery` budget.  Measured
-    2026-09-26 at *d* = 160 and ``100·d``: 5-14 s per run, so ≈ 10-20 min
-    per strategy per seed at the default budget.
+    **Scored on a wider AOCC range**, targets ``[1e-8, 1e6]``
+    (:data:`LARGESCALE_LOG_HI`, stored in the spec and in every result):
+    with the standard ``1e2`` upper bound CMA-ES scored exactly 0 on f2,
+    f10 and f15 at *d* = 80 (200·d) and on four of the five functions at
+    *d* = 160 — the battery could not rank anything.  At ``500·d`` and
+    ``log_hi = 6`` every function scores (CMA-ES, instance 0: 0.10-0.43 at
+    *d* = 80, 0.08-0.36 at *d* = 160).  Not comparable with a
+    standard-bound AOCC; ``ioh_benchmark.py compare`` refuses the mix.
+
+    ``5 × 2 × 3 = 30`` runs per strategy and seed at ``500·d`` (40 000 /
+    80 000 evaluations).  Measured 2026-09-26 (laptop, one BLAS thread):
+    ≈ 6 s per run at *d* = 80 and 20-42 s at *d* = 160, so ≈ 7-10 min per
+    strategy per seed.
     """
     return IOHBatterySpec(
         name="ioh-bbob-largescale",
@@ -630,32 +710,27 @@ def make_largescale_battery(
         reps=1,
         budget_multiplier=int(budget_multiplier),
         fids=tuple(fids),
+        log_hi=LARGESCALE_LOG_HI,
     )
 
 
 def make_sealed_battery() -> IOHBatterySpec:
     """The sealed MA-BBOB test set: **for claims only, never for tuning.**
 
-    Five fresh MA-BBOB instances (:data:`panobbgo.sealed.SEALED_MABBOB_INSTANCES`,
-    from a reserved id range no development battery can use) at
+    Twenty fresh MA-BBOB instances (:data:`panobbgo.sealed.SEALED_MABBOB_INSTANCES`,
+    from a reserved id range no development battery can reach) at
     *d* ∈ {2, 5, 10, 20, 30, 40}, ``500·d``.  :func:`run_ioh_harness`
-    prints a warning banner when it runs it.  Rules:
+    prints a warning banner when it runs it, and marks the result
+    ``sealed``.  Rules and the unit of inference:
     ``doc/dev/benchmarking.md``, "The sealed test set".
 
-    ``6 × 5 = 30`` runs per strategy and seed, 267 500 evaluations: ≈ 2 min
-    per strategy per seed at the measured 0.3-0.45 ms per evaluation.  It
-    takes no arguments on purpose: a sealed set with knobs becomes a family
-    of sets, and a set picked from a family is a tuned set.
+    ``6 × 20 = 120`` runs per strategy and seed, 1.07 M evaluations: ≈ 7 min
+    per strategy per seed at the 0.3-0.45 ms per evaluation measured with one
+    BLAS thread.  It takes no arguments, and :class:`IOHBatterySpec` refuses
+    any variant of it: a sealed set with knobs becomes a family of sets, and
+    a set picked from a family is a tuned set.
     """
-    return IOHBatterySpec(
-        name="sealed-mabbob",
-        problem_kind="MA-BBOB",
-        dims=SEALED_MABBOB_DIMS,
-        instances=SEALED_MABBOB_INSTANCES,
-        reps=1,
-        budget_multiplier=500,
-        sealed=True,
-    )
+    return IOHBatterySpec(**_SEALED_FIELDS)
 
 
 # ---------------------------------------------------------------------------
@@ -858,6 +933,8 @@ class IOHRunRecord:
     #: AOCC over *virtual time* (:func:`~panobbgo.ioh_runner.aocc_virtual_time`)
     #: of a virtual-clock run (``IOHHarnessResult.virtual``); ``None`` otherwise.
     aocc_time: Optional[float] = None
+    #: ``True`` for a run on the sealed test set (:mod:`panobbgo.sealed`).
+    sealed: bool = False
 
     @property
     def precision(self) -> float:
@@ -921,6 +998,11 @@ class IOHHarnessResult:
     #: model) when the runs were simulated on ``q`` virtual workers, else
     #: ``None``.  Each run then also carries ``aocc_time``.
     virtual: Optional[Dict[str, Any]] = None
+    #: ``True`` when the battery is (or contains) the sealed test set.
+    sealed: bool = False
+    #: BLAS / OpenMP threads the runs were pinned to
+    #: (:data:`panobbgo.local_run.BLAS_THREADS`); ``None`` in older files.
+    blas_threads: Optional[int] = None
 
     # Every run counts, the way ``benchmarks/_screen.fold`` counts them: a
     # timed-out run with its AOCC up to the deadline, a crashed run with
@@ -1011,6 +1093,8 @@ class IOHHarnessResult:
             "per_strategy_aocc": self.per_strategy_aocc(),
             "timestamp": self.timestamp,
             "sync_eval": self.sync_eval,
+            "sealed": self.sealed,
+            "blas_threads": self.blas_threads,
             **(
                 {}
                 if self.virtual is None
@@ -1038,10 +1122,14 @@ class IOHHarnessResult:
             timestamp=d.get("timestamp", time.time()),
             sync_eval=bool(d.get("sync_eval", False)),
             virtual=d.get("virtual"),
+            sealed=bool(d.get("sealed", False)),
+            blas_threads=d.get("blas_threads"),
         )
 
     def print_summary(self) -> None:
         print(f"\nIOH battery: {self.battery_name}  ({self.problem_kind})")
+        if self.sealed:
+            print("  SEALED TEST SET: for claims only, never for tuning")
         if self.virtual is not None:
             print(f"  eval mode:    virtual clock {self.virtual}")
         elif self.sync_eval:
@@ -1142,6 +1230,9 @@ class IOHMultiSeedResult:
     sync_eval: bool = False
     #: Virtual-clock settings (see :class:`IOHHarnessResult.virtual`).
     virtual: Optional[Dict[str, Any]] = None
+    #: See :attr:`IOHHarnessResult.sealed` / :attr:`IOHHarnessResult.blas_threads`.
+    sealed: bool = False
+    blas_threads: Optional[int] = None
 
     @property
     def mean_aocc(self) -> float:
@@ -1185,6 +1276,8 @@ class IOHMultiSeedResult:
             "per_strategy_aocc": self.per_strategy_aocc(),
             "timestamp": self.timestamp,
             "sync_eval": self.sync_eval,
+            "sealed": self.sealed,
+            "blas_threads": self.blas_threads,
             **({} if self.virtual is None else {"virtual": self.virtual, "mean_aocc_time": self.mean_aocc_time}),
             "results": [r.to_dict() for r in self.results],
         }
@@ -1204,10 +1297,22 @@ class IOHMultiSeedResult:
             timestamp=d.get("timestamp", time.time()),
             sync_eval=bool(d.get("sync_eval", False)),
             virtual=d.get("virtual"),
+            sealed=bool(d.get("sealed", False)),
+            blas_threads=d.get("blas_threads"),
         )
+
+    def per_strategy_per_dim_aocc(self) -> Dict[Tuple[str, int], List[float]]:
+        """``{(strategy, dim): [mean AOCC at base_seeds[i]]}`` — the per-dim report of a multi-dim battery."""
+        out: Dict[Tuple[str, int], List[float]] = {}
+        for res in self.results:
+            for key, val in res.per_strategy_per_dim_aocc().items():
+                out.setdefault(key, []).append(val)
+        return out
 
     def print_summary(self) -> None:
         print(f"\nIOH multi-seed battery: {self.battery_name}  ({self.problem_kind})")
+        if self.sealed:
+            print("  SEALED TEST SET: for claims only, never for tuning")
         if self.sync_eval:
             print("  eval mode:    sync (deterministic result batches)")
         print(f"  seeds ({len(self.base_seeds)}): {', '.join(str(s) for s in self.base_seeds)}")
@@ -1221,6 +1326,19 @@ class IOHMultiSeedResult:
             arr = np.asarray(vals, dtype=np.float64)
             sd = float(arr.std(ddof=1)) if arr.size >= 2 else float("nan")
             print(f"    {name:32s}  {float(arr.mean()):.4f} ± {sd:.4f}")
+        per_dim = self.per_strategy_per_dim_aocc()
+        dims = sorted({d for _s, d in per_dim})
+        if len(dims) > 1:
+            print("\n  per dimension (mean across seeds):")
+            print("    " + "strategy".ljust(32) + "  " + "  ".join(f"  d={d:<3d}" for d in dims))
+            for name in sorted(matrix, key=lambda n: -float(np.mean(matrix[n]))):
+                cells = [per_dim.get((name, d)) for d in dims]
+                print(
+                    "    "
+                    + name.ljust(32)
+                    + "  "
+                    + "  ".join(f"  {float(np.mean(c)):.4f}" if c else "     nan" for c in cells)
+                )
 
 
 def run_ioh_harness_multi_seed(
@@ -1243,6 +1361,7 @@ def run_ioh_harness_multi_seed(
     """
     if not base_seeds:
         raise ValueError("base_seeds must be non-empty")
+    log_lo, log_hi = battery.aocc_bounds(log_lo, log_hi)
     results: List[IOHHarnessResult] = []
     for i, seed in enumerate(base_seeds):
         if progress:
@@ -1270,6 +1389,8 @@ def run_ioh_harness_multi_seed(
         results=results,
         sync_eval=sync_eval or virtual is not None,
         virtual=None if virtual is None else virtual.to_dict(),
+        sealed=battery.sealed,
+        blas_threads=BLAS_THREADS,
     )
 
 
@@ -1482,7 +1603,19 @@ class _TrackedRun:
     aocc_time: Optional[float] = None
 
 
-def _run_tracked(
+def _run_tracked(*args: Any, **kwargs: Any) -> _TrackedRun:
+    """:func:`_run_tracked_unpinned` with BLAS pinned to :data:`~panobbgo.local_run.BLAS_THREADS`.
+
+    Every AOCC run of both tracks goes through here, so no entry point can
+    measure with an unpinned BLAS pool: at ``d >= 80`` CMA-ES's ``eigh``
+    gives thread-count-dependent results, and an oversubscribed pool is
+    7-70x slower under load (``panobbgo.local_run``).
+    """
+    with blas_limit():
+        return _run_tracked_unpinned(*args, **kwargs)
+
+
+def _run_tracked_unpinned(
     strategy_spec: StrategySpec,
     problem: Any,
     tracker: IOHTracker,
@@ -1619,12 +1752,27 @@ def _run_one(
     noise_resample: bool = False,
     fid: Optional[int] = None,
     virtual: Optional[VirtualSpec] = None,
+    sealed: bool = False,
 ) -> IOHRunRecord:
-    """Run one strategy on one (problem, fid, instance) and return its record."""
+    """Run one strategy on one (problem, fid, instance) and return its record.
+
+    ``instance`` must be a development id (``0 <= id < 2**20``), or, with
+    ``sealed=True`` (set by :func:`run_ioh_harness` for the sealed
+    battery), a sealed MA-BBOB id — so a single run (``scripts/ioh_smoke.py``)
+    cannot reach the sealed set either.
+    """
     from panobbgo.lib.ioh_wrapper import IOHProblem
 
     if problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
+    if sealed:
+        if int(instance) not in SEALED_MABBOB_INSTANCES or problem_kind != "MA-BBOB":
+            raise ValueError(f"sealed=True is for the sealed MA-BBOB instances only, not {problem_kind} {instance}")
+    elif not is_dev_instance_id(int(instance)):
+        raise ValueError(
+            f"instance {instance} is outside the development window 0 <= id < {DEV_INSTANCE_LIMIT} "
+            "(panobbgo.sealed); the sealed set runs only as make_sealed_battery()"
+        )
     worker_kind, noise_tag = resolve_problem_kind(problem_kind)
 
     t0 = time.time()
@@ -1712,6 +1860,7 @@ def _run_one(
         aocc_reco=tracked.aocc_reco,
         fid=fid,
         aocc_time=tracked.aocc_time,
+        sealed=bool(sealed),
     )
 
 
@@ -1796,6 +1945,7 @@ def run_ioh_harness(
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
     if battery.sealed:
         print_sealed_banner(battery.name)
+    log_lo, log_hi = battery.aocc_bounds(log_lo, log_hi)
     builder_kwargs = battery.builder_kwargs()
     total = battery.pair_count(len(strategies))
     runs: List[IOHRunRecord] = []
@@ -1836,6 +1986,7 @@ def run_ioh_harness(
             noise_resample=battery.noise_resample,
             fid=fid,
             virtual=virtual,
+            sealed=battery.sealed,
         )
         if jobs > 1:
             tasks.append(task)
@@ -1856,6 +2007,8 @@ def run_ioh_harness(
         sync_eval=sync_eval or virtual is not None,
         runs=runs,
         virtual=None if virtual is None else virtual.to_dict(),
+        sealed=battery.sealed,
+        blas_threads=BLAS_THREADS,
     )
     warn_missing_time_scores(result)
     return result

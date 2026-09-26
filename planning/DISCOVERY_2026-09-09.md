@@ -2432,3 +2432,32 @@ exactly wrong on a landscape with no interior optimum.
 * Default decisions stay where Harald left them on 2026-09-13: this run
   is the gate's first half (standard functions); the synthetic families
   with swept knobs (`DESIGN_suite_2026-09-14.md` step 3) are the second.
+
+## 54. Re-baseline on the post-audit code (2026-09-26)
+
+Reference files for every comparison from here on; nothing before
+2026-09-25 is comparable (TODO history, audit PRs #320–#340).  Measured
+on GitHub runners (`rebaseline.yml`, run 36228301268, commit 0184fad,
+28 shards, none failed), sync evaluation, keyed RNG streams, no
+wall-clock limits, the 12-seed roster.  Files and manifest:
+`planning/results/2026-09-26/ref_*`.
+
+| Suite | 12-seed mean |
+|---|---|
+| composite quick | 0.4029 (per seed 0.349 … 0.487) |
+| composite standard | 0.4275 (per seed 0.420 … 0.440) |
+| IOH quick (mean AOCC, all specs) | 0.3592 |
+| IOH standard (mean AOCC, all specs) | 0.4999 |
+
+IOH per spec, quick / standard: `Blocks_warm_CMAES_JSO` 0.4187 / 0.6738,
+`RegimeGate_oracle` 0.4187 / 0.6771, `RoundRobin_CMAES` 0.3893 / 0.6673,
+`Baseline_SciPyDE` 0.3366 / 0.4228, `RoundRobin_Random` 0.3353 / 0.3797,
+`Baseline_Random` 0.3285 / 0.2934, `Baseline_SciPyAnneal` 0.2871 / 0.3855.
+Families: free 2160 rows, constrained 1152 rows (re-analyse with
+`family_screen.py from=...`).
+
+The code measured predates #344–#346: those change only the external
+baselines, failure handling (bit-identical on problems without
+failures, verified) and a virtual-clock mode (bit-identical outside it),
+so these references stay valid for the default paths.
+

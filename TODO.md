@@ -76,17 +76,6 @@ analyzers on demand, `--jobs`, IOH worker reuse) and cleanup (dead code,
 shared bandit selectors and screen pipeline).  A second full audit round
 followed (#331–#334).  Details in the PR descriptions and commit messages.
 
-- [ ] **Re-baseline once.**  Result files from before 2026-09-25 are not
-      comparable: runs now stop at exactly `max_eval`, composite `success`
-      means "tolerance met within the budget", the DE family / CMA-ES /
-      PSO follow their papers, GP fits are seeded, the default constraint
-      penalty is `fx + 100·cv` (was `fx + cv`), NelderMead / QuadraticWLS
-      follow their definitions, phased Rewarding phases use EMA credit, and
-      IOH aggregates count timeouts and crashes.  Re-measure the
-      composite quick/standard and IOH/family references before the next
-      comparison that relies on them.  Runs on GitHub runners via
-      `.github/workflows/rebaseline.yml` (doc/dev/benchmarking.md, "Re-baselining on
-      GitHub runners"); commit the aggregated `ref_*` files once it is done.
 - [ ] **External baselines in the re-baseline workflow.**  The pycma /
       Nevergrad / Optuna baselines (`panobbgo/harness_baselines.py`, extra
       `baselines`) are opt-in by name, so `scripts/rebaseline.py` does not

@@ -1,0 +1,865 @@
+{
+  "config": {
+    "mode": "quick",
+    "budget": null,
+    "reps": null,
+    "seed": 7,
+    "problems": null,
+    "strategies": null,
+    "timeout_per_run": null,
+    "include_baselines": false,
+    "randomize": false,
+    "randomize_iteration": 0,
+    "sync_eval": true
+  },
+  "timestamp": "2026-09-26T07:57:08.873155+00:00",
+  "total_runs": 18,
+  "total_duration": 0.6048715114593506,
+  "problem_strategy_results": [
+    {
+      "problem_name": "DeJong_2D",
+      "problem_dim": 2,
+      "strategy_name": "RoundRobin_Random",
+      "f_opt": 0.0,
+      "tolerance": 0.1,
+      "budget": 75,
+      "runs": [
+        {
+          "problem_name": "DeJong_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 0,
+          "seed": 754579183,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.45486619547778645,
+          "f_opt": 0.0,
+          "func_distance": 0.45486619547778645,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 20.833233958792256,
+              "func_distance": 20.833233958792256
+            },
+            {
+              "eval_idx": 3,
+              "fx": 3.6549395922623407,
+              "func_distance": 3.6549395922623407
+            },
+            {
+              "eval_idx": 7,
+              "fx": 2.894865277967303,
+              "func_distance": 2.894865277967303
+            },
+            {
+              "eval_idx": 24,
+              "fx": 1.8974861130931793,
+              "func_distance": 1.8974861130931793
+            },
+            {
+              "eval_idx": 50,
+              "fx": 0.45486619547778645,
+              "func_distance": 0.45486619547778645
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.21658706665039062,
+          "error": null
+        },
+        {
+          "problem_name": "DeJong_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 1,
+          "seed": 1809377223,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.17217845059131753,
+          "f_opt": 0.0,
+          "func_distance": 0.17217845059131753,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 4.39721523769172,
+              "func_distance": 4.39721523769172
+            },
+            {
+              "eval_idx": 4,
+              "fx": 3.0496699474926348,
+              "func_distance": 3.0496699474926348
+            },
+            {
+              "eval_idx": 5,
+              "fx": 2.630723534438768,
+              "func_distance": 2.630723534438768
+            },
+            {
+              "eval_idx": 9,
+              "fx": 2.224701937437107,
+              "func_distance": 2.224701937437107
+            },
+            {
+              "eval_idx": 10,
+              "fx": 1.8394545132226836,
+              "func_distance": 1.8394545132226836
+            },
+            {
+              "eval_idx": 33,
+              "fx": 0.17217845059131753,
+              "func_distance": 0.17217845059131753
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.014136075973510742,
+          "error": null
+        },
+        {
+          "problem_name": "DeJong_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 2,
+          "seed": 4254760178,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 1.6598613916294331,
+          "f_opt": 0.0,
+          "func_distance": 1.6598613916294331,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 19.68091441353521,
+              "func_distance": 19.68091441353521
+            },
+            {
+              "eval_idx": 2,
+              "fx": 19.635774832914954,
+              "func_distance": 19.635774832914954
+            },
+            {
+              "eval_idx": 3,
+              "fx": 11.362295050485333,
+              "func_distance": 11.362295050485333
+            },
+            {
+              "eval_idx": 6,
+              "fx": 2.705283898000407,
+              "func_distance": 2.705283898000407
+            },
+            {
+              "eval_idx": 13,
+              "fx": 1.9396740646626829,
+              "func_distance": 1.9396740646626829
+            },
+            {
+              "eval_idx": 57,
+              "fx": 1.6598613916294331,
+              "func_distance": 1.6598613916294331
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.021683216094970703,
+          "error": null
+        }
+      ],
+      "success_rate": 0.0,
+      "ert": null,
+      "score": 0.0,
+      "best_func_distance": 0.17217845059131753,
+      "median_func_distance": 0.45486619547778645
+    },
+    {
+      "problem_name": "DeJong_2D",
+      "problem_dim": 2,
+      "strategy_name": "Rewarding_Diverse",
+      "f_opt": 0.0,
+      "tolerance": 0.1,
+      "budget": 75,
+      "runs": [
+        {
+          "problem_name": "DeJong_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 0,
+          "seed": 2906320241,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.0,
+          "f_opt": 0.0,
+          "func_distance": 0.0,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 0.0,
+              "func_distance": 0.0
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 28,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 3,
+            "Nelder Mead": 27
+          },
+          "duration": 0.03831219673156738,
+          "error": null
+        },
+        {
+          "problem_name": "DeJong_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 1,
+          "seed": 688354835,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.0,
+          "f_opt": 0.0,
+          "func_distance": 0.0,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 0.0,
+              "func_distance": 0.0
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 28,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 3,
+            "Nelder Mead": 27
+          },
+          "duration": 0.026298046112060547,
+          "error": null
+        },
+        {
+          "problem_name": "DeJong_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 2,
+          "seed": 9759551,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.0,
+          "f_opt": 0.0,
+          "func_distance": 0.0,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 0.0,
+              "func_distance": 0.0
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 28,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 3,
+            "Nelder Mead": 27
+          },
+          "duration": 0.027924060821533203,
+          "error": null
+        }
+      ],
+      "success_rate": 1.0,
+      "ert": 1.0,
+      "score": 1.0,
+      "best_func_distance": 0.0,
+      "median_func_distance": 0.0
+    },
+    {
+      "problem_name": "Rosenbrock_2D",
+      "problem_dim": 2,
+      "strategy_name": "RoundRobin_Random",
+      "f_opt": 0.0,
+      "tolerance": 0.1,
+      "budget": 75,
+      "runs": [
+        {
+          "problem_name": "Rosenbrock_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 0,
+          "seed": 4166664401,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.10299637962633562,
+          "f_opt": 0.0,
+          "func_distance": 0.10299637962633562,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 1425.6372674009835,
+              "func_distance": 1425.6372674009835
+            },
+            {
+              "eval_idx": 2,
+              "fx": 180.9581165242487,
+              "func_distance": 180.9581165242487
+            },
+            {
+              "eval_idx": 3,
+              "fx": 1.9978079265208566,
+              "func_distance": 1.9978079265208566
+            },
+            {
+              "eval_idx": 21,
+              "fx": 1.7811519546400394,
+              "func_distance": 1.7811519546400394
+            },
+            {
+              "eval_idx": 25,
+              "fx": 1.404337749852648,
+              "func_distance": 1.404337749852648
+            },
+            {
+              "eval_idx": 35,
+              "fx": 0.10299637962633562,
+              "func_distance": 0.10299637962633562
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.016341209411621094,
+          "error": null
+        },
+        {
+          "problem_name": "Rosenbrock_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 1,
+          "seed": 927200960,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.17762053450644655,
+          "f_opt": 0.0,
+          "func_distance": 0.17762053450644655,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 12.15245287653514,
+              "func_distance": 12.15245287653514
+            },
+            {
+              "eval_idx": 5,
+              "fx": 1.9823051328190233,
+              "func_distance": 1.9823051328190233
+            },
+            {
+              "eval_idx": 8,
+              "fx": 1.032850283661447,
+              "func_distance": 1.032850283661447
+            },
+            {
+              "eval_idx": 10,
+              "fx": 0.17762053450644655,
+              "func_distance": 0.17762053450644655
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.01506495475769043,
+          "error": null
+        },
+        {
+          "problem_name": "Rosenbrock_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 2,
+          "seed": 1623078549,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.948285694986218,
+          "f_opt": 0.0,
+          "func_distance": 0.948285694986218,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 14.701339870242027,
+              "func_distance": 14.701339870242027
+            },
+            {
+              "eval_idx": 21,
+              "fx": 1.6200878564823742,
+              "func_distance": 1.6200878564823742
+            },
+            {
+              "eval_idx": 69,
+              "fx": 1.0259801990741368,
+              "func_distance": 1.0259801990741368
+            },
+            {
+              "eval_idx": 70,
+              "fx": 0.948285694986218,
+              "func_distance": 0.948285694986218
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.01558065414428711,
+          "error": null
+        }
+      ],
+      "success_rate": 0.0,
+      "ert": null,
+      "score": 0.0,
+      "best_func_distance": 0.10299637962633562,
+      "median_func_distance": 0.17762053450644655
+    },
+    {
+      "problem_name": "Rosenbrock_2D",
+      "problem_dim": 2,
+      "strategy_name": "Rewarding_Diverse",
+      "f_opt": 0.0,
+      "tolerance": 0.1,
+      "budget": 75,
+      "runs": [
+        {
+          "problem_name": "Rosenbrock_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 0,
+          "seed": 2508898538,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.017518624860901326,
+          "f_opt": 0.0,
+          "func_distance": 0.017518624860901326,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 100.0,
+              "func_distance": 100.0
+            },
+            {
+              "eval_idx": 4,
+              "fx": 31.470657923732993,
+              "func_distance": 31.470657923732993
+            },
+            {
+              "eval_idx": 8,
+              "fx": 2.333173658870593,
+              "func_distance": 2.333173658870593
+            },
+            {
+              "eval_idx": 12,
+              "fx": 0.11743126027880268,
+              "func_distance": 0.11743126027880268
+            },
+            {
+              "eval_idx": 52,
+              "fx": 0.03650591099766038,
+              "func_distance": 0.03650591099766038
+            },
+            {
+              "eval_idx": 64,
+              "fx": 0.017518624860901326,
+              "func_distance": 0.017518624860901326
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 23,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 12,
+            "Nelder Mead": 23
+          },
+          "duration": 0.03182363510131836,
+          "error": null
+        },
+        {
+          "problem_name": "Rosenbrock_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 1,
+          "seed": 3099387895,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.013360297639995855,
+          "f_opt": 0.0,
+          "func_distance": 0.013360297639995855,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 100.0,
+              "func_distance": 100.0
+            },
+            {
+              "eval_idx": 4,
+              "fx": 54.92989936263468,
+              "func_distance": 54.92989936263468
+            },
+            {
+              "eval_idx": 12,
+              "fx": 26.98321958890416,
+              "func_distance": 26.98321958890416
+            },
+            {
+              "eval_idx": 16,
+              "fx": 0.2573756171263937,
+              "func_distance": 0.2573756171263937
+            },
+            {
+              "eval_idx": 74,
+              "fx": 0.013360297639995855,
+              "func_distance": 0.013360297639995855
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 26,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 7,
+            "Nelder Mead": 25
+          },
+          "duration": 0.028532981872558594,
+          "error": null
+        },
+        {
+          "problem_name": "Rosenbrock_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 2,
+          "seed": 3355735758,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.1013206278327368,
+          "f_opt": 0.0,
+          "func_distance": 0.1013206278327368,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 100.0,
+              "func_distance": 100.0
+            },
+            {
+              "eval_idx": 4,
+              "fx": 37.67407965911908,
+              "func_distance": 37.67407965911908
+            },
+            {
+              "eval_idx": 8,
+              "fx": 4.436420563177805,
+              "func_distance": 4.436420563177805
+            },
+            {
+              "eval_idx": 12,
+              "fx": 1.8214132559042158,
+              "func_distance": 1.8214132559042158
+            },
+            {
+              "eval_idx": 16,
+              "fx": 0.7543888936671308,
+              "func_distance": 0.7543888936671308
+            },
+            {
+              "eval_idx": 58,
+              "fx": 0.1013206278327368,
+              "func_distance": 0.1013206278327368
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 24,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 10,
+            "Nelder Mead": 24
+          },
+          "duration": 0.028968095779418945,
+          "error": null
+        }
+      ],
+      "success_rate": 0.6666666666666666,
+      "ert": 100.5,
+      "score": 0.11555555555555552,
+      "best_func_distance": 0.013360297639995855,
+      "median_func_distance": 0.017518624860901326
+    },
+    {
+      "problem_name": "Rastrigin_2D",
+      "problem_dim": 2,
+      "strategy_name": "RoundRobin_Random",
+      "f_opt": 0.0,
+      "tolerance": 0.1,
+      "budget": 75,
+      "runs": [
+        {
+          "problem_name": "Rastrigin_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 0,
+          "seed": 523913656,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 1.7217399222557965,
+          "f_opt": 0.0,
+          "func_distance": 1.7217399222557965,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 23.012592980560946,
+              "func_distance": 23.012592980560946
+            },
+            {
+              "eval_idx": 5,
+              "fx": 9.43377592537643,
+              "func_distance": 9.43377592537643
+            },
+            {
+              "eval_idx": 6,
+              "fx": 5.57483275865129,
+              "func_distance": 5.57483275865129
+            },
+            {
+              "eval_idx": 15,
+              "fx": 2.9520358131549855,
+              "func_distance": 2.9520358131549855
+            },
+            {
+              "eval_idx": 48,
+              "fx": 1.7217399222557965,
+              "func_distance": 1.7217399222557965
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.014657258987426758,
+          "error": null
+        },
+        {
+          "problem_name": "Rastrigin_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 1,
+          "seed": 2024171682,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 3.708621693235038,
+          "f_opt": 0.0,
+          "func_distance": 3.708621693235038,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 5.479918017992979,
+              "func_distance": 5.479918017992979
+            },
+            {
+              "eval_idx": 16,
+              "fx": 4.195197328599315,
+              "func_distance": 4.195197328599315
+            },
+            {
+              "eval_idx": 53,
+              "fx": 3.708621693235038,
+              "func_distance": 3.708621693235038
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.013511419296264648,
+          "error": null
+        },
+        {
+          "problem_name": "Rastrigin_2D",
+          "problem_dim": 2,
+          "strategy_name": "RoundRobin_Random",
+          "rep": 2,
+          "seed": 3789587480,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 3.98010530512472,
+          "f_opt": 0.0,
+          "func_distance": 3.98010530512472,
+          "tolerance": 0.1,
+          "success": false,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 29.490169394021635,
+              "func_distance": 29.490169394021635
+            },
+            {
+              "eval_idx": 2,
+              "fx": 8.167934028531251,
+              "func_distance": 8.167934028531251
+            },
+            {
+              "eval_idx": 4,
+              "fx": 7.513054328144216,
+              "func_distance": 7.513054328144216
+            },
+            {
+              "eval_idx": 5,
+              "fx": 5.616491039285808,
+              "func_distance": 5.616491039285808
+            },
+            {
+              "eval_idx": 20,
+              "fx": 4.154666074283966,
+              "func_distance": 4.154666074283966
+            },
+            {
+              "eval_idx": 69,
+              "fx": 3.98010530512472,
+              "func_distance": 3.98010530512472
+            }
+          ],
+          "heuristic_counts": {
+            "Random": 75
+          },
+          "duration": 0.013794660568237305,
+          "error": null
+        }
+      ],
+      "success_rate": 0.0,
+      "ert": null,
+      "score": 0.0,
+      "best_func_distance": 1.7217399222557965,
+      "median_func_distance": 3.708621693235038
+    },
+    {
+      "problem_name": "Rastrigin_2D",
+      "problem_dim": 2,
+      "strategy_name": "Rewarding_Diverse",
+      "f_opt": 0.0,
+      "tolerance": 0.1,
+      "budget": 75,
+      "runs": [
+        {
+          "problem_name": "Rastrigin_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 0,
+          "seed": 1648638962,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.0,
+          "f_opt": 0.0,
+          "func_distance": 0.0,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 0.0,
+              "func_distance": 0.0
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 28,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 3,
+            "Nelder Mead": 27
+          },
+          "duration": 0.025818824768066406,
+          "error": null
+        },
+        {
+          "problem_name": "Rastrigin_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 1,
+          "seed": 2725274831,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.0,
+          "f_opt": 0.0,
+          "func_distance": 0.0,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 0.0,
+              "func_distance": 0.0
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 28,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 3,
+            "Nelder Mead": 27
+          },
+          "duration": 0.0289154052734375,
+          "error": null
+        },
+        {
+          "problem_name": "Rastrigin_2D",
+          "problem_dim": 2,
+          "strategy_name": "Rewarding_Diverse",
+          "rep": 2,
+          "seed": 2619103567,
+          "budget": 75,
+          "evaluations_used": 75,
+          "best_fx": 0.0,
+          "f_opt": 0.0,
+          "func_distance": 0.0,
+          "tolerance": 0.1,
+          "success": true,
+          "convergence": [
+            {
+              "eval_idx": 1,
+              "fx": 0.0,
+              "func_distance": 0.0
+            }
+          ],
+          "heuristic_counts": {
+            "Center": 1,
+            "Random": 28,
+            "Sobol": 16,
+            "Nearby 0.124/all+quad": 3,
+            "Nelder Mead": 27
+          },
+          "duration": 0.025567293167114258,
+          "error": null
+        }
+      ],
+      "success_rate": 1.0,
+      "ert": 1.0,
+      "score": 1.0,
+      "best_func_distance": 0.0,
+      "median_func_distance": 0.0
+    }
+  ],
+  "composite_score": 0.35259259259259257
+}

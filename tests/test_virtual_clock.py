@@ -956,3 +956,148 @@ def test_phased_caps_the_request_at_the_phase_budget():
     s.start()
     assert len(s.results) == 50
     assert returned == [] and s._virtual_clock.n_trimmed == 0
+
+
+# ── failure regions (families with crash / timeout) ──
+
+
+def _failure_families():
+    from panobbgo.harness_families import make_failure_battery
+
+    inst = make_failure_battery(dims=(2,), n_instances=1)
+    crash = next(p for _n, p in inst if p.failure is not None and p.failure.mode == "crash")
+    timeout = next(p for _n, p in inst if p.failure is not None and p.failure.mode == "timeout")
+    return crash, timeout
+
+
+def test_deferred_failure_is_counted_once_at_completion():
+    """#346 books an EvaluationFailed at once; on the clock it is deferred and counted once, in completion order."""
+    from panobbgo.lib.lib import EvaluationCrashed
+
+    class Crashy(Rosenbrock):
+        def eval(self, x):
+            if float(x[0]) > 1.0:
+                raise EvaluationCrashed("crash region")
+            return super().eval(x)
+
+    tracker = IOHTracker(Crashy(dim=2), budget=5)
+    for key, x in enumerate((np.full(2, 1.5), np.zeros(2), np.full(2, 1.8))):
+        tracker.begin_call(key)
+        try:
+            tracker.problem.eval(x)
+        except EvaluationCrashed:
+            pass
+        tracker.end_call()
+    assert tracker.n_evals == 0 and tracker.best_so_far == []  # nothing booked at call time
+    # Completion order differs from dispatch order.
+    tracker.complete_call(1, 1.0, ok=True)
+    tracker.complete_call(0, 2.0, ok=False)  # the evaluation path saw the exception
+    tracker.complete_call(2, 3.0, ok=True)  # a driver that caught it (the baselines answer NaN)
+    tracker.restore()
+    assert tracker.n_evals == 3 and tracker._reserved == 3
+    assert [t for t, _ in tracker.timeline] == [1.0, 2.0, 3.0]
+    assert [np.isnan(v) for _, v in tracker.timeline] == [False, True, True]
+    assert tracker.best_so_far == [tracker.best_so_far[0]] * 3
+
+
+@pytest.mark.parametrize("mode", ["crash", "timeout"])
+def test_failure_families_on_the_virtual_clock(mode):
+    """A panobbgo strategy on a crash / timeout family: each failed call counted once, timeouts charged the cut."""
+    crash, timeout = _failure_families()
+    problem = crash if mode == "crash" else timeout
+    calls = [0]
+    orig = problem.eval
+
+    def counting(x):
+        calls[0] += 1
+        return orig(x)
+
+    problem.eval = counting
+    try:
+        tracker = IOHTracker(problem, budget=60)
+        s, rec = _run(
+            "virtual",
+            workers=4,
+            duration="lognormal",
+            max_eval=60,
+            timeout=3.0,
+            problem=problem,
+            observer=tracker,
+            strategy="rewarding",
+        )
+        tracker.restore()
+    finally:
+        problem.eval = orig
+    assert s.n_finished == 60
+    assert tracker.n_evals == 60 and len(tracker.timeline) == 60
+    times = [t for t, _ in tracker.timeline]
+    assert times == sorted(times)
+    spent = sum(1 for _, v in tracker.timeline if np.isnan(v))
+    if mode == "crash":
+        n_crashed = s.n_finished - len(rec.seen)
+        assert n_crashed > 0 and spent == n_crashed + s.n_timed_out
+        assert calls[0] == 60 - s.n_timed_out  # crashes are evaluated; simulated timeouts are not
+    else:
+        signalled = [r for r in rec.seen if r.timed_out]
+        assert signalled and spent == len(signalled)
+        for r in signalled:
+            assert r.t_complete - r.t_dispatch == pytest.approx(3.0)  # charged evaluation.timeout
+        assert calls[0] == 60 - len(signalled)  # a signalled timeout is known in advance, not evaluated
+        assert s.n_timed_out == len(signalled)
+
+
+def test_failure_families_through_the_harness_for_strategies_and_baselines():
+    """run_family_harness on the failure battery at q = 4: panobbgo and an ask/tell baseline both get aocc_time."""
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.harness_families import make_failure_battery, run_family_harness
+    from panobbgo.harness_ioh import make_ioh_strategies
+
+    instances = make_failure_battery(dims=(2,), n_instances=1)
+    specs = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"]
+    specs.append(StrategySpec(name="Toy", strategy_class=_toy_baseline(), heuristics=[]))
+    res = run_family_harness(
+        specs,
+        instances,
+        budget_multiplier=20,
+        base_seed=3,
+        progress=False,
+        log_hi=6.0,
+        virtual=VirtualSpec(workers=4, duration="lognormal"),
+    )
+    assert len(res.runs) == 8
+    for r in res.runs:
+        assert r.error is None, r.error
+        assert r.n_evals == r.budget
+        assert r.aocc_time is not None and 0.0 <= r.aocc_time <= 1.0
+    assert res.strategies_without_time_score() == []
+
+
+def test_run_ask_tell_signalled_timeout_is_not_evaluated():
+    from panobbgo.virtual_clock import failure_mode, run_ask_tell
+
+    _crash, problem = _failure_families()
+    tracker = IOHTracker(problem, budget=40)
+    adapter = _ToyAdapter(problem.box.box[:, 0], problem.box.box[:, 1], 0, gen=8)
+    evaluated = [0]
+
+    def evaluate(x):
+        evaluated[0] += 1
+        return float(problem.eval(x))
+
+    run_ask_tell(
+        adapter.ask,
+        adapter.tell,
+        evaluate,
+        workers=4,
+        model=ConstantDuration(),
+        rng=np.random.default_rng(0),
+        budget=40,
+        timeout=2.5,
+        observer=tracker,
+        failure_at=lambda x: failure_mode(problem, x),
+    )
+    tracker.restore()
+    n_signalled = sum(1 for _k, fx in adapter.told if np.isnan(fx))
+    assert n_signalled > 0 and evaluated[0] == 40 - n_signalled
+    assert tracker.n_evals == 40
+    assert sorted(t for t, v in tracker.timeline if np.isnan(v)) == [t for t, v in tracker.timeline if np.isnan(v)]

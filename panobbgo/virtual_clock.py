@@ -79,7 +79,12 @@ Model
   duration exceeds it is not evaluated: it completes at ``dispatch +
   timeout`` as the usual ``NaN`` placeholder
   (:attr:`~panobbgo.lib.Result.timed_out`).  The timeout is in virtual time
-  units here.
+  units here.  A timeout the problem *signals* (``lib.EvaluationTimedOut``,
+  a family's failure region, known in advance through ``failure_at``) is
+  treated the same way: not evaluated, completing after ``evaluation.timeout``
+  (or its drawn duration when no timeout is set).  Crashes are evaluated
+  (and fail) at dispatch.  Either failure is one spent, non-improving
+  evaluation for an observer, counted once at completion.
 * **Recording.**  Every result carries :attr:`~panobbgo.lib.Result.t_dispatch`
   and :attr:`~panobbgo.lib.Result.t_complete`, its virtual dispatch and
   completion times (in memory only: the sqlite storage backend does not
@@ -316,10 +321,30 @@ class _Call:
     timed_out: bool = field(default=False, compare=False)
     result: Any = field(default=None, compare=False)
     error: Optional[str] = field(default=None, compare=False)
+    #: A timeout the problem signalled (``lib.EvaluationTimedOut``, a
+    #: family's failure region): delivered as the ``NaN`` placeholder
+    #: result, but a spent call for the observer.
+    signalled: bool = field(default=False, compare=False)
 
     @property
     def ok(self) -> bool:
-        return self.error is None and not self.timed_out
+        """Did the call produce a value (the observer's view: failures and timeouts are spent)?"""
+        return self.error is None and not self.timed_out and not self.signalled
+
+
+def failure_mode(problem: Any, x: np.ndarray) -> Optional[str]:
+    """``problem.failure_at(x)`` (``"crash"`` / ``"timeout"`` / ``None``) if the problem can tell in advance."""
+    failure_at = getattr(problem, "failure_at", None)
+    if not callable(failure_at):
+        return None
+    mode = failure_at(np.asarray(x, dtype=float))
+    return mode if isinstance(mode, str) else None
+
+
+def _placeholder(point: Any) -> Any:
+    from .lib import Result
+
+    return Result(point, float("nan"), cv_vec=None, timed_out=True)
 
 
 def validate_config(config: Any) -> List[str]:
@@ -462,25 +487,42 @@ class VirtualClock:
         self._seq += 1
         timeout = strategy._eval_timeout()
         timed_out = timeout is not None and d > timeout
+        # A signalled timeout (a family's failure region, known in advance
+        # through ``failure_at``) takes ``evaluation.timeout`` — the time a
+        # real one is cut off at — or, with no timeout set, its drawn
+        # duration.  It is not evaluated, like a simulated timeout.
+        until_cut = timeout if timeout is not None else d
+        problem = strategy._problem
+        untranslate = getattr(problem, "_untranslate", None)
+        x_eval = np.asarray(untranslate(x), dtype=float) if callable(untranslate) else x
+        signalled = not timed_out and failure_mode(problem, x_eval) == "timeout"
         call = _Call(
-            t_complete=self.now + (timeout if timed_out and timeout is not None else d),
+            t_complete=self.now + (until_cut if (timed_out or signalled) else d),
             seq=seq,
             task_id="virtual_task_%d" % seq,
             point=point,
             t_dispatch=self.now,
             timed_out=timed_out,
+            signalled=signalled,
         )
-        if not timed_out:
+        if signalled:
+            call.result = _placeholder(point)
+        elif not timed_out:
             observer = self._observer()
             if observer is not None:
                 observer.begin_call(seq)
             try:
-                call.result = strategy._problem(point)
+                call.result = problem(point)
             except Exception as e:  # noqa: BLE001 — a failed evaluation, booked as such
                 call.error = repr(e)
             finally:
                 if observer is not None:
                     observer.end_call()
+            if getattr(call.result, "timed_out", False):
+                # Signalled by the objective without ``failure_at``: charged
+                # the cut-off time too.
+                call.signalled = True
+                call.t_complete = self.now + until_cut
         strategy.pending[call.task_id] = call.task_id
         heapq.heappush(self._running, call)
 
@@ -536,7 +578,7 @@ class VirtualClock:
         for call in done:
             o = Outcome(
                 call.task_id,
-                call.ok,
+                call.error is None and not call.timed_out,  # a signalled timeout arrives as its placeholder
                 result=call.result,
                 error=call.error or ("timed out" if call.timed_out else ""),
                 started=call.t_dispatch,
@@ -597,6 +639,7 @@ def run_ask_tell(
     observer: Any = None,
     reraise: Tuple[Type[BaseException], ...] = (),
     logger: Any = None,
+    failure_at: Optional[Callable[[np.ndarray], Optional[str]]] = None,
 ) -> None:
     """Drive an ask/tell optimizer on the virtual clock (the external baselines' driver).
 
@@ -616,6 +659,10 @@ def run_ask_tell(
     :class:`~panobbgo.ioh_runner.IOHTracker`) sees ``begin_call`` /
     ``end_call`` around each evaluation and ``complete_call`` at completion.
     Exceptions in ``reraise`` (a hard budget stop) propagate.
+    ``failure_at(x)`` (a family's :meth:`~panobbgo.lib.families.Family.failure_at`)
+    marks a signalled timeout in advance: not evaluated, told ``NaN`` after
+    ``timeout`` (or its drawn duration with no timeout), a spent call for the
+    observer — as :class:`VirtualClock` treats it.
     """
     if policy not in POLICIES:
         raise ValueError("virtual policy must be one of %s, got %r" % (POLICIES, policy))
@@ -636,6 +683,9 @@ def run_ask_tell(
             n_drawn, sum_drawn = n_drawn + 1, sum_drawn + d
             if timeout is not None and d > timeout:
                 heapq.heappush(running, (now + timeout, seq, key, float("nan"), False))
+            elif failure_at is not None and failure_at(x) == "timeout":
+                cut = timeout if timeout is not None else d
+                heapq.heappush(running, (now + cut, seq, key, float("nan"), False))
             else:
                 ok, fx = True, float("nan")
                 if observer is not None:

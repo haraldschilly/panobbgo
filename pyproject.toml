@@ -61,6 +61,19 @@ baselines = [
     "optuna>=5.0.0",
     "cmaes>=0.13.1",
 ]
+# Expensive-track (Bayesian optimisation / model-based) reference solvers
+# (panobbgo/harness_baselines.py): BoTorch qLogEI and TuRBO-1, SMAC3's
+# BlackBox facade, Py-BOBYQA.  Separate from `baselines` because torch is
+# large; uv pulls the CPU-only torch wheel (see [tool.uv.sources]).  HEBO
+# and PDFO are not here: neither installs under numpy 2.5 / Python 3.14
+# (doc/source/guide_benchmarking.rst, "Expensive-track baselines").
+baselines-bo = [
+    "torch>=2.14.0",
+    "botorch>=0.18.1",
+    "gpytorch>=1.15.2",
+    "smac>=2.4.1",
+    "Py-BOBYQA>=1.5.0",
+]
 dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1",
@@ -139,6 +152,16 @@ reportAttributeAccessIssue = "warning"  # Warn instead of error for attribute ac
 reportCallIssue = "warning"  # Warn for missing arguments
 reportArgumentType = "warning"  # Warn for argument type mismatches
 reportPrivateImportUsage = "warning"
+
+# torch from the CPU-only index: the PyPI Linux wheel pulls ~3 GB of CUDA
+# libraries that the GP fits of the `baselines-bo` extra never use.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [dependency-groups]
 dev = [

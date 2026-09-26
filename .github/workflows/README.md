@@ -13,6 +13,12 @@ Independent parallel jobs:
 - **test**: `uv run pytest -v --cov=panobbgo` (also syncs the
   `tools/ioh_worker` venv so the `requires_worker` IOH tests run, and the
   `baselines` extra so the pycma / Nevergrad / Optuna adapter tests run)
+- **test-bo**: `uv run pytest -v tests/test_harness_baselines_bo.py` with
+  the `baselines-bo` extra (CPU torch, BoTorch, SMAC3, Py-BOBYQA; a few
+  minutes).  The default test job does not install that extra, so those
+  tests skip there and it stays free of torch.  Own cache key prefix
+  (`uv-bo-`): `uv sync` is exact, so a torch venv under the shared key
+  would be restored and stripped by every other job.
 - **lint**: flake8 — *advisory only* (`continue-on-error: true`)
 - **typecheck**: `uv run pyright panobbgo`
 - **docs**: `uv run sphinx-build -b doctest doc/source doc/build/doctest`

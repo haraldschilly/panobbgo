@@ -333,7 +333,7 @@ def test_default_baseline_set_is_unchanged():
 def test_external_baselines_join_by_name():
     names = [s.name for s in make_baseline_strategies(["Baseline_NGOpt", "Baseline_pycma_BIPOP", "Other"])]
     assert names[3:] == ["Baseline_pycma_BIPOP", "Baseline_NGOpt"]
-    assert len(set(EXTERNAL_BASELINE_NAMES)) == 7
+    assert len(set(EXTERNAL_BASELINE_NAMES)) == 11
 
 
 def test_names_derive_from_the_classes():

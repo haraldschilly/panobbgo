@@ -488,14 +488,13 @@ Result files from before **2026-09-25** are not comparable with newer ones:
 runs now stop at exactly `max_eval`, composite `success` means "tolerance
 met within the budget", measurements run `sync_eval`, and module RNG streams
 are keyed by master seed and module name (`StrategyBase.spawn_rng`), which
-changed every seeded trajectory.  Compare against the post-audit
-references instead: release `rebaseline-2026-09-26-run36228301268`
-(DISCOVERY §54, measured before #344–#346, which are bit-identical on the
-default paths; numbers in `planning/results/2026-09-26/SUMMARY.json`).
-Unpack it with `scripts/rebaseline.py fetch` (next section).  **Caveat:**
-those references mix the two runner FP classes (shards 01/05/06 vs
-02–04 of the families screen) and carry no `fp_env_id`; a pinned
-re-baseline replaces them (`TODO.md`).
+changed every seeded trajectory.  Compare against the FP-exact references:
+release `rebaseline-2026-09-26-run36265786623` (DISCOVERY §56; 12 seeds, every suite incl. the external
+baselines and the shapes/failure families, one `fp_env_id` across all 29
+jobs; numbers in `planning/results/2026-09-26-run36265786623/SUMMARY.json`).  Unpack it with
+`scripts/rebaseline.py fetch` (next section).  The earlier release
+`rebaseline-2026-09-26-run36228301268` (§54) mixes two runner FP classes
+and predates #344–#358; use it only for history.
 
 ## Re-baselining on GitHub runners
 

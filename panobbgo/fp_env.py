@@ -23,7 +23,9 @@ trajectory and move a cell by up to ~0.08 AOCC (re-baseline run
 36228301268, 2026-09-26).
 
 **The pin.**  :func:`pin_fp_env` sets :data:`PIN_ENV` in ``os.environ``:
-``OPENBLAS_CORETYPE=Haswell`` (the AVX2 kernels),
+``OPENBLAS_CORETYPE=Haswell`` (the AVX2 kernels) with
+``OPENBLAS_L2_SIZE=2048`` (keeps OpenBLAS 0.3.34's Zen 4 blocking override
+off the forced kernels, see :data:`PIN_ENV`),
 ``NPY_DISABLE_CPU_FEATURES`` = numpy's AVX-512 dispatch targets, and the
 AVX2 caps of torch (``ATEN_CPU_CAPABILITY``), MKL (``MKL_CBWR``,
 ``MKL_ENABLE_INSTRUCTIONS``) and oneDNN (``ONEDNN_MAX_CPU_ISA``), which are
@@ -78,6 +80,15 @@ NUMPY_DISABLED_FEATURES = "X86_V4 AVX512_ICL AVX512_SPR"
 #: the torch path across runner classes is not verified yet (``TODO.md``).
 PIN_ENV: Dict[str, str] = {
     "OPENBLAS_CORETYPE": "Haswell",
+    # OpenBLAS 0.3.34 overrides the GEMM blocking (P/Q) of the *forced*
+    # kernel table on hosts whose CPUID reports AMD, a 1 MiB L2 and AVX-512
+    # (Zen 4/5, e.g. the EPYC 9V74 runners): the Haswell dgemm kernel then
+    # overflows its stack and segfaults at a few hundred rows, and smaller
+    # GEMMs give other bits than on every other host (OpenMathLib/OpenBLAS
+    # #6013, #6021).  The override needs ``l2_kb == 1024``; claiming 2 MiB
+    # skips it.  Inert elsewhere (verified on EPYC 7763 / 9V74 / Xeon runners,
+    # identical GEMM, lstsq and eigh digests; experiment PR #371).
+    "OPENBLAS_L2_SIZE": "2048",
     "NPY_DISABLE_CPU_FEATURES": NUMPY_DISABLED_FEATURES,
     "ATEN_CPU_CAPABILITY": "avx2",
     "MKL_CBWR": "AVX2",

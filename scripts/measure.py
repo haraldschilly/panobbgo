@@ -457,6 +457,7 @@ def host_info() -> Dict[str, Any]:
             k: os.environ.get(k)
             for k in (
                 "OPENBLAS_CORETYPE",
+                "OPENBLAS_L2_SIZE",
                 "NPY_DISABLE_CPU_FEATURES",
                 "OPENBLAS_NUM_THREADS",
                 "OMP_NUM_THREADS",

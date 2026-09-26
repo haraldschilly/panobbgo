@@ -34,7 +34,8 @@ same FP environment, i.e. with the same `fp_env_id`.**
 
 *   **The pin** (`panobbgo/fp_env.py`).  `OPENBLAS_CORETYPE=Haswell`
     and `NPY_DISABLE_CPU_FEATURES="X86_V4 AVX512_ICL AVX512_SPR"`, the
-    AVX2 kernels every x86 runner has, plus `ATEN_CPU_CAPABILITY=avx2`,
+    AVX2 kernels every x86 runner has, plus `OPENBLAS_L2_SIZE=2048`
+    (below), plus `ATEN_CPU_CAPABILITY=avx2`,
     `MKL_CBWR=AVX2`, `MKL_ENABLE_INSTRUCTIONS=AVX2` and
     `ONEDNN_MAX_CPU_ISA=AVX2` for torch (the BO baselines; harmless
     without torch).  **`import panobbgo` sets them** when numpy is not
@@ -53,6 +54,24 @@ same FP environment, i.e. with the same `fp_env_id`.**
     free, seed 42, dims 2/5, 120 rows; composite quick).  The torch path is
     capped but **not verified** bit-identical across runner classes
     (`TODO.md`).
+*   **OpenBLAS 0.3.34 on AVX-512 Zen 4 hosts.**  OpenBLAS 0.3.34 rewrites
+    the GEMM blocking (P/Q) of the *forced* kernel table when the host's
+    CPUID reports AMD, a 1 MiB L2 and AVX-512 (the AMD EPYC 9V74 runners
+    that expose AVX-512; about one runner in four in September 2026).  With
+    the Haswell pin, `dgemm` of a few hundred rows (`A @ B` at
+    1002x496x496, `lstsq`, `svd`, `qr`; e.g. feature logging's quadratic
+    fit at `d >= 30`) then segfaults in `dgemm_kernel_HASWELL` (stack
+    overflow), also single-threaded, and GEMMs with some K give other
+    bits than on every other host (OpenMathLib/OpenBLAS#6013, #6021; the
+    0.3.35 fix only covers `NO_AVX512` builds, so numpy's wheels keep the
+    override).  The override requires `l2_kb == 1024`, so the pin sets
+    `OPENBLAS_L2_SIZE=2048`: no crash, and GEMM / `lstsq` / `eigh` digests
+    identical on EPYC 7763, EPYC 9V74 (with and without AVX-512) and Xeon
+    runners, with and without the variable elsewhere (2026-09-27,
+    experiment PR #371).  The variable is not in `fp_env_id` (it restores
+    what the pin already meant).  Two shards of the FP-exact re-baseline
+    run 36265786623 (`composite-quick 01`, `ioh-external 01`) ran on such
+    hosts without it (`TODO.md`).
 *   **The record.**  Every result file carries `fp_env` (CPU model,
     avx2/fma/avx512f, the loaded BLAS libraries with version and kernel
     `architecture`, numpy's active SIMD targets, numpy/scipy/libc/Python

@@ -206,6 +206,11 @@ def _adj_r2(design: np.ndarray, y: np.ndarray) -> Tuple[float, Optional[np.ndarr
     normal equations (Cholesky; ~6x faster than an SVD at d = 40); when the
     factor's reciprocal condition estimate is below 1e-10 (collinear
     columns), the fit falls back to :func:`numpy.linalg.lstsq`.
+
+    At ``d >= 30`` these are GEMMs of hundreds of rows: on AVX-512 Zen 4
+    hosts OpenBLAS 0.3.34 under the Haswell pin segfaults there unless
+    ``OPENBLAS_L2_SIZE=2048`` is set, which the FP pin does
+    (:data:`panobbgo.fp_env.PIN_ENV`, OpenMathLib/OpenBLAS#6021).
     """
     n, p = design.shape
     if n <= p:

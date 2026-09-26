@@ -541,6 +541,37 @@ def test_compare_guards_a_virtual_mismatch(tmp_path, capsys):
     assert cli.main(["compare", str(mb), str(ma), "--fail-on-regression"]) == 2
 
 
+def test_compare_guards_a_battery_or_budget_mismatch(tmp_path, capsys):
+    """``standard`` vs ``standard-b20``: a warning, no gate, and runs at other budgets never pair."""
+    import dataclasses
+
+    from panobbgo.harness_ioh import IOHHarnessResult, IOHMultiSeedResult
+
+    def result(battery, budget, aocc):
+        rec = dataclasses.replace(_record("A", aocc, None), budget=budget)
+        return IOHHarnessResult(battery, "k", -8.0, 2.0, [rec], sync_eval=True)
+
+    cli = _cli()
+    b, a = tmp_path / "b.json", tmp_path / "a.json"
+    b.write_text(result("standard", 1000, 0.6).to_json())
+    a.write_text(result("standard-b20", 40, 0.3).to_json())
+    assert cli.main(["compare", str(b), str(a)]) == 0
+    assert "battery mismatch" in capsys.readouterr().err
+    assert cli.main(["compare", str(b), str(a), "--fail-on-regression"]) == 2
+    before = IOHHarnessResult.from_dict(result("standard", 1000, 0.6).to_dict())
+    after = IOHHarnessResult.from_dict(result("standard", 40, 0.3).to_dict())
+    assert cli._common_cell_delta(before, after)[0] == 0  # same cell, other budget: not a pair
+
+    def multi(battery):
+        return IOHMultiSeedResult(battery, "k", -8.0, 2.0, [1], [result(battery, 1000, 0.4)])
+
+    mb, ma = tmp_path / "mb.json", tmp_path / "ma.json"
+    mb.write_text(multi("standard").to_json())
+    ma.write_text(multi("standard-b20").to_json())
+    assert cli.main(["compare", str(mb), str(ma), "--fail-on-regression"]) == 2
+    assert "battery mismatch" in capsys.readouterr().err
+
+
 # ── the request cap (async policy) ──
 
 

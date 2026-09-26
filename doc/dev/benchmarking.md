@@ -86,7 +86,9 @@ uv run python benchmark_harness.py compare before.json after.json --statistical 
     clock.  GP fits make a dim-10, budget-200 run take 5–20 min (BoTorch
     qLogEI about 15–20 min, on the async virtual clock at any q); size
     runner jobs by the guide ("Expensive-track baselines").  They are
-    exempt from `benchmark_harness.py`'s per-run wall timeout.  SMAC has
+    exempt from every per-run wall timeout (`benchmark_harness.py`,
+    `ioh_benchmark.py --timeout`), and `compare` refuses to gate across
+    batteries or budgets (`standard` vs `standard-b20`).  SMAC has
     no batch acquisition (report it at q = 1); Py-BOBYQA is sequential
     (one point in flight at any q).  HEBO and PDFO do not install under
     numpy 2.5 / Python 3.14 and are left out.

@@ -173,7 +173,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         # name is an error, not an empty run with composite 0.0.
         harness.get_problems()
         harness.get_strategies()
-    except ValueError as exc:
+    except (ValueError, ImportError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     result = harness.run(verbose=not args.quiet)
@@ -369,6 +369,12 @@ def cmd_list(args: argparse.Namespace) -> int:
     for s in strategies:
         heuristics = ", ".join(h.__name__ for h, _ in s.heuristics)
         print(f"  {s.name}  [{heuristics}]")
+    if args.baselines:
+        from panobbgo.harness_baselines import EXTERNAL_BASELINE_NAMES
+
+        print("\nExternal baselines (opt-in: name them in --strategies; need `uv sync --extra baselines`):")
+        for name in EXTERNAL_BASELINE_NAMES:
+            print(f"  {name}  [opt-in]")
 
     print()
     return 0

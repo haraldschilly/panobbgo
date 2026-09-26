@@ -63,7 +63,7 @@ import numpy as np
 from panobbgo.benchmark import StrategySpec
 from panobbgo import local_run
 from panobbgo.harness import _make_quick_strategies, _make_standard_strategies
-from panobbgo.harness_baselines import make_baseline_strategies
+from panobbgo.harness_baselines import check_baseline_selection, make_baseline_strategies
 from panobbgo.harness_families import (
     FamilyInstances,
     make_constrained_battery,
@@ -149,9 +149,13 @@ def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
         strats = list(_make_standard_strategies() if (args.standard or args.full) else _make_quick_strategies())
     else:
         strats = list(make_ioh_strategies())
-    if args.baselines:
-        # External baselines (pycma, Nevergrad, Optuna) join only when --strategies names them.
-        strats.extend(make_baseline_strategies(args.strategies))
+    try:
+        check_baseline_selection(args.strategies, args.baselines)
+        if args.baselines:
+            # External baselines (pycma, Nevergrad, Optuna) join only when --strategies names them.
+            strats.extend(make_baseline_strategies(args.strategies))
+    except (ValueError, ImportError) as exc:
+        raise SystemExit(f"error: {exc}") from exc
     if args.strategies:
         wanted = set(args.strategies)
         strats = [s for s in strats if s.name in wanted]

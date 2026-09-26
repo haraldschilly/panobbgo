@@ -36,8 +36,9 @@ extra).
       (`panobbgo/sealed.py`; MA-BBOB and families are sealed).  The CEC 2020
       problems are fixed, so "sealed" means held-out problems, e.g. a few
       CEC 2020 problems kept out of the development battery.
-- [ ] Feature logging at checkpoints (landscape features, per-arm
-      trajectory statistics): the selector's training data (roadmap §3.4, §4 A).
+- [ ] Feature logging follow-ups (#361 records the features): noise
+      estimate from repeats and evaluation durations are not logged yet;
+      the counterfactual branch labels (roadmap §4 A) are the next step.
 - [ ] Py-BOBYQA `seek_global_minimum=True` as a second, global variant of
       the local BOBYQA reference (`panobbgo/harness_baselines_bo.py`).
 - [ ] Then measure panobbgo vs the incumbents on both tracks, per COCO

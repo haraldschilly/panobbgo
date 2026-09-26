@@ -172,17 +172,36 @@ d 80/160, 500·d; full rotations, so not comparable with COCO's
     ≈ 7–10 min.
 
 **Real-world set** (opt-in, `panobbgo/lib/realworld.py`,
-`panobbgo/harness_realworld.py`): 18 CEC 2020 real-world constrained problems
-(RC01–RC05, RC09, RC10, RC15–RC21, RC23, RC25, RC29, RC32; dims 2–14),
-`run --realworld` (500·dim, `--realworld-problems RC17 ...` for a subset) and
-`--realworld-quick` (smoke).  AOCC is on the **feasible relative gap**
-`(f - f_best)/|f_best|`, infeasible points (CEC rule: `g <= 0`,
-`|h| <= 1e-4`) count as no progress — not the families' penalty value, which
-an infeasible point can undercut on a real problem.  RC01/RC02 crash
-(`EvaluationCrashed`) where their logarithms are undefined (~31 % / ~50 % of
-the box).  Not in any preset, not in `scripts/rebaseline.py` (a follow-up in
-`TODO.md`), not in the sealed set yet.  Background and per-problem
-verification: guide, "Real-world problems (CEC 2020)".
+`panobbgo/harness_realworld.py`): 19 CEC 2020 real-world constrained problems
+(RC01u, RC02u, RC03–RC05, RC09, RC10, RC15–RC21, RC23, RC25, RC28, RC29,
+RC32; dims 2–14), `run --realworld` (500·dim; `--realworld-problems RC17 ...`
+for a subset, `--budget-multiplier N` for another budget) and
+`--realworld-quick` (smoke).
+
+*   AOCC is on the **feasible relative gap** `(f - f_best)/|f_best|` over
+    targets `[1e-8, 1e0]` (`log_hi = 0`); infeasible points (CEC rule:
+    `g <= 0`, `|h| <= 1e-4`) are no progress.  Not the families' penalty
+    value, which an infeasible point can undercut on a real problem.  The
+    result carries `scored = "relative_feasible_gap"` (other tracks:
+    `"objective"`), and `compare` refuses a different `scored` or bounds.
+*   Each record adds `feasible`, `best_violation` (CEC `nu`) and
+    `first_feasible_eval`; the summary has a per-problem table.
+*   **RC01u/RC02u are unguarded variants**: they crash (`EvaluationCrashed`)
+    where their logarithms are undefined (~31 % / ~50 % of the box), which
+    the reference code guards against, so their run statistics are not
+    comparable with published CEC 2020 results.
+*   Resolution limit at 500·dim: RC01u and RC02u are rarely made feasible,
+    and most strategies score 0 on RC03, RC16 and RC23 as well.  RC04/RC05's
+    best-known values use the equality tolerance (exact equalities cap the
+    gap at 4.6e-4 / 1.4e-5).
+*   **Baselines on constrained problems** (this track and
+    `--families-constrained`) minimise `f + 100·cv`, the default constraint
+    handler's penalty value (`harness_baselines.penalized_value`), not the
+    bare `f`; unconstrained problems are bit-identical.  This changed the
+    baselines' numbers on the constrained families (2026-09-26).
+*   Not in any preset, not in `scripts/rebaseline.py` (a follow-up in
+    `TODO.md`), not in the sealed set yet.  Background and per-problem
+    verification: guide, "Real-world problems (CEC 2020)".
 
 **Parallel behaviour (virtual clock).**  `--virtual-workers Q` runs every
 strategy on a deterministic simulation of Q workers

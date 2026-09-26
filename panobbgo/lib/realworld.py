@@ -29,27 +29,27 @@ real-world single-objective constrained suite,
     https://github.com/P-N-Suganthan/2020-RW-Constrained-Optimisation
     (``Problem-Definitions.pdf``, ``Guidelines_Real_World_Constrained.pdf``).
 
-Each problem here is transcribed from the formulas in the paper (§2 there;
-"Kumar et al., eq. (n)" below); no code is copied.  Where the paper's
-typesetting is ambiguous or differs from the suite's reference MATLAB code
-(``cec20_func.m``, which defines the benchmark the paper's best-known values
-were measured on), the problem follows the reference definition and says so
-in :attr:`RealWorldSpec.notes`.
+**Every model follows the suite's reference code** (``cec20_func.m`` and
+``Cal_par.m`` in ``SOFTWARE.zip``, the definition the published
+best-known values were measured on); the paper was used for the equations
+and their numbering ("Kumar et al., eq. (n)" below).  No code is copied.
+Where the printed equation differs from the reference, the model follows the
+reference and :attr:`RealWorldSpec.notes` says where.  A second review
+checked every model against ``cec20_func.m`` on 2000 random points each
+(agreement to 2e-13), apart from the deliberate RC01/RC02 variant below.
 
 Which problems, and why these
 -----------------------------
 
-Eighteen of the 57, all with :math:`D \le 14` so a 500·D budget stays
+Nineteen of the 57, all with :math:`D \le 14` so a 500·D budget stays
 cheap: the industrial chemical processes RC01–RC05 (equality-heavy), two of
 the small process-synthesis problems (RC09, RC10: one binary variable each)
-and eleven mechanical design problems (RC15–RC21, RC23, RC25, RC29, RC32) —
-among them the classic engineering designs (speed reducer, spring, pressure
-vessel, welded beam, three-bar truss) in their CEC 2020 form.  Left out:
-RC06/RC07 (38/48 variables, 32/38 equalities), RC11–RC14 and
+and twelve mechanical design problems (RC15–RC21, RC23, RC25, RC28, RC29,
+RC32) — among them the classic engineering designs (speed reducer, spring,
+pressure vessel, welded beam, three-bar truss) in their CEC 2020 form.
+Left out: RC06/RC07 (38/48 variables, 32/38 equalities), RC11–RC14 and
 RC22/RC26/RC30/RC31 (mostly integer), RC24 (robot gripper: an inner
-optimisation per evaluation), RC27/RC33 (finite-element models), RC28
-(rolling element bearing: Table 3's 14614.1357 could not be reproduced —
-the minimum found on the published definition is 16958.2), and the
+optimisation per evaluation), RC27/RC33 (finite-element models), and the
 power-system, power-electronics and livestock problems RC34–RC57 (74–158
 variables, or input data files).
 
@@ -61,16 +61,17 @@ and the value ``f_ref`` of the model there; ``tests/test_realworld.py``
 checks the value, the feasibility (under the suite's rule, below) and that
 ``f_ref`` agrees with the best-known value ``f_best`` to ``best_rtol``
 (1e-9 relative for most).  The best-known values are Kumar et al.,
-Table 3, except two, which say so: RC18 (Table 3 lists the
-continuous-thickness optimum; the paper defines integer thicknesses) and
-RC25 (a point 0.57 % better than Table 3 exists).  Kumar et al. publish no
+Table 3, except where the suite itself updated them: RC25 (the updated
+value of the competition guidelines, Table 4, 22 July 2020) and RC18 (the
+proven optimum of the integer problem, ``Revision.docx``, 16 Nov 2019;
+Table 3 lists the continuous-thickness value).  Kumar et al. publish no
 optimal points, so most ``x_ref`` were computed here, by a search on this
-transcription, and reproducing Table 3's eleven-digit value on an
+transcription, and reproducing the published eleven-digit value on an
 independent search is the check of the transcription.  RC32 is
 problem g04 of CEC 2006, whose published optimum is ``x_ref``; the tests
 also evaluate points published for the classic problems (Haverly's pooling
-optimum, the integer pressure-vessel optimum, the three-bar truss, the
-spring, the gas compressor).
+optimum, the integer pressure-vessel optimum of ``Revision.docx``, the
+three-bar truss, the spring, the gas compressor).
 
 Constraints and feasibility
 ---------------------------
@@ -88,19 +89,27 @@ Integer variables are *relaxed and rounded inside the model*, as the suite
 does (a variable with the bounds ``[-0.51, 1.49]`` is rounded to 0 or 1):
 the optimiser searches a continuous box and sees plateaus.
 
-Failure regions
----------------
+Failure regions, and the RC01u / RC02u variants
+-----------------------------------------------
 
 Where a formula is undefined — the logarithm of a negative temperature
-difference in the heat-exchanger networks RC01 and RC02, a division by zero
-on the boundary of RC20 — the evaluation **fails**: :meth:`RealWorldProblem.eval`
+difference in the heat-exchanger networks, a division by zero on the
+boundary of RC20 — the evaluation **fails**: :meth:`RealWorldProblem.eval`
 raises :class:`~panobbgo.lib.lib.EvaluationCrashed`, which the evaluation
 paths book as a failed evaluation and the AOCC trackers count as a spent
-call without progress (roadmap §4 D).  The reference MATLAB code guards some
-of these spots (``log(abs(.) + 1e-8)``); this module deliberately does not,
-because a real simulator in those regions returns no number either.
-:attr:`RealWorldSpec.failure` names each problem's failure region.  The guards never matter at a
-feasible optimum.
+call without progress (roadmap §4 D).  :attr:`RealWorldSpec.failure` names
+each problem's failure region.
+
+The reference code guards most of the heat-exchanger logarithms
+(``log(abs(.) + 1e-8)``), which turns the invalid region into a smooth,
+evaluable landscape.  This module deliberately does **not**: a real
+simulator in those regions returns no number either, and the failure model
+is what the harness is meant to exercise.  So RC01 and RC02 here are
+**variants**, labelled ``RC01u`` / ``RC02u`` ("unguarded") in every name and
+result: their optima and best-known values are the suite's (the guards never
+matter at a feasible point), but **run statistics on them are not comparable
+with published CEC 2020 results**.  (RC01's ``log(600 - x7)`` is unguarded
+even in the reference; it only fails on the boundary ``x7 = 600``.)
 
 Public surface
 --------------
@@ -133,7 +142,12 @@ _EMPTY = np.zeros(0)
 
 
 def _round(v: float) -> float:
-    """MATLAB ``round``: halves away from zero (numpy rounds them to even)."""
+    """MATLAB ``round``: halves away from zero (numpy rounds them to even).
+
+    So a relaxed binary with the bounds ``[-0.51, 1.49]`` is 0 on
+    ``(-0.5, 0.5)`` and 1 on ``[0.5, 1.49]``, but **-1** on ``[-0.51, -0.5]``,
+    as in the reference code.
+    """
     return float(np.sign(v) * np.floor(abs(v) + 0.5))
 
 
@@ -468,6 +482,43 @@ def _rc25(x: np.ndarray) -> ModelValue:
     return f, g, _EMPTY
 
 
+def _rc28(x: np.ndarray) -> ModelValue:
+    """Rolling element bearing (Kumar et al., eq. (34)); ``Z = x3`` integer."""
+    Dm, Db = x[0], x[1]
+    Z = _round(x[2])
+    fi, fo, KDmin, KDmax, eps, e, chi = x[3:]
+    D, d, Bw = 160.0, 90.0, 30.0
+    T = D - d - 2.0 * Db
+    a = (D - d) * 0.5 - 0.75 * T
+    b = 0.5 * D - 0.25 * T - Db
+    phi_o = 2.0 * np.pi - 2.0 * np.arccos((a**2 + b**2 - (0.5 * d + 0.25 * T) ** 2) / (2.0 * a * b))
+    gam = Db / Dm
+    ratio = (1.0 - gam) / (1.0 + gam)
+    conf = fi * (2.0 * fo - 1.0) / (fo * (2.0 * fi - 1.0))
+    fc = (
+        37.91
+        * (1.0 + (1.04 * ratio**1.72 * conf**0.41) ** (10.0 / 3.0)) ** (-0.3)
+        * (gam**0.3 * (1.0 - gam) ** 1.39 / (1.0 + gam) ** (1.0 / 3.0))
+        * (2.0 * fi / (2.0 * fi - 1.0)) ** 0.41
+    )
+    if Db > 25.4:
+        f = 3.647 * fc * Z ** (2.0 / 3.0) * Db**1.4
+    else:
+        f = fc * Z ** (2.0 / 3.0) * Db**1.8
+    g = _arr(
+        Z - 1.0 - phi_o / (2.0 * np.arcsin(Db / Dm)),
+        KDmin * (D - d) - 2.0 * Db,
+        2.0 * Db - KDmax * (D - d),
+        chi * Bw - Db,
+        0.5 * (D + d) - Dm,
+        Dm - (0.5 + e) * (D + d),
+        eps * Db - 0.5 * (D - Dm - Db),
+        0.515 - fi,
+        0.515 - fo,
+    )
+    return f, g, _EMPTY
+
+
 def _rc29(x: np.ndarray) -> ModelValue:
     """Gas transmission compressor design (Kumar et al., eq. (35))."""
     x1, x2, x3, x4 = x
@@ -537,6 +588,13 @@ class RealWorldSpec:
     failure: str = ""
     notes: str = ""
 
+    def __post_init__(self) -> None:
+        if not (np.isfinite(self.f_best) and self.f_best != 0.0):
+            # The metric is the gap relative to |f_best|.
+            raise ValueError(f"{self.name}: f_best must be finite and non-zero, not {self.f_best}")
+        if not (len(self.lower) == len(self.upper) == len(self.x_ref)):
+            raise ValueError(f"{self.name}: lower, upper and x_ref differ in length")
+
     @property
     def dim(self) -> int:
         """Number of variables."""
@@ -544,6 +602,20 @@ class RealWorldSpec:
 
 
 _TABLE3 = "Kumar et al. 2020, Table 3"
+
+
+def constraint_status(g: np.ndarray, h: np.ndarray, m: int) -> Tuple[bool, float]:
+    r"""``(feasible, nu)`` of inequality values ``g`` and equality values ``h`` (``m`` constraints in all).
+
+    Feasible iff every :math:`g_i \le 0` and every :math:`|h_j| \le 10^{-4}`
+    (the CEC 2020 rule); :math:`\nu = (\sum_i \max(g_i, 0) + \sum_j |h_j|
+    [|h_j| > 10^{-4}]) / m`, the guidelines' eq. (2).  The two agree:
+    feasible iff :math:`\nu = 0`.
+    """
+    ah = np.abs(h)
+    feasible = bool(np.all(g <= 0.0) and np.all(ah <= EQ_TOL))
+    total = float(np.sum(np.maximum(g, 0.0)) + np.sum(ah[ah > EQ_TOL]))
+    return feasible, total / max(1, m)
 
 
 class RealWorldProblem(Problem):
@@ -595,9 +667,22 @@ class RealWorldProblem(Problem):
             return np.full(self.n_constraints, np.nan)
         return np.concatenate([g, np.abs(h) - EQ_TOL])
 
+    def constraint_status(self, x: np.ndarray) -> Tuple[bool, float]:
+        """``(feasible, violation)`` at ``x``: the one feasibility test of this module.
+
+        :meth:`is_feasible`, :meth:`violation` and the real-world AOCC tracker
+        (:class:`~panobbgo.harness_realworld.FeasibleGapTracker`) all read it.
+        ``(False, inf)`` in the failure region.
+        """
+        try:
+            _f, g, h = self.evaluate(x)
+        except EvaluationCrashed:
+            return False, float("inf")
+        return constraint_status(g, h, self.n_constraints)
+
     def is_feasible(self, x: np.ndarray) -> bool:
         """The CEC 2020 rule: every :math:`g_i \\le 0` and every :math:`|h_j| \\le 10^{-4}`."""
-        return bool(np.all(self.eval_constraints(x) <= 0.0))
+        return self.constraint_status(x)[0]
 
     def violation(self, x: np.ndarray) -> float:
         r"""The suite's mean constraint violation :math:`\nu(x)` (CEC 2020 guidelines, eq. (2)).
@@ -605,13 +690,7 @@ class RealWorldProblem(Problem):
         :math:`\nu = (\sum_i \max(g_i, 0) + \sum_j |h_j| [|h_j| > 10^{-4}]) / m`; ``inf`` in the
         failure region.
         """
-        try:
-            _f, g, h = self.evaluate(x)
-        except EvaluationCrashed:
-            return float("inf")
-        ah = np.abs(h)
-        total = float(np.sum(np.maximum(g, 0.0)) + np.sum(ah[ah > EQ_TOL]))
-        return total / max(1, self.n_constraints)
+        return self.constraint_status(x)[1]
 
     def relative_gap(self, fx: float) -> float:
         """``(fx - f_best) / |f_best|`` — the quantity the real-world AOCC scores."""
@@ -628,9 +707,9 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
     s.name: s
     for s in [
         RealWorldSpec(
-            name="rc01_heat_exchanger_1",
-            cec_id="RC01",
-            title="Heat exchanger network design (case 1)",
+            name="rc01u_heat_exchanger_1",
+            cec_id="RC01u",
+            title="Heat exchanger network design (case 1), unguarded",
             model=_rc01,
             lower=(0.0, 0.0, 0.0, 0.0, 1000.0, 0.0, 100.0, 100.0, 100.0),
             upper=(10.0, 200.0, 100.0, 200.0, 2e6, 600.0, 600.0, 600.0, 900.0),
@@ -654,12 +733,17 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
                 "h8 takes log(x9 - x7): undefined for x9 <= x7, about 31 % of the box; "
                 "h7 at x8 = 100 or x7 = 600 (log 0) on the boundary"
             ),
-            notes="The reference code guards the logarithms with log(abs(.) + 1e-8); this transcription does not.",
+            notes=(
+                "Variant (unguarded): the reference code guards the logarithms with log(abs(.) + 1e-8); "
+                "this one does not, so its invalid region fails.  Same optimum and best-known value; run "
+                "statistics are not comparable with published CEC 2020 results.  "
+                "The reference guards log(x8 - 100) and log(x9 - x7); log(600 - x7) is unguarded there too."
+            ),
         ),
         RealWorldSpec(
-            name="rc02_heat_exchanger_2",
-            cec_id="RC02",
-            title="Heat exchanger network design (case 2)",
+            name="rc02u_heat_exchanger_2",
+            cec_id="RC02u",
+            title="Heat exchanger network design (case 2), unguarded",
             model=_rc02,
             lower=(1e4, 1e4, 1e4, 0.0, 0.0, 0.0, 100.0, 100.0, 100.0, 100.0, 100.0),
             upper=(0.819e6, 1.131e6, 2.05e6, 0.05074, 0.05074, 0.05074, 200.0, 300.0, 300.0, 300.0, 400.0),
@@ -675,7 +759,12 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
                 "h8 takes log(x10 - x7) and h9 log(x11 - x8): undefined for x10 <= x7 or x11 <= x8, about "
                 "half the box; x4, x5 or x6 = 0 (division by zero) and x9 = 100 (log 0) on the boundary"
             ),
-            notes="The reference code guards the logarithms with log(abs(.) + 1e-8); this transcription does not.",
+            notes=(
+                "Variant (unguarded): the reference code guards the logarithms with log(abs(.) + 1e-8); "
+                "this one does not, so its invalid region fails.  Same optimum and best-known value; run "
+                "statistics are not comparable with published CEC 2020 results.  "
+                "The reference guards all logarithms but log(300 - x7) and log(100)."
+            ),
         ),
         RealWorldSpec(
             name="rc03_alkylation",
@@ -842,15 +931,16 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
             model=_rc18,
             lower=(0.51, 0.51, 10.0, 10.0),
             upper=(99.49, 99.49, 200.0, 200.0),
-            f_best=6059.714335048431,
+            f_best=6059.714335048436,
             f_best_source=(
-                "computed here: the optimum over the integer thicknesses z = 0.0625 x (enumerated) with x3, x4 "
-                "on the active constraints, at x = (13, 7, 42.0984456, 176.6365958); Table 3's 5885.3328 is the "
-                "continuous-thickness optimum, out of reach with the integer z the paper defines"
+                "the proven optimum of the integer problem, suite change log Revision.docx (SOFTWARE.zip, "
+                "16 Nov 2019): 6059.714335048436 at z = (0.8125, 0.4375), x3 = 42.0984455958549, "
+                "x4 = 176.6365958424394 (also found here by enumerating the integer thicknesses); Table 3's "
+                "5885.3328 is the continuous-thickness optimum"
             ),
             x_ref=(13.0, 7.0, 42.0984455958549, 176.63659585),
             f_ref=6059.714335225192,
-            ref_source="the optimum of f_best_source, x4 rounded up so the volume constraint holds",
+            ref_source="the Revision.docx optimum, x4 rounded up in the 9th digit so the volume constraint holds",
             integer=(0, 1),
         ),
         RealWorldSpec(
@@ -866,8 +956,9 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
             f_ref=1.6702177262807858,
             ref_source=_FOUND,
             notes=(
-                "The suite's variant: J uses x2^2/4 (the classic problem has x2^2/12), hence 1.6702 "
-                "rather than the classic 1.7249."
+                "The suite's variant of the classic problem, in two places: J uses x2^2/4 (classic x2^2/12) "
+                "and Pc uses sqrt(x3^2 x4^6 / 30) (classic /36).  The four combinations have the optima "
+                "1.670218 (the suite's, both deviations), 1.699985, 1.695247 and 1.724852 (the classic)."
             ),
         ),
         RealWorldSpec(
@@ -896,7 +987,11 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
             x_ref=(70.0, 90.0, 1.0, 626.4595599930869, 2.0),
             f_ref=0.2352424579008037,
             ref_source=_FOUND,
-            notes="Eight inequalities as in the reference code (Table 3 counts seven; the eighth is T >= 0).",
+            notes=(
+                "Eight inequalities as in the reference code (Table 3 counts seven; the eighth is T >= 0).  "
+                "The paper calls the variables integer; the reference code and Table 3 treat them as "
+                "continuous, and so does this model."
+            ),
         ),
         RealWorldSpec(
             name="rc23_step_cone_pulley",
@@ -920,13 +1015,41 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
             upper=(16.0, 16.0, 16e-6, 16.0),
             f_best=1616.1197650512402,
             f_best_source=(
-                "computed here (x_ref); 0.57 % below Table 3's 1625.4428, which the paper's three algorithms "
-                "did not improve on"
+                "the updated best-known value of the competition guidelines "
+                "(Guidelines_Real_World_Constrained.pdf, 22 July 2020, Table 4: 1.6161197651E+03), "
+                "to the digits of x_ref; Table 3 of the paper has the older 1625.4428"
             ),
             x_ref=(5.955511371494067, 5.388715911808754, 5.358697265746318e-06, 2.256637978677851),
             f_ref=1616.1197650512402,
-            ref_source="computed here: a differential-evolution search on this transcription, polished",
-            notes="As in the reference code, f = (Q P0 / 0.7 + Ef) / 12 (the paper prints it without the 1/12).",
+            ref_source=_FOUND.replace("the paper's best-known value", "the guidelines' updated best-known value"),
+            notes=(
+                "Follows the reference code throughout; the printed eq. (31) differs in several places "
+                "(among them f = (Q P0 / 0.7 + Ef) / 12, printed without the 1/12, and the -1e-5 terms "
+                "in h and W)."
+            ),
+        ),
+        RealWorldSpec(
+            name="rc28_rolling_bearing",
+            cec_id="RC28",
+            title="Rolling element bearing",
+            model=_rc28,
+            lower=(125.0, 10.5, 3.51, 0.515, 0.515, 0.4, 0.6, 0.3, 0.02, 0.6),
+            upper=(150.0, 31.5, 50.49, 0.6, 0.6, 0.5, 0.7, 0.4, 0.1, 0.85),
+            f_best=14614.135715030,
+            f_best_source=_TABLE3 + " (1.4614135715E+04), to the digits of the optimum",
+            x_ref=(131.2, 18.0, 4.0, 0.6, 0.6, 0.45, 0.65, 0.3, 0.05, 0.6),
+            f_ref=14614.135715026456,
+            ref_source=(
+                _FOUND + "; at it g4 (Db >= chi Bw) and g7 are active, Z = 4 and fi = fo = 0.6, and "
+                "KDmin, KDmax, e are interior (any value in a range does)"
+            ),
+            integer=(2,),
+            notes=(
+                "The paper's bounds, Z >= 4 (a lower bound of 3.51 before rounding): the reference code's "
+                "Cal_par.m has 4.51, which excludes Z = 4 and with it Table 3's value (see the suite's "
+                "Revision.docx, 05 March 2020).  The paper says 'Maximize' the load capacity; the suite, "
+                "Table 3 and this model minimise f."
+            ),
         ),
         RealWorldSpec(
             name="rc29_gas_compressor",
@@ -955,7 +1078,7 @@ REALWORLD_SPECS: Dict[str, RealWorldSpec] = {
             ref_source=(
                 "published: problem g04 of the CEC 2006 constrained suite (J. J. Liang et al., 'Problem "
                 "definitions and evaluation criteria for the CEC 2006 special session on constrained "
-                "real-parameter optimization', 2006), f* = -30665.5386717834"
+                "real-parameter optimization', 2006), f(x*) = -3.066553867178332e+004"
             ),
         ),
     ]

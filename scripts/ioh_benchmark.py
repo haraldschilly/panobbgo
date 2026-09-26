@@ -106,6 +106,7 @@ from panobbgo.harness_ioh import (
     AOCC_LOG_HI,
     AOCC_LOG_LO,
     DEFAULT_DECISION_SEEDS,
+    SCORED_OBJECTIVE,
     IOHBatterySpec,
     IOHHarnessResult,
     IOHMultiSeedResult,
@@ -307,18 +308,28 @@ def _resolve_realworld_battery(args: argparse.Namespace) -> Optional[Tuple[str, 
     no preset and no re-baseline suite includes it.
     """
     names = getattr(args, "realworld_problems", None)
-    if names and not (args.realworld or args.realworld_quick):
-        raise SystemExit("--realworld-problems needs --realworld")
-    if getattr(args, "realworld_quick", False):
+    quick = getattr(args, "realworld_quick", False)
+    if names and not getattr(args, "realworld", False):
+        raise SystemExit(
+            "error: --realworld-problems needs --realworld" + (" (not --realworld-quick)" if quick else "")
+        )
+    # ``--budget-multiplier`` (where the CLI has it) overrides the battery's
+    # own and is named in the battery, as on the other tracks.
+    bm = getattr(args, "budget_multiplier", None)
+    if quick:
         # Three small problems at 20*dim: a smoke test, not a measurement.
-        return "realworld-quick", make_realworld_quick_battery(), 20
-    if getattr(args, "realworld", False):
+        name, instances, mult = "realworld-quick", make_realworld_quick_battery(), 20
+    elif getattr(args, "realworld", False):
         try:
             instances = make_realworld_battery(names or None)
         except KeyError as e:
-            raise SystemExit(str(e))
-        return ("realworld" if not names else "realworld-subset"), instances, REALWORLD_BUDGET_MULTIPLIER
-    return None
+            raise SystemExit(f"error: {e}") from None
+        name, mult = ("realworld" if not names else "realworld-subset"), REALWORLD_BUDGET_MULTIPLIER
+    else:
+        return None
+    if bm is not None:
+        name, mult = f"{name}-b{int(bm)}", int(bm)
+    return name, instances, mult
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -545,6 +556,16 @@ def _virtual_of(d: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return results[0].get("virtual") if d.get("multi_seed") and results else None
 
 
+def _scored_of(d: Dict[str, Any]) -> str:
+    """What a result file's AOCC is taken of (a multi-seed file: its first seed's); older files score the objective."""
+    if d.get("scored") is not None:
+        return str(d["scored"])
+    results = d.get("results") or []
+    if d.get("multi_seed") and results and results[0].get("scored") is not None:
+        return str(results[0]["scored"])
+    return SCORED_OBJECTIVE
+
+
 def _print_time_delta(before: Any, after: Any) -> None:
     b, a = before.mean_aocc_time, after.mean_aocc_time
     if b is not None and a is not None:
@@ -580,6 +601,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
         print(
             f"Cannot compare AOCC over different target ranges ({args.before} log bounds {bounds[0]}, "
             f"{args.after} {bounds[1]}).",
+            file=sys.stderr,
+        )
+        return 2
+    scored = (_scored_of(d_before), _scored_of(d_after))
+    if scored[0] != scored[1]:
+        # The real-world track scores a feasible relative gap, every other
+        # track its objective: the same AOCC bounds, a different quantity.
+        print(
+            f"Cannot compare AOCC of different quantities ({args.before} scores {scored[0]!r}, "
+            f"{args.after} scores {scored[1]!r}).",
             file=sys.stderr,
         )
         return 2
@@ -653,9 +684,10 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
     grp.add_argument(
         "--realworld",
         action="store_true",
-        help="Real-world constrained problems (18 of the CEC 2020 suite, dims 2-14, panobbgo.lib.realworld), "
-        "budget 500*dim. AOCC is scored on the feasible relative gap (f - f_best)/|f_best|; an infeasible "
-        "point is no progress. Opt-in; not in any preset.",
+        help="Real-world constrained problems (19 of the CEC 2020 suite, dims 2-14, panobbgo.lib.realworld), "
+        "budget 500*dim. AOCC is scored on the feasible relative gap (f - f_best)/|f_best| over targets "
+        "1e-8..1e0; an infeasible point is no progress. RC01u/RC02u are unguarded variants (not comparable "
+        "with published CEC 2020 statistics). Opt-in; not in any preset.",
     )
     grp.add_argument(
         "--realworld-quick",
@@ -731,7 +763,8 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "--realworld-problems",
         nargs="+",
         metavar="NAME",
-        help="With --realworld: only these problems (registry names such as rc17_spring, or suite ids such as RC17).",
+        help="With --realworld: only these problems (registry names such as rc17_spring, or suite ids such as "
+        "RC17; the unguarded heat exchangers are RC01u and RC02u).",
     )
     run_p.add_argument("--strategies", nargs="+", help="Restrict to these strategy names.")
     run_p.add_argument("--seed", type=int, default=42)

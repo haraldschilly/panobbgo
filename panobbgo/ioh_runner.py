@@ -306,7 +306,7 @@ class IOHTracker:
             admitted = self._reserved < self.budget and not self.timed_out
             if admitted:
                 self._reserved += 1
-            last_best = self.best_fx
+            last_best = self._closed_value()
         if fire_timeout and self.on_timeout is not None:
             # Outside the lock: the callback may call back into the problem.
             self.on_timeout()
@@ -315,7 +315,7 @@ class IOHTracker:
                 raise _BudgetExhausted()
             # Soft mode: don't fail the evaluation; just signal "no useful
             # value" so the strategy treats it as a non-improvement.
-            return last_best if np.isfinite(last_best) else float("inf")
+            return last_best
         try:
             measured = self._measure(x)
         except EvaluationFailed:
@@ -349,6 +349,16 @@ class IOHTracker:
                 self.n_evals += 1
                 self._record(x, measured)
         return measured[0]
+
+    def _closed_value(self) -> float:
+        """What a call past the budget or the deadline returns to the strategy (called under the lock).
+
+        The best value so far (``inf`` before the first finite one): a
+        non-improvement in the strategy's own units.  A tracker whose metric
+        is not the objective (:class:`~panobbgo.harness_realworld.FeasibleGapTracker`
+        scores a relative gap) overrides this to return an objective value.
+        """
+        return self.best_fx if np.isfinite(self.best_fx) else float("inf")
 
     # ── virtual-clock observer (panobbgo.virtual_clock) ──
 

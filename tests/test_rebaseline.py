@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -181,11 +182,14 @@ def test_aggregate_writes_the_summary(tmp_path):
 class FakeGh:
     """Records ``gh`` calls against a fake repository ``o/r``.
 
-    ``releases``: tag -> ``(notes, is_draft)``; ``tags``: git tag -> commit
-    (a published release's tag exists implicitly, pointing at ``abc1234``).
+    ``releases``: tag -> ``(notes, is_draft)``; ``tags``: git tag -> commit,
+    or ``("annotated", commit)`` for an annotated tag (a published release's
+    tag exists implicitly, pointing at ``abc1234``).  ``summary`` /
+    ``manifest``: the text of the release's ``SUMMARY.json`` / manifest
+    assets for ``release download``.
     """
 
-    def __init__(self, releases=None, tags=None, tarball=None, summary=None):
+    def __init__(self, releases=None, tags=None, tarball=None, summary=None, manifest=None):
         self.calls = []
         self.releases = dict(releases or {})
         self.tags = dict(tags or {})
@@ -194,23 +198,39 @@ class FakeGh:
                 self.tags.setdefault(tag, "abc1234")
         self.tarball = tarball
         self.summary = summary
+        self.manifest = manifest
         self.uploaded = {}
 
     def writes(self):
         return [c for c in self.calls if c[0] == "release" and c[1] in ("create", "upload", "edit")]
+
+    def _list(self, jq):
+        # GitHub API objects, projected by the object constructor of the
+        # caller's --jq: a field it does not select is missing from the output.
+        fields = dict((k, v) for k, v in re.findall(r"(\w+):\s*\.(\w+)", jq))
+        lines = []
+        for tag, (body, draft) in self.releases.items():
+            api = {"tag_name": tag, "draft": draft, "body": body, "name": tag}
+            lines.append(json.dumps({k: api[v] for k, v in fields.items()}))
+        return "".join(line + "\n" for line in lines)
 
     def __call__(self, args, check=True):
         args = list(args)
         self.calls.append(args)
         rc, out, err = 0, "", ""
         if args[:2] == ["api", "--paginate"]:
-            out = "".join(json.dumps({"tag": t, "draft": d, "body": b}) + "\n" for t, (b, d) in self.releases.items())
+            out = self._list(args[args.index("--jq") + 1])
+        elif args[0] == "api" and "/git/tags/" in args[1]:
+            tag = args[1].rsplit("/git/tags/tagobj-", 1)[1]
+            out = json.dumps({"object": {"type": "commit", "sha": self.tags[tag][1]}})
         elif args[0] == "api":
             tag = args[1].rsplit("/git/ref/tags/", 1)[1]
-            if tag in self.tags:
-                out = json.dumps({"object": {"type": "commit", "sha": self.tags[tag]}})
-            else:
+            if tag not in self.tags:
                 rc, err = 1, "gh: Not Found (HTTP 404)"
+            elif isinstance(self.tags[tag], tuple):
+                out = json.dumps({"object": {"type": "tag", "sha": f"tagobj-{tag}"}})
+            else:
+                out = json.dumps({"object": {"type": "commit", "sha": self.tags[tag]}})
         elif args[:2] == ["release", "upload"]:
             # The tarball lives in a temporary directory: read it now.
             for a in args[3:]:
@@ -221,10 +241,17 @@ class FakeGh:
                     self.uploaded[Path(a).name] = json.loads(Path(a).read_text())
         elif args[:2] == ["release", "download"]:
             dest = Path(args[args.index("--dir") + 1])
-            assert self.tarball is not None
-            shutil.copyfile(self.tarball, dest / self.tarball.name)
-            if self.summary is not None:
-                (dest / "SUMMARY.json").write_text(self.summary)
+            patterns = [args[i + 1] for i, a in enumerate(args) if a == "--pattern"]
+            if self.tarball is not None and self.tarball.name in patterns:
+                shutil.copyfile(self.tarball, dest / self.tarball.name)
+            # Default assets of an existing release: a summary naming it.
+            summary = self.summary
+            if summary is None and args[2] in self.releases:
+                summary = json.dumps({"release": {"tag": args[2]}, "from": "release"})
+            if summary is not None and "SUMMARY.json" in patterns:
+                (dest / "SUMMARY.json").write_text(summary)
+            if self.manifest is not None and "ref_MANIFEST.json" in patterns:
+                (dest / "ref_MANIFEST.json").write_text(self.manifest)
         if check and rc:
             raise subprocess.CalledProcessError(rc, ["gh", *args], out, err)
         return subprocess.CompletedProcess(["gh", *args], rc, out, err)
@@ -428,3 +455,72 @@ def test_default_fetch_dir():
     assert rb.default_fetch_dir("rebaseline-2026-09-26") == rb.REPO_ROOT / "planning" / "results" / "2026-09-26"
     assert rb.default_fetch_dir("rebaseline-2026-09-26-run5").name == "2026-09-26"
     assert rb.default_fetch_dir("other").name == "other"
+
+
+def test_a_planned_shard_without_a_meta_file_is_failed(tmp_path, monkeypatch):
+    # A shard that died before writing its meta (timeout, lost runner) is invisible without the plan.
+    out = _aggregated(tmp_path)  # metas: composite-quick shards "42" and "7"
+    planned = [
+        {"suite": "composite-quick", "shard": "42", "seeds": "42"},
+        {"suite": "composite-quick", "shard": "7", "seeds": "7"},
+        {"suite": "ioh-standard", "shard": "03", "seeds": "2025"},
+    ]
+    manifest = rb.aggregate(tmp_path / "raw", out, planned)
+    assert manifest["missing_shards"] == ["ioh-standard/03"]
+    assert manifest["failed_shards"] == ["ioh-standard/03"] and manifest["planned_shards"] == 3
+    with pytest.raises(ValueError, match="failed shards"):
+        _publish(out, monkeypatch, tag=None)
+    # Complete against the plan: nothing missing.
+    assert rb.aggregate(tmp_path / "raw", out, planned[:2])["failed_shards"] == []
+    # The CLI reads the matrix JSON of `plan`.
+    (tmp_path / "plan.json").write_text(json.dumps({"include": planned}))
+    rb.main(["aggregate", str(tmp_path / "raw"), "--out-dir", str(out), "--plan", str(tmp_path / "plan.json")])
+    assert json.loads((out / "ref_MANIFEST.json").read_text())["missing_shards"] == ["ioh-standard/03"]
+
+
+def test_publish_refuses_the_default_tag_unless_measure_succeeded(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    for result in ("failure", "cancelled", "skipped"):
+        with pytest.raises(ValueError, match=f"ended '{result}'"):
+            gh = FakeGh()
+            monkeypatch.setattr(rb, "_gh", gh)
+            rb.publish(out, None, "o/r", None, measure_result=result)
+        assert gh.writes() == []
+    gh = FakeGh()
+    monkeypatch.setattr(rb, "_gh", gh)
+    assert rb.publish(out, None, "o/r", None, measure_result="success")["release"]["tag"] == "rebaseline-2026-01-01"
+    # An explicit tag publishes an incomplete run anyway.
+    gh = FakeGh()
+    monkeypatch.setattr(rb, "_gh", gh)
+    assert rb.publish(out, "rebaseline-partial", "o/r", None, measure_result="failure")["release"]["tag"] == (
+        "rebaseline-partial"
+    )
+
+
+def test_an_already_published_release_is_downloaded_not_rewritten(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    release_summary = json.dumps({"release": {"tag": "rebaseline-x"}, "from": "release"})
+    release, gh = _publish(
+        out, monkeypatch, releases={"rebaseline-x": (MINE, False)}, summary=release_summary, manifest='{"m": 1}'
+    )
+    assert release == {"tag": "rebaseline-x"}  # the release's own summary, returned as is
+    assert gh.writes() == []
+    assert (out / "SUMMARY.json").read_text() == release_summary
+    assert (out / "ref_MANIFEST.json").read_text() == '{"m": 1}'
+    (download,) = [c for c in gh.calls if c[:2] == ["release", "download"]]
+    assert download[2] == "rebaseline-x" and str(out) in download
+
+
+def test_annotated_tags_are_dereferenced(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    gh = FakeGh(tags={"rebaseline-x": ("annotated", "abc1234")})
+    monkeypatch.setattr(rb, "_gh", gh)
+    assert rb.tag_commit("rebaseline-x", "o/r") == "abc1234"
+    # A resumed draft on an annotated tag: accepted on the measured commit, refused elsewhere.
+    draft = {"rebaseline-x": (MINE, True)}
+    release, _ = _publish(
+        out, monkeypatch, target="abc1234", releases=draft, tags={"rebaseline-x": ("annotated", "abc1234")}
+    )
+    assert release["tag"] == "rebaseline-x"
+    with pytest.raises(ValueError, match="points at abc1234"):
+        _publish(out, monkeypatch, target="def5678", releases=draft, tags={"rebaseline-x": ("annotated", "abc1234")})

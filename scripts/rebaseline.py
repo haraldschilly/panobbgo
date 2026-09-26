@@ -398,15 +398,32 @@ SUMMARY = "SUMMARY.json"
 _AGGREGATORS = {"composite": _aggregate_composite, "ioh": _aggregate_ioh, "families": _aggregate_families}
 
 
-def aggregate(src: Path, out_dir: Path) -> Dict[str, Any]:
-    """Write the reference files for every suite found under ``src``; return the manifest."""
+def missing_shards(planned: Sequence[Dict[str, str]], metas: Sequence[Dict[str, Any]]) -> List[str]:
+    """``suite/shard`` of every planned matrix entry that left no meta file.
+
+    A shard that dies before writing its meta (timeout, lost runner,
+    cancelled job, failed install step) is otherwise invisible.
+    """
+    seen = {(str(m.get("suite")), str(m.get("shard"))) for m in metas}
+    return [f"{e['suite']}/{e['shard']}" for e in planned if (e["suite"], str(e["shard"])) not in seen]
+
+
+def aggregate(src: Path, out_dir: Path, planned: Optional[Sequence[Dict[str, str]]] = None) -> Dict[str, Any]:
+    """Write the reference files for every suite found under ``src``; return the manifest.
+
+    ``planned`` is the job matrix (``plan``'s ``include`` list): a planned
+    shard without a meta file counts as failed.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
     metas = [json.loads(p.read_text()) for p in sorted(src.rglob("meta_*.json"))]
+    missing = missing_shards(planned or [], metas)
     manifest: Dict[str, Any] = {
         "created": datetime.now(tz=timezone.utc).isoformat(),
         "git_sha": sorted({m.get("git_sha", "unknown") for m in metas}),
         "github_run_id": sorted({str(m.get("github_run_id")) for m in metas if m.get("github_run_id")}),
-        "failed_shards": [f"{m['suite']}/{m['shard']}" for m in metas if m.get("status")],
+        "failed_shards": [f"{m['suite']}/{m['shard']}" for m in metas if m.get("status")] + missing,
+        "missing_shards": missing,
+        "planned_shards": len(planned) if planned is not None else None,
         "suites": {},
         "shards": metas,
     }
@@ -432,7 +449,11 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
     out_dir = Path(
         args.out_dir or REPO_ROOT / "planning" / "results" / datetime.now(tz=timezone.utc).date().isoformat()
     )
-    aggregate(Path(args.src), out_dir)
+    planned = None
+    if args.plan:
+        data = json.loads(Path(args.plan).read_text())
+        planned = data["include"] if isinstance(data, dict) else data
+    aggregate(Path(args.src), out_dir, planned)
     print(f"\nwrote the reference files to {out_dir}")
     return 0
 
@@ -540,7 +561,11 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
 
 
 def cmd_summarize(args: argparse.Namespace) -> int:
-    print(summary_markdown(write_summary(Path(args.dir))))
+    if args.print:
+        summary = json.loads((Path(args.dir) / SUMMARY).read_text())
+    else:
+        summary = write_summary(Path(args.dir))
+    print(summary_markdown(summary))
     return 0
 
 
@@ -694,7 +719,13 @@ def make_tarball(out_dir: Path, tag: str, dest: Path) -> Path:
     return tarball
 
 
-def publish(out_dir: Path, tag: Optional[str], repo: Optional[str], target: Optional[str]) -> Dict[str, Any]:
+def publish(
+    out_dir: Path,
+    tag: Optional[str],
+    repo: Optional[str],
+    target: Optional[str],
+    measure_result: Optional[str] = None,
+) -> Dict[str, Any]:
     """Create the release of an aggregated directory and record it in ``SUMMARY.json``.
 
     The release is a pre-release never marked latest, so it does not pose as
@@ -703,9 +734,12 @@ def publish(out_dir: Path, tag: Optional[str], repo: Optional[str], target: Opti
     attached to a draft, so the release is created as a draft, filled, then
     published.  A draft left by an interrupted attempt is resumed; this run's
     release that is already published cannot change and is left as it is.
-    Which tag: :func:`resolve_tag`.  With failed shards the default tag is
-    refused (an explicit ``tag`` publishes anyway).  The local
-    ``SUMMARY.json`` records the release only once it is published.
+    Which tag: :func:`resolve_tag`.  The default tag is refused for an
+    incomplete run — failed or missing shards, or ``measure_result`` (the
+    workflow's ``needs.measure.result``) other than ``success``; an explicit
+    ``tag`` publishes anyway.  The local ``SUMMARY.json`` records the release
+    only once it is published; for a release published earlier, its own
+    ``SUMMARY.json`` and manifest are downloaded into ``out_dir`` instead.
     """
     summary = write_summary(out_dir)
     if tag is None and summary.get("failed_shards"):
@@ -713,13 +747,21 @@ def publish(out_dir: Path, tag: Optional[str], repo: Optional[str], target: Opti
             f"failed shards {summary['failed_shards']}: not publishing an incomplete re-baseline "
             "under the default tag (name it explicitly with --tag to publish anyway)"
         )
+    if tag is None and measure_result not in (None, "success"):
+        raise ValueError(
+            f"the measure jobs ended '{measure_result}': not publishing under the default tag "
+            "(name it explicitly with --tag to publish anyway)"
+        )
     repo = repo_name(repo)
     manifest = json.loads((out_dir / MANIFEST).read_text())
     tag, state = resolve_tag(summary, tag, repo, target, default_tag(manifest))
     release = {"tag": tag, "url": release_url(repo, tag), "asset": f"{tag}.tar.gz"}
     if state == PUBLISHED:
-        print(f"{release['url']} is already published (immutable); nothing uploaded")
-        return write_summary(out_dir, release)
+        # Immutable: make the local copies match what the release holds.
+        download = ["release", "download", tag, "--dir", str(out_dir), "--clobber"]
+        _gh(download + ["--pattern", SUMMARY, "--pattern", MANIFEST, *_repo_args(repo)])
+        print(f"{release['url']} is already published (immutable); nothing uploaded, its {SUMMARY} kept")
+        return json.loads((out_dir / SUMMARY).read_text())
     summary["release"] = release
     with tempfile.TemporaryDirectory() as tmp:
         # The uploaded SUMMARY.json names the release; the local one only
@@ -744,7 +786,7 @@ def publish(out_dir: Path, tag: Optional[str], repo: Optional[str], target: Opti
 
 
 def cmd_publish(args: argparse.Namespace) -> int:
-    publish(Path(args.dir), args.tag, args.repo, args.target)
+    publish(Path(args.dir), args.tag, args.repo, args.target, args.measure_result)
     return 0
 
 
@@ -823,10 +865,14 @@ def build_parser() -> argparse.ArgumentParser:
     agg_p = sub.add_parser("aggregate", help="build the reference files from downloaded artifacts")
     agg_p.add_argument("src", help="directory holding the downloaded artifacts")
     agg_p.add_argument("--out-dir", help="default: planning/results/<UTC date>/")
+    agg_p.add_argument(
+        "--plan", help="the job matrix (JSON of `plan`): planned shards that left no meta file count as failed"
+    )
     agg_p.set_defaults(func=cmd_aggregate)
 
     sum_p = sub.add_parser("summarize", help="(re)write SUMMARY.json of an aggregated directory")
     sum_p.add_argument("dir", help="directory holding ref_MANIFEST.json and the ref_* files")
+    sum_p.add_argument("--print", action="store_true", help="only render the existing SUMMARY.json, do not rewrite it")
     sum_p.set_defaults(func=cmd_summarize)
 
     pub_p = sub.add_parser("publish", help="create or update the GitHub release of an aggregated directory")
@@ -837,6 +883,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pub_p.add_argument("--repo", help="owner/name (default: this checkout's GitHub repository)")
     pub_p.add_argument("--target", help="commit a new tag points at: the measured commit")
+    pub_p.add_argument(
+        "--measure-result",
+        help="the workflow's needs.measure.result; anything but 'success' refuses the default tag",
+    )
     pub_p.set_defaults(func=cmd_publish)
 
     fetch_p = sub.add_parser("fetch", help="download and unpack the reference files of a re-baseline release")

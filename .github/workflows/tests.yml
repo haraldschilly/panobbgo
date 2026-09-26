@@ -105,6 +105,10 @@ jobs:
     # PyTorch CPU index on each run.
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The FP pin, as in the test job (torch's own MKL is not covered by it).
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
 
     steps:
       - uses: actions/checkout@v6

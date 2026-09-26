@@ -41,6 +41,12 @@ Examples::
     uv run python scripts/ioh_benchmark.py run --families-constrained
     uv run python scripts/ioh_benchmark.py run --families-quick   # smoke test
 
+    # Real-world constrained problems (CEC 2020 subset, panobbgo.lib.realworld):
+    # AOCC on the feasible relative gap to the best-known value.  Opt-in.
+    uv run python scripts/ioh_benchmark.py run --realworld
+    uv run python scripts/ioh_benchmark.py run --realworld --realworld-problems RC17 RC18
+    uv run python scripts/ioh_benchmark.py run --realworld-quick  # smoke test
+
     # The two regimes GOAL.md 2c asks for: noise, and dimension.  AOCC on a
     # noisy battery is scored on the TRUE value (panobbgo.lib.noise).
     uv run python scripts/ioh_benchmark.py run --noisy gauss
@@ -88,6 +94,13 @@ from panobbgo.harness_families import (
     make_large_families_battery,
     make_sealed_families_battery,
     run_family_harness,
+)
+from panobbgo.harness_realworld import (
+    REALWORLD_BUDGET_MULTIPLIER,
+    RealWorldInstances,
+    make_realworld_battery,
+    make_realworld_quick_battery,
+    run_realworld_harness,
 )
 from panobbgo.harness_ioh import (
     AOCC_LOG_HI,
@@ -286,6 +299,28 @@ def _check_battery_options(args: argparse.Namespace) -> None:
         raise SystemExit(f"error: {flag} is fixed: no --reps (panobbgo.sealed)")
 
 
+def _resolve_realworld_battery(args: argparse.Namespace) -> Optional[Tuple[str, RealWorldInstances, int]]:
+    """``(battery name, instances, budget multiplier)`` for the real-world track, else ``None``.
+
+    The real-world track (:mod:`panobbgo.harness_realworld`) scores CEC 2020
+    real-world constrained problems on the feasible relative gap.  Opt-in:
+    no preset and no re-baseline suite includes it.
+    """
+    names = getattr(args, "realworld_problems", None)
+    if names and not (args.realworld or args.realworld_quick):
+        raise SystemExit("--realworld-problems needs --realworld")
+    if getattr(args, "realworld_quick", False):
+        # Three small problems at 20*dim: a smoke test, not a measurement.
+        return "realworld-quick", make_realworld_quick_battery(), 20
+    if getattr(args, "realworld", False):
+        try:
+            instances = make_realworld_battery(names or None)
+        except KeyError as e:
+            raise SystemExit(str(e))
+        return ("realworld" if not names else "realworld-subset"), instances, REALWORLD_BUDGET_MULTIPLIER
+    return None
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     _check_battery_options(args)
     strategies = _resolve_strategies(args)
@@ -295,7 +330,34 @@ def cmd_run(args: argparse.Namespace) -> int:
     virtual = _resolve_virtual(args)
     result: Any
     family = _resolve_family_battery(args)
-    if family is not None:
+    realworld = _resolve_realworld_battery(args)
+    if realworld is not None:
+        name, rw_instances, budget_multiplier = realworld
+        dims = sorted({p.dim for _n, p in rw_instances})
+        print(f"Battery: {name}  problems={len(rw_instances)}  dims={dims}")
+        print(f"Strategies: {[s.name for s in strategies]}")
+        print(f"Per-run budget: {budget_multiplier}*dim; AOCC on the feasible relative gap to the best-known value")
+        _print_eval_mode(args.sync_eval, virtual)
+        if _resolve_seeds(args) is not None:
+            print(
+                "warning: --seeds/--decision-seeds are not wired for the real-world track; "
+                f"running the single --seed {args.seed}.",
+                file=sys.stderr,
+            )
+        result = run_realworld_harness(
+            strategies,
+            rw_instances,
+            budget_multiplier=budget_multiplier,
+            base_seed=args.seed,
+            sync_eval=args.sync_eval,
+            reps=args.reps or 1,
+            progress=not args.quiet,
+            battery_name=name,
+            timeout_s=args.timeout,
+            jobs=args.jobs,
+            virtual=virtual,
+        )
+    elif family is not None:
         name, instances, budget_multiplier = family
         dims = sorted({p.dim for _n, p in instances})
         print(
@@ -589,6 +651,18 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "constrained), 100 evaluations each. Not a measurement.",
     )
     grp.add_argument(
+        "--realworld",
+        action="store_true",
+        help="Real-world constrained problems (18 of the CEC 2020 suite, dims 2-14, panobbgo.lib.realworld), "
+        "budget 500*dim. AOCC is scored on the feasible relative gap (f - f_best)/|f_best|; an infeasible "
+        "point is no progress. Opt-in; not in any preset.",
+    )
+    grp.add_argument(
+        "--realworld-quick",
+        action="store_true",
+        help="Smoke test of the real-world track: 3 small problems at 20*dim. Not a measurement.",
+    )
+    grp.add_argument(
         "--noisy",
         choices=("gauss", "unif", "cauchy"),
         help="Standard MA-BBOB cube with BBOB-style noise on the objective. AOCC is scored on "
@@ -652,6 +726,12 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "--legacy",
         action="store_true",
         help="Use the legacy composite-score strategy registry instead of make_ioh_strategies().",
+    )
+    run_p.add_argument(
+        "--realworld-problems",
+        nargs="+",
+        metavar="NAME",
+        help="With --realworld: only these problems (registry names such as rc17_spring, or suite ids such as RC17).",
     )
     run_p.add_argument("--strategies", nargs="+", help="Restrict to these strategy names.")
     run_p.add_argument("--seed", type=int, default=42)

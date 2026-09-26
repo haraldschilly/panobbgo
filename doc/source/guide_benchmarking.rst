@@ -779,6 +779,86 @@ CI runs these tests in a separate ``test-bo`` job; the default test job
 has no torch and skips them.
 
 
+Real-world problems (CEC 2020)
+------------------------------
+
+Synthetic landscapes are tidy; real problems have plateaus, equality
+constraints, hidden infeasible regions and evaluations that fail.  The
+real-world set (:mod:`panobbgo.lib.realworld`, runner
+:mod:`panobbgo.harness_realworld`) is a subset of the CEC 2020 real-world
+constrained suite (Kumar et al., *Swarm and Evolutionary Computation* 56,
+2020): 18 of its 57 problems, 2 to 14 variables —
+
+- industrial chemical processes RC01–RC05 (heat-exchanger networks, an
+  alkylation unit, a reactor network, Haverly's pooling problem), with up
+  to 9 equality constraints;
+- process synthesis RC09, RC10 (one binary variable each);
+- mechanical design RC15–RC21, RC23, RC25, RC29, RC32 (speed reducer,
+  refrigeration system, spring, pressure vessel, welded beam, three-bar
+  truss, clutch brake, step-cone pulley, thrust bearing, gas compressor,
+  Himmelblau).
+
+.. code-block:: bash
+
+   uv run python scripts/ioh_benchmark.py run --realworld                    # all 18, budget 500*dim
+   uv run python scripts/ioh_benchmark.py run --realworld --realworld-problems RC17 RC18
+   uv run python scripts/ioh_benchmark.py run --realworld-quick              # smoke test
+
+The battery is opt-in: no preset, no default battery and no re-baseline
+suite includes it.
+
+**Constraints** follow the suite: :math:`g_i(x) \le 0`, and each equality
+as :math:`|h_j(x)| - 10^{-4} \le 0`.  Panobbgo's constraint handling sees
+the combined vector through ``eval_constraints``; a point is feasible when
+every entry is :math:`\le 0`.  Integer variables are rounded inside the
+model (the suite's convention), so the optimiser sees plateaus.
+
+**The metric** is AOCC on the *feasible relative gap*
+
+.. math::
+
+   v(x) = \frac{f(x) - f_{\mathrm{best}}}{|f_{\mathrm{best}}|}
+   \quad\text{if } x \text{ is feasible, else } +\infty ,
+
+with the usual targets :math:`10^{-8} \dots 10^{2}`, now relative.  Unlike
+the constrained families, whose optimum is the minimum of :math:`f` over the
+whole box, a real problem's constrained optimum can be undercut by an
+infeasible point: a penalty :math:`f + \rho\,\mathrm{cv}` would give full
+credit to a slightly infeasible point with a large Lagrange multiplier.  So
+only feasible points count, as in the suite's own ranking, and the relative
+gap removes the problems' units (the objective values span 0.013 to
+3·10\ :sup:`6`).  A run that never finds a feasible point scores 0; a
+point below the best-known value gets full credit.  Each record's
+``f_opt`` is 0 and ``best_fx`` the best relative gap.
+
+**Failures are real.**  Where a formula is undefined, the evaluation raises
+:class:`~panobbgo.lib.lib.EvaluationCrashed` and the call is spent budget
+without progress, exactly like the failure-region families: the logarithm of
+a negative temperature difference in the heat-exchanger networks RC01 (about
+31 % of the box) and RC02 (about half of it), and a division by zero on the
+lower bound of RC20.  The suite's reference code guards the RC01/RC02
+logarithms; this transcription does not, on purpose.
+
+**Verification.**  Every problem carries a feasible reference point, its
+value, and the best-known value (Kumar et al., Table 3, except RC18, where
+Table 3 lists the continuous-thickness optimum of an integer problem, and
+RC25, where a 0.57 % better point exists); ``tests/test_realworld.py`` checks
+all three, plus published points of the classic problems (CEC 2006 g04 for
+RC32, Haverly's optimum, the integer pressure vessel, spring, truss, gas
+compressor).  Details per problem: :data:`panobbgo.lib.realworld.REALWORLD_SPECS`.
+
+**Resolution limit.**  At ``500·dim`` the equality-heavy RC01 is rarely made
+feasible (a first smoke run: CMA-ES never did), so it may score 0 for every
+strategy; read the battery per problem.
+
+**Not included** (roadmap §3.3 candidates): YAHPO Gym needs ``numpy < 2``
+and ``ConfigSpace <= 0.6.1`` and cannot be installed next to NumPy 2.5;
+HPOBench is not on PyPI (git install, containers); the ESA GTOP trajectory
+problems are in ``pykep``, which has no Python 3.14 wheels (``pygmo`` has
+Linux-only 3.14 wheels but not GTOP).  COCO ``bbob-constrained`` /
+``bbob-mixint`` are separate follow-ups.
+
+
 Parallel behaviour on a virtual clock
 -------------------------------------
 

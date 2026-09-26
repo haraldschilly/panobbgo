@@ -171,6 +171,19 @@ d 80/160, 500·d; full rotations, so not comparable with COCO's
     strategy and seed: large presets ≈ 1–3 min, the largescale slice
     ≈ 7–10 min.
 
+**Real-world set** (opt-in, `panobbgo/lib/realworld.py`,
+`panobbgo/harness_realworld.py`): 18 CEC 2020 real-world constrained problems
+(RC01–RC05, RC09, RC10, RC15–RC21, RC23, RC25, RC29, RC32; dims 2–14),
+`run --realworld` (500·dim, `--realworld-problems RC17 ...` for a subset) and
+`--realworld-quick` (smoke).  AOCC is on the **feasible relative gap**
+`(f - f_best)/|f_best|`, infeasible points (CEC rule: `g <= 0`,
+`|h| <= 1e-4`) count as no progress — not the families' penalty value, which
+an infeasible point can undercut on a real problem.  RC01/RC02 crash
+(`EvaluationCrashed`) where their logarithms are undefined (~31 % / ~50 % of
+the box).  Not in any preset, not in `scripts/rebaseline.py` (a follow-up in
+`TODO.md`), not in the sealed set yet.  Background and per-problem
+verification: guide, "Real-world problems (CEC 2020)".
+
 **Parallel behaviour (virtual clock).**  `--virtual-workers Q` runs every
 strategy on a deterministic simulation of Q workers
 (`panobbgo/virtual_clock.py`, `evaluation.method = "virtual"`; no real

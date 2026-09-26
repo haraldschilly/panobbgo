@@ -1,0 +1,203 @@
+name: Measure (expensive track)
+
+# The expensive-track measurement (roadmap §5.2): panobbgo against the
+# incumbents at small budgets (bm*d evaluations) with q parallel workers on
+# the virtual clock, AOCC over evaluations and aocc_time over virtual time.
+# Manual only; ./test.sh (run_ci.py) skips it.  The engine is
+# scripts/measure.py: `plan` packs (group x cell x seed) units into shards by
+# estimated cost, each shard runs its units, the last job aggregates.
+# Results are artifacts only (no release).  doc/dev/benchmarking.md,
+# "Expensive-track measurement".
+
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: "A count (the first N of the decision roster) or a comma list of base seeds (one seed: '42,')"
+        type: string
+        default: "5"
+      presets:
+        description: "Family presets, comma list of: free, failure"
+        type: string
+        default: free
+      budgets:
+        description: "Budget multipliers (budget = bm * dim)"
+        type: string
+        default: "20,100"
+      dims:
+        description: "Restrict the presets' dimensions, e.g. '2' (empty: all)"
+        type: string
+        default: ""
+      qs:
+        description: "Virtual worker counts (only q <= bm runs, so 64 at 100*d only)"
+        type: string
+        default: "1,4,16,64"
+      groups:
+        description: "'all' or a comma list of: core, qLogEI, TuRBO1, SMAC"
+        type: string
+        default: all
+      ref:
+        description: "Git ref to measure (default: the ref this workflow runs from)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  PYTHON: "3.14"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      sha: ${{ steps.plan.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Plan the shards
+        id: plan
+        # Stdlib only: no dependencies needed to plan.
+        env:
+          SEEDS: ${{ inputs.seeds }}
+          PRESETS: ${{ inputs.presets }}
+          BUDGETS: ${{ inputs.budgets }}
+          DIMS: ${{ inputs.dims }}
+          QS: ${{ inputs.qs }}
+          GROUPS: ${{ inputs.groups }}
+        run: |
+          matrix=$(python3 scripts/measure.py plan --seeds "$SEEDS" --presets "$PRESETS" \
+            --budgets "$BUDGETS" --dims "$DIMS" --qs "$QS" --groups "$GROUPS")
+          sha=$(git rev-parse HEAD)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Measurement plan"
+            echo "commit \`$sha\`, seeds \`$SEEDS\`, presets \`$PRESETS\`, budgets \`$BUDGETS\`, dims \`${DIMS:-all}\`, qs \`$QS\`, groups \`$GROUPS\`"
+            echo
+            echo "| shard | units | est. min |"
+            echo "|---|---|---|"
+            echo "$matrix" | python3 -c 'import json, sys; [print(f"| {e[\"shard\"]} | {e[\"n_units\"]} | {e[\"est_min\"]} |") for e in json.load(sys.stdin)["include"]]'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  measure:
+    needs: plan
+    name: ${{ matrix.shard }} (${{ matrix.n_units }} units, ~${{ matrix.est_min }} min)
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      # A public repository gets 20 concurrent jobs in all: leave 4 for PR CI.
+      max-parallel: 16
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The commit the plan resolved: every shard measures the same code.
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      # As tests.yml test-bo: no .venv cache (a torch venv is ~360 MB per
+      # entry and would evict the other jobs' caches); uv's own download cache,
+      # pruned, under a suffix of its own.
+      - name: Install UV (with its download cache)
+        uses: astral-sh/setup-uv@v10.2.0  # no floating major tag after v7
+        with:
+          enable-cache: true
+          prune-cache: true
+          cache-suffix: measure
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      # Every group installs every extra: the core group needs `baselines`
+      # (pycma / Nevergrad / Optuna) and Py-BOBYQA from `baselines-bo`.
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --extra baselines --extra baselines-bo
+
+      - name: Record the CPU
+        run: |
+          lscpu | tee lscpu.txt
+          mkdir -p measure-out && mv lscpu.txt "measure-out/lscpu_${{ matrix.shard }}.txt"
+
+      - name: Measure
+        # Below the job's 350: the upload below still runs, with every unit
+        # finished so far (each unit's file is written when it finishes).
+        timeout-minutes: 330
+        env:
+          UNITS: ${{ matrix.units }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          uv run python scripts/measure.py run --units "$UNITS" --shard "$SHARD" \
+            --out-dir measure-out --jobs "$(nproc)" --no-nice
+
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: measure-${{ matrix.shard }}
+          path: measure-out/
+          if-no-files-found: warn
+          retention-days: 90
+
+  aggregate:
+    needs: [plan, measure]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Install UV (with its download cache)
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          prune-cache: true
+          cache-suffix: measure-aggregate
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev
+
+      - name: Download shard results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: measure-*
+          path: measure-raw
+
+      - name: Aggregate
+        env:
+          # The planned matrix: a unit that left no result file is reported missing.
+          PLAN: ${{ needs.plan.outputs.matrix }}
+        run: |
+          printf '%s' "$PLAN" > plan.json
+          uv run python scripts/measure.py aggregate measure-raw --plan plan.json \
+            --out-dir measure-summary > /dev/null
+          cp plan.json measure-summary/
+          cat measure-summary/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the summary
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: measure-summary
+          path: measure-summary/
+          retention-days: 90

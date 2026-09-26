@@ -67,16 +67,16 @@ extra).
       bandit's share of the free workers (max candidate age 49 evaluations,
       7 before the request cap).  Prefer an arm with a partly dispatched
       generation, or pull in generation-sized chunks.
-- [ ] **q-sweep measurement**: q ∈ {1, 4, 16, 64} on the virtual clock
-      (`ioh_benchmark.py run --virtual-workers Q`, `aocc_time`), panobbgo
-      and the ask/tell baselines; log it as a DISCOVERY section.
+- [ ] **q-sweep measurement**: the instrument is `measure.yml`
+      (`scripts/measure.py`; families at 20·d / 100·d, q ∈ {1, 4, 16, 64},
+      panobbgo, the cheap-track and the GP baselines,
+      `doc/dev/benchmarking.md` "Expensive-track measurement").  Run it and
+      log it as a DISCOVERY section; then the `failure` preset.
 - [ ] **Re-baseline suite for the expensive-track baselines** (BoTorch
       qLogEI, TuRBO-1, SMAC3, Py-BOBYQA; extra `baselines-bo`): the slot
-      is marked in `SUITES` in `scripts/rebaseline.py`.  Own shards and
-      cache prefix (torch), a small-budget battery (`ioh_benchmark.py run
-      --budget-multiplier` 20 / 100 on families + MA-BBOB, d 2/5/10);
-      5–20 min per run at dim 10, budget 200 (guide, "Expensive-track
-      baselines").
+      is marked in `SUITES` in `scripts/rebaseline.py`.  `measure.yml`
+      covers the families at small budgets; MA-BBOB at 20·d / 100·d is
+      still open (`ioh_benchmark.py run --budget-multiplier`).
 - [ ] **Optuna 6 drops `CmaEsSampler(x0=)`** (deprecated since 4.9;
       `harness_baselines.py` silences the FutureWarning).  Before bumping
       to 6: find another way to seed the start point, or accept the box

@@ -72,6 +72,26 @@ class TestCMAES(PanobbgoTestCase):
         assert len(cma._w) == cma._mu
         assert np.isclose(cma._w.sum(), 1.0)
 
+    def test_an_all_failed_generation_is_dropped_not_updated(self):
+        """Crashed offspring (``failed_evaluations``) close a generation; if all failed, no update.
+
+        An update from failures only would move the mean onto them and blow
+        sigma up; the generation is dropped and the distribution resampled.
+        """
+        from panobbgo.heuristics import CMAES
+        from panobbgo.lib import Point
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        gen = min(cma._gen_results)
+        sigma, mean = cma._sigma, cma._m.copy()
+        failed = [Point(np.zeros(self.problem.dim), who) for who, i in cma._pending.items() if i["gen"] == gen]
+        cma.on_failed_evaluations(failed)
+        assert gen not in cma._gen_results
+        assert cma._sigma == sigma and np.array_equal(cma._m, mean)
+        assert cma._failed_generations == 1
+        assert any(i["gen"] > gen for i in cma._pending.values())
+
     def test_default_popsize(self):
         from panobbgo.heuristics import CMAES
 

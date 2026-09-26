@@ -164,9 +164,16 @@ class _EvaluationLog:
             self.best_x = x_copy
 
 
-def _make_objective(problem: Problem, log: _EvaluationLog) -> Callable[[np.ndarray], float]:
+def _make_objective(problem: Problem, log: _EvaluationLog, nan_is_worst: bool = False) -> Callable[[np.ndarray], float]:
     """Return a scalar objective that projects into the box, evaluates the
-    problem, logs the result, and enforces the evaluation budget."""
+    problem, logs the result, and enforces the evaluation budget.
+
+    A simulated failure (:class:`~panobbgo.lib.lib.EvaluationFailed`, a
+    family's failure region) is logged as NaN.  ``nan_is_worst`` hands the
+    solver ``+inf`` for it instead (:func:`_nan_is_worst`) — for the SciPy
+    solvers, which call the objective directly; the ask/tell adapters apply
+    the same rule in their ``tell``.
+    """
 
     def objective(x: np.ndarray) -> float:
         if log.stop_requested:
@@ -187,7 +194,7 @@ def _make_objective(problem: Problem, log: _EvaluationLog) -> Callable[[np.ndarr
             _logger.warning("%s: evaluation failed (%s); answering NaN", log.who, exc)
             fx = float("nan")
         log.record(x_proj, fx)
-        return fx
+        return _nan_is_worst(fx) if nan_is_worst else fx
 
     return objective
 
@@ -408,7 +415,7 @@ class SciPyDEStrategy(BaselineStrategy):
     def _optimize(self, log: _EvaluationLog) -> None:
         from scipy.optimize import differential_evolution
 
-        objective = _make_objective(self.problem, log)
+        objective = _make_objective(self.problem, log, nan_is_worst=True)
         bounds = [(float(lo), float(hi)) for lo, hi in self.problem.box]
 
         # DE uses popsize * dim candidates per generation.  With a hard
@@ -456,7 +463,7 @@ class SciPyAnnealStrategy(BaselineStrategy):
     def _optimize(self, log: _EvaluationLog) -> None:
         from scipy.optimize import dual_annealing
 
-        objective = _make_objective(self.problem, log)
+        objective = _make_objective(self.problem, log, nan_is_worst=True)
         bounds = [(float(lo), float(hi)) for lo, hi in self.problem.box]
 
         da_seed = self._run_seed()

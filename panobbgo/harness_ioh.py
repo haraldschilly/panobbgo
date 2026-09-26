@@ -93,6 +93,7 @@ from panobbgo.ioh_runner import (  # noqa: F401
     aocc,
     aocc_virtual_time,
 )
+from panobbgo import fp_env
 from panobbgo.local_run import BLAS_THREADS, blas_limit
 from panobbgo.sealed import (
     DEV_INSTANCE_LIMIT,
@@ -1023,6 +1024,12 @@ class IOHHarnessResult:
     #: track but one, and every older file) or
     #: :data:`SCORED_RELATIVE_FEASIBLE_GAP` (the real-world track).
     scored: str = SCORED_OBJECTIVE
+    #: The floating-point environment the runs were measured in
+    #: (:func:`panobbgo.fp_env.collect`) and its short id
+    #: (:func:`panobbgo.fp_env.fp_env_id`); ``None`` in older files.  A
+    #: seeded result is bit-reproducible only within one ``fp_env_id``.
+    fp_env: Optional[Dict[str, Any]] = None
+    fp_env_id: Optional[str] = None
 
     # Every run counts, the way ``benchmarks/_screen.fold`` counts them: a
     # timed-out run with its AOCC up to the deadline, a crashed run with
@@ -1116,6 +1123,8 @@ class IOHHarnessResult:
             "sealed": self.sealed,
             "blas_threads": self.blas_threads,
             "scored": self.scored,
+            "fp_env_id": self.fp_env_id,
+            "fp_env": self.fp_env,
             **(
                 {}
                 if self.virtual is None
@@ -1146,6 +1155,8 @@ class IOHHarnessResult:
             sealed=bool(d.get("sealed", False)),
             blas_threads=d.get("blas_threads"),
             scored=d.get("scored", SCORED_OBJECTIVE),
+            fp_env=d.get("fp_env"),
+            fp_env_id=d.get("fp_env_id"),
         )
 
     def print_summary(self) -> None:
@@ -1278,9 +1289,12 @@ class IOHMultiSeedResult:
     sync_eval: bool = False
     #: Virtual-clock settings (see :class:`IOHHarnessResult.virtual`).
     virtual: Optional[Dict[str, Any]] = None
-    #: See :attr:`IOHHarnessResult.sealed` / :attr:`IOHHarnessResult.blas_threads`.
+    #: See :attr:`IOHHarnessResult.sealed`, :attr:`~IOHHarnessResult.blas_threads`,
+    #: :attr:`~IOHHarnessResult.fp_env` and :attr:`~IOHHarnessResult.fp_env_id`.
     sealed: bool = False
     blas_threads: Optional[int] = None
+    fp_env: Optional[Dict[str, Any]] = None
+    fp_env_id: Optional[str] = None
 
     @property
     def mean_aocc(self) -> float:
@@ -1326,6 +1340,8 @@ class IOHMultiSeedResult:
             "sync_eval": self.sync_eval,
             "sealed": self.sealed,
             "blas_threads": self.blas_threads,
+            "fp_env_id": self.fp_env_id,
+            "fp_env": self.fp_env,
             **({} if self.virtual is None else {"virtual": self.virtual, "mean_aocc_time": self.mean_aocc_time}),
             "results": [r.to_dict() for r in self.results],
         }
@@ -1347,6 +1363,8 @@ class IOHMultiSeedResult:
             virtual=d.get("virtual"),
             sealed=bool(d.get("sealed", False)),
             blas_threads=d.get("blas_threads"),
+            fp_env=d.get("fp_env"),
+            fp_env_id=d.get("fp_env_id"),
         )
 
     def per_strategy_per_dim_aocc(self) -> Dict[Tuple[str, int], List[float]]:
@@ -1439,6 +1457,7 @@ def run_ioh_harness_multi_seed(
         virtual=None if virtual is None else virtual.to_dict(),
         sealed=battery.sealed,
         blas_threads=BLAS_THREADS,
+        **fp_env.current(),
     )
 
 
@@ -2074,6 +2093,7 @@ def run_ioh_harness(
         virtual=None if virtual is None else virtual.to_dict(),
         sealed=battery.sealed,
         blas_threads=BLAS_THREADS,
+        **fp_env.current(),
     )
     warn_missing_time_scores(result)
     return result

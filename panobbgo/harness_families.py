@@ -100,6 +100,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from panobbgo.benchmark import StrategySpec
+from panobbgo import fp_env
 from panobbgo.local_run import BLAS_THREADS
 from panobbgo.harness_ioh import (
     AOCC_LOG_HI,
@@ -642,6 +643,7 @@ def run_family_harness(
         virtual=None if virtual is None else virtual.to_dict(),
         sealed=sealed,
         blas_threads=BLAS_THREADS,
+        **fp_env.current(),
     )
 
     warn_missing_time_scores(result)

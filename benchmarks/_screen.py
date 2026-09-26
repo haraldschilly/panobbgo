@@ -95,6 +95,23 @@ def select_names(opts: Dict[str, str], specs: Dict[str, Any]) -> List[str]:
     return names
 
 
+def warn_mixed_fp(rows: List[Dict[str, Any]], src: str) -> List[Optional[str]]:
+    """Warn when the rows of *src* come from more than one ``fp_env_id``; return the ids.
+
+    A rows file carries the id per row (``family_screen.py``; ``None`` in
+    older files).  Paired deltas across FP environments are not
+    decision-grade: a seeded run is bit-reproducible only within one.
+    """
+    ids = sorted({r.get("fp_env_id") for r in rows}, key=str)
+    if len(ids) > 1:
+        print(
+            f"warning: {src} mixes FP environments (fp_env_id {', '.join(map(str, ids))}): the same seed need not "
+            "give the same numbers across them; deltas between them are not decision-grade.",
+            file=sys.stderr,
+        )
+    return ids
+
+
 def load_rows(src: str, opts: Dict[str, str], names: List[str], specs: Dict[str, Any], key: str = "s"):
     """Rows of a finished run for ``from=``: ``(rows, seeds, names)``.
 
@@ -102,6 +119,7 @@ def load_rows(src: str, opts: Dict[str, str], names: List[str], specs: Dict[str,
     for when ``specs=`` was given, else in the order of *specs*.
     """
     rows = json.load(open(src))
+    warn_mixed_fp(rows, src)
     seeds = sorted({r["seed"] for r in rows})
     have = {r[key] for r in rows}
     names = [n for n in names if n in have] if opts.get("specs") else [n for n in specs if n in have]

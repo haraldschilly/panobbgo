@@ -69,6 +69,7 @@ and even then the 12-seed roster is what decides.
 
 import sys
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 from panobbgo.analyzers import Archive
 from panobbgo.harness_families import (
     make_constrained_battery,
@@ -209,7 +210,8 @@ def main():
                 timeout_s=timeout_s,
                 jobs=JOBS,
             )
-            yield runs_to_rows(seed, r.runs, fields, extra={"preset": preset, "bm": bm})
+            # fp_env_id per row: from= warns when a rows file mixes FP environments.
+            yield runs_to_rows(seed, r.runs, fields, extra={"preset": preset, "bm": bm, "fp_env_id": r.fp_env_id})
 
         rows = run_seeds(seeds, out, batches)
 

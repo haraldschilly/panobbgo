@@ -81,10 +81,11 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 import numpy as np
 
 from panobbgo.benchmark import StrategySpec
-from panobbgo import local_run
+from panobbgo import fp_env, local_run
 from panobbgo.harness import _make_quick_strategies, _make_standard_strategies
 from panobbgo.harness_baselines import check_baseline_selection, make_baseline_strategies
 from panobbgo.harness_families import (
@@ -630,6 +631,15 @@ def cmd_compare(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         if args.fail_on_regression:
+            return 2
+    fp_b, fp_a = d_before.get("fp_env_id"), d_after.get("fp_env_id")
+    fp_warning = fp_env.mismatch(fp_b, fp_a, args.before, args.after)
+    if fp_warning:
+        fp_refuse = args.fail_on_regression and fp_env.known_mismatch(fp_b, fp_a)
+        print(
+            f"warning: {fp_warning}" + (" --fail-on-regression refuses to gate." if fp_refuse else ""), file=sys.stderr
+        )
+        if fp_refuse:
             return 2
     b_multi = bool(d_before.get("multi_seed"))
     a_multi = bool(d_after.get("multi_seed"))

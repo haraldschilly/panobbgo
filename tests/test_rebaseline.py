@@ -154,6 +154,7 @@ def _ioh_shard(
     strategy: str = "A",
     aocc: Optional[float] = None,
     blas_threads: Optional[int] = None,
+    fp_env_id: Optional[str] = None,
 ):
     results = []
     for seed in seeds:
@@ -173,7 +174,16 @@ def _ioh_shard(
         )
         results.append(IOHHarnessResult(battery, "MA-BBOB", -8, 2, [run], sync_eval=True))
     multi = IOHMultiSeedResult(
-        battery, "MA-BBOB", -8, 2, list(seeds), results, sync_eval=True, blas_threads=blas_threads
+        battery,
+        "MA-BBOB",
+        -8,
+        2,
+        list(seeds),
+        results,
+        sync_eval=True,
+        blas_threads=blas_threads,
+        fp_env={"id": fp_env_id} if fp_env_id else None,
+        fp_env_id=fp_env_id,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(multi.to_json())
@@ -327,6 +337,75 @@ def test_aggregate_keeps_blas_threads_and_refuses_a_mix(tmp_path):
     _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], blas_threads=None)
     with pytest.raises(ValueError, match="BLAS thread"):
         rb.aggregate(tmp_path, tmp_path / "ref2")
+
+
+def test_aggregate_refuses_mixed_fp_environments_unless_allowed(tmp_path):
+    _ioh_shard(tmp_path / "a" / "ioh-quick" / "ioh-quick_shard01.json", [42], fp_env_id="aaaa")
+    _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], fp_env_id="aaaa")
+    fam = tmp_path / "c" / "families-free"
+    fam.mkdir(parents=True)
+    (fam / "families-free_shard01.json").write_text(
+        json.dumps([{"seed": 42, "s": "x", "aocc": 0.2, "fp_env_id": "aaaa"}])
+    )
+    manifest = rb.aggregate(tmp_path, tmp_path / "ref")
+    assert manifest["fp_env_ids"] == ["aaaa"] and not manifest["mixed_fp"]
+    assert manifest["suites"]["ioh-quick"]["fp_env_ids"] == ["aaaa"]
+    assert manifest["suites"]["families-free"]["fp_env_ids"] == ["aaaa"]
+    assert manifest["fp_env"] == {"aaaa": {"id": "aaaa"}}
+    merged = IOHMultiSeedResult.from_dict(json.loads((tmp_path / "ref" / "ref_ioh_quick.json").read_text()))
+    assert merged.fp_env_id == "aaaa"
+    assert json.loads((tmp_path / "ref" / rb.SUMMARY).read_text())["fp_env_ids"] == ["aaaa"]
+
+    # One shard from another FP environment: refused ...
+    _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], fp_env_id="bbbb")
+    with pytest.raises(ValueError, match="different FP environments"):
+        rb.aggregate(tmp_path, tmp_path / "ref2")
+    # ... a shard without the record too (an older file) ...
+    _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], fp_env_id=None)
+    with pytest.raises(ValueError, match="different FP environments"):
+        rb.aggregate(tmp_path, tmp_path / "ref2")
+    # ... and merged under --allow-mixed-fp, with an id no compare mistakes for a real one.
+    _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], fp_env_id="bbbb")
+    rc = rb.main(["aggregate", str(tmp_path), "--out-dir", str(tmp_path / "ref3"), "--allow-mixed-fp"])
+    assert rc == 0
+    manifest = json.loads((tmp_path / "ref3" / rb.MANIFEST).read_text())
+    assert manifest["mixed_fp"] and manifest["suites"]["ioh-quick"]["fp_env_ids"] == ["aaaa", "bbbb"]
+    assert manifest["fp_env_ids"] == ["aaaa", "bbbb"]
+    merged = IOHMultiSeedResult.from_dict(json.loads((tmp_path / "ref3" / "ref_ioh_quick.json").read_text()))
+    assert merged.fp_env_id == "mixed:aaaa,bbbb" and merged.fp_env is None
+
+
+def test_aggregate_refuses_mixed_fp_in_composite_and_families(tmp_path):
+    for seed, fp in ((7, "aaaa"), (42, "bbbb")):
+        d = tmp_path / f"c{seed}" / "composite-quick"
+        d.mkdir(parents=True)
+        HarnessResult(HarnessConfig(seed=seed, sync_eval=True), "", 0, 0.0, [], 0.5, fp_env_id=fp).save(
+            str(d / f"composite-quick_s{seed}.json")
+        )
+    with pytest.raises(ValueError, match="composite-quick: shards measured in different FP"):
+        rb.aggregate(tmp_path, tmp_path / "ref")
+    shutil.rmtree(tmp_path / "c7")
+    shutil.rmtree(tmp_path / "c42")
+    fam = tmp_path / "f" / "families-free"
+    fam.mkdir(parents=True)
+    (fam / "families-free_shard01.json").write_text(json.dumps([{"seed": 42, "s": "x", "aocc": 0.2, "fp_env_id": "a"}]))
+    (fam / "families-free_shard02.json").write_text(json.dumps([{"seed": 7, "s": "x", "aocc": 0.2, "fp_env_id": "b"}]))
+    with pytest.raises(ValueError, match="families-free: shards measured in different FP"):
+        rb.aggregate(tmp_path, tmp_path / "ref")
+
+
+def test_the_workflows_pin_the_fp_environment():
+    import yaml
+
+    from panobbgo.fp_env import PIN_ENV
+
+    wf = rb.REPO_ROOT / ".github" / "workflows"
+    measure = yaml.safe_load((wf / "rebaseline.yml").read_text())["jobs"]["measure"]
+    assert measure["env"] == PIN_ENV
+    test_job = yaml.safe_load((wf / "tests.yml").read_text())["jobs"]["test"]
+    assert {k: test_job["env"][k] for k in PIN_ENV} == PIN_ENV
+    check = yaml.safe_load((wf / "fp-check.yml").read_text())
+    assert check["jobs"]["screen"]["strategy"]["matrix"]["job"] == list(range(1, 9))
 
 
 def test_aggregate_rejects_a_seed_measured_twice(tmp_path):

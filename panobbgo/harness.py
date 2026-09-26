@@ -103,6 +103,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from panobbgo import fp_env
 from panobbgo.benchmark import ProblemSpec, StrategySpec
 
 if TYPE_CHECKING:
@@ -888,6 +889,10 @@ class HarnessResult:
             (problem, strategy) pair.
         composite_score: Single scalar in ``[0, 1]``.  This is the primary
             metric for agent feedback – higher is better.
+        fp_env: The floating-point environment of the run
+            (:func:`panobbgo.fp_env.collect`); ``None`` in older files.
+        fp_env_id: Its short id (:func:`panobbgo.fp_env.fp_env_id`): a
+            seeded result is bit-reproducible only within one id.
     """
 
     config: HarnessConfig
@@ -896,6 +901,8 @@ class HarnessResult:
     total_duration: float
     problem_strategy_results: List[ProblemStrategyResult]
     composite_score: float
+    fp_env: Optional[Dict[str, Any]] = None
+    fp_env_id: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     # Serialisation                                                        #
@@ -1016,6 +1023,8 @@ class HarnessResult:
             total_duration=data.get("total_duration", 0.0),
             problem_strategy_results=psr_list,
             composite_score=data.get("composite_score", 0.0),
+            fp_env=data.get("fp_env"),
+            fp_env_id=data.get("fp_env_id"),
         )
 
     # ------------------------------------------------------------------ #
@@ -1912,6 +1921,7 @@ class BenchmarkHarness:
             total_duration=total_duration,
             problem_strategy_results=all_psr,
             composite_score=composite,
+            **fp_env.current(),
         )
 
         if verbose:

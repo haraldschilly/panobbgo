@@ -24,11 +24,50 @@ with `sync_eval`, seeded, so a run is bit-reproducible on one machine and
 independent of its speed and load, which is why time-based termination or
 stall guards are never a quality signal.  It is **not** independent of the
 floating-point environment: GitHub runners come in at least two FP classes,
-even within one workflow run, and last-bit BLAS kernel differences,
-amplified chaotically along a trajectory, move a cell by up to about
-0.08 AOCC.  **A paired comparison is valid only when both sides ran in the
-same floating-point environment; until the FP environment is pinned
-(follow-up), compare laptop vs laptop, or runs from one runner class.**
+even within one workflow run (AVX2 hosts, and AVX-512 hosts where OpenBLAS
+picks its SkylakeX/Zen4 kernels and numpy its `X86_V4` loops), and
+last-bit kernel differences, amplified chaotically along a trajectory,
+move a cell by up to about 0.08 AOCC (re-baseline run 36228301268; on the
+laptop `OPENBLAS_CORETYPE=SandyBridge` changes 107/120 rows of a family
+screen).  **A paired comparison is valid only when both sides ran in the
+same FP environment, i.e. with the same `fp_env_id`.**
+
+*   **The pin** (`panobbgo/fp_env.py`).  The entry points
+    (`benchmark_harness.py`, `scripts/ioh_benchmark.py`,
+    `scripts/rebaseline.py`, `benchmarks/family_screen.py`) import
+    `panobbgo.fp_pin` before numpy and set `OPENBLAS_CORETYPE=Haswell`
+    and `NPY_DISABLE_CPU_FEATURES="X86_V4 AVX512_ICL AVX512_SPR"`, the
+    AVX2 kernels every x86 runner has.  Child processes inherit it (the
+    `--jobs` workers, solver subprocesses, the IOH worker).  If numpy is
+    already loaded, the pin leaves the environment alone, so a process and
+    its workers never differ; `tests.yml` and the re-baseline `measure` job
+    therefore also set both variables job-wide.  It applies on Linux
+    x86-64 with AVX2/FMA only.  **Opt out** with `PANOBBGO_FP_PIN=0`.  On
+    the laptop (AVX2, Haswell kernels anyway) pinned and unpinned runs are
+    bit-identical (2026-09-26: family screen free, seed 42, dims 2/5, 120
+    rows; composite quick).  A library that brings its own BLAS (MKL via
+    torch) is not covered.
+*   **The record.**  Every result file carries `fp_env` (CPU model,
+    avx2/fma/avx512f, the loaded BLAS libraries with version and kernel
+    `architecture`, numpy's active SIMD targets, numpy/scipy/libc versions,
+    the pin variables) and `fp_env_id`, a hash of the fields that decide
+    the numbers (BLAS kernels and versions, numpy SIMD targets, numpy/scipy
+    versions, machine; not the CPU model).  Family-screen rows carry
+    `fp_env_id` per row.  `python -m panobbgo.fp_env` prints the record
+    for this machine.
+*   **The checks.**  `benchmark_harness.py compare` and `ioh_benchmark.py
+    compare` warn when the ids differ and, with `--fail-on-regression`,
+    exit 2 (a file without the record only warns); `family_screen.py
+    from=` warns when the rows mix ids; `rebaseline.py aggregate` refuses
+    to merge shards of one suite with different ids unless
+    `--allow-mixed-fp` (the merged file then carries `mixed:<ids>`), and
+    records the ids in `ref_MANIFEST.json` (`fp_env_ids`, `fp_env`) and
+    `SUMMARY.json`.
+*   **Verification.**  `.github/workflows/fp-check.yml` (manual) runs the
+    same screen (families free, seed 42, dims 2/5) on 8 runners, prints
+    `lscpu`, and its last job (`scripts/fp_check.py`) asserts that all 8
+    are bit-identical and lists each job's CPU and `fp_env`
+    (`-f pin=0` shows the unpinned spread).
 
 ## Evidence for a PR
 
@@ -281,7 +320,10 @@ changed every seeded trajectory.  Compare against the post-audit
 references instead: release `rebaseline-2026-09-26-run36228301268`
 (DISCOVERY §54, measured before #344–#346, which are bit-identical on the
 default paths; numbers in `planning/results/2026-09-26/SUMMARY.json`).
-Unpack it with `scripts/rebaseline.py fetch` (next section).
+Unpack it with `scripts/rebaseline.py fetch` (next section).  **Caveat:**
+those references mix the two runner FP classes (shards 01/05/06 vs
+02–04 of the families screen) and carry no `fp_env_id`; a pinned
+re-baseline replaces them (`TODO.md`).
 
 ## Re-baselining on GitHub runners
 

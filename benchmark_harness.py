@@ -102,6 +102,7 @@ import sys
 from datetime import datetime
 from typing import Optional
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 from panobbgo import local_run
 
 
@@ -240,6 +241,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
     """Compare two result files and report improvements/regressions."""
     import warnings
 
+    from panobbgo import fp_env
     from panobbgo.harness import (
         EvaluationModeMismatchWarning,
         HarnessResult,
@@ -258,6 +260,12 @@ def cmd_compare(args: argparse.Namespace) -> int:
     mismatch = evaluation_mode_mismatch(before, after, args.before, args.after)
     if mismatch:
         print(f"warning: {mismatch}", file=sys.stderr)
+    fp_warning = fp_env.mismatch(before.fp_env_id, after.fp_env_id, args.before, args.after)
+    fp_refuse = args.fail_on_regression and fp_env.known_mismatch(before.fp_env_id, after.fp_env_id)
+    if fp_warning:
+        print(
+            f"warning: {fp_warning}" + (" --fail-on-regression refuses to gate." if fp_refuse else ""), file=sys.stderr
+        )
 
     with warnings.catch_warnings():
         # Already printed above; the library's warning would repeat it.
@@ -311,6 +319,8 @@ def cmd_compare(args: argparse.Namespace) -> int:
         print(_json_dumps(out))
 
     # Non-zero exit rules for scripted gating.
+    if fp_refuse:
+        return 2
     # --statistical overrides the naive eps check when enabled.
     if args.statistical and args.fail_on_regression:
         assert decision is not None

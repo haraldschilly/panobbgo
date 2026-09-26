@@ -67,6 +67,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
+from panobbgo.fp_env import child_env
 from panobbgo.lib.lib import Problem
 
 #: Default bound on one worker round-trip, independent of any run timeout:
@@ -392,6 +393,7 @@ class IOHProblem(Problem):
             stdout=subprocess.PIPE,
             stderr=self._stderr,
             bufsize=0,  # raw pipes: stdout is read with os.read (see _readline)
+            env=child_env(),  # the FP pin (panobbgo.fp_env), unless PANOBBGO_FP_PIN=0
         )
 
     def _stderr_tail(self, limit: int = 4000) -> str:

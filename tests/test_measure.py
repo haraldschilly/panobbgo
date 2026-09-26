@@ -9,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional, Sequence
 
 import pytest
 
@@ -115,8 +115,35 @@ def test_plan_packs_every_run_once_by_group_and_splits_long_units():
         assert e["est_min"] <= 180 + 1 or e["n_units"] == 1
         assert e["est_min"] <= ms.STEP_LIMIT_MINUTES
     assert entries[0]["group"] == "core"
-    assert [e["shard"] for e in entries if e["shard"].startswith("extra-")] == ["extra-01"]
+    assert [e["shard"] for e in entries if e["calibration"]] == ["extra-01"]
     assert len({e["shard"] for e in entries}) == len(entries)
+
+
+def test_extra_units_are_deduplicated_against_the_grid():
+    units = ms.make_units([42], ["free"], [100], [5], [16], ["qLogEI"])  # the whole unit ...q16.d5.s42
+    assert [u.id for u in units] == ["qLogEI.free.b100.q16.d5.s42"]
+    extra = [
+        ms.Unit.parse("qLogEI.free.b100.q16.d5.s42.i0"),  # covered by the whole grid unit
+        ms.Unit.parse("qLogEI.free.b100.q64.d5.s42.i0"),  # new
+        ms.Unit.parse("qLogEI.free.b100.q64.d5.s42.i0"),  # a duplicate extra
+        ms.Unit.parse("TuRBO1.free.b20.q4.d2.s7"),  # new, whole
+    ]
+    assert [u.id for u in ms.uncovered(extra, units)] == ["qLogEI.free.b100.q64.d5.s42.i0", "TuRBO1.free.b20.q4.d2.s7"]
+    # Partly covered: only the uncovered instances remain.
+    grid = [ms.Unit.parse("TuRBO1.free.b20.q4.d2.s7.i1")]
+    left = ms.uncovered([ms.Unit.parse("TuRBO1.free.b20.q4.d2.s7")], grid)
+    assert [u.id for u in left] == ["TuRBO1.free.b20.q4.d2.s7.i0", "TuRBO1.free.b20.q4.d2.s7.i2"]
+    entries = ms.plan(units, 4, 180, extra)
+    cal = [e for e in entries if e["calibration"]]
+    assert [e["units"] for e in cal] == ["qLogEI.free.b100.q64.d5.s42.i0", "TuRBO1.free.b20.q4.d2.s7"]
+    assert not any(e["calibration"] for e in entries if not e["shard"].startswith("extra-"))
+    # The documented smoke example with the default seeds: every run once.
+    grid5 = ms.make_units([42, 7, 1234, 2025, 3], ["free"], [20, 100], None, [1, 4, 16, 64], list(ms.GROUPS))
+    smoke = [ms.Unit.parse(u) for u in ("qLogEI.free.b100.q16.d5.s42.i0", "qLogEI.free.b100.q64.d5.s42.i0")]
+    runs = [
+        r for e in ms.plan(grid5, 4, 180, smoke) for u in e["units"].split(";") for r in ms.runs_of(ms.Unit.parse(u))
+    ]
+    assert len(runs) == len(set(runs))
 
 
 def replace_inst(u, j):
@@ -148,17 +175,25 @@ def test_plan_cli_is_stdlib_only():
 # ---------------------------------------------------------------------------
 
 
-def _payload(unit: str, shard: str, scores: Dict[str, List[Optional[float]]], cpu: str = "cpu A") -> dict:
+def _payload(
+    unit: str,
+    shard: str,
+    scores: Mapping[str, Sequence[Optional[float]]],
+    cpu: str = "cpu A",
+    errors: Optional[Dict[int, str]] = None,
+    calibration: bool = False,
+) -> dict:
     """A unit result file: ``scores[strategy]`` = the AOCC per instance (aocc_time = AOCC / 2; None = crashed).
 
-    Instances 0, 1 are the ellipsoid's 0, 1; instances 2, 3 rastrigin's 0, 1.
+    Instances 0, 1 are the ellipsoid's 0, 1; instances 2, 3 rastrigin's 0, 1 (a ``.i<j>`` unit: the two
+    families' instance ``j``).  ``errors``: an error string per run index (e.g. ``EndedEarly``).
     """
     u = ms.Unit.parse(unit)
     runs = [
         IOHRunRecord(
-            problem_kind="ellipsoid" if i < 2 else "rastrigin",
+            problem_kind="ellipsoid" if (i < 2 if u.inst < 0 else i == 0) else "rastrigin",
             dim=u.dim,
-            instance=i % 2,
+            instance=i % 2 if u.inst < 0 else u.inst,
             strategy_name=name,
             rep=0,
             budget=u.bm * u.dim,
@@ -169,7 +204,7 @@ def _payload(unit: str, shard: str, scores: Dict[str, List[Optional[float]]], cp
             elapsed_s=1.0,
             seed=0,
             aocc_time=None if a is None else a / 2,
-            error="RuntimeError: boom" if a is None else None,
+            error="RuntimeError: boom" if a is None else (errors or {}).get(i),
         )
         for name, vals in scores.items()
         for i, a in enumerate(vals)
@@ -182,6 +217,7 @@ def _payload(unit: str, shard: str, scores: Dict[str, List[Optional[float]]], cp
         "host": {"cpu_model": cpu, "avx512f": False},
         "git_sha": "abc1234",
         "elapsed_s": 1.0,
+        "calibration": calibration,
         "result": res.to_dict(),
     }
 
@@ -232,10 +268,13 @@ def test_aggregate_fixed_pool_best_of_and_headline(tmp_path):
     planned = _grid(tmp_path)
     missing = ms.aggregate(tmp_path, planned + ["core.free.b20.q4.d2.s99"])
     assert missing["missing_units"] == ["core.free.b20.q4.d2.s99"]
-    # A missing core seed makes every core external incomplete at q = 4: out of the pool at every q.
-    assert missing["cells"]["free/d2/b20/q1"]["pool"] == ["Baseline_TuRBO1"]
-    assert "incomplete at q=4" in missing["cells"]["free/d2/b20/q1"]["pool_excluded"]["Baseline_NGOpt"]
-    assert "missing: core.free.b20.q4.d2.s99" in ms.summary_markdown(missing)
+    # A missing unit keeps the pool; the q = 4 cell is flagged below the plan (12 of 16 runs).
+    q4m = missing["cells"]["free/d2/b20/q4"]
+    assert q4m["pool"] == ["Baseline_NGOpt", "Baseline_TuRBO1", "Baseline_pycma_IPOP"]
+    assert (q4m["n_common"], q4m["planned_runs"]) == (12, 16)
+    assert any("below the plan" in f for f in q4m["flags"])
+    md = ms.summary_markdown(missing)
+    assert "missing: core.free.b20.q4.d2.s99" in md and "12/16!" in md
     summary = ms.aggregate(tmp_path, planned)
     assert summary["github_run_id"] == ["123"]
     assert set(summary["fp_classes"]) == {"cpu A", "cpu B"}
@@ -267,16 +306,29 @@ def test_aggregate_fixed_pool_best_of_and_headline(tmp_path):
     assert "(reference)" in md and "(pool)" in md
 
 
-def test_pool_is_fixed_when_a_baseline_misses_seeds(tmp_path):
-    # TuRBO misses seed 1234 everywhere: incomplete -> out of the pool in every q cell.
+def test_a_missing_unit_keeps_the_pool_and_shrinks_n(tmp_path):
+    # TuRBO misses seed 1234 everywhere (a cut shard): it stays in the pool; every comparison runs on the
+    # runs present for the headline spec and every pool member, i.e. seeds 42 and 7.
     planned = _grid(tmp_path, gp_seeds=(42, 7))
     summary = ms.aggregate(tmp_path, planned)
     for c in ("free/d2/b20/q1", "free/d2/b20/q4"):
         cell = summary["cells"][c]
-        assert cell["pool"] == ["Baseline_NGOpt", "Baseline_pycma_IPOP"]
+        assert cell["pool"] == ["Baseline_NGOpt", "Baseline_TuRBO1", "Baseline_pycma_IPOP"]
         turbo = cell["strategies"]["Baseline_TuRBO1"]
         assert (turbo["n_seeds"], turbo["planned_seeds"], turbo["complete"]) == (2, 3, False)
-    assert "2/3!" in ms.summary_markdown(summary)
+        assert (cell["n_common"], cell["n_common_seeds"], cell["planned_runs"]) == (8, 2, 12)
+        assert any("below the plan" in f for f in cell["flags"])
+        head = cell["headline"]
+        assert head["n_seeds"] == 2 and head["n_pairs"] == 8
+        # Every Δ of the cell on the same common runs, the headline's Holm set included.
+        h = cell["strategies"][ms.HEADLINE_SPEC]
+        assert all(st["aocc"]["n_seeds"] == 2 for st in h["vs"].values() if st["aocc"]["n_seeds"])
+        assert cell["strategies"]["Baseline_NGOpt"]["n_common"] == 8
+    # Means on the common runs: seeds 42 (b = 0) and 7 (b = 0.02) only.
+    ngopt = summary["cells"]["free/d2/b20/q1"]["strategies"]["Baseline_NGOpt"]
+    assert ngopt["aocc"] == pytest.approx(0.4375 + 0.01)
+    md = ms.summary_markdown(summary)
+    assert "2/3!" in md and "8/12!" in md
 
 
 def test_pool_is_fixed_when_a_baseline_misses_a_q_cell(tmp_path):
@@ -304,6 +356,60 @@ def test_errored_runs_score_zero_time_and_leave_the_pool(tmp_path):
     assert q1["pool_excluded"]["Baseline_NGOpt"] == "errors at q=4"
     assert any("NGOpt" in f and "errors at q=4" in f for f in q1["flags"])
     assert "0/1" in ms.summary_markdown(summary)  # errors panobbgo/external in the headline table
+
+
+def test_ended_early_is_not_an_error(tmp_path):
+    payloads = [
+        _payload(
+            f"core.free.b20.q1.d2.s{seed}",
+            "core-01",
+            {ms.HEADLINE_SPEC: [0.5, 0.5, 0.5, 0.5], "Baseline_NGOpt": [0.4, 0.4, 0.4, 0.4]},
+            errors={0: "EndedEarly: stopped at 30/40 evaluations"},
+        )
+        for seed in SEEDS
+    ]
+    _write(tmp_path, payloads)
+    cell = ms.aggregate(tmp_path)["cells"]["free/d2/b20/q1"]
+    ng = cell["strategies"]["Baseline_NGOpt"]
+    assert ng["errors"] == 0 and ng["ended_early"] == 3 and ng["in_pool"]
+    assert ng["aocc"] == pytest.approx(0.4) and ng["aocc_time"] == pytest.approx(0.2)
+
+
+def test_aggregate_over_split_units_equals_the_whole(tmp_path):
+    scores = {ms.HEADLINE_SPEC: [0.5, 0.6, 0.3, 0.2], "Baseline_NGOpt": [0.4, 0.5, 0.45, 0.4]}
+    whole, split = tmp_path / "whole", tmp_path / "split"
+    _write(whole, [_payload(f"core.free.b20.q1.d2.s{s}", "core-01", scores) for s in SEEDS])
+    # The same runs as .i0 / .i1 units: (ellipsoid, rastrigin) instance j each.
+    parts = []
+    for s in SEEDS:
+        for j in (0, 1):
+            part = {n: [v[j], v[2 + j]] for n, v in scores.items()}
+            parts.append(_payload(f"core.free.b20.q1.d2.s{s}.i{j}", "core-01", part))
+    _write(split, parts)
+    a = ms.aggregate(whole)["cells"]["free/d2/b20/q1"]
+    b = ms.aggregate(split, [p["unit"] for p in parts])["cells"]["free/d2/b20/q1"]
+    for key in ("pool", "pool_best", "n_common", "headline"):
+        assert a[key] == b[key], key
+    assert a["strategies"][ms.HEADLINE_SPEC]["aocc"] == b["strategies"][ms.HEADLINE_SPEC]["aocc"]
+
+
+def test_calibration_units_stay_out_of_the_analysis(tmp_path):
+    planned = _grid(tmp_path)
+    # A calibration unit in a q cell the grid does not have (q = 16), for one GP baseline.
+    cal = _payload(
+        "TuRBO1.free.b20.q16.d2.s42.i0", "extra-01", {"Baseline_TuRBO1": [0.9, 0.9]}, cpu="cpu B", calibration=True
+    )
+    _write(tmp_path, [cal])
+    summary = ms.aggregate(tmp_path, planned)
+    assert "free/d2/b20/q16" not in summary["cells"]
+    assert summary["cells"]["free/d2/b20/q1"]["pool"] == ["Baseline_NGOpt", "Baseline_TuRBO1", "Baseline_pycma_IPOP"]
+    [row] = summary["calibration"]
+    assert row["unit"] == "TuRBO1.free.b20.q16.d2.s42.i0" and row["runs"] == 2 and row["aocc"] == pytest.approx(0.9)
+    assert "## Calibration" in ms.summary_markdown(summary)
+    # A calibration unit with a grid unit's id never trips the duplicate check.
+    dup = _payload("core.free.b20.q1.d2.s42", "extra-02", {"RoundRobin_CMAES": [0.5] * 4}, calibration=True)
+    _write(tmp_path, [dup])
+    ms.aggregate(tmp_path, planned)
 
 
 def test_q_equals_bm_cell(tmp_path):
@@ -379,6 +485,17 @@ def test_run_and_aggregate_end_to_end(tmp_path, monkeypatch):
     ms.summary_markdown(summary)
 
 
+def test_run_unit_honours_the_instance_index(monkeypatch):
+    """No ``_instances`` patch: a ``.i<j>`` unit runs instance j of every family, nothing else."""
+    only = [s for s in make_ioh_strategies() if s.name == "RoundRobin_Random"]
+    monkeypatch.setattr(ms, "_strategies", lambda group: only)
+    payload = ms.run_unit(ms.Unit.parse("core.free.b20.q4.d2.s42.i1"), jobs=1)
+    runs = payload["result"]["runs"]
+    assert payload["inst"] == 1
+    assert {r["instance"] for r in runs} == {1}
+    assert len(runs) == ms.PRESET_FAMILIES["free"] == len({r["problem_kind"] for r in runs})
+
+
 def test_the_workflow_matches_the_script():
     import yaml
 
@@ -400,6 +517,7 @@ def test_the_workflow_matches_the_script():
     # The step's own limit sits below the job's, so the upload still runs.
     assert measure["timeout-minutes"] == ms.STEP_LIMIT_MINUTES
     assert measure["timeout-minutes"] < workflow["jobs"]["measure"]["timeout-minutes"] <= 350
+    assert "--calibration" in measure["run"] and measure["env"]["CALIBRATION"] == "${{ matrix.calibration }}"
     [upload] = [s for s in steps if s.get("name") == "Upload shard results"]
     assert upload["if"] == "always()" and upload["with"]["overwrite"] is True
     [summary_upload] = [s for s in workflow["jobs"]["aggregate"]["steps"] if s.get("name") == "Upload the summary"]

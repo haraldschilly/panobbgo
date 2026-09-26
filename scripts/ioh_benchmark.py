@@ -589,8 +589,10 @@ def cmd_compare(args: argparse.Namespace) -> int:
     if b_virtual != a_virtual:
         print(
             f"warning: virtual-clock mismatch ({args.before} virtual={b_virtual}, {args.after} "
-            f"virtual={a_virtual}) — different worker counts, duration models or policies are not "
-            "comparable" + ("; --fail-on-regression refuses to gate." if args.fail_on_regression else "."),
+            f"virtual={a_virtual}) — different worker counts, duration models, policies or duration streams "
+            '("durations": "crn" = common random numbers per cell, since 2026-09-26; older files keyed '
+            "durations per strategy) are not comparable"
+            + ("; --fail-on-regression refuses to gate." if args.fail_on_regression else "."),
             file=sys.stderr,
         )
         if args.fail_on_regression:

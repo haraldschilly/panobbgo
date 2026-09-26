@@ -156,11 +156,15 @@ Unpack it with `scripts/rebaseline.py fetch` (next section).
 ## Re-baselining on GitHub runners
 
 `.github/workflows/rebaseline.yml` (manual) re-measures the references:
-composite quick/standard, IOH quick/standard and the family screens,
-sharded over (suite × seed chunk), ~28 jobs for 12 seeds.  The external
-baselines and the `shapes` / `failure` presets are not among the suites
-yet (`TODO.md`).  Every shard is seeded, `sync_eval`, with no wall-clock
-limit, so the numbers do not depend on runner speed.  Suites and chunk sizes: `scripts/rebaseline.py`.
+composite quick/standard, IOH quick/standard, `ioh-external` (the IOH
+standard battery with the pycma / Nevergrad / Optuna baselines too; its
+jobs install `--extra baselines`) and the family screens (`free`,
+`constrained`, `shapes`, `failure`), sharded over (suite × seed chunk),
+36 jobs for 12 seeds.  Every shard is seeded, `sync_eval`, with no
+wall-clock limit, so the numbers do not depend on runner speed.  Suites,
+chunk sizes and the cost estimates behind them: `scripts/rebaseline.py`
+(`ioh-external` ≈ 10 min per seed serially, dominated by NGOpt and Optuna
+TPE at d = 5; 4 seeds per job).
 
 ```bash
 gh workflow run rebaseline.yml -f suites=all -f seeds=12   # seeds: a count or '42,7'; -f ref=<sha>; -f release=...
@@ -169,8 +173,8 @@ gh workflow run rebaseline.yml -f suites=all -f seeds=12   # seeds: a count or '
 The last job aggregates the shards into the reference files:
 `ref_composite_<mode>_s<seed>.json` (for `benchmark_harness.py compare`),
 `ref_ioh_<battery>.json` (multi-seed; compare against a run with the same
-`--seeds`) and single-seed `ref_ioh_<battery>_s<seed>.json`,
-`ref_family_screen_<preset>.json` (`family_screen.py from=FILE`),
+`--seeds`) and single-seed `ref_ioh_<battery>_s<seed>.json` (`ioh-external`:
+`ref_ioh_standard_external*.json`), `ref_family_screen_<preset>.json` (`family_screen.py from=FILE`),
 `ref_MANIFEST.json` (commit, seeds, failed shards, shard commands) and
 `SUMMARY.json` (the numbers per suite: composite mean/min/max and per seed,
 IOH and family mean AOCC and per spec, plus the release tag and URL).

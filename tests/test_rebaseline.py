@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import re
@@ -50,7 +51,10 @@ def test_full_plan_covers_every_seed_once_per_suite():
         seeds = [int(s) for e in entries if e["suite"] == suite for s in e["seeds"].split(",")]
         assert seeds == list(rb.ROSTER)
     assert len({(e["suite"], e["shard"]) for e in entries}) == len(entries)
-    assert rb.plan(rb.resolve_suites("ioh-quick"), [42]) == [{"suite": "ioh-quick", "shard": "01", "seeds": "42"}]
+    assert rb.plan(rb.resolve_suites("ioh-quick"), [42]) == [
+        {"suite": "ioh-quick", "shard": "01", "seeds": "42", "extras": ""}
+    ]
+    assert {e["extras"] for e in entries if e["suite"] == "ioh-external"} == {"baselines"}
 
 
 def test_shard_commands_are_sync_and_have_no_wall_clock_limit(tmp_path):
@@ -71,7 +75,35 @@ def test_harness_cli_no_timeout():
     assert build_parser().parse_args(["run", "--quick", "--no-timeout"]).timeout is None
 
 
-def _ioh_shard(path: Path, seeds):
+def test_external_suite_names_every_external_baseline(tmp_path):
+    from panobbgo.harness_baselines import DEFAULT_BASELINE_NAMES, EXTERNAL_BASELINE_NAMES
+    from panobbgo.harness_ioh import make_ioh_strategies
+
+    suite = rb.SUITES["ioh-external"]
+    assert suite.kind == "ioh" and suite.battery == "standard" and "baselines" in suite.extras
+    [(argv, _)] = rb.shard_commands(suite, [42], "01", tmp_path, jobs=2, python="py")
+    names = argv[argv.index("--strategies") + 1 : argv.index("--seeds")]
+    expected = [s.name for s in make_ioh_strategies()] + list(DEFAULT_BASELINE_NAMES) + list(EXTERNAL_BASELINE_NAMES)
+    assert names == expected and len(EXTERNAL_BASELINE_NAMES) >= 7
+    # The plain suites keep the harness' default strategy set.
+    [(plain, _)] = rb.shard_commands(rb.SUITES["ioh-standard"], [42], "01", tmp_path, jobs=2, python="py")
+    assert "--strategies" not in plain
+
+
+def test_ioh_cli_accepts_the_external_strategy_set():
+    # The names survive ioh_benchmark.py's filter: no "unknown strategy" is dropped.
+    spec = importlib.util.spec_from_file_location("ioh_benchmark_cli", rb.REPO_ROOT / "scripts" / "ioh_benchmark.py")
+    assert spec is not None and spec.loader is not None
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    for module in ("cma", "nevergrad", "optuna", "cmaes"):
+        pytest.importorskip(module)
+    names = rb.STRATEGY_SETS["external"]()
+    args = argparse.Namespace(legacy=False, standard=True, full=False, baselines=True, strategies=names)
+    assert [s.name for s in cli._resolve_strategies(args)] == names
+
+
+def _ioh_shard(path: Path, seeds, battery: str = "ioh-quick"):
     results = []
     for seed in seeds:
         run = IOHRunRecord(
@@ -88,8 +120,8 @@ def _ioh_shard(path: Path, seeds):
             elapsed_s=0.1,
             seed=seed,
         )
-        results.append(IOHHarnessResult("ioh-quick", "MA-BBOB", -8, 2, [run], sync_eval=True))
-    multi = IOHMultiSeedResult("ioh-quick", "MA-BBOB", -8, 2, list(seeds), results, sync_eval=True)
+        results.append(IOHHarnessResult(battery, "MA-BBOB", -8, 2, [run], sync_eval=True))
+    multi = IOHMultiSeedResult(battery, "MA-BBOB", -8, 2, list(seeds), results, sync_eval=True)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(multi.to_json())
 
@@ -122,6 +154,79 @@ def test_aggregate(tmp_path):
     rows = json.loads((out / "ref_family_screen_free.json").read_text())
     assert [r["seed"] for r in rows] == [42, 7]
     assert json.loads((out / "ref_MANIFEST.json").read_text())["failed_shards"] == []
+
+
+def _fake_shard(suite, seeds, shard: str, root: Path) -> None:
+    """The result file(s) and meta a shard of ``suite`` leaves, as ``gh run download`` lays them out."""
+    d = root / f"shard-{suite.name}-{shard}" / suite.name
+    d.mkdir(parents=True)
+    if suite.kind == "composite":
+        for seed in seeds:
+            HarnessResult(HarnessConfig(seed=seed), "", 0, 0.0, [], seed / 10000).save(
+                str(d / f"{suite.name}_s{seed}.json")
+            )
+    elif suite.kind == "ioh":
+        _ioh_shard(d / f"{suite.name}_shard{shard}.json", seeds, battery=f"ioh-{suite.battery}")
+    else:
+        rows = [{"seed": s, "s": spec, "aocc": 0.5, "err": None} for s in seeds for spec in ("A", "B")]
+        (d / f"{suite.name}_shard{shard}.json").write_text(json.dumps(rows))
+    meta = {"suite": suite.name, "shard": shard, "seeds": list(seeds), "status": 0, "github_run_id": "5"}
+    (d / f"meta_{shard}.json").write_text(json.dumps(meta))
+
+
+def test_every_suite_goes_through_plan_aggregate_and_summary(tmp_path):
+    # The registry check: a suite added to SUITES must come out of every code path.
+    seeds = rb.resolve_seeds("12")
+    planned = rb.plan(rb.resolve_suites("all"), seeds)
+    assert {e["suite"] for e in planned} == set(rb.SUITES)
+    for e in planned:
+        _fake_shard(rb.SUITES[e["suite"]], rb.seed_list(e["seeds"]), e["shard"], tmp_path / "raw")
+    out = tmp_path / "ref"
+    manifest = rb.aggregate(tmp_path / "raw", out, planned)
+    assert manifest["failed_shards"] == [] and list(manifest["suites"]) == list(rb.SUITES)
+
+    files = [f for info in manifest["suites"].values() for f in info["files"]]
+    assert len(files) == len(set(files)), "two suites write the same reference file"
+    summary = json.loads((out / "SUMMARY.json").read_text())
+    assert list(summary["suites"]) == list(rb.SUITES)
+    for name, suite in rb.SUITES.items():
+        entry = summary["suites"][name]
+        assert entry["seeds"] == list(rb.ROSTER), name
+        assert all((out / f).exists() for f in entry["files"]), name
+        if suite.kind == "composite":
+            assert entry["composite_score"]["mean"] > 0 and len(entry["composite_score"]["per_seed"]) == 12
+        elif suite.kind == "ioh":
+            assert entry["files"][0] == f"ref_ioh_{suite.ref_key}.json" and len(entry["files"]) == 13
+            assert entry["mean_aocc"] > 0 and set(entry["per_spec_aocc"]) == {"A"}
+        else:
+            assert entry["files"] == [f"ref_family_screen_{suite.ref_key}.json"]
+            assert entry["rows"] == 24 and entry["failed_rows"] == 0
+            assert entry["mean_aocc"] == pytest.approx(0.5) and set(entry["per_spec_aocc"]) == {"A", "B"}
+    md = rb.summary_markdown(summary)
+    assert all(f"| {name} | 12 |" in md for name in rb.SUITES)
+
+
+def test_suite_registry_matches_the_workflow_and_the_extras():
+    import tomllib
+
+    workflow = (rb.REPO_ROOT / ".github" / "workflows" / "rebaseline.yml").read_text()
+    extras = tomllib.loads((rb.REPO_ROOT / "pyproject.toml").read_text())["project"]["optional-dependencies"]
+    for suite in rb.SUITES.values():
+        assert suite.name in workflow, f"{suite.name} missing from the workflow's suites input"
+        assert set(suite.extras) <= set(extras), suite.name
+        if suite.kind == "ioh":
+            assert suite.name.startswith("ioh-"), "the workflow syncs the IOH worker venv for ioh-* suites"
+        if suite.variant and suite.kind == "ioh":
+            assert suite.variant in rb.STRATEGY_SETS
+    # A suite that runs external baselines installs their extra.
+    from panobbgo.harness_baselines import EXTERNAL_BASELINE_NAMES
+
+    for variant, names in rb.STRATEGY_SETS.items():
+        users = [s for s in rb.SUITES.values() if s.variant == variant]
+        assert users, f"strategy set {variant} is used by no suite"
+        if set(names()) & set(EXTERNAL_BASELINE_NAMES):
+            assert all("baselines" in s.extras for s in users)
+    assert "matrix.extras" in workflow
 
 
 def test_aggregate_rejects_a_seed_measured_twice(tmp_path):

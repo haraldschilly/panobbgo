@@ -1,8 +1,9 @@
 name: Re-baseline
 
 # Re-measures the reference baselines (composite quick/standard, IOH
-# quick/standard, family free/constrained) on GitHub runners, sharded over
-# (suite x seed chunk).  Manual only; ./test.sh (run_ci.py) skips it.
+# quick/standard, IOH standard with the external pycma / Nevergrad / Optuna
+# baselines, family free/constrained/shapes/failure) on GitHub runners,
+# sharded over (suite x seed chunk).  Manual only; ./test.sh (run_ci.py) skips it.
 # Every run is synchronous and seeded with no wall-clock limit, so the
 # numbers depend on the code and the seeds, not on runner speed.
 # The last job aggregates the shards and attaches the reference files to a
@@ -16,7 +17,8 @@ on:
       suites:
         description: >-
           'all' or a comma list of: composite-quick, composite-standard,
-          ioh-quick, ioh-standard, families-free, families-constrained
+          ioh-quick, ioh-standard, ioh-external, families-free,
+          families-constrained, families-shapes, families-failure
         type: string
         default: all
       seeds:
@@ -129,10 +131,18 @@ jobs:
           fi
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
+      # Always: the shared cache key does not say which extras the cached
+      # .venv has (tests.yml adds baselines, docs.yml does not), and a suite
+      # may need more (the matrix's '+'-joined extras, e.g. ioh-external:
+      # baselines).  On a warm .venv this takes seconds.
       - name: Install dependencies
-        if: steps.cache-uv.outputs.cache-hit != 'true'
+        env:
+          EXTRAS: ${{ matrix.extras }}
         run: |
-          uv sync --extra dev
+          args=(--extra dev)
+          IFS=+ read -ra extras <<< "$EXTRAS"
+          for e in "${extras[@]}"; do if [ -n "$e" ]; then args+=(--extra "$e"); fi; done
+          uv sync "${args[@]}"
 
       - name: Sync IOH worker venv
         if: startsWith(matrix.suite, 'ioh-') && steps.cache-ioh-worker.outputs.cache-hit != 'true'

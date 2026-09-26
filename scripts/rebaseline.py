@@ -61,14 +61,18 @@ suite                       reference file(s)
 ``composite-quick``         ``ref_composite_quick_s<seed>.json`` — one
 ``composite-standard``      ``benchmark_harness.py run`` result per seed, for
                             ``benchmark_harness.py compare``
-``ioh-quick``               ``ref_ioh_<battery>.json`` — one multi-seed
+``ioh-quick``               ``ref_ioh_<key>.json`` — one multi-seed
 ``ioh-standard``            result (``ioh_benchmark.py run --baselines
-                            --seeds ...``) for ``ioh_benchmark.py compare``,
-                            plus ``ref_ioh_<battery>_s<seed>.json`` single-seed
-                            files for a plain ``run --output`` A/B
+``ioh-external``            --seeds ...``) for ``ioh_benchmark.py compare``,
+                            plus ``ref_ioh_<key>_s<seed>.json`` single-seed
+                            files for a plain ``run --output`` A/B;
+                            ``<key>`` is ``quick``, ``standard`` and
+                            ``standard_external`` (the standard battery with
+                            the pycma / Nevergrad / Optuna baselines too)
 ``families-free``           ``ref_family_screen_<preset>.json`` — the rows
 ``families-constrained``    file of ``benchmarks/family_screen.py``;
-                            re-analyse with ``family_screen.py from=FILE``
+``families-shapes``         re-analyse with ``family_screen.py from=FILE``
+``families-failure``
 ==========================  =================================================
 
 Every measurement is synchronous (``sync_eval``) and seeded, with no
@@ -90,7 +94,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -108,12 +112,42 @@ class Suite:
     #: ``composite`` (benchmark_harness.py), ``ioh`` (scripts/ioh_benchmark.py)
     #: or ``families`` (benchmarks/family_screen.py).
     kind: str
-    #: The mode (``quick`` / ``standard``) or the family preset (``free`` / ``constrained``).
+    #: The mode (``quick`` / ``standard``) or the ``family_screen.py`` preset
+    #: (``free`` / ``constrained`` / ``shapes`` / ``failure``).
     battery: str
-    #: Seeds per job — sized so a job stays far below GitHub's 6 h limit.
+    #: Seeds per job — sized so a job stays far below the workflow's 350-minute timeout.
     seeds_per_job: int
+    #: Tells suites on the same battery apart: names the strategy set
+    #: (:data:`STRATEGY_SETS`, IOH only) and goes into the reference file
+    #: names (:attr:`ref_key`).  Empty: the harness' default strategies.
+    variant: str = ""
+    #: Optional-dependency extras the job installs besides ``dev``
+    #: (``uv sync --extra dev --extra <name>``).
+    extras: Tuple[str, ...] = ()
+
+    @property
+    def ref_key(self) -> str:
+        """The battery, plus the variant if any: ``ref_ioh_<ref_key>.json``."""
+        return f"{self.battery}_{self.variant}" if self.variant else self.battery
 
 
+# Shard sizing.  The first full run (release rebaseline-2026-09-26-run36228301268,
+# 4-core runners, --jobs 4) gives the job times of the older suites; the newer
+# ones come from local timings (2026-09-26, a laptop under load, niced, one
+# process, seed 42):
+#
+# *   ioh-external: per seed 10 cells (d 2 and 5 x 5 instances, 500*d
+#     evaluations) x 14 strategies.  One d = 5 cell (2500 evaluations):
+#     Baseline_NGOpt 40 s, Baseline_Optuna_TPE 34 s (its cost grows about
+#     quadratically with the budget: 1 / 3.6 / 8.4 / 34 s at 250 / 500 / 1000 /
+#     2500), Baseline_NG_CMA 6 s, every other spec 1-4 s; ~100 s for all 14.
+#     One d = 2 cell (1000 evaluations): ~25 s for all 14.  So ~10 min per
+#     seed serially; 4 seeds are ~40 min per job serially, ~10-15 min at
+#     --jobs 4, far below 350 min even on a runner 3x slower than the laptop.
+# *   families-shapes: one seed with one instance per (family, dim) takes
+#     28 CPU-s, ~1.5 CPU-min per seed at the preset's 3 instances; 4 per job.
+# *   families-failure: 12 CPU-s likewise, ~0.6 CPU-min per seed; 6 per job.
+#     Its failure regions raise instead of sleeping, so no wall time is lost.
 SUITES: Dict[str, Suite] = {
     s.name: s
     for s in (
@@ -121,9 +155,32 @@ SUITES: Dict[str, Suite] = {
         Suite("composite-standard", "composite", "standard", 3),
         Suite("ioh-quick", "ioh", "quick", 12),
         Suite("ioh-standard", "ioh", "standard", 1),
+        Suite("ioh-external", "ioh", "standard", 4, variant="external", extras=("baselines",)),
+        # The expensive-track baselines (BoTorch / SMAC / HEBO, extra
+        # ``baselines-bo``) join as a suite of their own here: a variant in
+        # STRATEGY_SETS that names them, extras=("baselines-bo",), a battery
+        # whose budget they can afford, and seeds_per_job from a local timing.
         Suite("families-free", "families", "free", 2),
         Suite("families-constrained", "families", "constrained", 3),
+        Suite("families-shapes", "families", "shapes", 4),
+        Suite("families-failure", "families", "failure", 6),
     )
+}
+
+
+def _external_strategy_names() -> List[str]:
+    """The default IOH specs and baselines plus every pycma / Nevergrad / Optuna baseline."""
+    from panobbgo.harness_baselines import DEFAULT_BASELINE_NAMES, EXTERNAL_BASELINE_NAMES
+    from panobbgo.harness_ioh import make_ioh_strategies
+
+    return [s.name for s in make_ioh_strategies()] + list(DEFAULT_BASELINE_NAMES) + list(EXTERNAL_BASELINE_NAMES)
+
+
+#: IOH suite variant -> the ``--strategies`` names its shards run.  Resolved
+#: in the shard, which has the package installed (``plan`` stays stdlib only).
+#: The external baselines join a run only when ``--strategies`` names them.
+STRATEGY_SETS: Dict[str, Callable[[], List[str]]] = {
+    "external": _external_strategy_names,
 }
 
 
@@ -166,7 +223,7 @@ def resolve_suites(spec: str) -> List[Suite]:
 
 
 def plan(suites: Sequence[Suite], seeds: Sequence[int]) -> List[Dict[str, str]]:
-    """One matrix entry per (suite, seed chunk)."""
+    """One matrix entry per (suite, seed chunk), with the extras its job installs."""
     entries = []
     for suite in suites:
         k = suite.seeds_per_job
@@ -177,6 +234,8 @@ def plan(suites: Sequence[Suite], seeds: Sequence[int]) -> List[Dict[str, str]]:
                     "suite": suite.name,
                     "shard": f"{i // k + 1:02d}",
                     "seeds": ",".join(str(s) for s in chunk),
+                    # '+'-joined; the workflow turns it into --extra flags.
+                    "extras": "+".join(suite.extras),
                 }
             )
     return entries
@@ -230,6 +289,7 @@ def shard_commands(
             "run",
             f"--{suite.battery}",
             "--baselines",
+            *(["--strategies", *STRATEGY_SETS[suite.variant]()] if suite.variant else []),
             "--seeds",
             *[str(s) for s in seeds],
             "--sync-eval",
@@ -330,7 +390,7 @@ def _aggregate_composite(suite: Suite, files: List[Path], out_dir: Path) -> Dict
     _check_unique(suite.name, seeds)
     written = []
     for seed in sorted(by_seed, key=_seed_order):
-        dest = out_dir / f"ref_composite_{suite.battery}_s{seed}.json"
+        dest = out_dir / f"ref_composite_{suite.ref_key}_s{seed}.json"
         shutil.copyfile(by_seed[seed], dest)
         written.append(dest.name)
     ordered = sorted(scores, key=_seed_order)
@@ -365,7 +425,7 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, 
         results=[r for _, r in pairs],
         sync_eval=True,
     )
-    stem = f"ref_ioh_{suite.battery}"
+    stem = f"ref_ioh_{suite.ref_key}"
     written = [f"{stem}.json"]
     (out_dir / written[0]).write_text(combined.to_json())
     for seed, res in pairs:
@@ -385,7 +445,7 @@ def _aggregate_families(suite: Suite, files: List[Path], out_dir: Path) -> Dict[
     rows = [r for c in chunks for r in c]
     # Stable sort: within a seed the screen's own row order is kept.
     rows.sort(key=lambda r: _seed_order(int(r["seed"])))
-    name = f"ref_family_screen_{suite.battery}.json"
+    name = f"ref_family_screen_{suite.ref_key}.json"
     (out_dir / name).write_text(json.dumps(rows))
     ordered = sorted(set(seeds), key=_seed_order)
     print(f"{suite.name}: {len(ordered)} seed(s), {len(rows)} rows (re-analyse: family_screen.py from={name})")
@@ -494,12 +554,12 @@ def summarize(out_dir: Path) -> Dict[str, Any]:
         elif suite.kind == "ioh":
             from panobbgo.harness_ioh import IOHMultiSeedResult
 
-            data = json.loads((out_dir / f"ref_ioh_{suite.battery}.json").read_text())
+            data = json.loads((out_dir / f"ref_ioh_{suite.ref_key}.json").read_text())
             combined = IOHMultiSeedResult.from_dict(data)
             entry["mean_aocc"] = combined.mean_aocc
             entry["per_spec_aocc"] = dict(sorted(combined.per_strategy_aocc().items(), key=lambda kv: -kv[1]))
         else:
-            rows = json.loads((out_dir / f"ref_family_screen_{suite.battery}.json").read_text())
+            rows = json.loads((out_dir / f"ref_family_screen_{suite.ref_key}.json").read_text())
             scored = [r for r in rows if r.get("aocc") is not None]
             entry["rows"] = len(rows)
             entry["failed_rows"] = sum(1 for r in rows if r.get("err"))

@@ -40,12 +40,10 @@ References for every comparison: the 2026-09-26 re-baseline (§54, release
 - [ ] **q-sweep measurement**: q ∈ {1, 4, 16, 64} on the virtual clock
       (`ioh_benchmark.py run --virtual-workers Q`, `aocc_time`), panobbgo
       and the ask/tell baselines; log it as a DISCOVERY section.
-- [ ] **Re-baseline workflow coverage.**  `scripts/rebaseline.py` measures
-      neither the external baselines (opt-in by name) nor the `shapes` /
-      `failure` family presets.  Add an external-baselines suite (IOH run
-      with `--baselines --strategies <defaults> <EXTERNAL_BASELINE_NAMES>`,
-      `--extra baselines` in `rebaseline.yml`) and the two presets, so
-      their references come from the sharded workflow.
+- [ ] **Re-baseline suite for the expensive-track baselines** (BoTorch /
+      SMAC / HEBO, extra `baselines-bo`) once they land: the slot is
+      marked in `SUITES` in `scripts/rebaseline.py`; size its shards from a
+      local timing like `ioh-external`.
 - [ ] **Optuna 6 drops `CmaEsSampler(x0=)`** (deprecated since 4.9;
       `harness_baselines.py` silences the FutureWarning).  Before bumping
       to 6: find another way to seed the start point, or accept the box

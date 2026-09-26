@@ -221,7 +221,7 @@ def near_best_rewards(constraint_handler, problem, last_best, results):
 def collect_pulls(strategy, selector, count_outstanding: bool = True) -> list:
     """Fill *strategy*'s evaluator queue by repeated calls of ``selector(target)``.
 
-    ``target = jobs_per_client × evaluators``; nothing is pulled while that
+    ``target = jobs_per_client × evaluators`` (at least one evaluator); nothing is pulled while that
     many evaluations are outstanding.  With *count_outstanding* the
     collection stops once outstanding plus collected points reach the target
     (one-point pulls), otherwise once the collected points alone do.
@@ -234,7 +234,11 @@ def collect_pulls(strategy, selector, count_outstanding: bool = True) -> list:
     :func:`rewarding_select` with an ``rng``), so its bookkeeping only ever
     covers points that are dispatched.
     """
-    target = strategy.jobs_per_client * len(strategy.evaluators)
+    # ``_n_evaluators``: the worker count floored at 1 (a dask cluster that
+    # reports no workers yet still gets a pull) and cached for dask; test
+    # doubles without it fall back to ``len(evaluators)``.
+    n_evaluators = getattr(strategy, "_n_evaluators", None)
+    target = strategy.jobs_per_client * (n_evaluators() if callable(n_evaluators) else len(strategy.evaluators))
     outstanding = len(strategy.evaluators.outstanding)
     if outstanding >= target:
         return []

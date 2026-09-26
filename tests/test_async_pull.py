@@ -117,17 +117,22 @@ def _instrument(s: Any) -> Dict[str, Any]:
     execute = s.execute
 
     def spy_execute() -> List[Any]:
-        rec["caps"].append(s.request_cap)
+        # The cap next to what is really free right now, computed here from
+        # the raw counters rather than through the code under test.
+        used = max(s._dispatched, len(s.results) + len(s.pending))
+        rec["caps"].append((s.request_cap, Q - len(s.pending), s.config.max_eval - used))
         return execute()
 
     s.execute = spy_execute
     return rec
 
 
-@pytest.mark.flaky(retries=3)
 @pytest.mark.parametrize("name", ["roundrobin", "blocks", "rewarding", "ucb", "phased"])
 def test_pull_when_free_properties(name):
-    """In flight never exceeds the workers, nothing is dispatched twice, the budget is exact."""
+    """In flight never exceeds the workers, nothing is dispatched twice, the budget is exact.
+
+    Invariants of every schedule, not statistics: no retries.
+    """
     s = _strategy(name)
     rec = _instrument(s)
     s.start()
@@ -137,9 +142,10 @@ def test_pull_when_free_properties(name):
     assert len(s.results) == MAX_EVAL
     assert s._problem.calls == MAX_EVAL
     assert s.n_admit_trimmed == 0  # every strategy honours its request cap
-    # Asked only while a worker was free, for at most the free workers.
-    assert rec["caps"] and all(c is not None and 1 <= c <= Q for c in rec["caps"])
-    assert s.jobs_per_client == 1
+    # Asked only while a worker was free, for exactly the free workers within the budget.
+    assert rec["caps"]
+    for cap, free, room in rec["caps"]:
+        assert cap is not None and 1 <= cap == min(free, room), (cap, free, room)
 
 
 @pytest.mark.flaky(retries=3)
@@ -150,10 +156,9 @@ def test_legacy_policy_still_floods_the_pool():
     s.start()
     assert len(s.results) == MAX_EVAL
     assert rec["peak"] > Q
-    assert all(c is None for c in rec["caps"])  # no request cap
+    assert all(c is None for c, _, _ in rec["caps"])  # no request cap
 
 
-@pytest.mark.flaky(retries=3)
 def test_ucb_counts_only_dispatched_pulls():
     """Under the cap a bandit's pull counts are the dispatched evaluations, exactly."""
     s = _strategy("ucb")
@@ -239,3 +244,100 @@ def test_admit_free_returns_the_surplus():
         assert s._admit_free(pts[:2], 2) == pts[:2]
     finally:
         s._cleanup()
+
+
+class _Clock:
+    """Stands in for ``panobbgo.core.time_module``: counts the main loop's sleeps, forwards the rest."""
+
+    def __init__(self) -> None:
+        self.sleeps = 0
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps += 1
+        time.sleep(seconds)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(time, name)
+
+
+def test_pull_waits_on_the_pool_and_refills_at_once(monkeypatch):
+    """Busy workers: block on the pool, not a 1 ms poll; a harvest: ask again without a pause.
+
+    Removing either path shows up in the counts: polling every millisecond
+    makes hundreds of sleeps over this ~0.4 s run, a pause after every
+    harvest about one per evaluation.
+    """
+    import panobbgo.core as core
+
+    clock = _Clock()
+    monkeypatch.setattr(core, "time_module", clock)
+    s = _strategy("roundrobin", q=2, max_eval=20)
+    s._problem.eval = lambda x: (time.sleep(0.04), float(np.sum(np.asarray(x) ** 2)))[1]
+    pauses: List[str] = []
+    pause = s._pull_pause
+
+    def spy(finished_moved: bool) -> str:
+        kind = pause(finished_moved)
+        pauses.append(kind)
+        return kind
+
+    s._pull_pause = spy
+    s.start()
+    assert len(s.results) == 20
+    assert pauses.count("wait") >= 5 and pauses.count("none") >= 5
+    assert clock.sleeps <= 5, (clock.sleeps, pauses.count("sleep"))
+    assert s.loops < 150
+
+
+def test_dask_without_workers_still_pulls(monkeypatch):
+    """A dask cluster reporting zero workers: bandits still submit (one at a time), no backstop wait."""
+    import panobbgo.dask_evaluation as dask_evaluation
+    from panobbgo.heuristics import Nearby, Random
+    from panobbgo.strategies import StrategyUCB
+
+    class Future:
+        _keys = iter(range(10**6))
+
+        def __init__(self, fn: Any, args: Any) -> None:
+            self.key = "f%d" % next(self._keys)
+            self.value = fn(*args)
+
+        def done(self) -> bool:
+            return True
+
+        def result(self) -> Any:
+            return self.value
+
+        def cancel(self) -> None:
+            pass
+
+    submitted: List[int] = []
+
+    def fake_setup(strategy: Any, problem: Any) -> None:
+        class Client:
+            def submit(self, fn: Any, *args: Any, pure: bool = False) -> Future:
+                submitted.append(len(strategy.pending))  # in flight before this one
+                return Future(fn, args)
+
+            def scheduler_info(self) -> Dict[str, Any]:
+                return {"workers": {}}
+
+            def close(self) -> None:
+                pass
+
+        strategy._client = Client()
+        strategy._problem_future = problem
+
+    monkeypatch.setattr(dask_evaluation, "setup_cluster", fake_setup)
+    s = StrategyUCB(Rosenbrock(dim=2), parse_args=False, testing_mode=True, seed=3, max_eval=12)
+    s.config.evaluation_method = "dask"
+    s.config.sync_evaluation = False
+    s.config.stop_on_convergence = False
+    s.config.deadlock_seconds = 5.0
+    s.add(Random)
+    s.add(Nearby, radius=0.1, axes="all", new=3)
+    t0 = time.time()
+    s.start()
+    assert len(s.results) == 12 and len(submitted) == 12
+    assert max(submitted) == 0  # one worker assumed: never two in flight
+    assert time.time() - t0 < 4.0  # not the deadlock backstop

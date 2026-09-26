@@ -2639,6 +2639,31 @@ class StrategyBase:
             self._dask_n_workers_cache = cached
         return cached[1]
 
+    def _pull_pause(self, finished_moved: bool) -> str:
+        """End of a pull-when-free pass: how to wait for the next decision point (returned for tests).
+
+        * ``"none"`` — a harvest just freed workers: ask the strategy again
+          at once.  The next pass has nothing new, so this never spins.
+        * ``"wait"`` — every worker is busy: block until an evaluation
+          completes (at most 50 ms, then re-check), instead of polling every
+          millisecond; the pool wakes up on the completion itself.
+        * ``"sleep"`` — a worker is free but the strategy had nothing (its
+          heuristics refill from event handlers) or nothing is in flight:
+          the usual 1 ms pause.
+        """
+        if finished_moved:
+            return "none"
+        if self.pending and self._free_workers() == 0:
+            if self.config.evaluation_method == "dask":
+                from . import dask_evaluation
+
+                dask_evaluation.wait_any(self, timeout=0.05)
+            else:
+                self._pool.wait(deadline=time_module.time() + 0.05)
+            return "wait"
+        time_module.sleep(1e-3)
+        return "sleep"
+
     def _admit_free(self, points: List[Any], cap: int) -> List[Any]:
         """Pull-when-free safety net: keep the first ``cap`` candidates, return the rest to their queues.
 
@@ -2737,11 +2762,10 @@ class StrategyBase:
                 if virtual:
                     cap = self._virtual_clock.request_cap()
                 elif pull:
+                    # ``jobs_per_client`` stays at its initial 1: the legacy
+                    # sizing below is skipped, and under a cap the bandits'
+                    # target does not matter anyway (``collect_pulls``).
                     cap = self._free_workers()
-                    # The bandits' target (``jobs_per_client × evaluators``,
-                    # :func:`~panobbgo.strategies._bandit.collect_pulls`) is
-                    # the worker count: one evaluation per worker.
-                    self.jobs_per_client = 1
                 else:
                     cap = None
                 self.request_cap = cap
@@ -2872,11 +2896,8 @@ class StrategyBase:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
                 break
 
-            if pull and finished_moved:
-                # Pull when free: a harvest just freed workers — ask the
-                # strategy again at once rather than leave them idle for a
-                # pass.  The next pass has nothing new, so this never spins.
-                pass
+            if pull:
+                self._pull_pause(finished_moved)
             elif not sync or (self.pending and not virtual):
                 # Limit loop speed while evaluations are in flight.  Under
                 # sync threaded/processes evaluation nothing is in flight here

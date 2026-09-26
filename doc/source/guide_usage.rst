@@ -221,7 +221,8 @@ runs the same **pull-when-free** policy by default
 for at most the free workers within the budget, with
 ``jobs_per_client = 1``, and no candidate is queued behind a busy worker,
 where it would go stale.  A harvest that frees a worker is followed by a
-new request at once.  ``async_policy: legacy`` keeps the old behaviour:
+new request at once; while every worker is busy the loop blocks until an
+evaluation completes rather than polling.  ``async_policy: legacy`` keeps the old behaviour:
 batches of ``jobs_per_client`` per worker sized from wall-clock task
 timings, requested on every pass, so a fixed-size strategy can queue far
 past the free workers.  With ``sync: true`` (and on the virtual clock) the

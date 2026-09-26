@@ -247,6 +247,27 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
     return new_results
 
 
+def wait_any(strategy: "StrategyBase", timeout: float) -> None:
+    """Block until one outstanding future completes, or ``timeout`` seconds.
+
+    The pull-when-free loop's wait while every worker is busy
+    (:meth:`~panobbgo.core.StrategyBase._pull_pause`).  Objects that are
+    not dask futures (test doubles) get a 1 ms sleep instead.
+    """
+    from distributed import Future, TimeoutError as DaskTimeoutError
+    from distributed import wait as distributed_wait
+
+    futures = [f for f in strategy.pending.values() if isinstance(f, Future)]
+    if not futures:
+        time_module.sleep(1e-3)
+        return
+    try:
+        with strategy._client.as_current():  # ``wait`` uses the current client
+            distributed_wait(futures, timeout=timeout, return_when="FIRST_COMPLETED")
+    except (DaskTimeoutError, TimeoutError):
+        pass
+
+
 def _warn_ignored_options(strategy: "StrategyBase") -> None:
     """Warn once that ``evaluation.sync`` does not apply to dask.
 

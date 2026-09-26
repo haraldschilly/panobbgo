@@ -115,7 +115,7 @@ from panobbgo.harness_ioh import (
 )
 from panobbgo.lib.realworld import RealWorldProblem, make_realworld_instances
 from panobbgo.local_run import BLAS_THREADS
-from panobbgo.virtual_clock import VirtualSpec
+from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 
 #: ``(name, problem)`` pairs, as returned by :func:`~panobbgo.lib.realworld.make_realworld_instances`.
 RealWorldInstances = List[Tuple[str, RealWorldProblem]]
@@ -286,6 +286,16 @@ def run_realworld_harness(
             for rep in range(int(reps)):
                 idx += 1
                 seed = _derive_seed(base_seed, problem.family, problem.dim, problem.instance, spec.rng_identity, rep)
+                # Common random numbers: the duration stream is keyed on the cell, not the strategy.
+                cell_virtual = (
+                    None
+                    if virtual is None
+                    else virtual.with_cell(
+                        _derive_seed(
+                            base_seed, problem.family, problem.dim, problem.instance, DURATION_STREAM_IDENTITY, rep
+                        )
+                    )
+                )
                 task: Dict[str, Any] = dict(
                     strategy_spec=spec,
                     problem=problem,
@@ -296,7 +306,7 @@ def run_realworld_harness(
                     log_hi=log_hi,
                     sync_eval=sync_eval,
                     timeout_s=timeout_s,
-                    virtual=virtual,
+                    virtual=cell_virtual,
                 )
                 if jobs > 1:
                     tasks.append(task)

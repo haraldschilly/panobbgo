@@ -36,12 +36,21 @@ Model
 * **Workers.**  ``q`` simulated workers.
 * **Durations.**  Each call gets a duration from a :class:`DurationModel`
   (``evaluation.virtual_duration``): ``"constant"``, ``"lognormal"`` (log-space
-  standard deviation ``evaluation.virtual_duration_sigma``, drawn from the
-  run's own keyed RNG stream, see :data:`RNG_STREAM_KEY`), a number (a
+  standard deviation ``evaluation.virtual_duration_sigma``, drawn from a
+  keyed RNG stream, see :data:`RNG_STREAM_KEY`), a number (a
   constant duration) or x-dependent (a :class:`CallableDuration`, which needs
   an explicit nominal ``mean``).  The built-in models have **mean 1** unless
   ``evaluation.virtual_duration_mean`` says otherwise; the virtual-time
   metric measures time in units of the model's mean.
+* **Common random numbers.**  The duration stream is keyed on
+  ``evaluation.virtual_duration_seed`` when it is set (the harnesses set it
+  per *cell* — base seed, problem, dimension, instance, rep — through
+  :attr:`VirtualSpec.duration_seed`, never per strategy), else on the
+  strategy's own seed.  One duration is drawn per dispatch, in dispatch
+  order, by :class:`VirtualClock` and :func:`run_ask_tell` alike, so on one
+  cell the i-th dispatched call takes the same time for every strategy and
+  baseline: a paired comparison is paired in its durations too.  (An
+  x-dependent model still sees each strategy's own points.)
 * **Events.**  A call dispatched at virtual time ``t`` with duration ``d``
   completes at ``t + d``.  Completions form a queue ordered by ``(time,
   sequence)``, the sequence number being the dispatch order, so ties are
@@ -109,7 +118,7 @@ import heapq
 import math
 import warnings
 import zlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
@@ -280,6 +289,10 @@ class VirtualSpec:
     mean: Optional[float] = None
     #: ``"async"`` (default) or ``"sync"`` (see the module docstring).
     policy: str = "async"
+    #: Seed of the duration stream (common random numbers).  The harnesses set
+    #: it per cell, the same for every strategy on the cell
+    #: (:func:`cell_duration_seed`); ``None``: the strategy's own seed.
+    duration_seed: Optional[int] = None
 
     def __post_init__(self) -> None:
         if int(self.workers) < 1:
@@ -302,11 +315,26 @@ class VirtualSpec:
         cfg.virtual_duration_sigma = float(self.sigma)
         cfg.virtual_duration_mean = self.mean
         cfg.virtual_policy = self.policy
+        cfg.virtual_duration_seed = self.duration_seed
         strategy._virtual_observer = observer
 
+    def with_cell(self, seed: int) -> "VirtualSpec":
+        """This spec with the duration stream of one cell (``seed``: :func:`cell_duration_seed`)."""
+        return replace(self, duration_seed=int(seed))
+
     def to_dict(self) -> Dict[str, Any]:
-        """JSON-able description: ``{"workers": q, "policy": ..., **model.describe()}``."""
-        return {"workers": int(self.workers), "policy": self.policy, **self.model().describe()}
+        """JSON-able description: ``{"workers": q, "policy": ..., **model.describe(), "durations": "crn"}``.
+
+        ``durations: "crn"`` records that durations are common random numbers
+        per cell (results from before 2026-09-26 lack it: their streams were
+        keyed per strategy).  The per-cell seed itself is not recorded.
+        """
+        return {"workers": int(self.workers), "policy": self.policy, **self.model().describe(), "durations": "crn"}
+
+
+#: The strategy identity the duration stream of a cell is derived under
+#: (in place of a strategy's ``rng_identity``): no strategy has this name.
+DURATION_STREAM_IDENTITY = "<virtual-clock durations>"
 
 
 @dataclass(order=True)
@@ -413,7 +441,7 @@ class VirtualClock:
         if self._rng is None:
             from .core import keyed_rng
 
-            self._rng = keyed_rng(self.strategy.seed, RNG_STREAM_KEY)
+            self._rng = keyed_rng(duration_seed(cfg, self.strategy.seed), RNG_STREAM_KEY)
         # ``len(strategy.evaluators)``: the strategies size their batches by it.
         self.strategy._n_processes = self.workers
 
@@ -616,6 +644,12 @@ def check_nominal_mean(model: DurationModel, n: int, total: float, logger: Any =
         if logger is not None:
             logger.warning(msg)
         warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+
+def duration_seed(cfg: Any, fallback: int) -> int:
+    """Seed of a run's duration stream: ``cfg.virtual_duration_seed`` (per cell) if set, else ``fallback``."""
+    seed = getattr(cfg, "virtual_duration_seed", None)
+    return int(fallback if seed is None else seed)
 
 
 def _draw(model: DurationModel, x: np.ndarray, rng: np.random.Generator) -> float:

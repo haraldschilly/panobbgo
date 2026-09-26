@@ -698,14 +698,15 @@ class AskTellBaselineStrategy(BaselineStrategy):
         feeds the tracker (``_virtual_observer``) in completion order, so
         the baseline gets ``aocc_time`` like a panobbgo strategy.  The
         duration stream is the one panobbgo strategies use
-        (:data:`~panobbgo.virtual_clock.RNG_STREAM_KEY` of the run seed).
+        (:data:`~panobbgo.virtual_clock.RNG_STREAM_KEY` of the cell's
+        ``virtual_duration_seed``, else of the run seed): common random numbers.
         The results frame stays in dispatch order.  A signalled timeout (a
         family's ``failure_at``) is not evaluated on this path, so it is not
         written to the results frame; the tracker counts it as a spent
         evaluation all the same.
         """
         from panobbgo.core import keyed_rng
-        from panobbgo.virtual_clock import RNG_STREAM_KEY, _model_of, failure_mode, run_ask_tell
+        from panobbgo.virtual_clock import RNG_STREAM_KEY, _model_of, duration_seed, failure_mode, run_ask_tell
 
         cfg = self.config
         objective = _make_objective(self.problem, log)
@@ -727,7 +728,7 @@ class AskTellBaselineStrategy(BaselineStrategy):
             objective,
             workers=q,
             model=_model_of(cfg),
-            rng=keyed_rng(seed, RNG_STREAM_KEY),
+            rng=keyed_rng(duration_seed(cfg, seed), RNG_STREAM_KEY),
             budget=log.max_eval,
             policy=getattr(cfg, "virtual_policy", "async"),
             timeout=float(timeout) if timeout else None,

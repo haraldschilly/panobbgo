@@ -36,6 +36,13 @@ on:
         description: "'all' or a comma list of: core, qLogEI, TuRBO1, SMAC"
         type: string
         default: all
+      extra_units:
+        description: >-
+          Extra units, one shard each (calibration runs), ';'-joined ids
+          <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>], e.g.
+          'qLogEI.free.b100.q16.d5.s42.i0;qLogEI.free.b100.q64.d5.s42.i0'
+        type: string
+        default: ""
       ref:
         description: "Git ref to measure (default: the ref this workflow runs from)"
         type: string
@@ -68,9 +75,10 @@ jobs:
           DIMS: ${{ inputs.dims }}
           QS: ${{ inputs.qs }}
           GROUPS: ${{ inputs.groups }}
+          EXTRA: ${{ inputs.extra_units }}
         run: |
           matrix=$(python3 scripts/measure.py plan --seeds "$SEEDS" --presets "$PRESETS" \
-            --budgets "$BUDGETS" --dims "$DIMS" --qs "$QS" --groups "$GROUPS")
+            --budgets "$BUDGETS" --dims "$DIMS" --qs "$QS" --groups "$GROUPS" --extra-units "$EXTRA")
           sha=$(git rev-parse HEAD)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
@@ -148,6 +156,8 @@ jobs:
           path: measure-out/
           if-no-files-found: warn
           retention-days: 90
+          # A re-run of the job replaces its artifact instead of failing on the name.
+          overwrite: true
 
   aggregate:
     needs: [plan, measure]
@@ -201,3 +211,4 @@ jobs:
           name: measure-summary
           path: measure-summary/
           retention-days: 90
+          overwrite: true

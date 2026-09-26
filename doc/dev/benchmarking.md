@@ -157,10 +157,11 @@ Unpack it with `scripts/rebaseline.py fetch` (next section).
 
 `.github/workflows/rebaseline.yml` (manual) re-measures the references:
 composite quick/standard, IOH quick/standard, `ioh-external` (the IOH
-standard battery with the pycma / Nevergrad / Optuna baselines too; its
-jobs install `--extra baselines`) and the family screens (`free`,
-`constrained`, `shapes`, `failure`), sharded over (suite × seed chunk),
-36 jobs for 12 seeds.  Every shard is seeded, `sync_eval`, with no
+standard battery plus the external baselines of the `baselines` extra,
+pycma / Nevergrad / Optuna, selected by the extra their class names) and
+the family screens (`free`, `constrained`, `shapes`, `failure`), sharded
+over (suite × seed chunk),
+27 jobs for 12 seeds.  Every shard is seeded, `sync_eval`, with no
 wall-clock limit, so the numbers do not depend on runner speed.  Suites,
 chunk sizes and the cost estimates behind them: `scripts/rebaseline.py`
 (`ioh-external` ≈ 10 min per seed serially, dominated by NGOpt and Optuna

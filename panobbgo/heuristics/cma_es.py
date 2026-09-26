@@ -513,6 +513,9 @@ class CMAES(Heuristic):
         self._D: Optional[np.ndarray] = None
         self._eigeneval: int = 0
         self._counteval: int = 0
+        #: Consecutive generations whose every offspring failed (crashed or
+        #: non-finite); see :meth:`_update_if_quorum`.
+        self._failed_generations: int = 0
 
         # Strategy parameters (set in on_start)
         self._lam: int = 0
@@ -1010,6 +1013,13 @@ class CMAES(Heuristic):
 
         self._update_if_quorum()
 
+    #: Consecutive all-failed generations before a restart (see
+    #: :meth:`_update_if_quorum`).  A last resort for a mean stuck inside a
+    #: failure region: on ``ellipsoid_fhs_crash`` (optimum on the boundary)
+    #: ``3`` fired on healthy runs and cost precision (1e-6 -> 42 on one
+    #: d5 run); ``10`` never fired there.
+    MAX_FAILED_GENERATIONS: int = 10
+
     def on_failed_evaluations(self, points) -> None:
         """Count a failed offspring (no result: the objective crashed) as the worst of its generation.
 
@@ -1061,9 +1071,29 @@ class CMAES(Heuristic):
                 # — after the quorum check, so they never count toward
                 # ``min_needed`` — and ranked with the offspring by ``_update``.
                 injected = self._injected.pop(gen, None)
-                self._update(bucket + injected if injected else bucket, n_offspring=emitted)
+                entries = bucket + injected if injected else bucket
                 del self._gen_results[gen]
                 self._gen_emitted.pop(gen, None)
+                if not any(np.isfinite(e["penalty"]) for e in entries):
+                    # Every entry failed (a crash region, NaN results): there
+                    # is nothing to rank.  An update would move the mean onto
+                    # failed points only and blow sigma up, so the generation
+                    # is charged and dropped, and the same distribution is
+                    # sampled again.  A mean stuck inside a failure region
+                    # would resample forever: after a few such generations in
+                    # a row, restart.
+                    self._counteval += emitted
+                    self._total_evals += emitted
+                    self._failed_generations += 1
+                    if self._failed_generations >= self.MAX_FAILED_GENERATIONS:
+                        self._failed_generations = 0
+                        self._last_stop_reason = "failed_generations"
+                        self.on_restart(self._restart_center("best"), "all offspring failed")
+                    else:
+                        self._emit_generation()
+                    break
+                self._failed_generations = 0
+                self._update(entries, n_offspring=emitted)
                 # A fired termination criterion replaces the next generation
                 # with a restart — ``_apply_restart`` emits from the fresh
                 # distribution, so exactly one generation goes out either way.

@@ -770,6 +770,10 @@ class _FailureGeometry:
         # boxes
         self.lo = np.zeros((0, dim))
         self.hi = np.zeros((0, dim))
+        #: ``True`` when no random draw kept ``x_opt`` outside and the
+        #: deterministic fallback placed the region (the realised share is
+        #: then below ``share``; see :attr:`share`).  Never for a half-space.
+        self.fallback = False
 
         if self.shape == "halfspace":
             axis = int(rng.integers(dim))
@@ -802,10 +806,6 @@ class _FailureGeometry:
             return
 
         sample = rng.uniform(-b, b, size=(FAILURE_MC_POINTS, dim))
-        #: ``True`` when no random draw kept ``x_opt`` outside and the
-        #: deterministic fallback placed the region (the realised share is
-        #: then below ``share``; see :attr:`share`).
-        self.fallback = False
         # A box draw is a 30-step bisection, a ball draw one quantile: the
         # boxes give up sooner.
         tries = FAILURE_MAX_TRIES if self.shape == "ball" else FAILURE_MAX_TRIES_BOXES
@@ -832,18 +832,29 @@ class _FailureGeometry:
 
         Happens for large shares where the region cannot avoid a central
         optimum (a ball of 20 % of the box at ``d = 10`` around an unshifted
-        ``x_opt = 0``).  Ball: centred half-way to the corner *away* from
-        ``x_opt``, its radius capped so ``x_opt`` stays outside.  Boxes: the
+        ``x_opt = 0``).  Ball: the centre is searched along the ray from
+        ``x_opt`` to the corner *away* from it (up to one half-width past
+        the corner), the radius capped so ``x_opt`` stays outside, and the
+        centre whose capped ball comes closest to the target share wins.  Boxes: the
         last draw, each box containing ``x_opt`` cut at ``x_opt`` along the
         axis where that removes the thinnest slab.  Either way the realised
         share (:attr:`share`) is at most the target.
         """
         self.fallback = True
         if self.shape == "ball":
-            self.centre = -0.5 * b * np.where(x_opt >= 0.0, 1.0, -1.0)
-            dist = np.linalg.norm(sample - self.centre, axis=1)
-            cap = float(np.linalg.norm(x_opt - self.centre))
-            self.radius = min(float(np.quantile(dist, target)), cap)
+            corner = -b * np.where(x_opt >= 0.0, 1.0, -1.0)
+            ray = corner - x_opt
+            best: Optional[Tuple[float, np.ndarray, float]] = None
+            for t in np.linspace(0.25, 1.0 + b / max(float(np.linalg.norm(ray)), 1e-12), 16):
+                centre = x_opt + t * ray
+                dist = np.linalg.norm(sample - centre, axis=1)
+                cap = float(np.linalg.norm(x_opt - centre))
+                radius = min(float(np.quantile(dist, target)), cap)
+                share = float(np.mean(dist < radius))
+                if best is None or abs(share - target) < abs(best[0] - target):
+                    best = (share, centre, radius)
+            assert best is not None
+            _, self.centre, self.radius = best
             return
         for j in range(self.lo.shape[0]):
             lo, hi = self.lo[j], self.hi[j]

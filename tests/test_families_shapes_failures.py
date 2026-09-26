@@ -485,18 +485,22 @@ def _de_spec():
 
 
 def test_cmaes_and_de_survive_a_crash_region():
-    """A generation / slot that loses points to crashes keeps going: the full budget is spent.
+    """A generation / slot that loses points to crashes keeps going, and converges.
 
-    ``rastrigin_fball_crash`` d5, instance 0: CMA-ES used to end at 8/500
-    evaluations (its first generation never reached its quorum).
+    ``ellipsoid_fhs_crash`` d2, instance 0, optimum on the boundary: without
+    ``CMAES.on_failed_evaluations`` the run ends at 480/1000 evaluations;
+    updating from an all-crashed generation (instead of dropping it) blew
+    sigma up and ended at precision ~0.75.
     """
-    inst = [x for x in make_failure_battery(dims=(5,), n_instances=1) if x[1].family == "rastrigin_fball_crash"]
+    inst = [x for x in make_failure_battery(dims=(2,), n_instances=1) if x[1].family == "ellipsoid_fhs_crash"]
     specs = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"] + [_de_spec()]
-    result = run_family_harness(specs, inst, budget_multiplier=100, base_seed=1, progress=False)
+    result = run_family_harness(specs, inst, budget_multiplier=500, base_seed=1, progress=False)
     assert len(result.runs) == 2
     for run in result.runs:
         assert run.error is None, (run.strategy_name, run.error)
-        assert run.n_evals == run.budget == 500
+        assert run.n_evals == run.budget == 1000
+    cma = next(r for r in result.runs if r.strategy_name == "RoundRobin_CMAES")
+    assert cma.precision < 1e-6
 
 
 def test_a_baseline_survives_a_crash_region():
@@ -547,6 +551,10 @@ def test_unplaceable_regions_fall_back_deterministically(shape):
     assert _mc_share(p, n=5000) == pytest.approx(p.failure_share, abs=0.02)
     battery = make_family_instances([FamilyConfig(base="sphere", shift=False, failure=region)], dims=(10,))
     assert len(battery) == 3  # the battery builds
+    if shape == "ball":  # the ray search reaches the target where a half-way centre gave 4 %
+        assert p.failure_share == pytest.approx(0.2, abs=0.02)
+    hs = Family("sphere", dim=10, seed=3, shift=False, failure=FailureRegion("halfspace", share=0.2))
+    assert hs._failure_geom.fallback is False
 
 
 def test_failure_share_is_measured_out_of_sample():
@@ -555,3 +563,33 @@ def test_failure_share_is_measured_out_of_sample():
     in_sample = float(np.mean(p._failure_geom.contains_many(calib)))
     assert p.failure_share != in_sample  # a different sample ...
     assert p.failure_share == pytest.approx(0.1, abs=0.01)  # ... that still measures the target
+
+
+def test_a_timeout_abandoned_in_flight_is_not_an_early_end():
+    """Threads + ``evaluation.timeout``: an abandoned call is never recorded, but its slot was spent."""
+    import time
+
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.harness_ioh import _early_end_error
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    assert _early_end_error(24, 30, 30) is None
+    assert _early_end_error(8, 8, 30) is not None
+
+    class Slow(Family):
+        def eval(self, x):
+            if x[0] > 2.0:
+                time.sleep(0.3)
+            return super().eval(x)
+
+    spec = StrategySpec(
+        name="R",
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(Random, {})],
+        config_overrides={"evaluation_timeout": 0.05},
+    )
+    run = run_family_harness([spec], [("slow", Slow("sphere", dim=2, seed=1))], budget_multiplier=15, progress=False)
+    run = run.runs[0]
+    assert run.n_evals < run.budget  # abandoned calls never reached the trace ...
+    assert run.error is None  # ... but the run spent its budget

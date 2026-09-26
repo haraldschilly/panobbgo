@@ -103,7 +103,11 @@ no worker venv): `--families` (5 families × dims 2/5/10 × 3 instances),
 `--families-constrained` (4 families × dims 2/5, 1–3 constraints active at
 the optimum, AOCC on `f + 100·cv`) and `--families-quick` (smoke test).
 Multi-seed screens: `benchmarks/family_screen.py`, `portfolio_screen.py`,
-`arm_sweep.py`, `oracle.py` (guide, "Per-arm sweeps").
+`arm_sweep.py`, `oracle.py` (guide, "Per-arm sweeps").  `family_screen.py`
+also has `preset=shapes` (BBOB f6/f7/f12/f21/f24 × dims 2/5/10) and
+`preset=failure` (failure regions where evaluations crash or time out,
+`lib.families.FailureRegion`; failed calls are spent budget, and a run that
+stops below its budget is recorded as `EndedEarly`).
 
 ## Comparability
 

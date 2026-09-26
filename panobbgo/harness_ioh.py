@@ -1317,12 +1317,25 @@ def _run_tracked(
         # Scored above on the trajectory up to the deadline; the error
         # marks it so no table mistakes a cut-off run for a finished one.
         out.error = f"{TIMEOUT_ERROR_PREFIX} {timeout_s:g}s at {out.n_evals}/{budget} evals"
-    elif out.n_evals < budget:
-        # No deadline and no exception, yet the budget was not spent: the
-        # strategy stopped by itself (every arm stopped producing).  Scored
-        # like any short run, but marked so no table reads it as clean.
-        out.error = f"{EARLY_END_ERROR_PREFIX} {out.n_evals}/{budget} evals"
+    else:
+        out.error = _early_end_error(out.n_evals, getattr(tracker, "_reserved", out.n_evals), budget)
     return out
+
+
+def _early_end_error(n_evals: int, admitted: int, budget: int) -> Optional[str]:
+    """The ``EndedEarly`` marker, or ``None`` for a run that used its budget.
+
+    No deadline and no exception, yet the budget was not spent: the strategy
+    stopped by itself (every arm stopped producing).  Scored like any short
+    run, but marked so no table reads it as clean.  The test is on the
+    evaluations the tracker *admitted* (recorded plus in flight), not only
+    the recorded ones: a call abandoned by ``evaluation.timeout`` in threaded
+    mode keeps running after the run and is never recorded, but its budget
+    slot was dispatched — that run did not end early.
+    """
+    if max(n_evals, admitted) >= budget:
+        return None
+    return f"{EARLY_END_ERROR_PREFIX} {n_evals}/{budget} evals"
 
 
 def _run_one(

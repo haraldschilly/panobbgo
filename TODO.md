@@ -3,8 +3,9 @@
 Open work only; remove an item when it is done.  Results go to
 `planning/DISCOVERY_2026-09-09.md` (§n), the state and plan of record to
 `planning/GOAL.md` §2/§2c, older history to `planning/done/TODO_archive_*`.
-References for every comparison: the 2026-09-26 re-baseline (§54,
-`planning/results/2026-09-26/`).
+References for every comparison: the 2026-09-26 re-baseline (§54, release
+`rebaseline-2026-09-26-run36228301268`, summary in
+`planning/results/2026-09-26/SUMMARY.json`).
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -94,6 +95,10 @@ Cheap-track items, in GOAL §2c order:
 - [ ] **Composite registry**: `CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`
       all pair CMA-ES with the `Restart` analyzer (measured −0.067); the
       composite score is a frozen contract.
-- [ ] **Re-baseline result size**: ~14 MB of JSON per run, committed
-      (`planning/results/2026-09-26/`).  Keep as is, compress, or keep only
-      the aggregates?
+- [ ] **Other raw result data in git**: re-baseline `ref_*` files now go to
+      GitHub releases (decision 2026-09-26, `doc/dev/benchmarking.md`).
+      Still committed: `planning/results/2026-09-1{0,1,3,4}/` (~7.5 MB of
+      screen JSON and logs, cited by DISCOVERY §§) and the loop ledgers
+      `planning/done/self_improve_ledger_*.jsonl` (~2.4 MB).  Same rule going
+      forward (one release per dated results directory), or leave the
+      historical ones where they are?

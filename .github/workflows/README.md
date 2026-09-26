@@ -57,12 +57,14 @@ serialised and never cancelled mid-push.
 
 ## `rebaseline.yml` — re-measure the reference baselines (manual)
 
-`workflow_dispatch` only (inputs: `suites`, `seeds`, `ref`).  A `plan` job
-turns the inputs into a matrix via `scripts/rebaseline.py plan`; each
-`measure` job runs one (suite, seed chunk) shard — synchronous, seeded, no
-wall-clock limit — and uploads `shard-<suite>-<shard>`; `aggregate` builds
-the reference files and uploads `rebaseline-references`.  Procedure in
-`doc/dev/benchmarking.md`, "Re-baselining on GitHub runners".
+`workflow_dispatch` only (inputs: `suites`, `seeds`, `ref`, `release`).  A
+`plan` job turns the inputs into a matrix via `scripts/rebaseline.py plan`;
+each `measure` job runs one (suite, seed chunk) shard — synchronous, seeded,
+no wall-clock limit — and uploads `shard-<suite>-<shard>`; `aggregate`
+builds the reference files, publishes them as a pre-release
+`rebaseline-<date>` (the only job with `contents: write`) and uploads
+`rebaseline-references`.  Procedure in `doc/dev/benchmarking.md`,
+"Re-baselining on GitHub runners".
 
 ## Maintenance
 

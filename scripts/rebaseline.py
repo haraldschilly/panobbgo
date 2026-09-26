@@ -4,7 +4,7 @@
 """Re-measure the reference baselines, sharded over GitHub runners.
 
 The engine behind ``.github/workflows/rebaseline.yml`` (``doc/dev/benchmarking.md``,
-"Re-baselining on GitHub runners").  Three subcommands:
+"Re-baselining on GitHub runners").  Subcommands:
 
 ``plan``
     Print the job matrix (JSON) for a set of suites and seeds.  Stdlib only,
@@ -20,10 +20,35 @@ The engine behind ``.github/workflows/rebaseline.yml`` (``doc/dev/benchmarking.m
 
 ``aggregate``
     Turn downloaded shard artifacts (``gh run download``) into the reference
-    files, in the formats the comparison tools read::
+    files, in the formats the comparison tools read, plus ``ref_MANIFEST.json``
+    and the small ``SUMMARY.json``::
 
-        gh run download RUN_ID --pattern 'rebaseline-*' --dir rebaseline-raw
+        gh run download RUN_ID --pattern 'shard-*' --dir rebaseline-raw
         uv run python scripts/rebaseline.py aggregate rebaseline-raw
+
+``publish``
+    Attach an aggregated directory to a GitHub release (the workflow does
+    this; needs ``gh`` with write access).  The raw ``ref_*`` files are not
+    committed to git (Harald, 2026-09-26)::
+
+        uv run python scripts/rebaseline.py publish planning/results/2026-09-26 --target SHA
+
+``fetch``
+    Download and unpack a release's reference files, by default into
+    ``planning/results/<date>/`` (``.gitignore`` keeps the raw files out of
+    git; ``SUMMARY.json`` and ``ref_MANIFEST.json`` are committed)::
+
+        uv run python scripts/rebaseline.py fetch rebaseline-2026-09-26-run36228301268
+
+``summarize``
+    (Re)write ``SUMMARY.json`` of an aggregated directory.
+
+Release convention: tag ``rebaseline-<UTC date>`` (``rebaseline-<date>-run<id>``
+when that tag already belongs to another workflow run), a *pre-release* never
+marked latest, the tag on the measured commit.  Assets: ``<tag>.tar.gz``
+(every ``ref_*.json``, flat), ``ref_MANIFEST.json`` and ``SUMMARY.json``.
+The repository has immutable releases: a published release never changes,
+and the tag of a deleted one cannot be used again.
 
 Suites and the files ``aggregate`` writes (default into
 ``planning/results/<UTC date>/``):
@@ -54,9 +79,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tarfile
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -362,6 +390,9 @@ def _aggregate_families(suite: Suite, files: List[Path], out_dir: Path) -> Dict[
     return {"seeds": ordered, "files": [name], "rows": len(rows)}
 
 
+MANIFEST = "ref_MANIFEST.json"
+SUMMARY = "SUMMARY.json"
+
 _AGGREGATORS = {"composite": _aggregate_composite, "ioh": _aggregate_ioh, "families": _aggregate_families}
 
 
@@ -389,8 +420,9 @@ def aggregate(src: Path, out_dir: Path) -> Dict[str, Any]:
         print(f"warning: failed shards (their seeds are missing): {manifest['failed_shards']}", file=sys.stderr)
     seed_sets = {tuple(v["seeds"]) for v in manifest["suites"].values()}
     if len(seed_sets) > 1:
-        print("warning: the suites cover different seed sets (see ref_MANIFEST.json)", file=sys.stderr)
-    (out_dir / "ref_MANIFEST.json").write_text(json.dumps(manifest, indent=2))
+        print(f"warning: the suites cover different seed sets (see {MANIFEST})", file=sys.stderr)
+    (out_dir / MANIFEST).write_text(json.dumps(manifest, indent=2))
+    write_summary(out_dir)
     return manifest
 
 
@@ -400,6 +432,263 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
     )
     aggregate(Path(args.src), out_dir)
     print(f"\nwrote the reference files to {out_dir}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# summarize
+# ---------------------------------------------------------------------------
+
+
+def _stats(values: Sequence[float]) -> Dict[str, float]:
+    vals = list(values)
+    return {"mean": sum(vals) / len(vals), "min": min(vals), "max": max(vals)} if vals else {}
+
+
+def _by_spec_mean(pairs: Sequence[Tuple[str, float]]) -> Dict[str, float]:
+    acc: Dict[str, List[float]] = {}
+    for name, val in pairs:
+        acc.setdefault(name, []).append(val)
+    return dict(sorted(((k, sum(v) / len(v)) for k, v in acc.items()), key=lambda kv: -kv[1]))
+
+
+def summarize(out_dir: Path) -> Dict[str, Any]:
+    """The small, committable digest of an aggregated directory.
+
+    Per suite the seeds and the numbers the DISCOVERY log cites: composite
+    mean / min / max and per seed; IOH mean AOCC and per spec; families rows,
+    failed rows and mean AOCC per spec.  ``release`` is ``None`` here;
+    :func:`publish` fills it in.
+    """
+    manifest = json.loads((out_dir / MANIFEST).read_text())
+    suites: Dict[str, Any] = {}
+    for name, info in manifest["suites"].items():
+        suite = SUITES[name]
+        entry: Dict[str, Any] = {"seeds": info["seeds"], "files": info["files"]}
+        if suite.kind == "composite":
+            scores = {str(k): float(v) for k, v in info["composite_score"].items()}
+            entry["composite_score"] = {**_stats(list(scores.values())), "per_seed": scores}
+        elif suite.kind == "ioh":
+            from panobbgo.harness_ioh import IOHMultiSeedResult
+
+            data = json.loads((out_dir / f"ref_ioh_{suite.battery}.json").read_text())
+            combined = IOHMultiSeedResult.from_dict(data)
+            entry["mean_aocc"] = combined.mean_aocc
+            entry["per_spec_aocc"] = dict(sorted(combined.per_strategy_aocc().items(), key=lambda kv: -kv[1]))
+        else:
+            rows = json.loads((out_dir / f"ref_family_screen_{suite.battery}.json").read_text())
+            scored = [r for r in rows if r.get("aocc") is not None]
+            entry["rows"] = len(rows)
+            entry["failed_rows"] = sum(1 for r in rows if r.get("err"))
+            entry["mean_aocc"] = sum(float(r["aocc"]) for r in scored) / len(scored) if scored else None
+            entry["per_spec_aocc"] = _by_spec_mean([(str(r["s"]), float(r["aocc"])) for r in scored])
+        suites[name] = entry
+    return {
+        "created": manifest.get("created"),
+        "git_sha": manifest.get("git_sha", []),
+        "github_run_id": manifest.get("github_run_id", []),
+        "failed_shards": manifest.get("failed_shards", []),
+        "release": None,
+        "suites": suites,
+    }
+
+
+def write_summary(out_dir: Path, release: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    """(Re)write ``SUMMARY.json``; a release recorded earlier is kept unless a new one is given."""
+    summary = summarize(out_dir)
+    path = out_dir / SUMMARY
+    if release is None and path.exists():
+        release = json.loads(path.read_text()).get("release")
+    summary["release"] = release
+    path.write_text(json.dumps(summary, indent=2) + "\n")
+    return summary
+
+
+def summary_markdown(summary: Dict[str, Any]) -> str:
+    """Markdown rendering of a summary: the release notes and the workflow's job summary."""
+    run = ", ".join(summary.get("github_run_id") or []) or "local"
+    sha = ", ".join(s[:7] for s in summary.get("git_sha") or []) or "unknown"
+    lines = [
+        "Reference data of a re-baseline (`.github/workflows/rebaseline.yml`), not a software release.",
+        "",
+        f"Commit {sha}, workflow run {run}, aggregated {summary.get('created')}.",
+        f"Failed shards: {', '.join(summary.get('failed_shards') or []) or 'none'}.",
+        "",
+        "| Suite | seeds | result |",
+        "|---|---|---|",
+    ]
+    for name, e in summary["suites"].items():
+        if "composite_score" in e:
+            c = e["composite_score"]
+            res = f"composite mean {c['mean']:.4f} (per seed {c['min']:.3f} … {c['max']:.3f})"
+        elif "rows" in e:
+            mean = "n/a" if e["mean_aocc"] is None else f"{e['mean_aocc']:.4f}"
+            res = f"{e['rows']} rows ({e['failed_rows']} failed), mean AOCC {mean}"
+        else:
+            res = f"mean AOCC {e['mean_aocc']:.4f}"
+        lines.append(f"| {name} | {len(e['seeds'])} | {res} |")
+    lines += [
+        "",
+        "Unpack locally: `uv run python scripts/rebaseline.py fetch <tag>` (doc/dev/benchmarking.md).",
+        "",
+        # resolve_tag() recognises the release of its own run by this marker.
+        f"<!-- rebaseline-run: {run} -->",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def cmd_summarize(args: argparse.Namespace) -> int:
+    print(summary_markdown(write_summary(Path(args.dir))))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# publish / fetch (GitHub releases through the gh CLI)
+# ---------------------------------------------------------------------------
+
+TAG_PREFIX = "rebaseline-"
+_TAG_DATE = re.compile(rf"^{TAG_PREFIX}(\d{{4}}-\d{{2}}-\d{{2}})")
+
+
+def _gh(args: Sequence[str], check: bool = True) -> "subprocess.CompletedProcess[str]":
+    """Run ``gh``: the only network access of this script (tests replace it)."""
+    proc = subprocess.run(["gh", *args], capture_output=True, text=True)
+    if check and proc.returncode != 0:
+        print(proc.stderr, file=sys.stderr)
+        proc.check_returncode()
+    return proc
+
+
+def _repo_args(repo: Optional[str]) -> List[str]:
+    return ["--repo", repo] if repo else []
+
+
+def default_tag(summary: Dict[str, Any]) -> str:
+    """``rebaseline-<UTC date of the aggregation>``."""
+    created = summary.get("created") or datetime.now(tz=timezone.utc).isoformat()
+    return f"{TAG_PREFIX}{created[:10]}"
+
+
+#: Release states :func:`resolve_tag` reports.
+ABSENT, DRAFT, PUBLISHED = "absent", "draft", "published"
+
+
+def _release_state(tag: str, repo: Optional[str]) -> Tuple[str, str]:
+    """``(state, notes)`` of the release ``tag``; ``(ABSENT, "")`` when there is none."""
+    view = _gh(["release", "view", tag, "--json", "body,isDraft", *_repo_args(repo)], check=False)
+    if view.returncode != 0:
+        return ABSENT, ""
+    data = json.loads(view.stdout or "{}")
+    return (DRAFT if data.get("isDraft") else PUBLISHED), data.get("body") or ""
+
+
+def resolve_tag(tag: str, run_id: str, repo: Optional[str]) -> Tuple[str, str]:
+    """``(tag, state)``: ``tag`` itself when it is free or already this run's release.
+
+    A release of another workflow run is never touched: this run gets
+    ``<tag>-run<run_id>`` instead.  Without a run id (a local publish) an
+    existing release counts as this run's.
+    """
+    state, body = _release_state(tag, repo)
+    if state == ABSENT or not run_id or f"rebaseline-run: {run_id} -->" in body:
+        return tag, state
+    alt = f"{tag}-run{run_id}"
+    return alt, _release_state(alt, repo)[0]
+
+
+def release_url(repo: Optional[str], tag: str) -> str:
+    """The release page (``repo`` = ``owner/name``; default: this checkout's GitHub repository)."""
+    if not repo:
+        repo = _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).stdout.strip()
+    return f"https://github.com/{repo}/releases/tag/{tag}"
+
+
+def make_tarball(out_dir: Path, tag: str, dest: Path) -> Path:
+    """``dest/<tag>.tar.gz``, holding every ``ref_*.json`` of ``out_dir`` flat (no directory)."""
+    files = sorted(out_dir.glob("ref_*.json"))
+    if not files:
+        raise ValueError(f"no ref_*.json files in {out_dir}")
+    tarball = dest / f"{tag}.tar.gz"
+    with tarfile.open(tarball, "w:gz") as tar:
+        for f in files:
+            tar.add(f, arcname=f.name)
+    return tarball
+
+
+def publish(out_dir: Path, tag: Optional[str], repo: Optional[str], target: Optional[str]) -> Dict[str, Any]:
+    """Create the release of an aggregated directory and record it in ``SUMMARY.json``.
+
+    The release is a pre-release never marked latest, so it does not pose as
+    a software release; a new tag points at ``target`` (the measured commit).
+    The repository has *immutable releases* enabled: assets can only be
+    attached to a draft, so the release is created as a draft, filled, then
+    published.  A draft left by an interrupted attempt is resumed; this run's
+    release that is already published cannot change and is left as it is.
+    """
+    summary = write_summary(out_dir)
+    runs = summary.get("github_run_id") or []
+    run_id = runs[0] if len(runs) == 1 else ""
+    tag, state = resolve_tag(tag or default_tag(summary), run_id, repo)
+    release = {"tag": tag, "url": release_url(repo, tag), "asset": f"{tag}.tar.gz"}
+    summary = write_summary(out_dir, release)
+    if state == PUBLISHED:
+        print(f"{release['url']} is already published (immutable); nothing uploaded")
+        return summary
+    with tempfile.TemporaryDirectory() as tmp:
+        notes = Path(tmp) / "notes.md"
+        notes.write_text(summary_markdown(summary))
+        tarball = make_tarball(out_dir, tag, Path(tmp))
+        if state == ABSENT:
+            create = ["release", "create", tag, "--title", f"Re-baseline {tag[len(TAG_PREFIX) :]} (reference data)"]
+            create += ["--notes-file", str(notes), "--draft", "--prerelease", "--latest=false"]
+            create += ["--target", target] if target else []
+            _gh(create + _repo_args(repo))
+        assets = [str(tarball), str(out_dir / MANIFEST), str(out_dir / SUMMARY)]
+        _gh(["release", "upload", tag, *assets, "--clobber", *_repo_args(repo)])
+        finish = ["release", "edit", tag, "--notes-file", str(notes), "--draft=false", "--prerelease", "--latest=false"]
+        _gh(finish + _repo_args(repo))
+    print(f"published {tarball.name}, {MANIFEST} and {SUMMARY} to {release['url']}")
+    return summary
+
+
+def cmd_publish(args: argparse.Namespace) -> int:
+    publish(Path(args.dir), args.tag, args.repo, args.target)
+    return 0
+
+
+def default_fetch_dir(tag: str) -> Path:
+    """``planning/results/<date>/`` for ``rebaseline-<date>...``, else ``planning/results/<tag>/``."""
+    m = _TAG_DATE.match(tag)
+    return REPO_ROOT / "planning" / "results" / (m.group(1) if m else tag)
+
+
+def fetch(tag: str, dest: Optional[Path] = None, repo: Optional[str] = None) -> List[Path]:
+    """Download a re-baseline release and unpack its reference files into ``dest``; return them.
+
+    ``dest`` also receives ``ref_MANIFEST.json`` and ``SUMMARY.json``; the
+    tarball is removed after unpacking.
+    """
+    dest = dest or default_fetch_dir(tag)
+    dest.mkdir(parents=True, exist_ok=True)
+    download = ["release", "download", tag, "--dir", str(dest), "--clobber"]
+    download += ["--pattern", "*.tar.gz", "--pattern", MANIFEST, "--pattern", SUMMARY]
+    _gh(download + _repo_args(repo))
+    tarballs = sorted(dest.glob("*.tar.gz"))
+    if not tarballs:
+        raise ValueError(f"release {tag} has no .tar.gz asset")
+    unpacked: List[Path] = []
+    for tarball in tarballs:
+        with tarfile.open(tarball) as tar:
+            members = [m for m in tar.getmembers() if m.isfile()]
+            tar.extractall(dest, members=members, filter="data")
+        unpacked += [dest / m.name for m in members]
+        tarball.unlink()
+    print(f"unpacked {len(unpacked)} reference files of {tag} into {dest}")
+    return sorted(unpacked)
+
+
+def cmd_fetch(args: argparse.Namespace) -> int:
+    fetch(args.tag, Path(args.dir) if args.dir else None, args.repo)
     return 0
 
 
@@ -431,6 +720,23 @@ def build_parser() -> argparse.ArgumentParser:
     agg_p.add_argument("src", help="directory holding the downloaded artifacts")
     agg_p.add_argument("--out-dir", help="default: planning/results/<UTC date>/")
     agg_p.set_defaults(func=cmd_aggregate)
+
+    sum_p = sub.add_parser("summarize", help="(re)write SUMMARY.json of an aggregated directory")
+    sum_p.add_argument("dir", help="directory holding ref_MANIFEST.json and the ref_* files")
+    sum_p.set_defaults(func=cmd_summarize)
+
+    pub_p = sub.add_parser("publish", help="create or update the GitHub release of an aggregated directory")
+    pub_p.add_argument("dir", help="directory holding ref_MANIFEST.json and the ref_* files")
+    pub_p.add_argument("--tag", help=f"release tag (default: {TAG_PREFIX}<UTC date of the aggregation>)")
+    pub_p.add_argument("--repo", help="owner/name (default: this checkout's GitHub repository)")
+    pub_p.add_argument("--target", help="commit a new tag points at: the measured commit")
+    pub_p.set_defaults(func=cmd_publish)
+
+    fetch_p = sub.add_parser("fetch", help="download and unpack the reference files of a re-baseline release")
+    fetch_p.add_argument("tag", help=f"release tag, e.g. {TAG_PREFIX}2026-09-26-run36228301268")
+    fetch_p.add_argument("--dir", help="target directory (default: planning/results/<date of the tag>/)")
+    fetch_p.add_argument("--repo", help="owner/name (default: this checkout's GitHub repository)")
+    fetch_p.set_defaults(func=cmd_fetch)
     return p
 
 

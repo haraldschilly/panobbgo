@@ -5,8 +5,10 @@ name: Re-baseline
 # (suite x seed chunk).  Manual only; ./test.sh (run_ci.py) skips it.
 # Every run is synchronous and seeded with no wall-clock limit, so the
 # numbers depend on the code and the seeds, not on runner speed.
-# Aggregate the shard artifacts locally with scripts/rebaseline.py
-# (AGENTS.md, "Re-baselining on GitHub runners").
+# The last job aggregates the shards and attaches the reference files to a
+# GitHub pre-release (rebaseline-<date>); fetch them with
+# `scripts/rebaseline.py fetch <tag>` (doc/dev/benchmarking.md,
+# "Re-baselining on GitHub runners").
 
 on:
   workflow_dispatch:
@@ -25,6 +27,12 @@ on:
         description: "Git ref to measure (default: the ref this workflow runs from)"
         type: string
         default: ""
+      release:
+        description: >-
+          Release for the reference files: 'auto' (tag rebaseline-<UTC date>),
+          an explicit tag (e.g. rebaseline-smoke-<date> for a test run), or 'none'
+        type: string
+        default: auto
 
 permissions:
   contents: read
@@ -144,6 +152,9 @@ jobs:
     needs: [plan, measure]
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
     runs-on: ubuntu-latest
+    # Only this job writes: it creates the release that holds the reference files.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -185,11 +196,32 @@ jobs:
 
       - name: Aggregate
         run: |
+          set -o pipefail
           uv run python scripts/rebaseline.py aggregate rebaseline-raw --out-dir references 2>&1 \
             | tee aggregate.log
           { echo '### Re-baseline references'; echo '```'; cat aggregate.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      # The raw ref_* files are not committed to git (doc/dev/benchmarking.md):
+      # they become assets of a pre-release tagged rebaseline-<date> on the
+      # measured commit; SUMMARY.json records the tag and URL and is the file
+      # to commit (together with ref_MANIFEST.json).
+      - name: Publish the release
+        if: ${{ inputs.release != 'none' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -o pipefail
+          tag_args=()
+          if [ -n "$RELEASE" ] && [ "$RELEASE" != "auto" ]; then tag_args=(--tag "$RELEASE"); fi
+          uv run python scripts/rebaseline.py publish references "${tag_args[@]}" \
+            --repo "$GITHUB_REPOSITORY" --target "$SHA" 2>&1 | tee publish.log
+          uv run python scripts/rebaseline.py summarize references > summary.md
+          { echo '### Release'; tail -n 1 publish.log; echo; cat summary.md; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload references
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: rebaseline-references

@@ -1,0 +1,253 @@
+{
+  "created": "2026-09-26T09:49:57.322959+00:00",
+  "git_sha": [
+    "0184fad33b182dae096e41c96853fdd58ffd7bad"
+  ],
+  "github_run_id": [
+    "36228301268"
+  ],
+  "failed_shards": [],
+  "release": {
+    "tag": "rebaseline-2026-09-26-run36228301268",
+    "url": "https://github.com/haraldschilly/panobbgo/releases/tag/rebaseline-2026-09-26-run36228301268",
+    "asset": "rebaseline-2026-09-26-run36228301268.tar.gz"
+  },
+  "suites": {
+    "composite-quick": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_composite_quick_s42.json",
+        "ref_composite_quick_s7.json",
+        "ref_composite_quick_s1234.json",
+        "ref_composite_quick_s2025.json",
+        "ref_composite_quick_s3.json",
+        "ref_composite_quick_s11.json",
+        "ref_composite_quick_s99.json",
+        "ref_composite_quick_s123.json",
+        "ref_composite_quick_s777.json",
+        "ref_composite_quick_s2024.json",
+        "ref_composite_quick_s31337.json",
+        "ref_composite_quick_s555.json"
+      ],
+      "composite_score": {
+        "mean": 0.4029012345679012,
+        "min": 0.34888888888888886,
+        "max": 0.48666666666666664,
+        "per_seed": {
+          "42": 0.4444444444444444,
+          "7": 0.35259259259259257,
+          "1234": 0.4014814814814815,
+          "2025": 0.4185185185185185,
+          "3": 0.40444444444444444,
+          "11": 0.3785185185185185,
+          "99": 0.34888888888888886,
+          "123": 0.42518518518518517,
+          "777": 0.48666666666666664,
+          "2024": 0.42370370370370375,
+          "31337": 0.39111111111111113,
+          "555": 0.35925925925925933
+        }
+      }
+    },
+    "composite-standard": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_composite_standard_s42.json",
+        "ref_composite_standard_s7.json",
+        "ref_composite_standard_s1234.json",
+        "ref_composite_standard_s2025.json",
+        "ref_composite_standard_s3.json",
+        "ref_composite_standard_s11.json",
+        "ref_composite_standard_s99.json",
+        "ref_composite_standard_s123.json",
+        "ref_composite_standard_s777.json",
+        "ref_composite_standard_s2024.json",
+        "ref_composite_standard_s31337.json",
+        "ref_composite_standard_s555.json"
+      ],
+      "composite_score": {
+        "mean": 0.4274985119047619,
+        "min": 0.41948214285714286,
+        "max": 0.4396964285714286,
+        "per_seed": {
+          "42": 0.4239821428571429,
+          "7": 0.434375,
+          "1234": 0.42180357142857144,
+          "2025": 0.42683928571428575,
+          "3": 0.4259285714285714,
+          "11": 0.41948214285714286,
+          "99": 0.4269285714285714,
+          "123": 0.42128571428571426,
+          "777": 0.4396964285714286,
+          "2024": 0.42787500000000006,
+          "31337": 0.42989285714285713,
+          "555": 0.43189285714285713
+        }
+      }
+    },
+    "ioh-quick": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_quick.json",
+        "ref_ioh_quick_s42.json",
+        "ref_ioh_quick_s7.json",
+        "ref_ioh_quick_s1234.json",
+        "ref_ioh_quick_s2025.json",
+        "ref_ioh_quick_s3.json",
+        "ref_ioh_quick_s11.json",
+        "ref_ioh_quick_s99.json",
+        "ref_ioh_quick_s123.json",
+        "ref_ioh_quick_s777.json",
+        "ref_ioh_quick_s2024.json",
+        "ref_ioh_quick_s31337.json",
+        "ref_ioh_quick_s555.json"
+      ],
+      "mean_aocc": 0.35917466196399334,
+      "per_spec_aocc": {
+        "Blocks_warm_CMAES_JSO": 0.41874349106428715,
+        "RegimeGate_oracle": 0.41874349106428715,
+        "RoundRobin_CMAES": 0.38927824208442335,
+        "Baseline_SciPyDE": 0.3366153024532342,
+        "RoundRobin_Random": 0.3353123889797301,
+        "Baseline_Random": 0.3284792740029863,
+        "Baseline_SciPyAnneal": 0.28705044409900476
+      }
+    },
+    "ioh-standard": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_standard.json",
+        "ref_ioh_standard_s42.json",
+        "ref_ioh_standard_s7.json",
+        "ref_ioh_standard_s1234.json",
+        "ref_ioh_standard_s2025.json",
+        "ref_ioh_standard_s3.json",
+        "ref_ioh_standard_s11.json",
+        "ref_ioh_standard_s99.json",
+        "ref_ioh_standard_s123.json",
+        "ref_ioh_standard_s777.json",
+        "ref_ioh_standard_s2024.json",
+        "ref_ioh_standard_s31337.json",
+        "ref_ioh_standard_s555.json"
+      ],
+      "mean_aocc": 0.49992819589680776,
+      "per_spec_aocc": {
+        "RegimeGate_oracle": 0.6771100241281599,
+        "Blocks_warm_CMAES_JSO": 0.673751393586746,
+        "RoundRobin_CMAES": 0.6673047022649423,
+        "Baseline_SciPyDE": 0.4227810113725785,
+        "Baseline_SciPyAnneal": 0.385493622393686,
+        "RoundRobin_Random": 0.37968753490474977,
+        "Baseline_Random": 0.2933690826267922
+      }
+    },
+    "families-free": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_family_screen_free.json"
+      ],
+      "rows": 2160,
+      "failed_rows": 0,
+      "mean_aocc": 0.3627467994522843,
+      "per_spec_aocc": {
+        "CMAES_alone": 0.40206197222732176,
+        "LSHADE_alone": 0.3588604557904933,
+        "JSO_alone": 0.3509888060687913,
+        "Blocks_uniform_cj_warm2": 0.3390759637225305
+      }
+    },
+    "families-constrained": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_family_screen_constrained.json"
+      ],
+      "rows": 1152,
+      "failed_rows": 0,
+      "mean_aocc": 0.450888457772692,
+      "per_spec_aocc": {
+        "CMAES_alone": 0.4872084925005116,
+        "LSHADE_alone": 0.4557008257970962,
+        "JSO_alone": 0.4439014552394148,
+        "Blocks_uniform_cj_warm2": 0.41674305755374547
+      }
+    }
+  }
+}

@@ -2464,70 +2464,6 @@ baselines, failure handling (bit-identical on problems without
 failures, verified) and a virtual-clock mode (bit-identical outside it),
 so these references stay valid for the default paths.
 
-## 56. FP-exact re-baseline (2026-09-26, after the FP pin)
-
-§54's references mixed two GitHub runner floating-point classes (AVX2 vs
-AVX-512 hosts; last-bit BLAS/libm differences amplified up to 0.08 AOCC per
-cell).  #359 pins OpenBLAS kernels (Haswell) and numpy's SIMD dispatch
-(AVX-512 targets off) and records `fp_env_id`.  `fp-check.yml`
-(run 36265628638): 8 jobs on AMD EPYC 7763 (AVX2) and 9V45 (AVX-512) all
-bit-identical, digest `9bdd00b7ac00` — the same digest as Harald's laptop.
-
-Full re-baseline on master f7d7e0d (run 36265786623, 29 jobs, none failed
-or missing, one `fp_env_id` 80ee2a0090c4), release `rebaseline-2026-09-26-run36265786623`, summary
-`planning/results/2026-09-26-run36265786623/SUMMARY.json`.  12 seeds each.
-
-| Suite | 12-seed mean |
-|---|---|
-| composite quick | 0.4029 (0.349 … 0.487) |
-| composite standard | 0.4257 (0.417 … 0.441) |
-| IOH quick (mean AOCC, all specs) | 0.3590 |
-| IOH standard (all specs) | 0.5005 |
-| IOH standard + external baselines (all 14 specs) | 0.5290 |
-| families free / constrained / shapes / failure | 0.3627 / 0.4509 / 0.3546 / 0.3492 |
-
-IOH standard with the external baselines (the cheap track, 500·d):
-
-| Spec | AOCC |
-|---|---|
-| **Baseline_Optuna_CmaEs** | **0.7052** |
-| RegimeGate_oracle | 0.6771 |
-| Blocks_warm_CMAES_JSO | 0.6738 |
-| RoundRobin_CMAES | 0.6674 |
-| Baseline_pycma_BIPOP | 0.6671 |
-| Baseline_pycma_IPOP | 0.6546 |
-| Baseline_NGOpt | 0.5961 |
-| Baseline_NG_CMA | 0.4556 |
-| Baseline_SciPyDE | 0.4228 |
-| Baseline_Optuna_TPE | 0.4165 |
-| Baseline_NG_TwoPointsDE | 0.4066 |
-| Baseline_SciPyAnneal | 0.3896 |
-| RoundRobin_Random | 0.3797 |
-| Baseline_Random | 0.2934 |
-
-Families (4 specs; per-preset best): free CMAES_alone 0.401, constrained
-CMAES_alone 0.487, shapes LSHADE_alone 0.371, failure LSHADE_alone 0.405;
-`Blocks_uniform_cj_warm2` is last on all four (0.281 on failure).
-
-Reading:
-
-* **On the cheap track the incumbents are at or above us.** Optuna's
-  CMA-ES sampler (no restarts, start point at a random box point) leads
-  by +0.028 over our best spec (`RegimeGate_oracle`, itself an oracle);
-  pycma BIPOP ties `RoundRobin_CMAES`.  The single-seed preview in the
-  PR #357 smoke run had BIPOP ahead; with 12 seeds it is Optuna CmaEs.  Not
-  yet paired per seed: the next step is a paired comparison
-  (`paired_seed_stats`) of the headline specs against Optuna CmaEs and
-  BIPOP, per BBOB class, before anything is concluded.
-* **The sharing portfolio loses on the new families at 500·d** —
-  consistent with §46/§53 (sharing pays at low budget, parity or worse at
-  ≥500·d), most strongly under failures (0.281 vs 0.405).  The failure
-  families are the roadmap's §4 D ground.
-* Composite quick is unchanged from §54 (0.4029); composite standard
-  moved 0.4275 → 0.4257 — the §54 run had half its shards on the other FP
-  class.
-
-
 ## 55. The real async loop pulls when free: candidate staleness, legacy vs pull (2026-09-26)
 
 `evaluation.async_policy` (new; default `pull`, `legacy` keeps the old
@@ -2604,3 +2540,66 @@ pull mean 0.2 → 5.4 (RoundRobin_CMAES), 5.5 → 3.8 (Blocks), 13.4 → 12.1,
 * Wall time: with the pool wait, pull is within 0-13 % of legacy at
   5-10 ms (0.41-0.46 s vs 0.39-0.46 s) and on par at 0 ms.  Before the
   pool wait (1 ms polling) it was 0.44-0.48 s vs 0.38-0.40 s at 5 ms.
+
+## 56. FP-exact re-baseline (2026-09-26, after the FP pin)
+
+§54's references mixed two GitHub runner floating-point classes (AVX2 vs
+AVX-512 hosts; last-bit BLAS/libm differences amplified up to 0.08 AOCC per
+cell).  #359 pins OpenBLAS kernels (Haswell) and numpy's SIMD dispatch
+(AVX-512 targets off) and records `fp_env_id`.  `fp-check.yml`
+(run 36265628638): 8 jobs on AMD EPYC 7763 (AVX2) and 9V45 (AVX-512) all
+bit-identical, digest `9bdd00b7ac00` — the same digest as Harald's laptop.
+
+Full re-baseline on master f7d7e0d (run 36265786623, 29 jobs, none failed
+or missing, one `fp_env_id` 80ee2a0090c4), release `rebaseline-2026-09-26-run36265786623`, summary
+`planning/results/2026-09-26-run36265786623/SUMMARY.json`.  12 seeds each.
+
+| Suite | 12-seed mean |
+|---|---|
+| composite quick | 0.4029 (0.349 … 0.487) |
+| composite standard | 0.4257 (0.417 … 0.441) |
+| IOH quick (mean AOCC, all specs) | 0.3590 |
+| IOH standard (all specs) | 0.5005 |
+| IOH standard + external baselines (all 14 specs) | 0.5290 |
+| families free / constrained / shapes / failure | 0.3627 / 0.4509 / 0.3546 / 0.3492 |
+
+IOH standard with the external baselines (the cheap track, 500·d):
+
+| Spec | AOCC |
+|---|---|
+| **Baseline_Optuna_CmaEs** | **0.7052** |
+| RegimeGate_oracle | 0.6771 |
+| Blocks_warm_CMAES_JSO | 0.6738 |
+| RoundRobin_CMAES | 0.6674 |
+| Baseline_pycma_BIPOP | 0.6671 |
+| Baseline_pycma_IPOP | 0.6546 |
+| Baseline_NGOpt | 0.5961 |
+| Baseline_NG_CMA | 0.4556 |
+| Baseline_SciPyDE | 0.4228 |
+| Baseline_Optuna_TPE | 0.4165 |
+| Baseline_NG_TwoPointsDE | 0.4066 |
+| Baseline_SciPyAnneal | 0.3896 |
+| RoundRobin_Random | 0.3797 |
+| Baseline_Random | 0.2934 |
+
+Families (4 specs; per-preset best): free CMAES_alone 0.401, constrained
+CMAES_alone 0.487, shapes LSHADE_alone 0.371, failure LSHADE_alone 0.405;
+`Blocks_uniform_cj_warm2` is last on all four (0.281 on failure).
+
+Reading:
+
+* **On the cheap track the incumbents are at or above us.** Optuna's
+  CMA-ES sampler (no restarts, start point at a random box point) leads
+  by +0.028 over our best spec (`RegimeGate_oracle`, itself an oracle);
+  pycma BIPOP ties `RoundRobin_CMAES`.  The single-seed preview in the
+  PR #357 smoke run had BIPOP ahead; with 12 seeds it is Optuna CmaEs.  Not
+  yet paired per seed: the next step is a paired comparison
+  (`paired_seed_stats`) of the headline specs against Optuna CmaEs and
+  BIPOP, per BBOB class, before anything is concluded.
+* **The sharing portfolio loses on the new families at 500·d** —
+  consistent with §46/§53 (sharing pays at low budget, parity or worse at
+  ≥500·d), most strongly under failures (0.281 vs 0.405).  The failure
+  families are the roadmap's §4 D ground.
+* Composite quick is unchanged from §54 (0.4029); composite standard
+  moved 0.4275 → 0.4257 — the §54 run had half its shards on the other FP
+  class.

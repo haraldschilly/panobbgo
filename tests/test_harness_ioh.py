@@ -513,7 +513,16 @@ class TestErroredRunsCount:
             ("A", 5): pytest.approx(0.3),
             ("A", 10): pytest.approx(0.0),
         }
-        assert res.per_strategy_counts() == {"A": {"n": 4, "crashed": 2, "timed_out": 1}}
+        assert res.per_strategy_counts() == {"A": {"n": 4, "crashed": 2, "timed_out": 1, "ended_early": 0}}
+
+    def test_an_early_end_is_neither_a_crash_nor_a_timeout(self) -> None:
+        from dataclasses import replace
+
+        from panobbgo.harness_ioh import EARLY_END_ERROR_PREFIX
+
+        res = self._result()
+        res.runs.append(replace(res.runs[0], rep=2, aocc=0.2, error=f"{EARLY_END_ERROR_PREFIX} 8/100 evals"))
+        assert res.per_strategy_counts()["A"] == {"n": 5, "crashed": 2, "timed_out": 1, "ended_early": 1}
 
     def test_summary_reports_counts(self, capsys) -> None:
         self._result().print_summary()

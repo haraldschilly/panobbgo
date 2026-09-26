@@ -103,6 +103,7 @@ budget.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 import functools
 import importlib
@@ -116,7 +117,9 @@ import pandas as pd
 
 from panobbgo.benchmark import StrategySpec
 from panobbgo.ioh_runner import _BudgetExhausted
-from panobbgo.lib import Point, Problem, Result
+from panobbgo.lib import EvaluationFailed, Point, Problem, Result
+
+_logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +177,15 @@ def _make_objective(problem: Problem, log: _EvaluationLog) -> Callable[[np.ndarr
         # solvers that occasionally probe slightly outside (``basinhopping``
         # has historically done this at tolerance boundaries).
         x_proj = problem.project(x_arr)
-        fx = float(problem.eval(x_proj))
+        try:
+            fx = float(problem.eval(x_proj))
+        except EvaluationFailed as exc:
+            # A simulated crash / timeout (a family's failure region): the
+            # call was made and paid for (the AOCC tracker has counted it),
+            # but it has no value.  NaN is the "no value" answer; the solver
+            # must not abort on the first failure.
+            _logger.warning("%s: evaluation failed (%s); answering NaN", log.who, exc)
+            fx = float("nan")
         log.record(x_proj, fx)
         return fx
 

@@ -38,6 +38,7 @@ from panobbgo.harness_ioh import make_ioh_strategies
 from panobbgo.lib import Point
 from panobbgo.lib.families import (
     BASE_FUNCTIONS,
+    CONTEXT_BASES,
     Family,
     FamilyConfig,
     make_family_instances,
@@ -101,7 +102,8 @@ def test_rotation_preserves_the_optimum(base):
     dim = 4
     plain = Family(base, dim=dim, seed=7, rotate=False)
     rotated = Family(base, dim=dim, seed=7, rotate=True)
-    cond = Family(base, dim=dim, seed=7, rotate=True, condition=100.0)
+    # The BBOB bases carry their own conditioning and refuse an instance one.
+    cond = Family(base, dim=dim, seed=7, rotate=True, condition=1.0 if base in CONTEXT_BASES else 100.0)
 
     # Same seed -> same x_opt and f_opt; only the landscape between them differs.
     assert np.array_equal(plain.x_opt, rotated.x_opt)
@@ -114,7 +116,7 @@ def test_rotation_preserves_the_optimum(base):
     np.testing.assert_allclose(r @ r.T, np.eye(dim), atol=1e-12)
     assert plain.rotation is None
     assert plain.scaling is None
-    assert cond.scaling is not None
+    assert (cond.scaling is None) == (base in CONTEXT_BASES)
 
     # ... and the rotation actually changed the function somewhere.
     # (The sphere is rotation-invariant by construction, so it is exempt.)

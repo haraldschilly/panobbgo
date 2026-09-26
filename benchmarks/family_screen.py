@@ -230,9 +230,11 @@ def main():
     print_means(cells, order, dims, errs, short, width=28)
 
     # (b) means per family — the whole point of a multi-class battery.
-    print(f"\n{'spec':28s} " + "".join(f"  {f[:14]:>15s}" for f in fams))
+    # Full family labels: a truncation would merge ``..._crash`` / ``..._tmo``.
+    fw = max([15] + [len(f) for f in fams])
+    print(f"\n{'spec':28s} " + "".join(f"  {f:>{fw}s}" for f in fams))
     for s in order:
-        print(f"{s:28s} " + "".join(f"  {score(s, fam=f):15.4f}" for f in fams))
+        print(f"{s:28s} " + "".join(f"  {score(s, fam=f):{fw}.4f}" for f in fams))
 
     # (c) paired deltas against each reference, overall CI + per-dimension means.
     for ref in REFS:
@@ -244,10 +246,10 @@ def main():
     port = [s for s in names if s.startswith("Blocks")]
     if best_ref and port:
         print(f"\nper-family delta of the portfolio vs the best single arm ({best_ref})")
-        print(f"{'family':18s} " + "".join(f"  {p[:20]:>21s}" for p in port))
+        print(f"{'family':{fw}s} " + "".join(f"  {p[:20]:>21s}" for p in port))
         for f in fams:
             print(
-                f"{f:18s} "
+                f"{f:{fw}s} "
                 + "".join(f"  {mean_or_nan(paired(cells, p, best_ref, match(group=f))):+21.4f}" for p in port)
             )
 

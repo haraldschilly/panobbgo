@@ -529,36 +529,51 @@ class _LunacekBiRastrigin:
         \min\Bigl(\sum_i (\hat x_i - \mu_0)^2,\; d D + s \sum_i (\hat x_i - \mu_1)^2\Bigr)
         + 10\Bigl(D - \sum_i \cos 2\pi z_i\Bigr)
 
-    with :math:`\hat x - \mu_0 = 2\,\mathrm{sign}(x_{\mathrm{opt}}) \otimes
-    (x - x_{\mathrm{opt}})` (BBOB's :math:`\hat x = 2\,\mathrm{sign}(x_{\mathrm{opt}})
-    \otimes x` with :math:`x_{\mathrm{opt}} = \frac{\mu_0}{2}\mathrm{sign}`,
-    written relative to an arbitrary optimum), :math:`z = Q \Lambda^{100}
-    (2u)`, :math:`\mu_0 = 2.5`, :math:`\mu_1 = -\sqrt{(\mu_0^2 - d)/s}`.
+    with :math:`\hat x - \mu_0 = 2\,\sigma \otimes (x - x_{\mathrm{opt}})`,
+    :math:`\sigma = \mathrm{sign}(x_{\mathrm{opt}})` (BBOB's :math:`\hat x
+    = 2\sigma \otimes x` with :math:`x_{\mathrm{opt}} = \frac{\mu_0}{2}\sigma`,
+    written relative to the optimum), :math:`z = Q \Lambda^{100} R (\hat x
+    - \mu_0)`, :math:`\mu_0 = 2.5`, :math:`\mu_1 = -\sqrt{(\mu_0^2 - d)/s}`.
 
     The optimum's funnel is narrow; the second funnel, centred
     :math:`(\mu_0 - \mu_1)/2` per coordinate from :math:`x_{\mathrm{opt}}`
-    *towards the box centre* (so always inside the box), is broader
-    (:math:`s < 1`) and only :math:`d D` higher — most of the box drains
-    into the wrong funnel.  Minimum ``0`` at ``0``: the second funnel is
-    at least :math:`dD > 0` and the Rastrigin term is non-negative.
+    *towards the box centre*, is broader (:math:`s < 1`) and only
+    :math:`d D` higher — most of the box drains into the wrong funnel.
+    Minimum ``0`` at ``0``: the second funnel is at least :math:`dD > 0`
+    and the Rastrigin term is non-negative.
 
     Knobs (the funnels' depth/width trade-off): ``d`` (``1``, how much
     higher the second funnel's floor lies; ``0 < d < mu_0^2``) and ``s``
     (default BBOB's :math:`1 - 1/(2\sqrt{D + 20} - 8.2)`; smaller is a
-    broader second funnel).
+    broader second funnel); and ``placement`` of the optimum:
 
-    Deviations from BBOB: the funnels are placed relative to the
-    instance's ``x_opt`` (BBOB pins it at :math:`\pm\mu_0/2`); the
-    Rastrigin term reads :math:`2u` instead of :math:`2R(\mathrm{sign}
-    \otimes (x - x_{\mathrm{opt}}))` (a sign flip before a Haar rotation,
-    so the same distribution, and identical when unrotated); no
-    :math:`10^4 f_{\mathrm{pen}}` term.
+    * ``"bbob"`` (default) — BBOB's own :math:`x_{\mathrm{opt}} =
+      \pm\mu_0/2 = \pm 1.25` per coordinate, the signs from the instance's
+      draw (:meth:`Family.__init__` places it).  With it the base **is**
+      f24 (up to :math:`f_{\mathrm{pen}}`), comparable with the literature.
+    * ``"box"`` — the instance's uniform :math:`x_{\mathrm{opt}}` in
+      ``[-4, 4]``.  **Harder than f24**: the optimum can sit far out and
+      the second funnel still lies :math:`(\mu_0 - \mu_1)/2` towards the
+      centre (inside the box for every draw).
+
+    No :math:`10^4 f_{\mathrm{pen}}` term (the box bounds the search).
     """
 
     MU0: float = 2.5
+    PLACEMENTS: Tuple[str, ...] = ("bbob", "box")
 
-    def __init__(self, dim: int, ctx: Optional[BaseContext] = None, d: float = 1.0, s: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        dim: int,
+        ctx: Optional[BaseContext] = None,
+        d: float = 1.0,
+        s: Optional[float] = None,
+        placement: str = "bbob",
+    ) -> None:
         ctx = ctx if ctx is not None else BaseContext.default(dim)
+        if placement not in self.PLACEMENTS:
+            raise ValueError(f"lunacek_bi_rastrigin placement must be one of {self.PLACEMENTS}, got {placement!r}")
+        self.placement = placement
         self.d = float(d)
         self.s = float(s) if s is not None else 1.0 - 1.0 / (2.0 * np.sqrt(dim + 20.0) - 8.2)
         if not 0.0 < self.d < self.MU0**2:
@@ -567,17 +582,23 @@ class _LunacekBiRastrigin:
             raise ValueError(f"lunacek_bi_rastrigin needs s > 0, got {s}")
         self.mu1 = -float(np.sqrt((self.MU0**2 - self.d) / self.s))
         self.q = ctx.internal_rotation(dim)
+        self.r = ctx.rotation if ctx.rotation is not None else np.eye(dim)
         self.lam = _lambda_diag(100.0, dim)
         self.sign = ctx.sign_pattern()
         self.ctx = ctx
         self.dim = dim
+
+    @classmethod
+    def bbob_x_opt(cls, x_draw: np.ndarray) -> np.ndarray:
+        """BBOB's optimum :math:`\\frac{\\mu_0}{2}\\,\\mathrm{sign}` with the signs of a uniform draw."""
+        return 0.5 * cls.MU0 * np.where(x_draw >= 0.0, 1.0, -1.0)
 
     def __call__(self, u: np.ndarray) -> float:
         w = 2.0 * self.sign * self.ctx.from_base(u)  # \hat x - mu0
         f1 = float(np.dot(w, w))
         v = w + (self.MU0 - self.mu1)  # \hat x - mu1
         f2 = self.d * self.dim + self.s * float(np.dot(v, v))
-        z = self.q @ (self.lam * (2.0 * u))
+        z = self.q @ (self.lam * (self.r @ w))
         ras = 10.0 * (self.dim - float(np.sum(np.cos(2.0 * np.pi * z))))
         return min(f1, f2) + ras
 
@@ -619,7 +640,7 @@ CONTEXT_BASES: Dict[str, Tuple[str, ...]] = {
     "step_ellipsoid": (),
     "bent_cigar": (),
     "gallagher": ("n_peaks", "alpha_opt"),
-    "lunacek_bi_rastrigin": ("d", "s"),
+    "lunacek_bi_rastrigin": ("d", "s", "placement"),
 }
 
 #: Constraint constructions understood by :class:`Family`.
@@ -641,8 +662,12 @@ FAILURE_MODES: Tuple[str, ...] = ("crash", "timeout")
 #: the box volume (standard error of the share ~0.2 % at a 10 % share).
 FAILURE_MC_POINTS: int = 20000
 
-#: Redraws of a ball / box region that contains ``x_opt`` before giving up.
+#: Redraws of a ball region that contains ``x_opt`` before the deterministic
+#: fallback placement (:meth:`_FailureGeometry._fallback`).
 FAILURE_MAX_TRIES: int = 200
+
+#: The same for a box set (each draw is a bisection, so fewer).
+FAILURE_MAX_TRIES_BOXES: int = 20
 
 
 @dataclass(frozen=True)
@@ -681,9 +706,19 @@ class FailureRegion:
       aspect ratios, scaled together so that their *union* covers
       ``share`` of the box.
 
+    In high dimension the shapes change character: a box of a fixed
+    volume share is a *slab* (at ``d = 10`` a 7 % box is ~77 % of the
+    width per axis, so it cuts through nearly the whole range of every
+    coordinate), and a ball holding ``share`` of the cube is mostly a
+    *cap* sticking out of it, its radius comparable to the half-width.
+
     The optimum is always outside (the inequalities are strict, so a
     half-space boundary through ``x_opt`` leaves it outside); a ball or a
-    box set that contains it is redrawn.  ``x_opt`` therefore stays the
+    box set that contains it is redrawn, and where no draw avoids it (a
+    large ball around a central ``x_opt`` at ``d = 10``) a deterministic
+    fallback places it (:meth:`_FailureGeometry._fallback`), with a
+    realised share below ``share`` — :attr:`Family.failure_share`, which
+    is measured on a Monte-Carlo sample independent of the calibration.  ``x_opt`` therefore stays the
     minimiser of every point that can be evaluated, and ``f_opt`` the
     AOCC target.  All draws come from a stream of their own
     (:meth:`Family._failure_rng`), so an instance with a region has the
@@ -758,13 +793,23 @@ class _FailureGeometry:
                     if best is None or abs(share - target) < best[0]:
                         best = (abs(share - target), ax, sg, t)
                 if best is None:
-                    raise ValueError("boundary_gap puts every half-space boundary outside the box")
+                    raise ValueError(
+                        f"boundary_gap={region.boundary_gap} puts every half-space boundary outside the box "
+                        f"(share={target}, dim={dim})"
+                    )
                 _, self.axis, self.sign, self.t = best
                 self.share = (b - self.sign * self.t) / (2.0 * b)
             return
 
         sample = rng.uniform(-b, b, size=(FAILURE_MC_POINTS, dim))
-        for _ in range(FAILURE_MAX_TRIES):
+        #: ``True`` when no random draw kept ``x_opt`` outside and the
+        #: deterministic fallback placed the region (the realised share is
+        #: then below ``share``; see :attr:`share`).
+        self.fallback = False
+        # A box draw is a 30-step bisection, a ball draw one quantile: the
+        # boxes give up sooner.
+        tries = FAILURE_MAX_TRIES if self.shape == "ball" else FAILURE_MAX_TRIES_BOXES
+        for _ in range(tries):
             if self.shape == "ball":
                 self.centre = rng.uniform(-b, b, size=dim)
                 dist = np.linalg.norm(sample - self.centre, axis=1)
@@ -774,8 +819,42 @@ class _FailureGeometry:
             if not self.contains(x_opt):
                 break
         else:
-            raise ValueError(f"could not place a {self.shape} failure region outside x_opt")
-        self.share = float(np.mean(self.contains_many(sample)))
+            self._fallback(x_opt, sample, b, target)
+        if self.contains(x_opt):  # pragma: no cover - the fallback excludes x_opt by construction
+            raise ValueError(f"could not place a {self.shape} failure region outside x_opt (share={target}, dim={dim})")
+        # Measured on points the calibration never saw: the calibration
+        # sample's own share is the target by construction.
+        check = rng.uniform(-b, b, size=(FAILURE_MC_POINTS, dim))
+        self.share = float(np.mean(self.contains_many(check)))
+
+    def _fallback(self, x_opt: np.ndarray, sample: np.ndarray, b: float, target: float) -> None:
+        """Deterministic placement when every random draw contained ``x_opt``.
+
+        Happens for large shares where the region cannot avoid a central
+        optimum (a ball of 20 % of the box at ``d = 10`` around an unshifted
+        ``x_opt = 0``).  Ball: centred half-way to the corner *away* from
+        ``x_opt``, its radius capped so ``x_opt`` stays outside.  Boxes: the
+        last draw, each box containing ``x_opt`` cut at ``x_opt`` along the
+        axis where that removes the thinnest slab.  Either way the realised
+        share (:attr:`share`) is at most the target.
+        """
+        self.fallback = True
+        if self.shape == "ball":
+            self.centre = -0.5 * b * np.where(x_opt >= 0.0, 1.0, -1.0)
+            dist = np.linalg.norm(sample - self.centre, axis=1)
+            cap = float(np.linalg.norm(x_opt - self.centre))
+            self.radius = min(float(np.quantile(dist, target)), cap)
+            return
+        for j in range(self.lo.shape[0]):
+            lo, hi = self.lo[j], self.hi[j]
+            if not (np.all(x_opt > lo) and np.all(x_opt < hi)):
+                continue
+            below, above = x_opt - lo, hi - x_opt
+            ax = int(np.argmin(np.minimum(below, above)))
+            if below[ax] <= above[ax]:
+                lo[ax] = x_opt[ax]  # strict inequality: x_opt on the face is outside
+            else:
+                hi[ax] = x_opt[ax]
 
     def _draw_boxes(
         self, region: FailureRegion, sample: np.ndarray, b: float, target: float, rng: np.random.Generator
@@ -850,7 +929,11 @@ class Family(Problem):
         Ill-conditioning :math:`\kappa`: the diagonal scaling is
         :math:`\Lambda_{ii} = \kappa^{i/(d-1)}`, i.e. ``10**(alpha*i/(d-1))``
         for :math:`\kappa = 10^\alpha`.  ``1.0`` disables it.  Applied
-        *after* the rotation, so it is not itself rotated away.
+        *after* the rotation, so it is not itself rotated away.  The
+        classic bases (including the BBOB-shaped ``ellipsoid``, ``discus``
+        and ``sharp_ridge``) get it *on top of* their own shape; the BBOB
+        bases of :data:`CONTEXT_BASES` carry BBOB's own conditioning and
+        refuse any ``condition != 1``.
     box_half_width
         The box is ``[-box_half_width, box_half_width]^dim``.
     opt_margin
@@ -955,6 +1038,12 @@ class Family(Problem):
         unknown = sorted(set(params) - set(CONTEXT_BASES.get(base, ())))
         if unknown:
             raise ValueError(f"base {base!r} takes no knob(s) {unknown}; it takes {list(CONTEXT_BASES.get(base, ()))}")
+        if base in CONTEXT_BASES and float(condition) != 1.0:
+            # A BBOB base carries its own conditioning (Lambda^alpha) at a
+            # defined place in its transform; an instance scaling on top
+            # would condition some of its terms and not others (Lunacek's
+            # funnels vs its Rastrigin term).
+            raise ValueError(f"base {base!r} has its own BBOB conditioning; condition must be 1.0, got {condition}")
 
         rng = np.random.default_rng(int(seed))
         b = float(box_half_width)
@@ -988,6 +1077,10 @@ class Family(Problem):
         rotation = q * np.sign(np.diag(r))
 
         x_opt = x_opt_draw if shift else np.zeros(dim)
+        if shift and base == "lunacek_bi_rastrigin" and params.get("placement", "bbob") == "bbob":
+            # BBOB f24's own optimum, +-mu0/2, with the signs of the draw
+            # (no extra draw: the instance stream is unchanged).
+            x_opt = _LunacekBiRastrigin.bbob_x_opt(x_opt_draw)
         self._x_opt: np.ndarray = x_opt
         self._rotation: Optional[np.ndarray] = rotation if rotate else None
 
@@ -1041,12 +1134,18 @@ class Family(Problem):
         )
 
     def _base_rng(self) -> np.random.Generator:
-        """The stream a BBOB base draws its own structure from (second rotation, peaks)."""
-        return np.random.default_rng([self.seed, 1])
+        """The stream a BBOB base draws its own structure from (second rotation, peaks).
+
+        A spawned child of the instance seed (``SeedSequence(seed,
+        spawn_key=(1,))``): unlike ``default_rng([seed, 1])`` it cannot
+        coincide with the plain stream of another seed (``[s, 1]`` is the
+        entropy of ``s + 2**32``).
+        """
+        return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(1,)))
 
     def _failure_rng(self) -> np.random.Generator:
-        """The stream the failure region is drawn from."""
-        return np.random.default_rng([self.seed, 2])
+        """The stream the failure region is drawn from (spawn key ``2``, see :meth:`_base_rng`)."""
+        return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(2,)))
 
     def _build_base(self) -> Callable[[np.ndarray], float]:
         """The base callable; deterministic in the instance data, so a pickle can rebuild it."""

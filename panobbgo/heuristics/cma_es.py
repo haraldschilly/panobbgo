@@ -995,11 +995,6 @@ class CMAES(Heuristic):
             if info is None:
                 continue
 
-            gen = info["gen"]
-            gen_bucket = self._gen_results.get(gen)
-            if gen_bucket is None:
-                continue
-
             # A non-finite objective is information, not noise: the point is
             # worse than any finite one, so rank it last rather than drop it.
             # Dropping was also unsafe — the point still counts as *emitted*,
@@ -1011,18 +1006,49 @@ class CMAES(Heuristic):
                 penalty = float("inf")
             else:
                 penalty = self.strategy.constraint_handler.get_penalty_value(r)
-            gen_bucket.append(
-                {
-                    "penalty": penalty,
-                    # The repaired position: the evaluated point unless the
-                    # boundary repair clipped its step — consistent with "y".
-                    "x": np.array(info["x"], dtype=float),
-                    "x_eval": np.array(info["x_eval"], dtype=float),
-                    "y": info["y"],
-                }
-            )
+            self._bucket(info, penalty)
 
-        # Check if we can perform an update for the oldest open generation.
+        self._update_if_quorum()
+
+    def on_failed_evaluations(self, points) -> None:
+        """Count a failed offspring (no result: the objective crashed) as the worst of its generation.
+
+        Without this the offspring stays pending forever: a generation that
+        loses more than ``1 - min_results_fraction`` of its points to
+        crashes never reaches its quorum, and the arm stops emitting for the
+        rest of the run.  It is ranked exactly like a non-finite result.
+        """
+        hit = False
+        for p in points:
+            who = getattr(p, "who", "") or ""
+            if not who.startswith(self._who_prefix):
+                continue
+            info = self._pending.pop(who, None)
+            if info is None:
+                continue
+            self._bucket(info, float("inf"))
+            hit = True
+        if hit:
+            self._update_if_quorum()
+
+    def _bucket(self, info: Dict[str, Any], penalty: float) -> None:
+        """Add one evaluated (or failed) offspring to its generation's bucket."""
+        gen_bucket = self._gen_results.get(info["gen"])
+        if gen_bucket is None:
+            return
+        gen_bucket.append(
+            {
+                "penalty": penalty,
+                # The repaired position: the evaluated point unless the
+                # boundary repair clipped its step — consistent with "y".
+                "x": np.array(info["x"], dtype=float),
+                "x_eval": np.array(info["x_eval"], dtype=float),
+                "y": info["y"],
+            }
+        )
+
+    def _update_if_quorum(self) -> None:
+        """Update from the oldest open generation that has reached its quorum, then emit."""
         # Base the trigger on the number of points actually emitted for that
         # generation, not on λ — if the output queue clipped the generation,
         # waiting for a λ-based quorum would deadlock.

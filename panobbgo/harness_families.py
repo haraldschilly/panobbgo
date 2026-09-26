@@ -310,6 +310,11 @@ def make_failure_battery(
       (``boundary_gap=0``): the stability-limit case.
     * ``rosenbrock`` + half-space, *timeout*, the boundary 5 % of the
       half-width past the optimum.
+
+      With a ``boundary_gap`` the boundary is tied to ``x_opt``, so the
+      realised share of these two is *not* 25 %: it is the share closest
+      to 25 % among the 2d axis/side choices the optimum allows, and varies
+      per instance (``Family.failure_share``; roughly 0.1–0.4 at d = 2).
     * ``rastrigin`` + ball, *crash*, 20 % of the box.
     * ``sharp_ridge`` + 3 boxes, *timeout*, 20 % of the box.
 

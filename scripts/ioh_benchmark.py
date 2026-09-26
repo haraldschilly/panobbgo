@@ -269,6 +269,14 @@ def _compare_single(before: IOHHarnessResult, after: IOHHarnessResult, fail_on_r
             d = a - b
             marker = "  +" if d > 0 else ("  -" if d < 0 else "  =")
         print(f"    {name:32s}  {b:.4f} -> {a:.4f}{marker}")
+    for side, res in (("before", before), ("after", after)):
+        bad = {
+            k: sum(getattr(r, k) for r in res.runs)
+            for k in ("crashed", "timed_out", "ended_early")
+            if any(getattr(r, k) for r in res.runs)
+        }
+        if bad:
+            print(f"\n  {side}: " + ", ".join(f"{n} {k.replace('_', ' ')}" for k, n in bad.items()) + " run(s)")
     common, gate_delta = _common_cell_delta(before, after)
     if not common == len(before.runs) == len(after.runs):
         print(

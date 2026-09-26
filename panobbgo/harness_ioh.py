@@ -673,6 +673,12 @@ def make_ioh_strategies() -> List[StrategySpec]:
 #: not answer in time`` is a crash, not this.
 TIMEOUT_ERROR_PREFIX = "TimeoutError: stopped after"
 
+#: Start of ``IOHRunRecord.error`` for a run that stopped by itself below its
+#: budget (no deadline, no exception) — typically every arm stopped emitting.
+#: It is scored like any short run (the rest of the budget at its final
+#: best), but it is not a clean run and must not read as one.
+EARLY_END_ERROR_PREFIX = "EndedEarly: stopped at"
+
 
 @dataclass
 class IOHRunRecord:
@@ -725,9 +731,14 @@ class IOHRunRecord:
         return self.error is not None and self.error.startswith(TIMEOUT_ERROR_PREFIX)
 
     @property
+    def ended_early(self) -> bool:
+        """Stopped by itself below its budget; ``aocc`` is scored on the short trace."""
+        return self.error is not None and self.error.startswith(EARLY_END_ERROR_PREFIX)
+
+    @property
     def crashed(self) -> bool:
         """Ended by an exception; ``aocc`` is then 0 (nothing was scored)."""
-        return self.error is not None and not self.timed_out
+        return self.error is not None and not self.timed_out and not self.ended_early
 
 
 @dataclass
@@ -761,13 +772,14 @@ class IOHHarnessResult:
         return self._mean_aocc_by(lambda r: r.strategy_name)
 
     def per_strategy_counts(self) -> Dict[str, Dict[str, int]]:
-        """``{strategy: {"n": runs, "crashed": ..., "timed_out": ...}}`` behind each mean."""
+        """``{strategy: {"n": runs, "crashed": ..., "timed_out": ..., "ended_early": ...}}`` behind each mean."""
         out: Dict[str, Dict[str, int]] = {}
         for r in self.runs:
-            c = out.setdefault(r.strategy_name, {"n": 0, "crashed": 0, "timed_out": 0})
+            c = out.setdefault(r.strategy_name, {"n": 0, "crashed": 0, "timed_out": 0, "ended_early": 0})
             c["n"] += 1
             c["crashed"] += int(r.crashed)
             c["timed_out"] += int(r.timed_out)
+            c["ended_early"] += int(r.ended_early)
         return out
 
     def _mean_aocc_by(self, key_fn: Callable[[IOHRunRecord], Any]) -> Dict[Any, float]:
@@ -823,8 +835,12 @@ class IOHHarnessResult:
         print(f"  mean AOCC:    {self.mean_aocc:.4f}    over {len(self.runs)} run(s)")
         n_crash = sum(r.crashed for r in self.runs)
         n_timeout = sum(r.timed_out for r in self.runs)
-        if n_crash or n_timeout:
-            print(f"  incl.:        {n_crash} crashed (AOCC 0), {n_timeout} timed out (AOCC up to the deadline)")
+        n_early = sum(r.ended_early for r in self.runs)
+        if n_crash or n_timeout or n_early:
+            print(
+                f"  incl.:        {n_crash} crashed (AOCC 0), {n_timeout} timed out (AOCC up to the deadline), "
+                f"{n_early} ended early (below budget)"
+            )
         obs = [r.aocc_observed for r in self.runs if r.aocc_observed is not None]
         if obs:
             reco = [r.aocc_reco for r in self.runs if r.aocc_reco is not None]
@@ -834,7 +850,7 @@ class IOHHarnessResult:
         counts = self.per_strategy_counts()
         for name, val in sorted(self.per_strategy_aocc().items(), key=lambda kv: -kv[1]):
             c = counts[name]
-            bad = [f"{c[k]} {k.replace('_', ' ')}" for k in ("crashed", "timed_out") if c[k]]
+            bad = [f"{c.get(k, 0)} {k.replace('_', ' ')}" for k in ("crashed", "timed_out", "ended_early") if c.get(k)]
             print(f"    {name:32s}  {val:.4f}  (n={c['n']}{', ' + ', '.join(bad) if bad else ''})")
         per_dim = self.per_strategy_per_dim_aocc()
         dims = sorted({d for _, d in per_dim})
@@ -1301,6 +1317,11 @@ def _run_tracked(
         # Scored above on the trajectory up to the deadline; the error
         # marks it so no table mistakes a cut-off run for a finished one.
         out.error = f"{TIMEOUT_ERROR_PREFIX} {timeout_s:g}s at {out.n_evals}/{budget} evals"
+    elif out.n_evals < budget:
+        # No deadline and no exception, yet the budget was not spent: the
+        # strategy stopped by itself (every arm stopped producing).  Scored
+        # like any short run, but marked so no table reads it as clean.
+        out.error = f"{EARLY_END_ERROR_PREFIX} {out.n_evals}/{budget} evals"
     return out
 
 

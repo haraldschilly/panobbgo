@@ -51,11 +51,16 @@ extra).
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in
       `fp-check.yml`) before claiming bit-identity for BoTorch / TuRBO.
 
-- [ ] **Real async loop → pull-when-free.**  The threaded / processes /
-      dask loop sizes batches by `jobs_per_client` from wall-clock timings
-      and can queue past the free workers; bring it to the virtual clock's
-      "async" policy (`StrategyBase.request_cap`).  Until then virtual-clock
-      numbers describe that policy, not the real loop.
+- [ ] **Pull-when-free follow-ups** (the real async loop pulls when free,
+      `evaluation.async_policy: pull`, §55).  (a) What is left of candidate
+      staleness in pull mode is the heuristics' own output queues: Random
+      prefills `heuristic.capacity` = 20 points, ~11 results per candidate
+      against 2-3 for Nearby and 2-5 for CMA-ES; harmless for Random, but a
+      smaller fill level for reactive heuristics under pull would cut it.
+      (b) The dask worker count is `len(scheduler_info()["workers"])`, so a
+      cluster with `threads_per_worker > 1` is underfilled; count threads
+      if that setting is ever used.  (c) Drop `async_policy: legacy` once
+      nothing needs it.
 - [ ] **Stale generations under a capped bandit.**  On the virtual clock a
       generational arm (CMA-ES, DE) drains its queued generation at the
       bandit's share of the free workers (max candidate age 49 evaluations,

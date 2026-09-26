@@ -70,9 +70,11 @@ Model
     strategy fills fewer workers than are free, it is asked again at the
     same instant; if it has nothing, the clock moves to the next completion.
     With ``q = 1`` the run is strictly one call at a time, each candidate
-    chosen after the previous result arrived.  This is an *idealized*
-    pull-when-free loop: the real threaded / processes / dask loop does not
-    implement it yet (see TODO.md).  Under a capped bandit a generational
+    chosen after the previous result arrived.  The real asynchronous loop
+    (threaded / processes / dask) runs the same pull-when-free policy by
+    default (``evaluation.async_policy = "pull"``); it differs only in that
+    results arrive in wall-clock completion order and the handlers do not
+    drain before the next decision.  Under a capped bandit a generational
     arm's queued generation drains at the bandit's share of the free
     workers, so its candidates can get stale while other arms run (a
     TODO.md follow-up).
@@ -473,12 +475,8 @@ class VirtualClock:
         if self.policy != "async":
             return None
         cap = max(0, self.free)
-        max_eval = self.strategy.config.max_eval
-        if max_eval:
-            s = self.strategy
-            used = max(s._dispatched, len(s.results) + len(s.pending))
-            cap = min(cap, max(0, int(max_eval) - used))
-        return cap
+        room = self.strategy._budget_room()
+        return cap if room is None else min(cap, room)
 
     def admit(self, points: List[Any]) -> List[Any]:
         """Async policy safety net: keep the first candidates the free workers can take, return the rest.

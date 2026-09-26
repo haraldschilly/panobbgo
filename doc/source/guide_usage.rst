@@ -139,6 +139,7 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
      method: threaded        # 'threaded', 'processes', 'dask' or 'virtual'
      timeout: 60             # optional per-call limit, seconds (see below)
      sync: false             # true: bit-reproducible seeded runs
+     async_policy: pull      # sync false: 'pull' (when free) or 'legacy' (see below)
      virtual_workers: 4      # method 'virtual' only: simulated workers q
      virtual_duration: constant   # 'lognormal' (mean 1, see below) or a number
      virtual_duration_sigma: 0.5  # log-space sd of 'lognormal'
@@ -212,8 +213,19 @@ store them).  The same seed gives the same run on every machine.
 The default ``virtual_policy: async`` is the asynchronous expensive-evaluation
 policy: a decision at every completion instant, candidates only for the free
 workers (the strategy's ``request_cap``; ``jobs_per_client = 1``); with one
-worker the run is strictly one call at a time.  It is an idealized
-pull-when-free loop that the real threaded loop does not implement yet.
+worker the run is strictly one call at a time.
+
+The real asynchronous loop (``sync: false``; threaded, processes or dask)
+runs the same **pull-when-free** policy by default
+(``async_policy: pull``): the strategy is asked only while a worker is free,
+for at most the free workers within the budget, with
+``jobs_per_client = 1``, and no candidate is queued behind a busy worker,
+where it would go stale.  A harvest that frees a worker is followed by a
+new request at once.  ``async_policy: legacy`` keeps the old behaviour:
+batches of ``jobs_per_client`` per worker sized from wall-clock task
+timings, requested on every pass, so a fixed-size strategy can queue far
+past the free workers.  With ``sync: true`` (and on the virtual clock) the
+setting has no effect.
 ``virtual_policy: sync`` keeps the synchronous batch policy as a regression
 mode: with ``virtual_workers = 1``, a constant duration **and**
 ``dask.local.n_workers = 1`` (which sizes the synchronous batches) it is

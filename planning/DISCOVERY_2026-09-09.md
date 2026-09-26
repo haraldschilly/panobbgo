@@ -2527,3 +2527,60 @@ Reading:
   moved 0.4275 → 0.4257 — the §54 run had half its shards on the other FP
   class.
 
+
+## 55. The real async loop pulls when free: candidate staleness, legacy vs pull (2026-09-26)
+
+`evaluation.async_policy` (new; default `pull`, `legacy` keeps the old
+loop).  Under `pull` the threaded / processes / dask loop without
+`evaluation.sync` sets `request_cap` to the free workers within the budget
+before `execute()` (skipped at 0), uses `jobs_per_client = 1`, returns any
+surplus to the heuristics' queues, and asks again at once after a harvest.
+`evaluation.sync` and the virtual clock are untouched: 40 seeded traces
+(RoundRobin_CMAES, Blocks_warm_CMAES_JSO, Rewarding, UCB, a two-phase
+Phased; Rosenbrock d = 3 and Rastrigin d = 2; 120 evaluations; sync with 2
+and 4 workers, virtual async q = 4 log-normal, virtual sync q = 4) hash
+identically on master and the branch.
+
+**Staleness** of a candidate: results delivered (`len(strategy.results)`)
+between its creation (`Point.__init__`) and the start of its evaluation on
+a worker.  Threaded, Rosenbrock d = 4, 300 evaluations, log-normal sleeps
+(sigma 0.5), 3 seeds, mean over seeds; "peak" is the most evaluations
+submitted and not yet harvested at once.  Instrument: a scratch script
+(monkeypatched `Point.__init__`, objective records at call start), not in
+the repository.
+
+q = 4, mean 5 ms:
+
+| Strategy | policy | mean | p90 | max | peak in flight |
+|---|---|---|---|---|---|
+| RoundRobin_CMAES | legacy | 3.2 | 6.0 | 7.7 | 12.3 |
+| RoundRobin_CMAES | pull | 4.6 | 8.0 | 9.7 | 4 |
+| Blocks_warm_CMAES_JSO | legacy | 6.3 | 12.7 | 21.0 | 25.3 |
+| Blocks_warm_CMAES_JSO | pull | 3.0 | 6.0 | 11.3 | 4 |
+| RoundRobin (Random + Nearby, size 10) | legacy | 130.4 | 235.8 | 262.3 | 267.0 |
+| RoundRobin (Random + Nearby, size 10) | pull | 11.1 | 20.3 | 34.7 | 4 |
+| Rewarding (Random + Nearby) | legacy | 38.8 | 53.7 | 61.3 | 45.7 |
+| Rewarding (Random + Nearby) | pull | 10.7 | 19.7 | 31.0 | 4 |
+| UCB (Random + Nearby) | legacy | 28.2 | 38.3 | 45.3 | 24.0 |
+| UCB (Random + Nearby) | pull | 10.6 | 20.0 | 34.7 | 4 |
+
+q = 8, mean 10 ms (mean / max / peak): RoundRobin_CMAES 1.3 / 5.3 / 14.0 →
+1.8 / 7.3 / 8; Blocks 4.1 / 15.7 / 24.0 → 2.3 / 8.3 / 8; RoundRobin
+Random + Nearby 126.3 / 259.3 / 267.3 → 11.5 / 30.3 / 8; Rewarding
+52.6 / 81.3 / 69.7 → 11.3 / 28.7 / 8; UCB 44.3 / 65.0 / 48.0 →
+11.7 / 30.0 / 8.
+
+* Pull never has more in flight than workers; legacy queued up to 267
+  evaluations on 4 workers (RoundRobin `size = 10` asked on every ~1 ms
+  pass, the whole budget sat in the pool).
+* Pull is 2-12x less stale (mean) for everything but a lone CMA-ES, which is
+  slightly staler (+1.4 at q = 4): under pull the result that frees a
+  worker is delivered before the next candidate starts, so each queued
+  member of a generation counts one more delivered result than under
+  legacy, where the pool starts the next queued task before the harvest.
+  Its peak drops from 12 to 4 all the same.
+* The ~10 left under pull is the heuristics' own output queues (Random and
+  Nearby prefill 20 points), not the loop (TODO).
+* Wall time at 5 ms evaluations: 0.44-0.48 s vs 0.38-0.40 s (legacy keeps
+  a queue behind each worker, pull reacts after the ~1 ms pass).  Nil for
+  expensive evaluations, which is the domain; 3-10 % at 10 ms, q = 8.

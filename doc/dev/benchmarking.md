@@ -270,8 +270,9 @@ done
 
 The default `--virtual-policy async` decides at every completion and asks the
 strategy for at most the free workers (`StrategyBase.request_cap`; q = 1:
-strictly one call at a time) — an idealized pull-when-free loop that the
-real threaded loop does not implement yet (`TODO.md`).  `--virtual-policy
+strictly one call at a time) — the pull-when-free policy the real
+asynchronous loop runs too (`evaluation.async_policy: pull`, the default;
+`legacy` keeps the old `jobs_per_client` sizing).  `--virtual-policy
 sync` is a regression mode: with q = 1, `--duration constant` and
 `dask.local.n_workers = 1` it reproduces the `sync_eval` run exactly (then
 `aocc_time == aocc`).  Failed and timed-out calls count as spent evaluations

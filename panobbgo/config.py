@@ -340,6 +340,16 @@ class Config:
         # supported by 'dask' (ignored with a warning).
         self.sync_evaluation = get_config("evaluation.sync", None, None, False, bool)
 
+        # Policy of the asynchronous loop (evaluation.sync false; 'threaded',
+        # 'processes' or 'dask'; YAML only).  'pull' (default): pull when
+        # free — the strategy is asked only while a worker is free, for at
+        # most the free workers (StrategyBase.request_cap; jobs_per_client =
+        # 1), and nothing is queued beyond them, the policy the virtual
+        # clock's 'async' simulates.  'legacy': batches sized by
+        # jobs_per_client from wall-clock task timings, asked every pass,
+        # which can queue candidates past the free workers.
+        self.async_policy = get_config("evaluation.async_policy", None, None, "pull", str)
+
         # Per-call evaluation limit in seconds (YAML only), for every backend,
         # enforced where the evaluation runs and counted from the call's
         # start (queue time never counts).  An evaluation past it becomes a

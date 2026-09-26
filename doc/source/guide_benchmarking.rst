@@ -927,10 +927,14 @@ cap (``StrategyBase.request_cap``) to the free workers within the budget,
 so a bandit's pull counts and a block's length cover exactly the dispatched
 evaluations, and nothing is queued beyond them.  At ``q = 1`` a run is
 strictly one call at a time, each candidate chosen after the previous
-result arrived.  This models an *idealized* pull-when-free loop; the real
-threaded / processes / dask loop does not implement it yet (a TODO.md
-follow-up), so virtual-clock numbers describe that policy, not today's
-real asynchronous mode.  Under a capped bandit a generational arm's queued
+result arrived.  The real asynchronous loop (threaded / processes / dask
+without ``evaluation.sync``) runs the same pull-when-free policy by default
+(``evaluation.async_policy: pull``): it asks the strategy only while a
+worker is free, for at most the free workers, with ``jobs_per_client = 1``,
+and never queues past them.  It differs from the virtual clock only in
+what a simulation idealizes: results arrive in wall-clock completion order,
+and the handlers need not have drained when the next decision is made.
+Under a capped bandit a generational arm's queued
 generation drains at the bandit's share of the workers, so its candidates
 can get stale (a TODO.md follow-up).  ``--virtual-policy sync`` keeps the
 synchronous batch policy as a regression mode: with ``q = 1``, a constant

@@ -776,13 +776,13 @@ wall-clock):
 When a default may change
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A three-seed sweep *locates* a candidate; it never ships one.  A library
-default changes only after the candidate is accepted on the **12-seed
-roster**, paired, as a library default rather than as a harness spec — CI
-excluding zero on the positive side, a clear majority of seeds positive, and
-no dimension excluding zero on the negative side.  On top of that, a positive
+A three-seed sweep *locates* a candidate; it never ships one.  A default
+change needs a **paired multi-seed comparison** on fresh seeds
+(``harness_ioh.paired_seed_stats``), reported as delta, CI and
+wins/n.  (Until 2026-09-25 this was a fixed 12-seed decision roster; the
+numbers quoted in this guide come from it.)  On top of that, a positive
 result needs a **mechanism**: a claim about which code path the parameter
-changes.  ``NP_init`` passed all three tests (read in ``__init__``, effect
+changes.  ``NP_init`` passed both tests (read in ``__init__``, effect
 of +0.1 … +0.2 far above the floor, and a visible collapse at ``NP_init=4``);
 the secondary knobs of the first sweep pass (``H``, ``k_rank``,
 ``archive_factor``, ``F_schedule``, ``lbest``) did not, and are recorded as
@@ -792,10 +792,10 @@ One sharpening of that rule, learned the expensive way: **a screen
 maximum's own CI carries no weight.**  A screen reports the best of many
 specs, and a confidence interval computed on a selected winner is not the
 interval of a pre-registered spec.  ``soft_be25`` led a fourteen-spec screen
-at +0.050 with a three-seed CI excluding zero, and returned **−0.006** on the
-roster (``planning/DISCOVERY_2026-09-09.md`` §30).  This is the same
-mechanism as the dead-parameter story above, passing through a CI instead of
-a point estimate.  Only the roster CI decides.
+at +0.050 with a three-seed CI excluding zero, and returned **−0.006** on
+twelve fresh seeds (``planning/DISCOVERY_2026-09-09.md`` §30).  This is the
+same mechanism as the dead-parameter story above, passing through a CI
+instead of a point estimate.  Only the re-check on fresh seeds decides.
 
 Extending the harness
 ---------------------

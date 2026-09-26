@@ -85,7 +85,7 @@ followed (#331–#334).  Details in the PR descriptions and commit messages.
       IOH aggregates count timeouts and crashes.  Re-measure the
       composite quick/standard and IOH/family references before the next
       comparison that relies on them.  Runs on GitHub runners via
-      `.github/workflows/rebaseline.yml` (AGENTS.md, "Re-baselining on
+      `.github/workflows/rebaseline.yml` (doc/dev/benchmarking.md, "Re-baselining on
       GitHub runners"); commit the aggregated `ref_*` files once it is done.
 - [ ] **External baselines in the re-baseline workflow.**  The pycma /
       Nevergrad / Optuna baselines (`panobbgo/harness_baselines.py`, extra
@@ -110,6 +110,3 @@ databases without a fingerprint are refused (escape hatch
 `storage.adopt_legacy`); block-bandit async credit unchanged; DynamicPenalty /
 ALM keep their own rho default (10), ALM multipliers grow linearly while the
 incumbent is stuck; the multi-seed regression gate stays pooled.
-
-- [ ] **Re-baseline** (see the backlog item above) — run when the machine is
-      free; everything measured before 2026-09-25 is not comparable.

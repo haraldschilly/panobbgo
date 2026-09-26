@@ -1,301 +1,59 @@
 # AGENTS.md
 
-Instructions for agents working on the Panobbgo repository. Keep this file
-actionable; history and design notes live under `planning/`.
+Entry point for agents (and humans) working on Panobbgo.  Keep it short;
+details live in the linked files, history and designs under `planning/`.
 
-## Where things are
+## What this is
 
-*   `TODO.md` — open work only (done items go to the planning log). Update it when you fix a
-    bug, find a new issue, finish a task, or make an architectural decision.
-*   `planning/GOAL.md` — the goal contract for open-ended "improve panobbgo"
-    work: metric of record, operating loop, research backlog. Read it first
-    for any optimisation-quality task.
-*   `doc/source/guide_benchmarking.rst` — user-facing benchmarking guide
-    (composite score, running the harness, statistical acceptance).
-*   `planning/DISCOVERY_2026-09-09.md` — the running research log (§n):
-    every measured decision with its numbers.
-*   The autonomous self-improvement loop (nightly mutation + codify) was
-    removed on 2026-09-25: its accept signal sat on the noise floor. Its
-    design, reference and ledgers are in `planning/done/`
-    (`SELF_IMPROVEMENT_LOOP.md`, `LOOP_REFERENCE.md`, `LOOP_DIAGNOSIS_*`);
-    `planning/SELF_IMPROVEMENT_LOG.md` is the history.
-*   `tools/ioh_worker/README.md` — IOH/MA-BBOB worker setup and protocol.
-*   `planning/TEST_PERFORMANCE.md` — test-suite timing notes.
+Panobbgo is Harald Schilly's 2012 thesis project, a Snobfit-inspired
+optimizer for **expensive, noisy black-box problems**, revived in 2026 with
+coding agents.  It is a **library**: a strategy, heuristics and analyzers
+are composed in a Python script (`README.md`, `doc/source/guide_usage.rst`).
+Evaluation is threaded and local by default; Dask is an optional extra.
+`sketchpad/` holds scratch scripts, not curated demos.
 
-## General rules
+The idea to keep in front of every design: **every evaluated point is
+shared by all solvers** through one archive.  That shared archive is
+Panobbgo's structural advantage over a plain portfolio of solvers.
 
-*   Follow PEP 8; `ruff` (line length 120) is the formatter and linter.
-*   Public functions and classes get Google-style docstrings.
-*   All new code must be tested; tests live in `tests/`.
-*   Stochastic/integration tests that may intermittently fail are decorated
-    with `@pytest.mark.flaky(retries=3)` (`pytest-retry`).
-*   Update the copyright banner year on files you edit: `2012-<current year>`.
-*   Do not change the composite-score formula (`panobbgo/harness.py`)
-    without an architectural decision record — historical comparisons
-    depend on it.
+Domain rules:
 
-## Environment and commands
+*   `max_eval` is a hard cap, not a target; in-flight evaluations count
+    against it (phased strategies too).
+*   Generating candidates is cheap, evaluating them is expensive: propose
+    freely, submit carefully.
+*   Restartability matters: the storage backend checkpoints and resumes,
+    because one evaluation can take minutes.
 
-**Always use `uv run ...`** for Python and every tool (pytest, ruff,
-pyright, sphinx-build, scripts). Never call `.venv/bin/...` or bare
-`python` directly.
+## Read next
 
-**Dependency policy: track the bleeding edge of *stable* releases.**
-Keep `requires-python` and the floors in `pyproject.toml` at the newest
-released versions rather than the oldest that happen to work, and bump
-them deliberately instead of waiting for a Dependabot lockfile nudge.
-The project is a research codebase with one maintainer and no downstream
-users to keep compatible, so the cost of an old floor (silently untested
-combinations, security bumps that never reach `pyproject.toml`) is higher
-than the cost of moving early. Pre-releases and release candidates are
-*not* included — stable only.
+| File | What for |
+|------|----------|
+| [`planning/GOAL.md`](planning/GOAL.md) | Goal contract, state snapshot, plan of record — read first for any optimization-quality task |
+| [`TODO.md`](TODO.md) | Open work and open decisions |
+| [`doc/dev/process.md`](doc/dev/process.md) | Roles, PRs, reviews, merging, git rules, record keeping |
+| [`doc/dev/environment.md`](doc/dev/environment.md) | Commands, CI, dependency policy, scripts and local runs |
+| [`doc/dev/benchmarking.md`](doc/dev/benchmarking.md) | Metrics, evidence a PR needs, harness and AOCC tracks, re-baselining |
+| `planning/DISCOVERY_2026-09-09.md` | Research log (§n): every measured result with its numbers |
+| `planning/DESIGN_roadmap_2026-09-26.md` | Current roadmap |
+| `doc/source/guide_benchmarking.rst` | User-facing benchmarking guide |
+| `tools/ioh_worker/README.md` | IOH / MA-BBOB worker setup |
 
-When bumping: raise the floors, `uv lock`, `uv sync --extra dev --extra
-dask`, run the full suite, `ruff check`, `pyright panobbgo` and both
-Sphinx builds, and bump `PYTHON` in `.github/workflows/tests.yml`
-and in `docs.yml` in the
-same change — the CI pin is part of the dependency set.
+The nightly self-improvement loop was removed on 2026-09-25; its design and
+ledgers are in `planning/done/`, its history in
+`planning/SELF_IMPROVEMENT_LOG.md`.
 
-One deliberate exception: `tools/ioh_worker/` is pinned to
-`>=3.11,<3.13` because the `ioh` wheels stop at cp312. It is an isolated
-uv project with its own venv precisely so that ceiling cannot hold the
-main package back; leave it alone until `ioh` ships newer wheels.
+## Rules that always apply
 
-```bash
-uv sync --extra dev                       # install (pip: pip install -e ".[dev]")
-uv run pytest -q -n 4                     # full suite (~2300 tests, ~1 min)
-uv run pytest -q tests/test_core.py       # one file; serial `pytest` also works
-uv run ruff format .                      # format (CI gate: ruff format --check .)
-uv run ruff check --fix .                 # lint; ./codestyle.sh runs both
-uv run pyright panobbgo                   # type check (CI gate)
-uv run flake8 panobbgo                    # advisory only (CI: continue-on-error)
-uv run sphinx-build -b doctest doc/source doc/build/doctest   # docs doctests (CI gate)
-uv run sphinx-build -b html doc/source doc/build/html         # docs HTML (docs.yml)
-uv run pytest benchmarks/ --benchmark-min-rounds=1 --benchmark-max-time=0.1 -q  # micro-benchmarks (CI gate)
-./test.sh                                 # run every CI job locally, incl. both Sphinx builds (run_ci.py; --job NAME for one, --dry-run to list)
-```
-
-CI (`.github/workflows/tests.yml`) gates on: pytest, pyright, `ruff format
---check`, the Sphinx doctest build, and the pytest-benchmark suite. flake8
-runs but does not fail the build. `.github/workflows/README.md` describes
-the workflows.
-
-Useful `gh` commands: `gh pr checks <N>`, `gh run list`,
-`gh run view <RUN_ID> --log`.
-
-### Local runs
-
-*   Long benchmark or pytest runs go through `nice -n 15` so the machine
-    stays usable, e.g. `nice -n 15 uv run python benchmark_harness.py run --standard ...`.
-*   Multi-seed screens (`benchmarks/*_screen.py`, `arm_sweep.py`,
-    `oracle.py`, `np_accept.py`) take `jobs=N`, and `scripts/ioh_benchmark.py
-    run` takes `--jobs N`: independent (seed, cell) runs go to N niced
-    `spawn` worker processes (`panobbgo.local_run.TaskPool`).  Under
-    `sync_eval` the records do not depend on N.  Size N to the free cores
-    and memory of a shared machine.
-*   Scripts that build `LBFGSB` / `COBYQA` / `LocalPenaltySearch` /
-    `QuadraticWlsModel` or use `evaluation_method = "processes"` start
-    `"spawn"` subprocesses, which re-import the script: keep the code that
-    runs the optimization under `if __name__ == "__main__":` (user guide,
-    "Scripts That Start Worker Processes").
-*   Measure progress in **evaluations**, not wall time. Wall time depends on
-    machine load and the evaluator thread pool; evaluation counts are the
-    comparable quantity (see "Domain context").
-
-## Running Panobbgo
-
-Panobbgo is a **library**: strategies, heuristics and analyzers are composed
-in a Python script (see `README.md` and `doc/source/guide_usage.rst`).
-Evaluation is threaded and local by default; Dask is an optional extra for
-distributed evaluation. `sketchpad/` holds unpolished scratch scripts, not
-curated demos.
-
-## Domain context: black-box noisy optimisation
-
-Panobbgo solves **expensive, noisy black-box optimisation** problems:
-
-*   **The evaluation budget is a hard cap.** `max_eval` is a strict limit,
-    not a target. Strategies must respect phase boundaries and never let
-    in-flight evaluations overshoot budget allocations.
-*   **Generating candidates is cheap; evaluating them is expensive.**
-    Produce as many proposals as you like, but control what is submitted
-    for evaluation against the budget.
-*   **Restartability matters.** The storage backend enables checkpointing
-    and resuming, which is essential when one evaluation takes minutes.
-*   **Phased strategies** (`StrategyPhased`) must account for pending
-    (in-flight) evaluations when enforcing per-phase budgets.
-
-## Benchmark harness
-
-The harness is the **single source of truth** for "is Panobbgo better or
-worse than before this change?". It yields one scalar,
-`composite_score` ∈ [0, 1]. **Use it whenever you modify a strategy
-(`strategies/`), a heuristic (`heuristics/`), core evaluation or constraint
-handling, or the benchmark registry.** Full guide:
-`doc/source/guide_benchmarking.rst`.
-
-### Workflow
-
-```bash
-# 1. Baseline BEFORE changing anything
-uv run python benchmark_harness.py run --quick --output before.json
-# 2. Make the change
-# 3. Measure AFTER
-uv run python benchmark_harness.py run --quick --output after.json
-# 4. Compare — exit code 2 on regression
-uv run python benchmark_harness.py compare before.json after.json --statistical --fail-on-regression
-```
-
-### Modes
-
-*   `--quick`: 3 problems × 2 strategies × 3 reps × 75 evals (~30 s) — during development
-*   `--standard`: 7 problems × 8 strategies × 5 reps × 200 evals (minutes) — before merging
-*   `--full`: 10 problems × 12 strategies × 10 reps × 500 evals (~1 h) — thorough validation
-
-Useful flags (see the guide for details):
-
-*   `--baselines` adds external reference solvers (`Baseline_Random`,
-    `Baseline_SciPyDE`, `Baseline_SciPyAnneal`) for an *absolute* reference
-    (`panobbgo/harness_baselines.py`).  pycma IPOP/BIPOP, Nevergrad
-    NGOpt/CMA/TwoPointsDE and Optuna CMA-ES/TPE (`uv sync --extra
-    baselines`) join only when `--strategies` names them, e.g.
-    `--baselines --strategies Baseline_NGOpt`.
-*   `--randomize --randomize-iteration N` swaps the fixed battery for
-    parametrically randomised instances (translation / rotation / scaling /
-    noise); the same `N` reproduces the same instances so before/after runs
-    line up (`panobbgo/harness_randomized.py`).
-*   `--seed S` changes the base seed; re-run at a second seed before
-    trusting a small delta.
-*   Evaluation is synchronous by default in every harness entry point
-    (`sync_eval`, since 2026-09-25) so a seeded run is bit-reproducible —
-    the reason is reproducibility, not speed.  `--no-sync-eval` opts into
-    the threaded evaluator; `compare` warns when the two sides differ in
-    mode, and result files from before 2026-09-25 were measured async.
-    The library default (`Config.sync_evaluation`) stays asynchronous.
-
-### Score interpretation
-
-*   **1.0** — every run solves at evaluation 1 (theoretical ceiling)
-*   **0.7+** — strong; optima found with budget left over
-*   **0.3** — weak; rare, late successes
-*   **0.0** — never within tolerance
-
-Per-pair metrics: `success_rate`, `ert` (BBOB standard),
-`best_func_distance`, `median_func_distance`.
-
-### Statistical rigor
-
-*   `--quick` is **noisy** (3 reps): ±0.02 is within noise. Treat quick
-    deltas as trend signals, not proof.
-*   For deltas of +0.01…+0.03, re-run with `--seed 43` before accepting.
-*   Before merging a significant algorithmic change, run `--standard` or
-    `--full` (niced, on a machine you are not otherwise loading).
-*   `compare --statistical` bootstraps a 95 % CI on the composite delta and
-    accepts iff delta > `eps_accept` (0.005), CI lower bound > 0, and no
-    single (problem, strategy) pair regresses by more than `eps_regress`
-    (0.05). With `--fail-on-regression` the exit code is 2 on rejection.
-    API: `panobbgo.harness.statistical_accept`.
-*   The bootstrap is **paired** (rep-aligned) automatically when both sides
-    have the same rep count — the `--randomize` case. Force with
-    `--paired` / `--unpaired`; use `--unpaired` when reps are not
-    instance-aligned (different `base_seed`s).
-*   **Result files from before T1 (2026-09-25) are not comparable** with
-    newer ones: the core now stops at exactly `max_eval` (runs used to
-    overshoot by up to one batch), and composite `success` means
-    "tolerance met within the budget" (was: final `strategy.best`).
-    Re-baseline instead of comparing across that line (TODO.md T1).
-*   Module RNG streams are keyed by the master seed and the module's name
-    (`StrategyBase.spawn_rng`, since 2026-09-25): adding, removing or
-    reordering one module no longer shifts any other module's randomness.
-    This changed every seeded trajectory, so result files from before
-    2026-09-25 are not paired with newer ones — re-baseline.
-*   Seeded runs are bit-reproducible under `sync_eval` (since 2026-09-09;
-    the harness default since 2026-09-25).
-    But each run's RNG stream is derived from `StrategySpec.seed_name`
-    (default: the spec's `name`), so **variants of one arm must share a
-    `seed_name`** or the A/B carries full run-to-run variance — a parameter
-    that is never read then still shows a delta (this passed a CI once;
-    DISCOVERY §18).  `benchmarks/arm_sweep.py` / `oracle.py` /
-    `np_accept.py` / `portfolio_screen.py` do this.
-*   Measured null floor on a 3-seed standard-battery mean: **±0.05** for a
-    CMA-ES-containing spec, **±0.03** for a DE arm.  Anything smaller is a
-    direction, not an effect.  A positive result also needs a *mechanism*
-    (which code path reads the parameter?) before it is called located.
-*   The best spec of a multi-spec screen is a *selected maximum*; re-check
-    it on fresh seeds before believing its margin (DISCOVERY §30).
-
-### IOH / MA-BBOB anytime track (AOCC)
-
-A parallel measurement track scores Panobbgo on the IOHprofiler MA-BBOB
-suite with the **AOCC** metric (`scripts/ioh_benchmark.py`,
-`panobbgo/harness_ioh.py`). It needs the isolated worker venv — setup and
-protocol in `tools/ioh_worker/README.md` (`cd tools/ioh_worker && uv sync`;
-without it IOH tests skip via the `requires_worker` marker).
-
-```bash
-uv run python scripts/ioh_benchmark.py run --quick --baselines
-uv run python scripts/ioh_benchmark.py run --standard --baselines --output ioh_before.json
-uv run python scripts/ioh_benchmark.py compare ioh_before.json ioh_after.json
-```
-
-Same CLI, same AOCC, same JSON — but on generated problem *families*
-(`panobbgo/harness_families.py`, no worker venv needed): `--families`
-(5 families × dims 2/5/10 × 3 instances, shifted/rotated, known optimum),
-`--families-constrained` (4 families × dims 2/5, k = 1..3 constraints
-*active at the optimum*, AOCC scored on the penalty value `f + 100·cv`)
-and `--families-quick` (a two-run smoke test).  Multi-seed screens go
-through `benchmarks/family_screen.py`.
-
-`composite_score` and AOCC do not interconvert; a change can improve one and
-regress the other — track both. AOCC is the metric of record in
-`planning/GOAL.md`.
-
-### Re-baselining on GitHub runners
-
-`.github/workflows/rebaseline.yml` (manual, `workflow_dispatch`) re-measures
-the references when the local machine is busy: composite quick/standard
-(`benchmark_harness.py run`, one file per seed), IOH quick/standard
-(`ioh_benchmark.py run --baselines --seeds ...`) and the family screens
-(`benchmarks/family_screen.py`, presets free/constrained), sharded over
-(suite × seed chunk), ~28 jobs for the 12-seed roster.  Every shard runs
-`sync_eval`, seeded, with no wall-clock limit (`--no-timeout`), so the
-numbers do not depend on runner speed.  Suites and chunk sizes live in
-`scripts/rebaseline.py`.
-
-```bash
-gh workflow run rebaseline.yml -f suites=all -f seeds=12        # seeds: a count or '42,7'; -f ref=<sha>
-gh run download <RUN_ID> --pattern 'shard-*' --dir rebaseline-raw
-uv run python scripts/rebaseline.py aggregate rebaseline-raw    # -> planning/results/<UTC date>/ref_*
-```
-
-The workflow's last job does the same aggregation and uploads it as the
-`rebaseline-references` artifact.  Outputs: `ref_composite_<mode>_s<seed>.json`
-(for `benchmark_harness.py compare`), `ref_ioh_<battery>.json` (multi-seed,
-for `ioh_benchmark.py compare` against a run with the same `--seeds`) plus
-single-seed `ref_ioh_<battery>_s<seed>.json`, `ref_family_screen_<preset>.json`
-(rows; `family_screen.py from=FILE`) and `ref_MANIFEST.json` (commit, seeds,
-failed shards).
-
-### Key files
-
-*   `panobbgo/harness.py` — `BenchmarkHarness`, metrics, `compare()`, `statistical_accept()`
-*   `panobbgo/harness_baselines.py`, `panobbgo/harness_randomized.py`, `panobbgo/harness_ioh.py`
-*   `benchmark_harness.py` — CLI (`run`, `score`, `compare`, `list`)
-*   `tests/test_harness*.py` — harness tests
-
-## Agent-driven "improve X" PRs — evidence vs. CI
-
-**First, deduplicate.** Run `gh pr list --state open` (drafts included) and
-skim titles before implementing an improvement; if the idea is already in
-an open PR, finish that one instead of opening a duplicate.
-
-A green PR proves the change does not break tests / lint / typecheck /
-docs / format / micro-benchmarks. **A green PR does NOT prove the change
-improved `composite_score` or AOCC** — no PR-side CI workflow executes the
-benchmark harness.
-
-In the PR description, say what was measured (and how) and what was not.
-Bug fixes that restore the documented or published behaviour need no
-benchmark to land. For tuning or default changes, a quick paired
-multi-seed comparison (`harness_ioh.paired_seed_stats`) is enough — quote
-delta, CI and wins/n, and call unmeasured claims unmeasured.
+*   `uv run ...` for every tool; never `.venv/bin/...` or bare `python`.
+*   Every change goes through a PR; merge only on green CI and after review
+    (`doc/dev/process.md`).  Never use `git stash`.
+*   PEP 8; `ruff` (line length 120) formats and lints.  Public functions and
+    classes get Google-style docstrings.
+*   New code is tested (`tests/`).  Stochastic tests that may fail
+    intermittently get `@pytest.mark.flaky(retries=3)`.
+*   Update the copyright banner on files you edit: `2012-<current year>`.
+*   The composite-score formula and the default randomized battery are
+    frozen contracts (`doc/dev/benchmarking.md`).
+*   Update `TODO.md` when you fix a bug, find an issue, finish a task or
+    make a decision; log measured results in the DISCOVERY log.

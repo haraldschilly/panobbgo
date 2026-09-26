@@ -8,6 +8,7 @@ pyright, sphinx-build, scripts).  Never call `.venv/bin/...` or a bare
 
 ```bash
 uv sync --extra dev                       # install (pip: pip install -e ".[dev]")
+uv sync --extra dev --extra baselines     # + pycma / Nevergrad / Optuna baselines
 uv run pytest -q -n 4                     # full suite (~2300 tests, ~1 min)
 uv run pytest -q tests/test_core.py       # one file
 uv run ruff format .                      # format (CI gate: ruff format --check .)
@@ -40,7 +41,7 @@ deliberately rather than waiting for Dependabot.  A single-maintainer
 research codebase has no downstream users to stay compatible with; an old
 floor only buys untested version combinations.
 
-To bump: raise the floors, `uv lock`, `uv sync --extra dev --extra dask`,
+To bump: raise the floors, `uv lock`, `uv sync --extra dev --extra dask --extra baselines`,
 and bump `env.PYTHON` in **every** workflow in the same PR — the CI pin is
 part of the dependency set.  CI then runs the suite, pyright and both
 Sphinx builds.

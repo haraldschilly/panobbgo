@@ -84,7 +84,12 @@ Public surface
 * :func:`run_family_harness` — the entry point.
 * :func:`make_families_battery` / :func:`make_constrained_battery` — the
   two frozen presets; :func:`make_shapes_battery` (the BBOB shapes) and
-  :func:`make_failure_battery` (failure regions) — two more.
+  :func:`make_failure_battery` (failure regions) — two more.  Every
+  preset takes ``dims=``, including 30 and 40.
+* :func:`make_large_families_battery` — the free and shapes families at
+  *d* = 30 and 40 (opt-in).
+* :func:`make_sealed_families_battery` — the **sealed test set**
+  (:mod:`panobbgo.sealed`), for claims only.
 """
 
 from __future__ import annotations
@@ -108,7 +113,8 @@ from panobbgo.harness_ioh import (
     _TrackedRun,
     warn_missing_time_scores,
 )
-from panobbgo.lib.families import FailureRegion, Family, FamilyConfig, FamilyLike, make_family_instances
+from panobbgo.lib.families import FailureRegion, Family, FamilyConfig, make_family_instances
+from panobbgo.sealed import SEALED_FAMILY_SEED, print_sealed_banner
 from panobbgo.virtual_clock import VirtualSpec
 
 #: Penalty coefficient of :class:`DefaultConstraintHandler
@@ -196,6 +202,38 @@ class PenaltyTracker(IOHTracker):
 # same on every run; only ``base_seed`` — the optimiser's RNG — moves.
 
 
+#: The families of each preset, in battery order.  Shared by the
+#: development presets and the sealed set, so the two measure the same
+#: classes on different instances.
+FREE_FAMILIES: Tuple[FamilyConfig, ...] = (
+    FamilyConfig(base="ellipsoid"),
+    FamilyConfig(base="rosenbrock"),
+    FamilyConfig(base="rastrigin"),
+    FamilyConfig(base="ackley"),
+    FamilyConfig(base="sharp_ridge"),
+)
+_KS = (1, 2, 3)
+CONSTRAINED_FAMILIES: Tuple[FamilyConfig, ...] = (
+    FamilyConfig(base="sphere", n_constraints=_KS, constraint_kind="linear"),
+    FamilyConfig(base="ellipsoid", n_constraints=_KS, constraint_kind="ball"),
+    FamilyConfig(base="rosenbrock", n_constraints=_KS, constraint_kind="linear"),
+    FamilyConfig(base="rastrigin", n_constraints=_KS, constraint_kind="ball"),
+)
+SHAPES_FAMILIES: Tuple[FamilyConfig, ...] = (
+    FamilyConfig(base="lunacek_bi_rastrigin"),
+    FamilyConfig(base="gallagher"),
+    FamilyConfig(base="attractive_sector"),
+    FamilyConfig(base="step_ellipsoid"),
+    FamilyConfig(base="bent_cigar"),
+)
+FAILURE_FAMILIES: Tuple[FamilyConfig, ...] = (
+    FamilyConfig(base="ellipsoid", failure=FailureRegion("halfspace", share=0.25, mode="crash", boundary_gap=0.0)),
+    FamilyConfig(base="rosenbrock", failure=FailureRegion("halfspace", share=0.25, mode="timeout", boundary_gap=0.05)),
+    FamilyConfig(base="rastrigin", failure=FailureRegion("ball", share=0.2, mode="crash")),
+    FamilyConfig(base="sharp_ridge", failure=FailureRegion("boxes", share=0.2, mode="timeout", n_boxes=3)),
+)
+
+
 def make_families_battery(
     dims: Sequence[int] = (2, 5, 10),
     n_instances: int = 3,
@@ -225,14 +263,7 @@ def make_families_battery(
     Note the cost asymmetry: the budget is ``budget_multiplier * dim``,
     so the ``d = 10`` third of the battery is half of its evaluations.
     """
-    families: List[FamilyLike] = [
-        FamilyConfig(base="ellipsoid"),
-        FamilyConfig(base="rosenbrock"),
-        FamilyConfig(base="rastrigin"),
-        FamilyConfig(base="ackley"),
-        FamilyConfig(base="sharp_ridge"),
-    ]
-    return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
+    return make_family_instances(list(FREE_FAMILIES), dims=dims, n_instances=n_instances, seed=seed)
 
 
 def make_constrained_battery(
@@ -259,14 +290,7 @@ def make_constrained_battery(
     ever been measured on AOCC at all, and a first battery that is cheap
     enough to run repeatedly is worth more than a wide one.
     """
-    ks = (1, 2, 3)
-    families: List[FamilyLike] = [
-        FamilyConfig(base="sphere", n_constraints=ks, constraint_kind="linear"),
-        FamilyConfig(base="ellipsoid", n_constraints=ks, constraint_kind="ball"),
-        FamilyConfig(base="rosenbrock", n_constraints=ks, constraint_kind="linear"),
-        FamilyConfig(base="rastrigin", n_constraints=ks, constraint_kind="ball"),
-    ]
-    return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
+    return make_family_instances(list(CONSTRAINED_FAMILIES), dims=dims, n_instances=n_instances, seed=seed)
 
 
 def make_shapes_battery(
@@ -287,14 +311,7 @@ def make_shapes_battery(
       systematically wrong smooth surrogate.
     * ``bent_cigar`` (f12) — one soft, curved direction.
     """
-    families: List[FamilyLike] = [
-        FamilyConfig(base="lunacek_bi_rastrigin"),
-        FamilyConfig(base="gallagher"),
-        FamilyConfig(base="attractive_sector"),
-        FamilyConfig(base="step_ellipsoid"),
-        FamilyConfig(base="bent_cigar"),
-    ]
-    return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
+    return make_family_instances(list(SHAPES_FAMILIES), dims=dims, n_instances=n_instances, seed=seed)
 
 
 def make_failure_battery(
@@ -324,15 +341,69 @@ def make_failure_battery(
     progress).  ``d = 10`` is left out for the reason the constrained
     battery leaves it out: a first battery cheap enough to run often.
     """
-    families: List[FamilyLike] = [
-        FamilyConfig(base="ellipsoid", failure=FailureRegion("halfspace", share=0.25, mode="crash", boundary_gap=0.0)),
-        FamilyConfig(
-            base="rosenbrock", failure=FailureRegion("halfspace", share=0.25, mode="timeout", boundary_gap=0.05)
-        ),
-        FamilyConfig(base="rastrigin", failure=FailureRegion("ball", share=0.2, mode="crash")),
-        FamilyConfig(base="sharp_ridge", failure=FailureRegion("boxes", share=0.2, mode="timeout", n_boxes=3)),
-    ]
+    return make_family_instances(list(FAILURE_FAMILIES), dims=dims, n_instances=n_instances, seed=seed)
+
+
+def make_large_families_battery(
+    dims: Sequence[int] = (30, 40),
+    n_instances: int = 3,
+    seed: int = DEFAULT_BATTERY_SEED,
+) -> FamilyInstances:
+    """The free and shapes families at *d* = 30 and 40: 10 families x ``dims`` x ``n_instances``.
+
+    Opt-in (``family_screen.py preset=large``, ``ioh_benchmark.py run
+    --families-large``); the frozen presets keep their dims.  The instances
+    are exactly those :func:`make_families_battery` and
+    :func:`make_shapes_battery` build when asked for ``dims=(30, 40)``: an
+    instance seed depends on (battery seed, family, dim, index) only.
+
+    The constrained and failure families scale to these dims as well
+    (``family_screen.py preset=failure dims=30,40``); they are left out
+    here because nothing in their handling has been measured above
+    ``d = 5`` yet.
+
+    Cost, measured 2026-09-26 (laptop, ``nice -n 15``, ``sync_eval``):
+    a run at *d* = 40 and ``500·d`` (20 000 evaluations) takes 1.3-1.5 s
+    for CMA-ES alone and 2.4-3.4 s for the two portfolio specs of
+    :func:`~panobbgo.harness_ioh.make_ioh_strategies`, 0.07-0.17 ms per
+    evaluation.  The 60 runs of the preset are ≈ 1.2-3 min per strategy and
+    seed.
+    """
+    families = list(FREE_FAMILIES) + list(SHAPES_FAMILIES)
     return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
+
+
+#: Dimensions of the sealed family set: unconstrained, and constrained or failing.
+SEALED_FAMILY_DIMS: Tuple[int, ...] = (2, 5, 10, 20, 30, 40)
+SEALED_FAMILY_DIMS_HARD: Tuple[int, ...] = (2, 5, 10)
+
+
+def make_sealed_families_battery() -> FamilyInstances:
+    """The sealed family test set: **for claims only, never for tuning.**
+
+    The classes of every development preset on fresh instances (battery
+    seed :data:`panobbgo.sealed.SEALED_FAMILY_SEED`, which
+    :func:`~panobbgo.lib.families.make_family_instances` refuses outside
+    this function):
+
+    * the free and shapes families (10) at *d* ∈ {2, 5, 10, 20, 30, 40},
+      3 instances each — 180 instances;
+    * the constrained and failure families (8) at *d* ∈ {2, 5, 10},
+      3 instances each — 72 instances.
+
+    :func:`run_family_harness` prints a warning banner when it runs it.
+    Rules: ``doc/dev/benchmarking.md``, "The sealed test set".  Cost at
+    ``500·d`` (1.8 M evaluations per strategy and seed): ≈ 3-6 min per
+    strategy and seed at the measured 0.07-0.17 ms per evaluation.  No
+    arguments, on purpose (see :func:`~panobbgo.harness_ioh.make_sealed_battery`).
+    """
+    easy = list(FREE_FAMILIES) + list(SHAPES_FAMILIES)
+    hard = list(CONSTRAINED_FAMILIES) + list(FAILURE_FAMILIES)
+    out = make_family_instances(easy, dims=SEALED_FAMILY_DIMS, n_instances=3, seed=SEALED_FAMILY_SEED, sealed=True)
+    out += make_family_instances(
+        hard, dims=SEALED_FAMILY_DIMS_HARD, n_instances=3, seed=SEALED_FAMILY_SEED, sealed=True
+    )
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -468,6 +539,8 @@ def run_family_harness(
 
     Runs serially unless ``jobs > 1``; the strategies use internal threading.
     """
+    if any(getattr(p, "sealed", False) for _n, p in instances):
+        print_sealed_banner(battery_name)
     total = len(instances) * len(specs) * int(reps)
     runs: List[IOHRunRecord] = []
     tasks: List[Dict[str, Any]] = []

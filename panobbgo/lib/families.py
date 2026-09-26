@@ -102,6 +102,17 @@ evaluation) or :class:`~panobbgo.lib.lib.EvaluationTimedOut` (booked as a
 timed-out ``NaN`` result, without any waiting).  See
 :class:`FailureRegion`.
 
+Dimension
+---------
+
+Every base and knob works at any ``dim >= 2``.  The setup is one QR of a
+``d x d`` Gaussian (two for the BBOB bases with a second rotation), the
+Gallagher peaks are ``101 x d`` and the failure-region calibration is a
+``FAILURE_MC_POINTS x d`` sample.  Measured 2026-09-26: at ``d = 40`` an
+instance builds in < 1 ms (84 ms with a failure region), an evaluation
+takes 2-20 µs, and the realised failure shares stay within 0.01 of their
+targets without the fallback; at ``d = 160`` a build takes 20-350 ms.
+
 .. codeauthor:: Harald Schilly <harald.schilly@gmail.com>
 """
 
@@ -115,6 +126,7 @@ import numpy as np
 
 from panobbgo.lib.classic import Ackley, DeJong, Griewank, Rastrigin, Rosenbrock, Schwefel
 from panobbgo.lib.lib import EvaluationCrashed, EvaluationTimedOut, Problem
+from panobbgo.sealed import SEALED_FAMILY_SEED
 
 #: Callable ``dim -> base function`` (the base's minimiser is folded in by
 #: :func:`_normalise`).  The BBOB bases in :data:`CONTEXT_BASES` also take
@@ -1017,6 +1029,10 @@ class Family(Problem):
     target for the constrained instances too.
     """
 
+    #: ``True`` on an instance of the sealed test set (:mod:`panobbgo.sealed`);
+    #: set by :func:`make_family_instances` with ``sealed=True`` only.
+    sealed: bool = False
+
     def __init__(
         self,
         base: str,
@@ -1361,6 +1377,8 @@ def make_family_instances(
     dims: Sequence[int],
     n_instances: int = 3,
     seed: int = 42,
+    *,
+    sealed: bool = False,
 ) -> List[Tuple[str, Family]]:
     """Build ``(name, problem)`` pairs, deterministically.
 
@@ -1381,6 +1399,13 @@ def make_family_instances(
         Instances per (family, dim).
     seed
         Battery seed.
+    sealed
+        ``True`` only for the sealed test set (:mod:`panobbgo.sealed`):
+        the sealed battery seed
+        (:data:`~panobbgo.sealed.SEALED_FAMILY_SEED`) is refused without
+        it, any other seed with it.  Every sealed instance gets
+        ``problem.sealed = True``, which makes the harness print a warning
+        banner.
 
     Returns
     -------
@@ -1392,8 +1417,14 @@ def make_family_instances(
     ------
     ValueError
         When two families share a label (:meth:`FamilyConfig.name`): they
-        would get the same instance seeds and the same record names.
+        would get the same instance seeds and the same record names; or
+        when ``seed`` and ``sealed`` disagree (see ``sealed``).
     """
+    if (int(seed) == SEALED_FAMILY_SEED) != bool(sealed):
+        raise ValueError(
+            "the sealed family seed is for panobbgo.harness_families.make_sealed_families_battery() only, "
+            "and a sealed battery uses no other seed (panobbgo.sealed)"
+        )
     cfgs = [FamilyConfig(base=f) if isinstance(f, str) else f for f in families]
     # The label is the instance seed's and the record name's only family
     # part, and it does not see ``condition`` / ``rotate`` / ``shift`` /
@@ -1429,5 +1460,7 @@ def make_family_instances(
                     failure=cfg.failure,
                     **cfg.extra,
                 )
+                if sealed:
+                    problem.sealed = True
                 out.append((problem.name, problem))
     return out

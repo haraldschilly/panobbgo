@@ -114,6 +114,18 @@ and family run, a run that stops by itself below its budget (every arm
 stopped producing) is scored on its short trace but marked `EndedEarly` in
 `IOHRunRecord.error`, next to crashed and timed-out runs in the summary.
 
+**Dimensions 30/40 (opt-in).**  The frozen presets keep their dims; every
+family preset takes `dims=30,40` in `family_screen.py`.  New presets:
+`ioh_benchmark.py run --large` (MA-BBOB, d 30/40, instances 0–2, 500·d),
+`--families-large` / `family_screen.py preset=large` (free + shapes
+families at d 30/40), and `--largescale` (plain BBOB f2/f8/f10/f15/f21 at
+d 80/160, 200·d; full rotations, so not comparable with COCO's
+`bbob-largescale` numbers).  Measured cost (2026-09-26, laptop, niced): at
+d = 40 and 500·d (20 000 evaluations) a run takes 1.3–3.4 s on the families
+and 6.6–8.6 s on MA-BBOB (0.07–0.17 and 0.3–0.45 ms per evaluation); a
+d = 160 BBOB run at 100·d takes 5–14 s.  The large presets are ≈ 1–3 min
+per strategy and seed, the largescale slice ≈ 10–20 min.
+
 **Parallel behaviour (virtual clock).**  `--virtual-workers Q` runs every
 strategy on a deterministic simulation of Q workers
 (`panobbgo/virtual_clock.py`, `evaluation.method = "virtual"`; no real
@@ -140,6 +152,32 @@ sync` is a regression mode: with q = 1, `--duration constant` and
 in both metrics.  The ask/tell external baselines run on the same clock; the
 SciPy baselines get no `aocc_time`.  Metric, model and the metric's caps
 across q: guide, "Parallel behaviour on a virtual clock".
+
+## The sealed test set
+
+A held-out battery for **claims only**: fresh MA-BBOB instances and fresh
+family instances of every class, at d 2–40 (`panobbgo/sealed.py`).
+
+```bash
+uv run python scripts/ioh_benchmark.py run --sealed --decision-seeds --output claim_mabbob.json
+uv run python scripts/ioh_benchmark.py run --families-sealed --output claim_families.json
+uv run python benchmarks/family_screen.py claim.json 42 7 1234 preset=sealed
+```
+
+*   **Run it only to report a result or back a claim** (a README number, a
+    paper table, "panobbgo beats X").  **Never tune, screen, select a spec
+    or default, or train a model on it** — not even "just to check".
+*   A number from it that steers a decision burns the set: log it, and
+    draw a new sealed set (new reserved ids and seed in
+    `panobbgo/sealed.py`) before the next claim.
+*   The harnesses print a warning banner whenever they run it.  The
+    batteries take no knobs; the re-baseline workflow never runs it.
+*   Disjoint by construction: MA-BBOB ids come from a reserved range that
+    `IOHBatterySpec` refuses outside the sealed battery, and the family
+    battery seed is refused outside `make_sealed_families_battery()`
+    (`tests/test_large_and_sealed.py` checks both).
+*   Cost at 500·d: ≈ 2 min (MA-BBOB) and ≈ 3–6 min (families) per strategy
+    and seed.
 
 ## Comparability
 

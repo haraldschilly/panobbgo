@@ -866,9 +866,26 @@ their rows after every seed so an interrupted run loses nothing:
        where evaluations crash or time out; failed calls are spent budget;
        a run that stops by itself below its budget is scored on its short
        trace and marked ``EndedEarly`` in ``IOHRunRecord.error``).
+       ``preset=large`` is the free and shapes families at dims 30/40 (every
+       preset also takes ``dims=30,40``), and ``preset=sealed`` the sealed
+       test set — for claims only, never for tuning (see below).
        Single runs of the same batteries are also reachable from the IOH CLI
-       as ``ioh_benchmark.py run --families`` / ``--families-constrained``
-       (and ``--families-quick`` for a smoke test).
+       as ``ioh_benchmark.py run --families`` / ``--families-constrained`` /
+       ``--families-large`` (and ``--families-quick`` for a smoke test).
+
+Dimensions 30/40 on MA-BBOB are ``ioh_benchmark.py run --large``, and a
+``bbob-largescale``-style slice (plain BBOB, five functions at d 80/160) is
+``--largescale``.
+
+The sealed test set
+~~~~~~~~~~~~~~~~~~~
+
+``ioh_benchmark.py run --sealed`` / ``--families-sealed`` and
+``family_screen.py preset=sealed`` run a held-out battery: fresh MA-BBOB and
+family instances at d 2 to 40 (:mod:`panobbgo.sealed`) that no development
+battery can contain.  Run it only to report a result or back a claim; never
+tune, screen, select or train on it.  A number from it that steers a
+decision burns the set.  The harness prints a warning banner every time.
 
 Typical invocation (``nice`` it; progress is counted in evaluations, not
 wall-clock):

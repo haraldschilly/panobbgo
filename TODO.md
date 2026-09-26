@@ -10,14 +10,15 @@ References for every comparison: the 2026-09-26 re-baseline (§54, release
 ## 1. Roadmap step 1: finish the instrument
 
 `planning/DESIGN_roadmap_2026-09-26.md` §3.  Done: external baselines
-(#344), virtual clock (#345), failure-region families (#346).
+(#344), virtual clock (#345), failure-region families (#346), dims 30/40
+with a `bbob-largescale`-style slice and the sealed test set
+(`doc/dev/benchmarking.md`).
 
-- [ ] Dims 30/40 (and a `bbob-largescale` slice).
 - [ ] Real-world set: CEC2020 real-world constrained, COCO
       `bbob-constrained` / `bbob-mixint`, ESA GTOP, HPO surrogates
       (YAHPO / HPOBench).
-- [ ] Sealed test set (fresh MA-BBOB seeds + part of the real-world set),
-      never used for tuning or training.
+- [ ] Sealed test set, second half: add part of the real-world set once it
+      exists (`panobbgo/sealed.py`; MA-BBOB and families are sealed).
 - [ ] Feature logging at checkpoints (landscape features, per-arm
       trajectory statistics): the selector's training data (roadmap §3.4, §4 A).
 - [ ] Expensive-track external baselines: BoTorch/Ax (qEI, TuRBO), SMAC3,

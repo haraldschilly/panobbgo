@@ -48,6 +48,17 @@ Examples::
     uv run python scripts/ioh_benchmark.py run --highdim          # d = 10, 20; slow
     uv run python scripts/ioh_benchmark.py run --noisy-highdim gauss
 
+    # Dimensions 30/40 (opt-in; the presets above keep their dims), and a
+    # bbob-largescale-style slice (plain BBOB, 5 functions at d = 80, 160).
+    uv run python scripts/ioh_benchmark.py run --large
+    uv run python scripts/ioh_benchmark.py run --families-large
+    uv run python scripts/ioh_benchmark.py run --largescale
+
+    # The SEALED test set: only to report a result or back a claim, never
+    # for tuning or screening (doc/dev/benchmarking.md, "The sealed test set").
+    uv run python scripts/ioh_benchmark.py run --sealed --decision-seeds --output claim.json
+    uv run python scripts/ioh_benchmark.py run --families-sealed --output claim_families.json
+
     # Parallel behaviour on a virtual clock (deterministic, no waiting):
     # q simulated workers, AOCC over evaluations AND over virtual time.
     for q in 1 4 16 64; do
@@ -74,6 +85,8 @@ from panobbgo.harness_families import (
     FamilyInstances,
     make_constrained_battery,
     make_families_battery,
+    make_large_families_battery,
+    make_sealed_families_battery,
     run_family_harness,
 )
 from panobbgo.harness_ioh import (
@@ -84,9 +97,12 @@ from panobbgo.harness_ioh import (
     make_full_battery,
     make_highdim_battery,
     make_ioh_strategies,
+    make_large_battery,
+    make_largescale_battery,
     make_noisy_battery,
     make_noisy_highdim_battery,
     make_quick_battery,
+    make_sealed_battery,
     make_standard_battery,
     paired_seed_stats,
     run_ioh_harness,
@@ -110,6 +126,12 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
         battery = make_noisy_highdim_battery(args.noisy_highdim, level="severe" if args.noisy_severe else "moderate")
     elif getattr(args, "highdim", False):
         battery = make_highdim_battery()
+    elif getattr(args, "large", False):
+        battery = make_large_battery()
+    elif getattr(args, "largescale", False):
+        battery = make_largescale_battery()
+    elif getattr(args, "sealed", False):
+        battery = make_sealed_battery()
     else:
         battery = make_quick_battery()
     if args.reps is not None:
@@ -143,6 +165,10 @@ def _resolve_family_battery(args: argparse.Namespace) -> Optional[Tuple[str, Fam
         return "families-quick", quick, 50
     if args.families_constrained:
         return "families-constrained", make_constrained_battery(), FAMILY_BUDGET_MULTIPLIER
+    if getattr(args, "families_large", False):
+        return "families-large", make_large_families_battery(), FAMILY_BUDGET_MULTIPLIER
+    if getattr(args, "families_sealed", False):
+        return "sealed-families", make_sealed_families_battery(), FAMILY_BUDGET_MULTIPLIER
     if args.families:
         return "families", make_families_battery(), FAMILY_BUDGET_MULTIPLIER
     return None
@@ -512,6 +538,34 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "--noisy-highdim",
         choices=("gauss", "unif", "cauchy"),
         help="Both regimes crossed cheaply: noise at dim 10, instances 0-2, budget 500*d.",
+    )
+    grp.add_argument(
+        "--large",
+        action="store_true",
+        help="Noiseless MA-BBOB at dims (30, 40), instances 0-2, budget 500*d: ~7-9 s per run at d=40.",
+    )
+    grp.add_argument(
+        "--largescale",
+        action="store_true",
+        help="A bbob-largescale-style slice: plain BBOB f2/f8/f10/f15/f21 at dims (80, 160), instances 0-2, "
+        "budget 200*d (full rotations, not COCO's block rotations).",
+    )
+    grp.add_argument(
+        "--families-large",
+        action="store_true",
+        help="The free and shapes families at dims (30, 40), 3 instances, budget 500*d.",
+    )
+    grp.add_argument(
+        "--sealed",
+        action="store_true",
+        help="SEALED MA-BBOB test set (fresh instances, dims 2-40): only to report a result or back a "
+        "claim, never for tuning or screening (doc/dev/benchmarking.md).",
+    )
+    grp.add_argument(
+        "--families-sealed",
+        action="store_true",
+        help="SEALED family test set (fresh instances of every family class, dims 2-40): claims only, "
+        "never for tuning or screening (doc/dev/benchmarking.md).",
     )
     run_p.add_argument(
         "--noisy-severe",

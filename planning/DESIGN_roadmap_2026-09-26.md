@@ -31,9 +31,11 @@ It is falsifiable only with the instrument of §3.
 **Status 2026-09-26:** done — cheap-track external baselines (pycma
 IPOP/BIPOP, Nevergrad NGOpt, Optuna CMA/TPE; #344), the virtual-clock
 simulator with `aocc_time` (#345), the failure-region families and BBOB
-shapes (`family_screen.py preset=failure|shapes`, #346).  Open — the
-expensive-track baselines (BoTorch/Ax, SMAC3, HEBO, PDFO), dims 30/40, the
-real-world set, the sealed test set, feature logging (`TODO.md` §1).
+shapes (`family_screen.py preset=failure|shapes`, #346), dims 30/40 with a
+`bbob-largescale`-style slice and the sealed test set (MA-BBOB + families,
+`panobbgo/sealed.py`).  Open — the expensive-track baselines (BoTorch/Ax,
+SMAC3, HEBO, PDFO), the real-world set (and its share of the sealed set),
+feature logging (`TODO.md` §1).
 
 1. **External baselines** as harness arms, batch-capable (ask/tell with q):
    * cheap track: pycma (IPOP/BIPOP), Nevergrad `NGOpt` (the direct rival —

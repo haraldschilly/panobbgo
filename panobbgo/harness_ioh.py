@@ -60,6 +60,11 @@ Public surface
   §2c asks for: noise on the objective (scored on the true value, BBOB
   noisy-suite style) and *d* ∈ {10, 20}.  Noise is applied in *this*
   process by :mod:`panobbgo.lib.noise`; the ``ioh`` worker is untouched.
+* :func:`make_large_battery` / :func:`make_largescale_battery` — opt-in
+  dimensions 30/40 (MA-BBOB) and a ``bbob-largescale``-style slice (plain
+  BBOB, a few functions at *d* 80/160).
+* :func:`make_sealed_battery` — the **sealed test set**
+  (:mod:`panobbgo.sealed`): fresh MA-BBOB instances, run only for claims.
 * :class:`IOHRunRecord` — per (problem kind, dim, instance, strategy, rep)
   result, including the convergence trajectory.
 * :class:`IOHHarnessResult` — aggregate over a battery, with mean AOCC and
@@ -87,6 +92,12 @@ from panobbgo.ioh_runner import (  # noqa: F401
     _BudgetExhausted,
     aocc,
     aocc_virtual_time,
+)
+from panobbgo.sealed import (
+    SEALED_MABBOB_DIMS,
+    SEALED_MABBOB_INSTANCES,
+    is_sealed_instance_id,
+    print_sealed_banner,
 )
 from panobbgo.virtual_clock import VirtualSpec
 
@@ -280,6 +291,12 @@ class IOHBatterySpec:
         per point — re-evaluating the same ``x`` cannot average it away.
         ``True`` draws fresh noise per call.  See
         :mod:`panobbgo.lib.noise`.
+    sealed
+        ``True`` only for the sealed test set (:mod:`panobbgo.sealed`,
+        :func:`make_sealed_battery`).  Instance ids in the reserved sealed
+        range are refused without it, and ids outside the range with it,
+        so a development battery cannot contain a sealed instance.
+        :func:`run_ioh_harness` prints a warning banner for a sealed spec.
     """
 
     name: str
@@ -292,6 +309,7 @@ class IOHBatterySpec:
     noise_level: str = "moderate"
     noise_resample: bool = False
     fids: Tuple[int, ...] = ()
+    sealed: bool = False
 
     def __post_init__(self) -> None:
         # ``fids`` is normalised the way callers already hand ``instances``
@@ -316,6 +334,16 @@ class IOHBatterySpec:
                     "and extra_builder_kwargs only for a builder argument that has no field"
                 )
         object.__setattr__(self, "fids", fids)
+        in_range = [int(i) for i in self.instances if is_sealed_instance_id(int(i))]
+        if self.sealed:
+            outside = [int(i) for i in self.instances if not is_sealed_instance_id(int(i))]
+            if outside:
+                raise ValueError(f"a sealed battery takes only sealed-range instance ids; got {outside}")
+        elif in_range:
+            raise ValueError(
+                f"instance ids {in_range} are in the reserved sealed range (panobbgo.sealed); "
+                "the sealed test set is make_sealed_battery(), for claims only"
+            )
 
     @property
     def is_noisy(self) -> bool:
@@ -529,6 +557,104 @@ def make_bbob_battery(
         reps=1,
         budget_multiplier=int(budget_multiplier),
         fids=tuple(fids),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dimensions 30/40, a bbob-largescale slice, and the sealed test set
+# ---------------------------------------------------------------------------
+#
+# ``planning/DESIGN_roadmap_2026-09-26.md`` §3.3.  Opt-in presets: none of
+# the batteries above changes.  Measured cost (2026-09-26, laptop, ``nice
+# -n 15``, ``sync_eval``, one run of each ``make_ioh_strategies`` spec):
+# MA-BBOB at d = 40 and 500·d (20 000 evaluations) takes 6.6 s (CMA-ES) to
+# 8.6 s (the portfolios), 0.3-0.45 ms per evaluation, most of it the worker
+# round-trip; plain BBOB f10 at d = 160 and 100·d takes 5-14 s.  Building an
+# ``ioh`` problem at d = 160 takes 0.03 s (BBOB) and 0.8 s (MA-BBOB).
+
+
+#: One function per COCO class for the largescale slice: separable
+#: ellipsoid, Rosenbrock, rotated ellipsoid, rotated Rastrigin, Gallagher 101.
+LARGESCALE_FIDS: Tuple[int, ...] = (2, 8, 10, 15, 21)
+
+
+def make_large_battery(
+    dims: Sequence[int] = (30, 40),
+    instances: Sequence[int] = (0, 1, 2),
+    budget_multiplier: int = 500,
+) -> IOHBatterySpec:
+    """Noiseless MA-BBOB at *d* = 30 and 40, at the standard budget ``500·d``.
+
+    Three instances per dim (the :func:`make_highdim_battery` shape) and
+    15 000 / 20 000 evaluations per run.  Cost: ≈ 7-9 s per run at
+    *d* = 40 (measured 2026-09-26), so the 2 × 3 cube is ≈ 1 min per
+    strategy per seed.  At this budget a *d* = 40 run is far from
+    converged: this battery asks how fast a strategy makes progress, not
+    whether it finishes.
+    """
+    return IOHBatterySpec(
+        name="ioh-large",
+        problem_kind="MA-BBOB",
+        dims=tuple(int(d) for d in dims),
+        instances=tuple(int(i) for i in instances),
+        reps=1,
+        budget_multiplier=int(budget_multiplier),
+    )
+
+
+def make_largescale_battery(
+    dims: Sequence[int] = (80, 160),
+    instances: Sequence[int] = (0, 1, 2),
+    budget_multiplier: int = 200,
+    fids: Sequence[int] = LARGESCALE_FIDS,
+) -> IOHBatterySpec:
+    """A ``bbob-largescale``-style slice: five BBOB functions at *d* = 80 and 160.
+
+    Plain ``ioh`` BBOB with its full ``d × d`` rotations.  COCO's
+    ``bbob-largescale`` suite replaces those with permuted block-diagonal
+    rotations (and ``ioh`` does not ship it), so the function values are
+    **not** comparable with published ``bbob-largescale`` data; the
+    landscapes are the same classes.  A rotation at *d* = 160 is 200 KB and
+    built in ~0.03 s, so the full rotation costs nothing here.
+
+    ``5 × 2 × 3 = 30`` runs per strategy and seed at ``200·d`` (16 000 /
+    32 000 evaluations), the :func:`make_bbob_battery` budget.  Measured
+    2026-09-26 at *d* = 160 and ``100·d``: 5-14 s per run, so ≈ 10-20 min
+    per strategy per seed at the default budget.
+    """
+    return IOHBatterySpec(
+        name="ioh-bbob-largescale",
+        problem_kind="BBOB",
+        dims=tuple(int(d) for d in dims),
+        instances=tuple(int(i) for i in instances),
+        reps=1,
+        budget_multiplier=int(budget_multiplier),
+        fids=tuple(fids),
+    )
+
+
+def make_sealed_battery() -> IOHBatterySpec:
+    """The sealed MA-BBOB test set: **for claims only, never for tuning.**
+
+    Five fresh MA-BBOB instances (:data:`panobbgo.sealed.SEALED_MABBOB_INSTANCES`,
+    from a reserved id range no development battery can use) at
+    *d* ∈ {2, 5, 10, 20, 30, 40}, ``500·d``.  :func:`run_ioh_harness`
+    prints a warning banner when it runs it.  Rules:
+    ``doc/dev/benchmarking.md``, "The sealed test set".
+
+    ``6 × 5 = 30`` runs per strategy and seed, 267 500 evaluations: ≈ 2 min
+    per strategy per seed at the measured 0.3-0.45 ms per evaluation.  It
+    takes no arguments on purpose: a sealed set with knobs becomes a family
+    of sets, and a set picked from a family is a tuned set.
+    """
+    return IOHBatterySpec(
+        name="sealed-mabbob",
+        problem_kind="MA-BBOB",
+        dims=SEALED_MABBOB_DIMS,
+        instances=SEALED_MABBOB_INSTANCES,
+        reps=1,
+        budget_multiplier=500,
+        sealed=True,
     )
 
 
@@ -1668,6 +1794,8 @@ def run_ioh_harness(
     """
     if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
+    if battery.sealed:
+        print_sealed_banner(battery.name)
     builder_kwargs = battery.builder_kwargs()
     total = battery.pair_count(len(strategies))
     runs: List[IOHRunRecord] = []

@@ -697,7 +697,10 @@ Every run then reports two scores:
 * ``aocc`` — AOCC over **evaluations**: the best-so-far after each call,
   over ``budget`` calls.  On the virtual clock the tracker records calls in
   *completion* order, and a call that failed or timed out counts as a
-  spent, non-improving evaluation (it used a budget slot and a worker).
+  spent, non-improving evaluation (it used a budget slot and a worker),
+  exactly once, when it completes.  A family's signalled timeout (failure
+  region, ``mode="timeout"``) is charged ``evaluation.timeout`` of virtual
+  time (its drawn duration when none is set) and is not evaluated.
 * ``aocc_time`` — AOCC over **virtual time**
   (:func:`~panobbgo.ioh_runner.aocc_virtual_time`).  The best-so-far at
   time :math:`t` is the best value among the calls *completed* by

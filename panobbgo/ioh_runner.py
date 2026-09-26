@@ -270,7 +270,8 @@ class IOHTracker:
         #: in ``_deferred`` until the call *completes* (:meth:`complete_call`),
         #: so the traces are recorded in completion order.
         self._defer_key: Optional[int] = None
-        self._deferred: Dict[int, List[Tuple[np.ndarray, Tuple[float, ...]]]] = {}
+        #: ``None`` in place of the measurement marks a failed evaluation.
+        self._deferred: Dict[int, List[Tuple[np.ndarray, Optional[Tuple[float, ...]]]]] = {}
         #: ``(t_complete, value)`` per counted evaluation of a virtual-clock
         #: run, in completion order — ``value`` is the one the metric scores
         #: (the true value on a noisy problem), ``NaN`` for a spent call that
@@ -322,10 +323,17 @@ class IOHTracker:
             # is a call that was made and paid for: it counts as one spent
             # evaluation that makes no progress, so the trace index stays
             # aligned with the budget the strategy spent.  Re-raised for the
-            # evaluation path to book.
+            # evaluation path to book.  On the virtual clock it is deferred
+            # like any measurement (a ``None`` marker) and counted once, when
+            # the call completes (complete_call).
             with self._lock:
-                self.n_evals += 1
-                self._record_failed()
+                if self._defer_key is not None:
+                    self._deferred.setdefault(self._defer_key, []).append(
+                        (np.asarray(x, dtype=np.float64).copy(), None)
+                    )
+                else:
+                    self.n_evals += 1
+                    self._record_failed()
             raise
         except BaseException:
             with self._lock:
@@ -356,15 +364,21 @@ class IOHTracker:
         """Simulated call ``key`` completed at virtual time ``t_complete``; fold it into the traces.
 
         A successful call records its deferred measurement(s).  A failed or
-        timed-out one (``ok`` false) is one spent, non-improving evaluation
-        (:meth:`record_spent`): it used a budget slot and a worker, whatever
-        it may have measured before failing — extra slots its measurements
-        reserved are released.  Called in completion order.
+        timed-out one (``ok`` false, or a deferred
+        :class:`~panobbgo.lib.lib.EvaluationFailed` marker) is one spent,
+        non-improving evaluation (:meth:`record_spent`): it used a budget slot
+        and a worker, whatever it may have measured before failing — extra
+        slots its measurements reserved are released.  Called in completion
+        order.
         """
         with self._lock:
             entries = self._deferred.pop(int(key), [])
-            if ok and entries:
+            failed = not ok or any(m is None for _x, m in entries)
+            if not failed and not entries:
+                return  # nothing admitted (past the budget or the deadline): nothing to count
+            if entries and not failed:
                 for x, measured in entries:
+                    assert measured is not None
                     self.n_evals += 1
                     self._record(x, measured)
                     self.timeline.append((float(t_complete), float(measured[1])))

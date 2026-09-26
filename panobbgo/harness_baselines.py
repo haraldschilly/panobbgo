@@ -644,7 +644,7 @@ class AskTellBaselineStrategy(BaselineStrategy):
         The results frame stays in dispatch order.
         """
         from panobbgo.core import keyed_rng
-        from panobbgo.virtual_clock import RNG_STREAM_KEY, _model_of, run_ask_tell
+        from panobbgo.virtual_clock import RNG_STREAM_KEY, _model_of, failure_mode, run_ask_tell
 
         cfg = self.config
         objective = _make_objective(self.problem, log)
@@ -672,6 +672,7 @@ class AskTellBaselineStrategy(BaselineStrategy):
             timeout=float(timeout) if timeout else None,
             observer=self._virtual_observer,
             reraise=(_BudgetExhausted,),
+            failure_at=lambda x: failure_mode(self.problem, self.problem.project(np.asarray(x, dtype=np.float64))),
         )
 
     def _drive(self, adapter: AskTellAdapter, log: _EvaluationLog, q: int) -> None:

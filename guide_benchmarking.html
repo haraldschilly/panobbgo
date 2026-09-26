@@ -1129,10 +1129,14 @@ cap (<code class="docutils literal notranslate"><span class="pre">StrategyBase.r
 so a bandit’s pull counts and a block’s length cover exactly the dispatched
 evaluations, and nothing is queued beyond them.  At <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code> a run is
 strictly one call at a time, each candidate chosen after the previous
-result arrived.  This models an <em>idealized</em> pull-when-free loop; the real
-threaded / processes / dask loop does not implement it yet (a TODO.md
-follow-up), so virtual-clock numbers describe that policy, not today’s
-real asynchronous mode.  Under a capped bandit a generational arm’s queued
+result arrived.  The real asynchronous loop (threaded / processes / dask
+without <code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code>) runs the same pull-when-free policy by default
+(<code class="docutils literal notranslate"><span class="pre">evaluation.async_policy:</span> <span class="pre">pull</span></code>): it asks the strategy only while a
+worker is free, for at most the free workers, with <code class="docutils literal notranslate"><span class="pre">jobs_per_client</span> <span class="pre">=</span> <span class="pre">1</span></code>,
+and never queues past them.  It differs from the virtual clock only in
+what a simulation idealizes: results arrive in wall-clock completion order,
+and the handlers need not have drained when the next decision is made.
+Under a capped bandit a generational arm’s queued
 generation drains at the bandit’s share of the workers, so its candidates
 can get stale (a TODO.md follow-up).  <code class="docutils literal notranslate"><span class="pre">--virtual-policy</span> <span class="pre">sync</span></code> keeps the
 synchronous batch policy as a regression mode: with <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code>, a constant

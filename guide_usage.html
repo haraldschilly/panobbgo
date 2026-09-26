@@ -344,25 +344,26 @@ logging settings are <strong>YAML only</strong> — <code class="docutils litera
 </span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">        </span><span class="c1"># 'threaded', 'processes', 'dask' or 'virtual'</span>
 </span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">             </span><span class="c1"># optional per-call limit, seconds (see below)</span>
 </span><span data-line="4"><span class="w">  </span><span class="nt">sync</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">             </span><span class="c1"># true: bit-reproducible seeded runs</span>
-</span><span data-line="5"><span class="w">  </span><span class="nt">virtual_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">      </span><span class="c1"># method 'virtual' only: simulated workers q</span>
-</span><span data-line="6"><span class="w">  </span><span class="nt">virtual_duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">constant</span><span class="w">   </span><span class="c1"># 'lognormal' (mean 1, see below) or a number</span>
-</span><span data-line="7"><span class="w">  </span><span class="nt">virtual_duration_sigma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># log-space sd of 'lognormal'</span>
-</span><span data-line="8"><span class="w">  </span><span class="nt">virtual_duration_mean</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">     </span><span class="c1"># nominal mean (the metric's time unit)</span>
-</span><span data-line="9"><span class="w">  </span><span class="nt">virtual_policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">async</span><span class="w">        </span><span class="c1"># or 'sync' (regression mode, see below)</span>
-</span><span data-line="10"><span class="nt">dask</span><span class="p">:</span>
-</span><span data-line="11"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span><span class="w">     </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
-</span><span data-line="12"><span class="w">  </span><span class="nt">local</span><span class="p">:</span>
-</span><span data-line="13"><span class="w">    </span><span class="nt">n_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span data-line="14"><span class="w">    </span><span class="nt">threads_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-</span><span data-line="15"><span class="w">    </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2GB</span>
-</span><span data-line="16"><span class="w">    </span><span class="nt">dashboard_address</span><span class="p">:</span><span class="w"> </span><span class="s">':8787'</span>
-</span><span data-line="17"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
-</span><span data-line="18"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
-</span><span data-line="19">
-</span><span data-line="20"><span class="nt">constraints</span><span class="p">:</span>
-</span><span data-line="21"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
-</span><span data-line="22"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
-</span><span data-line="23"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
+</span><span data-line="5"><span class="w">  </span><span class="nt">async_policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pull</span><span class="w">      </span><span class="c1"># sync false: 'pull' (when free) or 'legacy' (see below)</span>
+</span><span data-line="6"><span class="w">  </span><span class="nt">virtual_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">      </span><span class="c1"># method 'virtual' only: simulated workers q</span>
+</span><span data-line="7"><span class="w">  </span><span class="nt">virtual_duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">constant</span><span class="w">   </span><span class="c1"># 'lognormal' (mean 1, see below) or a number</span>
+</span><span data-line="8"><span class="w">  </span><span class="nt">virtual_duration_sigma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># log-space sd of 'lognormal'</span>
+</span><span data-line="9"><span class="w">  </span><span class="nt">virtual_duration_mean</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">     </span><span class="c1"># nominal mean (the metric's time unit)</span>
+</span><span data-line="10"><span class="w">  </span><span class="nt">virtual_policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">async</span><span class="w">        </span><span class="c1"># or 'sync' (regression mode, see below)</span>
+</span><span data-line="11"><span class="nt">dask</span><span class="p">:</span>
+</span><span data-line="12"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span><span class="w">     </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
+</span><span data-line="13"><span class="w">  </span><span class="nt">local</span><span class="p">:</span>
+</span><span data-line="14"><span class="w">    </span><span class="nt">n_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span data-line="15"><span class="w">    </span><span class="nt">threads_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span data-line="16"><span class="w">    </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2GB</span>
+</span><span data-line="17"><span class="w">    </span><span class="nt">dashboard_address</span><span class="p">:</span><span class="w"> </span><span class="s">':8787'</span>
+</span><span data-line="18"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
+</span><span data-line="19"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="nt">constraints</span><span class="p">:</span>
+</span><span data-line="22"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
+</span><span data-line="23"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
+</span><span data-line="24"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
 </span></pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> (seconds, default unset = no limit) is a <strong>per-call</strong>
@@ -415,8 +416,19 @@ store them).  The same seed gives the same run on every machine.</p>
 <p>The default <code class="docutils literal notranslate"><span class="pre">virtual_policy:</span> <span class="pre">async</span></code> is the asynchronous expensive-evaluation
 policy: a decision at every completion instant, candidates only for the free
 workers (the strategy’s <code class="docutils literal notranslate"><span class="pre">request_cap</span></code>; <code class="docutils literal notranslate"><span class="pre">jobs_per_client</span> <span class="pre">=</span> <span class="pre">1</span></code>); with one
-worker the run is strictly one call at a time.  It is an idealized
-pull-when-free loop that the real threaded loop does not implement yet.
+worker the run is strictly one call at a time.</p>
+<p>The real asynchronous loop (<code class="docutils literal notranslate"><span class="pre">sync:</span> <span class="pre">false</span></code>; threaded, processes or dask)
+runs the same <strong>pull-when-free</strong> policy by default
+(<code class="docutils literal notranslate"><span class="pre">async_policy:</span> <span class="pre">pull</span></code>): the strategy is asked only while a worker is free,
+for at most the free workers within the budget, with
+<code class="docutils literal notranslate"><span class="pre">jobs_per_client</span> <span class="pre">=</span> <span class="pre">1</span></code>, and no candidate is queued behind a busy worker,
+where it would go stale.  A harvest that frees a worker is followed by a
+new request at once; while every worker is busy the loop blocks until an
+evaluation completes rather than polling.  <code class="docutils literal notranslate"><span class="pre">async_policy:</span> <span class="pre">legacy</span></code> keeps the old behaviour:
+batches of <code class="docutils literal notranslate"><span class="pre">jobs_per_client</span></code> per worker sized from wall-clock task
+timings, requested on every pass, so a fixed-size strategy can queue far
+past the free workers.  With <code class="docutils literal notranslate"><span class="pre">sync:</span> <span class="pre">true</span></code> (and on the virtual clock) the
+setting has no effect.
 <code class="docutils literal notranslate"><span class="pre">virtual_policy:</span> <span class="pre">sync</span></code> keeps the synchronous batch policy as a regression
 mode: with <code class="docutils literal notranslate"><span class="pre">virtual_workers</span> <span class="pre">=</span> <span class="pre">1</span></code>, a constant duration <strong>and</strong>
 <code class="docutils literal notranslate"><span class="pre">dask.local.n_workers</span> <span class="pre">=</span> <span class="pre">1</span></code> (which sizes the synchronous batches) it is

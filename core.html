@@ -100,6 +100,7 @@ data-aria-dark="Switch to auto color mode">
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#core">Core</a></li>
+<li><a class="reference internal" href="#panobbgo.core.ASYNC_POLICIES"><code class="docutils literal notranslate"><span class="pre">ASYNC_POLICIES</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Analyzer"><code class="docutils literal notranslate"><span class="pre">Analyzer</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.Event"><code class="docutils literal notranslate"><span class="pre">Event</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.core.Event.terminate"><code class="docutils literal notranslate"><span class="pre">Event.terminate</span></code></a></li>
@@ -205,6 +206,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.init_module"><code class="docutils literal notranslate"><span class="pre">StrategyBase.init_module()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.initialize"><code class="docutils literal notranslate"><span class="pre">StrategyBase.initialize()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.max_eval_or"><code class="docutils literal notranslate"><span class="pre">StrategyBase.max_eval_or()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.n_admit_trimmed"><code class="docutils literal notranslate"><span class="pre">StrategyBase.n_admit_trimmed</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.n_timed_out"><code class="docutils literal notranslate"><span class="pre">StrategyBase.n_timed_out</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
@@ -266,6 +268,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.evaluate_point"><code class="docutils literal notranslate"><span class="pre">evaluate_point()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.run_evaluation"><code class="docutils literal notranslate"><span class="pre">run_evaluation()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.setup_cluster"><code class="docutils literal notranslate"><span class="pre">setup_cluster()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.dask_evaluation.wait_any"><code class="docutils literal notranslate"><span class="pre">wait_any()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#virtual-clock-evaluation">Virtual-clock evaluation</a><ul>
@@ -405,6 +408,18 @@ size=&quot;8.0, 12.0&quot;;
   &quot;panobbgo.core.StrategyBase&quot; [URL=&quot;#panobbgo.core.StrategyBase&quot;,fillcolor=white,fontname=&quot;Vera Sans, DejaVu Sans, Liberation Sans, Arial, Helvetica, sans&quot;,fontsize=10,height=0.25,shape=box,style=&quot;setlinewidth(0.5),filled&quot;,target=&quot;_top&quot;,tooltip=&quot;This abstract BaseStrategy is the parent class of all Strategies.&quot;];
 }
 </section>
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.core.ASYNC_POLICIES">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">ASYNC_POLICIES</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.14)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('pull',</span> <span class="pre">'legacy')</span></span><a class="headerlink" href="#panobbgo.core.ASYNC_POLICIES" title="Link to this definition">#</a></dt>
+<dd><p>the asynchronous main loop’s policy
+(see <code class="xref py py-meth docutils literal notranslate"><span class="pre">StrategyBase._free_workers()</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">evaluation.async_policy</span></code> values</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.core.Analyzer">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.core.</span></span><span class="sig-name descname"><span class="pre">Analyzer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#Analyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.Analyzer" title="Link to this definition">#</a></dt>
@@ -1326,6 +1341,13 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 </dd></dl>
 
 <dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.n_admit_trimmed">
+<span class="sig-name descname"><span class="pre">n_admit_trimmed</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.n_admit_trimmed" title="Link to this definition">#</a></dt>
+<dd><p>Candidates the pull-when-free safety net (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_admit_free()</span></code>)
+had to hand back; stays 0 unless a strategy ignores its cap.</p>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.n_timed_out">
 <span class="sig-name descname"><span class="pre">n_timed_out</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.n_timed_out" title="Link to this definition">#</a></dt>
 <dd><p>Evaluations that hit <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> and were booked as a
@@ -1354,13 +1376,14 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 <span class="sig-name descname"><span class="pre">request_cap</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.request_cap" title="Link to this definition">#</a></dt>
 <dd><p>How many points <a class="reference internal" href="#panobbgo.core.StrategyBase.execute" title="panobbgo.core.StrategyBase.execute"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute()</span></code></a> may hand back in the current pass,
 or <code class="docutils literal notranslate"><span class="pre">None</span></code> for no limit.  Set by the main loop before each
-<code class="docutils literal notranslate"><span class="pre">execute</span></code> call where the evaluation mode knows it — the virtual
-clock’s async policy: its free workers, within the budget — and
-honoured by the strategies (<a class="reference internal" href="#panobbgo.core.StrategyBase.cap_request" title="panobbgo.core.StrategyBase.cap_request"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cap_request()</span></code></a>,
+<code class="docutils literal notranslate"><span class="pre">execute</span></code> call where the evaluation mode knows it — the free
+workers, within the budget, under the pull-when-free policies (the
+virtual clock’s <code class="docutils literal notranslate"><span class="pre">&quot;async&quot;</span></code>, the real loop’s
+<code class="docutils literal notranslate"><span class="pre">evaluation.async_policy</span> <span class="pre">=</span> <span class="pre">&quot;pull&quot;</span></code>) — and honoured by the
+strategies (<a class="reference internal" href="#panobbgo.core.StrategyBase.cap_request" title="panobbgo.core.StrategyBase.cap_request"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cap_request()</span></code></a>,
 <code class="xref py py-func docutils literal notranslate"><span class="pre">collect_pulls()</span></code>), so a strategy
 only does its bookkeeping (pull counts, discounts, block lengths)
-for points that are dispatched.  The seam for any pull-when-free
-evaluation loop.</p>
+for points that are dispatched.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1765,6 +1788,15 @@ the cluster has no workers is reported by the strategy’s waiting WARNING
 Supports both local and remote clusters.</p>
 </dd></dl>
 
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.dask_evaluation.wait_any">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">wait_any</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#wait_any"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.wait_any" title="Link to this definition">#</a></dt>
+<dd><p>Block until one outstanding future completes, or <code class="docutils literal notranslate"><span class="pre">timeout</span></code> seconds.</p>
+<p>The pull-when-free loop’s wait while every worker is busy
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">_pull_pause()</span></code>).  Objects that are
+not dask futures (test doubles) get a 1 ms sleep instead.</p>
+</dd></dl>
+
 </section>
 <section id="virtual-clock-evaluation">
 <h2>Virtual-clock evaluation<a class="headerlink" href="#virtual-clock-evaluation" title="Link to this heading">#</a></h2>
@@ -1824,9 +1856,11 @@ net that hands any surplus back to its heuristic’s queue.  If the
 strategy fills fewer workers than are free, it is asked again at the
 same instant; if it has nothing, the clock moves to the next completion.
 With <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code> the run is strictly one call at a time, each candidate
-chosen after the previous result arrived.  This is an <em>idealized</em>
-pull-when-free loop: the real threaded / processes / dask loop does not
-implement it yet (see TODO.md).  Under a capped bandit a generational
+chosen after the previous result arrived.  The real asynchronous loop
+(threaded / processes / dask) runs the same pull-when-free policy by
+default (<code class="docutils literal notranslate"><span class="pre">evaluation.async_policy</span> <span class="pre">=</span> <span class="pre">&quot;pull&quot;</span></code>); it differs only in that
+results arrive in wall-clock completion order and the handlers do not
+drain before the next decision.  Under a capped bandit a generational
 arm’s queued generation drains at the bandit’s share of the free
 workers, so its candidates can get stale while other arms run (a
 TODO.md follow-up).</p></li>

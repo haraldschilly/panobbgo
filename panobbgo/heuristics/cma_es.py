@@ -1081,14 +1081,13 @@ class CMAES(Heuristic):
                     # is charged and dropped, and the same distribution is
                     # sampled again.  A mean stuck inside a failure region
                     # would resample forever: after a few such generations in
-                    # a row, restart.
+                    # a row, restart — a self-restart (counted, and only with
+                    # ``self_restart`` on; without it the arm keeps resampling).
                     self._counteval += emitted
                     self._total_evals += emitted
                     self._failed_generations += 1
-                    if self._failed_generations >= self.MAX_FAILED_GENERATIONS:
-                        self._failed_generations = 0
-                        self._last_stop_reason = "failed_generations"
-                        self.on_restart(self._restart_center("best"), "all offspring failed")
+                    if self._self_restart and self._failed_generations >= self.MAX_FAILED_GENERATIONS:
+                        self._self_restart_now("failed_generations")  # resets the counter
                     else:
                         self._emit_generation()
                     break
@@ -1309,6 +1308,7 @@ class CMAES(Heuristic):
         flushes stale generation tracking, and emits the first generation.
         """
         self._restart_count += 1
+        self._failed_generations = 0  # a fresh distribution: its own count
 
         new_lam = max(new_lam, 4)  # CMA-ES requires λ ≥ 4
         self._set_population(new_lam)
@@ -1561,11 +1561,12 @@ class CMAES(Heuristic):
         analyzer-driven path — only the start point differs.  A σ-divergence
         restart overrides ``restart_from``: the distribution has spread over
         the whole box, so there is no basin left to keep and no reason to
-        throw the best point seen away.
+        throw the best point seen away.  The same for ``"failed_generations"``
+        (a mean stuck in a failure region): the best point is outside it.
         """
         self._self_restart_count += 1
         self._last_stop_reason = reason
-        mode = "best" if reason == "sigma_divergence" else None
+        mode = "best" if reason in ("sigma_divergence", "failed_generations") else None
         self.on_restart(self._restart_center(mode), f"self-restart: {reason}")
 
     @property

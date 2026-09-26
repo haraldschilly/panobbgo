@@ -191,7 +191,8 @@ def _make_objective(problem: Problem, log: _EvaluationLog, nan_is_worst: bool = 
             # call was made and paid for (the AOCC tracker has counted it),
             # but it has no value.  NaN is the "no value" answer; the solver
             # must not abort on the first failure.
-            _logger.warning("%s: evaluation failed (%s); answering NaN", log.who, exc)
+            # DEBUG: a failure preset has hundreds of these per run.
+            _logger.debug("%s: evaluation failed (%s); answering NaN", log.who, exc)
             fx = float("nan")
         log.record(x_proj, fx)
         return _nan_is_worst(fx) if nan_is_worst else fx

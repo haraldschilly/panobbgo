@@ -838,7 +838,8 @@ class _FailureGeometry:
         centre whose capped ball comes closest to the target share wins.  Boxes: the
         last draw, each box containing ``x_opt`` cut at ``x_opt`` along the
         axis where that removes the thinnest slab.  Either way the realised
-        share (:attr:`share`) is at most the target.
+        share (:attr:`share`) is close to the target, usually below it — and
+        can be far below in high ``d`` with an unshifted ``x_opt``.
         """
         self.fallback = True
         if self.shape == "ball":

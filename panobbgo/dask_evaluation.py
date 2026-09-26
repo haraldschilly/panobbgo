@@ -234,7 +234,7 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
             elif error is not None:
                 from panobbgo.lib import is_simulated_crash
 
-                log = strategy.logger.warning if is_simulated_crash(error) else strategy.logger.error
+                log = strategy.logger.debug if is_simulated_crash(error) else strategy.logger.error
                 log("Evaluation failed: %s" % error)
                 if point is not None:
                     failed.append(point)

@@ -890,6 +890,15 @@ TIMEOUT_ERROR_PREFIX = "TimeoutError: stopped after"
 EARLY_END_ERROR_PREFIX = "EndedEarly: stopped at"
 
 
+#: What a result's AOCC is taken of (:attr:`IOHHarnessResult.scored`).  The
+#: IOH and family tracks score their objective (the true value on a noisy
+#: battery, the penalty value ``f + 100·cv`` on a constrained family); the
+#: real-world track (:mod:`panobbgo.harness_realworld`) scores the feasible
+#: relative gap.  ``compare`` refuses to put two different quantities side by side.
+SCORED_OBJECTIVE: str = "objective"
+SCORED_RELATIVE_FEASIBLE_GAP: str = "relative_feasible_gap"
+
+
 @dataclass
 class IOHRunRecord:
     """Result of one (problem kind, fid, dim, instance, strategy, rep) run."""
@@ -935,6 +944,13 @@ class IOHRunRecord:
     aocc_time: Optional[float] = None
     #: ``True`` for a run on the sealed test set (:mod:`panobbgo.sealed`).
     sealed: bool = False
+    # --- constrained real-world runs only (None elsewhere) ---------------
+    #: Did the run find a feasible point?
+    feasible: Optional[bool] = None
+    #: Smallest mean constraint violation seen (the CEC 2020 ``nu``; 0 once feasible).
+    best_violation: Optional[float] = None
+    #: 1-based index of the first feasible evaluation, ``None`` if there was none.
+    first_feasible_eval: Optional[int] = None
 
     @property
     def precision(self) -> float:
@@ -1003,6 +1019,10 @@ class IOHHarnessResult:
     #: BLAS / OpenMP threads the runs were pinned to
     #: (:data:`panobbgo.local_run.BLAS_THREADS`); ``None`` in older files.
     blas_threads: Optional[int] = None
+    #: The quantity the AOCC is taken of: :data:`SCORED_OBJECTIVE` (every
+    #: track but one, and every older file) or
+    #: :data:`SCORED_RELATIVE_FEASIBLE_GAP` (the real-world track).
+    scored: str = SCORED_OBJECTIVE
 
     # Every run counts, the way ``benchmarks/_screen.fold`` counts them: a
     # timed-out run with its AOCC up to the deadline, a crashed run with
@@ -1095,6 +1115,7 @@ class IOHHarnessResult:
             "sync_eval": self.sync_eval,
             "sealed": self.sealed,
             "blas_threads": self.blas_threads,
+            "scored": self.scored,
             **(
                 {}
                 if self.virtual is None
@@ -1124,6 +1145,7 @@ class IOHHarnessResult:
             virtual=d.get("virtual"),
             sealed=bool(d.get("sealed", False)),
             blas_threads=d.get("blas_threads"),
+            scored=d.get("scored", SCORED_OBJECTIVE),
         )
 
     def print_summary(self) -> None:
@@ -1187,6 +1209,32 @@ class IOHHarnessResult:
             for s in sorted({s for s, _ in per_class}):
                 vals = "  ".join(f"{per_class.get((s, c), float('nan')):19.4f}" for c in classes)
                 print("    " + s.ljust(32) + "  " + vals)
+        if self.scored != SCORED_OBJECTIVE:
+            self.print_problem_table()
+
+    def print_problem_table(self) -> None:
+        """Per problem: mean AOCC, and how many runs found a feasible point, per strategy.
+
+        Printed by :meth:`print_summary` for the real-world track, where a
+        problem is a named model rather than an instance of a class.
+        """
+        problems = list(dict.fromkeys(r.problem_kind for r in self.runs))
+        strategies = sorted({r.strategy_name for r in self.runs})
+        if not problems:
+            return
+        print(f"\n  per problem (AOCC, feasible runs / runs; scored: {self.scored}):")
+        width = max(12, max(len(s) for s in strategies))
+        print("    " + "problem".ljust(34) + "  ".join(s[:width].rjust(width) for s in strategies))
+        for prob in problems:
+            cells = []
+            for strat in strategies:
+                rs = [r for r in self.runs if r.problem_kind == prob and r.strategy_name == strat]
+                if not rs:
+                    cells.append("-".rjust(width))
+                    continue
+                n_feas = sum(1 for r in rs if r.feasible)
+                cells.append(f"{float(np.mean([r.aocc for r in rs])):.4f} {n_feas}/{len(rs)}".rjust(width))
+            print("    " + prob[:33].ljust(34) + "  ".join(cells))
 
 
 # ---------------------------------------------------------------------------

@@ -16,14 +16,16 @@ with a `bbob-largescale`-style slice and the sealed test set
 extra).
 
 - [ ] Real-world set, the rest: CEC2020 real-world constrained is in
-      (18 problems, `run --realworld`, `panobbgo/lib/realworld.py`).  Open:
+      (19 problems, `run --realworld`, `panobbgo/lib/realworld.py`).  Open:
       COCO `bbob-constrained` / `bbob-mixint`; ESA GTOP (in `pykep`, no
       Python 3.14 wheels yet); HPO surrogates (YAHPO Gym pins `numpy < 2`,
       HPOBench is not on PyPI) — recheck when the wheels exist.
 - [ ] Real-world follow-ups: a `realworld` suite in `scripts/rebaseline.py`
-      (first a local timing to size its shards); RC01 (8 equalities) is
-      rarely made feasible at 500·dim, so check whether it discriminates
-      at all.
+      (first a local timing to size its shards), and a re-baseline of
+      `families-constrained` for the baselines (they now minimise
+      `f + 100·cv` on constrained problems); RC01u/RC02u (8/9 equalities)
+      are rarely made feasible at 500·dim, so check whether they
+      discriminate at all.
 - [ ] Nearby quadratic step scaling at high d (cap auto-rank candidates and
       history): `Nearby(quadratic=True)` takes 7–77 s and up to 1 GB per
       fit at d = 160, on every new best.  Until then `--legacy` is refused

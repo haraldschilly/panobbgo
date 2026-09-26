@@ -174,6 +174,27 @@ class _EvaluationLog:
             self.best_x = x_copy
 
 
+#: Penalty coefficient a baseline's objective applies on a constrained problem:
+#: the ``rho`` of panobbgo's :class:`~panobbgo.lib.constraints.DefaultConstraintHandler`
+#: (and of the constrained families' AOCC, ``harness_families.PENALTY_RHO``).
+BASELINE_PENALTY_RHO: float = 100.0
+
+
+def penalized_value(fx: float, cv_vec: Optional[np.ndarray], rho: float = BASELINE_PENALTY_RHO) -> float:
+    r"""``fx + rho * cv`` with :math:`\mathrm{cv} = \lVert \max(g, 0) \rVert_2` — ``fx`` unchanged without constraints.
+
+    The same ``cv`` as :attr:`Result.cv <panobbgo.lib.lib.Result.cv>` (a
+    ``NaN`` entry is an unknown, i.e. infinite, violation), so a baseline
+    minimises exactly what panobbgo's default constraint handler scalarises
+    (:meth:`DefaultConstraintHandler.get_penalty_value
+    <panobbgo.lib.constraints.DefaultConstraintHandler.get_penalty_value>`).
+    """
+    if cv_vec is None:
+        return fx
+    cv = Result(None, fx, cv_vec=np.asarray(cv_vec, dtype=np.float64)).cv
+    return float(fx + rho * cv) if cv > 0.0 else fx
+
+
 def _make_objective(problem: Problem, log: _EvaluationLog, nan_is_worst: bool = False) -> Callable[[np.ndarray], float]:
     """Return a scalar objective that projects into the box, evaluates the
     problem, logs the result, and enforces the evaluation budget.
@@ -183,6 +204,14 @@ def _make_objective(problem: Problem, log: _EvaluationLog, nan_is_worst: bool = 
     solver ``+inf`` for it instead (:func:`_nan_is_worst`) — for the SciPy
     solvers, which call the objective directly; the ask/tell adapters apply
     the same rule in their ``tell``.
+
+    **Constraints.**  The baselines have no constraint handling of their own,
+    so on a constrained problem (``eval_constraints`` returns a vector) the
+    objective is the penalty value :func:`penalized_value` — ``f + 100·cv``,
+    what panobbgo's default constraint handler minimises — instead of the
+    bare ``f``, which would let a baseline score by luck on whichever side of
+    the constraints it happens to land.  On an unconstrained problem the
+    value is ``f``, bit for bit.
     """
 
     def objective(x: np.ndarray) -> float:
@@ -204,6 +233,8 @@ def _make_objective(problem: Problem, log: _EvaluationLog, nan_is_worst: bool = 
             # DEBUG: a failure preset has hundreds of these per run.
             _logger.debug("%s: evaluation failed (%s); answering NaN", log.who, exc)
             fx = float("nan")
+        else:
+            fx = penalized_value(fx, problem.eval_constraints(x_proj))
         log.record(x_proj, fx)
         return _nan_is_worst(fx) if nan_is_worst else fx
 

@@ -278,6 +278,37 @@ def test_runs_are_blas_pinned(monkeypatch):
     assert seen and set(seen) == {1}
 
 
+def test_pool_workers_run_with_blas_pinned():
+    """A spawned ``jobs=2`` worker has BLAS at one thread before any run pins it."""
+    from panobbgo.local_run import TaskPool, blas_thread_counts
+
+    with TaskPool(2, niceness=None, min_free_gb=0.0) as pool:
+        counts = pool.map(blas_thread_counts, [{}, {}, {}])
+    assert all(c and set(c) == {1} for c in counts)
+
+
+def test_family_harness_in_workers_matches_in_process():
+    """``jobs=2`` (pinned workers) gives the same records as in-process (pinned per run)."""
+    spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_CMAES"]
+    inst = harness_families.make_families_battery(dims=(5,), n_instances=1)[:2]
+    one = harness_families.run_family_harness(spec, inst, budget_multiplier=20, progress=False)
+    two = harness_families.run_family_harness(spec, inst, budget_multiplier=20, progress=False, jobs=2)
+    assert [(r.best_fx, r.aocc) for r in one.runs] == [(r.best_fx, r.aocc) for r in two.runs]
+    assert two.blas_threads == 1
+
+
+def test_compare_warns_on_sealed_or_blas_mismatch(tmp_path, capsys):
+    cli = _load_script("ioh_benchmark")
+    a = harness_ioh.run_ioh_harness([], harness_ioh.make_quick_battery(), progress=False)
+    b = dataclasses.replace(a, blas_threads=None, sealed=True)
+    pa, pb = tmp_path / "a.json", tmp_path / "b.json"
+    pa.write_text(a.to_json())
+    pb.write_text(b.to_json())
+    cli.main(["compare", str(pa), str(pb)])
+    err = capsys.readouterr().err
+    assert "sealed mismatch" in err and "blas_threads mismatch" in err
+
+
 def _load_script(name: str):
     path = ROOT / "scripts" / f"{name}.py"
     spec = importlib.util.spec_from_file_location(f"{name}_under_test", path)

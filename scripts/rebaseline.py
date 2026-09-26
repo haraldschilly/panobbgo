@@ -440,6 +440,9 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, 
         raise ValueError(f"{suite.name}: shards from different batteries {sorted(names)}")
     if not all(p.sync_eval for p in parts):
         raise ValueError(f"{suite.name}: a shard was not measured with sync_eval")
+    threads = {p.blas_threads for p in parts}
+    if len(threads) != 1:
+        raise ValueError(f"{suite.name}: shards measured with different BLAS thread counts {sorted(map(str, threads))}")
     pairs = [(s, r) for p in parts for s, r in zip(p.base_seeds, p.results)]
     _check_unique(suite.name, [s for s, _ in pairs])
     pairs.sort(key=lambda sr: _seed_order(sr[0]))
@@ -452,6 +455,7 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, 
         base_seeds=[s for s, _ in pairs],
         results=[r for _, r in pairs],
         sync_eval=True,
+        blas_threads=first.blas_threads,
     )
     stem = f"ref_ioh_{suite.ref_key}"
     written = [f"{stem}.json"]

@@ -1757,9 +1757,12 @@ def _run_one(
     """Run one strategy on one (problem, fid, instance) and return its record.
 
     ``instance`` must be a development id (``0 <= id < 2**20``), or, with
-    ``sealed=True`` (set by :func:`run_ioh_harness` for the sealed
-    battery), a sealed MA-BBOB id — so a single run (``scripts/ioh_smoke.py``)
-    cannot reach the sealed set either.
+    ``sealed=True``, a sealed MA-BBOB id.  ``sealed=True`` is what
+    :func:`run_ioh_harness` passes for the sealed battery; it is an escape
+    hatch, not a lock — a caller that sets it deliberately can run one
+    sealed cell.  The guard stops *accidental* use (a development id range
+    that drifts into the sealed ids, ``scripts/ioh_smoke.py --instance``),
+    and a run made this way is at least marked ``sealed`` in its record.
     """
     from panobbgo.lib.ioh_wrapper import IOHProblem
 

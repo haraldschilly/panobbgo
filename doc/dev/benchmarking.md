@@ -311,7 +311,7 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     run), and SMAC at d = 5, 100·d.  The measured per-run times behind it (laptop, one BLAS thread,
     light load): qLogEI 19 s / 87 s at d = 2 (40 / 200 evaluations), 74 s /
     16 min at d = 5 (100 / 500); TuRBO 9 s / 52 s at d = 2, 22 s / 2.5 min at
-    d = 5, 56 s at d = 10 (200); SMAC 10 s / 107 s at d = 2, over 30 min at
+    d = 5, 56 s at d = 10 (200); SMAC 10 s / 107 s at d = 2, over 40 min at
     d = 5 (500); the core group
     about 15 s for all ten specs on one d = 10 instance at 1000 evaluations.
 *   **Cost.**  `plan` packs the units into shards of about 180 estimated

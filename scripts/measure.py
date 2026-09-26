@@ -117,7 +117,7 @@ SIGMA = 0.5
 #: 16-core laptop (2026-09-26, light load, ``nice -n 15``, one BLAS thread, one run at a
 #: time, the ellipsoid family).  ``(10, 200)`` qLogEI and SMAC are the guide's numbers
 #: (measured under heavy load); SMAC ``(5, 100)`` is interpolated and ``(5, 500)`` a lower
-#: bound (still running after 30 min); the rest are measured.
+#: bound (stopped unfinished after 40 min); the rest are measured.
 #: Other cells extrapolate from the same dimension (:func:`laptop_seconds`).
 LAPTOP_SECONDS: Dict[str, Dict[Tuple[int, int], float]] = {
     "qLogEI": {(2, 40): 19.0, (2, 200): 87.0, (5, 100): 74.0, (5, 500): 972.0, (10, 200): 1000.0},

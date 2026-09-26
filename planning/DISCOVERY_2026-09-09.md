@@ -2527,3 +2527,203 @@ Reading:
   moved 0.4275 → 0.4257 — the §54 run had half its shards on the other FP
   class.
 
+## 57. Optuna's CMA-ES lead on the cheap track is one problem: d = 5 MA-BBOB instance 2, where it finds the global basin 12 times of 12
+
+§56 has `Baseline_Optuna_CmaEs` at the top of IOH standard + external
+baselines (500·d): 0.7052 against 0.6771 (`RegimeGate_oracle`), 0.6738
+(`Blocks_warm_CMAES_JSO`), 0.6674 (`RoundRobin_CMAES`), 0.6671 (pycma
+BIPOP), 0.6546 (pycma IPOP).  This entry pairs those numbers.  Data:
+`ref_ioh_standard_external.json` of release
+`rebaseline-2026-09-26-run36265786623` (12 seeds × 10 cells × 14 specs,
+0 errors; `scripts/rebaseline.py fetch`).  Nothing was re-run.
+
+Method: per seed, the mean AOCC over the cells in scope, differenced
+between two specs; t-CI95 over the 12 seeds (t(11) = 2.201), a
+percentile bootstrap over seeds (5000 draws) as a check, wins = seeds
+where the first spec is ahead, two-sided paired t p.  **The instrument is
+small:** the battery is MA-BBOB instances 0–4 at *d* = 2 and 5, and the
+instances are fixed across seeds — the seed moves only the optimizer.
+The 12 seeds are 12 replicate runs on the same 10 problems, and instance
+*i* at *d* = 2 and at *d* = 5 is the same mixture (same BBOB functions
+and weights).  There is one budget (500·d) and no noise.
+
+### 57.1 Pooled: Optuna CmaEs is ahead of our CMA-ES specs, pycma is not
+
+Δ = row − column, AOCC:
+
+| | vs Optuna CmaEs | vs pycma BIPOP | vs pycma IPOP |
+|---|---|---|---|
+| `Blocks_warm_CMAES_JSO` | **−0.031 [−0.059, −0.004], 4/12, p = 0.030** | +0.007 [−0.016, +0.030], 7/12 | +0.019 [−0.013, +0.052], 8/12 |
+| `RoundRobin_CMAES` | **−0.038 [−0.069, −0.007], 3/12, p = 0.022** | +0.000 [−0.042, +0.042], 7/12 | +0.013 [−0.030, +0.056], 6/12 |
+| `RegimeGate_oracle` | −0.028 [−0.061, +0.005], 3/12, p = 0.088 | +0.010 [−0.020, +0.040], 7/12 | +0.023 [−0.014, +0.060], 8/12 |
+
+(Bootstrap CIs agree in sign: Optuna rows [−0.055, −0.007], [−0.065,
+−0.012], [−0.057, −0.000].)  Against both pycma restart variants every
+one of our specs is level.  Optuna's lead is real at the 12-seed level
+for the two specs that ship, and borderline for the oracle gate.
+
+### 57.2 Per dimension: all of it is *d* = 5
+
+| | *d* = 2 | *d* = 5 |
+|---|---|---|
+| `Blocks_warm_CMAES_JSO` − Optuna | −0.003 [−0.037, +0.032], 6/12 | **−0.060 [−0.100, −0.021], 2/12, p = 0.007** |
+| `RoundRobin_CMAES` − Optuna | −0.002 [−0.048, +0.045], 7/12 | **−0.074 [−0.124, −0.024], 3/12, p = 0.008** |
+| `RegimeGate_oracle` − Optuna | −0.014 [−0.060, +0.031], 5/12 | −0.042 [−0.085, +0.001], 3/12, p = 0.054 |
+| `RegimeGate_oracle` − BIPOP | −0.032 [−0.071, +0.006], 4/12 | +0.053 [−0.003, +0.108], 9/12 |
+
+Mean AOCC per dimension: at *d* = 2 pycma BIPOP is best (0.743; Optuna
+0.724, `RoundRobin_CMAES` 0.723), at *d* = 5 Optuna is best by a margin
+(0.686; `RegimeGate_oracle` 0.644, `Blocks` 0.626, `RoundRobin` 0.612,
+IPOP 0.597, BIPOP 0.591).
+
+### 57.3 Per problem: one cell carries the sign
+
+Mean AOCC per cell (12 seeds):
+
+| cell (*d*, inst) | mixture (top BBOB weights) | Blocks | RoundRobin | Gate | **Optuna** | BIPOP | IPOP |
+|---|---|---|---|---|---|---|---|
+| (2, 0) | f23 f5 f21 f17 | 0.674 | 0.696 | 0.695 | 0.721 | 0.731 | 0.639 |
+| (2, 1) | f23 f13 f16 f5 | 0.468 | 0.466 | 0.444 | 0.443 | 0.448 | 0.449 |
+| (2, 2) | f22 f24 f11 f14 | 0.803 | 0.809 | 0.742 | 0.736 | 0.813 | 0.811 |
+| (2, 3) | f1 f3 | 0.904 | 0.873 | 0.879 | 0.870 | 0.875 | 0.836 |
+| (2, 4) | f7 f18 f17 f20 | 0.761 | 0.769 | 0.792 | 0.852 | 0.846 | 0.824 |
+| (5, 0) | f23 f5 f21 f17 | 0.568 | 0.596 | 0.641 | 0.570 | 0.533 | 0.512 |
+| (5, 1) | f23 f13 f16 f5 | 0.419 | 0.392 | 0.418 | 0.442 | 0.407 | 0.409 |
+| **(5, 2)** | **f22 f24 f11 f14** | 0.533 | 0.423 | 0.539 | **0.745** | 0.404 | 0.496 |
+| (5, 3) | f1 f3 | 0.833 | 0.824 | 0.860 | 0.853 | 0.846 | 0.840 |
+| (5, 4) | f7 f18 f17 f20 | 0.774 | 0.825 | 0.762 | 0.821 | 0.767 | 0.731 |
+
+Optuna − `RoundRobin_CMAES` on (5, 2): **+0.322 [+0.173, +0.471], 10/12**;
+− `Blocks`: +0.212, 11/12; − BIPOP: +0.341, 11/12; − IPOP: +0.249, 9/12.
+The only other cell where Optuna is consistently ahead of all three of
+ours is (5, 1) (+0.022…+0.050, 9–11/12, CIs at or just above zero,
+small).  **Dropping (5, 2)** —
+one of ten cells — every pooled comparison is level:
+
+| without (5, 2) | Δ vs Optuna |
+|---|---|
+| `Blocks_warm_CMAES_JSO` | −0.011 [−0.042, +0.019], 6/12 |
+| `RoundRobin_CMAES` | −0.006 [−0.036, +0.024], 6/12 |
+| `RegimeGate_oracle` | −0.008 [−0.040, +0.023], 4/12 |
+| pycma BIPOP | −0.005 [−0.032, +0.023], 6/12 |
+
+What happens on (5, 2) (global optimum interior, max |x\*_i| = 3.39;
+Gallagher 21 peaks + Lunacek bi-Rastrigin + discus + different powers):
+Runs reaching precision 1e−1 by evaluation 911, and 1e−8 by the end
+(2500):
+
+| | 1e−1 by 911 | 1e−8 by 2500 |
+|---|---|---|
+| **Optuna CmaEs** | **12 / 12** | **12 / 12** (median eval 1509) |
+| `RoundRobin_CMAES` | 6 / 12 | 3 / 12 |
+| `Blocks_warm_CMAES_JSO` | 11 / 12 | 4 / 12 |
+| pycma BIPOP | 5 / 12 | 4 / 12 |
+| pycma IPOP | 8 / 12 | 6 / 12 |
+
+Two different failures.  **`RoundRobin_CMAES` and pycma fail on basin
+selection:** their losing runs end at precision 1e0 … 1e−2, in a local
+optimum, and restarts do not rescue them within 2500 evaluations.
+**`Blocks` finds the basin (11/12) but converges too slowly** — from
+1e−2 to 1e−8 it needs more than the ~1000 evaluations Optuna needs,
+because half its evaluations go to jSO; it reaches 1e−8 in 4 runs.  If
+the other methods found the basin with p ≈ 0.6, twelve of twelve would
+happen with probability ≈ 0.002, so Optuna's rate is not luck — but it
+is one problem, and its *d* = 2 sibling (2, 2) is solved by everyone
+(Optuna 11/12 to 1e−8).
+
+### 57.4 Early or late: the gap opens after 10 % of the budget
+
+Traces are stored at ~29 log-spaced checkpoints; a step reconstruction
+from them overstates each run's precision gap (mean |error| 0.014 AOCC)
+but the error cancels in differences (the three segments of Optuna −
+`RoundRobin` sum to +0.0376 against the true +0.0378).  Contribution of
+each budget segment to Optuna − X:
+
+| segment | − `RoundRobin_CMAES` | − `Blocks` | − BIPOP |
+|---|---|---|---|
+| evals 0–10 % | −0.001, 3/12 | −0.000, 5/12 | +0.001, 9/12 |
+| 10–50 % | +0.010, 9/12 | +0.005, 7/12 | +0.010, 11/12 |
+| 50–100 % | **+0.028 [+0.008, +0.048], 9/12** | **+0.026 [+0.007, +0.045], 10/12** | **+0.025 [+0.007, +0.044], 10/12** |
+
+At *d* = 2 our specs are, if anything, *ahead* early (0–10 %: Optuna −
+`RoundRobin` −0.0017, 2/12, p = 0.006 — consistent with our CMA-ES
+starting at the box centre, see below).  At *d* = 5 three quarters of the
+gap is in the second half (Optuna − `RoundRobin`: +0.019 in 10–50 %,
++0.054 in 50–100 %): AOCC accrues for every evaluation spent below the
+target, so a basin found at 500 evaluations pays through the whole
+second half, and one never found pays nothing.
+
+### 57.5 Mechanism: what differs between the three CMA-ES
+
+Read from `optuna/samplers/_cmaes.py` (Optuna 5.0.0), `cmaes/_cma.py`
+(cmaes 0.13.1), `panobbgo/heuristics/cma_es.py` and the pycma adapter in
+`panobbgo/harness_baselines.py`:
+
+| | Optuna `CmaEsSampler` (as run) | pycma IPOP/BIPOP (adapter) | panobbgo `CMAES` |
+|---|---|---|---|
+| search space | [0, 1]^d (`transform_0_1`) | [0, 1]^d | the box |
+| σ0 | min(range)/6 = **0.167·range** | **0.25·range** | 0.3·mean(range)/2 = **0.15·range** |
+| λ (d = 2 / 5) | 4 + ⌊3 ln n⌋ = 6 / 8 | same | same |
+| start mean | uniform random `x0` (the harness passes one); trial 0 is an extra random point that CMA-ES ignores | uniform random `x0` per run | **the box centre** (`on_start`); restarts at a random point |
+| restarts | **none** (`restart_strategy` deprecated); the run never stops | IPOP / BIPOP on pycma's criteria | IPOP self-restart on tolx/tolfun/stagnation/conditioncov + σ-divergence |
+| bounds | **resampling**: redraw up to 10·n times until inside, then clip | pycma `BoundTransform` (smooth fold-back) | **projection** onto the box; the step that reaches the projected point, Mahalanobis-clipped, enters the update |
+| weights / learning rates | Hansen 2016 defaults **with negative weights (active CMA)**, c_m = 1 | defaults, active CMA | Hansen 2016 defaults, **positive weights only** |
+| σ clamp | none | none | σ ≤ mean(range) |
+
+Population and σ0 are essentially the same as ours (0.167 vs 0.15 of the
+range); pycma's σ0 is larger, and pycma fails on (5, 2) as often as we do,
+so a larger initial step is not the cure.  Restarts cannot explain a
+first-run basin choice.  What Optuna has that *neither* pycma nor we have
+is the resampling bound handling; what it has that we lack but pycma has
+is the random start and active CMA.
+
+### 57.6 Hypotheses, each a cheap A/B
+
+1. **H1 — bound handling (top).**  Resampling draws a truncated Gaussian:
+   no sample ever sits on a face.  Projection piles every out-of-box
+   sample onto the face, so an early generation with a wide σ is ranked
+   partly on face points, and a mixture with Gallagher peaks near the
+   box edge can pull the mean there.  pycma's fold-back does not pile
+   up on faces but still distorts the sampled distribution.  Test:
+   a `boundary="resample"` option on `CMAES` (up to 10·n redraws, then
+   project), `RoundRobin_CMAES` vs the variant with a shared `seed_name`,
+   IOH standard, 12 seeds; primary readout the (5, 2) reach-1e−1 count
+   and the paired Δ.  The mirror test is cheaper still and needs no
+   panobbgo change: a `cmaes.CMA` baseline with `n_max_resampling=1`
+   (clip only) against Optuna's setting — if Optuna loses (5, 2) with
+   clipping, H1 is confirmed from the winning side.
+2. **H2 — start point.**  Our first run starts at the box centre in every
+   seed, so on a given problem all 12 seeds share one starting basin and
+   differ only in their samples; Optuna and pycma draw a fresh `x0`.
+   The early-budget lead at *d* = 2 (57.4) is the centre start's
+   signature.  pycma starts at random and still fails (5, 2), so H2 alone
+   cannot explain Optuna — but it is a knob with no downside in
+   principle.  Test: `start_from="random"` for the first run.
+3. **H3 — active CMA.**  Negative recombination weights shrink the
+   covariance along bad directions; they matter on the ill-conditioned
+   components (f11 discus, f14) of (5, 2) and in the late budget
+   generally.  Evidence is weak here: in-basin convergence 1e−2 → 1e−8 is
+   only slightly slower for `RoundRobin` than for Optuna/pycma.  Test:
+   negative weights per Hansen 2016 eq. 53, same A/B.
+
+### 57.7 Reading
+
+* **Is Optuna CmaEs better?**  On this battery, yes, by 0.03–0.04 AOCC
+  against the shipped specs (3–4 of 12 seeds for us, p ≈ 0.02–0.03) —
+  and **all of it is one problem** out of ten: *d* = 5 MA-BBOB
+  instance 2.  Without that cell every comparison is level, and at *d* = 2
+  the ranking is different (BIPOP first).  With five fixed mixtures per
+  dimension this is a finding about one landscape, not about CMA-ES
+  implementations in general.
+* It is **not** the restart schedule: pycma with restarts is where we
+  are.  For plain CMA-ES it is first-run basin selection on a
+  Gallagher/Lunacek mixture; for the portfolio it is the halved
+  convergence budget once the basin is found.
+* §52–§53 already found f22 (Gallagher) to be where the portfolio wins
+  most on the fid axis.  Before tuning anything on H1–H3, run the
+  external baselines on the BBOB fid battery (24 functions, §52 axis)
+  to see whether Optuna's edge exists outside this one mixture; the
+  A/B for H1 is cheap enough to run alongside.
+* Both our specs remain level with pycma BIPOP/IPOP, the reference
+  restart CMA-ES, on every pooled cut.
+

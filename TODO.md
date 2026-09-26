@@ -99,6 +99,17 @@ Cheap-track items, in GOAL §2c order:
 - [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2,
       σ-collapse hypothesis on `ellipsoid_ball`).
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
+- [ ] **CMA-ES bound handling: resample vs project (§57 H1).**  Optuna's
+      CmaEsSampler leads the cheap track only on MA-BBOB (d = 5, inst 2),
+      where it finds the global basin 12/12 vs 6/12 for `RoundRobin_CMAES`;
+      its one unique trait is resampling out-of-box samples (≤ 10·n
+      redraws, then clip).  A/B: a `boundary="resample"` option on `CMAES`
+      vs projection, shared `seed_name`, IOH standard 12 seeds, readout the
+      (5, 2) reach-1e−1 count and the paired Δ; mirror test: a `cmaes.CMA`
+      baseline with `n_max_resampling=1`.  Alongside: the external
+      baselines on the BBOB fid battery (§52 axis), to see whether the
+      edge exists outside this one mixture.  Then H2 (random first start)
+      and H3 (active CMA).
 - [ ] Sweep CMA-ES's own knobs (`sigma0`, `popsize`, `restart_mode`).
 - [ ] Standing rule: no further bandit tuning without a new mechanism (§31).
 

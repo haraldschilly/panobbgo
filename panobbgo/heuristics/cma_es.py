@@ -319,10 +319,54 @@ class CMAES(Heuristic):
             tell this instance's own points from a foreign result.  Default
             ``"CMAES"``, matching the tag every point carried before this
             argument existed.
+        boundary (str): How an offspring sampled outside the box is handled
+            (DISCOVERY §57, H1).  ``"project"`` (default, the behaviour every
+            number before 2026-09-26 was measured with): project it onto the
+            box and let the step that reaches the projected point,
+            Mahalanobis-clipped, enter the update (see :meth:`_emit_generation`).
+            ``"resample"``: the scheme of the ``cmaes`` library that Optuna's
+            ``CmaEsSampler`` runs — redraw the offspring from N(m, σ²C) up to
+            ``10·n`` times until it lies inside the box, and if none does,
+            draw once more and project that one (then repaired as under
+            ``"project"``).  The sampled distribution becomes a truncated
+            Gaussian instead of one with point masses on the faces.
+            ``"mirror"``: reflect the out-of-box coordinates back into the
+            box (periodic reflection at the faces, so any distance maps
+            inside) and repair the step as under ``"project"``.  Every draw
+            comes from :attr:`rng`, the heuristic's own keyed stream.
+        first_start (str): Where the *first* run's mean starts (§57, H2).
+            ``"center"`` (default): the box centre.  ``"random"``: a uniform
+            point of the box, drawn from :attr:`rng` — what Optuna and pycma
+            do.  Restarts are governed by ``restart_from``; a warm start
+            (``warm_start``) still overrides either when the archive has
+            points.
+        active (bool): Active CMA-ES (§57, H3): the ``λ − μ`` worst offspring
+            enter the rank-μ covariance update with *negative* weights.
+            Default ``False`` (positive weights only).  ``True`` follows
+            N. Hansen (2016), "The CMA Evolution Strategy: A Tutorial",
+            arXiv:1604.00772, exactly: the raw weights of eq. (49) over all λ
+            ranks, the positive ones normalised to sum 1 and the negative ones
+            to ``min(α_μ⁻, α_μeff⁻, α_posdef⁻)`` in absolute sum (eq. 50–53),
+            the negative weights rescaled by ``n / ‖C^{-1/2} y‖²`` (eq. 46), and
+            the decay factor ``1 + c₁δ(h_σ) − c₁ − c_μ Σ w_j`` of eq. (47).
+            ``c₁``, ``c_μ`` and ``μ_eff`` are the unchanged Table 1 defaults
+            (they depend on the positive weights only).  See
+            :meth:`_set_population` and :meth:`_update`.
     """
 
     #: Accepted values for the ``restart_from`` constructor argument.
     SUPPORTED_RESTART_FROM = ("random", "best", "center")
+
+    #: Accepted values for ``boundary``: out-of-box offspring handling.
+    SUPPORTED_BOUNDARY = ("project", "resample", "mirror")
+
+    #: Accepted values for ``first_start``: the first run's start mean.
+    SUPPORTED_FIRST_START = ("center", "random")
+
+    #: Redraws per offspring under ``boundary="resample"``, per dimension:
+    #: Optuna's ``CmaEsSampler`` passes ``n_max_resampling = 10 · n`` to
+    #: ``cmaes.CMA`` (Optuna 5.0.0, ``optuna/samplers/_cmaes.py``).
+    RESAMPLE_PER_DIM: int = 10
 
     #: Accepted values for ``warm_start``: the shared selectors of
     #: :attr:`~panobbgo.core.Heuristic.WARM_START_MODES` plus the CMA-ES-only
@@ -361,6 +405,9 @@ class CMAES(Heuristic):
         warm_start_keep_cov: bool = False,
         inject: bool = False,
         name: Optional[str] = None,
+        boundary: str = "project",
+        first_start: str = "center",
+        active: bool = False,
     ):
         super().__init__(strategy, name=name or "CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -459,6 +506,19 @@ class CMAES(Heuristic):
         self._sigma_divergence_gens = int(sigma_divergence_gens)
         #: Injection seam (§2.1): rank foreign results with the offspring.
         self._inject = bool(inject)
+        if boundary not in self.SUPPORTED_BOUNDARY:
+            raise ValueError(f"boundary must be one of {self.SUPPORTED_BOUNDARY!r}, got {boundary!r}")
+        if first_start not in self.SUPPORTED_FIRST_START:
+            raise ValueError(f"first_start must be one of {self.SUPPORTED_FIRST_START!r}, got {first_start!r}")
+        #: Out-of-box offspring handling (§57 H1); ``"project"`` is the default path.
+        self._boundary = boundary
+        #: The first run's start mean (§57 H2); ``"center"`` is the default path.
+        self._first_start = first_start
+        #: Active CMA (negative recombination weights, §57 H3).
+        self._active = bool(active)
+        #: The negative weights of ranks ``μ+1 … λ`` (Hansen 2016, eq. 53),
+        #: set by :meth:`_set_population` when ``active``; empty otherwise.
+        self._w_neg: np.ndarray = np.zeros(0)
 
         # Budget-relative stagnation bookkeeping.  ``_total_evals`` counts the
         # evaluations this heuristic's own offspring cost over the *whole* run
@@ -566,6 +626,32 @@ class CMAES(Heuristic):
         w = raw / raw.sum()
         return w, float(1.0 / (w**2).sum())
 
+    @staticmethod
+    def _negative_weights(raw_neg: np.ndarray, mu_eff: float, c_1: float, c_mu: float, n: int) -> np.ndarray:
+        """The active-CMA weights of ranks ``μ+1 … λ`` (Hansen 2016, arXiv:1604.00772, eq. 50–53).
+
+        ``raw_neg`` are the raw weights ``w'_i = ln((λ+1)/2) − ln i`` of those
+        ranks (eq. 49; all ``≤ 0``, the first one exactly 0 for odd λ).  They
+        are normalised to an absolute sum of
+
+        * ``α_μ⁻ = 1 + c₁/c_μ`` (eq. 50),
+        * ``α_μeff⁻ = 1 + 2 μ_eff⁻ / (μ_eff + 2)`` with
+          ``μ_eff⁻ = (Σ w'_i)² / Σ w'_i²`` over these ranks (eq. 51),
+        * ``α_posdef⁻ = (1 − c₁ − c_μ) / (n c_μ)`` (eq. 52),
+
+        whichever is smallest (eq. 53).  ``c_μ`` must be the value derived from
+        the *positive* weights' ``μ_eff`` (Table 1), which is what
+        :meth:`_set_population` passes.
+        """
+        neg_sum = float(np.abs(raw_neg).sum())
+        if neg_sum == 0.0 or c_mu <= 0.0:
+            return np.zeros_like(raw_neg)
+        mu_eff_neg = float(raw_neg.sum() ** 2 / (raw_neg**2).sum())
+        alpha_mu = 1.0 + c_1 / c_mu
+        alpha_mu_eff = 1.0 + 2.0 * mu_eff_neg / (mu_eff + 2.0)
+        alpha_posdef = (1.0 - c_1 - c_mu) / (n * c_mu)
+        return min(alpha_mu, alpha_mu_eff, alpha_posdef) * raw_neg / neg_sum
+
     def _set_population(self, lam: int) -> None:
         """Set λ, μ = ⌊λ/2⌋, the recombination weights and every adaptation constant.
 
@@ -577,7 +663,20 @@ class CMAES(Heuristic):
         mu = lam // 2
         # Recombination weights (log-linear, positive) and the effective
         # number of parents they imply
-        w, mu_eff = self._recombination_weights(mu)
+        if self._active:
+            # Active CMA: the positive weights come from the λ-rank raw weights
+            # of Hansen (2016), eq. (49), w'_i = ln((λ+1)/2) − ln i.  For even
+            # λ (every default λ at d ∈ {2, 5, 10} and every IPOP doubling)
+            # they equal ``_recombination_weights(μ)``, whose ln(μ + ½) is
+            # (λ+1)/2 then; for odd λ the tutorial's ln(μ + 1) is used.
+            raw = np.log((lam + 1) / 2.0) - np.log(np.arange(1, lam + 1, dtype=float))
+            pos = raw[:mu]
+            w = pos / pos.sum()
+            mu_eff = float(1.0 / (w**2).sum())
+            raw_neg: Optional[np.ndarray] = raw[mu:]
+        else:
+            w, mu_eff = self._recombination_weights(mu)
+            raw_neg = None
         self._lam, self._mu, self._w, self._mu_eff = lam, mu, w, mu_eff
 
         # Step-size control
@@ -594,6 +693,9 @@ class CMAES(Heuristic):
 
         # Expected norm of N(0,I)
         self._chi_n = np.sqrt(n) * (1.0 - 1.0 / (4.0 * n) + 1.0 / (21.0 * n**2))
+
+        if raw_neg is not None:
+            self._w_neg = self._negative_weights(raw_neg, mu_eff, self._c_1, self._c_mu, n)
 
     def _reset_distribution(self, m: np.ndarray, sigma: float) -> None:
         """Start a fresh search distribution N(m, σ²I): zero paths, identity C, zero counters."""
@@ -623,8 +725,13 @@ class CMAES(Heuristic):
         hi = box[:, 1]
         ranges = hi - lo
 
-        # Initial mean: box centre
-        m = 0.5 * (lo + hi)
+        # Initial mean: box centre, or (``first_start="random"``) a uniform
+        # point of the box from the heuristic's own stream.  Only the random
+        # branch draws, so the default consumes no randomness here.
+        if self._first_start == "random":
+            m = self.problem.random_point(rng=self.rng)
+        else:
+            m = 0.5 * (lo + hi)
 
         # Initial step size: fraction of mean box half-range
         sigma = self._sigma0_frac * float(np.mean(ranges) / 2.0)
@@ -1610,7 +1717,12 @@ class CMAES(Heuristic):
             # y = B D z  →  covariance = B D² Bᵀ = C
             y = self._B @ (self._D * z)
             x_raw = self._m + self._sigma * y
-            x = self.problem.project(x_raw)
+            if self._boundary == "resample" and not self._inside(x_raw):
+                x_raw, y = self._resample_inside(x_raw, y)
+            if self._boundary == "mirror":
+                x = self._mirror_into_box(x_raw)
+            else:
+                x = self.problem.project(x_raw)
             # Boundary repair (Hansen 2011, arXiv:1110.4181): a projected point
             # enters the update through the step that *reaches* it, not the
             # sampled one — otherwise p_σ, p_c and rank-μ see steps longer than
@@ -1641,6 +1753,51 @@ class CMAES(Heuristic):
                 emitted,
                 self._lam,
             )
+
+    def _inside(self, x: np.ndarray) -> bool:
+        """Whether ``x`` lies in the box (faces included)."""
+        return bool(np.all(x >= self._lo) and np.all(x <= self._hi))
+
+    def _resample_inside(self, x_raw: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Redraw an out-of-box offspring (``boundary="resample"``); return ``(x_raw, y)``.
+
+        The ``cmaes.CMA.ask`` scheme that Optuna's ``CmaEsSampler`` runs
+        (cmaes 0.13.1; Optuna passes ``n_max_resampling = 10·n``): up to
+        ``N = RESAMPLE_PER_DIM · n`` draws are checked — the caller's draw
+        ``(x_raw, y)`` is the first — and the first one inside the box is
+        returned.  If none is, one more draw is made and returned as is; the
+        caller projects it and repairs its step exactly as under
+        ``"project"``.  Every draw is from :attr:`rng`, so a seeded run stays
+        reproducible, and only out-of-box offspring cost extra draws.
+        """
+        assert self._m is not None and self._B is not None and self._D is not None
+        n = self.problem.dim
+        for _ in range(self.RESAMPLE_PER_DIM * n - 1):
+            y = self._B @ (self._D * self.rng.standard_normal(n))
+            x_raw = self._m + self._sigma * y
+            if self._inside(x_raw):
+                return x_raw, y
+        y = self._B @ (self._D * self.rng.standard_normal(n))
+        return self._m + self._sigma * y, y
+
+    def _mirror_into_box(self, x: np.ndarray) -> np.ndarray:
+        """Reflect the out-of-box coordinates of ``x`` at the faces (``boundary="mirror"``).
+
+        Periodic reflection: with ``u = (x_i − lo_i)/r_i``, ``u mod 2`` folded
+        at 1, so a coordinate any distance outside lands inside.  Coordinates
+        already inside are returned bit for bit.  The final projection only
+        guards against a last-bit overshoot of ``lo + r·u``.
+        """
+        assert self._lo is not None and self._hi is not None and self._ranges is not None
+        out = (x < self._lo) | (x > self._hi)
+        if not out.any():
+            return x
+        lo, r = self._lo[out], self._ranges[out]
+        u = np.mod((x[out] - lo) / np.where(r > 0, r, 1.0), 2.0)
+        u = np.where(u > 1.0, 2.0 - u, u)
+        mirrored = x.copy()
+        mirrored[out] = lo + r * u
+        return self.problem.project(mirrored)
 
     def _update(self, collected: List[dict], n_offspring: int) -> None:
         """Perform one CMA-ES parameter update from a set of evaluated offspring.
@@ -1719,7 +1876,34 @@ class CMAES(Heuristic):
         # Correction for h_sigma = 0
         delta_h = (1.0 - h_sigma) * self._c_c * (2.0 - self._c_c)
 
-        C = (1.0 - self._c_1 - self._c_mu) * C + self._c_1 * (np.outer(p_c, p_c) + delta_h * C) + self._c_mu * rank_mu
+        # Active CMA (Hansen 2016, eq. 46-47): ranks μ+1 … λ of this
+        # generation enter with the negative weights of ``_set_population``.
+        # A generation that came back short (quorum before λ) applies the
+        # weights of the ranks it has — the smaller-magnitude ones, so a
+        # partial generation is shrunk less, never more.  Injected points
+        # beyond λ entries get no weight.
+        neg = collected[self._mu : self._lam] if self._active and actual_mu == self._mu else []
+        if neg:
+            w_neg = self._w_neg[: len(neg)]
+            Yn = np.column_stack([d["y"] for d in neg])  # (n, len(neg))
+            # ‖C^{-1/2} y‖² = ‖diag(1/D) Bᵀ y‖² with the C this generation was sampled from
+            mahal2 = np.sum(((1.0 / D)[:, None] * (B.T @ Yn)) ** 2, axis=0)
+            safe = np.where(mahal2 > 0.0, mahal2, 1.0)
+            w_circ = np.where(mahal2 > 0.0, w_neg * n / safe, 0.0)  # eq. (46)
+            rank_mu = rank_mu + (Yn * w_circ) @ Yn.T
+            sum_w = float(np.sum(w[:actual_mu]) + np.sum(w_neg))
+            # eq. (47): (1 + c₁δ(h_σ) − c₁ − c_μ Σ w_j) C + c₁ p_c p_cᵀ + c_μ Σ w°_i y_i y_iᵀ
+            C = (
+                (1.0 - self._c_1 - self._c_mu * sum_w) * C
+                + self._c_1 * (np.outer(p_c, p_c) + delta_h * C)
+                + self._c_mu * rank_mu
+            )
+        else:
+            C = (
+                (1.0 - self._c_1 - self._c_mu) * C
+                + self._c_1 * (np.outer(p_c, p_c) + delta_h * C)
+                + self._c_mu * rank_mu
+            )
 
         # --- Step-size update (cumulative path length control) ---
         self._sigma *= float(np.exp((self._c_sigma / self._d_sigma) * (norm_p_sigma / self._chi_n - 1.0)))

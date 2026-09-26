@@ -69,6 +69,9 @@ Public surface
   result, including the convergence trajectory.
 * :class:`IOHHarnessResult` — aggregate over a battery, with mean AOCC and
   per-pair detail.  Serialises to JSON for diffing.
+* :func:`make_ioh_strategies` — the strategy registry of the batteries of
+  record; :func:`make_cmaes_variant_strategies` — opt-in ``RoundRobin_CMAES``
+  variants (§57: bound handling, first start, active CMA), selected by name.
 * :func:`run_ioh_harness` — main entry point.
 """
 
@@ -872,6 +875,48 @@ def make_ioh_strategies() -> List[StrategySpec]:
             },
             seed_name="Blocks_warm_CMAES_JSO",
         ),
+    ]
+
+
+#: The opt-in CMA-ES variants of DISCOVERY §57 (H1 bound handling, H2 first
+#: start, H3 active CMA): spec name -> the ``CMAES`` kwargs it adds to
+#: ``RoundRobin_CMAES``.  Not in :func:`make_ioh_strategies` — the batteries
+#: of record stay as they are; the harnesses add a variant only when
+#: ``--strategies`` names it (:func:`make_cmaes_variant_strategies`).
+CMAES_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
+    "RoundRobin_CMAES_resample": {"boundary": "resample"},
+    "RoundRobin_CMAES_mirror": {"boundary": "mirror"},
+    "RoundRobin_CMAES_randstart": {"first_start": "random"},
+    "RoundRobin_CMAES_active": {"active": True},
+    "RoundRobin_CMAES_resample_randstart_active": {"boundary": "resample", "first_start": "random", "active": True},
+}
+
+#: Spec names of :data:`CMAES_VARIANT_OPTIONS`, in registry order.
+CMAES_VARIANT_NAMES: Tuple[str, ...] = tuple(CMAES_VARIANT_OPTIONS)
+
+
+def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
+    """``RoundRobin_CMAES`` with one or more §57 options switched on — opt-in A/B arms.
+
+    Every variant shares ``seed_name="RoundRobin_CMAES"`` with the flagship,
+    so on each cell both run the identical keyed RNG streams and a paired
+    delta carries only the option (DISCOVERY §18).  ``names`` restricts the
+    list (unknown names are ignored here; the CLI reports them); ``None``
+    returns all of them.
+    """
+    from panobbgo.heuristics import CMAES
+    from panobbgo.strategies import StrategyRoundRobin
+
+    wanted = None if names is None else set(names)
+    return [
+        StrategySpec(
+            name=name,
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(CMAES, dict(kw))],
+            seed_name="RoundRobin_CMAES",
+        )
+        for name, kw in CMAES_VARIANT_OPTIONS.items()
+        if wanted is None or name in wanted
     ]
 
 

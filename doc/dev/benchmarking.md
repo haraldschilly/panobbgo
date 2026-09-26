@@ -514,6 +514,21 @@ TPE at d = 5; 4 seeds per job).
 gh workflow run rebaseline.yml -f suites=all -f seeds=12   # seeds: a count or '42,7'; -f ref=<sha>; -f release=...
 ```
 
+**A/B suites** use the same machinery but are not references: they are
+never part of `all` (`Suite.opt_in`), run only when named, and go out with
+`-f release=none` (the aggregated files stay in the run's
+`rebaseline-references` artifact).  `ioh-cma-ab` (IOH standard) and
+`ioh-cma-ab-bbob-b200` / `-b500` (`ioh_benchmark.py run --bbob`: the 24 BBOB
+functions at d 5/10, instances 0/1) run `RoundRobin_CMAES`, its DISCOVERY
+§57 variants (`harness_ioh.CMAES_VARIANT_NAMES`: bound handling, random
+first start, active CMA; opt-in by `--strategies` name, sharing the
+flagship's `seed_name`) and Optuna CmaEs / pycma BIPOP in the same jobs, so
+every comparison is paired and in one FP environment:
+
+```bash
+gh workflow run rebaseline.yml -f suites=ioh-cma-ab,ioh-cma-ab-bbob-b200,ioh-cma-ab-bbob-b500 -f seeds=12 -f release=none
+```
+
 The last job aggregates the shards into the reference files:
 `ref_composite_<mode>_s<seed>.json` (for `benchmark_harness.py compare`),
 `ref_ioh_<battery>.json` (multi-seed; compare against a run with the same

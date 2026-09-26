@@ -111,6 +111,10 @@ from panobbgo.harness_ioh import (
     IOHBatterySpec,
     IOHHarnessResult,
     IOHMultiSeedResult,
+    ALL_BBOB_FIDS,
+    CMAES_VARIANT_NAMES,
+    make_bbob_battery,
+    make_cmaes_variant_strategies,
     make_full_battery,
     make_highdim_battery,
     make_ioh_strategies,
@@ -150,6 +154,15 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
         battery = make_largescale_battery()
     elif getattr(args, "sealed", False):
         battery = make_sealed_battery()
+    elif getattr(args, "bbob", False):
+        # The 24 plain BBOB functions (§52's function axis), as
+        # ``portfolio_screen.py kind=bbob`` runs them; --budget-multiplier
+        # sets the budget (default 200·d).
+        battery = make_bbob_battery(
+            dims=tuple(args.bbob_dims or (2, 5)),
+            instances=tuple(args.bbob_instances if args.bbob_instances is not None else (0, 1, 2)),
+            fids=tuple(args.bbob_fids or ALL_BBOB_FIDS),
+        )
     else:
         battery = make_quick_battery()
     if args.reps is not None:
@@ -213,6 +226,9 @@ def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
         strats = list(_make_standard_strategies() if (args.standard or args.full) else _make_quick_strategies())
     else:
         strats = list(make_ioh_strategies())
+    if args.strategies:
+        # The §57 CMA-ES variants join only when --strategies names them.
+        strats.extend(make_cmaes_variant_strategies(args.strategies))
     try:
         check_baseline_selection(args.strategies, args.baselines)
         if args.baselines:
@@ -760,6 +776,20 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         help="SEALED family test set (fresh instances of every family class, dims 2-40, 500*d): claims "
         "only, never for tuning or screening (doc/dev/benchmarking.md).  No --reps / --legacy.",
     )
+    grp.add_argument(
+        "--bbob",
+        action="store_true",
+        help="The 24 plain BBOB functions (the function axis of DISCOVERY §52): dims --bbob-dims (default 2 5), "
+        "instances --bbob-instances (default 0 1 2), budget 200*d unless --budget-multiplier.  Run records "
+        "carry the fid, so results can be read per COCO class.",
+    )
+    run_p.add_argument("--bbob-dims", nargs="+", type=_positive_int, metavar="D", help="With --bbob: dimensions.")
+    run_p.add_argument(
+        "--bbob-instances", nargs="+", type=int, metavar="I", help="With --bbob: instance ids (default 0 1 2)."
+    )
+    run_p.add_argument(
+        "--bbob-fids", nargs="+", type=int, metavar="F", help="With --bbob: BBOB function ids 1..24 (default: all)."
+    )
     run_p.add_argument(
         "--noisy-severe",
         action="store_true",
@@ -786,7 +816,13 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         help="With --realworld: only these problems (registry names such as rc17_spring, or suite ids such as "
         "RC17; the unguarded heat exchangers are RC01u and RC02u).",
     )
-    run_p.add_argument("--strategies", nargs="+", help="Restrict to these strategy names.")
+    run_p.add_argument(
+        "--strategies",
+        nargs="+",
+        help="Restrict to these strategy names.  The opt-in RoundRobin_CMAES variants of DISCOVERY §57 ("
+        + ", ".join(CMAES_VARIANT_NAMES)
+        + ") join only when named here.",
+    )
     run_p.add_argument("--seed", type=int, default=42)
     seed_grp = run_p.add_mutually_exclusive_group()
     seed_grp.add_argument(
@@ -906,6 +942,18 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         ]
         if given:
             p.error(f"{', '.join(given)} only apply to the virtual clock: add --virtual-workers Q")
+    if getattr(args, "cmd", None) == "run" and not args.bbob:
+        given = [
+            flag
+            for flag, v in (
+                ("--bbob-dims", args.bbob_dims),
+                ("--bbob-instances", args.bbob_instances),
+                ("--bbob-fids", args.bbob_fids),
+            )
+            if v is not None
+        ]
+        if given:
+            p.error(f"{', '.join(given)} only apply to the BBOB battery: add --bbob")
     if apply_hygiene:
         local_run.apply(args)
     return args.func(args)

@@ -127,7 +127,7 @@ data-aria-dark="Switch to auto color mode">
 </li>
 <li><a class="reference internal" href="#absolute-baselines">Absolute baselines</a><ul>
 <li><a class="reference internal" href="#design">Design</a></li>
-<li><a class="reference internal" href="#cma-es-as-a-baseline">CMA-ES as a baseline</a></li>
+<li><a class="reference internal" href="#external-libraries-pycma-nevergrad-optuna">External libraries: pycma, Nevergrad, Optuna</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol">Per-arm sweeps and the decision protocol</a><ul>
@@ -218,7 +218,7 @@ change is an improvement.</p>
 <li><p><a class="reference internal" href="#absolute-baselines" id="id20">Absolute baselines</a></p>
 <ul>
 <li><p><a class="reference internal" href="#design" id="id21">Design</a></p></li>
-<li><p><a class="reference internal" href="#cma-es-as-a-baseline" id="id22">CMA-ES as a baseline</a></p></li>
+<li><p><a class="reference internal" href="#external-libraries-pycma-nevergrad-optuna" id="id22">External libraries: pycma, Nevergrad, Optuna</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol" id="id23">Per-arm sweeps and the decision protocol</a></p>
@@ -790,16 +790,72 @@ contract as Panobbgo strategies.  Convergence traces are extracted from
 the wrapper’s log, and the results DataFrame carries the same MultiIndex
 columns (<code class="docutils literal notranslate"><span class="pre">(&quot;fx&quot;,</span> <span class="pre">0)</span></code>, <code class="docutils literal notranslate"><span class="pre">(&quot;who&quot;,</span> <span class="pre">0)</span></code>, …) the harness expects.</p>
 </section>
-<section id="cma-es-as-a-baseline">
-<h3><a class="toc-backref" href="#id22" role="doc-backlink">CMA-ES as a baseline</a><a class="headerlink" href="#cma-es-as-a-baseline" title="Link to this heading">#</a></h3>
-<p>The pure CMA-ES reference is already available <strong>inside</strong> Panobbgo via
-the <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic, used by the
-<code class="docutils literal notranslate"><span class="pre">CMAES_Portfolio</span></code> and <code class="docutils literal notranslate"><span class="pre">IPOP_CMAES</span></code> strategies.  That gives a fair
-internal comparison without the extra dependency on <code class="docutils literal notranslate"><span class="pre">pycma</span></code>.  A
-dedicated <code class="docutils literal notranslate"><span class="pre">pycma</span></code> adapter is easy to add if a round-trip against the
-upstream reference becomes valuable.</p>
+<section id="external-libraries-pycma-nevergrad-optuna">
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">External libraries: pycma, Nevergrad, Optuna</a><a class="headerlink" href="#external-libraries-pycma-nevergrad-optuna" title="Link to this heading">#</a></h3>
+<p>A second set of baselines wraps established optimization libraries.  They
+need the optional <code class="docutils literal notranslate"><span class="pre">baselines</span></code> extra (<code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span> <span class="pre">--extra</span> <span class="pre">baselines</span></code>) and
+are <strong>opt-in by name</strong>: <code class="docutils literal notranslate"><span class="pre">--baselines</span></code> alone still runs only the three
+above, and an external baseline joins when <code class="docutils literal notranslate"><span class="pre">--strategies</span></code> names it.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_pycma_IPOP</span></code>, <code class="docutils literal notranslate"><span class="pre">Baseline_pycma_BIPOP</span></code> — pycma’s CMA-ES with
+IPOP / BIPOP restarts (<code class="docutils literal notranslate"><span class="pre">cma.fmin2</span></code>’s restart schedule over ask/tell,
+in the unit cube mapped onto the box, a uniform random start per run).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_NGOpt</span></code> — Nevergrad’s <code class="docutils literal notranslate"><span class="pre">NGOpt</span></code>, a hand-ruled selector over a
+portfolio (it picks its sub-optimizer from dimension, budget and the
+number of parallel workers), plus <code class="docutils literal notranslate"><span class="pre">Baseline_NG_CMA</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Baseline_NG_TwoPointsDE</span></code> as cross-checks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_Optuna_CmaEs</span></code>, <code class="docutils literal notranslate"><span class="pre">Baseline_Optuna_TPE</span></code> — Optuna’s
+<code class="docutils literal notranslate"><span class="pre">CmaEsSampler</span></code> and <code class="docutils literal notranslate"><span class="pre">TPESampler</span></code>, default settings.  The CMA-ES
+sampler runs without restarts (<code class="docutils literal notranslate"><span class="pre">restart_strategy</span></code> is deprecated since
+Optuna 4.4; the restart variants are the pycma baselines).  Optuna’s
+per-trial cost grows with the trial count, so wall time is roughly
+quadratic in the budget (TPE: ~21 s for 2000 evaluations at dim 10).
+<code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code>’s default per-run timeout of 120 s would cut
+such runs short: measure them with <code class="docutils literal notranslate"><span class="pre">--no-timeout</span></code>
+(<code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span></code> has no default timeout).</p></li>
+</ul>
+<p>Conventions shared by all of them:</p>
+<ul class="simple">
+<li><p><strong>Start point</strong> — every run starts from a point drawn uniformly from the
+box with the run seed (pycma and Optuna CMA-ES <code class="docutils literal notranslate"><span class="pre">x0</span></code>, Nevergrad’s
+parametrization <code class="docutils literal notranslate"><span class="pre">init</span></code>), never the box centre, where several classic
+test functions have their optimum.</p></li>
+<li><p><strong>Failed values</strong> — a NaN (failed or timed-out evaluation) is the worst
+value and is told as <code class="docutils literal notranslate"><span class="pre">+inf</span></code>; Optuna records it as a COMPLETE trial, so
+TPE learns the region is bad.  <code class="docutils literal notranslate"><span class="pre">±inf</span></code> from the objective passes
+through unchanged.</p></li>
+<li><p><strong>Determinism</strong> — a fixed seed reproduces a run exactly.  numpy’s global
+RNG is seeded from the run seed for the run and restored afterwards;
+pycma samples from the adapter’s own generator; the <code class="docutils literal notranslate"><span class="pre">cma.fmin</span></code> calls
+Nevergrad makes in a background thread (NGOpt’s <code class="docutils literal notranslate"><span class="pre">MetaModel(CmaFmin2)</span></code>)
+get their own generator too.</p></li>
+<li><p><strong>Fail fast</strong> — naming an external baseline without the extra installed
+is an <code class="docutils literal notranslate"><span class="pre">ImportError</span></code> before any run, and naming any baseline without
+<code class="docutils literal notranslate"><span class="pre">--baselines</span></code> is an error with that hint.  <code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span> <span class="pre">list</span>
+<span class="pre">--baselines</span></code> shows the external names marked <code class="docutils literal notranslate"><span class="pre">[opt-in]</span></code>.</p></li>
+</ul>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w"> </span>--extra<span class="w"> </span>baselines
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/ioh_benchmark.py<span class="w"> </span>run<span class="w"> </span>--standard<span class="w"> </span>--baselines<span class="w"> </span><span class="se">\</span>
+</span><span data-line="3"><span class="w">    </span>--strategies<span class="w"> </span>RoundRobin_CMAES<span class="w"> </span>Baseline_NGOpt<span class="w"> </span>Baseline_pycma_BIPOP
+</span></pre></div>
+</div>
+<p>These adapters are <strong>batch-capable</strong>: each wraps its library in an
+<code class="xref py py-class docutils literal notranslate"><span class="pre">AskTellAdapter</span></code> (<code class="docutils literal notranslate"><span class="pre">ask(n)</span></code> returns up
+to <code class="docutils literal notranslate"><span class="pre">n</span></code> keyed candidates, <code class="docutils literal notranslate"><span class="pre">tell(key,</span> <span class="pre">fx)</span></code> reports one result in any
+order).  The harness drives it with batch size <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span>
+<span class="pre">config.batch_size</span></code> (default 1; set it with
+<code class="docutils literal notranslate"><span class="pre">StrategySpec(config_overrides={&quot;batch_size&quot;:</span> <span class="pre">q})</span></code>): ask <code class="docutils literal notranslate"><span class="pre">q</span></code> points,
+evaluate them in dispatch order, tell them.  A CMA-ES adapter hands out at
+most the rest of its current generation, so a batch can be smaller than
+<code class="docutils literal notranslate"><span class="pre">q</span></code>; pycma therefore raises its base population to at least <code class="docutils literal notranslate"><span class="pre">q</span></code> so that
+one generation fills the workers.  Nevergrad receives <code class="docutils literal notranslate"><span class="pre">q</span></code> as
+<code class="docutils literal notranslate"><span class="pre">num_workers</span></code>, which changes the algorithm NGOpt picks.</p>
+<p>The in-house CMA-ES reference remains the
+<a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> heuristic (<code class="docutils literal notranslate"><span class="pre">RoundRobin_CMAES</span></code>);
+the pycma baselines are the upstream round-trip against it.</p>
 <p>See <code class="docutils literal notranslate"><span class="pre">panobbgo/harness_baselines.py</span></code> for the full interface and
-<code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> for the guarantees.</p>
+<code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> and
+<code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines_external.py</span></code> for the guarantees.</p>
 </section>
 </section>
 <section id="per-arm-sweeps-and-the-decision-protocol">
@@ -1004,10 +1060,12 @@ without an ADR — historical comparisons depend on its stability.</p>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies
-(Random, SciPy DE, SciPy dual annealing).</p></li>
+(Random, SciPy DE, SciPy dual annealing; pycma, Nevergrad, Optuna).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code> — CLI.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — harness test suite (60+ tests).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> — baseline adapter tests.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines_external.py</span></code> — pycma / Nevergrad / Optuna
+adapter tests (skip without the <code class="docutils literal notranslate"><span class="pre">baselines</span></code> extra).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_stats.py</span></code> — statistical acceptance rule tests.</p></li>
 </ul>
 </section>

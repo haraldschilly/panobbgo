@@ -255,6 +255,9 @@ class IOHTracker:
         self._deadline: Optional[float] = None if timeout_s is None else time.monotonic() + float(timeout_s)
         self.timed_out: bool = False
         self.n_evals: int = 0
+        #: Counted evaluations that failed or timed out (spent, no value); a
+        #: feature logger's failure share (:mod:`panobbgo.features`).
+        self.n_failed: int = 0
         self.best_fx: float = float("inf")
         self.best_x: Optional[np.ndarray] = None
         self.best_so_far: List[float] = []
@@ -333,6 +336,7 @@ class IOHTracker:
                     )
                 else:
                     self.n_evals += 1
+                    self.n_failed += 1
                     self._record_failed()
             raise
         except BaseException:
@@ -417,6 +421,7 @@ class IOHTracker:
     def _spend(self, t_complete: float) -> None:
         """One spent evaluation: the traces repeat their last value (called under the lock)."""
         self.n_evals += 1
+        self.n_failed += 1
         self.best_so_far.append(self.best_fx)
         if self.has_true:
             self.best_so_far_true.append(self.best_true_fx)

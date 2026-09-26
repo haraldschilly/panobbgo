@@ -103,6 +103,7 @@ from panobbgo.sealed import (
     is_dev_instance_id,
     print_sealed_banner,
 )
+from panobbgo.features import FeatureLogger, FeatureLogSpec
 from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 
 
@@ -952,6 +953,10 @@ class IOHRunRecord:
     best_violation: Optional[float] = None
     #: 1-based index of the first feasible evaluation, ``None`` if there was none.
     first_feasible_eval: Optional[int] = None
+    #: Feature dicts at the budget checkpoints (:mod:`panobbgo.features`), one
+    #: per checkpoint reached, with ``--log-features``; ``None`` (and left out
+    #: of the JSON) otherwise.
+    features: Optional[List[Dict[str, Any]]] = None
 
     @property
     def precision(self) -> float:
@@ -976,6 +981,14 @@ class IOHRunRecord:
 def time_score(r: IOHRunRecord) -> Optional[float]:
     """A run's AOCC over virtual time for the aggregates: 0 for a crash, ``None`` if it has none."""
     return 0.0 if r.crashed else r.aocc_time
+
+
+def run_record_to_dict(r: IOHRunRecord) -> Dict[str, Any]:
+    """JSON row of a record; ``features`` only when logged, so default result files keep their shape."""
+    row = asdict(r)
+    if row.get("features") is None:
+        row.pop("features", None)
+    return row
 
 
 def run_record_from_dict(row: Dict[str, Any]) -> IOHRunRecord:
@@ -1134,7 +1147,7 @@ class IOHHarnessResult:
                     "per_strategy_aocc_time": self.per_strategy_aocc_time(),
                 }
             ),
-            "runs": [asdict(r) for r in self.runs],
+            "runs": [run_record_to_dict(r) for r in self.runs],
         }
 
     def to_json(self, indent: int = 2) -> str:
@@ -1419,6 +1432,7 @@ def run_ioh_harness_multi_seed(
     sync_eval: bool = True,
     jobs: int = 1,
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHMultiSeedResult:
     """Run :func:`run_ioh_harness` once per seed in ``base_seeds``.
 
@@ -1444,6 +1458,7 @@ def run_ioh_harness_multi_seed(
                 sync_eval=sync_eval,
                 jobs=jobs,
                 virtual=virtual,
+                log_features=log_features,
             )
         )
     return IOHMultiSeedResult(
@@ -1668,6 +1683,15 @@ class _TrackedRun:
     aocc_reco: Optional[float] = None
     error: Optional[str] = None
     aocc_time: Optional[float] = None
+    features: Optional[List[Dict[str, Any]]] = None
+    #: Wall time the feature logger took (not recorded: records stay deterministic).
+    features_s: float = 0.0
+
+
+def refuse_sealed_features(log_features: Optional[FeatureLogSpec], name: str) -> None:
+    """Raise if features are to be logged on a sealed battery: they are training data, and the set is for claims only."""
+    if log_features is not None:
+        raise ValueError(f"feature logging is refused on the sealed battery {name!r}: never train on the sealed set")
 
 
 def wall_timeout_for(strategy_spec: StrategySpec, timeout_s: Optional[float]) -> Optional[float]:
@@ -1707,6 +1731,7 @@ def _run_tracked_unpinned(
     log_hi: float,
     timeout_s: Optional[float],
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> _TrackedRun:
     """Run one strategy under an installed tracker and score its trace.
 
@@ -1723,8 +1748,15 @@ def _run_tracked_unpinned(
     traces are recorded in completion order, failed and timed-out calls
     count as spent evaluations, and ``aocc_time`` is scored as well
     (:func:`~panobbgo.ioh_runner.aocc_virtual_time`).
+
+    With ``log_features`` a :class:`~panobbgo.features.FeatureLogger`
+    observes the main loop and the run's ``features`` holds its checkpoint
+    dicts; the run itself is unchanged (same evaluations, same random
+    streams).  A strategy without a main loop (the external baselines)
+    records none.
     """
     np.random.seed(seed)
+    logger: Optional[FeatureLogger] = None
     try:
         # The budget must reach the config *before* the heuristics are
         # constructed — budget-adaptive arms (``NP_init="auto"``) size
@@ -1749,6 +1781,15 @@ def _run_tracked_unpinned(
         strategy.config.stop_on_convergence = False
         if virtual is not None:
             virtual.apply(strategy, observer=tracker)
+        if log_features is not None and hasattr(strategy, "add_pass_observer"):
+            logger = FeatureLogger(
+                log_features,
+                budget=budget,
+                spent=lambda: tracker.n_evals,
+                failed=lambda: tracker.n_failed,
+                context={"q": 1 if virtual is None else virtual.workers, "noisy": tracker.has_true},
+            )
+            strategy.add_pass_observer(logger)
         # Past the deadline the tracker stops counting; this also ends the
         # main loop instead of letting it spin through no-op evaluations.
         tracker.on_timeout = getattr(strategy, "request_stop", None)
@@ -1763,6 +1804,11 @@ def _run_tracked_unpinned(
         return aocc(trace, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
 
     out = _TrackedRun(n_evals=tracker.n_evals, best_fx=tracker.best_fx, aocc=0.0, trace_evals=[], trace_fx=[])
+    if log_features is not None:
+        out.features = [] if logger is None else logger.records
+        out.features_s = 0.0 if logger is None else logger.elapsed_s
+        if logger is not None and logger.error is not None:
+            warnings.warn(f"feature logging stopped: {logger.error}", RuntimeWarning, stacklevel=2)
     if tracker.has_true:
         # BBOB-noisy convention: the metric is scored on the true,
         # noise-free value; what the optimizer *observed* is a
@@ -1832,6 +1878,7 @@ def _run_one(
     fid: Optional[int] = None,
     virtual: Optional[VirtualSpec] = None,
     sealed: bool = False,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHRunRecord:
     """Run one strategy on one (problem, fid, instance) and return its record.
 
@@ -1913,6 +1960,7 @@ def _run_one(
             log_hi=log_hi,
             timeout_s=timeout_s,
             virtual=virtual,
+            log_features=log_features,
         )
     except Exception as e:  # noqa: BLE001  — record and continue
         tracked.error = f"{type(e).__name__}: {e}"
@@ -1945,6 +1993,7 @@ def _run_one(
         fid=fid,
         aocc_time=tracked.aocc_time,
         sealed=bool(sealed),
+        features=tracked.features,
     )
 
 
@@ -1999,6 +2048,7 @@ def run_ioh_harness(
     sync_eval: bool = True,
     jobs: int = 1,
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHHarnessResult:
     """Run every strategy against every (fid, dim, instance, rep) in ``battery``.
 
@@ -2024,10 +2074,15 @@ def run_ioh_harness(
     (:class:`~panobbgo.virtual_clock.VirtualSpec`: ``q`` simulated workers
     and a duration model) and scores ``aocc_time`` next to ``aocc``.  The
     run seeds do not depend on it, so a sweep over ``q`` is paired.
+
+    ``log_features`` records checkpoint features in every run record
+    (:mod:`panobbgo.features`) without changing the runs.  Refused on the
+    sealed battery: its features would be training data.
     """
     if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
     if battery.sealed:
+        refuse_sealed_features(log_features, battery.name)
         print_sealed_banner(battery.name)
     log_lo, log_hi = battery.aocc_bounds(log_lo, log_hi)
     builder_kwargs = battery.builder_kwargs()
@@ -2081,6 +2136,7 @@ def run_ioh_harness(
             fid=fid,
             virtual=cell_virtual,
             sealed=battery.sealed,
+            log_features=log_features,
         )
         if jobs > 1:
             tasks.append(task)

@@ -115,6 +115,7 @@ from panobbgo.harness_ioh import (
 )
 from panobbgo.lib.realworld import RealWorldProblem, make_realworld_instances
 from panobbgo.local_run import BLAS_THREADS
+from panobbgo.features import FeatureLogSpec
 from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 
 #: ``(name, problem)`` pairs, as returned by :func:`~panobbgo.lib.realworld.make_realworld_instances`.
@@ -202,6 +203,7 @@ def _run_one(
     sync_eval: bool,
     timeout_s: Optional[float] = None,
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHRunRecord:
     """Run one strategy on one real-world problem; same driver as ``harness_families._run_one``."""
     timeout_s = wall_timeout_for(strategy_spec, timeout_s)
@@ -221,6 +223,7 @@ def _run_one(
             log_hi=log_hi,
             timeout_s=timeout_s,
             virtual=virtual,
+            log_features=log_features,
         )
     except Exception as e:  # noqa: BLE001 — record and continue, as the other tracks do
         tracked.error = f"{type(e).__name__}: {e}"
@@ -241,6 +244,7 @@ def _run_one(
         trace_evals=tracked.trace_evals,
         trace_fx=tracked.trace_fx,
         aocc_time=tracked.aocc_time,
+        features=tracked.features,
         feasible=tracker.first_feasible_eval is not None,
         best_violation=tracker.best_violation,
         first_feasible_eval=tracker.first_feasible_eval,
@@ -262,6 +266,7 @@ def run_realworld_harness(
     timeout_s: Optional[float] = None,
     jobs: int = 1,
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHHarnessResult:
     """Score every spec on every real-world problem and return an AOCC result.
 
@@ -269,8 +274,9 @@ def run_realworld_harness(
     :func:`~panobbgo.harness_families.run_family_harness`: the budget per
     run is ``budget_multiplier * problem.dim``, ``base_seed`` seeds the
     optimiser (the problems are fixed), the per-run seed is derived from
-    ``spec.rng_identity``, ``jobs > 1`` runs the cells in worker processes
-    and ``virtual`` runs on the virtual clock.  ``log_hi`` defaults to
+    ``spec.rng_identity``, ``jobs > 1`` runs the cells in worker processes,
+    ``virtual`` runs on the virtual clock and ``log_features`` records checkpoint
+    features (:mod:`panobbgo.features`).  ``log_hi`` defaults to
     :data:`REALWORLD_LOG_HI` (a relative gap of 1).  Each record's
     ``problem_kind`` is the problem name (``"rc17_spring"``), ``instance``
     is 0, ``f_opt`` is 0 and ``best_fx`` the best feasible relative gap; the
@@ -307,6 +313,7 @@ def run_realworld_harness(
                     sync_eval=sync_eval,
                     timeout_s=timeout_s,
                     virtual=cell_virtual,
+                    log_features=log_features,
                 )
                 if jobs > 1:
                     tasks.append(task)

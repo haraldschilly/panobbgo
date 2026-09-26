@@ -126,6 +126,7 @@ from panobbgo.harness_ioh import (
     run_ioh_harness_multi_seed,
     t_ci,
 )
+from panobbgo.features import FeatureLogSpec
 from panobbgo.virtual_clock import VirtualSpec
 
 
@@ -291,6 +292,8 @@ def _check_battery_options(args: argparse.Namespace) -> None:
     if not chosen:
         return
     flag = "--" + chosen[0].replace("_", "-")
+    if chosen[0] in _SEALED_FLAGS and getattr(args, "log_features", None) is not None:
+        raise SystemExit(f"error: {flag} does not take --log-features: never train on the sealed set (panobbgo.sealed)")
     if getattr(args, "legacy", False):
         raise SystemExit(
             f"error: {flag} does not take --legacy: the composite registry's GP / QuadraticWLS / "
@@ -340,6 +343,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("No strategies selected.", file=sys.stderr)
         return 2
     virtual = _resolve_virtual(args)
+    log_features = None if args.log_features is None else FeatureLogSpec.parse(args.log_features)
     result: Any
     family = _resolve_family_battery(args)
     realworld = _resolve_realworld_battery(args)
@@ -368,6 +372,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             timeout_s=args.timeout,
             jobs=args.jobs,
             virtual=virtual,
+            log_features=log_features,
         )
     elif family is not None:
         name, instances, budget_multiplier = family
@@ -400,6 +405,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             timeout_s=args.timeout,
             jobs=args.jobs,
             virtual=virtual,
+            log_features=log_features,
         )
     else:
         battery = _resolve_battery(args)
@@ -419,6 +425,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 timeout_s=args.timeout,
                 jobs=args.jobs,
                 virtual=virtual,
+                log_features=log_features,
             )
         else:
             result = run_ioh_harness(
@@ -430,6 +437,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 timeout_s=args.timeout,
                 jobs=args.jobs,
                 virtual=virtual,
+                log_features=log_features,
             )
     result.print_summary()
     if args.output:
@@ -856,6 +864,16 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         help="Dispatch policy of the virtual clock: async (default; a decision at every completion, "
         "candidates only for the free workers) or sync (the synchronous batch policy, a regression mode).  "
         "Needs --virtual-workers.",
+    )
+    run_p.add_argument(
+        "--log-features",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FRACTIONS",
+        help="Record landscape / trajectory / per-arm features at budget checkpoints in every run record "
+        "(panobbgo.features; training data for the learned selector).  Optional comma-separated fractions, "
+        "default 0.05,0.1,0.2,0.4,0.7.  Does not change the runs.  Off by default; refused on the sealed sets.",
     )
     run_p.add_argument("--output", help="Save full result as JSON.")
     run_p.add_argument("--quiet", action="store_true", help="Suppress per-run progress lines.")

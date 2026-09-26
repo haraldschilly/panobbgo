@@ -128,6 +128,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#absolute-baselines">Absolute baselines</a><ul>
 <li><a class="reference internal" href="#design">Design</a></li>
 <li><a class="reference internal" href="#external-libraries-pycma-nevergrad-optuna">External libraries: pycma, Nevergrad, Optuna</a></li>
+<li><a class="reference internal" href="#expensive-track-baselines-botorch-turbo-smac3-py-bobyqa">Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#parallel-behaviour-on-a-virtual-clock">Parallel behaviour on a virtual clock</a></li>
@@ -221,26 +222,27 @@ change is an improvement.</p>
 <ul>
 <li><p><a class="reference internal" href="#design" id="id21">Design</a></p></li>
 <li><p><a class="reference internal" href="#external-libraries-pycma-nevergrad-optuna" id="id22">External libraries: pycma, Nevergrad, Optuna</a></p></li>
+<li><p><a class="reference internal" href="#expensive-track-baselines-botorch-turbo-smac3-py-bobyqa" id="id23">Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#parallel-behaviour-on-a-virtual-clock" id="id23">Parallel behaviour on a virtual clock</a></p></li>
-<li><p><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol" id="id24">Per-arm sweeps and the decision protocol</a></p>
+<li><p><a class="reference internal" href="#parallel-behaviour-on-a-virtual-clock" id="id24">Parallel behaviour on a virtual clock</a></p></li>
+<li><p><a class="reference internal" href="#per-arm-sweeps-and-the-decision-protocol" id="id25">Per-arm sweeps and the decision protocol</a></p>
 <ul>
-<li><p><a class="reference internal" href="#pair-the-variants-seed-name" id="id25">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></p></li>
-<li><p><a class="reference internal" href="#the-null-floor" id="id26">The null floor</a></p></li>
-<li><p><a class="reference internal" href="#the-sweep-tools" id="id27">The sweep tools</a></p></li>
-<li><p><a class="reference internal" href="#the-sealed-test-set" id="id28">The sealed test set</a></p></li>
-<li><p><a class="reference internal" href="#when-a-default-may-change" id="id29">When a default may change</a></p></li>
+<li><p><a class="reference internal" href="#pair-the-variants-seed-name" id="id26">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a></p></li>
+<li><p><a class="reference internal" href="#the-null-floor" id="id27">The null floor</a></p></li>
+<li><p><a class="reference internal" href="#the-sweep-tools" id="id28">The sweep tools</a></p></li>
+<li><p><a class="reference internal" href="#the-sealed-test-set" id="id29">The sealed test set</a></p></li>
+<li><p><a class="reference internal" href="#when-a-default-may-change" id="id30">When a default may change</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#extending-the-harness" id="id30">Extending the harness</a></p>
+<li><p><a class="reference internal" href="#extending-the-harness" id="id31">Extending the harness</a></p>
 <ul>
-<li><p><a class="reference internal" href="#adding-a-problem" id="id31">Adding a problem</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-strategy" id="id32">Adding a strategy</a></p></li>
-<li><p><a class="reference internal" href="#adding-a-metric" id="id33">Adding a metric</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-problem" id="id32">Adding a problem</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-strategy" id="id33">Adding a strategy</a></p></li>
+<li><p><a class="reference internal" href="#adding-a-metric" id="id34">Adding a metric</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#see-also" id="id34">See also</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id35">See also</a></p></li>
 </ul>
 </nav>
 <section id="why-a-single-number">
@@ -861,9 +863,138 @@ the pycma baselines are the upstream round-trip against it.</p>
 <code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> and
 <code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines_external.py</span></code> for the guarantees.</p>
 </section>
+<section id="expensive-track-baselines-botorch-turbo-smac3-py-bobyqa">
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA</a><a class="headerlink" href="#expensive-track-baselines-botorch-turbo-smac3-py-bobyqa" title="Link to this heading">#</a></h3>
+<p>For expensive evaluations at small budgets (10…200·dim) with <code class="docutils literal notranslate"><span class="pre">q</span></code>
+parallel workers the incumbents are Bayesian-optimisation and model-based
+tools.  They live in <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines_bo</span></code>, need the
+separate <code class="docutils literal notranslate"><span class="pre">baselines-bo</span></code> extra (uv takes torch from the CPU-only wheel
+index; torch alone is ~0.7 GB installed) and are opt-in by name like the
+ones above.  <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> is exact, so name every extra you need in one
+command.  PyTorch publishes no wheels for Intel macOS, so the extra does
+not install there.</p>
+<p>These baselines are meant for small budgets: an exact GP at thousands of
+points takes hours per run.  <code class="docutils literal notranslate"><span class="pre">--budget-multiplier</span> <span class="pre">N</span></code> sets the budget of
+any <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span></code> battery (IOH and families) to <code class="docutils literal notranslate"><span class="pre">N·dim</span></code>
+(the battery name gets a <code class="docutils literal notranslate"><span class="pre">-bN</span></code> suffix; the default budgets do not
+change), e.g. 20·dim and 100·dim on the families (dims 2/5/10):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w"> </span>--extra<span class="w"> </span>baselines<span class="w"> </span>--extra<span class="w"> </span>baselines-bo
+</span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/ioh_benchmark.py<span class="w"> </span>run<span class="w"> </span>--families<span class="w"> </span>--budget-multiplier<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="3"><span class="w">    </span>--baselines<span class="w"> </span>--virtual-workers<span class="w"> </span><span class="m">4</span><span class="w"> </span><span class="se">\</span>
+</span><span data-line="4"><span class="w">    </span>--strategies<span class="w"> </span>Baseline_BoTorch_qLogEI<span class="w"> </span>Baseline_TuRBO1<span class="w"> </span>Baseline_SMAC_BB<span class="w"> </span>Baseline_PyBOBYQA
+</span></pre></div>
+</div>
+<p>Each uses its library’s recommended setup for small budgets:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_BoTorch_qLogEI</span></code> — BoTorch batch <code class="docutils literal notranslate"><span class="pre">qLogExpectedImprovement</span></code>
+on a <code class="docutils literal notranslate"><span class="pre">SingleTaskGP</span></code> with its defaults (RBF kernel with the
+dimension-scaled log-normal length-scale prior, <code class="docutils literal notranslate"><span class="pre">Standardize</span></code> outcome
+transform), inputs in the unit cube, refitted with <code class="docutils literal notranslate"><span class="pre">fit_gpytorch_mll</span></code>
+before every proposal.  Initial design: <code class="docutils literal notranslate"><span class="pre">max(5,</span> <span class="pre">2·d)</span></code> scrambled Sobol
+points (Ax’s rule); the model takes over once <code class="docutils literal notranslate"><span class="pre">max(2,</span>
+<span class="pre">ceil(n_init/2))</span></code> points are observed (Ax’s threshold), and free workers
+get more Sobol points until then (Ax would leave them idle).  <code class="docutils literal notranslate"><span class="pre">best_f</span></code> is the best observed value,
+the MC sampler a 256-sample <code class="docutils literal notranslate"><span class="pre">SobolQMCNormalSampler</span></code>;
+<code class="docutils literal notranslate"><span class="pre">optimize_acqf(num_restarts=10,</span> <span class="pre">raw_samples=512,</span> <span class="pre">batch_limit=5,</span>
+<span class="pre">maxiter=200)</span></code> as in the BoTorch tutorials.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_TuRBO1</span></code> — TuRBO-1 after the BoTorch tutorial: Matérn-5/2
+ARD GP (length scales in [0.005, 4], noise in [1e-8, 1e-3]) on the
+standardised data of the current trust region, Thompson sampling over
+<code class="docutils literal notranslate"><span class="pre">min(5000,</span> <span class="pre">max(2000,</span> <span class="pre">200·d))</span></code> perturbed Sobol candidates, length 0.8
+in [0.5⁷, 1.6], success tolerance 3 (Eriksson et al. 2019 and the
+reference code; the tutorial’s 10 lets the region practically never
+expand at these budgets), failure tolerance <code class="docutils literal notranslate"><span class="pre">ceil(max(4/q,</span> <span class="pre">d/q))</span></code>.
+<code class="docutils literal notranslate"><span class="pre">2·d</span></code> Sobol points start each trust region; when it collapses the run
+restarts with a fresh design and fresh data (the original TuRBO-1
+restart).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_SMAC_BB</span></code> — SMAC3’s <code class="docutils literal notranslate"><span class="pre">BlackBoxFacade</span></code> (SMAC’s facade for
+low-dimensional continuous problems) with <code class="docutils literal notranslate"><span class="pre">deterministic=True</span></code> and
+every other setting at the facade default: Sobol initial design of
+<code class="docutils literal notranslate"><span class="pre">min(8·d,</span> <span class="pre">budget/4)</span></code> points, GP with a Matérn-5/2 ARD kernel and
+<code class="docutils literal notranslate"><span class="pre">normalize_y</span></code>, EI (<code class="docutils literal notranslate"><span class="pre">xi=0</span></code>), local-and-sorted random search.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Baseline_PyBOBYQA</span></code> — Py-BOBYQA (Powell’s BOBYQA), the <strong>local</strong>
+model-based reference, not a global optimiser: <code class="docutils literal notranslate"><span class="pre">npt</span> <span class="pre">=</span> <span class="pre">2n+1</span></code>,
+<code class="docutils literal notranslate"><span class="pre">scaling_within_bounds=True</span></code> (<code class="docutils literal notranslate"><span class="pre">rhobeg</span></code> 0.1 of the box),
+<code class="docutils literal notranslate"><span class="pre">rhoend</span> <span class="pre">=</span> <span class="pre">1e-8</span></code>, no restarts inside the solver; when a run ends before
+the budget, a new one starts from a fresh uniform random point.</p></li>
+</ul>
+<p><strong>Batches and pending points.</strong>  <code class="docutils literal notranslate"><span class="pre">q</span></code> goes to each tool’s native batch
+mechanism.  BoTorch optimises a joint <code class="docutils literal notranslate"><span class="pre">q</span></code>-batch and passes the asked but
+untold points as <code class="docutils literal notranslate"><span class="pre">X_pending</span></code>, so asynchronous tells (the virtual clock)
+are handled.  TuRBO proposes synchronous batches of <code class="docutils literal notranslate"><span class="pre">q</span></code>; like pycma it
+hands out nothing more until the whole batch is told.  The initial design
+grows to at least <code class="docutils literal notranslate"><span class="pre">q</span></code> points so that the first batch fills the workers.
+The parallel-BO comparison therefore rests on qLogEI and TuRBO:</p>
+<ul class="simple">
+<li><p><strong>SMAC has no batch acquisition.</strong>  It is asked once per free worker, as
+its Dask runner does, and keeps asked trials as running, but it has no
+pending-point or fantasy handling, so a batch can hold near-duplicates.
+Report SMAC at <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code> as its representative result, or label <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>
+rows “SMAC native (no batch acquisition)”.</p></li>
+<li><p><strong>Py-BOBYQA is sequential</strong>: it keeps at most one point in flight, so
+with <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">&gt;</span> <span class="pre">1</span></code> it uses one worker.  Its <code class="docutils literal notranslate"><span class="pre">aocc</span></code> equals the <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code>
+run; its <code class="docutils literal notranslate"><span class="pre">aocc_time</span></code> shows what a sequential solver achieves on <code class="docutils literal notranslate"><span class="pre">q</span></code>
+workers.</p></li>
+</ul>
+<p><strong>Failed values.</strong>  A GP cannot take <code class="docutils literal notranslate"><span class="pre">+inf</span></code>.  BoTorch and TuRBO replace
+every failed (NaN) or non-finite value by the worst finite value observed
+so far, recomputed at every fit.  SMAC stores costs, so a failure is told
+as a CRASHED trial with the conservative <code class="docutils literal notranslate"><span class="pre">worst</span> <span class="pre">+</span> <span class="pre">max(worst</span> <span class="pre">-</span> <span class="pre">best,</span>
+<span class="pre">|worst|·1e-6,</span> <span class="pre">1e-12)</span></code> of the finite values known at tell time, which
+ranks it strictly below every real point known then; a failure before any
+finite value waits as a running trial until one exists.  Py-BOBYQA gets the moderated extreme barrier of
+Powell’s solvers in PRIMA / PDFO: NaN and <code class="docutils literal notranslate"><span class="pre">+inf</span></code> become <code class="docutils literal notranslate"><span class="pre">1e30</span></code> and
+finite values are clipped there.  Huge finite values reach every model
+unchanged (only each library’s own standardisation applies).</p>
+<p><strong>Determinism.</strong>  torch draws run in a <code class="docutils literal notranslate"><span class="pre">torch.random.fork_rng</span></code> scope
+seeded from the run seed (the global torch state is restored), the Sobol
+engines are seeded explicitly, SMAC gets <code class="docutils literal notranslate"><span class="pre">Scenario(seed=...)</span></code>; a fixed
+seed reproduces a run exactly (<code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines_bo.py</span></code>).</p>
+<p><strong>Wall time.</strong>  The GP fits dominate; evaluations are what is scored, but
+size runner jobs by it.  Measured on a heavily loaded 16-core laptop
+(load 12–50; rough, a quiet runner is faster), at dim 10 and up to 200
+observations: BoTorch qLogEI 2–12 s per proposal (growing with the data),
+TuRBO 0.3–12 s per proposal, SMAC 2–7 s per ask after its 50-point design
+(a whole budget-200 run: 6.5 min with 2 BLAS threads).  What a run costs
+depends on how many proposals it makes, and that depends on the driver:</p>
+<ul class="simple">
+<li><p><strong>Virtual clock, async policy</strong> (the default of <code class="docutils literal notranslate"><span class="pre">--virtual-workers</span></code>):
+every completion frees one worker and triggers <code class="docutils literal notranslate"><span class="pre">ask(1)</span></code>, so qLogEI and
+SMAC fit once per evaluation after the design, at any <code class="docutils literal notranslate"><span class="pre">q</span></code>: a dim-10,
+budget-200 run costs about 15–20 min for qLogEI and 5–7 min for SMAC,
+whatever <code class="docutils literal notranslate"><span class="pre">q</span></code> is.  TuRBO waits for whole batches, so it proposes once
+per <code class="docutils literal notranslate"><span class="pre">q</span></code> evaluations: 5–10 min at <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code>, roughly <code class="docutils literal notranslate"><span class="pre">1/q</span></code> of that
+above.</p></li>
+<li><p><strong>Synchronous batches</strong> (<code class="docutils literal notranslate"><span class="pre">batch_size</span> <span class="pre">=</span> <span class="pre">q</span></code> in the composite harness, or
+<code class="docutils literal notranslate"><span class="pre">--virtual-policy</span> <span class="pre">sync</span></code>): one proposal per batch for every tool but
+SMAC, so qLogEI and TuRBO cost roughly <code class="docutils literal notranslate"><span class="pre">1/q</span></code> of their <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code> time
+(a joint <code class="docutils literal notranslate"><span class="pre">q</span></code>-batch optimisation is somewhat dearer than a single
+point).  SMAC is asked once per point either way.</p></li>
+<li><p>Py-BOBYQA takes under a second.</p></li>
+</ul>
+<p>Budget one GitHub runner job per (baseline, few problems), not per
+battery.  No per-run wall-clock timeout applies to these strategies
+(<code class="docutils literal notranslate"><span class="pre">no_wall_timeout</span></code>): neither <code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code>’s (120 s by
+default) nor <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--timeout</span></code> on the IOH and family
+tracks; every other strategy of the same run is still cut.  <code class="docutils literal notranslate"><span class="pre">compare</span></code>
+warns when the two files come from different batteries (a <code class="docutils literal notranslate"><span class="pre">-bN</span></code>
+budget suffix included) and refuses to gate under
+<code class="docutils literal notranslate"><span class="pre">--fail-on-regression</span></code>.</p>
+<p><strong>Not included.</strong>  HEBO 0.3.6 (the latest release, 2024) pins
+<code class="docutils literal notranslate"><span class="pre">numpy&lt;1.25</span></code> and <code class="docutils literal notranslate"><span class="pre">pymoo==0.6.0</span></code> and cannot be installed next to
+numpy 2.5.  PDFO 2.2.0 ships wheels only up to CPython 3.12, and its
+source build needs a Fortran toolchain; Py-BOBYQA is the BOBYQA reference
+instead.  Ax is not used: it adds plotly, ipywidgets, pymoo and graphviz;
+BoTorch is used directly with the tutorial setup.  (Ax’s own default
+acquisition is qLogNEI on the same <code class="docutils literal notranslate"><span class="pre">SingleTaskGP</span></code>; on the noiseless
+benchmark objectives it behaves like qLogEI.)  Py-BOBYQA’s
+<code class="docutils literal notranslate"><span class="pre">seek_global_minimum=True</span></code> mode is not wrapped yet (<code class="docutils literal notranslate"><span class="pre">TODO.md</span></code>).</p>
+<p>CI runs these tests in a separate <code class="docutils literal notranslate"><span class="pre">test-bo</span></code> job; the default test job
+has no torch and skips them.</p>
+</section>
 </section>
 <section id="parallel-behaviour-on-a-virtual-clock">
-<h2><a class="toc-backref" href="#id23" role="doc-backlink">Parallel behaviour on a virtual clock</a><a class="headerlink" href="#parallel-behaviour-on-a-virtual-clock" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">Parallel behaviour on a virtual clock</a><a class="headerlink" href="#parallel-behaviour-on-a-virtual-clock" title="Link to this heading">#</a></h2>
 <p>The primary battlefield is <em>expensive, parallel</em> evaluation: <code class="docutils literal notranslate"><span class="pre">q</span></code> workers,
 calls of uneven duration.  Measuring that with real threads makes every
 number a function of the machine.  The AOCC track can instead run each
@@ -946,7 +1077,8 @@ model, and read comparisons <em>across</em> <code class="docutils literal notran
 duration model) and <code class="docutils literal notranslate"><span class="pre">mean_aocc_time</span></code> / <code class="docutils literal notranslate"><span class="pre">per_strategy_aocc_time</span></code>
 aggregate the time score over the runs that have one (<code class="docutils literal notranslate"><span class="pre">n_aocc_time</span></code>; a
 crash scores 0).  The ask/tell external baselines (pycma, Nevergrad,
-Optuna; <code class="xref py py-class docutils literal notranslate"><span class="pre">AskTellBaselineStrategy</span></code>) run on
+Optuna, and the expensive-track BoTorch, TuRBO, SMAC3, Py-BOBYQA;
+<code class="xref py py-class docutils literal notranslate"><span class="pre">AskTellBaselineStrategy</span></code>) run on
 the same clock (<code class="xref py py-func docutils literal notranslate"><span class="pre">run_ask_tell()</span></code>: ask for up to
 the free workers, evaluate at dispatch, tell at completion) and get
 <code class="docutils literal notranslate"><span class="pre">aocc_time</span></code> too.  A strategy that evaluates outside any driver (the SciPy
@@ -958,13 +1090,13 @@ warns.  <code class="docutils literal notranslate"><span class="pre">compare</sp
 AOCC one.</p>
 </section>
 <section id="per-arm-sweeps-and-the-decision-protocol">
-<h2><a class="toc-backref" href="#id24" role="doc-backlink">Per-arm sweeps and the decision protocol</a><a class="headerlink" href="#per-arm-sweeps-and-the-decision-protocol" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">Per-arm sweeps and the decision protocol</a><a class="headerlink" href="#per-arm-sweeps-and-the-decision-protocol" title="Link to this heading">#</a></h2>
 <p>The composite score and the AOCC batteries answer “is the framework better”.
 A different question — “is <em>this parameter</em> of <em>that arm</em> better” — needs a
 tighter protocol, because at three seeds the effect being hunted is usually
 the same size as the noise.  Three rules and four tools make up that protocol.</p>
 <section id="pair-the-variants-seed-name">
-<h3><a class="toc-backref" href="#id25" role="doc-backlink">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a><a class="headerlink" href="#pair-the-variants-seed-name" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Pair the variants: <code class="docutils literal notranslate"><span class="pre">seed_name</span></code></a><a class="headerlink" href="#pair-the-variants-seed-name" title="Link to this heading">#</a></h3>
 <p>The harnesses derive every run’s seed by hashing a strategy label.  By
 default that label is the spec’s <code class="docutils literal notranslate"><span class="pre">name</span></code> — so two specs that differ <em>only</em>
 in their display name run on <strong>different RNG streams</strong>, and an A/B between
@@ -989,7 +1121,7 @@ parameter yields <strong>exactly zero</strong> and a live one shows only its own
 actually hashes is <code class="docutils literal notranslate"><span class="pre">StrategySpec.rng_identity</span></code> = <code class="docutils literal notranslate"><span class="pre">seed_name</span> <span class="pre">or</span> <span class="pre">name</span></code>.</p>
 </section>
 <section id="the-null-floor">
-<h3><a class="toc-backref" href="#id26" role="doc-backlink">The null floor</a><a class="headerlink" href="#the-null-floor" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">The null floor</a><a class="headerlink" href="#the-null-floor" title="Link to this heading">#</a></h3>
 <p>How large is “the same size as the noise”?  Measured directly: one
 configuration run under six different spec names — six RNG streams, nothing
 else changed — on the standard battery, seeds 42 / 7 / 1234, paired per seed
@@ -1033,7 +1165,7 @@ arm’s, and a result that is “positive on every seed” is not by itself
 evidence.</p>
 </section>
 <section id="the-sweep-tools">
-<h3><a class="toc-backref" href="#id27" role="doc-backlink">The sweep tools</a><a class="headerlink" href="#the-sweep-tools" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">The sweep tools</a><a class="headerlink" href="#the-sweep-tools" title="Link to this heading">#</a></h3>
 <p>Five scripts under <code class="docutils literal notranslate"><span class="pre">benchmarks/</span></code>, most of them running arms <strong>solo</strong> via
 <code class="docutils literal notranslate"><span class="pre">StrategyRoundRobin</span></code>, all paired per seed on one RNG stream, all flushing
 their rows after every seed so an interrupted run loses nothing:</p>
@@ -1111,7 +1243,7 @@ scores 0.  Every AOCC run pins BLAS to one thread (recorded as
 heuristics are not for d ≥ 30.</p>
 </section>
 <section id="the-sealed-test-set">
-<h3><a class="toc-backref" href="#id28" role="doc-backlink">The sealed test set</a><a class="headerlink" href="#the-sealed-test-set" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">The sealed test set</a><a class="headerlink" href="#the-sealed-test-set" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--sealed</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-sealed</span></code> run a held-out
 battery: 20 fresh MA-BBOB instances and fresh family instances at d 2 to 40
 (<code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.sealed</span></code>) that no development battery can contain.  The
@@ -1126,7 +1258,7 @@ wall-clock):</p>
 </div>
 </section>
 <section id="when-a-default-may-change">
-<h3><a class="toc-backref" href="#id29" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">When a default may change</a><a class="headerlink" href="#when-a-default-may-change" title="Link to this heading">#</a></h3>
 <p>A three-seed sweep <em>locates</em> a candidate; it never ships one.  A default
 change needs a <strong>paired multi-seed comparison</strong> on fresh seeds
 (<code class="docutils literal notranslate"><span class="pre">harness_ioh.paired_seed_stats</span></code>), reported as delta, CI and
@@ -1149,9 +1281,9 @@ instead of a point estimate.  Only the re-check on fresh seeds decides.</p>
 </section>
 </section>
 <section id="extending-the-harness">
-<h2><a class="toc-backref" href="#id30" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id31" role="doc-backlink">Extending the harness</a><a class="headerlink" href="#extending-the-harness" title="Link to this heading">#</a></h2>
 <section id="adding-a-problem">
-<h3><a class="toc-backref" href="#id31" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">Adding a problem</a><a class="headerlink" href="#adding-a-problem" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemSpec</span></code> to the appropriate
 <code class="docutils literal notranslate"><span class="pre">_make_*_problems</span></code> factory in <code class="docutils literal notranslate"><span class="pre">panobbgo/harness.py</span></code>.</p></li>
@@ -1161,7 +1293,7 @@ mode’s budget but not trivially so.</p></li>
 </ol>
 </section>
 <section id="adding-a-strategy">
-<h3><a class="toc-backref" href="#id32" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Adding a strategy</a><a class="headerlink" href="#adding-a-strategy" title="Link to this heading">#</a></h3>
 <ol class="arabic simple">
 <li><p>Append a <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategySpec</span></code> to
 <code class="docutils literal notranslate"><span class="pre">_make_*_strategies</span></code>.</p></li>
@@ -1171,7 +1303,7 @@ outside the seeded <code class="docutils literal notranslate"><span class="pre">
 </ol>
 </section>
 <section id="adding-a-metric">
-<h3><a class="toc-backref" href="#id33" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Adding a metric</a><a class="headerlink" href="#adding-a-metric" title="Link to this heading">#</a></h3>
 <p>Per-pair aggregates live on
 <code class="xref py py-class docutils literal notranslate"><span class="pre">ProblemStrategyResult</span></code>. Add a field, populate it in
 <code class="docutils literal notranslate"><span class="pre">compute_metrics</span></code>, surface it in <code class="docutils literal notranslate"><span class="pre">HarnessResult.print_summary</span></code> and
@@ -1180,16 +1312,20 @@ without an ADR — historical comparisons depend on its stability.</p>
 </section>
 </section>
 <section id="see-also">
-<h2><a class="toc-backref" href="#id34" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
+<h2><a class="toc-backref" href="#id35" role="doc-backlink">See also</a><a class="headerlink" href="#see-also" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness</span></code> — the harness implementation.</p></li>
 <li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines</span></code> — external reference strategies
 (Random, SciPy DE, SciPy dual annealing; pycma, Nevergrad, Optuna).</p></li>
+<li><p><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_baselines_bo</span></code> — expensive-track baselines
+(BoTorch qLogEI, TuRBO-1, SMAC3, Py-BOBYQA).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">benchmark_harness.py</span></code> — CLI.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness.py</span></code> — harness test suite (60+ tests).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines.py</span></code> — baseline adapter tests.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines_external.py</span></code> — pycma / Nevergrad / Optuna
 adapter tests (skip without the <code class="docutils literal notranslate"><span class="pre">baselines</span></code> extra).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_baselines_bo.py</span></code> — BoTorch / TuRBO / SMAC3 /
+Py-BOBYQA adapter tests (skip without the <code class="docutils literal notranslate"><span class="pre">baselines-bo</span></code> extra).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">tests/test_harness_stats.py</span></code> — statistical acceptance rule tests.</p></li>
 </ul>
 </section>

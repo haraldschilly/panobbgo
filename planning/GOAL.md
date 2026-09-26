@@ -118,13 +118,13 @@ and §2c item 1).
   aggregates count timeouts/crashes) and optimizer fidelity (jSO,
   NL-SHADE, CMA-ES, PSO follow their papers; the default constraint
   penalty is `fx + 100·cv`), so **all earlier result files must be re-measured
-  once before comparisons** (TODO "Re-baseline once").  Synchronous
-  evaluation becomes the harness default and module RNG streams become
-  keyed per module, both at that re-baseline (TODO questions).  The
-  12-seed decision-roster rule is dropped: a paired multi-seed
-  comparison with delta, CI and wins/n is enough, and a screen's best
-  spec is re-checked on fresh seeds (AGENTS.md).  The nightly
-  self-improvement loop is removed (design in `planning/done/`).
+  once before comparisons** (TODO "Re-baseline once").  Since #337
+  measurements run with synchronous evaluation and module RNG streams
+  are keyed per module.  The 12-seed decision-roster rule is dropped: a
+  paired multi-seed comparison with delta, CI and wins/n is enough, and
+  a screen's best spec is re-checked on fresh seeds
+  (`doc/dev/benchmarking.md`).  The nightly self-improvement loop is
+  removed (design in `planning/done/`).
 
 ## 2b. Previous snapshot (2026-09-10, §1–§31)
 
@@ -139,6 +139,11 @@ nothing (§26–§31).  §5.2 was retracted.  The 2026-08-11 nightly-loop
 snapshot is in `planning/done/LOOP_DIAGNOSIS_2026-08-11.md`.
 
 ## 2c. Plan of record (set 2026-09-25, re-ordered 2026-09-26)
+
+*Program so far:* 2026-09-09 discovery (robustness and effectiveness
+problems, DISCOVERY log) → quality push (docs, simplification) → search
+for a strong default setup (§2, §2b) → 2026-09-25 audits → 2026-09-26
+roadmap.
 
 **2026-09-26:** the roadmap (`DESIGN_roadmap_2026-09-26.md` §5) comes
 first after the re-baseline: instrument (external baselines, virtual-clock
@@ -190,20 +195,15 @@ uv run python scripts/ioh_benchmark.py run --quick --output /tmp/before.json   #
 uv run python scripts/ioh_benchmark.py run --quick --output /tmp/after.json
 uv run python scripts/ioh_benchmark.py compare /tmp/before.json /tmp/after.json
 # 4. Push to a branch; CI gates tests / lint / typecheck / docs / format
-# 5. One PR per change, evidence in the body (AGENTS.md
-#    "Agent-driven improve X PRs")
+# 5. One PR per change, evidence in the body (doc/dev/benchmarking.md,
+#    "Evidence for a PR"); review and merge per doc/dev/process.md
 ```
 
 ## 4. Cadence guardrails
 
-* Say in the PR what was measured; bug fixes to documented behaviour need
-  no benchmark.
-* One change per PR. Independent evidence ≠ joint evidence — don't batch
-  three "individually positive" changes into one unmeasured combination.
-* The composite-score formula and the default randomized battery are frozen
-  contracts. Extend via opt-in flags, never edit.
-* Log every measured result — negative ones included — in
-  `planning/DISCOVERY_2026-09-09.md`; unlogged negatives get retried.
+Evidence rules and frozen contracts: `doc/dev/benchmarking.md`; one
+change per PR and logging every result, negatives included:
+`doc/dev/process.md`.
 
 ## 5. Research backlog (SOTA-informed, 2026-07)
 

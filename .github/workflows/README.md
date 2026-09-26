@@ -22,8 +22,8 @@ Independent parallel jobs:
 - **format**: `uv run --extra dev ruff format --check .` — the formatting gate
 
 Note that no PR-side job runs the benchmark harness (`benchmark_harness.py`);
-a green PR says nothing about optimization quality. See `AGENTS.md`,
-"Agent-driven improve-X PRs".
+a green PR says nothing about optimization quality. See
+`doc/dev/benchmarking.md`, "Evidence for a PR".
 
 ### Setup and caching
 
@@ -62,7 +62,7 @@ turns the inputs into a matrix via `scripts/rebaseline.py plan`; each
 `measure` job runs one (suite, seed chunk) shard — synchronous, seeded, no
 wall-clock limit — and uploads `shard-<suite>-<shard>`; `aggregate` builds
 the reference files and uploads `rebaseline-references`.  Procedure in
-`AGENTS.md`, "Re-baselining on GitHub runners".
+`doc/dev/benchmarking.md`, "Re-baselining on GitHub runners".
 
 ## Maintenance
 

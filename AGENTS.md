@@ -46,8 +46,11 @@ ledgers are in `planning/done/`, its history in
 ## Rules that always apply
 
 *   `uv run ...` for every tool; never `.venv/bin/...` or bare `python`.
-*   Every change goes through a PR; merge only on green CI and after review
-    (`doc/dev/process.md`).  Never use `git stash`.
+*   Every change goes through a PR.  Agents may create branches, worktrees
+    and PRs, and merge them themselves after the review loop: green CI,
+    subagent review, fixes, re-check, only minor issues left.  When stuck,
+    facing a contradiction or a real concern: stop and ask Harald
+    (`doc/dev/process.md`, "Autonomy").  Never use `git stash`.
 *   PEP 8; `ruff` (line length 120) formats and lints.  Public functions and
     classes get Google-style docstrings.
 *   New code is tested (`tests/`).  Stochastic tests that may fail

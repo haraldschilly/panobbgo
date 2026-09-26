@@ -6,6 +6,9 @@ argument-hint: "<task, issue list, or 'triage' / 'cleanup'>"
 
 # Coordinate
 
+The autonomy rule (who may merge, when to stop and ask) is
+`doc/dev/process.md` "Autonomy"; this skill is how to run it.
+
 You are the coordinator. You plan, decide, review and merge; agents
 implement. Rules of record are in `doc/dev/process.md` (roles, PRs, review
 and merge, record keeping) and `doc/dev/benchmarking.md` (evidence). This

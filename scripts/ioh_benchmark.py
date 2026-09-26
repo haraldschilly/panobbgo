@@ -150,7 +150,8 @@ def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
     else:
         strats = list(make_ioh_strategies())
     if args.baselines:
-        strats.extend(make_baseline_strategies())
+        # External baselines (pycma, Nevergrad, Optuna) join only when --strategies names them.
+        strats.extend(make_baseline_strategies(args.strategies))
     if args.strategies:
         wanted = set(args.strategies)
         strats = [s for s in strats if s.name in wanted]
@@ -435,7 +436,14 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         help="With --noisy / --noisy-highdim: the BBOB *severe* noise parameters (f107-f130) "
         "instead of the moderate ones (f101-f106).",
     )
-    run_p.add_argument("--baselines", action="store_true", help="Include external baselines (Random, scipy DE, ...).")
+    run_p.add_argument(
+        "--baselines",
+        action="store_true",
+        help=(
+            "Include external baselines (Random, scipy DE, scipy dual annealing); pycma / Nevergrad / Optuna"
+            " ones (Baseline_NGOpt, ...; needs --extra baselines) join when --strategies names them."
+        ),
+    )
     run_p.add_argument(
         "--legacy",
         action="store_true",

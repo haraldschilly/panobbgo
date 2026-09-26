@@ -51,6 +51,15 @@ benchmark = [
     # pin panobbgo to ≤ Python 3.12.  Run `cd tools/ioh_worker && uv sync`
     # to enable the IOH harness.
 ]
+# External reference solvers for the harness (panobbgo/harness_baselines.py):
+# pycma IPOP/BIPOP, Nevergrad NGOpt/CMA/TwoPointsDE, Optuna CMA-ES/TPE.
+# Optuna's CmaEsSampler needs the separate `cmaes` package.
+baselines = [
+    "cma>=4.5.0",
+    "nevergrad>=1.0.12",
+    "optuna>=5.0.0",
+    "cmaes>=0.13.1",
+]
 dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1",

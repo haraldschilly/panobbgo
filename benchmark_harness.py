@@ -441,7 +441,9 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Include external baseline solvers (Random, SciPy DE, SciPy dual"
             " annealing) to produce absolute reference numbers alongside the"
-            " Panobbgo strategies.  See panobbgo.harness_baselines."
+            " Panobbgo strategies.  External baselines (Baseline_NGOpt,"
+            " Baseline_pycma_BIPOP, ...; needs --extra baselines) join when"
+            " --strategies names them.  See panobbgo.harness_baselines."
         ),
     )
     run_p.add_argument(

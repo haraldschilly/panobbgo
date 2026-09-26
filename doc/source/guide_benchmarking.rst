@@ -570,15 +570,46 @@ contract as Panobbgo strategies.  Convergence traces are extracted from
 the wrapper's log, and the results DataFrame carries the same MultiIndex
 columns (``("fx", 0)``, ``("who", 0)``, …) the harness expects.
 
-CMA-ES as a baseline
-~~~~~~~~~~~~~~~~~~~~
+External libraries: pycma, Nevergrad, Optuna
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The pure CMA-ES reference is already available **inside** Panobbgo via
-the :class:`~panobbgo.heuristics.cma_es.CMAES` heuristic, used by the
-``CMAES_Portfolio`` and ``IPOP_CMAES`` strategies.  That gives a fair
-internal comparison without the extra dependency on ``pycma``.  A
-dedicated ``pycma`` adapter is easy to add if a round-trip against the
-upstream reference becomes valuable.
+A second set of baselines wraps established optimization libraries.  They
+need the optional ``baselines`` extra (``uv sync --extra baselines``) and
+are **opt-in by name**: ``--baselines`` alone still runs only the three
+above, and an external baseline joins when ``--strategies`` names it.
+
+- ``Baseline_pycma_IPOP``, ``Baseline_pycma_BIPOP`` — pycma's CMA-ES with
+  IPOP / BIPOP restarts (``cma.fmin2``'s restart schedule over ask/tell,
+  in the unit cube mapped onto the box, a uniform random start per run).
+- ``Baseline_NGOpt`` — Nevergrad's ``NGOpt``, a hand-ruled selector over a
+  portfolio (it picks its sub-optimizer from dimension, budget and the
+  number of parallel workers), plus ``Baseline_NG_CMA`` and
+  ``Baseline_NG_TwoPointsDE`` as cross-checks.
+- ``Baseline_Optuna_CmaEs``, ``Baseline_Optuna_TPE`` — Optuna's
+  ``CmaEsSampler`` (no restarts) and ``TPESampler``, default settings.
+  Optuna's per-trial overhead grows with the trial count, so these are
+  slow at budgets of thousands.
+
+.. code-block:: bash
+
+   uv sync --extra dev --extra baselines
+   uv run python scripts/ioh_benchmark.py run --standard --baselines \
+       --strategies RoundRobin_CMAES Baseline_NGOpt Baseline_pycma_BIPOP
+
+These adapters are **batch-capable**: each wraps its library in an
+:class:`~panobbgo.harness_baselines.AskTellAdapter` (``ask(n)`` returns up
+to ``n`` keyed candidates, ``tell(key, fx)`` reports one result in any
+order).  The harness drives it with batch size ``q =
+config.batch_size`` (default 1; set it with
+``StrategySpec(config_overrides={"batch_size": q})``): ask ``q`` points,
+evaluate them in dispatch order, tell them.  A CMA-ES adapter hands out at
+most the rest of its current generation, so a batch can be smaller than
+``q``.  Nevergrad also receives ``q`` as ``num_workers``, which changes
+the algorithm NGOpt picks.
+
+The in-house CMA-ES reference remains the
+:class:`~panobbgo.heuristics.cma_es.CMAES` heuristic (``RoundRobin_CMAES``);
+the pycma baselines are the upstream round-trip against it.
 
 See ``panobbgo/harness_baselines.py`` for the full interface and
 ``tests/test_harness_baselines.py`` for the guarantees.

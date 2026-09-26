@@ -1,0 +1,232 @@
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+# Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Tests for the batch-capable external baselines in ``panobbgo.harness_baselines``
+(pycma IPOP/BIPOP, Nevergrad, Optuna).
+
+The library-backed tests skip when the optional ``baselines`` extra is not
+installed; the driver and registry tests run without it.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import threading
+from typing import List, Tuple
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from panobbgo.harness import BenchmarkHarness, HarnessConfig
+from panobbgo.harness_baselines import (
+    EXTERNAL_BASELINE_NAMES,
+    AskTellAdapter,
+    AskTellBaselineStrategy,
+    NevergradCMAStrategy,
+    NevergradNGOptStrategy,
+    NevergradTwoPointsDEStrategy,
+    OptunaCmaEsStrategy,
+    OptunaTPEStrategy,
+    PycmaBIPOPStrategy,
+    PycmaIPOPStrategy,
+    _PycmaRestartAdapter,
+    make_baseline_strategies,
+)
+from panobbgo.lib.classic import Rosenbrock
+
+
+def _has(module: str) -> bool:
+    return importlib.util.find_spec(module) is not None
+
+
+def _needs(*modules: str):
+    missing = [m for m in modules if not _has(m)]
+    return pytest.mark.skipif(bool(missing), reason=f"needs the 'baselines' extra ({', '.join(missing)})")
+
+
+ADAPTERS = [
+    pytest.param(PycmaIPOPStrategy, marks=_needs("cma"), id="pycma_IPOP"),
+    pytest.param(PycmaBIPOPStrategy, marks=_needs("cma"), id="pycma_BIPOP"),
+    pytest.param(NevergradNGOptStrategy, marks=_needs("nevergrad"), id="NGOpt"),
+    pytest.param(NevergradCMAStrategy, marks=_needs("nevergrad"), id="NG_CMA"),
+    pytest.param(NevergradTwoPointsDEStrategy, marks=_needs("nevergrad"), id="NG_TwoPointsDE"),
+    pytest.param(OptunaCmaEsStrategy, marks=_needs("optuna", "cmaes"), id="Optuna_CmaEs"),
+    pytest.param(OptunaTPEStrategy, marks=_needs("optuna"), id="Optuna_TPE"),
+]
+
+
+def _run(cls, *, max_eval: int, seed: int, batch_size: int = 1):
+    problem = Rosenbrock(dims=2)
+    strategy = cls(problem, seed=seed, batch_size=batch_size)
+    strategy.config.max_eval = max_eval
+    strategy.start()
+    return problem, strategy
+
+
+# ---------------------------------------------------------------------------
+# Library-backed adapters
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("cls", ADAPTERS)
+@pytest.mark.parametrize("batch_size", [1, 4])
+def test_exact_budget_and_well_formed_frame(cls, batch_size):
+    # 23 is not a multiple of any population size or batch size involved.
+    problem, strategy = _run(cls, max_eval=23, seed=5, batch_size=batch_size)
+    df = strategy.results.results
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 23
+    for col in [("x", 0), ("x", 1), ("fx", 0), ("cv", 0), ("who", 0), ("error", 0)]:
+        assert col in df.columns
+    assert set(df[("who", 0)]) == {cls.who}
+    xs = df[[("x", 0), ("x", 1)]].to_numpy()
+    assert np.all(xs >= problem.box[:, 0]) and np.all(xs <= problem.box[:, 1])
+    fx = df[("fx", 0)].to_numpy()
+    assert np.all(np.isfinite(fx))
+    assert strategy.best is not None
+    assert strategy.best.fx == pytest.approx(fx.min())
+
+
+@pytest.mark.parametrize("cls", ADAPTERS)
+def test_deterministic_for_fixed_seed(cls):
+    _, a = _run(cls, max_eval=20, seed=11, batch_size=2)
+    _, b = _run(cls, max_eval=20, seed=11, batch_size=2)
+    pd.testing.assert_frame_equal(a.results.results, b.results.results)
+
+
+@_needs("nevergrad")
+def test_ngopt_recast_threads_end_after_the_run():
+    """NGOpt at dim 2 / 30 evaluations runs a SciPy method in a Nevergrad thread; the run must end it."""
+    before = set(threading.enumerate())
+    _run(NevergradNGOptStrategy, max_eval=30, seed=1)
+    for thread in set(threading.enumerate()) - before:
+        thread.join(timeout=10)
+        assert not thread.is_alive()
+
+
+@_needs("cma")
+@pytest.mark.parametrize("bipop", [False, True])
+def test_pycma_restarts_on_a_flat_objective(bipop):
+    """A flat objective stops each CMA-ES run quickly, so the restart schedule runs."""
+    adapter = _PycmaRestartAdapter(np.zeros(2), np.ones(2), seed=3, bipop=bipop)
+    for _ in range(400):
+        for key, _x in adapter.ask(3):
+            adapter.tell(key, 1.0)
+    assert adapter.restarts >= 2
+
+
+# ---------------------------------------------------------------------------
+# Driver (no optional dependency)
+# ---------------------------------------------------------------------------
+
+
+class _FakeAdapter(AskTellAdapter):
+    """Generational stub: hands out ``gen`` points, then waits for all tells."""
+
+    def __init__(self, gen: int) -> None:
+        self.gen = gen
+        self.next_key = 0
+        self.open: List[int] = []
+        self.handed = 0
+        self.ask_sizes: List[int] = []
+        self.told: List[Tuple[int, float]] = []
+
+    def ask(self, n):
+        if self.handed == self.gen and not self.open:
+            self.handed = 0
+        out = []
+        while len(out) < n and self.handed < self.gen:
+            key = self.next_key
+            self.next_key += 1
+            self.handed += 1
+            self.open.append(key)
+            out.append((key, np.full(2, 0.01 * key)))
+        self.ask_sizes.append(len(out))
+        return out
+
+    def tell(self, key, fx):
+        self.open.remove(key)
+        self.told.append((key, fx))
+
+
+class _FakeStrategy(AskTellBaselineStrategy):
+    who = "Fake"
+
+    def make_adapter(self, seed, budget, batch_size):
+        self.adapter = _FakeAdapter(gen=5)
+        return self.adapter
+
+
+def test_driver_batches_in_dispatch_order_and_trims_the_last_batch():
+    strategy = _FakeStrategy(Rosenbrock(dims=2), seed=0, batch_size=3)
+    strategy.config.max_eval = 11
+    strategy.start()
+    adapter = strategy.adapter
+    # Generations of 5 with q=3: 3, 2 | 3, 2 | 1 (budget-trimmed).
+    assert adapter.ask_sizes == [3, 2, 3, 2, 1]
+    assert [k for k, _ in adapter.told] == list(range(11))
+    df = strategy.results.results
+    assert np.allclose(df[("x", 0)].to_numpy(), 0.01 * np.arange(11))
+
+
+def test_batch_size_via_config_override():
+    spec = [s for s in make_baseline_strategies(["Baseline_NGOpt"]) if s.name == "Baseline_NGOpt"][0]
+    spec.config_overrides = {"batch_size": 4}
+    strategy = spec.create_strategy(Rosenbrock(dims=2), seed=1, max_eval=10)
+    assert strategy.config.batch_size == 4
+    assert strategy.config.max_eval == 10
+
+
+# ---------------------------------------------------------------------------
+# Registry: opt-in by name, default --baselines set unchanged
+# ---------------------------------------------------------------------------
+
+
+def test_default_baseline_set_is_unchanged():
+    names = [s.name for s in make_baseline_strategies()]
+    assert names == ["Baseline_Random", "Baseline_SciPyDE", "Baseline_SciPyAnneal"]
+
+
+def test_external_baselines_join_by_name():
+    names = [s.name for s in make_baseline_strategies(["Baseline_NGOpt", "Baseline_pycma_BIPOP", "Other"])]
+    assert names[3:] == ["Baseline_pycma_BIPOP", "Baseline_NGOpt"]
+    assert len(set(EXTERNAL_BASELINE_NAMES)) == 7
+
+
+def test_harness_selects_external_baseline_through_the_filter():
+    config = HarnessConfig(mode="quick", include_baselines=True, strategies=["Baseline_Optuna_TPE"])
+    names = [s.name for s in BenchmarkHarness(config).get_strategies()]
+    assert names == ["Baseline_Optuna_TPE"]
+
+
+@_needs("cma")
+def test_harness_runs_an_external_baseline_end_to_end():
+    config = HarnessConfig(
+        mode="quick",
+        budget=20,
+        reps=1,
+        seed=42,
+        problems=["Rosenbrock_2D"],
+        strategies=["Baseline_pycma_BIPOP"],
+        include_baselines=True,
+        timeout_per_run=30.0,
+    )
+    result = BenchmarkHarness(config).run(verbose=False)
+    (run,) = result.problem_strategy_results[0].runs
+    assert run.error is None
+    assert run.evaluations_used == 20

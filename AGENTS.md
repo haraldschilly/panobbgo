@@ -156,7 +156,10 @@ Useful flags (see the guide for details):
 
 *   `--baselines` adds external reference solvers (`Baseline_Random`,
     `Baseline_SciPyDE`, `Baseline_SciPyAnneal`) for an *absolute* reference
-    (`panobbgo/harness_baselines.py`).
+    (`panobbgo/harness_baselines.py`).  pycma IPOP/BIPOP, Nevergrad
+    NGOpt/CMA/TwoPointsDE and Optuna CMA-ES/TPE (`uv sync --extra
+    baselines`) join only when `--strategies` names them, e.g.
+    `--baselines --strategies Baseline_NGOpt`.
 *   `--randomize --randomize-iteration N` swaps the fixed battery for
     parametrically randomised instances (translation / rotation / scaling /
     noise); the same `N` reproduces the same instances so before/after runs

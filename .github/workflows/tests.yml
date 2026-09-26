@@ -50,9 +50,12 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install dependencies
-        if: steps.cache-uv.outputs.cache-hit != 'true'
+        # Runs even on a cache hit: the venv cache key is shared with the
+        # other jobs, which install `--extra dev` only, so a hit may lack the
+        # `baselines` extra (pycma, Nevergrad, Optuna) whose adapter tests
+        # would then skip.  On a warm venv this sync takes a second.
         run: |
-          uv sync --extra dev
+          uv sync --extra dev --extra baselines
 
       - name: Sync IOH worker venv
         # Enables the IOH integration tests (`requires_worker` marker).

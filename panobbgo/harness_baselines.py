@@ -18,12 +18,13 @@
 External baseline strategies for the benchmark harness
 ======================================================
 
-Phase 2 of :doc:`../planning/done/SELF_IMPROVEMENT_LOOP.md`: without external
-reference solvers, the composite score only answers *"is Panobbgo better
-than its previous self"*.  This module adds adapter strategies that plug
-three well-known external optimizers into the same
-:class:`~panobbgo.benchmark.StrategySpec` interface the harness already
-uses:
+Without external reference solvers, a harness score only answers *"is
+Panobbgo better than its previous self"*.  This module plugs well-known
+external optimizers into the same :class:`~panobbgo.benchmark.StrategySpec`
+interface the harnesses (:mod:`panobbgo.harness`, :mod:`panobbgo.harness_ioh`)
+already use, so their scores sit next to Panobbgo's at equal budget.
+
+Always available (``numpy`` / ``scipy`` only) — the ``--baselines`` set:
 
 - :class:`RandomSearchStrategy` — pure uniform random search (score floor).
 - :class:`SciPyDEStrategy` — ``scipy.optimize.differential_evolution``
@@ -31,11 +32,22 @@ uses:
 - :class:`SciPyAnnealStrategy` — ``scipy.optimize.dual_annealing``
   (competitive simulated-annealing hybrid).
 
+External, from the optional ``baselines`` extra (``uv sync --extra
+baselines``) — opt-in by name, see :data:`EXTERNAL_BASELINE_NAMES`:
+
+- :class:`PycmaIPOPStrategy`, :class:`PycmaBIPOPStrategy` — pycma's
+  CMA-ES with IPOP / BIPOP restarts (the restart schedule of ``cma.fmin``
+  re-implemented over ask/tell).
+- :class:`NevergradNGOptStrategy` — Nevergrad's ``NGOpt`` meta-optimizer,
+  plus :class:`NevergradCMAStrategy` and :class:`NevergradTwoPointsDEStrategy`
+  as cross-checks.
+- :class:`OptunaCmaEsStrategy`, :class:`OptunaTPEStrategy` — Optuna's
+  ``CmaEsSampler`` and ``TPESampler``.
+
 All adapters respect a strict evaluation budget (``config.max_eval``),
 record every evaluation into a MultiIndex results DataFrame compatible
 with :class:`panobbgo.harness.BenchmarkHarness`, and honour the harness
-per-run SHA-256-derived seed via ``np.random.seed`` / the optimizer's own
-``seed`` argument.
+per-run seed.
 
 Design notes
 ------------
@@ -55,26 +67,39 @@ Design notes
   ``(("fx", 0), ("who", 0), ("x", j), ...)`` that Panobbgo's own strategies
   emit, so :meth:`panobbgo.harness.BenchmarkHarness._get_column` and the
   convergence extractor work unchanged.
+* The external baselines are **batch-capable**: each wraps its library in
+  an :class:`AskTellAdapter` (``ask(n)`` returns up to ``n`` keyed
+  candidates, ``tell(key, fx)`` reports one result, in any order).
+  :class:`AskTellBaselineStrategy` drives it synchronously with batch size
+  ``q = config.batch_size`` (default 1): ask ``q`` points, evaluate them
+  in dispatch order, tell them.  With ``q > 1`` the results frame is in
+  dispatch order.  A virtual-clock parallel simulator can drive the same
+  adapter asynchronously via :meth:`AskTellBaselineStrategy.make_adapter`.
 
 Usage
 -----
 
-The baselines are registered as additional strategies that can be included
-via the ``--baselines`` CLI flag (see ``benchmark_harness.py``) or via the
-``HarnessConfig(include_baselines=True)`` flag directly::
+The ``--baselines`` CLI flag (``benchmark_harness.py``,
+``scripts/ioh_benchmark.py``) or ``HarnessConfig(include_baselines=True)``
+appends Random / SciPy DE / SciPy dual annealing.  The external baselines
+are selected by name on top of that, so the default ``--baselines`` set
+does not change::
 
     uv run python benchmark_harness.py run --standard --baselines
+    uv run python scripts/ioh_benchmark.py run --standard --baselines \
+        --strategies RoundRobin_CMAES Baseline_NGOpt Baseline_pycma_BIPOP
 
 With baselines in the picture, the harness output lets the user read
-Panobbgo's score side-by-side with the external references — e.g. *"the
-``CMAES_Portfolio`` strategy reaches 0.62 on the standard battery versus
-0.58 for SciPy DE and 0.42 for pure Random search at equal budget"*.
+Panobbgo's score side-by-side with the external references at equal
+budget.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+import math
+import warnings
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -156,12 +181,16 @@ class _BaselineConfig:
 
     ``max_eval`` is respected as a hard budget.  ``evaluation_method`` is
     accepted (to match the harness contract) but ignored: baselines run
-    the objective synchronously inside ``start()``.
+    the objective synchronously inside ``start()``.  ``batch_size`` is the
+    number of candidates an :class:`AskTellBaselineStrategy` asks for
+    before telling results (``q``); the SciPy baselines ignore it.  Set it
+    through ``StrategySpec(config_overrides={"batch_size": q})``.
     """
 
     def __init__(self, max_eval: int = 1000) -> None:
         self.max_eval: int = max_eval
         self.evaluation_method: str = "threaded"
+        self.batch_size: int = 1
 
 
 class _BaselineResults:
@@ -425,18 +454,486 @@ class SciPyAnnealStrategy(BaselineStrategy):
 
 
 # ---------------------------------------------------------------------------
+# Batch-capable ask/tell baselines (optional ``baselines`` extra)
+# ---------------------------------------------------------------------------
+
+_EXTRA_HINT = "install the optional extra: `uv sync --extra baselines` (or `pip install 'panobbgo[baselines]'`)"
+
+
+def _require(module: str) -> Any:
+    """Import ``module`` or fail with a hint at the ``baselines`` extra."""
+    import importlib
+
+    try:
+        return importlib.import_module(module)
+    except ImportError as exc:
+        raise ImportError(f"{module!r} is not installed; {_EXTRA_HINT}") from exc
+
+
+def _seed32(seed: int) -> int:
+    """Fold a run seed into ``[0, 2**32)``, the range every library accepts."""
+    return int(seed) % (2**32)
+
+
+class AskTellAdapter:
+    """Keyed ask/tell interface over one external optimizer.
+
+    The unit a synchronous driver (:class:`AskTellBaselineStrategy`) or an
+    asynchronous one (a virtual-clock simulator with ``q`` workers) steps.
+    Coordinates are in the problem's box.
+
+    * ``ask(n)`` returns up to ``n`` new candidates as ``(key, x)`` pairs;
+      keys are unique ints.  It may return fewer than ``n``: a generational
+      optimizer (CMA-ES) hands out the rest of its current generation and
+      cannot sample the next one before the current one is told.  It
+      returns ``[]`` only while every proposable point waits on a result.
+    * ``tell(key, fx)`` reports the value of one asked candidate, in any
+      order.  Non-finite values are allowed; each adapter maps them to what
+      its library accepts.
+    """
+
+    def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
+        """Return up to ``n`` new ``(key, x)`` candidates."""
+        raise NotImplementedError
+
+    def tell(self, key: int, fx: float) -> None:
+        """Report the objective value of the candidate ``key``."""
+        raise NotImplementedError
+
+    def close(self) -> None:
+        """Release resources (threads) the library holds; the default does nothing."""
+
+
+class AskTellBaselineStrategy(BaselineStrategy):
+    """Baseline driven through an :class:`AskTellAdapter` with batch size ``q``.
+
+    ``q`` is ``config.batch_size`` (default 1; the ``batch_size`` argument or
+    ``StrategySpec(config_overrides={"batch_size": q})`` set it).  Each step
+    asks for ``min(q, remaining budget)`` candidates, evaluates them in
+    dispatch order and tells them, so the results frame is in dispatch
+    order and the budget cap is exact.  ``q`` is also passed to the adapter
+    (Nevergrad's ``num_workers``), since some libraries choose their
+    algorithm by it.
+    """
+
+    def __init__(
+        self,
+        problem: Problem,
+        parse_args: bool = False,
+        seed: Optional[int] = None,
+        batch_size: Optional[int] = None,
+    ) -> None:
+        super().__init__(problem, parse_args=parse_args, seed=seed)
+        if batch_size is not None:
+            self.config.batch_size = int(batch_size)
+
+    def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
+        """Build a fresh adapter for one run.
+
+        Args:
+            seed: Integer run seed; the adapter is deterministic given it.
+            budget: Evaluation budget of the run (some libraries size
+                themselves by it).
+            batch_size: Number of candidates in flight at once (``q``).
+        """
+        raise NotImplementedError
+
+    def _optimize(self, log: _EvaluationLog) -> None:
+        q = max(1, int(self.config.batch_size))
+        adapter = self.make_adapter(self._run_seed(), log.max_eval, q)
+        try:
+            self._drive(adapter, log, q)
+        finally:
+            adapter.close()
+
+    def _drive(self, adapter: AskTellAdapter, log: _EvaluationLog, q: int) -> None:
+        objective = _make_objective(self.problem, log)
+        while len(log.fxs) < log.max_eval:
+            n = min(q, log.max_eval - len(log.fxs))
+            with warnings.catch_warnings():
+                # Nevergrad warns on every clipped non-finite loss and on its
+                # scipy sub-optimizers' settings; none of it is actionable here.
+                warnings.simplefilter("ignore")
+                batch = adapter.ask(n)
+            if not batch:
+                raise RuntimeError(f"{self.who}: ask() proposed nothing with no evaluation pending")
+            fxs = [objective(x) for _key, x in batch]
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                for (key, _x), fx in zip(batch, fxs):
+                    adapter.tell(key, fx)
+
+
+# -- pycma ---------------------------------------------------------------------
+
+
+class _PycmaRestartAdapter(AskTellAdapter):
+    """IPOP- or BIPOP-CMA-ES over pycma's ``CMAEvolutionStrategy`` ask/tell.
+
+    The restart schedule is that of ``cma.fmin2(..., restarts=, bipop=)``
+    (``incpopsize=2``; BIPOP interleaves small-population runs with a random
+    ``sigma0`` factor ``0.01**U`` and an iteration cap while their budget
+    is below the large runs'), re-implemented here because ``fmin2`` owns
+    the evaluation loop and cannot be driven by batches.  The search runs in
+    the unit cube (pycma ``bounds=[0, 1]``, ``sigma0 = 0.25``) mapped
+    affinely onto the box; every run starts at a uniform random ``x0``.
+    """
+
+    def __init__(self, lo: np.ndarray, hi: np.ndarray, seed: int, bipop: bool, sigma0: float = 0.25) -> None:
+        self._cma = _require("cma")
+        self._lo = np.asarray(lo, dtype=np.float64)
+        self._span = np.asarray(hi, dtype=np.float64) - self._lo
+        self._dim = int(self._lo.size)
+        self._rng = np.random.default_rng(_seed32(seed))
+        self._bipop = bool(bipop)
+        self._sigma0 = float(sigma0)
+        self._incpopsize = 2
+        self._popsize0 = 4 + int(3 * math.log(self._dim))
+        self._maxiter0: Optional[float] = None
+        self._irun = 0
+        self._runs_with_small = 0
+        # pycma counts the first run as "small" (a Matlab carry-over it keeps).
+        self._poptype = "small"
+        self._evals_small = 0
+        self._evals_large = 0
+        self._run_evals = 0
+        self._next_key = 0
+        self._gen_x: List[np.ndarray] = []
+        self._gen_keys: List[int] = []
+        self._gen_f: Dict[int, float] = {}
+        self._undispatched: List[int] = []
+        self._es: Any = None
+        self._start_run(self._popsize0, self._sigma0, None)
+
+    @property
+    def restarts(self) -> int:
+        """Number of restarts so far."""
+        return self._irun
+
+    def _start_run(self, popsize: int, sigma: float, maxiter: Optional[float]) -> None:
+        opts: Dict[str, Any] = {
+            "bounds": [0.0, 1.0],
+            "popsize": int(max(2, popsize)),
+            # pycma seeds numpy's global RNG from this at construction; it is
+            # drawn from the run's own generator, so the run is deterministic.
+            "seed": int(self._rng.integers(1, 2**31 - 1)),
+            "verbose": -9,
+            "verb_log": 0,
+            "verb_disp": 0,
+        }
+        if maxiter is not None:
+            opts["maxiter"] = maxiter
+        x0 = self._rng.uniform(0.0, 1.0, size=self._dim)
+        self._es = self._cma.CMAEvolutionStrategy(x0, sigma, opts)
+        if self._maxiter0 is None:
+            self._maxiter0 = float(self._es.opts["maxiter"])
+        self._run_evals = 0
+
+    def _restart(self) -> None:
+        if self._poptype == "small":
+            self._evals_small += self._run_evals
+        else:
+            self._evals_large += self._run_evals
+        self._irun += 1
+        assert self._maxiter0 is not None
+        if not self._bipop:
+            self._start_run(self._popsize0 * self._incpopsize**self._irun, self._sigma0, None)
+        elif self._evals_small < max(1, self._evals_large):
+            self._poptype = "small"
+            self._runs_with_small += 1
+            sigma_factor = 0.01 ** self._rng.uniform()
+            multiplier = self._incpopsize ** (self._irun - self._runs_with_small)
+            popsize = int(self._popsize0 * multiplier ** (self._rng.uniform() ** 2))
+            maxiter = min(self._maxiter0, 0.5 * self._evals_large / max(2, popsize))
+            self._start_run(popsize, self._sigma0 * sigma_factor, maxiter)
+        else:
+            self._poptype = "large"
+            multiplier = self._incpopsize ** (self._irun - self._runs_with_small)
+            self._start_run(self._popsize0 * multiplier, self._sigma0, self._maxiter0)
+
+    def _new_generation(self) -> None:
+        if self._es.stop():
+            self._restart()
+        self._gen_x = [np.asarray(u, dtype=np.float64) for u in self._es.ask()]
+        self._gen_keys = list(range(self._next_key, self._next_key + len(self._gen_x)))
+        self._next_key += len(self._gen_x)
+        self._gen_f = {}
+        self._undispatched = list(self._gen_keys)
+
+    def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
+        out: List[Tuple[int, np.ndarray]] = []
+        while len(out) < n:
+            if not self._undispatched:
+                if self._gen_keys:
+                    break  # the current generation still waits on results
+                self._new_generation()
+            key = self._undispatched.pop(0)
+            u = self._gen_x[key - self._gen_keys[0]]
+            out.append((key, self._lo + np.clip(u, 0.0, 1.0) * self._span))
+        return out
+
+    def tell(self, key: int, fx: float) -> None:
+        if not self._gen_keys or not (self._gen_keys[0] <= key <= self._gen_keys[-1]):
+            raise KeyError(f"candidate {key} is not in the current generation")
+        self._gen_f[key] = float(fx) if np.isfinite(fx) else float("inf")
+        if len(self._gen_f) == len(self._gen_keys):
+            self._es.tell(self._gen_x, [self._gen_f[k] for k in self._gen_keys])
+            self._run_evals += len(self._gen_keys)
+            self._gen_keys = []
+            self._gen_x = []
+
+
+class PycmaIPOPStrategy(AskTellBaselineStrategy):
+    """pycma CMA-ES with IPOP restarts (population doubles on each restart)."""
+
+    who: str = "pycma_IPOP"
+    _bipop: bool = False
+
+    def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
+        del budget, batch_size
+        box = self.problem.box
+        return _PycmaRestartAdapter(box[:, 0], box[:, 1], seed, bipop=self._bipop)
+
+
+class PycmaBIPOPStrategy(PycmaIPOPStrategy):
+    """pycma CMA-ES with BIPOP restarts (IPOP interleaved with small local runs)."""
+
+    who: str = "pycma_BIPOP"
+    _bipop: bool = True
+
+
+# -- Nevergrad -------------------------------------------------------------------
+
+
+def _size1_float(value: Any) -> float:
+    """``float()`` that also takes a size-1 array, as numpy < 2.5 did."""
+    if isinstance(value, np.ndarray) and value.size == 1:
+        return float(value.reshape(-1)[0])
+    return float(value)
+
+
+def _patch_nevergrad_metamodel() -> None:
+    """Make Nevergrad 1.0.12's meta-model work under numpy >= 2.5.
+
+    ``nevergrad.optimization.metamodel.learn_on_k_best`` calls
+    ``float(model.predict(x))`` on a shape-``(1,)`` array, which numpy 2.5
+    turned from a deprecation warning into a ``TypeError``.  NGOpt picks
+    ``MetaModel`` in low dimension with parallel workers, so without this
+    those runs crash.  Shadowing ``float`` in that one module with a
+    version that accepts size-1 arrays restores the behaviour the library
+    was written against; drop it once a Nevergrad release fixes the call.
+    """
+    metamodel = _require("nevergrad.optimization.metamodel")
+    if getattr(metamodel, "float", None) is not _size1_float:
+        setattr(metamodel, "float", _size1_float)
+
+
+class _NevergradAdapter(AskTellAdapter):
+    """One Nevergrad optimizer from ``ng.optimizers.registry``.
+
+    The parametrization is ``ng.p.Array(init=centre, lower=lo, upper=hi)``:
+    Nevergrad then sets ``sigma = (hi - lo) / 6`` per coordinate and keeps
+    candidates inside the box by bouncing.  ``budget`` and ``num_workers =
+    q`` go to the constructor; NGOpt chooses its sub-optimizer from them
+    and the dimension.  Seeded through the parametrization's
+    ``random_state``.
+    """
+
+    def __init__(self, name: str, lo: np.ndarray, hi: np.ndarray, seed: int, budget: int, num_workers: int) -> None:
+        ng = _require("nevergrad")
+        _patch_nevergrad_metamodel()
+        lo = np.asarray(lo, dtype=np.float64)
+        hi = np.asarray(hi, dtype=np.float64)
+        param = ng.p.Array(init=(lo + hi) / 2.0, lower=lo, upper=hi)
+        param.random_state = np.random.RandomState(_seed32(seed))
+        self._opt = ng.optimizers.registry[name](
+            parametrization=param, budget=int(budget), num_workers=int(num_workers)
+        )
+        self._pending: Dict[int, Any] = {}
+        self._next_key = 0
+
+    def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
+        out: List[Tuple[int, np.ndarray]] = []
+        for _ in range(n):
+            cand = self._opt.ask()
+            key = self._next_key
+            self._next_key += 1
+            self._pending[key] = cand
+            out.append((key, np.asarray(cand.value, dtype=np.float64).copy()))
+        return out
+
+    def tell(self, key: int, fx: float) -> None:
+        # Nevergrad clips non-finite losses itself (with a warning).
+        self._opt.tell(self._pending.pop(key), float(fx) if np.isfinite(fx) else float("inf"))
+
+    def close(self) -> None:
+        """Stop the worker threads of "recast" sub-optimizers (NGOpt may pick
+        a SciPy method such as Cobyla, which Nevergrad runs in a non-daemon
+        thread blocked on the next ``tell``).  Nevergrad stops them only when
+        the optimizer is garbage-collected, which a traceback holding the
+        run's frames can postpone until interpreter exit — a hang."""
+        stack: List[Any] = [self._opt]
+        seen: set = set()
+        while stack:
+            opt = stack.pop()
+            if opt is None or id(opt) in seen:
+                continue
+            seen.add(id(opt))
+            thread = getattr(opt, "_messaging_thread", None)
+            if thread is not None:
+                thread.stop()
+            stack.append(getattr(opt, "optim", None))
+            stack.extend(getattr(opt, "optims", None) or [])
+
+
+class NevergradStrategy(AskTellBaselineStrategy):
+    """A Nevergrad optimizer, named by :attr:`optimizer_name`."""
+
+    who: str = "NGOpt"
+    optimizer_name: str = "NGOpt"
+
+    def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
+        box = self.problem.box
+        return _NevergradAdapter(self.optimizer_name, box[:, 0], box[:, 1], seed, budget, batch_size)
+
+
+class NevergradNGOptStrategy(NevergradStrategy):
+    """Nevergrad ``NGOpt``: a hand-ruled selector over a portfolio."""
+
+    who: str = "NGOpt"
+    optimizer_name: str = "NGOpt"
+
+
+class NevergradCMAStrategy(NevergradStrategy):
+    """Nevergrad ``CMA`` (cross-check against pycma)."""
+
+    who: str = "NG_CMA"
+    optimizer_name: str = "CMA"
+
+
+class NevergradTwoPointsDEStrategy(NevergradStrategy):
+    """Nevergrad ``TwoPointsDE`` (cross-check against SciPy DE)."""
+
+    who: str = "NG_TwoPointsDE"
+    optimizer_name: str = "TwoPointsDE"
+
+
+# -- Optuna ----------------------------------------------------------------------
+
+
+class _OptunaAdapter(AskTellAdapter):
+    """An in-memory Optuna study with one ``FloatDistribution`` per coordinate.
+
+    Keys are trial numbers; a non-finite value is told as a failed trial.
+    Several asked-but-untold trials are pending trials to Optuna (TPE
+    handles them with its constant liar).
+    """
+
+    def __init__(self, sampler: str, lo: np.ndarray, hi: np.ndarray, seed: int) -> None:
+        optuna = _require("optuna")
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        if sampler == "cmaes":
+            _require("cmaes")  # CmaEsSampler's backend, not an Optuna dependency
+            smp = optuna.samplers.CmaEsSampler(seed=_seed32(seed), warn_independent_sampling=False)
+        elif sampler == "tpe":
+            smp = optuna.samplers.TPESampler(seed=_seed32(seed))
+        else:
+            raise ValueError(f"unknown Optuna sampler {sampler!r}")
+        self._state_fail = optuna.trial.TrialState.FAIL
+        self._study = optuna.create_study(direction="minimize", sampler=smp)
+        self._dists = {
+            f"x{j}": optuna.distributions.FloatDistribution(float(lo_j), float(hi_j))
+            for j, (lo_j, hi_j) in enumerate(zip(lo, hi))
+        }
+
+    def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
+        out: List[Tuple[int, np.ndarray]] = []
+        for _ in range(n):
+            trial = self._study.ask(self._dists)
+            out.append((trial.number, np.array([trial.params[k] for k in self._dists], dtype=np.float64)))
+        return out
+
+    def tell(self, key: int, fx: float) -> None:
+        if np.isfinite(fx):
+            self._study.tell(key, float(fx))
+        else:
+            self._study.tell(key, state=self._state_fail)
+
+
+class OptunaCmaEsStrategy(AskTellBaselineStrategy):
+    """Optuna ``CmaEsSampler`` (default settings: no restarts)."""
+
+    who: str = "Optuna_CmaEs"
+    _sampler: str = "cmaes"
+
+    def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
+        del budget, batch_size
+        box = self.problem.box
+        return _OptunaAdapter(self._sampler, box[:, 0], box[:, 1], seed)
+
+
+class OptunaTPEStrategy(OptunaCmaEsStrategy):
+    """Optuna ``TPESampler`` (default settings)."""
+
+    who: str = "Optuna_TPE"
+    _sampler: str = "tpe"
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
 
-def make_baseline_strategies() -> List[StrategySpec]:
-    """Return the :class:`StrategySpec` list for the three baseline solvers.
+#: Spec names of the external baselines (the ``baselines`` extra), in
+#: registry order.  Not part of the default ``--baselines`` set: name them in
+#: the harness' strategy filter to select them.
+EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = (
+    "Baseline_pycma_IPOP",
+    "Baseline_pycma_BIPOP",
+    "Baseline_NGOpt",
+    "Baseline_NG_CMA",
+    "Baseline_NG_TwoPointsDE",
+    "Baseline_Optuna_CmaEs",
+    "Baseline_Optuna_TPE",
+)
+
+
+def make_external_baseline_strategies() -> List[StrategySpec]:
+    """Return the :class:`StrategySpec` list for the external baselines.
+
+    Building the specs needs no optional import; running one without the
+    ``baselines`` extra raises an :class:`ImportError` naming the extra.
+    """
+    classes: List[type] = [
+        PycmaIPOPStrategy,
+        PycmaBIPOPStrategy,
+        NevergradNGOptStrategy,
+        NevergradCMAStrategy,
+        NevergradTwoPointsDEStrategy,
+        OptunaCmaEsStrategy,
+        OptunaTPEStrategy,
+    ]
+    specs = [StrategySpec(name=f"Baseline_{cls.who}", strategy_class=cls, heuristics=[]) for cls in classes]
+    assert tuple(s.name for s in specs) == EXTERNAL_BASELINE_NAMES
+    return specs
+
+
+def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[StrategySpec]:
+    """Return the :class:`StrategySpec` list of the baseline solvers.
 
     These are plugged into the harness when a run is requested with
-    baselines enabled.  All three are budget-agnostic — they inherit
+    baselines enabled.  All are budget-agnostic — they inherit
     ``config.max_eval`` from the harness — so they can be dropped into any
     of the ``quick`` / ``standard`` / ``full`` modes.
+
+    Args:
+        extra: Strategy names (e.g. the harness' ``--strategies`` filter).
+            The external baselines named in it (see
+            :data:`EXTERNAL_BASELINE_NAMES`) are appended; other names are
+            ignored.  ``None`` returns the default set: Random, SciPy DE,
+            SciPy dual annealing.
     """
+    wanted = set(extra or ())
     return [
         StrategySpec(
             name="Baseline_Random",
@@ -453,13 +950,25 @@ def make_baseline_strategies() -> List[StrategySpec]:
             strategy_class=SciPyAnnealStrategy,
             heuristics=[],
         ),
-    ]
+    ] + [spec for spec in make_external_baseline_strategies() if spec.name in wanted]
 
 
 __all__ = [
+    "EXTERNAL_BASELINE_NAMES",
+    "AskTellAdapter",
+    "AskTellBaselineStrategy",
     "BaselineStrategy",
+    "NevergradCMAStrategy",
+    "NevergradNGOptStrategy",
+    "NevergradStrategy",
+    "NevergradTwoPointsDEStrategy",
+    "OptunaCmaEsStrategy",
+    "OptunaTPEStrategy",
+    "PycmaBIPOPStrategy",
+    "PycmaIPOPStrategy",
     "RandomSearchStrategy",
     "SciPyDEStrategy",
     "SciPyAnnealStrategy",
     "make_baseline_strategies",
+    "make_external_baseline_strategies",
 ]

@@ -28,6 +28,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import threading
+from pathlib import Path
 from typing import Any, List
 
 import numpy as np
@@ -35,6 +36,7 @@ import pandas as pd
 import pytest
 
 from panobbgo.harness_baselines import (
+    ALL_EXTERNAL_BASELINE_NAMES,
     BO_BASELINE_NAMES,
     EXTERNAL_BASELINE_NAMES,
     make_baseline_strategies,
@@ -172,9 +174,10 @@ def test_qlogei_gp_sees_the_worst_value_for_failures(monkeypatch):
 def test_qlogei_batches_and_pending_points():
     adapter = BoTorchQLogEIStrategy(Rosenbrock(dims=2), seed=4).make_adapter(4, 30, 4)
     assert adapter.n_init == 5
+    assert adapter.min_observed == 3  # Ax: half the design, at least 2
     first = adapter.ask(4)  # design
-    rest = adapter.ask(4)  # 1 design point + a 3-point q-batch (nothing told yet: waits)
-    assert len(first) == 4 and len(rest) == 1
+    rest = adapter.ask(4)  # nothing observed yet: design point 5, then more Sobol points
+    assert len(first) == 4 and len(rest) == 4
     problem = Rosenbrock(dims=2)
     for key, x in first + rest:
         adapter.tell(key, float(problem.eval(x)))
@@ -184,6 +187,38 @@ def test_qlogei_batches_and_pending_points():
     (one,) = adapter.ask(1)
     assert set(adapter._pending) == {k for k, _ in batch} | {one[0]}
     assert min(np.linalg.norm(one[1] - x) for _k, x in batch) > 1e-6
+
+
+@_needs(*TORCH)
+def test_qlogei_gets_the_pending_points_as_x_pending(monkeypatch):
+    import botorch
+
+    shapes: List[Any] = []
+    real = botorch.acquisition.logei.qLogExpectedImprovement
+
+    def spy(*a, X_pending=None, **k):
+        shapes.append(None if X_pending is None else tuple(X_pending.shape))
+        return real(*a, X_pending=X_pending, **k)
+
+    monkeypatch.setattr(botorch.acquisition.logei, "qLogExpectedImprovement", spy)
+    problem = Rosenbrock(dims=2)
+    adapter = BoTorchQLogEIStrategy(problem, seed=4).make_adapter(4, 30, 2)
+    for key, x in adapter.ask(5):  # the design, all told
+        adapter.tell(key, float(problem.eval(x)))
+    adapter.ask(2)  # a joint 2-batch, nothing pending
+    adapter.ask(1)  # one more, with the 2-batch pending
+    assert shapes == [None, (2, 2)]
+
+
+@_needs(*TORCH)
+def test_qlogei_waits_for_half_the_design_before_modelling():
+    adapter = BoTorchQLogEIStrategy(Rosenbrock(dims=2), seed=4).make_adapter(4, 30, 1)
+    keys = [k for k, _x in adapter.ask(5)]
+    for k in keys[:2]:
+        adapter.tell(k, 1.0)
+    assert not adapter._can_model()  # 2 of the needed 3 observed: more Sobol points
+    adapter.tell(keys[2], 2.0)
+    assert adapter._can_model()
 
 
 @_needs(*TORCH)
@@ -214,19 +249,20 @@ def test_turbo_is_synchronous_per_batch_and_restarts():
 
 
 @_needs("smac")
-def test_smac_parallel_asks_and_deferred_failures():
-    adapter = SMACBlackBoxStrategy(Rosenbrock(dims=2), seed=3).make_adapter(3, 20, 3)
+def test_smac_parallel_asks_and_conservative_failure_cost():
+    adapter = SMACBlackBoxStrategy(Rosenbrock(dims=2), seed=3).make_adapter(3, 20, 4)
     tmp = adapter._tmp
     try:
-        trials = adapter.ask(3)
-        assert len({tuple(x) for _k, x in trials}) == 3
-        (k0, _), (k1, _), (k2, _) = trials
+        trials = adapter.ask(4)
+        assert len({tuple(x) for _k, x in trials}) == 4
+        (k0, _), (k1, _), (k2, _), (k3, _) = trials
         adapter.tell(k0, float("nan"))  # no finite value yet: waits as a running trial
         assert len(adapter._deferred) == 1
-        adapter.tell(k1, 5.0)
-        adapter.tell(k2, float("inf"))
+        adapter.tell(k1, 5.0)  # releases k0 at worst + (worst - best) = 5
+        adapter.tell(k2, 2.0)
+        adapter.tell(k3, float("inf"))  # 5 + (5 - 2) = 8: below every real point
         costs = sorted(v.cost for v in adapter._smac.runhistory._data.values())
-        assert costs == [5.0, 5.0, 5.0]  # both failures told with the worst finite value
+        assert costs == [2.0, 5.0, 5.0, 8.0]
     finally:
         adapter.close()
     assert not os.path.exists(tmp)
@@ -247,6 +283,24 @@ def test_pybobyqa_is_sequential_and_close_stops_its_thread():
     for thread in started:
         thread.join(timeout=10)
         assert not thread.is_alive()
+
+
+@_needs("pybobyqa")
+def test_pybobyqa_run_without_evaluations_raises_instead_of_restarting_forever(monkeypatch):
+    import pybobyqa
+
+    from panobbgo.harness_baselines_bo import _PyBOBYQAAdapter
+
+    with pytest.raises(ValueError, match="hi > lo"):
+        _PyBOBYQAAdapter(np.zeros(2), np.zeros(2), seed=1, budget=10)
+    # Py-BOBYQA's EXIT_INPUT_ERROR returns before the first evaluation.
+    monkeypatch.setattr(pybobyqa, "solve", lambda *a, **k: None)
+    adapter = _PyBOBYQAAdapter(np.zeros(2), np.ones(2), seed=1, budget=10)
+    try:
+        with pytest.raises(RuntimeError, match="without evaluating"):
+            adapter.ask(1)
+    finally:
+        adapter.close()
 
 
 @_needs("pybobyqa")
@@ -279,6 +333,25 @@ def test_runs_on_the_virtual_clock(cls):
     assert times == sorted(times)
 
 
+@_needs("pybobyqa")
+def test_pybobyqa_on_the_virtual_clock_keeps_one_in_flight():
+    """At q = 4 Py-BOBYQA uses one worker: completions are strictly sequential and aocc equals q = 1."""
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.harness_ioh import _run_tracked
+    from panobbgo.ioh_runner import IOHTracker
+    from panobbgo.virtual_clock import VirtualSpec
+
+    kw = dict(f_opt=0.0, budget=20, seed=4, sync_eval=True, log_lo=-8.0, log_hi=6.0, timeout_s=None)
+    spec = StrategySpec(name="PyBOBYQA", strategy_class=PyBOBYQAStrategy, heuristics=[])
+    runs = {}
+    for q in (1, 4):
+        tracker = IOHTracker((p := Rosenbrock(dim=2)), budget=20)
+        runs[q] = _run_tracked(spec, p, tracker, virtual=VirtualSpec(workers=q), **kw)
+        # Constant durations of 1: one point in flight means completions at 1, 2, ..., 20.
+        assert [t for t, _ in tracker.timeline] == [float(k + 1) for k in range(20)]
+    assert runs[4].aocc == pytest.approx(runs[1].aocc)
+
+
 # ---------------------------------------------------------------------------
 # Registry (no optional dependency)
 # ---------------------------------------------------------------------------
@@ -286,13 +359,67 @@ def test_runs_on_the_virtual_clock(cls):
 
 def test_bo_names_match_the_classes_and_join_the_registry():
     assert BO_BASELINE_NAMES == tuple(f"Baseline_{cls.who}" for cls in BO_BASELINE_CLASSES)
-    assert EXTERNAL_BASELINE_NAMES[-len(BO_BASELINE_NAMES) :] == BO_BASELINE_NAMES
+    assert ALL_EXTERNAL_BASELINE_NAMES[-len(BO_BASELINE_NAMES) :] == BO_BASELINE_NAMES
     specs = {s.name: s.strategy_class for s in make_external_baseline_strategies()}
     assert [specs[n] for n in BO_BASELINE_NAMES] == list(BO_BASELINE_CLASSES)
 
 
-def test_missing_bo_extra_names_the_bo_extra(monkeypatch):
+@pytest.mark.parametrize("name", BO_BASELINE_NAMES)
+def test_missing_bo_extra_names_the_bo_extra(monkeypatch, name):
     real = importlib.util.find_spec
-    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a: None if name == "torch" else real(name, *a))
-    with pytest.raises(ImportError, match="--extra baselines-bo"):
-        make_baseline_strategies(["Baseline_TuRBO1"])
+    gone = {"torch", "smac", "pybobyqa"}
+    monkeypatch.setattr(importlib.util, "find_spec", lambda mod, *a: None if mod in gone else real(mod, *a))
+    with pytest.raises(ImportError, match="`baselines-bo`.*--extra baselines-bo"):
+        make_baseline_strategies([name])
+
+
+def test_cheap_external_names_need_no_torch():
+    assert not set(EXTERNAL_BASELINE_NAMES) & set(BO_BASELINE_NAMES)
+    assert ALL_EXTERNAL_BASELINE_NAMES == EXTERNAL_BASELINE_NAMES + BO_BASELINE_NAMES
+    assert all(getattr(cls, "no_wall_timeout", False) for cls in BO_BASELINE_CLASSES)
+
+
+@_needs("pybobyqa")
+def test_composite_harness_does_not_cut_bo_baselines_at_the_wall_timeout():
+    from panobbgo.harness import BenchmarkHarness, HarnessConfig
+
+    config = HarnessConfig(
+        mode="quick",
+        budget=20,
+        reps=1,
+        seed=42,
+        problems=["Rosenbrock_2D"],
+        strategies=["Baseline_PyBOBYQA"],
+        include_baselines=True,
+        timeout_per_run=1e-6,  # would cut any other strategy at once
+    )
+    result = BenchmarkHarness(config).run(verbose=False)
+    (run,) = result.problem_strategy_results[0].runs
+    assert run.error is None
+    assert run.evaluations_used == 20
+
+
+def _ioh_cli():
+    path = Path(__file__).resolve().parent.parent / "scripts" / "ioh_benchmark.py"
+    spec = importlib.util.spec_from_file_location("ioh_benchmark_cli_bo", path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_cli_budget_multiplier_overrides_ioh_and_family_batteries():
+    import argparse
+
+    cli = _ioh_cli()
+    flags = dict(full=False, standard=True, noisy=None, noisy_highdim=None, highdim=False, reps=None)
+    assert cli._resolve_battery(argparse.Namespace(**flags, budget_multiplier=None)).budget_multiplier == 500
+    battery = cli._resolve_battery(argparse.Namespace(**flags, budget_multiplier=20))
+    assert battery.budget_multiplier == 20 and battery.name.endswith("-b20")
+    fam = dict(families_quick=False, families_constrained=False, families=True)
+    name, _instances, bm = cli._resolve_family_battery(argparse.Namespace(**fam, budget_multiplier=100))
+    assert (name, bm) == ("families-b100", 100)
+    assert cli._resolve_family_battery(argparse.Namespace(**fam, budget_multiplier=None))[2] == 500
+    with pytest.raises(SystemExit) as e:
+        cli.main(["run", "--budget-multiplier", "0"])
+    assert e.value.code == 2

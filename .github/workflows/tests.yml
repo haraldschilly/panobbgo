@@ -90,10 +90,11 @@ jobs:
     # The expensive-track baselines (`baselines-bo` extra: CPU torch,
     # BoTorch, SMAC3, Py-BOBYQA) in a job of their own, so the default test
     # job stays free of torch (~0.7 GB installed); there their tests skip.
-    # Own venv cache key: `uv sync` is exact, and a torch venv saved under
-    # the shared key would be restored (and stripped) by every other job.
+    # No .venv cache (a torch venv is ~360 MB per entry and would evict the
+    # other jobs' caches): setup-uv caches uv's download cache under its own
+    # suffix and prunes it for CI (`uv cache prune --ci`).
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v6
@@ -103,22 +104,14 @@ jobs:
         with:
           python-version: ${{ env.PYTHON }}
 
-      - name: Cache UV and dependencies
-        uses: actions/cache@v5
+      - name: Install UV (with its download cache)
+        uses: astral-sh/setup-uv@v10
         with:
-          path: |
-            ~/.cargo/bin/uv
-            .venv
-          key: uv-bo-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
-          restore-keys: |
-            uv-bo-${{ runner.os }}-python-${{ env.PYTHON }}-
-
-      - name: Install UV
-        run: |
-          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
-            curl -LsSf https://astral.sh/uv/install.sh | sh
-          fi
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          enable-cache: true
+          cache-suffix: bo
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
 
       - name: Install dependencies
         run: |

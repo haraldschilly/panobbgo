@@ -140,6 +140,9 @@ def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
         if args.reps < 1:
             raise SystemExit("--reps must be >= 1")
         battery = dataclasses.replace(battery, reps=args.reps)
+    bm = getattr(args, "budget_multiplier", None)
+    if bm is not None:
+        battery = dataclasses.replace(battery, budget_multiplier=bm, name=f"{battery.name}-b{bm}")
     return battery
 
 
@@ -156,6 +159,16 @@ def _resolve_family_battery(args: argparse.Namespace) -> Optional[Tuple[str, Fam
     covers — with the same AOCC machinery.  ``None`` means no family flag
     was given and the caller should take the MA-BBOB path.
     """
+    family = _family_battery(args)
+    bm = getattr(args, "budget_multiplier", None)
+    if family is None or bm is None:
+        return family
+    name, instances, _ = family
+    return f"{name}-b{bm}", instances, bm
+
+
+def _family_battery(args: argparse.Namespace) -> Optional[Tuple[str, FamilyInstances, int]]:
+    """The family battery the flags name, at its own budget multiplier."""
     if args.families_quick:
         # Two instances at dim 2, 100 evaluations each: a smoke test, not a
         # measurement.  One unconstrained (Rosenbrock) and one constrained
@@ -643,6 +656,15 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         action="store_true",
         help=f"Shorthand for --seeds {' '.join(str(s) for s in DEFAULT_DECISION_SEEDS)} "
         "(the canonical 12-seed decision roster).",
+    )
+    run_p.add_argument(
+        "--budget-multiplier",
+        type=_positive_int,
+        default=None,
+        metavar="N",
+        help="Override the battery's budget: N*dim evaluations per run (IOH and family batteries; the "
+        "battery name gets a -bN suffix).  E.g. 20 or 100 for the expensive-track baselines "
+        "(Baseline_BoTorch_qLogEI, ...), whose GP fits cannot afford 500*dim.  Default: the battery's own.",
     )
     run_p.add_argument(
         "--reps",

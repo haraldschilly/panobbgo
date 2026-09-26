@@ -647,14 +647,23 @@ Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA
 For expensive evaluations at small budgets (10…200·dim) with ``q``
 parallel workers the incumbents are Bayesian-optimisation and model-based
 tools.  They live in :mod:`panobbgo.harness_baselines_bo`, need the
-separate ``baselines-bo`` extra (``uv sync --extra baselines-bo``; uv takes
-torch from the CPU-only wheel index, ~1 GB installed) and are opt-in by
-name like the ones above:
+separate ``baselines-bo`` extra (uv takes torch from the CPU-only wheel
+index; torch alone is ~0.7 GB installed) and are opt-in by name like the
+ones above.  ``uv sync`` is exact, so name every extra you need in one
+command.  PyTorch publishes no wheels for Intel macOS, so the extra does
+not install there.
+
+These baselines are meant for small budgets: an exact GP at thousands of
+points takes hours per run.  ``--budget-multiplier N`` sets the budget of
+any ``ioh_benchmark.py run`` battery (IOH and families) to ``N·dim``
+(the battery name gets a ``-bN`` suffix; the default budgets do not
+change), e.g. 20·dim and 100·dim on the families (dims 2/5/10):
 
 .. code-block:: bash
 
-   uv sync --extra dev --extra baselines-bo
-   uv run python scripts/ioh_benchmark.py run --families --baselines --virtual-workers 4 \
+   uv sync --extra dev --extra baselines --extra baselines-bo
+   uv run python scripts/ioh_benchmark.py run --families --budget-multiplier 20 \
+       --baselines --virtual-workers 4 \
        --strategies Baseline_BoTorch_qLogEI Baseline_TuRBO1 Baseline_SMAC_BB Baseline_PyBOBYQA
 
 Each uses its library's recommended setup for small budgets:
@@ -664,50 +673,61 @@ Each uses its library's recommended setup for small budgets:
   dimension-scaled log-normal length-scale prior, ``Standardize`` outcome
   transform), inputs in the unit cube, refitted with ``fit_gpytorch_mll``
   before every proposal.  Initial design: ``max(5, 2·d)`` scrambled Sobol
-  points (Ax's rule).  ``best_f`` is the best observed value, the MC
-  sampler a 256-sample ``SobolQMCNormalSampler``;
+  points (Ax's rule); as in Ax, the model takes over once
+  ``max(2, ceil(n_init/2))`` points are observed, and free workers get
+  more Sobol points until then.  ``best_f`` is the best observed value,
+  the MC sampler a 256-sample ``SobolQMCNormalSampler``;
   ``optimize_acqf(num_restarts=10, raw_samples=512, batch_limit=5,
   maxiter=200)`` as in the BoTorch tutorials.
-- ``Baseline_TuRBO1`` — TuRBO-1 from the BoTorch tutorial: Matérn-5/2 ARD
-  GP (length scales in [0.005, 4], noise in [1e-8, 1e-3]) on the
+- ``Baseline_TuRBO1`` — TuRBO-1 after the BoTorch tutorial: Matérn-5/2
+  ARD GP (length scales in [0.005, 4], noise in [1e-8, 1e-3]) on the
   standardised data of the current trust region, Thompson sampling over
   ``min(5000, max(2000, 200·d))`` perturbed Sobol candidates, length 0.8
-  in [0.5⁷, 1.6], success tolerance 10 (the tutorial's; the paper uses 3),
-  failure tolerance ``ceil(max(4/q, d/q))``.  ``2·d`` Sobol points start
-  each trust region; when it collapses the run restarts with a fresh
-  design and fresh data (the original TuRBO-1 restart).
+  in [0.5⁷, 1.6], success tolerance 3 (Eriksson et al. 2019 and the
+  reference code; the tutorial's 10 lets the region practically never
+  expand at these budgets), failure tolerance ``ceil(max(4/q, d/q))``.
+  ``2·d`` Sobol points start each trust region; when it collapses the run
+  restarts with a fresh design and fresh data (the original TuRBO-1
+  restart).
 - ``Baseline_SMAC_BB`` — SMAC3's ``BlackBoxFacade`` (SMAC's facade for
   low-dimensional continuous problems) with ``deterministic=True`` and
   every other setting at the facade default: Sobol initial design of
   ``min(8·d, budget/4)`` points, GP with a Matérn-5/2 ARD kernel and
   ``normalize_y``, EI (``xi=0``), local-and-sorted random search.
 - ``Baseline_PyBOBYQA`` — Py-BOBYQA (Powell's BOBYQA), the **local**
-  model-based reference: ``npt = 2n+1``, ``scaling_within_bounds=True``
-  (``rhobeg`` 0.1 of the box), ``rhoend = 1e-8``, no restarts inside the
-  solver; when a run ends before the budget, a new one starts from a fresh
-  uniform random point.
+  model-based reference, not a global optimiser: ``npt = 2n+1``,
+  ``scaling_within_bounds=True`` (``rhobeg`` 0.1 of the box),
+  ``rhoend = 1e-8``, no restarts inside the solver; when a run ends before
+  the budget, a new one starts from a fresh uniform random point.
 
 **Batches and pending points.**  ``q`` goes to each tool's native batch
 mechanism.  BoTorch optimises a joint ``q``-batch and passes the asked but
 untold points as ``X_pending``, so asynchronous tells (the virtual clock)
 are handled.  TuRBO proposes synchronous batches of ``q``; like pycma it
-hands out nothing more until the whole batch is told.  SMAC is asked once
-per free worker, as its Dask runner does, and keeps the asked trials as
-running.  The initial design grows to at least ``q`` points so that the
-first batch fills the workers.  **Py-BOBYQA is sequential**: it keeps at
-most one point in flight, so with ``q > 1`` it uses one worker.  Its
-``aocc`` equals the ``q = 1`` run; its ``aocc_time`` shows what a
-sequential solver achieves on ``q`` workers.
+hands out nothing more until the whole batch is told.  The initial design
+grows to at least ``q`` points so that the first batch fills the workers.
+The parallel-BO comparison therefore rests on qLogEI and TuRBO:
+
+- **SMAC has no batch acquisition.**  It is asked once per free worker, as
+  its Dask runner does, and keeps asked trials as running, but it has no
+  pending-point or fantasy handling, so a batch can hold near-duplicates.
+  Report SMAC at ``q = 1`` as its representative result, or label ``q > 1``
+  rows "SMAC native (no batch acquisition)".
+- **Py-BOBYQA is sequential**: it keeps at most one point in flight, so
+  with ``q > 1`` it uses one worker.  Its ``aocc`` equals the ``q = 1``
+  run; its ``aocc_time`` shows what a sequential solver achieves on ``q``
+  workers.
 
 **Failed values.**  A GP cannot take ``+inf``.  BoTorch and TuRBO replace
 every failed (NaN) or non-finite value by the worst finite value observed
 so far, recomputed at every fit.  SMAC stores costs, so a failure is told
-as a CRASHED trial with the worst finite value known at tell time; a
-failure before any finite value waits as a running trial until one
-exists.  Py-BOBYQA gets the moderated extreme barrier of Powell's solvers
-in PRIMA / PDFO: NaN and ``+inf`` become ``1e30`` and finite values are
-clipped there.  Huge finite values reach every model unchanged (only each
-library's own standardisation applies).
+as a CRASHED trial with the conservative ``worst + (worst - best)`` of the
+finite values known at tell time, which ranks it below every real point
+known then; a failure before any finite value waits as a running trial
+until one exists.  Py-BOBYQA gets the moderated extreme barrier of
+Powell's solvers in PRIMA / PDFO: NaN and ``+inf`` become ``1e30`` and
+finite values are clipped there.  Huge finite values reach every model
+unchanged (only each library's own standardisation applies).
 
 **Determinism.**  torch draws run in a ``torch.random.fork_rng`` scope
 seeded from the run seed (the global torch state is restored), the Sobol
@@ -718,20 +738,38 @@ seed reproduces a run exactly (``tests/test_harness_baselines_bo.py``).
 size runner jobs by it.  Measured on a heavily loaded 16-core laptop
 (load 12–50; rough, a quiet runner is faster), at dim 10 and up to 200
 observations: BoTorch qLogEI 2–12 s per proposal (growing with the data),
-TuRBO 0.3–12 s per batch, SMAC 2–7 s per ask after its 50-point design (a
-whole budget-200 run: 6.5 min with 2 BLAS threads).  A dim-10, budget-200
-run thus costs roughly 15–20 min for BoTorch qLogEI at ``q = 1`` (one
-proposal per batch, so about a quarter of that at ``q = 4``), 5–10 min
-for TuRBO at ``q = 1``, 5–7 min for SMAC and under a second for
-Py-BOBYQA.  Budget one GitHub runner job per (baseline, few problems),
-not per battery.  Use ``--no-timeout`` with ``benchmark_harness.py``.
+TuRBO 0.3–12 s per proposal, SMAC 2–7 s per ask after its 50-point design
+(a whole budget-200 run: 6.5 min with 2 BLAS threads).  What a run costs
+depends on how many proposals it makes, and that depends on the driver:
+
+- **Virtual clock, async policy** (the default of ``--virtual-workers``):
+  every completion frees one worker and triggers ``ask(1)``, so qLogEI and
+  SMAC fit once per evaluation after the design, at any ``q``: a dim-10,
+  budget-200 run costs about 15–20 min for qLogEI and 5–7 min for SMAC,
+  whatever ``q`` is.  TuRBO waits for whole batches, so it proposes once
+  per ``q`` evaluations: 5–10 min at ``q = 1``, roughly ``1/q`` of that
+  above.
+- **Synchronous batches** (``batch_size = q`` in the composite harness, or
+  ``--virtual-policy sync``): one proposal per batch for every tool but
+  SMAC, so qLogEI and TuRBO cost roughly ``1/q`` of their ``q = 1`` time
+  (a joint ``q``-batch optimisation is somewhat dearer than a single
+  point).  SMAC is asked once per point either way.
+- Py-BOBYQA takes under a second.
+
+Budget one GitHub runner job per (baseline, few problems), not per
+battery.  ``benchmark_harness.py``'s per-run wall-clock timeout (120 s by
+default) does not apply to these strategies (``no_wall_timeout``); every
+other strategy of the same run is still cut.
 
 **Not included.**  HEBO 0.3.6 (the latest release, 2024) pins
 ``numpy<1.25`` and ``pymoo==0.6.0`` and cannot be installed next to
 numpy 2.5.  PDFO 2.2.0 ships wheels only up to CPython 3.12, and its
 source build needs a Fortran toolchain; Py-BOBYQA is the BOBYQA reference
-instead.  Ax is not used: it adds plotly, ipywidgets, pymoo and graphviz,
-and its default model is the same BoTorch ``SingleTaskGP``.
+instead.  Ax is not used: it adds plotly, ipywidgets, pymoo and graphviz;
+BoTorch is used directly with the tutorial setup.  (Ax's own default
+acquisition is qLogNEI on the same ``SingleTaskGP``; on the noiseless
+benchmark objectives it behaves like qLogEI.)  Py-BOBYQA's
+``seek_global_minimum=True`` mode is not wrapped yet (``TODO.md``).
 
 CI runs these tests in a separate ``test-bo`` job; the default test job
 has no torch and skips them.

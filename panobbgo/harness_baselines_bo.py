@@ -34,16 +34,21 @@ opt-in by name, and run on the virtual clock
   BoTorch TuRBO tutorial, with the restarts of the original algorithm.
 - :class:`SMACBlackBoxStrategy` (``Baseline_SMAC_BB``) — SMAC3's
   ``BlackBoxFacade`` (GP + EI), SMAC's recommendation for low-dimensional
-  continuous problems at small budgets.
-- :class:`PyBOBYQAStrategy` (``Baseline_PyBOBYQA``) — Py-BOBYQA, the local
-  model-based (quadratic trust-region) reference.  **Sequential**: it keeps
-  at most one point in flight, so with ``q > 1`` workers it uses one.
+  continuous problems at small budgets.  SMAC has no batch acquisition:
+  with ``q > 1`` it is asked once per free worker and may hand out
+  near-duplicates.  Its representative result is the ``q = 1`` run; label
+  ``q > 1`` rows "SMAC native (no batch acquisition)".
+- :class:`PyBOBYQAStrategy` (``Baseline_PyBOBYQA``) — Py-BOBYQA, the
+  **local** model-based (quadratic trust-region) reference, not a global
+  optimiser.  **Sequential**: it keeps at most one point in flight, so with
+  ``q > 1`` workers it uses one.
 
 Not included (``doc/source/guide_benchmarking.rst``, "Expensive-track
 baselines"): HEBO (0.3.6 pins ``numpy<1.25`` and ``pymoo==0.6.0``), PDFO
 (wheels only up to CPython 3.12; the source build needs a Fortran
-toolchain), Ax (BoTorch is used directly; Ax adds plotly, ipywidgets, pymoo
-and graphviz for no change in the model).
+toolchain), Ax (BoTorch is used directly with the tutorial setup; Ax adds
+plotly, ipywidgets, pymoo and graphviz, and its own default, qLogNEI on the
+same ``SingleTaskGP``, differs from qLogEI only in handling noise).
 
 Conventions on top of those of :mod:`panobbgo.harness_baselines`
 ------------------------------------------------------------------
@@ -56,11 +61,13 @@ Conventions on top of those of :mod:`panobbgo.harness_baselines`
   SMAC's ``normalize_y=True``.  No other transformation; a huge finite
   value is modelled as it is.
 * **Failed values.**  A NaN value (failed or timed-out call) is still the
-  worst value, but a GP cannot take ``+inf``.  The GP tools replace every
-  non-finite value by the **worst finite value observed so far**:
-  BoTorch and TuRBO recompute it at every fit; SMAC stores costs, so a
-  failure is told with the worst value known at tell time (and waits,
-  as a running trial, until a first finite value exists).  Py-BOBYQA gets
+  worst value, but a GP cannot take ``+inf``.  BoTorch and TuRBO replace
+  every non-finite value by the **worst finite value observed so far**,
+  recomputed at every fit.  SMAC stores costs, so a failure is told at
+  tell time with the conservative ``worst + (worst - best)`` of the finite
+  values known then, which ranks it below every real point known then (a
+  later, worse value can still exceed it); a failure before any finite
+  value exists waits as a running trial until one does.  Py-BOBYQA gets
   the "moderated extreme barrier" of Powell's solvers in PRIMA / PDFO:
   NaN and ``+inf`` become ``1e30`` (PRIMA's ``FUNCMAX``) and finite values
   are clipped there.
@@ -78,7 +85,8 @@ Conventions on top of those of :mod:`panobbgo.harness_baselines`
   get explicit seeds, SMAC gets ``Scenario(seed=...)``, Py-BOBYQA's thread
   seeds numpy's global RNG (restored by the driver after the run).
 * **Wall time.**  GP fits dominate; the per-run cost is in the guide.
-  Run these baselines with ``--no-timeout`` in ``benchmark_harness.py``.
+  The strategies set ``no_wall_timeout``, so ``benchmark_harness.py``'s
+  per-run wall-clock timeout does not cut them.
 """
 
 from __future__ import annotations
@@ -188,8 +196,9 @@ class _BoTorchQLogEIAdapter(AskTellAdapter):
     """Batch ``qLogExpectedImprovement`` on a ``SingleTaskGP`` (BoTorch tutorial settings).
 
     * Initial design: ``max(5, 2·d)`` scrambled Sobol points (Ax's rule for
-      the Sobol step), at least ``q``, at most the budget.  After it, and
-      whenever no finite value is known yet with nothing pending, more
+      the Sobol step), at least ``q``, at most the budget.  As in Ax, the
+      model takes over only once ``max(2, ceil(n_init / 2))`` points are
+      observed (one of them finite); until then free workers get more
       points of the same Sobol sequence.
     * Model: ``SingleTaskGP`` with its defaults (BoTorch ≥ 0.12: RBF kernel
       with dimension-scaled log-normal length-scale prior, ``Standardize``
@@ -216,6 +225,8 @@ class _BoTorchQLogEIAdapter(AskTellAdapter):
         self._rng = np.random.default_rng(_seed32(seed))
         d = self._box.dim
         self.n_init = int(min(max(1, budget), max(5, 2 * d, int(batch_size))))
+        #: Observations the model needs before it proposes (Ax: half the design).
+        self.min_observed = max(2, math.ceil(self.n_init / 2))
         # One scrambled Sobol sequence per run: the initial design, then continuation points.
         self._engine = self._torch.quasirandom.SobolEngine(
             dimension=d, scramble=True, seed=int(self._rng.integers(0, 2**31 - 1))
@@ -235,7 +246,7 @@ class _BoTorchQLogEIAdapter(AskTellAdapter):
         out.append((key, self._box.to_box(u)))
 
     def _can_model(self) -> bool:
-        return len(self._f) >= 2 and bool(np.isfinite(self._f).any())
+        return len(self._f) >= self.min_observed and bool(np.isfinite(self._f).any())
 
     def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
         out: List[Tuple[int, np.ndarray]] = []
@@ -247,7 +258,7 @@ class _BoTorchQLogEIAdapter(AskTellAdapter):
         if self._can_model():
             for u in self._propose(m):
                 self._hand_out(u, out)
-        elif not self._pending:
+        else:
             for _ in range(m):
                 self._hand_out(self._next_design_point(), out)
         return out
@@ -290,6 +301,7 @@ class BoTorchQLogEIStrategy(AskTellBaselineStrategy):
     who: str = "BoTorch_qLogEI"
     requires = _BoTorchQLogEIAdapter.requires
     extra: str = BO_EXTRA
+    no_wall_timeout: bool = True
 
     def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
         box = self.problem.box
@@ -302,7 +314,9 @@ class BoTorchQLogEIStrategy(AskTellBaselineStrategy):
 class _TurboState:
     """The trust-region state of the BoTorch TuRBO-1 tutorial (``TurboState`` / ``update_state``).
 
-    ``success_tolerance = 10`` as in the tutorial (the paper uses 3);
+    ``success_tolerance = 3`` as in Eriksson et al. (2019) and the
+    uber-research reference code (the BoTorch tutorial uses 10, with which
+    the region practically never expands at 10…200·d evaluations);
     ``failure_tolerance = ceil(max(4/q, d/q))``; length 0.8 in
     ``[0.5**7, 1.6]``.  ``best_value`` starts at the best value of the run's
     initial design.
@@ -315,7 +329,7 @@ class _TurboState:
         self.failure_counter = 0
         self.failure_tolerance = int(math.ceil(max(4.0 / batch_size, float(dim) / batch_size)))
         self.success_counter = 0
-        self.success_tolerance = 10
+        self.success_tolerance = 3
         self.best_value = float(best_value)
         self.restart_triggered = False
 
@@ -485,6 +499,7 @@ class BoTorchTuRBOStrategy(AskTellBaselineStrategy):
     who: str = "TuRBO1"
     requires = _TurboAdapter.requires
     extra: str = BO_EXTRA
+    no_wall_timeout: bool = True
 
     def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
         box = self.problem.box
@@ -517,7 +532,10 @@ class _SMACAdapter(AskTellAdapter):
       ``xi=0``, local-and-sorted random search over 1000 challengers,
       random interleaving with probability 0.085.
     * ``q > 1``: one ``ask`` per free worker, as SMAC's Dask runner does;
-      asked trials are running trials to SMAC.
+      asked trials are running trials to SMAC, which has no pending-point
+      or fantasy handling, so a batch may hold near-duplicates (native
+      behaviour; report SMAC at ``q = 1``).
+    * Failed values: told as CRASHED with :meth:`failure_cost`.
     * SMAC writes its run files into a temporary directory removed by
       :meth:`close`; ``logging_level=False`` leaves the host's logging
       configuration alone.
@@ -548,6 +566,12 @@ class _SMACAdapter(AskTellAdapter):
         self._pending: Dict[int, Any] = {}
         self._deferred: List[Any] = []  # failed trials waiting for a first finite value
         self._worst: Optional[float] = None
+        self._best: Optional[float] = None
+
+    def failure_cost(self) -> float:
+        """The cost a failed trial is told with: ``worst + (worst - best)`` of the finite values so far."""
+        assert self._worst is not None and self._best is not None
+        return self._worst + (self._worst - self._best)
 
     def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
         out: List[Tuple[int, np.ndarray]] = []
@@ -567,14 +591,15 @@ class _SMACAdapter(AskTellAdapter):
         fx = float(fx)
         if math.isfinite(fx):
             self._worst = fx if self._worst is None else max(self._worst, fx)
+            self._best = fx if self._best is None else min(self._best, fx)
             self._tell(info, fx, self._status.SUCCESS)
             for failed in self._deferred:
-                self._tell(failed, self._worst, self._status.CRASHED)
+                self._tell(failed, self.failure_cost(), self._status.CRASHED)
             self._deferred = []
         elif self._worst is None:
             self._deferred.append(info)
         else:
-            self._tell(info, self._worst, self._status.CRASHED)
+            self._tell(info, self.failure_cost(), self._status.CRASHED)
 
     def close(self) -> None:
         shutil.rmtree(self._tmp, ignore_errors=True)
@@ -586,6 +611,7 @@ class SMACBlackBoxStrategy(AskTellBaselineStrategy):
     who: str = "SMAC_BB"
     requires = _SMACAdapter.requires
     extra: str = BO_EXTRA
+    no_wall_timeout: bool = True
 
     def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
         del batch_size
@@ -615,17 +641,19 @@ class _PyBOBYQAAdapter(AskTellAdapter):
     random point.  Failed values: :func:`moderated_extreme_barrier`.
 
     **Sequential**: at most one point is in flight; ``ask(n)`` returns one
-    point, or ``[]`` while it waits for a result.
+    point, or ``[]`` while it waits for a result.  A **local** reference:
+    Py-BOBYQA's ``seek_global_minimum=True`` mode is not wrapped (TODO).
     """
 
     requires = ("pybobyqa",)
-    #: At most this many points in flight, whatever ``q`` is.
-    max_in_flight: Optional[int] = 1
 
     def __init__(self, lo: np.ndarray, hi: np.ndarray, seed: int, budget: int) -> None:
         self._pybobyqa = _req("pybobyqa")
         self._lo = np.asarray(lo, dtype=np.float64)
         self._hi = np.asarray(hi, dtype=np.float64)
+        if not np.all(self._hi > self._lo):
+            # scaling_within_bounds divides by hi - lo: Py-BOBYQA would probe NaN points.
+            raise ValueError("Py-BOBYQA needs a box with hi > lo in every coordinate")
         self._rng = np.random.default_rng(_seed32(seed))
         self._budget = int(budget)
         self._asked = 0
@@ -634,6 +662,7 @@ class _PyBOBYQAAdapter(AskTellAdapter):
         self._to_solver: "queue.Queue[Optional[float]]" = queue.Queue()
         self._thread: Optional[threading.Thread] = None
         self._pending_key: Optional[int] = None
+        self._run_points = 0  # points the current run has handed out
 
     def _solver(self, x0: np.ndarray, maxfun: int, np_seed: int) -> None:
         def objfun(x: np.ndarray) -> float:
@@ -670,6 +699,7 @@ class _PyBOBYQAAdapter(AskTellAdapter):
             daemon=True,
         )
         self.runs += 1
+        self._run_points = 0
         self._thread.start()
 
     def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
@@ -686,8 +716,14 @@ class _PyBOBYQAAdapter(AskTellAdapter):
             self._thread = None
             if kind == "error":
                 raise payload
+            if self._run_points == 0:
+                # A run that ends without evaluating anything (Py-BOBYQA's
+                # EXIT_INPUT_ERROR, e.g. a degenerate box lo == hi) would do
+                # the same on every restart.
+                raise RuntimeError("Py-BOBYQA ended a run without evaluating a point (input error?)")
         key = self._asked
         self._asked += 1
+        self._run_points += 1
         self._pending_key = key
         return [(key, np.clip(payload, self._lo, self._hi))]
 
@@ -710,6 +746,7 @@ class PyBOBYQAStrategy(AskTellBaselineStrategy):
     who: str = "PyBOBYQA"
     requires = _PyBOBYQAAdapter.requires
     extra: str = BO_EXTRA
+    no_wall_timeout: bool = True
 
     def make_adapter(self, seed: int, budget: int, batch_size: int) -> AskTellAdapter:
         del batch_size

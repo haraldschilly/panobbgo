@@ -34,6 +34,7 @@ import pytest
 
 from panobbgo.harness import BenchmarkHarness, HarnessConfig
 from panobbgo.harness_baselines import (
+    ALL_EXTERNAL_BASELINE_NAMES,
     EXTERNAL_BASELINE_NAMES,
     AskTellAdapter,
     AskTellBaselineStrategy,
@@ -333,12 +334,12 @@ def test_default_baseline_set_is_unchanged():
 def test_external_baselines_join_by_name():
     names = [s.name for s in make_baseline_strategies(["Baseline_NGOpt", "Baseline_pycma_BIPOP", "Other"])]
     assert names[3:] == ["Baseline_pycma_BIPOP", "Baseline_NGOpt"]
-    assert len(set(EXTERNAL_BASELINE_NAMES)) == 11
+    assert len(set(EXTERNAL_BASELINE_NAMES)) == 7
 
 
 def test_names_derive_from_the_classes():
     specs = make_external_baseline_strategies()
-    assert tuple(s.name for s in specs) == EXTERNAL_BASELINE_NAMES
+    assert tuple(s.name for s in specs) == ALL_EXTERNAL_BASELINE_NAMES
     assert all(s.name == f"Baseline_{s.strategy_class.who}" for s in specs)
 
 

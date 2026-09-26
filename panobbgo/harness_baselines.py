@@ -47,13 +47,14 @@ baselines``) — opt-in by name, see :data:`EXTERNAL_BASELINE_NAMES`:
 External, expensive track, from the optional ``baselines-bo`` extra —
 BoTorch qLogEI, TuRBO-1, SMAC3's BlackBox facade, Py-BOBYQA: see
 :mod:`panobbgo.harness_baselines_bo`; registered here by name
-(:data:`BO_BASELINE_NAMES`).
+(:data:`BO_BASELINE_NAMES`, and with the cheap track in
+:data:`ALL_EXTERNAL_BASELINE_NAMES`).
 
 Every cheap-track external baseline starts from a uniform random point of
 the box (per seed), treats a NaN value as the worst (``+inf``), and is
 deterministic for a fixed seed; see the section comment above
-:class:`AskTellAdapter`.  The expensive-track ones start from a Sobol
-design and give their GP the worst observed value instead of ``+inf``.  Optuna's wall time grows quadratically with the
+:class:`AskTellAdapter`.  The expensive-track ones have their own start
+and failed-value rules (:mod:`panobbgo.harness_baselines_bo`).  Optuna's wall time grows quadratically with the
 budget, so measure Optuna baselines with ``--no-timeout`` in
 ``benchmark_harness.py`` (its default per-run timeout is 120 s).
 
@@ -509,8 +510,15 @@ class SciPyAnnealStrategy(BaselineStrategy):
 
 
 def _extra_hint(extra: str = "baselines") -> str:
-    """The install hint for an optional extra (``baselines`` or ``baselines-bo``)."""
-    return f"install the optional extra: `uv sync --extra {extra}` (or `pip install 'panobbgo[{extra}]'`)"
+    """The install hint for an optional extra (``baselines`` or ``baselines-bo``).
+
+    ``uv sync`` is exact (it removes what the command does not name), so the
+    hint names ``dev`` and both baseline extras together.
+    """
+    return (
+        f"install the optional extra `{extra}`: `uv sync --extra dev --extra baselines --extra baselines-bo`"
+        f" (or `pip install 'panobbgo[{extra}]'`)"
+    )
 
 
 _EXTRA_HINT = _extra_hint()
@@ -1198,29 +1206,35 @@ BO_BASELINE_NAMES: Tuple[str, ...] = (
     "Baseline_PyBOBYQA",
 )
 
-#: Spec names of the external baselines, in registry order: the cheap track
-#: (``baselines`` extra), then :data:`BO_BASELINE_NAMES`.  Not part of the
-#: default ``--baselines`` set: name them in the harness' strategy filter
-#: (``--baselines --strategies Baseline_NGOpt``) to select them.
-EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = (
-    tuple(f"Baseline_{cls.who}" for cls in _EXTERNAL_BASELINE_CLASSES) + BO_BASELINE_NAMES
-)
+#: Spec names of the cheap-track external baselines (the ``baselines``
+#: extra), in registry order.  Not part of the default ``--baselines`` set:
+#: name them in the harness' strategy filter (``--baselines --strategies
+#: Baseline_NGOpt``) to select them.  Iterating over it never needs torch;
+#: the expensive track is :data:`BO_BASELINE_NAMES`.
+EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = tuple(f"Baseline_{cls.who}" for cls in _EXTERNAL_BASELINE_CLASSES)
+
+#: Every opt-in external baseline: :data:`EXTERNAL_BASELINE_NAMES`, then
+#: :data:`BO_BASELINE_NAMES` — the order of
+#: :func:`make_external_baseline_strategies`.
+ALL_EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = EXTERNAL_BASELINE_NAMES + BO_BASELINE_NAMES
 
 #: Spec names of the default ``--baselines`` set.
 DEFAULT_BASELINE_NAMES: Tuple[str, ...] = ("Baseline_Random", "Baseline_SciPyDE", "Baseline_SciPyAnneal")
 
 
 def make_external_baseline_strategies() -> List[StrategySpec]:
-    """Return the :class:`StrategySpec` list for every external baseline.
+    """Return the :class:`StrategySpec` list for every opt-in external baseline.
 
-    Needs no optional import; :func:`make_baseline_strategies` checks the
-    extra for the ones a run selects.
+    Both tracks, in :data:`ALL_EXTERNAL_BASELINE_NAMES` order; each class
+    names its extra (``extra`` attribute).  Needs no optional import;
+    :func:`make_baseline_strategies` checks the extra for the ones a run
+    selects.
     """
     from panobbgo.harness_baselines_bo import BO_BASELINE_CLASSES
 
     return [
         StrategySpec(name=name, strategy_class=cls, heuristics=[])
-        for name, cls in zip(EXTERNAL_BASELINE_NAMES, _EXTERNAL_BASELINE_CLASSES + BO_BASELINE_CLASSES)
+        for name, cls in zip(ALL_EXTERNAL_BASELINE_NAMES, _EXTERNAL_BASELINE_CLASSES + BO_BASELINE_CLASSES)
     ]
 
 
@@ -1233,7 +1247,7 @@ def check_baseline_selection(names: Optional[Iterable[str]], include_baselines: 
     """
     if include_baselines or not names:
         return
-    asked = sorted(set(names) & set(DEFAULT_BASELINE_NAMES + EXTERNAL_BASELINE_NAMES))
+    asked = sorted(set(names) & set(DEFAULT_BASELINE_NAMES + ALL_EXTERNAL_BASELINE_NAMES))
     if asked:
         raise ValueError(
             f"{asked} are baseline strategies: add --baselines (HarnessConfig(include_baselines=True)) to select them"
@@ -1251,7 +1265,7 @@ def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[Stra
     Args:
         extra: Strategy names (e.g. the harness' ``--strategies`` filter).
             The external baselines named in it (see
-            :data:`EXTERNAL_BASELINE_NAMES`) are appended; other names are
+            :data:`ALL_EXTERNAL_BASELINE_NAMES`) are appended; other names are
             ignored.  ``None`` returns the default set: Random, SciPy DE,
             SciPy dual annealing.
 
@@ -1288,6 +1302,7 @@ def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[Stra
 
 
 __all__ = [
+    "ALL_EXTERNAL_BASELINE_NAMES",
     "BO_BASELINE_NAMES",
     "DEFAULT_BASELINE_NAMES",
     "EXTERNAL_BASELINE_NAMES",

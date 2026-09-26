@@ -1,0 +1,48 @@
+name: Stress segv (temporary experiment)
+
+on:
+  pull_request:
+    branches: [master]
+
+env:
+  PYTHON: "3.14"
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
+      ATEN_CPU_CAPABILITY: avx2
+      MKL_CBWR: AVX2
+      MKL_ENABLE_INSTRUCTIONS: AVX2
+      ONEDNN_MAX_CPU_ISA: AVX2
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - run: uv sync --extra dev --extra baselines
+      - run: lscpu | grep -E 'Model name|^CPU\(s\)'; nproc
+      - name: Loop the timeout test file + feature tests
+        run: |
+          crashes=0
+          for i in $(seq 1 12); do
+            set +e
+            uv run python -X faulthandler -m pytest -q -p no:randomly --cov=panobbgo \
+              tests/test_families_shapes_failures.py tests/test_features.py > out.log 2>&1
+            rc=$?
+            set -e
+            echo "iter $i rc=$rc $(tail -1 out.log)"
+            if [ $rc -gt 1 ]; then crashes=$((crashes+1)); grep -A3 "Fatal Python\|Current thread" out.log | head -20; grep "Binary file" out.log | tail -3; fi
+          done
+          echo "CRASHES=$crashes/12"

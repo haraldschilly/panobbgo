@@ -65,6 +65,7 @@ ceiling does not hold the main package back.
     (seed, cell) runs go to N `spawn` worker processes
     (`panobbgo.local_run.TaskPool`).  Under `sync_eval` the records do not
     depend on N.
-*   On a shared machine, run long jobs under `nice -n 15` and size N to the
-    free cores and memory.  Large measurements can go to GitHub runners
+*   On a shared machine every local run is `nice -n 10 ionice -c3 <cmd>`
+    and uses at most half the cores in total (`--jobs`, `pytest -n` and
+    BLAS threads together); fewer when other jobs are running.  Large measurements can go to GitHub runners
     instead ([benchmarking.md](benchmarking.md#re-baselining-on-github-runners)).

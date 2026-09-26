@@ -1111,6 +1111,16 @@ model (<code class="docutils literal notranslate"><span class="pre">constant</sp
 explicit nominal mean), and results reach the strategy in <code class="docutils literal notranslate"><span class="pre">(completion</span>
 <span class="pre">time,</span> <span class="pre">dispatch</span> <span class="pre">order)</span></code> order.  A seeded run is bit-reproducible on any
 host.</p>
+<p><strong>Common random numbers.</strong>  The harnesses key the duration stream on the
+<em>cell</em> — base seed, problem, dimension, instance, rep — not on the strategy
+(<code class="docutils literal notranslate"><span class="pre">VirtualSpec.duration_seed</span></code>, <code class="docutils literal notranslate"><span class="pre">evaluation.virtual_duration_seed</span></code>), and
+every driver draws one duration per dispatch in dispatch order.  So on one
+cell the i-th dispatched call takes the same time for every strategy and
+baseline, and a paired comparison is paired in its durations too; the
+optimizer seeds stay per strategy.  Result files record this as
+<code class="docutils literal notranslate"><span class="pre">&quot;durations&quot;:</span> <span class="pre">&quot;crn&quot;</span></code> in <code class="docutils literal notranslate"><span class="pre">virtual</span></code>; virtual-clock files from before
+2026-09-26 lack it (their streams were keyed per strategy) and are not
+comparable.</p>
 <p>The default policy (<code class="docutils literal notranslate"><span class="pre">--virtual-policy</span> <span class="pre">async</span></code>) is the asynchronous
 expensive-evaluation one: a decision point at every completion instant, the
 handlers drain (optimizer time is negligible), and the strategy is asked for

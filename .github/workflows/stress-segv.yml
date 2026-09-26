@@ -1,0 +1,40 @@
+name: L2 size probe (temporary experiment)
+
+on:
+  pull_request:
+    branches: [master]
+
+env:
+  PYTHON: "3.14"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+      - name: Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - run: uv sync --extra dev
+      - name: Probe
+        run: |
+          lscpu | grep -E 'Model name|L2 cache|L3 cache'
+          grep -o -w avx512f /proc/cpuinfo | head -1 || echo "no avx512f"
+          set +e
+          uv run python probe_l2.py plain > p.log 2>&1; echo "RESULT plain rc=$? $(grep ALL p.log)"
+          OPENBLAS_L2_SIZE=2048 uv run python probe_l2.py l2_2048 > q.log 2>&1; echo "RESULT l2_2048 rc=$? $(grep ALL q.log)"
+          paste p.log q.log | head -12
+          OPENBLAS_L2_SIZE=2048 uv run python -X faulthandler -m pytest -q -p no:randomly tests/test_features.py > t.log 2>&1; echo "RESULT features_l2_2048 rc=$? $(tail -1 t.log)"

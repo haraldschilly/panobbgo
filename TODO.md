@@ -3,9 +3,9 @@
 Open work only; remove an item when it is done.  Results go to
 `planning/DISCOVERY_2026-09-09.md` (§n), the state and plan of record to
 `planning/GOAL.md` §2/§2c, older history to `planning/done/TODO_archive_*`.
-References for every comparison: the 2026-09-26 re-baseline (§54, release
-`rebaseline-2026-09-26-run36228301268`, summary in
-`planning/results/2026-09-26/SUMMARY.json`).
+References for every comparison: the FP-exact 2026-09-26 re-baseline
+(§56, release `rebaseline-2026-09-26-run36265786623`, summary in
+`planning/results/2026-09-26-run36265786623/SUMMARY.json`).
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -50,13 +50,6 @@ extra).
       MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in
       `fp-check.yml`) before claiming bit-identity for BoTorch / TuRBO.
-
-- [ ] **Re-baseline after the FP pin is verified (the 2026-09-26
-      references mix two FP classes).**  Dispatch `fp-check.yml`; if all 8
-      jobs are bit-identical, `gh workflow run rebaseline.yml -f suites=all
-      -f seeds=12` and switch the references (TODO header,
-      `doc/dev/benchmarking.md` "Comparability") to the new release
-      (`doc/dev/benchmarking.md`, "Evaluations, not wall time").
 
 - [ ] **Real async loop → pull-when-free.**  The threaded / processes /
       dask loop sizes batches by `jobs_per_client` from wall-clock timings

@@ -64,10 +64,11 @@ Conventions on top of those of :mod:`panobbgo.harness_baselines`
   worst value, but a GP cannot take ``+inf``.  BoTorch and TuRBO replace
   every non-finite value by the **worst finite value observed so far**,
   recomputed at every fit.  SMAC stores costs, so a failure is told at
-  tell time with the conservative ``worst + (worst - best)`` of the finite
-  values known then, which ranks it below every real point known then (a
-  later, worse value can still exceed it); a failure before any finite
-  value exists waits as a running trial until one does.  Py-BOBYQA gets
+  tell time with the conservative ``worst + max(worst - best, |worst|·1e-6,
+  1e-12)`` of the finite values known then, which ranks it strictly below
+  every real point known then (a later, worse value can still exceed it);
+  a failure before any finite value exists waits as a running trial until
+  one does.  Py-BOBYQA gets
   the "moderated extreme barrier" of Powell's solvers in PRIMA / PDFO:
   NaN and ``+inf`` become ``1e30`` (PRIMA's ``FUNCMAX``) and finite values
   are clipped there.
@@ -196,10 +197,11 @@ class _BoTorchQLogEIAdapter(AskTellAdapter):
     """Batch ``qLogExpectedImprovement`` on a ``SingleTaskGP`` (BoTorch tutorial settings).
 
     * Initial design: ``max(5, 2·d)`` scrambled Sobol points (Ax's rule for
-      the Sobol step), at least ``q``, at most the budget.  As in Ax, the
-      model takes over only once ``max(2, ceil(n_init / 2))`` points are
-      observed (one of them finite); until then free workers get more
-      points of the same Sobol sequence.
+      the Sobol step), at least ``q``, at most the budget.  The model
+      takes over only once ``max(2, ceil(n_init / 2))`` points are
+      observed, one of them finite (Ax's threshold).  Until then free
+      workers get more points of the same Sobol sequence, where Ax would
+      leave them idle.
     * Model: ``SingleTaskGP`` with its defaults (BoTorch ≥ 0.12: RBF kernel
       with dimension-scaled log-normal length-scale prior, ``Standardize``
       outcome transform) on inputs in the unit cube, fitted by
@@ -569,9 +571,15 @@ class _SMACAdapter(AskTellAdapter):
         self._best: Optional[float] = None
 
     def failure_cost(self) -> float:
-        """The cost a failed trial is told with: ``worst + (worst - best)`` of the finite values so far."""
+        """The cost a failed trial is told with, strictly above every finite value so far.
+
+        ``worst + max(worst - best, |worst|·1e-6, 1e-12)``, clipped to the
+        largest float: the spread of the values seen as a margin, and a
+        positive one when all values are equal.
+        """
         assert self._worst is not None and self._best is not None
-        return self._worst + (self._worst - self._best)
+        margin = max(self._worst - self._best, abs(self._worst) * 1e-6, 1e-12)
+        return float(min(self._worst + margin, np.finfo(float).max))
 
     def ask(self, n: int) -> List[Tuple[int, np.ndarray]]:
         out: List[Tuple[int, np.ndarray]] = []

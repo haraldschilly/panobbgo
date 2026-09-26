@@ -113,6 +113,7 @@ from panobbgo.harness_ioh import (
     _run_tracked,
     _TrackedRun,
     warn_missing_time_scores,
+    wall_timeout_for,
 )
 from panobbgo.lib.families import FailureRegion, Family, FamilyConfig, make_family_instances
 from panobbgo.sealed import SEALED_FAMILY_SEED, print_sealed_banner
@@ -465,6 +466,7 @@ def _run_one(
     virtual: Optional[VirtualSpec] = None,
 ) -> IOHRunRecord:
     """Run one strategy on one family instance; same driver as ``harness_ioh._run_one``."""
+    timeout_s = wall_timeout_for(strategy_spec, timeout_s)
     t0 = time.time()
     f_opt = float(problem.f_opt)
     tracked = _TrackedRun(n_evals=0, best_fx=float("inf"), aocc=0.0, trace_evals=[], trace_fx=[])

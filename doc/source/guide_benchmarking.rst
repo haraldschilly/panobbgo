@@ -673,9 +673,9 @@ Each uses its library's recommended setup for small budgets:
   dimension-scaled log-normal length-scale prior, ``Standardize`` outcome
   transform), inputs in the unit cube, refitted with ``fit_gpytorch_mll``
   before every proposal.  Initial design: ``max(5, 2·d)`` scrambled Sobol
-  points (Ax's rule); as in Ax, the model takes over once
-  ``max(2, ceil(n_init/2))`` points are observed, and free workers get
-  more Sobol points until then.  ``best_f`` is the best observed value,
+  points (Ax's rule); the model takes over once ``max(2,
+  ceil(n_init/2))`` points are observed (Ax's threshold), and free workers
+  get more Sobol points until then (Ax would leave them idle).  ``best_f`` is the best observed value,
   the MC sampler a 256-sample ``SobolQMCNormalSampler``;
   ``optimize_acqf(num_restarts=10, raw_samples=512, batch_limit=5,
   maxiter=200)`` as in the BoTorch tutorials.
@@ -721,10 +721,10 @@ The parallel-BO comparison therefore rests on qLogEI and TuRBO:
 **Failed values.**  A GP cannot take ``+inf``.  BoTorch and TuRBO replace
 every failed (NaN) or non-finite value by the worst finite value observed
 so far, recomputed at every fit.  SMAC stores costs, so a failure is told
-as a CRASHED trial with the conservative ``worst + (worst - best)`` of the
-finite values known at tell time, which ranks it below every real point
-known then; a failure before any finite value waits as a running trial
-until one exists.  Py-BOBYQA gets the moderated extreme barrier of
+as a CRASHED trial with the conservative ``worst + max(worst - best,
+|worst|·1e-6, 1e-12)`` of the finite values known at tell time, which
+ranks it strictly below every real point known then; a failure before any
+finite value waits as a running trial until one exists.  Py-BOBYQA gets the moderated extreme barrier of
 Powell's solvers in PRIMA / PDFO: NaN and ``+inf`` become ``1e30`` and
 finite values are clipped there.  Huge finite values reach every model
 unchanged (only each library's own standardisation applies).
@@ -757,9 +757,13 @@ depends on how many proposals it makes, and that depends on the driver:
 - Py-BOBYQA takes under a second.
 
 Budget one GitHub runner job per (baseline, few problems), not per
-battery.  ``benchmark_harness.py``'s per-run wall-clock timeout (120 s by
-default) does not apply to these strategies (``no_wall_timeout``); every
-other strategy of the same run is still cut.
+battery.  No per-run wall-clock timeout applies to these strategies
+(``no_wall_timeout``): neither ``benchmark_harness.py``'s (120 s by
+default) nor ``ioh_benchmark.py run --timeout`` on the IOH and family
+tracks; every other strategy of the same run is still cut.  ``compare``
+warns when the two files come from different batteries (a ``-bN``
+budget suffix included) and refuses to gate under
+``--fail-on-regression``.
 
 **Not included.**  HEBO 0.3.6 (the latest release, 2024) pins
 ``numpy<1.25`` and ``pymoo==0.6.0`` and cannot be installed next to

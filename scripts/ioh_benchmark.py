@@ -404,7 +404,8 @@ def _compare_single(before: IOHHarnessResult, after: IOHHarnessResult, fail_on_r
 
 
 def _run_key(r: Any) -> Tuple[Any, ...]:
-    return (r.strategy_name, r.problem_kind, r.fid, r.dim, r.instance, r.rep)
+    # The budget too: runs of one cell at different budgets (--budget-multiplier) are not a pair.
+    return (r.strategy_name, r.problem_kind, r.fid, r.dim, r.instance, r.rep, r.budget)
 
 
 def _common_cell_delta(before: IOHHarnessResult, after: IOHHarnessResult) -> Tuple[int, float]:
@@ -527,6 +528,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
                 f"{key}={d_after.get(key)}): {what}.",
                 file=sys.stderr,
             )
+    b_battery, a_battery = d_before.get("battery_name"), d_after.get("battery_name")
+    if b_battery != a_battery:
+        print(
+            f"warning: battery mismatch ({args.before} battery={b_battery}, {args.after} battery={a_battery}) "
+            "— different cells or budgets (--budget-multiplier) are not comparable"
+            + ("; --fail-on-regression refuses to gate." if args.fail_on_regression else "."),
+            file=sys.stderr,
+        )
+        if args.fail_on_regression:
+            return 2
     b_multi = bool(d_before.get("multi_seed"))
     a_multi = bool(d_after.get("multi_seed"))
     if b_multi != a_multi:
@@ -688,7 +699,8 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         default=None,
         metavar="SECONDS",
         help="Per-run wall-clock deadline (default: none).  A run past it is stopped, "
-        "scored on its trajectory so far and marked with a TimeoutError.  A wedged IOH "
+        "scored on its trajectory so far and marked with a TimeoutError.  Not applied to the "
+        "expensive-track baselines (no_wall_timeout).  A wedged IOH "
         "worker is bounded separately by IOHProblem.call_timeout (300 s per round-trip).",
     )
     run_p.add_argument(

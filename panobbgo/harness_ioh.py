@@ -1603,6 +1603,18 @@ class _TrackedRun:
     aocc_time: Optional[float] = None
 
 
+def wall_timeout_for(strategy_spec: StrategySpec, timeout_s: Optional[float]) -> Optional[float]:
+    """The per-run wall-clock deadline for ``strategy_spec``: ``None`` for a ``no_wall_timeout`` class.
+
+    The expensive-track baselines (:mod:`panobbgo.harness_baselines_bo`)
+    spend minutes per run in GP fits by design; a deadline would score them
+    on a stub.  Every other strategy keeps ``timeout_s``.
+    """
+    if getattr(strategy_spec.strategy_class, "no_wall_timeout", False):
+        return None
+    return timeout_s
+
+
 def _run_tracked(*args: Any, **kwargs: Any) -> _TrackedRun:
     """:func:`_run_tracked_unpinned` with BLAS pinned to :data:`~panobbgo.local_run.BLAS_THREADS`.
 
@@ -1765,6 +1777,8 @@ def _run_one(
     and a run made this way is at least marked ``sealed`` in its record.
     """
     from panobbgo.lib.ioh_wrapper import IOHProblem
+
+    timeout_s = wall_timeout_for(strategy_spec, timeout_s)
 
     if problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")

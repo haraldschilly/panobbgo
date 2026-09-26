@@ -512,12 +512,13 @@ class SciPyAnnealStrategy(BaselineStrategy):
 def _extra_hint(extra: str = "baselines") -> str:
     """The install hint for an optional extra (``baselines`` or ``baselines-bo``).
 
-    ``uv sync`` is exact (it removes what the command does not name), so the
-    hint names ``dev`` and both baseline extras together.
+    Names only that extra (``baselines`` never pulls torch).  ``uv sync`` is
+    exact — it removes what the command does not name — so the hint says to
+    add the other extras in use.
     """
     return (
-        f"install the optional extra `{extra}`: `uv sync --extra dev --extra baselines --extra baselines-bo`"
-        f" (or `pip install 'panobbgo[{extra}]'`)"
+        f"install the optional extra `{extra}`: `uv sync --extra dev --extra {extra}` (uv sync is exact:"
+        f" add every other extra you use) or `pip install 'panobbgo[{extra}]'`"
     )
 
 

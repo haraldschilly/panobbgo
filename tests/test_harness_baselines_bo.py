@@ -258,11 +258,16 @@ def test_smac_parallel_asks_and_conservative_failure_cost():
         (k0, _), (k1, _), (k2, _), (k3, _) = trials
         adapter.tell(k0, float("nan"))  # no finite value yet: waits as a running trial
         assert len(adapter._deferred) == 1
-        adapter.tell(k1, 5.0)  # releases k0 at worst + (worst - best) = 5
+        adapter.tell(k1, 5.0)  # releases k0: worst = best = 5, margin |5|·1e-6
         adapter.tell(k2, 2.0)
         adapter.tell(k3, float("inf"))  # 5 + (5 - 2) = 8: below every real point
         costs = sorted(v.cost for v in adapter._smac.runhistory._data.values())
-        assert costs == [2.0, 5.0, 5.0, 8.0]
+        assert costs == [2.0, 5.0, pytest.approx(5.000005, abs=1e-12), 8.0]
+        # Equal values of 0: the absolute floor keeps the failure strictly worse.
+        adapter._worst = adapter._best = 0.0
+        assert adapter.failure_cost() == 1e-12
+        adapter._worst, adapter._best = 1e308, -1e308
+        assert adapter.failure_cost() == np.finfo(float).max
     finally:
         adapter.close()
     assert not os.path.exists(tmp)
@@ -293,8 +298,15 @@ def test_pybobyqa_run_without_evaluations_raises_instead_of_restarting_forever(m
 
     with pytest.raises(ValueError, match="hi > lo"):
         _PyBOBYQAAdapter(np.zeros(2), np.zeros(2), seed=1, budget=10)
-    # Py-BOBYQA's EXIT_INPUT_ERROR returns before the first evaluation.
-    monkeypatch.setattr(pybobyqa, "solve", lambda *a, **k: None)
+    # Py-BOBYQA's EXIT_INPUT_ERROR returns before the first evaluation.  The
+    # stub fails the test on a second run (a restart loop), so it cannot hang.
+    runs = []
+
+    def solve(*a, **k):
+        runs.append(1)
+        assert len(runs) == 1, "restarted after a run without evaluations"
+
+    monkeypatch.setattr(pybobyqa, "solve", solve)
     adapter = _PyBOBYQAAdapter(np.zeros(2), np.ones(2), seed=1, budget=10)
     try:
         with pytest.raises(RuntimeError, match="without evaluating"):
@@ -397,6 +409,21 @@ def test_composite_harness_does_not_cut_bo_baselines_at_the_wall_timeout():
     (run,) = result.problem_strategy_results[0].runs
     assert run.error is None
     assert run.evaluations_used == 20
+
+
+@_needs("pybobyqa")
+def test_family_track_does_not_cut_bo_baselines_at_the_wall_timeout():
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.harness_baselines import RandomSearchStrategy
+    from panobbgo.harness_families import _run_one, make_families_battery
+    from panobbgo.harness_ioh import wall_timeout_for
+
+    bo = StrategySpec(name="Baseline_PyBOBYQA", strategy_class=PyBOBYQAStrategy, heuristics=[])
+    other = StrategySpec(name="Baseline_Random", strategy_class=RandomSearchStrategy, heuristics=[])
+    assert wall_timeout_for(bo, 5.0) is None and wall_timeout_for(other, 5.0) == 5.0
+    _name, problem = make_families_battery(dims=(2,), n_instances=1)[0]
+    rec = _run_one(bo, problem, 0, 20, 1, -8.0, 2.0, True, timeout_s=1e-9)
+    assert rec.error is None and rec.n_evals == 20
 
 
 def _ioh_cli():

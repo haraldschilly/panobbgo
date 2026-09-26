@@ -14,7 +14,13 @@ is for.  This screen runs the same four specs over
 * the **constrained** preset — four families with 1 to 3 constraints that
   are *active at the optimum*, at ``d`` = 2 and 5.  Panobbgo's constraint
   handling (``lib/constraints.py``) has never been measured on AOCC at
-  all; this is its first number.
+  all; this is its first number;
+* the **shapes** preset — the five BBOB shapes the free preset lacks
+  (Lunacek double funnel, Gallagher peaks, attractive sector, step
+  ellipsoid, bent cigar) at ``d`` = 2, 5 and 10;
+* the **failure** preset — four families with a region where evaluations
+  crash or time out (half-space with the optimum on its boundary, ball,
+  random boxes), at ``d`` = 2 and 5.  Failed calls are spent budget.
 
 The specs are copied verbatim from ``benchmarks/portfolio_screen.py`` so
 the two screens are the same comparison on different problems:
@@ -31,7 +37,7 @@ the strategy's own effect (``StrategySpec.seed_name``, §18).
 Usage::
 
     uv run python benchmarks/family_screen.py OUT.json SEED [SEED ...] \
-        [preset=free|constrained] [dims=2,5,10] [bm=500] [ninst=3] \
+        [preset=free|constrained|shapes|failure] [dims=2,5,10] [bm=500] [ninst=3] \
         [specs=name,name] [timeout=SECONDS] [jobs=N]
 
 ``timeout`` is a per-run wall-clock deadline (default: none); a run past it
@@ -39,7 +45,7 @@ is stopped, scored so far and counted under ``errors``.
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
-    preset    which battery (default: free)
+    preset    which battery: free (default), constrained, shapes, failure
     dims      override the preset's dimensions
     bm        budget multiplier; the budget per run is ``bm * dim``
     ninst     instances per (family, dim)
@@ -58,7 +64,13 @@ and even then the 12-seed roster is what decides.
 import sys
 
 from panobbgo.analyzers import Archive
-from panobbgo.harness_families import make_constrained_battery, make_families_battery, run_family_harness
+from panobbgo.harness_families import (
+    make_constrained_battery,
+    make_failure_battery,
+    make_families_battery,
+    make_shapes_battery,
+    run_family_harness,
+)
 from panobbgo.local_run import screen_jobs
 from panobbgo.heuristics import CMAES, JSO, LSHADE
 from panobbgo.strategies import StrategyBlockBandit, StrategyRoundRobin
@@ -122,7 +134,12 @@ def main():
     #: run*, computed rather than named — §22 killed the idea of one champion.
     REFS = tuple(n for n in SPECS if n.endswith("_alone"))
 
-    PRESETS = {"free": make_families_battery, "constrained": make_constrained_battery}
+    PRESETS = {
+        "free": make_families_battery,
+        "constrained": make_constrained_battery,
+        "shapes": make_shapes_battery,
+        "failure": make_failure_battery,
+    }
 
     # --- argv: `key=value` options, then positionals ---------------------------
     opts, _, pos = parse_argv(sys.argv[1:])

@@ -21,6 +21,9 @@ This module exposes the core data structures used throughout Panobbgo.
 """
 
 from .lib import (
+    EvaluationCrashed,
+    EvaluationFailed,
+    EvaluationTimedOut,
     Point,
     Result,
     Problem,
@@ -39,6 +42,9 @@ except ImportError:
     pass
 
 __all__ = [
+    "EvaluationCrashed",
+    "EvaluationFailed",
+    "EvaluationTimedOut",
     "Point",
     "Result",
     "Problem",

@@ -35,6 +35,42 @@ from numbers import Number
 from typing import Optional, Union, List, Tuple, Any, Sequence
 
 
+class EvaluationFailed(Exception):
+    """An objective's own signal that this call returns no value.
+
+    Base class of :class:`EvaluationCrashed` and :class:`EvaluationTimedOut`.
+    A problem raises one of them from :meth:`Problem.eval` to *simulate* a
+    failed evaluation (the failure regions of
+    :class:`~panobbgo.lib.families.Family`); a real objective that fails
+    raises whatever it raises.  The benchmark trackers
+    (:class:`~panobbgo.ioh_runner.IOHTracker`) count such a call as spent
+    budget without progress, and re-raise it.
+    """
+
+
+class EvaluationCrashed(EvaluationFailed):
+    """The call crashed: the evaluation path books it as a *failed* evaluation.
+
+    Nothing special happens on the way: like any exception raised by an
+    objective it leaves no result, stays charged against ``max_eval`` and is
+    published as ``failed_evaluations``.
+    """
+
+
+class EvaluationTimedOut(EvaluationFailed):
+    """The call *would* have run past ``evaluation.timeout``.
+
+    :meth:`Problem.__call__` turns it into the same placeholder the
+    evaluation paths book for a real timeout — ``Result(point, NaN,
+    cv_vec=None, timed_out=True)`` — without anyone waiting.  Because the
+    conversion happens inside the call, every evaluation path (inline,
+    threads, processes, dask, a simulated clock) receives an ordinary
+    :class:`Result` with :attr:`Result.timed_out` set and books it as a
+    timed-out evaluation, deterministically.  A simulator with a duration
+    model reads the same flag to charge the call its timeout duration.
+    """
+
+
 class Point:
     """
     This contains the x vector for a new point and a
@@ -471,7 +507,12 @@ class Problem:
         if point.x is None:
             raise ValueError("Point coordinates cannot be None during evaluation")
         x = self._untranslate(point.x)
-        fx = self.eval(x)
+        try:
+            fx = self.eval(x)
+        except EvaluationTimedOut:
+            # A signalled timeout: the placeholder of a real one (see
+            # EvaluationTimedOut); the constraints are unknown, as there.
+            return Result(point, float("nan"), cv_vec=None, timed_out=True)
         cv = self.eval_constraints(x)
         return Result(point, fx, cv_vec=cv)
 

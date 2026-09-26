@@ -2903,10 +2903,12 @@ class StrategyBase:
                 self.logger.error("Evaluation failed: %s" % o.error)
                 if o.point is not None:
                     failed.append(o.point)
-            elif isinstance(o.result, list):
-                new_results.extend(o.result)
             else:
-                new_results.append(o.result)
+                batch = o.result if isinstance(o.result, list) else [o.result]
+                new_results.extend(batch)
+                # A timeout the objective signalled itself
+                # (lib.EvaluationTimedOut) arrives as an ordinary result.
+                self.n_timed_out += sum(1 for r in batch if getattr(r, "timed_out", False))
 
     def _publish_failures(self, points):
         """Publish ``failed_evaluations`` (``points``: the :class:`~panobbgo.lib.Point`\\ s that left no result).

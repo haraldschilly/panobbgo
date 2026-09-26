@@ -760,7 +760,11 @@ their rows after every seed so an interrupted run loses nothing:
        generated problem families of :mod:`panobbgo.harness_families` —
        ``preset=free`` (5 families × dims 2/5/10) and ``preset=constrained``
        (4 families × dims 2/5, ``k`` = 1..3 constraints active at the
-       optimum, the first AOCC measurement of the constraint handling).
+       optimum, the first AOCC measurement of the constraint handling),
+       ``preset=shapes`` (the BBOB shapes Lunacek double funnel, Gallagher
+       peaks, attractive sector, step ellipsoid and bent cigar × dims
+       2/5/10) and ``preset=failure`` (4 families × dims 2/5 with a region
+       where evaluations crash or time out; failed calls are spent budget).
        Single runs of the same batteries are also reachable from the IOH CLI
        as ``ioh_benchmark.py run --families`` / ``--families-constrained``
        (and ``--families-quick`` for a smoke test).

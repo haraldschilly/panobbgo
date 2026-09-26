@@ -153,7 +153,14 @@ def test_duration_models():
     with pytest.raises(ValueError):
         VirtualSpec(policy="eager")
     spec = VirtualSpec(workers=2, duration=x0_duration, mean=1.5)
-    assert spec.to_dict() == {"workers": 2, "policy": "async", "model": "callable", "mean": 1.5, "fn": "x0_duration"}
+    assert spec.to_dict() == {
+        "workers": 2,
+        "policy": "async",
+        "model": "callable",
+        "mean": 1.5,
+        "fn": "x0_duration",
+        "durations": "crn",
+    }
     pickle.loads(pickle.dumps(spec))  # a module-level duration function travels to jobs > 1 workers
 
 
@@ -419,7 +426,14 @@ def test_family_harness_scores_aocc_over_virtual_time():
     assert q1.sync_eval is True
     r4 = q4.runs[0]
     assert r4.error is None and r4.aocc_time is not None and 0.0 < r4.aocc_time <= 1.0
-    assert q4.virtual == {"workers": 4, "policy": "async", "model": "lognormal", "mean": 1.0, "sigma": 0.5}
+    assert q4.virtual == {
+        "workers": 4,
+        "policy": "async",
+        "model": "lognormal",
+        "mean": 1.0,
+        "sigma": 0.5,
+        "durations": "crn",
+    }
     back = IOHHarnessResult.from_dict(q4.to_dict())
     assert back.virtual == q4.virtual and back.runs[0].aocc_time == r4.aocc_time
     assert back.per_strategy_aocc_time() == q4.per_strategy_aocc_time()
@@ -1192,3 +1206,78 @@ def test_objective_signalled_timeout_without_failure_at():
         assert r.t_complete - r.t_dispatch == pytest.approx(2.5)
     assert tracker.n_evals == 50
     assert sum(1 for _, v in tracker.timeline if np.isnan(v)) == len(timed)  # each counted once
+
+
+#: Durations drawn by :class:`RecordingLogNormal`, per recorder tag (in-process runs only).
+_DRAWS: dict = {}
+
+
+class RecordingLogNormal(LogNormalDuration):
+    """A log-normal model that records every draw under ``_DRAWS[self.tag]`` (module level: picklable)."""
+
+    tag: Any = "default"
+
+    def __call__(self, x: np.ndarray, rng: np.random.Generator) -> float:
+        d = super().__call__(x, rng)
+        _DRAWS.setdefault(self.tag, []).append(d)
+        return d
+
+
+def test_durations_are_common_random_numbers_per_cell(monkeypatch):
+    """The i-th dispatch of a cell takes the same time for every strategy (and the ask/tell baselines)."""
+    import dataclasses
+
+    from panobbgo.harness_families import make_families_battery, run_family_harness
+    from panobbgo.harness_ioh import make_ioh_strategies
+    from panobbgo.virtual_clock import duration_seed
+
+    assert duration_seed(SimpleNamespace(virtual_duration_seed=None), 7) == 7
+    assert duration_seed(SimpleNamespace(virtual_duration_seed=3), 7) == 3
+    assert duration_seed(SimpleNamespace(), 7) == 7
+
+    specs = [s for s in make_ioh_strategies() if s.name in ("RoundRobin_CMAES", "RoundRobin_Random")]
+    try:
+        from panobbgo.harness_baselines import make_baseline_strategies
+
+        specs += [
+            s for s in make_baseline_strategies(["Baseline_pycma_IPOP"]) if s.name == "Baseline_pycma_IPOP"
+        ]  # the ask/tell driver (run_ask_tell)
+    except ImportError:
+        pass
+    instances = make_families_battery(dims=(2,), n_instances=2)[:2]  # two cells
+    seen: set = set()
+    real_apply = VirtualSpec.apply
+
+    def spy(self, strategy, observer=None):
+        seen.add(self.duration_seed)
+        model = RecordingLogNormal(sigma=0.5)
+        model.tag = (self.duration_seed, getattr(strategy, "name", None) or type(strategy).__name__, id(strategy))
+        real_apply(dataclasses.replace(self, duration=model), strategy, observer)
+
+    monkeypatch.setattr(VirtualSpec, "apply", spy)
+    _DRAWS.clear()
+    res = run_family_harness(
+        specs,
+        instances,
+        budget_multiplier=10,
+        base_seed=5,
+        progress=False,
+        virtual=VirtualSpec(workers=4, duration="lognormal"),
+    )
+    assert all(r.error is None for r in res.runs)
+    # One duration seed per cell, shared by every strategy on it; the cells differ.
+    assert len(seen) == len(instances)
+    # The optimizer seeds stay per strategy.
+    assert len({r.seed for r in res.runs}) == len(res.runs)
+    by_cell: dict = {}
+    for (cell, _name, _id), draws in _DRAWS.items():
+        by_cell.setdefault(cell, []).append(draws)
+    assert len(by_cell) == len(instances)
+    for cell, runs in by_cell.items():
+        assert len(runs) == len(specs)
+        n = min(len(d) for d in runs)
+        assert n >= 10
+        for d in runs[1:]:
+            assert d[:n] == runs[0][:n], "the i-th dispatch must take the same time for every strategy"
+    first, second = (runs[0] for runs in by_cell.values())
+    assert first[:5] != second[:5]

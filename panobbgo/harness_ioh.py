@@ -103,7 +103,7 @@ from panobbgo.sealed import (
     is_dev_instance_id,
     print_sealed_banner,
 )
-from panobbgo.virtual_clock import VirtualSpec
+from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 
 
 # ---------------------------------------------------------------------------
@@ -2048,6 +2048,16 @@ def run_ioh_harness(
         # of one arm can opt into a shared RNG stream so an A/B
         # measures the parameter, not the run-to-run variance.
         seed = _derive_seed(base_seed, battery.problem_kind, dim, instance, spec.rng_identity, rep, noise_seed, fid)
+        # Common random numbers: the duration stream is keyed on the cell, not the strategy.
+        cell_virtual = (
+            None
+            if virtual is None
+            else virtual.with_cell(
+                _derive_seed(
+                    base_seed, battery.problem_kind, dim, instance, DURATION_STREAM_IDENTITY, rep, noise_seed, fid
+                )
+            )
+        )
         fid_tag = f"f{fid:<2d} " if fid is not None else ""
         label = f"{battery.problem_kind} {fid_tag}dim={dim:<2d} inst={instance:<2d} rep={rep} {spec.name}"
         if progress and jobs <= 1:
@@ -2069,7 +2079,7 @@ def run_ioh_harness(
             noise_level=battery.noise_level,
             noise_resample=battery.noise_resample,
             fid=fid,
-            virtual=virtual,
+            virtual=cell_virtual,
             sealed=battery.sealed,
         )
         if jobs > 1:

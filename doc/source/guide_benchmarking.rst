@@ -908,6 +908,17 @@ explicit nominal mean), and results reach the strategy in ``(completion
 time, dispatch order)`` order.  A seeded run is bit-reproducible on any
 host.
 
+**Common random numbers.**  The harnesses key the duration stream on the
+*cell* — base seed, problem, dimension, instance, rep — not on the strategy
+(``VirtualSpec.duration_seed``, ``evaluation.virtual_duration_seed``), and
+every driver draws one duration per dispatch in dispatch order.  So on one
+cell the i-th dispatched call takes the same time for every strategy and
+baseline, and a paired comparison is paired in its durations too; the
+optimizer seeds stay per strategy.  Result files record this as
+``"durations": "crn"`` in ``virtual``; virtual-clock files from before
+2026-09-26 lack it (their streams were keyed per strategy) and are not
+comparable.
+
 The default policy (``--virtual-policy async``) is the asynchronous
 expensive-evaluation one: a decision point at every completion instant, the
 handlers drain (optimizer time is negligible), and the strategy is asked for

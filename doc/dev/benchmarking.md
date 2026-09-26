@@ -275,7 +275,10 @@ real threaded loop does not implement yet (`TODO.md`).  `--virtual-policy
 sync` is a regression mode: with q = 1, `--duration constant` and
 `dask.local.n_workers = 1` it reproduces the `sync_eval` run exactly (then
 `aocc_time == aocc`).  Failed and timed-out calls count as spent evaluations
-in both metrics.  The ask/tell external baselines run on the same clock; the
+in both metrics.  Durations are common random numbers per cell (base seed,
+problem, dimension, instance, rep; not the strategy), so the i-th dispatch of
+a cell takes the same time for every strategy (`"durations": "crn"` in the
+files; older virtual-clock files are not comparable).  The ask/tell external baselines run on the same clock; the
 SciPy baselines get no `aocc_time`.  Metric, model and the metric's caps
 across q: guide, "Parallel behaviour on a virtual clock".
 
@@ -285,54 +288,71 @@ across q: guide, "Parallel behaviour on a virtual clock".
 roadmap §5.2 measurement: panobbgo against the incumbents at small budgets
 with q parallel workers.  The family track at 20·d and 100·d (preset
 `free`, d 2/5/10; `failure`, d 2/5, on request), on the virtual clock
-(async policy, log-normal durations, sigma 0.5) at q ∈ {1, 4, 16, 64} with
-q ≤ bm (so q = 64 at 100·d only), 5 seeds by default.  Scores: AOCC over
-evaluations and `aocc_time` over virtual time.
+(async policy, log-normal durations, sigma 0.5, common random numbers) at
+q ∈ {1, 4, 16, 64} with q ≤ bm (so q = 64 at 100·d only), 5 seeds by
+default.  Scores: AOCC over evaluations and `aocc_time` over virtual time.
 
 ```bash
 gh workflow run measure.yml                                     # the full default grid
-gh workflow run measure.yml -f seeds=1 -f dims=2 -f qs=1,4      # a smoke run
+gh workflow run measure.yml -f seeds=1 -f dims=2 -f qs=1,4 \
+    -f extra_units='qLogEI.free.b100.q16.d5.s42.i0;qLogEI.free.b100.q64.d5.s42.i0'   # smoke + calibration
 gh workflow run measure.yml -f presets=failure                  # the failure preset
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
 ```
 
 *   **Units and shards.**  A unit is one strategy group on one (preset,
-    bm, q, dim) cell and one base seed.  The `core` group — the
-    `make_ioh_strategies` specs, pycma IPOP/BIPOP, NGOpt, Optuna
-    CmaEs/TPE and Py-BOBYQA — runs in one process, so those comparisons
-    share one FP environment (see above).  The GP baselines (qLogEI,
-    TuRBO-1, SMAC) run in shards of their own; a comparison against them
-    crosses jobs and the summary marks it **≈**.  Every result file records
-    the host's CPU (`/proc/cpuinfo`, `lscpu`), and the summary lists the CPU
-    classes per shard.
+    bm, q, dim) cell and one base seed, optionally one instance index of
+    every family (`.i<j>`; `plan` splits a unit that would not fit a shard).
+    The `core` group — the `make_ioh_strategies` specs, pycma IPOP/BIPOP,
+    NGOpt, Optuna CmaEs/TPE and Py-BOBYQA — runs in one process; the GP
+    baselines (qLogEI, TuRBO-1, SMAC) in shards of their own.  A comparison
+    across jobs is an ordinary sample (a different host is an equally valid
+    one); every result file records the host's CPU (`/proc/cpuinfo`,
+    `lscpu`) and, once the FP pin records it, `fp_env_id`, as
+    reproducibility metadata.
 *   **Coverage.**  SMAC runs at q = 1 only (no batch acquisition).  A GP
-    baseline runs on a cell only where one run is estimated at most 30 laptop
-    minutes: everything but d = 10 at 100·d for qLogEI and SMAC (hours per
-    run), and SMAC at d = 5, 100·d.  The measured per-run times behind it (laptop, one BLAS thread,
-    light load): qLogEI 19 s / 87 s at d = 2 (40 / 200 evaluations), 74 s /
-    16 min at d = 5 (100 / 500); TuRBO 9 s / 52 s at d = 2, 22 s / 2.5 min at
-    d = 5, 56 s at d = 10 (200); SMAC 10 s / 107 s at d = 2, over 40 min at
-    d = 5 (500); the core group
-    about 15 s for all ten specs on one d = 10 instance at 1000 evaluations.
+    baseline runs on a cell only where one run at q = 1 is estimated at most
+    30 laptop minutes — everything but d = 10 at 100·d for qLogEI and SMAC,
+    and SMAC at d = 5, 100·d.  Coverage does not depend on q, so the pool
+    (below) is the same in every q cell.  The measured per-run times behind
+    it (laptop, one BLAS thread, light load): qLogEI 19 s / 87 s at d = 2
+    (40 / 200 evaluations), 74 s / 16 min at d = 5 (100 / 500); TuRBO 9 s /
+    52 s at d = 2, 22 s / 2.5 min at d = 5, 56 s at d = 10 (200); SMAC 10 s
+    / 107 s at d = 2, over 40 min at d = 5 (500); the core group about 15 s
+    for all ten specs on one d = 10 instance at 1000 evaluations.  qLogEI's
+    cost grows with q (pending points in a joint posterior); the estimate's
+    factor `1 + 0.05 (q − 1)` is a guess until the calibration units above
+    measure it.
 *   **Cost.**  `plan` packs the units into shards of about 180 estimated
     minutes on a 4-core runner (a runner core taken as 1.5× slower than the
-    laptop's); the default grid is about 45 shards and 82 runner-hours,
-    mostly qLogEI, so ≈ 6 h wall at 16 parallel jobs (`max-parallel: 16`
-    leaves 4 of the 20 concurrent jobs of a public repository to PR CI).
-    The `Measure` step stops at 330 minutes; each unit's file is written when
-    it finishes, so a cut job still uploads what it did.  The summary's
-    `s/run` column recalibrates `LAPTOP_SECONDS`.
-*   **Output: artifacts only, no release.**  `measure-<shard>` per shard,
-    `measure-summary` (`summary.md`, `summary.json`, `plan.json`); the
-    summary is also the run's job summary.  Per (preset, dim, bm, q): every
-    strategy's mean AOCC and `aocc_time` (mean over seeds of the per-seed
-    instance mean) and, per panobbgo spec, the paired-seed delta against
-    the best external baseline of the cell (t-CI95 over seeds, wins/seeds)
-    and against the best same-job one (exact pairing).  The best external is
-    a selected maximum, which favours the baseline side.  Aggregate a
-    downloaded run locally with
+    laptop's) and warns above 300; see the plan's job summary for the
+    current grid.  `max-parallel: 16` leaves 4 of the 20 concurrent jobs of
+    a public repository to PR CI.  The `Measure` step stops at 330 minutes;
+    each unit's file is written atomically when it finishes, so a cut job
+    still uploads what it did.  The summary's `s/run` column recalibrates
+    `LAPTOP_SECONDS`.
+*   **Analysis** (`measure-summary`: `summary.md`, `summary.json`,
+    `plan.json`; artifacts only, no release):
+    *   **Pre-declared headline:** `Blocks_warm_CMAES_JSO` (the sharing
+        portfolio accepted at low budget) against the pool's best, on AOCC
+        at q = 1 and on `aocc_time` at q > 1, Holm-adjusted over the cells.
+        The other panobbgo specs are secondary.
+    *   **The pool** of a (preset, dim, bm): the externals present, complete
+        (every planned seed and instance) and free of crashed runs in every
+        q cell.  Best-of is taken over it, so the reference does not change
+        with q because a baseline is missing at some q.  SMAC (q = 1 only)
+        and baselines outside the pool are reference rows; a cell is flagged
+        when one of them scores above the pool's best.
+    *   Crashed and timed-out runs score 0 on both metrics.
+    *   Δ per panobbgo spec against every external (`summary.json`; the
+        markdown shows the pool's best and the two strongest others), per
+        family against the pool's best, paired over seeds (t-CI95,
+        wins/seeds).  The CIs are conditional on the fixed instances; with 5
+        seeds, wins alone cannot be significant; the best-of is a selected
+        maximum, which favours the baselines.
+*   Aggregate a downloaded run locally with
     `gh run download <RUN_ID> --pattern 'measure-*' --dir measure-raw` and
-    `uv run python scripts/measure.py aggregate measure-raw --out-dir measure-summary`.
+    `uv run python scripts/measure.py aggregate measure-raw --plan plan.json --out-dir measure-summary`.
 
 ## The sealed test set
 

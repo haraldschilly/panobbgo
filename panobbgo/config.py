@@ -371,6 +371,10 @@ class Config:
         # 'async' (default): a decision at every completion, candidates only for
         # the free workers; 'sync': the synchronous batch policy (regression mode).
         self.virtual_policy = get_config("evaluation.virtual_policy", None, None, "async", str)
+        # Seed of the duration stream (set by VirtualSpec.apply; the harnesses
+        # key it per cell, so every strategy on a cell draws the same
+        # durations).  Unset: the strategy's own seed.
+        self.virtual_duration_seed: Optional[int] = None
 
         # Dask cluster configuration (YAML only, only used when evaluation_method is 'dask')
         self.dask_cluster_type = get_config("dask.cluster_type", None, None, "local", str)

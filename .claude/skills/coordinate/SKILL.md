@@ -14,9 +14,11 @@ agents; point to them.
 
 ## 0. Machine and budget
 
-- Harald's machine is shared with long computations. Locally run only
-  targeted tests and one-off snippets, under `nice -n 15`. Full suites go
-  to CI.
+- Harald's machine is shared with long computations. Hard rule: every
+  local run is `nice -n 10 ionice -c3 <cmd>` and uses at most half the
+  cores in total across all agents (8 of 16; `--jobs`, `pytest -n`, BLAS
+  threads). Locally only targeted tests and one-off snippets; full suites
+  go to CI. Put this rule verbatim into every subagent prompt.
 - Measurements count objective evaluations, not wall time. Heavy runs go
   to GitHub runners: `gh workflow run rebaseline.yml ...`, or a new
   `workflow_dispatch` workflow. Never block the laptop.

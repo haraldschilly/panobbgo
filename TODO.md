@@ -1,115 +1,104 @@
 # TODO
 
-Open work only. Measurements and their reasoning live in
-`planning/DISCOVERY_2026-09-09.md` (§n below), the goal contract in
-`planning/GOAL.md`, the history of this file in `planning/done/TODO_archive_*`.
-Remove an item when it is done; record the result in the planning log, not here.
+Open work only; remove an item when it is done.  Results go to
+`planning/DISCOVERY_2026-09-09.md` (§n), the state and plan of record to
+`planning/GOAL.md` §2/§2c, older history to `planning/done/TODO_archive_*`.
+References for every comparison: the 2026-09-26 re-baseline (§54,
+`planning/results/2026-09-26/`).
 
-## Where things stand (2026-09-15, §53)
+## 1. Roadmap step 1: finish the instrument
 
-- **Arms**: `NP_init="auto"` for the DE family, CMA-ES σ-divergence restart —
-  both 12-seed accepted defaults. Flagship spec is still `RoundRobin_CMAES`.
-- **Sharing portfolio** (`Blocks_warm_CMAES_JSO`: `Archive` + `warm_start` +
-  `StrategyBlockBandit`) is a **low-budget effect**: largest at 100·dim
-  (§46, 12/12 against all arms), accepted on the 24-fid BBOB axis at 100·dim
-  (§53), parity at ≥ 500·dim. The value is the **hand-over** (warm start on
-  re-acquisition, both-sided and superadditive — a ratchet, §48/§50); it
-  carries m and σ only, never the covariance shape (§49, §51).
-- **Bandit** allocation contributes nothing (§31); blocking itself is free (§50).
-- **Regime gate** step 1 landed as the oracle form
-  (`regime_gate="oracle:<class>"`, §45; the in-run probe `"table-v1"` is not
-  built): masking is cost-free, so the gate is worth exactly what its table is worth.
-- **§53**: at 200·dim the better arm flips per function (jSO vs CMA-ES); the
-  cell-wise oracle is 0.015–0.039 above the portfolio. Remaining value is in
-  **selection**, not in more sharing.
+`planning/DESIGN_roadmap_2026-09-26.md` §3.  Done: external baselines
+(#344), virtual clock (#345), failure-region families (#346).
 
-## Roadmap step 1 — instrument (2026-09-26, `planning/DESIGN_roadmap_2026-09-26.md` §3)
+- [ ] Dims 30/40 (and a `bbob-largescale` slice).
+- [ ] Real-world set: CEC2020 real-world constrained, COCO
+      `bbob-constrained` / `bbob-mixint`, ESA GTOP, HPO surrogates
+      (YAHPO / HPOBench).
+- [ ] Sealed test set (fresh MA-BBOB seeds + part of the real-world set),
+      never used for tuning or training.
+- [ ] Feature logging at checkpoints (landscape features, per-arm
+      trajectory statistics): the selector's training data (roadmap §3.4, §4 A).
+- [ ] Expensive-track external baselines: BoTorch/Ax (qEI, TuRBO), SMAC3,
+      HEBO, PDFO/BOBYQA, in an optional extra.
+- [ ] Then measure panobbgo vs the incumbents on both tracks, per COCO
+      class, budget and q (roadmap §5.2).
 
-- [ ] External baselines, batch-capable: pycma IPOP/BIPOP, Nevergrad NGOpt,
-      Optuna (CMA, TPE); then BoTorch/Ax, SMAC3, HEBO, PDFO in an optional extra.
-- [ ] Measure on the virtual clock at q ∈ {1, 4, 16, 64} (simulator built
-      2026-09-26: `panobbgo/virtual_clock.py`, `ioh_benchmark.py run
-      --virtual-workers Q`, `aocc_time`; default policy "async": a
-      decision at every completion, candidates only for the free workers).
-- [ ] Virtual clock, capped bandits: a generational arm (CMA-ES, DE)
-      drains its queued generation at the bandit's share of the free
-      workers, so candidates get stale (max age 49 evaluations vs 7 before
-      the request cap).  Prefer an arm with a partly dispatched generation,
-      or pull in generation-sized chunks.
-- [ ] Bring the *real* asynchronous loop (threaded / processes / dask) to
-      the same pull-when-free policy as the virtual clock's "async" policy:
-      today it sizes batches by `jobs_per_client` from wall-clock timings and
-      can queue past the free workers.
-- [ ] Failure-region families (half-space / ball / boxes; crash vs timeout).
-- [ ] Dims 30/40; real-world set; sealed test set.
-- [ ] Feature logging at checkpoints (training data for the selector).
-- [ ] Then: measure panobbgo vs the incumbents on both tracks (roadmap §5.2).
+## 2. Follow-ups from the 2026-09-26 PRs
 
-## Waiting for Harald
+- [ ] **Real async loop → pull-when-free.**  The threaded / processes /
+      dask loop sizes batches by `jobs_per_client` from wall-clock timings
+      and can queue past the free workers; bring it to the virtual clock's
+      "async" policy (`StrategyBase.request_cap`).  Until then virtual-clock
+      numbers describe that policy, not the real loop.
+- [ ] **Stale generations under a capped bandit.**  On the virtual clock a
+      generational arm (CMA-ES, DE) drains its queued generation at the
+      bandit's share of the free workers (max candidate age 49 evaluations,
+      7 before the request cap).  Prefer an arm with a partly dispatched
+      generation, or pull in generation-sized chunks.
+- [ ] **q-sweep measurement**: q ∈ {1, 4, 16, 64} on the virtual clock
+      (`ioh_benchmark.py run --virtual-workers Q`, `aocc_time`), panobbgo
+      and the ask/tell baselines; log it as a DISCOVERY section.
+- [ ] **Re-baseline workflow coverage.**  `scripts/rebaseline.py` measures
+      neither the external baselines (opt-in by name) nor the `shapes` /
+      `failure` family presets.  Add an external-baselines suite (IOH run
+      with `--baselines --strategies <defaults> <EXTERNAL_BASELINE_NAMES>`,
+      `--extra baselines` in `rebaseline.yml`) and the two presets, so
+      their references come from the sharded workflow.
+- [ ] **Optuna 6 drops `CmaEsSampler(x0=)`** (deprecated since 4.9;
+      `harness_baselines.py` silences the FutureWarning).  Before bumping
+      to 6: find another way to seed the start point, or accept the box
+      centre and say so in the guide.
+- [ ] **`Blocks_warm_CMAES_JSO` is weaker than plain CMA-ES on
+      `ellipsoid_fhs_crash` d5** (seen in the #346 review, not yet a
+      DISCOVERY entry).  Measure paired on the failure preset; if it holds,
+      find the mechanism (jSO's share of the budget in the crash half-space?).
 
-- [ ] **Defaults** — `regime_gate="oracle:clean"` and `block_evals="auto"` for
-      `Blocks_warm_CMAES_JSO` (§45.1, §46.4). Decision of 2026-09-13: only
-      after the suite is broadened and the question re-run there.
-- [ ] **What "broader suite" means** (`planning/DESIGN_suite_2026-09-14.md`):
-      d 10/20, more instances, full BBOB instead of MA-BBOB mixtures,
-      constrained/noisy as own axes; tiered (small screen, wide decision) so
-      12-seed decision runs stay affordable. The fid axis (§52) is the first step.
-- [ ] **Composite registry** — `CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`
-      all pair CMA-ES with the `Restart` analyzer (measured −0.067); the
-      composite score is a frozen contract.
+## 3. Research line (cheap track)
 
-## Research line
+The main line is roadmap §4 (D failure model, A+B learned probe→select
+with forecast allocation, C new sharing payloads) after step 2 above.
+Cheap-track items, in GOAL §2c order:
 
-- [ ] **Probe / regime detector** — now the main line (was parked in §45.2):
-      target +0.015…+0.039 (§53), signal observable early — how fast the
-      first arm progresses (§52.4).
-- [ ] **Hand-over without covariance reset** — the simple form (keep the
-      arm's own C, move only m/σ) was measured in §51.1 and lost everywhere;
-      only a new form (e.g. scaling the kept C with the move, or blending)
-      or a re-test on the re-baselined instrument is worth a run.
-- [ ] **Surrogate pre-selection** (lq-CMA-ES) as a new building block.
+- [ ] **Probe / regime detector** (becomes roadmap A): target the per-cell
+      oracle gap +0.015…+0.039 (§53); signal observable early, e.g. the
+      first arm's progress rate (§52.4).  The oracle gate (§45) is the seam;
+      the in-run probe `"table-v1"` is not built.
+- [ ] **Hand-over without covariance reset**: the simple form (keep C, move
+      m/σ) lost everywhere (§51.1); only a new form (scale the kept C with
+      the move, blend) or a re-test on the re-baselined code is worth a run.
+- [ ] **Surrogate pre-selection** (lq-CMA-ES) as a building block.
 - [ ] `block_evals="auto"` for the low-budget table row and the portfolio
       spec; fixed-block crossover at 300 or 500·dim (§46).
-- [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2 — the
+- [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2,
       σ-collapse hypothesis on `ellipsoid_ball`).
-- [ ] CMA-ES → warm-started L-BFGS-B polish (never measured: the driver
-      lacked a spawn guard).
+- [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
 - [ ] Sweep CMA-ES's own knobs (`sigma0`, `popsize`, `restart_mode`).
-- [ ] No further bandit-tuning round without a new mechanism.
+- [ ] Standing rule: no further bandit tuning without a new mechanism (§31).
 
-## Engineering backlog
+## 4. Engineering backlog
 
-The 2026-09-25 audit backlog (T1–T5) is done: PRs #320–#330 — measurement
-integrity, optimizer fidelity (jSO / NL-SHADE / CMA-ES / PSO / constraint
-ordering), runtime robustness (process pool, leaks, storage fingerprint,
-classic test functions), performance (add_results, Splitter, LSHADE ranks,
-analyzers on demand, `--jobs`, IOH worker reuse) and cleanup (dead code,
-shared bandit selectors and screen pipeline).  A second full audit round
-followed (#331–#334).  Details in the PR descriptions and commit messages.
-
-- [ ] **External baselines in the re-baseline workflow.**  The pycma /
-      Nevergrad / Optuna baselines (`panobbgo/harness_baselines.py`, extra
-      `baselines`) are opt-in by name, so `scripts/rebaseline.py` does not
-      measure them.  Add an `--external-baselines` suite option (IOH run
-      with `--baselines --strategies <defaults> <EXTERNAL_BASELINE_NAMES>`)
-      and `--extra baselines` in `rebaseline.yml`, so the external
-      references come from the sharded workflow.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
-      selection is clean since 2026-09-25) — own change.
+      selection is clean) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.
-- [ ] The shapes and failure family presets (2026-09-26) have no
-      reference numbers yet; add them to `scripts/rebaseline.py` when they
-      are to be tracked.
 
-## Decisions (2026-09-25)
+## 5. Waiting for Harald
 
-Settled with Harald and implemented (#337–#339): harness measurements run
-synchronously by default; RNG streams are keyed per module; the deadlock
-backstop never cuts an outstanding evaluation, and `evaluation.timeout`
-(unset by default) is a per-call limit in every backend whose firing records
-a NaN result; warm restarts use the archive only outside the stagnated
-basin; QuadraticWLS fits on the pull path.  Kept as they are: old storage
-databases without a fingerprint are refused (escape hatch
-`storage.adopt_legacy`); block-bandit async credit unchanged; DynamicPenalty /
-ALM keep their own rho default (10), ALM multipliers grow linearly while the
-incumbent is stuck; the multi-seed regression gate stays pooled.
+- [ ] **Defaults** `regime_gate="oracle:clean"` and `block_evals="auto"` for
+      `Blocks_warm_CMAES_JSO` (§45.1, §46.4): only after the suite is
+      broadened and the question re-run there (decision of 2026-09-13).
+- [ ] **What "broader suite" means** (`planning/DESIGN_suite_2026-09-14.md`,
+      extended by roadmap §3.3): d 10/20, more instances, full BBOB instead of
+      MA-BBOB mixtures, constrained/noisy as own axes; tiered (small screen,
+      wide decision).  The fid axis (§52) was the first step.
+- [ ] **Composite registry**: `CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`
+      all pair CMA-ES with the `Restart` analyzer (measured −0.067); the
+      composite score is a frozen contract.
+- [ ] **`--standard` / `--full` before merging a significant algorithmic
+      change**: bring the recommendation back to `doc/dev/benchmarking.md`?
+      #347 dropped it as conflicting with the lean evidence rules; the
+      user guide (`guide_benchmarking.rst`, "When to run which mode") still
+      recommends it.
+- [ ] **Re-baseline result size**: ~14 MB of JSON per run, committed
+      (`planning/results/2026-09-26/`).  Keep as is, compress, or keep only
+      the aggregates?

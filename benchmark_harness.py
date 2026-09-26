@@ -414,6 +414,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Per-run timeout in seconds (default: 120)",
     )
     run_p.add_argument(
+        "--no-timeout",
+        dest="timeout",
+        action="store_const",
+        const=None,
+        help=(
+            "No per-run wall-clock timeout: every run spends its full budget"
+            " however slow the machine is (the re-baseline workflow uses it)"
+        ),
+    )
+    run_p.add_argument(
         "--problems",
         nargs="+",
         metavar="NAME",

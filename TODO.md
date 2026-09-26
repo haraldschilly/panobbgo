@@ -73,7 +73,9 @@ followed (#331–#334).  Details in the PR descriptions and commit messages.
       follow their definitions, phased Rewarding phases use EMA credit, and
       IOH aggregates count timeouts and crashes.  Re-measure the
       composite quick/standard and IOH/family references before the next
-      comparison that relies on them.
+      comparison that relies on them.  Runs on GitHub runners via
+      `.github/workflows/rebaseline.yml` (AGENTS.md, "Re-baselining on
+      GitHub runners"); commit the aggregated `ref_*` files once it is done.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
       selection is clean since 2026-09-25) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.

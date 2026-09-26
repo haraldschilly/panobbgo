@@ -1,7 +1,7 @@
 # GitHub Actions workflows
 
-Two workflows live here. `./test.sh` (via `run_ci.py`) replays their `run`
-steps locally: each step's block runs in one `bash -e`, `continue-on-error`
+Three workflows live here. `./test.sh` (via `run_ci.py`) replays the `run`
+steps of the two CI workflows locally (the on-demand `rebaseline.yml` is skipped): each step's block runs in one `bash -e`, `continue-on-error`
 is honoured, `$GITHUB_STEP_SUMMARY` goes to `/dev/null`, and the jobs run in
 workflow order (the gh-pages `deploy` job is skipped).
 `uv run python run_ci.py --dry-run` prints the plan without running it.
@@ -51,6 +51,15 @@ https://haraldschilly.github.io/panobbgo/.
 Concurrency is per ref (`docs-<ref>`): a new push to a PR cancels that PR's
 older build only, and deploys share one `pages-deploy` group, so they are
 serialised and never cancelled mid-push.
+
+## `rebaseline.yml` — re-measure the reference baselines (manual)
+
+`workflow_dispatch` only (inputs: `suites`, `seeds`, `ref`).  A `plan` job
+turns the inputs into a matrix via `scripts/rebaseline.py plan`; each
+`measure` job runs one (suite, seed chunk) shard — synchronous, seeded, no
+wall-clock limit — and uploads `shard-<suite>-<shard>`; `aggregate` builds
+the reference files and uploads `rebaseline-references`.  Procedure in
+`AGENTS.md`, "Re-baselining on GitHub runners".
 
 ## Maintenance
 

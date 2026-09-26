@@ -86,3 +86,13 @@ def test_repo_workflows_include_every_gate():
     for gate in ("test", "lint", "typecheck", "docs", "benchmark", "format"):
         assert f"tests:{gate}" in names
     assert "docs:deploy" not in names
+
+
+def test_on_demand_workflows_are_skipped():
+    dispatch_only = yaml.safe_load("on:\n  workflow_dispatch:\njobs:\n  run:\n    steps:\n      - run: echo heavy\n")
+    gate = yaml.safe_load("on: [push]\njobs:\n  run:\n    steps:\n      - run: echo ok\n")
+    assert run_ci.collect_jobs({"rebaseline": dispatch_only}) == []
+    assert [j.name for j in run_ci.collect_jobs({"ci": gate})] == ["ci:run"]
+    # The re-baseline workflow is on demand only: ./test.sh must never run it.
+    names = {j.name for j in run_ci.collect_jobs(run_ci.load_workflow_configs())}
+    assert not any(n.startswith("rebaseline:") for n in names)

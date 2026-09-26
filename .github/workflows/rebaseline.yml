@@ -1,0 +1,197 @@
+name: Re-baseline
+
+# Re-measures the reference baselines (composite quick/standard, IOH
+# quick/standard, family free/constrained) on GitHub runners, sharded over
+# (suite x seed chunk).  Manual only; ./test.sh (run_ci.py) skips it.
+# Every run is synchronous and seeded with no wall-clock limit, so the
+# numbers depend on the code and the seeds, not on runner speed.
+# Aggregate the shard artifacts locally with scripts/rebaseline.py
+# (AGENTS.md, "Re-baselining on GitHub runners").
+
+on:
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: >-
+          'all' or a comma list of: composite-quick, composite-standard,
+          ioh-quick, ioh-standard, families-free, families-constrained
+        type: string
+        default: all
+      seeds:
+        description: "A count (the first N of the 12-seed decision roster) or a comma list of base seeds (one seed: '42,')"
+        type: string
+        default: "12"
+      ref:
+        description: "Git ref to measure (default: the ref this workflow runs from)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  PYTHON: "3.14"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      sha: ${{ steps.plan.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Plan the shards
+        id: plan
+        # Stdlib only: no dependencies needed to plan.
+        env:
+          SUITES: ${{ inputs.suites }}
+          SEEDS: ${{ inputs.seeds }}
+        run: |
+          matrix=$(python3 scripts/rebaseline.py plan --suites "$SUITES" --seeds "$SEEDS")
+          sha=$(git rev-parse HEAD)
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Re-baseline plan"
+            echo "commit \`$sha\`, suites \`$SUITES\`, seeds \`$SEEDS\`"
+            echo '```json'
+            echo "$matrix" | python3 -m json.tool
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  measure:
+    needs: plan
+    name: ${{ matrix.suite }} ${{ matrix.shard }} (seeds ${{ matrix.seeds }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The commit the plan resolved: every shard measures the same code.
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Cache UV and dependencies
+        id: cache-uv
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/uv
+            .venv
+          key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+
+      - name: Cache IOH worker venv
+        id: cache-ioh-worker
+        if: startsWith(matrix.suite, 'ioh-')
+        uses: actions/cache@v5
+        with:
+          path: tools/ioh_worker/.venv
+          key: ioh-worker-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('tools/ioh_worker/pyproject.toml', 'tools/ioh_worker/uv.lock') }}
+          restore-keys: |
+            ioh-worker-${{ runner.os }}-python-${{ env.PYTHON }}-
+
+      - name: Install UV
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        if: steps.cache-uv.outputs.cache-hit != 'true'
+        run: |
+          uv sync --extra dev
+
+      - name: Sync IOH worker venv
+        if: startsWith(matrix.suite, 'ioh-') && steps.cache-ioh-worker.outputs.cache-hit != 'true'
+        run: |
+          cd tools/ioh_worker
+          uv sync
+
+      - name: Measure
+        env:
+          SUITE: ${{ matrix.suite }}
+          SEEDS: ${{ matrix.seeds }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          uv run python scripts/rebaseline.py run "$SUITE" --seeds "$SEEDS" --shard "$SHARD" \
+            --out-dir rebaseline-out --jobs "$(nproc)"
+
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: shard-${{ matrix.suite }}-${{ matrix.shard }}
+          path: rebaseline-out/
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    needs: [plan, measure]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Cache UV and dependencies
+        id: cache-uv
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/uv
+            .venv
+          key: uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-python-${{ env.PYTHON }}-
+
+      - name: Install UV
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        if: steps.cache-uv.outputs.cache-hit != 'true'
+        run: |
+          uv sync --extra dev
+
+      - name: Download shard results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: shard-*
+          path: rebaseline-raw
+
+      - name: Aggregate
+        run: |
+          uv run python scripts/rebaseline.py aggregate rebaseline-raw --out-dir references 2>&1 \
+            | tee aggregate.log
+          { echo '### Re-baseline references'; echo '```'; cat aggregate.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload references
+        uses: actions/upload-artifact@v7
+        with:
+          name: rebaseline-references
+          path: references/
+          retention-days: 90

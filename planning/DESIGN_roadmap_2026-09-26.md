@@ -33,8 +33,10 @@ IPOP/BIPOP, Nevergrad NGOpt, Optuna CMA/TPE; #344), the virtual-clock
 simulator with `aocc_time` (#345), the failure-region families and BBOB
 shapes (`family_screen.py preset=failure|shapes`, #346), dims 30/40 with a
 `bbob-largescale`-style slice and the sealed test set (MA-BBOB + families,
-`panobbgo/sealed.py`).  Open — the expensive-track baselines (BoTorch/Ax,
-SMAC3, HEBO, PDFO), the real-world set (and its share of the sealed set),
+`panobbgo/sealed.py`), the expensive-track baselines (BoTorch qLogEI,
+TuRBO-1, SMAC3, Py-BOBYQA in the `baselines-bo` extra; HEBO and PDFO do not
+install under numpy 2.5 / Python 3.14).  Open — the real-world set (and its
+share of the sealed set),
 feature logging (`TODO.md` §1).
 
 1. **External baselines** as harness arms, batch-capable (ask/tell with q):

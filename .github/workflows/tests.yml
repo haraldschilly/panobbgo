@@ -86,6 +86,48 @@ jobs:
           uv run pytest -v --cov=panobbgo --cov-report=xml --cov-report=term
           uv run coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
+  test-bo:
+    # The expensive-track baselines (`baselines-bo` extra: CPU torch,
+    # BoTorch, SMAC3, Py-BOBYQA) in a job of their own, so the default test
+    # job stays free of torch (~0.7 GB installed); there their tests skip.
+    # Own venv cache key: `uv sync` is exact, and a torch venv saved under
+    # the shared key would be restored (and stripped) by every other job.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON }}
+
+      - name: Cache UV and dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/uv
+            .venv
+          key: uv-bo-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+          restore-keys: |
+            uv-bo-${{ runner.os }}-python-${{ env.PYTHON }}-
+
+      - name: Install UV
+        run: |
+          if [ ! -f "$HOME/.cargo/bin/uv" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+          fi
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          uv sync --extra dev --extra baselines-bo
+
+      - name: Run the expensive-track baseline tests
+        run: |
+          uv run pytest -v tests/test_harness_baselines_bo.py
+
   lint:
     runs-on: ubuntu-latest
 

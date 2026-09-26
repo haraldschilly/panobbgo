@@ -9,6 +9,7 @@ pyright, sphinx-build, scripts).  Never call `.venv/bin/...` or a bare
 ```bash
 uv sync --extra dev                       # install (pip: pip install -e ".[dev]")
 uv sync --extra dev --extra baselines     # + pycma / Nevergrad / Optuna baselines
+uv sync --extra dev --extra baselines-bo  # + BoTorch / TuRBO / SMAC3 / Py-BOBYQA (CPU torch, ~1 GB)
 uv run pytest -q -n 4                     # full suite (~2300 tests, ~1 min)
 uv run pytest -q tests/test_core.py       # one file
 uv run ruff format .                      # format (CI gate: ruff format --check .)
@@ -25,7 +26,8 @@ uv run pytest benchmarks/ --benchmark-min-rounds=1 --benchmark-max-time=0.1 -q  
 
 `.github/workflows/tests.yml` gates on pytest, pyright, `ruff format
 --check`, the Sphinx doctest build and the micro-benchmarks; flake8 runs
-but does not fail the build.  `docs.yml` builds and deploys the HTML
+but does not fail the build.  The `baselines-bo` tests run in their own
+job (`test-bo`, with torch); the default test job skips them.  `docs.yml` builds and deploys the HTML
 docs.  No PR-side job runs the benchmark harness, so a green PR says
 nothing about optimization quality.  Details:
 [`.github/workflows/README.md`](../../.github/workflows/README.md).

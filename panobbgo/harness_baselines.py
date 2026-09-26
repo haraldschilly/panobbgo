@@ -44,10 +44,16 @@ baselines``) — opt-in by name, see :data:`EXTERNAL_BASELINE_NAMES`:
 - :class:`OptunaCmaEsStrategy`, :class:`OptunaTPEStrategy` — Optuna's
   ``CmaEsSampler`` (no restarts) and ``TPESampler``.
 
-Every external baseline starts from a uniform random point of the box
-(per seed), treats a NaN value as the worst (``+inf``), and is
+External, expensive track, from the optional ``baselines-bo`` extra —
+BoTorch qLogEI, TuRBO-1, SMAC3's BlackBox facade, Py-BOBYQA: see
+:mod:`panobbgo.harness_baselines_bo`; registered here by name
+(:data:`BO_BASELINE_NAMES`).
+
+Every cheap-track external baseline starts from a uniform random point of
+the box (per seed), treats a NaN value as the worst (``+inf``), and is
 deterministic for a fixed seed; see the section comment above
-:class:`AskTellAdapter`.  Optuna's wall time grows quadratically with the
+:class:`AskTellAdapter`.  The expensive-track ones start from a Sobol
+design and give their GP the worst observed value instead of ``+inf``.  Optuna's wall time grows quadratically with the
 budget, so measure Optuna baselines with ``--no-timeout`` in
 ``benchmark_harness.py`` (its default per-run timeout is 120 s).
 
@@ -501,15 +507,21 @@ class SciPyAnnealStrategy(BaselineStrategy):
 #   numpy's global RNG — which pycma and Nevergrad's recast CMA fall back
 #   to — is seeded from it for the run and restored afterwards.
 
-_EXTRA_HINT = "install the optional extra: `uv sync --extra baselines` (or `pip install 'panobbgo[baselines]'`)"
+
+def _extra_hint(extra: str = "baselines") -> str:
+    """The install hint for an optional extra (``baselines`` or ``baselines-bo``)."""
+    return f"install the optional extra: `uv sync --extra {extra}` (or `pip install 'panobbgo[{extra}]'`)"
 
 
-def _require(module: str) -> Any:
-    """Import ``module`` or fail with a hint at the ``baselines`` extra."""
+_EXTRA_HINT = _extra_hint()
+
+
+def _require(module: str, extra: str = "baselines") -> Any:
+    """Import ``module`` or fail with a hint at the optional ``extra``."""
     try:
         return importlib.import_module(module)
     except ImportError as exc:
-        raise ImportError(f"{module!r} is not installed; {_EXTRA_HINT}") from exc
+        raise ImportError(f"{module!r} is not installed; {_extra_hint(extra)}") from exc
 
 
 def _seed32(seed: int) -> int:
@@ -577,6 +589,8 @@ class AskTellBaselineStrategy(BaselineStrategy):
 
     #: Modules the strategy's adapter imports (see :func:`make_baseline_strategies`).
     requires: Tuple[str, ...] = ()
+    #: The optional extra that provides :attr:`requires` (named in the install hint).
+    extra: str = "baselines"
 
     def __init__(
         self,
@@ -1173,10 +1187,24 @@ _EXTERNAL_BASELINE_CLASSES: Tuple[type, ...] = (
     OptunaTPEStrategy,
 )
 
-#: Spec names of the external baselines, in registry order.  Not part of the
+#: Spec names of the expensive-track baselines (the ``baselines-bo`` extra,
+#: :mod:`panobbgo.harness_baselines_bo`), in registry order.  Spelled out
+#: here because that module imports this one; a test checks them against
+#: its classes.
+BO_BASELINE_NAMES: Tuple[str, ...] = (
+    "Baseline_BoTorch_qLogEI",
+    "Baseline_TuRBO1",
+    "Baseline_SMAC_BB",
+    "Baseline_PyBOBYQA",
+)
+
+#: Spec names of the external baselines, in registry order: the cheap track
+#: (``baselines`` extra), then :data:`BO_BASELINE_NAMES`.  Not part of the
 #: default ``--baselines`` set: name them in the harness' strategy filter
 #: (``--baselines --strategies Baseline_NGOpt``) to select them.
-EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = tuple(f"Baseline_{cls.who}" for cls in _EXTERNAL_BASELINE_CLASSES)
+EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = (
+    tuple(f"Baseline_{cls.who}" for cls in _EXTERNAL_BASELINE_CLASSES) + BO_BASELINE_NAMES
+)
 
 #: Spec names of the default ``--baselines`` set.
 DEFAULT_BASELINE_NAMES: Tuple[str, ...] = ("Baseline_Random", "Baseline_SciPyDE", "Baseline_SciPyAnneal")
@@ -1188,9 +1216,11 @@ def make_external_baseline_strategies() -> List[StrategySpec]:
     Needs no optional import; :func:`make_baseline_strategies` checks the
     extra for the ones a run selects.
     """
+    from panobbgo.harness_baselines_bo import BO_BASELINE_CLASSES
+
     return [
         StrategySpec(name=name, strategy_class=cls, heuristics=[])
-        for name, cls in zip(EXTERNAL_BASELINE_NAMES, _EXTERNAL_BASELINE_CLASSES)
+        for name, cls in zip(EXTERNAL_BASELINE_NAMES, _EXTERNAL_BASELINE_CLASSES + BO_BASELINE_CLASSES)
     ]
 
 
@@ -1227,15 +1257,17 @@ def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[Stra
 
     Raises:
         ImportError: A named external baseline needs a module that is not
-            installed (the ``baselines`` extra) — raised here, before any
-            run, rather than as a per-run error that scores 0.
+            installed (the ``baselines`` or ``baselines-bo`` extra) — raised
+            here, before any run, rather than as a per-run error that
+            scores 0.
     """
     wanted = set(extra or ())
     external = [spec for spec in make_external_baseline_strategies() if spec.name in wanted]
     for spec in external:
         missing = [m for m in getattr(spec.strategy_class, "requires", ()) if importlib.util.find_spec(m) is None]
         if missing:
-            raise ImportError(f"{spec.name} needs {', '.join(missing)}; {_EXTRA_HINT}")
+            hint = _extra_hint(getattr(spec.strategy_class, "extra", "baselines"))
+            raise ImportError(f"{spec.name} needs {', '.join(missing)}; {hint}")
     return [
         StrategySpec(
             name="Baseline_Random",
@@ -1256,6 +1288,7 @@ def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[Stra
 
 
 __all__ = [
+    "BO_BASELINE_NAMES",
     "DEFAULT_BASELINE_NAMES",
     "EXTERNAL_BASELINE_NAMES",
     "AskTellAdapter",

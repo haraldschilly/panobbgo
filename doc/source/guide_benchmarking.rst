@@ -641,6 +641,97 @@ See ``panobbgo/harness_baselines.py`` for the full interface and
 ``tests/test_harness_baselines.py`` and
 ``tests/test_harness_baselines_external.py`` for the guarantees.
 
+Expensive-track baselines: BoTorch, TuRBO, SMAC3, Py-BOBYQA
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For expensive evaluations at small budgets (10…200·dim) with ``q``
+parallel workers the incumbents are Bayesian-optimisation and model-based
+tools.  They live in :mod:`panobbgo.harness_baselines_bo`, need the
+separate ``baselines-bo`` extra (``uv sync --extra baselines-bo``; uv takes
+torch from the CPU-only wheel index, ~1 GB installed) and are opt-in by
+name like the ones above:
+
+.. code-block:: bash
+
+   uv sync --extra dev --extra baselines-bo
+   uv run python scripts/ioh_benchmark.py run --families --baselines --virtual-workers 4 \
+       --strategies Baseline_BoTorch_qLogEI Baseline_TuRBO1 Baseline_SMAC_BB Baseline_PyBOBYQA
+
+Each uses its library's recommended setup for small budgets:
+
+- ``Baseline_BoTorch_qLogEI`` — BoTorch batch ``qLogExpectedImprovement``
+  on a ``SingleTaskGP`` with its defaults (RBF kernel with the
+  dimension-scaled log-normal length-scale prior, ``Standardize`` outcome
+  transform), inputs in the unit cube, refitted with ``fit_gpytorch_mll``
+  before every proposal.  Initial design: ``max(5, 2·d)`` scrambled Sobol
+  points (Ax's rule).  ``best_f`` is the best observed value, the MC
+  sampler a 256-sample ``SobolQMCNormalSampler``;
+  ``optimize_acqf(num_restarts=10, raw_samples=512, batch_limit=5,
+  maxiter=200)`` as in the BoTorch tutorials.
+- ``Baseline_TuRBO1`` — TuRBO-1 from the BoTorch tutorial: Matérn-5/2 ARD
+  GP (length scales in [0.005, 4], noise in [1e-8, 1e-3]) on the
+  standardised data of the current trust region, Thompson sampling over
+  ``min(5000, max(2000, 200·d))`` perturbed Sobol candidates, length 0.8
+  in [0.5⁷, 1.6], success tolerance 10 (the tutorial's; the paper uses 3),
+  failure tolerance ``ceil(max(4/q, d/q))``.  ``2·d`` Sobol points start
+  each trust region; when it collapses the run restarts with a fresh
+  design and fresh data (the original TuRBO-1 restart).
+- ``Baseline_SMAC_BB`` — SMAC3's ``BlackBoxFacade`` (SMAC's facade for
+  low-dimensional continuous problems) with ``deterministic=True`` and
+  every other setting at the facade default: Sobol initial design of
+  ``min(8·d, budget/4)`` points, GP with a Matérn-5/2 ARD kernel and
+  ``normalize_y``, EI (``xi=0``), local-and-sorted random search.
+- ``Baseline_PyBOBYQA`` — Py-BOBYQA (Powell's BOBYQA), the **local**
+  model-based reference: ``npt = 2n+1``, ``scaling_within_bounds=True``
+  (``rhobeg`` 0.1 of the box), ``rhoend = 1e-8``, no restarts inside the
+  solver; when a run ends before the budget, a new one starts from a fresh
+  uniform random point.
+
+**Batches and pending points.**  ``q`` goes to each tool's native batch
+mechanism.  BoTorch optimises a joint ``q``-batch and passes the asked but
+untold points as ``X_pending``, so asynchronous tells (the virtual clock)
+are handled.  TuRBO proposes synchronous batches of ``q``; like pycma it
+hands out nothing more until the whole batch is told.  SMAC is asked once
+per free worker, as its Dask runner does, and keeps the asked trials as
+running.  The initial design grows to at least ``q`` points so that the
+first batch fills the workers.  **Py-BOBYQA is sequential**: it keeps at
+most one point in flight, so with ``q > 1`` it uses one worker.  Its
+``aocc`` equals the ``q = 1`` run; its ``aocc_time`` shows what a
+sequential solver achieves on ``q`` workers.
+
+**Failed values.**  A GP cannot take ``+inf``.  BoTorch and TuRBO replace
+every failed (NaN) or non-finite value by the worst finite value observed
+so far, recomputed at every fit.  SMAC stores costs, so a failure is told
+as a CRASHED trial with the worst finite value known at tell time; a
+failure before any finite value waits as a running trial until one
+exists.  Py-BOBYQA gets the moderated extreme barrier of Powell's solvers
+in PRIMA / PDFO: NaN and ``+inf`` become ``1e30`` and finite values are
+clipped there.  Huge finite values reach every model unchanged (only each
+library's own standardisation applies).
+
+**Determinism.**  torch draws run in a ``torch.random.fork_rng`` scope
+seeded from the run seed (the global torch state is restored), the Sobol
+engines are seeded explicitly, SMAC gets ``Scenario(seed=...)``; a fixed
+seed reproduces a run exactly (``tests/test_harness_baselines_bo.py``).
+
+**Wall time.**  The GP fits dominate; evaluations are what is scored, but
+size runner jobs by it.  Per proposal at dim 10 on a loaded laptop:
+BoTorch qLogEI 2–12 s (grows with the data), TuRBO 0.3–12 s per batch,
+SMAC ≈ SMAC_PER_ASK.  A run at dim 10, budget 200 thus costs about
+QLOGEI_RUN for BoTorch at ``q = 1`` (a quarter of it at ``q = 4``: one
+proposal per batch), TURBO_RUN for TuRBO, SMAC_RUN for SMAC and under a
+second for Py-BOBYQA.  Use ``--no-timeout`` with ``benchmark_harness.py``.
+
+**Not included.**  HEBO 0.3.6 (the latest release, 2024) pins
+``numpy<1.25`` and ``pymoo==0.6.0`` and cannot be installed next to
+numpy 2.5.  PDFO 2.2.0 ships wheels only up to CPython 3.12, and its
+source build needs a Fortran toolchain; Py-BOBYQA is the BOBYQA reference
+instead.  Ax is not used: it adds plotly, ipywidgets, pymoo and graphviz,
+and its default model is the same BoTorch ``SingleTaskGP``.
+
+CI runs these tests in a separate ``test-bo`` job; the default test job
+has no torch and skips them.
+
 
 Parallel behaviour on a virtual clock
 -------------------------------------
@@ -730,7 +821,8 @@ Every run then reports two scores:
 duration model) and ``mean_aocc_time`` / ``per_strategy_aocc_time``
 aggregate the time score over the runs that have one (``n_aocc_time``; a
 crash scores 0).  The ask/tell external baselines (pycma, Nevergrad,
-Optuna; :class:`~panobbgo.harness_baselines.AskTellBaselineStrategy`) run on
+Optuna, and the expensive-track BoTorch, TuRBO, SMAC3, Py-BOBYQA;
+:class:`~panobbgo.harness_baselines.AskTellBaselineStrategy`) run on
 the same clock (:func:`~panobbgo.virtual_clock.run_ask_tell`: ask for up to
 the free workers, evaluate at dispatch, tell at completion) and get
 ``aocc_time`` too.  A strategy that evaluates outside any driver (the SciPy
@@ -960,9 +1052,13 @@ See also
 - :mod:`panobbgo.harness` — the harness implementation.
 - :mod:`panobbgo.harness_baselines` — external reference strategies
   (Random, SciPy DE, SciPy dual annealing; pycma, Nevergrad, Optuna).
+- :mod:`panobbgo.harness_baselines_bo` — expensive-track baselines
+  (BoTorch qLogEI, TuRBO-1, SMAC3, Py-BOBYQA).
 - ``benchmark_harness.py`` — CLI.
 - ``tests/test_harness.py`` — harness test suite (60+ tests).
 - ``tests/test_harness_baselines.py`` — baseline adapter tests.
 - ``tests/test_harness_baselines_external.py`` — pycma / Nevergrad / Optuna
   adapter tests (skip without the ``baselines`` extra).
+- ``tests/test_harness_baselines_bo.py`` — BoTorch / TuRBO / SMAC3 /
+  Py-BOBYQA adapter tests (skip without the ``baselines-bo`` extra).
 - ``tests/test_harness_stats.py`` — statistical acceptance rule tests.

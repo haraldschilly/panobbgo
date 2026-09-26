@@ -547,10 +547,10 @@ change the underlying number.</p>
 <ul class="simple">
 <li><p><strong>During development</strong> — <code class="docutils literal notranslate"><span class="pre">--quick</span></code> after each meaningful change.  Fast
 enough to keep you honest without hurting flow.</p></li>
-<li><p><strong>Before opening a PR</strong> — <code class="docutils literal notranslate"><span class="pre">--standard</span></code>.  Saves the result JSON as a build
-artefact so reviewers can compare.</p></li>
-<li><p><strong>Before merging a significant algorithmic change</strong> — <code class="docutils literal notranslate"><span class="pre">--full</span></code>, on a
-machine you are not actively using.</p></li>
+<li><p><strong>Before opening a PR</strong> — a quick paired multi-seed comparison is enough
+evidence for an improvement; bug fixes need none.  <code class="docutils literal notranslate"><span class="pre">--standard</span></code> and
+<code class="docutils literal notranslate"><span class="pre">--full</span></code> are for re-baselining and deliberate studies, not a merge gate
+(the project’s rules: <code class="docutils literal notranslate"><span class="pre">doc/dev/benchmarking.md</span></code>).</p></li>
 </ul>
 </section>
 <section id="pitfalls-and-statistical-caveats">

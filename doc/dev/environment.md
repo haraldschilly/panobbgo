@@ -65,7 +65,9 @@ ceiling does not hold the main package back.
     (seed, cell) runs go to N `spawn` worker processes
     (`panobbgo.local_run.TaskPool`).  Under `sync_eval` the records do not
     depend on N.
-*   On a shared machine every local run is `nice -n 10 ionice -c3 <cmd>`
+*   **Development only** (agents and tests on Harald's shared laptop — not
+    a limit for panobbgo itself: real runs and the library's own defaults
+    use every available core).  On a shared machine every local run is `nice -n 10 ionice -c3 <cmd>`
     and uses at most half of the *effective* CPU limit in total (`--jobs`,
     `pytest -n` and BLAS threads together): the smaller of the cgroup
     `cpu.max` quota along the process's cgroup chain and the CPU affinity

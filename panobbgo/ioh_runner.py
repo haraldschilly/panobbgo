@@ -37,6 +37,7 @@ from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 
+from panobbgo.lib.lib import EvaluationFailed
 
 # ---------------------------------------------------------------------------
 # AOCC
@@ -242,6 +243,16 @@ class IOHTracker:
             return last_best if np.isfinite(last_best) else float("inf")
         try:
             measured = self._measure(x)
+        except EvaluationFailed:
+            # A simulated failure (crash or timeout, see lib.EvaluationFailed)
+            # is a call that was made and paid for: it counts as one spent
+            # evaluation that makes no progress, so the trace index stays
+            # aligned with the budget the strategy spent.  Re-raised for the
+            # evaluation path to book.
+            with self._lock:
+                self.n_evals += 1
+                self._record_failed()
+            raise
         except BaseException:
             with self._lock:
                 self._reserved -= 1  # the slot was never used
@@ -268,6 +279,13 @@ class IOHTracker:
             self._incumbent_true = tfx
         if np.isfinite(tfx) and tfx < self.best_true_fx:
             self.best_true_fx = tfx
+        self.best_so_far.append(self.best_fx)
+        if self.has_true:
+            self.best_so_far_true.append(self.best_true_fx)
+            self.best_so_far_reco.append(self._incumbent_true)
+
+    def _record_failed(self) -> None:
+        """Fold one failed evaluation into the traces: spent, no progress (called under the lock)."""
         self.best_so_far.append(self.best_fx)
         if self.has_true:
             self.best_so_far_true.append(self.best_true_fx)

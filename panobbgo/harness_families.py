@@ -83,7 +83,8 @@ Public surface
 
 * :func:`run_family_harness` — the entry point.
 * :func:`make_families_battery` / :func:`make_constrained_battery` — the
-  two presets.
+  two frozen presets; :func:`make_shapes_battery` (the BBOB shapes) and
+  :func:`make_failure_battery` (failure regions) — two more.
 """
 
 from __future__ import annotations
@@ -106,7 +107,7 @@ from panobbgo.harness_ioh import (
     _run_tracked,
     _TrackedRun,
 )
-from panobbgo.lib.families import Family, FamilyConfig, FamilyLike, make_family_instances
+from panobbgo.lib.families import FailureRegion, Family, FamilyConfig, FamilyLike, make_family_instances
 
 #: Penalty coefficient of :class:`DefaultConstraintHandler
 #: <panobbgo.lib.constraints.DefaultConstraintHandler>`.  Pinned here as a
@@ -186,8 +187,9 @@ class PenaltyTracker(IOHTracker):
 # Presets
 # ---------------------------------------------------------------------------
 #
-# Both presets are frozen contracts in the sense of ``planning/GOAL.md``
-# §4: extend by composing a new instance list, do not edit these.  The
+# The free and constrained presets are frozen contracts in the sense of
+# ``planning/GOAL.md`` §4: extend by composing a new instance list, do not
+# edit these (the shapes and failure presets below are new, 2026-09-26).  The
 # instance *seed* is fixed (DEFAULT_BATTERY_SEED) so the problems are the
 # same on every run; only ``base_seed`` — the optimiser's RNG — moves.
 
@@ -261,6 +263,67 @@ def make_constrained_battery(
         FamilyConfig(base="ellipsoid", n_constraints=ks, constraint_kind="ball"),
         FamilyConfig(base="rosenbrock", n_constraints=ks, constraint_kind="linear"),
         FamilyConfig(base="rastrigin", n_constraints=ks, constraint_kind="ball"),
+    ]
+    return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
+
+
+def make_shapes_battery(
+    dims: Sequence[int] = (2, 5, 10),
+    n_instances: int = 3,
+    seed: int = DEFAULT_BATTERY_SEED,
+) -> FamilyInstances:
+    """The BBOB shapes the free battery lacks: 5 families x ``dims`` x ``n_instances``.
+
+    ``planning/DESIGN_suite_2026-09-14.md`` Gap 2, at BBOB's default knobs
+    (see :data:`~panobbgo.lib.families.CONTEXT_BASES` for the knobs):
+
+    * ``lunacek_bi_rastrigin`` (f24) — a deceptive double funnel: the
+      class where restarts and portfolios should pay most.
+    * ``gallagher`` (f21, 101 peaks) — random peaks, weak global structure.
+    * ``attractive_sector`` (f6) — strongly asymmetric around the optimum.
+    * ``step_ellipsoid`` (f7) — plateaus: ties for a ranking method, a
+      systematically wrong smooth surrogate.
+    * ``bent_cigar`` (f12) — one soft, curved direction.
+    """
+    families: List[FamilyLike] = [
+        FamilyConfig(base="lunacek_bi_rastrigin"),
+        FamilyConfig(base="gallagher"),
+        FamilyConfig(base="attractive_sector"),
+        FamilyConfig(base="step_ellipsoid"),
+        FamilyConfig(base="bent_cigar"),
+    ]
+    return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
+
+
+def make_failure_battery(
+    dims: Sequence[int] = (2, 5),
+    n_instances: int = 3,
+    seed: int = DEFAULT_BATTERY_SEED,
+) -> FamilyInstances:
+    """Failure regions (``DESIGN_roadmap_2026-09-26.md`` §4 D): 4 families x ``dims`` x ``n_instances``.
+
+    Every shape and both modes of :class:`~panobbgo.lib.families.FailureRegion`,
+    each on a base whose own difficulty is already in the free battery, so
+    the failure region is the new variable:
+
+    * ``ellipsoid`` + half-space, *crash*, the optimum **on** the boundary
+      (``boundary_gap=0``): the stability-limit case.
+    * ``rosenbrock`` + half-space, *timeout*, the boundary 5 % of the
+      half-width past the optimum.
+    * ``rastrigin`` + ball, *crash*, 20 % of the box.
+    * ``sharp_ridge`` + 3 boxes, *timeout*, 20 % of the box.
+
+    Every failed call is spent budget (the AOCC trace counts it, without
+    progress).  ``d = 10`` is left out for the reason the constrained
+    battery leaves it out: a first battery cheap enough to run often.
+    """
+    families: List[FamilyLike] = [
+        FamilyConfig(base="ellipsoid", failure=FailureRegion("halfspace", share=0.25, mode="crash", boundary_gap=0.0)),
+        FamilyConfig(
+            base="rosenbrock", failure=FailureRegion("halfspace", share=0.25, mode="timeout", boundary_gap=0.05)
+        ),
+        FamilyConfig(base="rastrigin", failure=FailureRegion("ball", share=0.2, mode="crash")),
+        FamilyConfig(base="sharp_ridge", failure=FailureRegion("boxes", share=0.2, mode="timeout", n_boxes=3)),
     ]
     return make_family_instances(families, dims=dims, n_instances=n_instances, seed=seed)
 
@@ -446,10 +509,12 @@ def describe_instances(instances: Sequence[Tuple[str, Family]]) -> Dict[str, Any
     dims = sorted({p.dim for _n, p in instances})
     families = sorted({p.family for _n, p in instances})
     ks = sorted({p.n_constraints for _n, p in instances})
+    failures = sorted({p.failure.tag() for _n, p in instances if p.failure is not None})
     return {
         "n_instances": len(instances),
         "families": families,
         "dims": dims,
         "n_constraints": ks,
         "constrained": any(k > 0 for k in ks),
+        "failure": failures,
     }

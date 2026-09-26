@@ -16,6 +16,9 @@ import numpy as np
 import pytest
 
 from panobbgo.features import (
+    FeatureLogger,
+    avg_ranks,
+    heuristic_state,
     FeatureLogSpec,
     compute_features,
     landscape_features,
@@ -45,7 +48,9 @@ ROTATION_INVARIANT = (
     "fdc",
     "nbc_mean_ratio",
     "nbc_sd_ratio",
-    "nbc_rank_cor",
+    "nbc_nn_nb_cor",
+    "nbc_dist_ratio_cv",
+    "nbc_nb_fitness_cor",
     "disp_10",
     "disp_25",
     "r2_lin",
@@ -95,6 +100,10 @@ def test_rank_order_ties_constraints_and_spearman():
     fx = np.array([0.0, 5.0, -1.0, 2.0])
     cv = np.array([1.0, 0.0, 0.5, 0.0])
     assert rank_order(fx, cv).tolist() == [3, 1, 2, 0]
+    # a NaN violation is infeasible (last), not feasible
+    assert rank_order(np.array([5.0, 0.0]), np.array([0.0, np.nan])).tolist() == [0, 1]
+    assert avg_ranks(np.array([3.0, 1.0, 1.0, 2.0])).tolist() == [3.0, 0.5, 0.5, 2.0]
+    assert avg_ranks(fx, cv).tolist() == [3.0, 1.0, 2.0, 0.0]
     assert spearman(np.arange(5.0), np.arange(5.0) ** 3) == pytest.approx(1.0)
     assert math.isnan(spearman(np.arange(2.0), np.arange(2.0)))
 
@@ -160,6 +169,41 @@ def test_rotation_invariant_features_and_separability():
     assert rot["land"]["sep_ratio"] < 0.7
     # The Hessian condition estimate sees the conditioning (100) either way.
     assert base["land"]["log10_cond"] == pytest.approx(2.0, abs=0.3)
+    # spread_iso is the rotation-invariant companion of the per-axis spread
+    for arm in base["arms"]:
+        assert rot["arms"][arm]["spread_iso"] == pytest.approx(base["arms"][arm]["spread_iso"], rel=1e-7)
+
+
+def test_plateau_features_do_not_depend_on_sampling_order():
+    """A step function has ties; permuting the archive must not move any landscape feature."""
+    rng = np.random.default_rng(5)
+    d, n = 3, 300
+    u = rng.random((n, d))
+    f = np.floor(4 * ((u - 0.3) ** 2).sum(1))  # few plateaus, many ties
+    who = ["A"] * n
+    box = np.array([[0.0, 1.0]] * d)
+    base = compute_features(u, f, who, box)["land"]
+    perm = rng.permutation(n)
+    moved = compute_features(u[perm], f[perm], who, box)["land"]
+    for k in base:
+        if k.startswith("probe") or k == "coverage_ratio":
+            continue
+        assert moved[k] == pytest.approx(base[k], rel=1e-9, abs=1e-12, nan_ok=True), k
+
+
+def test_quadratic_fit_needs_twice_its_coefficients_and_works_at_d30():
+    d = 30
+    p = 1 + 2 * d + d * (d - 1) // 2
+    rng = np.random.default_rng(2)
+    u = rng.random((2 * p - 1, d))
+    short = landscape_features(u, avg_ranks(rng.random(u.shape[0])))
+    assert math.isnan(short["r2_quad"]) and math.isnan(short["log10_cond"]) and math.isnan(short["sep_ratio"])
+    u = rng.random((2 * p + 10, d))
+    noise = landscape_features(u, avg_ranks(rng.random(u.shape[0])))
+    assert abs(noise["r2_quad"]) < 0.15  # pure-noise ranks: nothing to explain
+    assert math.isnan(noise["sep_ratio"])  # r2_quad too small for a ratio
+    sphere = landscape_features(u, avg_ranks(((u - 0.3) ** 2).sum(1)))
+    assert sphere["r2_quad"] > 0.9 and sphere["log10_cond"] < 1.0 and sphere["hess_pos"] == 1.0
 
 
 def test_stuck_arm_reads_as_stuck():
@@ -174,6 +218,7 @@ def test_stuck_arm_reads_as_stuck():
     fx = np.r_[rng.random(60) + 1.0, np.full(60, 0.5)]
     feats = compute_features(x, fx, who, np.array([[0.0, 1.0]] * d))
     cma, rnd = feats["arms"]["CMAES"], feats["arms"]["Random"]
+    assert cma["spread_iso"] < 1e-6 < rnd["spread_iso"]
     assert cma["revisit"] == 0.9 and rnd["revisit"] == 0.0  # the first collapsed point is new
     assert cma["spread"] < 1e-6 < rnd["spread"]
     assert cma["spread_trend"] < -3
@@ -237,6 +282,9 @@ def test_logging_leaves_the_run_bit_identical(name, battery, virtual):
         assert {"CMAES", "JSO"} <= set(last["arms"])
     cma = last["arms"]["CMAES"]
     assert "sigma_rel" in cma and "log10_cond_c" in cma  # the CMA-ES extras
+    for key in ("pass", "dispatched", "in_flight"):
+        assert isinstance(last["ctx"][key], int)
+    assert ("vtime" in last["ctx"]) == (virtual is not None)
     json.dumps(on.features, allow_nan=False)  # compact and strict JSON: no NaN, no numpy scalars
 
 
@@ -307,3 +355,85 @@ def test_logging_overhead_is_small_at_d10():
     total = __import__("time").perf_counter() - t0
     assert out.features is not None and len(out.features) == 5
     assert out.features_s < 0.10 * total, (out.features_s, total)
+
+
+class _Box:
+    ranges = np.array([2.0, 8.0])
+
+
+def test_cma_state_uses_the_box_normalised_current_covariance():
+    class H:
+        name = "CMAES"
+        _sigma = 0.5
+        _C = np.diag([4.0, 64.0])  # std 2 and 8 = the box ranges: isotropic in the unit box
+        _D = np.array([1.0, 1000.0])  # stale eigendecomposition: must be ignored
+
+    class S:
+        problem = _Box()
+        _heuristics = {"CMAES": H()}
+
+    st = heuristic_state(S())["CMAES"]
+    assert st["log10_cond_c"] == pytest.approx(0.0, abs=1e-12)
+    assert st["sigma_rel"] == pytest.approx(0.5)
+
+
+def _replay_run(problem, spec, budget, observers, seed=7):
+    """The body of ``_run_tracked`` with extra pass observers: (tracker, strategy)."""
+    np.random.seed(seed)
+    tracker = PenaltyTracker(problem, budget=budget)
+    try:
+        strategy = spec.create_strategy(problem, seed=seed, max_eval=budget)
+        strategy.config.max_eval = budget
+        strategy.config.sync_evaluation = True
+        strategy.config.stop_on_convergence = False
+        for make in observers:
+            strategy.add_pass_observer(make(tracker))
+        strategy.start()
+    finally:
+        tracker.restore()
+    return tracker, strategy
+
+
+def test_pass_observers_run_once_more_when_the_loop_ends():
+    """The contract of ``add_pass_observer``: after every pass, and a final call after the loop."""
+    _n, problem = make_families_battery(dims=(2,), n_instances=1)[0]
+    calls = []
+    _t, strategy = _replay_run(problem, _spec("RoundRobin_CMAES"), 60, [lambda tr: lambda s: calls.append(s.loops)])
+    assert len(calls) == strategy.loops + 1
+    assert calls[-1] == calls[-2] == strategy.loops
+
+
+def test_checkpoint_snapshot_equals_the_state_of_a_replayed_run():
+    """Replaying the seed and stopping at the recorded pass reproduces the snapshot: the branch point is exact."""
+    _n, problem = make_families_battery(dims=(3,), n_instances=1)[1]
+    spec, budget, log = _spec("Blocks_warm_CMAES_JSO"), 300, FeatureLogSpec(checkpoints=(0.2, 0.4))
+    loggers = []
+
+    def make_logger(tracker):
+        lg = FeatureLogger(log, budget=budget, spent=lambda: tracker.n_evals, failed=lambda: tracker.n_failed)
+        loggers.append(lg)
+        return lg
+
+    _replay_run(problem, spec, budget, [make_logger])
+    recorded = loggers[0].records[1]
+    target = recorded["ctx"]["pass"]
+    snaps = []
+
+    def make_probe(tracker):
+        lg = FeatureLogger(log, budget=budget, spent=lambda: tracker.n_evals, failed=lambda: tracker.n_failed)
+
+        def probe(strategy):
+            if strategy.loops == target and not snaps:
+                snaps.append(lg._snapshot(strategy, tracker.n_evals))
+                strategy.request_stop()
+
+        return probe
+
+    _replay_run(problem, spec, budget, [make_probe])
+    assert snaps and snaps[0] == {k: v for k, v in recorded.items() if k != "checkpoint"}
+
+
+def test_run_tracked_refuses_a_sealed_problem():
+    _n, problem = make_sealed_families_battery()[0]
+    with pytest.raises(ValueError, match="feature logging is refused"):
+        _tracked(_spec("RoundRobin_Random"), problem, 20, FeatureLogSpec())

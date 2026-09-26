@@ -385,31 +385,58 @@ uv run python scripts/ioh_benchmark.py run --families --log-features --output fe
     recorded at the first pass boundary at or past `ceil(fraction·budget)`
     spent evaluations (`ctx.evals` is the actual count, `checkpoint` the
     nominal fraction).  External baselines have no main loop and record
-    an empty list.
+    an empty list; a run that raises records `[]`.
+*   **Provenance for counterfactual branches**: `ctx.pass`
+    (`strategy.loops`), `ctx.dispatched`, `ctx.in_flight` and, on the
+    virtual clock, `ctx.vtime`.  Replaying the seed to that pass reproduces
+    the snapshot exactly (tested).
 *   **Groups** (floats to 4 significant digits, `null` = undefined):
-    `ctx` (dim, budget, evals, frac, evals / d, remaining / d, archive
-    size, arms, q, noisy, constrained), `land` (ELA-lite on at most 500
-    evenly spaced points: Spearman FDC, nearest-better-clustering ratios,
-    top-10/25 % dispersion, adjusted R² of linear / additive / full
-    quadratic models, separability ratio, Hessian condition and share of
-    positive eigenvalues; coverage of the box from 128 fixed probes),
-    `traj` (rank progress rate, stall, recent improvements, failure share)
-    and `arms` (per heuristic: share, recent credit, best rank, and the
-    "stuck locally" group — spread and its trend, novelty, revisit rate,
-    region size — plus CMA-ES `sigma_rel`, `log10_cond_c`, `restarts`).
-*   **Invariance**: every `f`-based feature uses ranks (constrained:
-    feasible by `f`, then infeasible by violation), so all of them — the
-    meta-model R² included — are invariant to `a·f + b` and to monotone
-    transforms; `x` is normalised to the unit box and distances divided by
-    √d.  With equal box ranges, FDC, NBC, dispersion, linear / quadratic
-    R², Hessian condition, novelty distances and revisits are invariant to
-    rotation; the separability ratio, the per-axis spread / region and the
-    coverage probes are not (tested).  Never raw `f` or raw coordinates.
-*   **Cost**: ~5–10 ms per checkpoint at d = 10; 4–8 % of the run time of
-    a portfolio run at d = 10, 500·d on the (cheapest) family objectives,
-    up to ~11 % for a lone CMA-ES arm (2026-09-26, laptop, `nice -n 15`).
-    It scales with the landscape subsample (`FeatureLogSpec.max_points`),
-    not with the budget.
+    *   `ctx`: dim, budget, evals, frac, evals / d, remaining / d, archive
+        size, arms, q, noisy, constrained, plus the provenance above.
+    *   `land` (ELA-lite on at most 500 evenly spaced points): Spearman FDC;
+        nearest-better clustering after Kerschke et al. (`nbc_mean_ratio`,
+        `nbc_sd_ratio`, `nbc_nn_nb_cor`, `nbc_dist_ratio_cv`,
+        `nbc_nb_fitness_cor`, nearest better = strictly better);
+        top-10/25 % dispersion; **rank-R²** `r2_lin` / `r2_add` / `r2_quad`
+        (adjusted R² of models of the normalised ranks, not of `f`); the
+        separability ratio; the fitted Hessian's condition (`log10_cond`)
+        and share of positive eigenvalues; coverage of the box from 128
+        fixed probes.  The full quadratic needs `2p` points
+        (`p = 1 + 2d + d(d−1)/2`), from its own larger subsample above 500
+        (d = 30 / 40: 992 / 1722), else `null`; a condition estimate near
+        that limit is noisy and grows with d, and `coverage_ratio` of a
+        uniform design grows with d too (boundary effects): compare both
+        within one d.
+    *   `traj`: rank progress rate, stall, recent improvements, failure
+        share.
+    *   `arms` (per heuristic): share, recent credit, best rank, and the
+        "stuck locally" group — `spread` (per axis) and `spread_iso`
+        (`det(Cov)^(1/2d)`, rotation-invariant), spread trend, novelty,
+        revisit rate, region size — plus CMA-ES `sigma_rel`,
+        `log10_cond_c` (on the box-normalised current covariance) and
+        `restarts`.
+*   **Ranks, not the metric**: features rank what the strategy observes —
+    the noisy value on a noisy battery; constrained: feasible points by `f`,
+    then infeasible ones by violation — not the tracker's metric (true
+    value, penalty `f + 100·cv`, feasible gap): they describe what a
+    selector can see at run time.  Landscape and arm features use average
+    ranks (ties share a rank), so plateaus do not depend on the sampling
+    order; only best-so-far and improvement detection use an ordinal order.
+*   **Invariance**: every `f`-based feature is invariant to `a·f + b` and
+    to monotone transforms; `x` is normalised to the unit box and distances
+    divided by √d.  With equal box ranges, FDC, NBC, dispersion, linear /
+    quadratic R², Hessian condition, `spread_iso`, novelty distances and
+    revisits are invariant to rotation; the separability ratio, the
+    per-axis spread / region and the coverage probes are not (tested).
+    Never raw `f` or raw coordinates.
+*   **Cost**: at d = 10 about 5–10 ms per checkpoint, 4–8 % of a portfolio
+    run at 500·d on the (cheapest) family objectives and up to ~11 % for a
+    lone CMA-ES arm; at d = 40 the quadratic fit on 1722 points takes
+    ~0.15–0.2 s per checkpoint (2026-09-26, laptop, `nice`).  The landscape
+    part is bounded by the subsample, but the coverage and per-arm features
+    scan the whole archive, so the cost grows with the budget.
+*   **Wall-clock deadlines**: with `--timeout` the logger's time counts
+    toward the run's deadline like any other work in the run.
 
 ## The sealed test set
 

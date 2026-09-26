@@ -1758,6 +1758,10 @@ def _run_tracked_unpinned(
     np.random.seed(seed)
     logger: Optional[FeatureLogger] = None
     try:
+        if getattr(problem, "sealed", False):
+            # Defence in depth behind the battery-level refusals (inside the
+            # ``try``: the tracker is restored either way).
+            refuse_sealed_features(log_features, str(getattr(problem, "family", problem)))
         # The budget must reach the config *before* the heuristics are
         # constructed — budget-adaptive arms (``NP_init="auto"``) size
         # themselves from ``config.max_eval`` in their constructor, and
@@ -1897,6 +1901,7 @@ def _run_one(
     if problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")
     if sealed:
+        refuse_sealed_features(log_features, f"{problem_kind} {instance}")
         if int(instance) not in SEALED_MABBOB_INSTANCES or problem_kind != "MA-BBOB":
             raise ValueError(f"sealed=True is for the sealed MA-BBOB instances only, not {problem_kind} {instance}")
     elif not is_dev_instance_id(int(instance)):
@@ -1909,6 +1914,8 @@ def _run_one(
     t0 = time.time()
     f_opt = 0.0
     tracked = _TrackedRun(n_evals=0, best_fx=float("inf"), aocc=0.0, trace_evals=[], trace_fx=[])
+    if log_features is not None:
+        tracked.features = []  # a run that raises still says "logged, nothing recorded"
     problem: Optional[Any] = None
 
     try:

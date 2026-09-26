@@ -209,6 +209,8 @@ def _run_one(
     timeout_s = wall_timeout_for(strategy_spec, timeout_s)
     t0 = time.time()
     tracked = _TrackedRun(n_evals=0, best_fx=float("inf"), aocc=0.0, trace_evals=[], trace_fx=[])
+    if log_features is not None:
+        tracked.features = []  # a run that raises still says "logged, nothing recorded"
     tracker = FeasibleGapTracker(problem, budget=budget, timeout_s=timeout_s)
     try:
         tracked = _run_tracked(

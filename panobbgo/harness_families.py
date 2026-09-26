@@ -480,6 +480,8 @@ def _run_one(
     t0 = time.time()
     f_opt = float(problem.f_opt)
     tracked = _TrackedRun(n_evals=0, best_fx=float("inf"), aocc=0.0, trace_evals=[], trace_fx=[])
+    if log_features is not None:
+        tracked.features = []  # a run that raises still says "logged, nothing recorded"
 
     try:
         # The families are noiseless, so an oracle regime gate reads

@@ -62,12 +62,17 @@ import heapq
 import zlib
 import re
 import threading
+import warnings
 from .logging.progress import ProgressContext
 from typing import TYPE_CHECKING, Any, Callable, cast, Optional, List, Dict, Union, Tuple
 
 if TYPE_CHECKING:
     from .lib import Problem, Result
     from .core import EventBus
+
+#: ``evaluation.async_policy`` values: the asynchronous main loop's policy
+#: (see :meth:`StrategyBase._free_workers`).
+ASYNC_POLICIES: Tuple[str, ...] = ("pull", "legacy")
 
 
 class _RankTracker:
@@ -2084,14 +2089,18 @@ class StrategyBase:
         self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
         #: How many points :meth:`execute` may hand back in the current pass,
         #: or ``None`` for no limit.  Set by the main loop before each
-        #: ``execute`` call where the evaluation mode knows it — the virtual
-        #: clock's async policy: its free workers, within the budget — and
-        #: honoured by the strategies (:meth:`cap_request`,
+        #: ``execute`` call where the evaluation mode knows it — the free
+        #: workers, within the budget, under the pull-when-free policies (the
+        #: virtual clock's ``"async"``, the real loop's
+        #: ``evaluation.async_policy = "pull"``) — and honoured by the
+        #: strategies (:meth:`cap_request`,
         #: :func:`~panobbgo.strategies._bandit.collect_pulls`), so a strategy
         #: only does its bookkeeping (pull counts, discounts, block lengths)
-        #: for points that are dispatched.  The seam for any pull-when-free
-        #: evaluation loop.
+        #: for points that are dispatched.
         self.request_cap: Optional[int] = None
+        #: Candidates the pull-when-free safety net (:meth:`_admit_free`)
+        #: had to hand back; stays 0 unless a strategy ignores its cap.
+        self.n_admit_trimmed = 0
 
         # Configure Constraint Handler.  A setting left unset (``None``) is
         # not passed, so each handler keeps its own class default (see the
@@ -2455,6 +2464,9 @@ class StrategyBase:
             from .virtual_clock import validate_config
 
             errors.extend(validate_config(self.config))
+        policy = getattr(self.config, "async_policy", "pull")
+        if policy not in ASYNC_POLICIES:
+            errors.append(f"evaluation.async_policy must be one of {list(ASYNC_POLICIES)}, got {policy!r}")
 
         return errors
 
@@ -2582,6 +2594,71 @@ class StrategyBase:
         return bool(self.config.sync_evaluation) or self.config.evaluation_method == "virtual"
 
     @property
+    def _pull_mode(self) -> bool:
+        """Does the asynchronous loop pull when free (``evaluation.async_policy = "pull"``, not synchronous)?"""
+        return not self._sync_mode and getattr(self.config, "async_policy", "pull") == "pull"
+
+    def _budget_room(self) -> Optional[int]:
+        """Evaluations the budget still allows, or ``None`` without a budget (see :meth:`_clamp_to_budget`)."""
+        max_eval = self.config.max_eval
+        if not max_eval:
+            return None
+        used = max(self._dispatched, len(self.results) + len(self.pending))
+        return max(0, int(max_eval) - used)
+
+    def _free_workers(self) -> int:
+        """Pull when free: the request cap of the real asynchronous loop.
+
+        The evaluators (``len(self.evaluators)``: threads, worker processes or
+        dask workers) minus the evaluations in flight, within the budget.  A
+        finished evaluation not yet harvested still counts as in flight, so
+        the cap errs on the low side; it frees on the next pass (~1 ms).
+        This is the virtual clock's ``"async"`` policy
+        (:meth:`~panobbgo.virtual_clock.VirtualClock.request_cap`) on real
+        workers.
+        """
+        free = max(0, self._n_evaluators() - len(self.pending))
+        room = self._budget_room()
+        return free if room is None else min(free, room)
+
+    def _n_evaluators(self) -> int:
+        """Worker count for :meth:`_free_workers`: at least 1.
+
+        A dask cluster reporting no workers (a remote one still connecting,
+        an adaptive one scaled to zero) still gets one task, so there is
+        demand to scale on and something for the waiting WARNING to report.
+        Dask's count is a scheduler round trip, so it is refreshed at most
+        once a second rather than on every ~1 ms pass.
+        """
+        if self.config.evaluation_method != "dask":
+            return max(1, len(self.evaluators))
+        now = time_module.time()
+        cached = self.__dict__.get("_dask_n_workers_cache")
+        if cached is None or now - cached[0] > 1.0:
+            cached = (now, max(1, len(self.evaluators)))
+            self._dask_n_workers_cache = cached
+        return cached[1]
+
+    def _admit_free(self, points: List[Any], cap: int) -> List[Any]:
+        """Pull-when-free safety net: keep the first ``cap`` candidates, return the rest to their queues.
+
+        The strategy was asked for at most ``cap`` points, so this normally
+        trims nothing; a strategy that ignores :attr:`request_cap` would
+        otherwise queue candidates past the free workers, where they go
+        stale.  Warns once per run.
+        """
+        if len(points) <= cap:
+            return points
+        n, surplus = len(points), len(points) - cap
+        msg = "pull-when-free: %d candidates for %d free workers; returning %d to their queues" % (n, cap, surplus)
+        self.logger.debug(msg)
+        if self.n_admit_trimmed == 0:
+            warnings.warn(msg + " (the strategy ignores StrategyBase.request_cap)", RuntimeWarning, stacklevel=2)
+        self.n_admit_trimmed += surplus
+        self._return_to_queues(list(points[cap:]))
+        return list(points[:cap])
+
+    @property
     def best(self):
         best_analyzer = self._analyzers.get("Best")
         return best_analyzer.best if best_analyzer else None
@@ -2629,6 +2706,11 @@ class StrategyBase:
         self._deadlock_seconds = float(getattr(self.config, "deadlock_seconds", 600.0))
         sync = self._sync_mode
         virtual = self.config.evaluation_method == "virtual"
+        #: Pull when free (``evaluation.async_policy = "pull"``): the real
+        #: asynchronous loop asks the strategy only for the free workers
+        #: (:meth:`_free_workers`), with ``jobs_per_client = 1``, and never
+        #: queues past them — the virtual clock's ``"async"`` policy.
+        pull = self._pull_mode
         self._last_n_finished = self.n_finished
         #: Evaluations charged against ``max_eval``: incremented when a point
         #: is *dispatched*, so a failing evaluation (no result) is charged
@@ -2652,10 +2734,23 @@ class StrategyBase:
             if self.config.max_eval and self._dispatched >= self.config.max_eval:
                 points = []
             else:
-                self.request_cap = self._virtual_clock.request_cap() if virtual else None
-                proposed = self.execute() if self.request_cap != 0 else []
-                if virtual:  # safety net: the async policy never queues past the free workers
+                if virtual:
+                    cap = self._virtual_clock.request_cap()
+                elif pull:
+                    cap = self._free_workers()
+                    # The bandits' target (``jobs_per_client × evaluators``,
+                    # :func:`~panobbgo.strategies._bandit.collect_pulls`) is
+                    # the worker count: one evaluation per worker.
+                    self.jobs_per_client = 1
+                else:
+                    cap = None
+                self.request_cap = cap
+                proposed = self.execute() if cap != 0 else []
+                # Safety nets: a pull-when-free policy never queues past the free workers.
+                if virtual:
                     proposed = self._virtual_clock.admit(proposed)
+                elif pull:
+                    proposed = self._admit_free(proposed, cast(int, cap))
                 points = self._clamp_to_budget(proposed)
 
             # Update progress status
@@ -2695,7 +2790,7 @@ class StrategyBase:
                     break
                 jpc = self._virtual_clock.jobs_per_client if virtual else None
                 self.jobs_per_client = jpc or max(1, int(self.config.max_eval / 50.0))
-            else:
+            elif not pull:  # legacy asynchronous sizing (pull mode: 1, set above)
                 per_client = self.config.max_eval / 50.0
                 avg = self.avg_time_per_task
                 if avg > 0:  # NaN (no task timed yet) compares False
@@ -2777,7 +2872,12 @@ class StrategyBase:
                 self.logger.info("Stop requested via flag (e.g. convergence).")
                 break
 
-            if not sync or (self.pending and not virtual):
+            if pull and finished_moved:
+                # Pull when free: a harvest just freed workers — ask the
+                # strategy again at once rather than leave them idle for a
+                # pass.  The next pass has nothing new, so this never spins.
+                pass
+            elif not sync or (self.pending and not virtual):
                 # Limit loop speed while evaluations are in flight.  Under
                 # sync threaded/processes evaluation nothing is in flight here
                 # (the sleep would be pure latency); dask ignores

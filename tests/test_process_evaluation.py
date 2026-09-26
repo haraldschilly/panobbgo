@@ -540,6 +540,9 @@ def test_a_long_outstanding_dask_future_is_never_cut_by_the_backstop(monkeypatch
             def submit(self, fn, *args, pure=False):
                 return _FakeDaskFuture(fn, args, delay=1.5)
 
+            def scheduler_info(self):  # two workers: the pull-when-free cap
+                return {"workers": {"a": {}, "b": {}}}
+
             def close(self):
                 pass
 
@@ -622,6 +625,9 @@ def test_dask_timeout_is_enforced_on_the_worker_per_call(monkeypatch, tmp_path):
         class Client:
             def submit(self, fn, *args, pure=False):
                 return _ThreadFuture(fn, args)
+
+            def scheduler_info(self):  # two workers: the pull-when-free cap
+                return {"workers": {"a": {}, "b": {}}}
 
             def close(self):
                 pass

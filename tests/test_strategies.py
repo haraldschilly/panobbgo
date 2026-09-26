@@ -458,6 +458,7 @@ class TestFrameworkValidation(PanobbgoTestCase):
         mock_config.discount = 0.95
         mock_config.smooth = 0.5
         mock_config.evaluation_method = "threaded"
+        mock_config.async_policy = "pull"
         base.config = mock_config
 
         with mock.patch.object(base.logger, "warning") as warn:

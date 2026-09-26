@@ -297,9 +297,10 @@ class IOHTracker:
         self.best_so_far_reco: List[float] = []
         self._incumbent_true: float = float("inf")
         #: Set by :meth:`restore`: the run is over and its traces are frozen.
-        #: A call still in flight — a thread abandoned by
-        #: ``evaluation.timeout`` keeps running after the run — is neither
-        #: admitted nor recorded, so it cannot change a scored run.
+        #: A call through the tracker after the close — a thread abandoned by
+        #: ``evaluation.timeout`` that still holds the tracked ``eval``, or
+        #: one already in flight — is neither admitted nor recorded, so it
+        #: cannot change a scored run.
         self._closed: bool = False
 
         self._orig_eval: Callable[[np.ndarray], float] = problem.eval
@@ -309,8 +310,8 @@ class IOHTracker:
         fire_timeout = False
         with self._lock:
             if self._closed:
-                # The run is over (restore); a late caller gets a
-                # non-improvement and the problem is not called.
+                # A call through the tracker after the close (restore): a
+                # non-improvement, and the problem is not called.
                 return self._closed_value()
             if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
                 self.timed_out = True
@@ -480,11 +481,14 @@ class IOHTracker:
     def restore(self) -> None:
         """Restore the original ``eval`` so the problem can be reused, and close the tracker.
 
-        Closing freezes the counts and traces: a call still in flight — a
-        thread abandoned by ``evaluation.timeout`` cannot be killed and keeps
-        running after the run — is not recorded when it finishes, and a
-        late call is not admitted.  What the run is scored on is therefore
-        exactly what was recorded when it ended.
+        Afterwards ``problem.eval`` is the objective again: new calls go to
+        it untracked.  Closing freezes the counts and traces for calls that
+        still go through the tracker: one in flight — a thread abandoned by
+        ``evaluation.timeout`` cannot be killed and keeps running after the
+        run — is not recorded when it finishes (returned, failed or raised),
+        and a call through a tracked ``eval`` taken before the close is not
+        admitted.  What the run is scored on is therefore exactly what was
+        recorded when it ended.
         """
         with self._lock:
             self._closed = True

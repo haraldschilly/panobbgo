@@ -69,7 +69,9 @@ same FP environment, i.e. with the same `fp_env_id`.**
     identical on EPYC 7763, EPYC 9V74 (with and without AVX-512) and Xeon
     runners, with and without the variable elsewhere (2026-09-27,
     experiment PR #371).  The variable is not in `fp_env_id` (it restores
-    what the pin already meant).  Two shards of the FP-exact re-baseline
+    what the pin already meant).  `fp-check.yml` also compares digests of
+    such large GEMM / `lstsq` / `eigh` results across its runners
+    (`scripts/fp_blas_digest.py`).  Two shards of the FP-exact re-baseline
     run 36265786623 (`composite-quick 01`, `ioh-external 01`) ran on such
     hosts without it (`TODO.md`).
 *   **The record.**  Every result file carries `fp_env` (CPU model,

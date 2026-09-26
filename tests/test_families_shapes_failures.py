@@ -644,19 +644,23 @@ class _InFlight:
             assert self._cv.wait_for(lambda: self.n == 0, timeout), f"{self.n} call(s) still running"
 
 
-def test_a_call_that_finishes_after_the_run_is_not_recorded():
-    """A call abandoned in flight that returns after ``restore()`` leaves the finished run's tracker untouched.
+@pytest.mark.parametrize("outcome", ["returns", "crashes", "raises"])
+def test_a_call_that_finishes_after_the_run_is_not_recorded(outcome):
+    """A call in flight that finishes after ``restore()`` leaves the finished run's tracker untouched.
 
     Threads abandoned by ``evaluation.timeout`` cannot be killed; they
     finish after the harness has scored the run (and while the next run or
-    test is going).  The tracker is closed at ``restore()``: the late
-    result is dropped, a late call is not admitted, and the problem is not
-    called for it.
+    test is going).  The tracker is closed at ``restore()``: whether the
+    held call returns, fails (``EvaluationCrashed``, a spent evaluation
+    while the run is open) or raises anything else (a released slot), the
+    counts, the traces and the reserved slots stay as they were, and a call
+    through the tracked ``eval`` after the close is not admitted and never
+    reaches the problem.
     """
     import threading
 
     entered, release = threading.Event(), threading.Event()
-    calls = []
+    calls, raised = [], []
 
     class Held(Family):
         def eval(self, x):
@@ -664,24 +668,41 @@ def test_a_call_that_finishes_after_the_run_is_not_recorded():
             if x[0] > 2.0:
                 entered.set()
                 assert release.wait(10)
+                if outcome == "crashes":
+                    raise EvaluationCrashed("held call crashed")
+                if outcome == "raises":
+                    raise RuntimeError("held call raised")
             return super().eval(x)
+
+    def state(t):
+        return (t.n_evals, t.n_failed, list(t.best_so_far), t.best_fx, t._reserved)
 
     p = Held("sphere", dim=2, seed=1, shift=False)
     tracker = PenaltyTracker(p, budget=10)
-    bound = p.eval  # what a pool thread holds while its call is in flight
+    bound = p.eval  # the tracked eval a pool thread holds while its call is in flight
     bound(np.full(2, 1.0))
-    late = threading.Thread(target=bound, args=(np.full(2, 3.0),))
+
+    def run_late():
+        try:
+            bound(np.full(2, 3.0))
+        except Exception as exc:  # the pool thread's future would hold it
+            raised.append(type(exc))
+
+    late = threading.Thread(target=run_late)
     late.start()
     try:
         assert entered.wait(10)
         tracker.restore()  # the run ends while the call is in flight
-        frozen = (tracker.n_evals, list(tracker.best_so_far), tracker.best_fx, tracker._reserved)
+        frozen = state(tracker)
     finally:
         release.set()
         late.join(10)
     assert not late.is_alive()
-    assert (tracker.n_evals, list(tracker.best_so_far), tracker.best_fx, tracker._reserved) == frozen
-    assert frozen[0] == 1 and frozen[3] == 2  # one recorded, one admitted in flight
-    assert bound(np.zeros(2)) == tracker.best_fx  # a late call: not admitted ...
+    assert raised == {"returns": [], "crashes": [EvaluationCrashed], "raises": [RuntimeError]}[outcome]
+    assert state(tracker) == frozen
+    assert frozen[0] == 1 and frozen[1] == 0 and frozen[4] == 2  # one recorded, one admitted in flight
+    assert bound(np.zeros(2)) == tracker.best_fx  # through the tracker after the close: not admitted ...
     assert len(calls) == 2  # ... and the problem was not called
-    assert tracker.n_evals == 1
+    assert state(tracker) == frozen
+    assert p.eval(p.x_opt) == p.f_opt and len(calls) == 3  # the restored eval: the objective, untracked
+    assert state(tracker) == frozen

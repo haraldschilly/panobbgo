@@ -1438,6 +1438,10 @@ def run_ioh_harness_multi_seed(
 
     ``jobs > 1`` runs each seed's cells in that many worker processes (see
     :func:`run_ioh_harness`).
+
+    BLAS / OpenMP are pinned to one thread for every run
+    (:func:`panobbgo.local_run.pin_blas`); the pin persists for the rest of
+    the process.
     """
     if not base_seeds:
         raise ValueError("base_seeds must be non-empty")
@@ -2104,6 +2108,10 @@ def run_ioh_harness(
     ``log_features`` records checkpoint features in every run record
     (:mod:`panobbgo.features`) without changing the runs.  Refused on the
     sealed battery: its features would be training data.
+
+    BLAS / OpenMP are pinned to one thread for every run
+    (:func:`panobbgo.local_run.pin_blas`); the pin persists for the rest of
+    the process.
     """
     if battery.problem_kind not in SUPPORTED_PROBLEM_KINDS:
         raise ValueError(f"Unknown problem kind {battery.problem_kind!r}; known: {list(SUPPORTED_PROBLEM_KINDS)}")

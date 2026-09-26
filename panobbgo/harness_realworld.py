@@ -283,6 +283,10 @@ def run_realworld_harness(
     ``problem_kind`` is the problem name (``"rc17_spring"``), ``instance``
     is 0, ``f_opt`` is 0 and ``best_fx`` the best feasible relative gap; the
     result's ``scored`` is ``"relative_feasible_gap"``.
+
+    BLAS / OpenMP are pinned to one thread for every run
+    (:func:`panobbgo.local_run.pin_blas`); the pin persists for the rest of
+    the process.
     """
     total = len(instances) * len(specs) * int(reps)
     runs: List[IOHRunRecord] = []

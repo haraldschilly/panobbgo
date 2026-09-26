@@ -549,6 +549,10 @@ def run_family_harness(
 ) -> IOHHarnessResult:
     """Score every spec on every instance and return an AOCC result.
 
+    BLAS / OpenMP are pinned to one thread for every run
+    (:func:`panobbgo.local_run.pin_blas`); the pin persists for the rest of
+    the process.
+
     Parameters
     ----------
     specs

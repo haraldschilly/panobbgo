@@ -25,3 +25,9 @@ after.json
 harness_*.json
 ioh_*.json
 .claude/scheduled_tasks.lock
+# re-baseline reference files live in GitHub releases (rebaseline-<date>),
+# not in git; only ref_MANIFEST.json and SUMMARY.json are committed
+# (scripts/rebaseline.py fetch <tag> unpacks the rest)
+planning/results/**/ref_*.json
+!planning/results/**/ref_MANIFEST.json
+planning/results/**/*.tar.gz

@@ -2439,13 +2439,16 @@ Reference files for every comparison from here on; nothing before
 2026-09-25 is comparable (TODO history, audit PRs #320–#340).  Measured
 on GitHub runners (`rebaseline.yml`, run 36228301268, commit 0184fad,
 28 shards, none failed), sync evaluation, keyed RNG streams, no
-wall-clock limits, the 12-seed roster.  Files and manifest:
-`planning/results/2026-09-26/ref_*`.
+wall-clock limits, the 12-seed roster.  Reference files: GitHub release
+`rebaseline-2026-09-26-run36228301268` (asset
+`rebaseline-2026-09-26-run36228301268.tar.gz`; unpack with
+`scripts/rebaseline.py fetch <tag>`).  In git: the manifest and
+`planning/results/2026-09-26/SUMMARY.json` (every number below).
 
 | Suite | 12-seed mean |
 |---|---|
 | composite quick | 0.4029 (per seed 0.349 … 0.487) |
-| composite standard | 0.4275 (per seed 0.420 … 0.440) |
+| composite standard | 0.4275 (per seed 0.419 … 0.440) |
 | IOH quick (mean AOCC, all specs) | 0.3592 |
 | IOH standard (mean AOCC, all specs) | 0.4999 |
 

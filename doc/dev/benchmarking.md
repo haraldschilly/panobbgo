@@ -148,8 +148,10 @@ runs now stop at exactly `max_eval`, composite `success` means "tolerance
 met within the budget", measurements run `sync_eval`, and module RNG streams
 are keyed by master seed and module name (`StrategyBase.spawn_rng`), which
 changed every seeded trajectory.  Compare against the post-audit
-references instead: `planning/results/2026-09-26/ref_*` (DISCOVERY §54,
-measured before #344–#346, which are bit-identical on the default paths).
+references instead: release `rebaseline-2026-09-26-run36228301268`
+(DISCOVERY §54, measured before #344–#346, which are bit-identical on the
+default paths; numbers in `planning/results/2026-09-26/SUMMARY.json`).
+Unpack it with `scripts/rebaseline.py fetch` (next section).
 
 ## Re-baselining on GitHub runners
 
@@ -161,14 +163,51 @@ yet (`TODO.md`).  Every shard is seeded, `sync_eval`, with no wall-clock
 limit, so the numbers do not depend on runner speed.  Suites and chunk sizes: `scripts/rebaseline.py`.
 
 ```bash
-gh workflow run rebaseline.yml -f suites=all -f seeds=12        # seeds: a count or '42,7'; -f ref=<sha>
-gh run download <RUN_ID> --pattern 'shard-*' --dir rebaseline-raw
-uv run python scripts/rebaseline.py aggregate rebaseline-raw    # -> planning/results/<UTC date>/ref_*
+gh workflow run rebaseline.yml -f suites=all -f seeds=12   # seeds: a count or '42,7'; -f ref=<sha>; -f release=...
 ```
 
-The workflow's last job also aggregates and uploads `rebaseline-references`:
+The last job aggregates the shards into the reference files:
 `ref_composite_<mode>_s<seed>.json` (for `benchmark_harness.py compare`),
 `ref_ioh_<battery>.json` (multi-seed; compare against a run with the same
 `--seeds`) and single-seed `ref_ioh_<battery>_s<seed>.json`,
-`ref_family_screen_<preset>.json` (`family_screen.py from=FILE`) and
-`ref_MANIFEST.json` (commit, seeds, failed shards).
+`ref_family_screen_<preset>.json` (`family_screen.py from=FILE`),
+`ref_MANIFEST.json` (commit, seeds, failed shards, shard commands) and
+`SUMMARY.json` (the numbers per suite: composite mean/min/max and per seed,
+IOH and family mean AOCC and per spec, plus the release tag and URL).
+
+**The raw `ref_*` files are not committed** (Harald, 2026-09-26; ~14 MB
+per run).  They live in a GitHub release that the job creates:
+
+*   **Tag** `rebaseline-<UTC date>` on the measured commit, marked
+    *pre-release* and never *latest*, titled "Re-baseline <date> (reference
+    data)".  A tag that already belongs to another run gets
+    `-run<RUN_ID>` appended; `-f release=<tag>` names it explicitly
+    (a smoke test: `-f release=rebaseline-smoke-<date>`), `-f release=none`
+    skips it.
+*   **Assets**: `<tag>.tar.gz` (every `ref_*.json`, flat), and
+    `ref_MANIFEST.json` and `SUMMARY.json` separately.
+*   **Immutable.**  The repository has immutable releases enabled: once
+    published, a release's assets cannot change, and **a deleted release's
+    tag can never be used again** (this is how `rebaseline-2026-09-26` was
+    lost; its data is under `rebaseline-2026-09-26-run36228301268`).  So
+    `publish` creates a draft, uploads, then publishes; a re-run of the
+    job resumes a draft and leaves a published release alone.  Do not
+    delete a re-baseline release; a smoke-test release may be deleted
+    (`gh release delete <tag> --cleanup-tag`), its name is then gone.
+
+Commit only the small files: download the release into
+`planning/results/<date>/` (`.gitignore` excludes the raw `ref_*` there)
+and add `SUMMARY.json` and `ref_MANIFEST.json`:
+
+```bash
+uv run python scripts/rebaseline.py fetch rebaseline-2026-09-26-run36228301268   # -> planning/results/2026-09-26/
+uv run python scripts/rebaseline.py fetch <tag> --dir /tmp/ref                  # anywhere else
+uv run python benchmark_harness.py compare planning/results/2026-09-26/ref_composite_quick_s42.json after.json
+```
+
+Without the workflow (e.g. a job that failed after measuring):
+`gh run download <RUN_ID> --pattern 'shard-*' --dir rebaseline-raw`, then
+`scripts/rebaseline.py aggregate rebaseline-raw` (→ `planning/results/<UTC
+date>/`) and `scripts/rebaseline.py publish planning/results/<date> --target
+<measured sha>`.  The job also keeps the aggregated directory as the
+artifact `rebaseline-references` for 90 days.

@@ -137,8 +137,8 @@ against the post-audit references of §54 (last bullet).
   grow linearly while the incumbent is stuck; the multi-seed regression
   gate stays pooled.
 * **Re-baselined and instrumented, 2026-09-26.**  Post-audit references
-  on GitHub runners (`rebaseline.yml`, 12 seeds, §54,
-  `planning/results/2026-09-26/`): composite quick 0.4029 / standard
+  on GitHub runners (`rebaseline.yml`, 12 seeds, §54, release
+  `rebaseline-2026-09-26-run36228301268`): composite quick 0.4029 / standard
   0.4275; IOH mean AOCC quick 0.3592 / standard 0.4999
   (`Blocks_warm_CMAES_JSO` 0.4187 / 0.6738, `RoundRobin_CMAES`
   0.3893 / 0.6673).  Roadmap step 1 is partly built: pycma / Nevergrad /
@@ -179,8 +179,9 @@ Sharing is settled as a low-budget mechanism and its payload is fully
 characterised; what is left is choosing the arm per problem.  In order
 (TODO.md "Research line"):
 
-1. **Re-baseline first** — done 2026-09-26 (§54): compare against
-   `planning/results/2026-09-26/ref_*`, never against an older number.
+1. **Re-baseline first** — done 2026-09-26 (§54): compare against its
+   `ref_*` files (`scripts/rebaseline.py fetch
+   rebaseline-2026-09-26-run36228301268`), never against an older number.
 2. **Probe / regime detector — the main line.**  Target: the per-cell
    oracle gap of +0.015…+0.039 (§53.2); the signal should be observable
    early, as the first arm's progress rate (§52.4).  The oracle gate

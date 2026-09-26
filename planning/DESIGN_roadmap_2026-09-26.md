@@ -80,6 +80,44 @@ unsure.  Headroom measured so far: the per-cell oracle beats the
 portfolio by 0.015…0.039 AOCC (§53).  The oracle gate (§45) is the seam
 it plugs into.
 
+#### A in detail: what the selector learns (Harald, 2026-09-26: xgboost first)
+
+* **Label = counterfactual normalised regret per arm.**  At each
+  checkpoint the run state is frozen and *every* arm continues from it
+  to the end of the budget (deterministic runs make this a true branch).
+  Arm i's label is its shortfall against the best arm on that instance,
+  in rank or AOCC-difference units — relative, so d = 2 and d = 40,
+  easy and hard instances share one scale.  xgboost regresses regret per
+  arm; the pick is the argmin (cost-sensitive algorithm selection, as in
+  ASlib).  Every cycle is a new checkpoint, so the same model serves B
+  (keep / switch / split).
+* **Context as features, one model**: dim, remaining evaluations / dim,
+  q, noise level.  Generalisation across ranges is tested, not assumed.
+* **Invariant features** — invariant where the arms are:
+  - to f → a·f + b and monotone transforms (rank-based arms): Spearman
+    fitness–distance correlation, nearest-better clustering ratios,
+    dispersion of the top k % vs all;
+  - affine in f: R² of linear / quadratic / additive meta-models;
+  - to rotation of x: condition estimate from the fitted Hessian's
+    eigenvalues, distance statistics;
+  - deliberately *not* rotation-invariant: separability (additive vs
+    full quadratic R²), because DE and coordinate methods depend on it;
+  - to dimension: evaluations / d, distances / √d, progress rates × d;
+  - in-run only: per-arm progress rate, step-size trend, restarts, noise
+    estimate from repeats, failure share, evaluation durations.
+  Never raw f values or raw coordinates.
+* **Invariance is tested**: besides the sealed set, leave-one-COCO-class-out
+  and leave-dimension-out (train d ∈ {2, 5, 10}, test d ∈ {20, 40}).
+  Feature importances show which feature leaks scale when it fails.
+* **Target metric**: share of the single-best-solver → oracle gap closed
+  (§53 ceiling: 0.015…0.039 AOCC).
+* **Risks**: small-probe features are noisy — train at the probe sizes
+  used at run time, bootstrap features to expose their variance; the
+  branched labels cost arms × instances × checkpoints — deterministic,
+  so it parallelises on GitHub runners; MA-BBOB mixtures and the
+  extended families supply unlimited training instances.  If the
+  problem set lacks diversity for this, extend it (Harald: "do it").
+
 ### B. Budget allocation by forecast
 
 The bandit gave nothing (§31) because its credit was last-step

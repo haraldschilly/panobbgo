@@ -105,6 +105,17 @@ it plugs into.
   - to dimension: evaluations / d, distances / √d, progress rates × d;
   - in-run only: per-arm progress rate, step-size trend, restarts, noise
     estimate from repeats, failure share, evaluation durations.
+  - **"stuck locally"** (Harald): an arm that makes no progress *and* no
+    longer explores is unlikely to find anything new.  Measured relative to
+    the region the arm works in, not the whole box: spread of its recent
+    samples (geometric-mean std per axis / √d, and its trend — contracting
+    or not), novelty (distance of new points to the nearest earlier ones,
+    relative to that spread), revisit rate, the share of the box the region
+    covers, and how much of the box is still unsampled (global dispersion).
+    Low progress + contracting spread + low novelty = stuck; whether
+    switching pays depends on what the rest of the box still promises
+    (meta-model / global-structure features).  A stuck arm is the trigger
+    for B's reallocation and for a hand-over or basin-leaving restart (C).
   Never raw f values or raw coordinates.
 * **Invariance is tested**: besides the sealed set, leave-one-COCO-class-out
   and leave-dimension-out (train d ∈ {2, 5, 10}, test d ∈ {20, 40}).

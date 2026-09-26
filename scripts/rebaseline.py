@@ -75,6 +75,14 @@ suite                       reference file(s)
 ``families-failure``
 ==========================  =================================================
 
+Opt-in A/B suites, never part of ``--suites all`` (run them by name, with
+``-f release=none``): ``ioh-cma-ab`` (the IOH standard battery),
+``ioh-cma-ab-bbob-b200`` and ``ioh-cma-ab-bbob-b500`` (the 24 BBOB functions
+at d 5/10, instances 0/1) run ``RoundRobin_CMAES``, its DISCOVERY §57
+variants and Optuna CmaEs / pycma BIPOP in the same jobs; their files are
+``ref_ioh_standard_cma_ab.json`` and ``ref_ioh_bbob_cma_ab_b<bm>.json``
+(analyse with ``harness_ioh.paired_seed_stats``).
+
 Every measurement is synchronous (``sync_eval``) and seeded, with no
 wall-clock limit, so a result depends on the code and the seed only — not
 on the runner's speed or the ``--jobs`` count — within one floating-point
@@ -128,6 +136,12 @@ class Suite:
     #: Optional-dependency extras the job installs besides ``dev``
     #: (``uv sync --extra dev --extra <name>``).
     extras: Tuple[str, ...] = ()
+    #: Extra harness arguments (IOH only), e.g. the dimensions and budget of
+    #: the ``bbob`` battery.
+    args: Tuple[str, ...] = ()
+    #: An A/B suite, not a reference: ``--suites all`` leaves it out, it runs
+    #: only when named.
+    opt_in: bool = False
 
     @property
     def ref_key(self) -> str:
@@ -154,6 +168,10 @@ class Suite:
 #     28 CPU-s, ~1.5 CPU-min per seed at the preset's 3 instances; 4 per job.
 # *   families-failure: 12 CPU-s likewise, ~0.6 CPU-min per seed; 6 per job.
 #     Its failure regions raise instead of sleeping, so no wall time is lost.
+#: The BBOB battery of the CMA-ES A/B suites: the 24 functions at d 5 and 10,
+#: instances 0 and 1 (§53's instance set).
+BBOB_AB_ARGS: Tuple[str, ...] = ("--bbob-dims", "5", "10", "--bbob-instances", "0", "1")
+
 SUITES: Dict[str, Suite] = {
     s.name: s
     for s in (
@@ -170,6 +188,35 @@ SUITES: Dict[str, Suite] = {
         Suite("families-constrained", "families", "constrained", 3),
         Suite("families-shapes", "families", "shapes", 4),
         Suite("families-failure", "families", "failure", 6),
+        # Opt-in A/B suites (never in 'all'): the CMA-ES variants of DISCOVERY
+        # §57 against RoundRobin_CMAES, with Optuna CmaEs and pycma BIPOP in the
+        # same jobs, so every comparison is paired and in one FP environment.
+        # Publish with -f release=none (an A/B is not a reference).  Sizing
+        # (estimates from the ioh-external timings above, 7 CMA-ES-like specs
+        # plus Optuna CmaEs): the standard battery ~1-2 min per seed; the BBOB
+        # battery (24 fids x d 5/10 x instances 0/1) ~15 min per seed at
+        # 200*d and ~35 min at 500*d serially, a quarter of that at --jobs 4.
+        Suite("ioh-cma-ab", "ioh", "standard", 6, variant="cma_ab", extras=("baselines",), opt_in=True),
+        Suite(
+            "ioh-cma-ab-bbob-b200",
+            "ioh",
+            "bbob",
+            3,
+            variant="cma_ab_b200",
+            extras=("baselines",),
+            args=BBOB_AB_ARGS + ("--budget-multiplier", "200"),
+            opt_in=True,
+        ),
+        Suite(
+            "ioh-cma-ab-bbob-b500",
+            "ioh",
+            "bbob",
+            2,
+            variant="cma_ab_b500",
+            extras=("baselines",),
+            args=BBOB_AB_ARGS + ("--budget-multiplier", "500"),
+            opt_in=True,
+        ),
     )
 }
 
@@ -208,11 +255,25 @@ def _external_strategy_names(suite: Suite) -> List[str]:
     return names + external_baselines_for(suite.extras)
 
 
+#: The references every CMA-ES A/B suite runs next to the variants.
+CMA_AB_REFERENCES: Tuple[str, ...] = ("Baseline_Optuna_CmaEs", "Baseline_pycma_BIPOP")
+
+
+def _cma_ab_strategy_names(suite: Suite) -> List[str]:
+    """``RoundRobin_CMAES``, its §57 variants, and Optuna CmaEs / pycma BIPOP."""
+    from panobbgo.harness_ioh import CMAES_VARIANT_NAMES
+
+    return ["RoundRobin_CMAES", *CMAES_VARIANT_NAMES, *CMA_AB_REFERENCES]
+
+
 #: IOH suite variant -> the ``--strategies`` names its shards run.  Resolved
 #: in the shard, which has the package installed (``plan`` stays stdlib only).
 #: The external baselines join a run only when ``--strategies`` names them.
 STRATEGY_SETS: Dict[str, Callable[[Suite], List[str]]] = {
     "external": _external_strategy_names,
+    "cma_ab": _cma_ab_strategy_names,
+    "cma_ab_b200": _cma_ab_strategy_names,
+    "cma_ab_b500": _cma_ab_strategy_names,
 }
 
 
@@ -244,10 +305,10 @@ def resolve_seeds(spec: str) -> List[int]:
 
 
 def resolve_suites(spec: str) -> List[Suite]:
-    """``"all"`` or a comma list of suite names, in :data:`SUITES` order."""
+    """``"all"`` (every reference suite, no opt-in A/B suite) or a comma list of suite names, in :data:`SUITES` order."""
     names = [n.strip() for n in spec.split(",") if n.strip()]
     if not names or names == ["all"]:
-        return list(SUITES.values())
+        return [s for s in SUITES.values() if not s.opt_in]
     unknown = [n for n in names if n not in SUITES]
     if unknown:
         raise ValueError(f"unknown suite(s) {unknown}; known: {', '.join(SUITES)}")
@@ -324,6 +385,7 @@ def shard_commands(
             *(["--strategies", *STRATEGY_SETS[suite.variant](suite)] if suite.variant else []),
             "--seeds",
             *[str(s) for s in seeds],
+            *suite.args,
             "--sync-eval",
             "--jobs",
             str(jobs),

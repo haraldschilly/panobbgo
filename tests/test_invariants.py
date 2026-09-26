@@ -241,6 +241,8 @@ PERTURBATIONS: Dict[Tuple[str, str], Any] = {
     ("CMAES", "stagnation"): 4,
     ("CMAES", "stagnation_frac"): 0.1,
     ("CMAES", "warm_start"): "archive",
+    ("CMAES", "boundary"): "resample",
+    ("CMAES", "first_start"): "random",
     ("PSO", "topology"): "lbest",
     ("PSO", "w_end"): 0.4,
     ("PSO", "stagnation_threshold"): 4,

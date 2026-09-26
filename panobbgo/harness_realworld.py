@@ -97,6 +97,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from panobbgo import fp_env
 from panobbgo.benchmark import StrategySpec
 from panobbgo.harness_ioh import (
     AOCC_LOG_LO,
@@ -322,6 +323,7 @@ def run_realworld_harness(
         virtual=None if virtual is None else virtual.to_dict(),
         blas_threads=BLAS_THREADS,
         scored=SCORED_RELATIVE_FEASIBLE_GAP,
+        **fp_env.current(),
     )
     warn_missing_time_scores(result)
     return result

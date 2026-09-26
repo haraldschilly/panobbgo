@@ -301,6 +301,9 @@ def test_harness_smoke_run():
         spec, make_realworld_quick_battery(), budget_multiplier=10, base_seed=3, progress=False
     )
     assert result.problem_kind == "realworld" and len(result.runs) == 3
+    from panobbgo import fp_env
+
+    assert result.fp_env is not None and result.fp_env_id == fp_env.current_id()
     for run in result.runs:
         assert run.error is None, run.error
         assert run.n_evals == run.budget == 10 * run.dim

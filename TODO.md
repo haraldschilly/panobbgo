@@ -15,15 +15,23 @@ with a `bbob-largescale`-style slice and the sealed test set
 (`doc/dev/benchmarking.md`), expensive-track baselines (`baselines-bo`
 extra).
 
-- [ ] Real-world set: CEC2020 real-world constrained, COCO
-      `bbob-constrained` / `bbob-mixint`, ESA GTOP, HPO surrogates
-      (YAHPO / HPOBench).
+- [ ] Real-world set, the rest: CEC2020 real-world constrained is in
+      (18 problems, `run --realworld`, `panobbgo/lib/realworld.py`).  Open:
+      COCO `bbob-constrained` / `bbob-mixint`; ESA GTOP (in `pykep`, no
+      Python 3.14 wheels yet); HPO surrogates (YAHPO Gym pins `numpy < 2`,
+      HPOBench is not on PyPI) — recheck when the wheels exist.
+- [ ] Real-world follow-ups: a `realworld` suite in `scripts/rebaseline.py`
+      (first a local timing to size its shards); RC01 (8 equalities) is
+      rarely made feasible at 500·dim, so check whether it discriminates
+      at all.
 - [ ] Nearby quadratic step scaling at high d (cap auto-rank candidates and
       history): `Nearby(quadratic=True)` takes 7–77 s and up to 1 GB per
       fit at d = 160, on every new best.  Until then `--legacy` is refused
       with the large and sealed batteries.
-- [ ] Sealed test set, second half: add part of the real-world set once it
-      exists (`panobbgo/sealed.py`; MA-BBOB and families are sealed).
+- [ ] Sealed test set, second half: add part of the real-world set
+      (`panobbgo/sealed.py`; MA-BBOB and families are sealed).  The CEC 2020
+      problems are fixed, so "sealed" means held-out problems, e.g. a few
+      CEC 2020 problems kept out of the development battery.
 - [ ] Feature logging at checkpoints (landscape features, per-arm
       trajectory statistics): the selector's training data (roadmap §3.4, §4 A).
 - [ ] Py-BOBYQA `seek_global_minimum=True` as a second, global variant of

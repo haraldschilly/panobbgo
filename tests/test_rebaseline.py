@@ -47,7 +47,9 @@ def test_resolve_seeds():
 def test_full_plan_covers_every_seed_once_per_suite():
     entries = rb.plan(rb.resolve_suites("all"), rb.resolve_seeds("12"))
     assert 20 <= len(entries) <= 40
-    for suite in rb.SUITES:
+    # 'all' is every reference suite and no opt-in A/B suite.
+    assert {e["suite"] for e in entries} == {n for n, s in rb.SUITES.items() if not s.opt_in}
+    for suite in (n for n, s in rb.SUITES.items() if not s.opt_in):
         seeds = [int(s) for e in entries if e["suite"] == suite for s in e["seeds"].split(",")]
         assert seeds == list(rb.ROSTER)
     assert len({(e["suite"], e["shard"]) for e in entries}) == len(entries)
@@ -145,6 +147,47 @@ def test_ioh_cli_accepts_the_external_strategy_set():
     names = rb.STRATEGY_SETS["external"](rb.SUITES["ioh-external"])
     args = argparse.Namespace(legacy=False, standard=True, full=False, baselines=True, strategies=names)
     assert [s.name for s in cli._resolve_strategies(args)] == names
+
+
+def test_the_cma_ab_suites(tmp_path):
+    """The §57 A/B suites: opt-in, one strategy set, the BBOB battery arguments on the command line."""
+    from panobbgo.harness_ioh import CMAES_VARIANT_NAMES
+
+    names = ["ioh-cma-ab", "ioh-cma-ab-bbob-b200", "ioh-cma-ab-bbob-b500"]
+    assert all(rb.SUITES[n].opt_in for n in names)
+    assert not any(n in {s.name for s in rb.resolve_suites("all")} for n in names)
+    assert [s.name for s in rb.resolve_suites(",".join(names))] == names
+    for n in names:
+        suite = rb.SUITES[n]
+        assert rb.STRATEGY_SETS[suite.variant](suite) == [
+            "RoundRobin_CMAES",
+            *CMAES_VARIANT_NAMES,
+            "Baseline_Optuna_CmaEs",
+            "Baseline_pycma_BIPOP",
+        ]
+        [(argv, _)] = rb.shard_commands(suite, [42, 7], "01", tmp_path, jobs=2, python="py")
+        assert "--sync-eval" in argv and "--baselines" in argv and "--timeout" not in argv
+    [(argv, _)] = rb.shard_commands(rb.SUITES["ioh-cma-ab-bbob-b500"], [42], "01", tmp_path, jobs=2, python="py")
+    cmd = " ".join(argv)
+    assert "--bbob --baselines" in cmd and "--bbob-dims 5 10 --bbob-instances 0 1 --budget-multiplier 500" in cmd
+    [(argv, _)] = rb.shard_commands(rb.SUITES["ioh-cma-ab"], [42], "01", tmp_path, jobs=2, python="py")
+    assert "--standard" in argv and "--bbob" not in argv
+    assert rb.SUITES["ioh-cma-ab-bbob-b200"].ref_key == "bbob_cma_ab_b200"
+
+
+def test_ioh_cli_accepts_the_cma_ab_strategy_set():
+    spec = importlib.util.spec_from_file_location("ioh_benchmark_cli2", rb.REPO_ROOT / "scripts" / "ioh_benchmark.py")
+    assert spec is not None and spec.loader is not None
+    cli = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cli)
+    for module in ("cma", "optuna", "cmaes"):
+        pytest.importorskip(module)
+    names = rb.STRATEGY_SETS["cma_ab"](rb.SUITES["ioh-cma-ab"])
+    args = argparse.Namespace(legacy=False, standard=True, full=False, baselines=True, strategies=names)
+    specs = {s.name: s for s in cli._resolve_strategies(args)}
+    assert set(specs) == set(names)
+    # Variants of one arm share the flagship's RNG identity (DISCOVERY §18).
+    assert {specs[n].rng_identity for n in names if n.startswith("RoundRobin_CMAES")} == {"RoundRobin_CMAES"}
 
 
 def _ioh_shard(
@@ -247,7 +290,8 @@ def _suite_value(name: str) -> float:
 def test_every_suite_goes_through_plan_aggregate_and_summary(tmp_path):
     # The registry check: a suite added to SUITES must come out of every code path.
     seeds = rb.resolve_seeds("12")
-    planned = rb.plan(rb.resolve_suites("all"), seeds)
+    # Every suite, the opt-in A/B suites included (named, as a dispatch would).
+    planned = rb.plan(rb.resolve_suites(",".join(rb.SUITES)), seeds)
     assert {e["suite"] for e in planned} == set(rb.SUITES)
     for e in planned:
         _fake_shard(rb.SUITES[e["suite"]], rb.seed_list(e["seeds"]), e["shard"], tmp_path / "raw")

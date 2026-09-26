@@ -363,6 +363,54 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     `gh run download <RUN_ID> --pattern 'measure-*' --dir measure-raw` and
     `uv run python scripts/measure.py aggregate measure-raw --plan plan.json --out-dir measure-summary`.
 
+## Feature logging (training data for the selector)
+
+`ioh_benchmark.py run ... --log-features [FRACTIONS]` records a feature dict
+at budget checkpoints in every run record (`IOHRunRecord.features`), on the
+IOH, family and real-world tracks (`panobbgo/features.py`; roadmap §3.4 and
+§4 A).  Default checkpoints `0.05,0.1,0.2,0.4,0.7`; pass e.g.
+`--log-features 0.1,0.5,1.0` for others.  Nothing learns from them yet.
+
+```bash
+uv run python scripts/ioh_benchmark.py run --families --log-features --output feats.json
+```
+
+*   **Off by default; default result files are unchanged** (no `features`
+    key).  Refused on the sealed sets: features are training data.
+*   **The run is unchanged**: a pass observer of the main loop
+    (`StrategyBase.add_pass_observer`) reads the archive and the
+    heuristics' state after each pass and draws from no shared random
+    stream; `tests/test_features.py` checks bit-identical traces with
+    logging on and off (sync, failures, virtual clock).  A checkpoint is
+    recorded at the first pass boundary at or past `ceil(fraction·budget)`
+    spent evaluations (`ctx.evals` is the actual count, `checkpoint` the
+    nominal fraction).  External baselines have no main loop and record
+    an empty list.
+*   **Groups** (floats to 4 significant digits, `null` = undefined):
+    `ctx` (dim, budget, evals, frac, evals / d, remaining / d, archive
+    size, arms, q, noisy, constrained), `land` (ELA-lite on at most 500
+    evenly spaced points: Spearman FDC, nearest-better-clustering ratios,
+    top-10/25 % dispersion, adjusted R² of linear / additive / full
+    quadratic models, separability ratio, Hessian condition and share of
+    positive eigenvalues; coverage of the box from 128 fixed probes),
+    `traj` (rank progress rate, stall, recent improvements, failure share)
+    and `arms` (per heuristic: share, recent credit, best rank, and the
+    "stuck locally" group — spread and its trend, novelty, revisit rate,
+    region size — plus CMA-ES `sigma_rel`, `log10_cond_c`, `restarts`).
+*   **Invariance**: every `f`-based feature uses ranks (constrained:
+    feasible by `f`, then infeasible by violation), so all of them — the
+    meta-model R² included — are invariant to `a·f + b` and to monotone
+    transforms; `x` is normalised to the unit box and distances divided by
+    √d.  With equal box ranges, FDC, NBC, dispersion, linear / quadratic
+    R², Hessian condition, novelty distances and revisits are invariant to
+    rotation; the separability ratio, the per-axis spread / region and the
+    coverage probes are not (tested).  Never raw `f` or raw coordinates.
+*   **Cost**: ~5–10 ms per checkpoint at d = 10; 4–8 % of the run time of
+    a portfolio run at d = 10, 500·d on the (cheapest) family objectives,
+    up to ~11 % for a lone CMA-ES arm (2026-09-26, laptop, `nice -n 15`).
+    It scales with the landscape subsample (`FeatureLogSpec.max_points`),
+    not with the budget.
+
 ## The sealed test set
 
 A held-out battery for **claims only**: 20 fresh MA-BBOB instances and

@@ -113,11 +113,13 @@ from panobbgo.harness_ioh import (
     _run_tasks_in_pool,
     _run_tracked,
     _TrackedRun,
+    refuse_sealed_features,
     warn_missing_time_scores,
     wall_timeout_for,
 )
 from panobbgo.lib.families import FailureRegion, Family, FamilyConfig, make_family_instances
 from panobbgo.sealed import SEALED_FAMILY_SEED, print_sealed_banner
+from panobbgo.features import FeatureLogSpec
 from panobbgo.virtual_clock import DURATION_STREAM_IDENTITY, VirtualSpec
 
 #: Penalty coefficient of :class:`DefaultConstraintHandler
@@ -471,6 +473,7 @@ def _run_one(
     sync_eval: bool,
     timeout_s: Optional[float] = None,
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHRunRecord:
     """Run one strategy on one family instance; same driver as ``harness_ioh._run_one``."""
     timeout_s = wall_timeout_for(strategy_spec, timeout_s)
@@ -493,6 +496,7 @@ def _run_one(
             log_hi=log_hi,
             timeout_s=timeout_s,
             virtual=virtual,
+            log_features=log_features,
         )
     except Exception as e:  # noqa: BLE001 — record and continue, as the IOH track does
         tracked.error = f"{type(e).__name__}: {e}"
@@ -514,6 +518,7 @@ def _run_one(
         trace_evals=tracked.trace_evals,
         trace_fx=tracked.trace_fx,
         aocc_time=tracked.aocc_time,
+        features=tracked.features,
         sealed=bool(getattr(problem, "sealed", False)),
     )
 
@@ -538,6 +543,7 @@ def run_family_harness(
     timeout_s: Optional[float] = None,
     jobs: int = 1,
     virtual: Optional[VirtualSpec] = None,
+    log_features: Optional[FeatureLogSpec] = None,
 ) -> IOHHarnessResult:
     """Score every spec on every instance and return an AOCC result.
 
@@ -580,6 +586,10 @@ def run_family_harness(
         Run on the virtual clock (:class:`~panobbgo.virtual_clock.VirtualSpec`)
         and score ``aocc_time`` too, as in :func:`run_ioh_harness
         <panobbgo.harness_ioh.run_ioh_harness>`.
+    log_features
+        Record checkpoint features in every run (:mod:`panobbgo.features`),
+        as in :func:`run_ioh_harness <panobbgo.harness_ioh.run_ioh_harness>`;
+        refused on the sealed set.
 
     Returns
     -------
@@ -592,6 +602,7 @@ def run_family_harness(
     """
     sealed = _check_sealed_run(instances, budget_multiplier, reps)
     if sealed:
+        refuse_sealed_features(log_features, battery_name)
         if not battery_name.startswith("sealed"):
             battery_name = f"sealed-{battery_name}"
         print_sealed_banner(battery_name)
@@ -626,6 +637,7 @@ def run_family_harness(
                     sync_eval=sync_eval,
                     timeout_s=timeout_s,
                     virtual=cell_virtual,
+                    log_features=log_features,
                 )
                 if jobs > 1:
                     tasks.append(task)

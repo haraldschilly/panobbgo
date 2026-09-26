@@ -1995,6 +1995,9 @@ class StrategyBase:
     #: See the instance attribute set in ``__init__`` (class-level so test
     #: doubles that skip ``__init__`` still read ``None``).
     request_cap: Optional[int] = None
+    #: Read-only callbacks run after every pass of the main loop (see
+    #: :meth:`add_pass_observer`); class-level for test doubles.
+    _pass_observers: Tuple[Callable[["StrategyBase"], None], ...] = ()
 
     def __init__(self, problem, parse_args=False, testing_mode=False, **kwargs):
         """
@@ -2699,6 +2702,8 @@ class StrategyBase:
                     per_client = min(per_client, 1.0 / avg)
                 self.jobs_per_client = max(1, int(per_client))
 
+            self._notify_pass_observers()
+
             # show heuristic performances after each round
             # logger.info('  '.join(('%s:%.3f' % (h, h.performance) for h in
             # heurs)))
@@ -2781,6 +2786,8 @@ class StrategyBase:
                 # in-flight calls are simulated: nothing to wait for.
                 time_module.sleep(1e-3)
 
+        # The last pass may have ended the loop before its observers ran.
+        self._notify_pass_observers()
         # Final forced update to ensure UI shows 100% or final results
         self._update_progress_status(force=True)
         self._cleanup()
@@ -2924,6 +2931,22 @@ class StrategyBase:
                 if 0 < q.maxsize < len(q.queue):
                     q.maxsize = len(q.queue)
                 q.not_empty.notify_all()
+
+    def add_pass_observer(self, fn: Callable[["StrategyBase"], None]) -> None:
+        """Call ``fn(strategy)`` after every pass of the main loop, and once when it ends.
+
+        For instruments that record the run without changing it
+        (:class:`panobbgo.features.FeatureLogger`): ``fn`` must only read —
+        the archive, the heuristics' state — and must not draw from any
+        shared random stream.  Under ``sync_evaluation`` it runs after the
+        pass's handlers have all returned, so what it reads is a
+        deterministic function of the seed.
+        """
+        self._pass_observers = tuple(self._pass_observers) + (fn,)
+
+    def _notify_pass_observers(self) -> None:
+        for fn in self._pass_observers:
+            fn(self)
 
     def request_stop(self):
         """Ask the main loop to end after the current pass.

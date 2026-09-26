@@ -32,9 +32,10 @@ Concretely, in priority order:
    `RoundRobin_Random` on every battery tier (quick / standard / full).
    `Rewarding_Restart`, the previous candidate, is kept in the registry as
    a portfolio control.
-2. **Beat the external baselines**: `Baseline_SciPyDE` and
-   `Baseline_SciPyAnneal` (`panobbgo/harness_baselines.py`) on mean AOCC at
-   the standard battery. Random search is the hard floor — never lose to it.
+2. **Beat the external baselines** (`panobbgo/harness_baselines.py`) on mean
+   AOCC at the standard battery: the SciPy pair (`Baseline_SciPyDE`,
+   `Baseline_SciPyAnneal`) and, since #344, pycma IPOP/BIPOP, Nevergrad
+   NGOpt and Optuna. Random search is the hard floor — never lose to it.
 3. **Approach competition level**: the MA-BBOB Anytime competition regime is
    budget `2000·d`, dims 2 and 5, ~1000 affine instances. World-class 2024/2025
    entries were LLaMEA-generated hybrids (LLM-designed metaheuristics — i.e.

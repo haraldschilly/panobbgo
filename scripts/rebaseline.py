@@ -3,8 +3,8 @@
 # Copyright 2012 -- 2026 Harald Schilly <harald.schilly@gmail.com>
 """Re-measure the reference baselines, sharded over GitHub runners.
 
-The engine behind ``.github/workflows/rebaseline.yml`` (TODO.md "Re-baseline
-once").  Three subcommands:
+The engine behind ``.github/workflows/rebaseline.yml`` (``doc/dev/benchmarking.md``,
+"Re-baselining on GitHub runners").  Three subcommands:
 
 ``plan``
     Print the job matrix (JSON) for a set of suites and seeds.  Stdlib only,

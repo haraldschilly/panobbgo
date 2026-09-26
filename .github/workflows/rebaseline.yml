@@ -97,6 +97,10 @@ jobs:
     env:
       OPENBLAS_CORETYPE: Haswell
       NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
+      ATEN_CPU_CAPABILITY: avx2
+      MKL_CBWR: AVX2
+      MKL_ENABLE_INSTRUCTIONS: AVX2
+      ONEDNN_MAX_CPU_ISA: AVX2
 
     steps:
       - uses: actions/checkout@v6

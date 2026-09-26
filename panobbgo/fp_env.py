@@ -23,13 +23,17 @@ trajectory and move a cell by up to ~0.08 AOCC (re-baseline run
 36228301268, 2026-09-26).
 
 **The pin.**  :func:`pin_fp_env` sets :data:`PIN_ENV` in ``os.environ``:
-``OPENBLAS_CORETYPE=Haswell`` (the AVX2 kernels) and
-``NPY_DISABLE_CPU_FEATURES`` = numpy's AVX-512 dispatch targets.  Both are
-read once, when the libraries load, so the pin must happen **before numpy
-is imported**; the entry points (``benchmark_harness.py``,
-``scripts/ioh_benchmark.py``, ``scripts/rebaseline.py``,
-``benchmarks/family_screen.py``) do it by importing :mod:`panobbgo.fp_pin`
-first.  Child processes inherit ``os.environ``: the spawned
+``OPENBLAS_CORETYPE=Haswell`` (the AVX2 kernels),
+``NPY_DISABLE_CPU_FEATURES`` = numpy's AVX-512 dispatch targets, and the
+AVX2 caps of torch (``ATEN_CPU_CAPABILITY``), MKL (``MKL_CBWR``,
+``MKL_ENABLE_INSTRUCTIONS``) and oneDNN (``ONEDNN_MAX_CPU_ISA``), which are
+harmless without torch.  They are read once, when the libraries load, so
+the pin must happen **before numpy is imported**.  ``import panobbgo`` does
+it (a documented import-time side effect of the package), and the entry
+points (``benchmark_harness.py``, ``scripts/ioh_benchmark.py``,
+``scripts/ioh_smoke.py``, the ``benchmarks/`` screens) also import
+:mod:`panobbgo.fp_pin` first, explicitly; ``scripts/rebaseline.py`` pins in
+``main()``.  Child processes inherit ``os.environ``: the spawned
 :class:`~panobbgo.local_run.TaskPool` workers, the heuristics' solver
 subprocesses and the IOH worker (which gets :func:`child_env` explicitly).
 If numpy is already loaded, :func:`pin_fp_env` leaves the environment
@@ -69,16 +73,24 @@ OPT_OUT_VAR = "PANOBBGO_FP_PIN"
 #: ``tests/test_fp_env.py`` checks.
 NUMPY_DISABLED_FEATURES = "X86_V4 AVX512_ICL AVX512_SPR"
 
-#: The environment the pin sets.
+#: The environment the pin sets.  The last four cap torch / MKL / oneDNN at
+#: AVX2 (the BO baselines); without torch they are ignored.  Bit-identity of
+#: the torch path across runner classes is not verified yet (``TODO.md``).
 PIN_ENV: Dict[str, str] = {
     "OPENBLAS_CORETYPE": "Haswell",
     "NPY_DISABLE_CPU_FEATURES": NUMPY_DISABLED_FEATURES,
+    "ATEN_CPU_CAPABILITY": "avx2",
+    "MKL_CBWR": "AVX2",
+    "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+    "ONEDNN_MAX_CPU_ISA": "AVX2",
 }
 
 #: Fields of :func:`collect` that decide the numbers (hashed by :func:`fp_env_id`).
 #: Not the CPU model or ISA flags: two CPUs running the same kernels give the
-#: same bits, which is the point of the pin.
-ID_FIELDS = ("machine", "blas", "numpy", "scipy", "numpy_simd")
+#: same bits, which is the point of the pin.  ``libc`` (its libm) and the
+#: Python ``major.minor`` are in: the laptop and the runners differ there,
+#: and the id says so honestly even when the numbers happen to agree.
+ID_FIELDS = ("machine", "blas", "numpy", "scipy", "numpy_simd", "libc", "python")
 
 
 def pin_requested(environ: Optional[Mapping[str, str]] = None) -> bool:
@@ -170,13 +182,27 @@ def _numpy_simd() -> Optional[List[str]]:
         return None
 
 
+def _torch_info() -> Optional[Dict[str, Any]]:
+    """torch's version and CPU capability, only when torch is already loaded (never imports it)."""
+    torch = sys.modules.get("torch")
+    if torch is None:
+        return None
+    info: Dict[str, Any] = {"version": str(getattr(torch, "__version__", "unknown"))}
+    try:
+        info["cpu_capability"] = str(torch.backends.cpu.get_cpu_capability())
+    except Exception:
+        info["cpu_capability"] = None
+    return info
+
+
 def collect() -> Dict[str, Any]:
     """The floating-point environment of this process (imports numpy, scipy and threadpoolctl).
 
     ``cpu`` / ``isa`` describe the host, ``blas`` the loaded BLAS libraries
     (``internal_api``, ``version``, ``architecture`` = the kernel set in use),
     ``numpy_simd`` numpy's active dispatch targets, ``pin`` the pin
-    variables as this process sees them, and ``id`` = :func:`fp_env_id`.
+    variables as this process sees them, ``torch`` (version, CPU
+    capability) when torch is loaded, and ``id`` = :func:`fp_env_id`.
     Collected at call time, not cached: a library loaded later (another
     BLAS) shows up.
     """
@@ -194,8 +220,12 @@ def collect() -> Dict[str, Any]:
         "scipy": scipy.__version__,
         "numpy_simd": _numpy_simd(),
         "libc": " ".join(platform.libc_ver()).strip() or None,
+        "python": "%d.%d" % sys.version_info[:2],
         "pin": {k: os.environ.get(k) for k in (OPT_OUT_VAR, *PIN_ENV)},
     }
+    torch = _torch_info()
+    if torch is not None:
+        env["torch"] = torch
     env["id"] = fp_env_id(env)
     return env
 
@@ -209,9 +239,20 @@ def fp_env_id(env: Optional[Mapping[str, Any]]) -> Optional[str]:
 
 
 def current() -> Dict[str, Any]:
-    """``{"fp_env": collect(), "fp_env_id": ...}``: the two keys every result file carries."""
-    env = collect()
-    return {"fp_env": env, "fp_env_id": env["id"]}
+    """``{"fp_env": collect(), "fp_env_id": ...}``: the two keys every result file carries.
+
+    Never raises: the record is metadata, and a failure to collect it must
+    not lose a finished run's results (both keys are then ``None``, with a
+    warning).
+    """
+    try:
+        env = collect()
+        return {"fp_env": env, "fp_env_id": env["id"]}
+    except Exception as exc:
+        import warnings
+
+        warnings.warn(f"could not record the FP environment: {exc!r}", RuntimeWarning, stacklevel=2)
+        return {"fp_env": None, "fp_env_id": None}
 
 
 def current_id() -> str:
@@ -239,8 +280,3 @@ def mismatch(before: Optional[str], after: Optional[str], label_before: str, lab
 def known_mismatch(before: Optional[str], after: Optional[str]) -> bool:
     """Both ids are recorded and differ (the case ``--fail-on-regression`` refuses to gate)."""
     return before is not None and after is not None and before != after
-
-
-if __name__ == "__main__":  # ``python -m panobbgo.fp_env``: pin like the entry points, print the record
-    pin_fp_env()
-    print(json.dumps(collect(), indent=2))

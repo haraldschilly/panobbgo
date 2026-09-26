@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 from panobbgo.harness import _make_full_strategies, _make_quick_strategies, _make_standard_strategies
 from panobbgo.harness_baselines import make_baseline_strategies
 from panobbgo.harness_ioh import _run_one

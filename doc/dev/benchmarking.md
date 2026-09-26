@@ -32,29 +32,38 @@ laptop `OPENBLAS_CORETYPE=SandyBridge` changes 107/120 rows of a family
 screen).  **A paired comparison is valid only when both sides ran in the
 same FP environment, i.e. with the same `fp_env_id`.**
 
-*   **The pin** (`panobbgo/fp_env.py`).  The entry points
-    (`benchmark_harness.py`, `scripts/ioh_benchmark.py`,
-    `scripts/rebaseline.py`, `benchmarks/family_screen.py`) import
-    `panobbgo.fp_pin` before numpy and set `OPENBLAS_CORETYPE=Haswell`
+*   **The pin** (`panobbgo/fp_env.py`).  `OPENBLAS_CORETYPE=Haswell`
     and `NPY_DISABLE_CPU_FEATURES="X86_V4 AVX512_ICL AVX512_SPR"`, the
-    AVX2 kernels every x86 runner has.  Child processes inherit it (the
-    `--jobs` workers, solver subprocesses, the IOH worker).  If numpy is
-    already loaded, the pin leaves the environment alone, so a process and
-    its workers never differ; `tests.yml` and the re-baseline `measure` job
-    therefore also set both variables job-wide.  It applies on Linux
-    x86-64 with AVX2/FMA only.  **Opt out** with `PANOBBGO_FP_PIN=0`.  On
-    the laptop (AVX2, Haswell kernels anyway) pinned and unpinned runs are
-    bit-identical (2026-09-26: family screen free, seed 42, dims 2/5, 120
-    rows; composite quick).  A library that brings its own BLAS (MKL via
-    torch) is not covered.
+    AVX2 kernels every x86 runner has, plus `ATEN_CPU_CAPABILITY=avx2`,
+    `MKL_CBWR=AVX2`, `MKL_ENABLE_INSTRUCTIONS=AVX2` and
+    `ONEDNN_MAX_CPU_ISA=AVX2` for torch (the BO baselines; harmless
+    without torch).  **`import panobbgo` sets them** when numpy is not
+    loaded yet (an import-time side effect of the package); the entry
+    points (`benchmark_harness.py`, `scripts/ioh_benchmark.py`,
+    `scripts/ioh_smoke.py`, the `benchmarks/` screens) also import
+    `panobbgo.fp_pin` before anything else (a test checks the order), and
+    `scripts/rebaseline.py` pins in `main()`.  Child processes inherit it
+    (the `--jobs` workers, solver subprocesses, the IOH worker).  If numpy
+    is already loaded, the pin leaves the environment alone, so a process
+    and its workers never differ; `tests.yml` and the re-baseline
+    `measure` job therefore also set the variables job-wide.  It applies
+    on Linux x86-64 with AVX2/FMA only.  **Opt out** with
+    `PANOBBGO_FP_PIN=0`.  On the laptop (AVX2, Haswell kernels anyway)
+    pinned and unpinned runs are bit-identical (2026-09-26: family screen
+    free, seed 42, dims 2/5, 120 rows; composite quick).  The torch path is
+    capped but **not verified** bit-identical across runner classes
+    (`TODO.md`).
 *   **The record.**  Every result file carries `fp_env` (CPU model,
     avx2/fma/avx512f, the loaded BLAS libraries with version and kernel
-    `architecture`, numpy's active SIMD targets, numpy/scipy/libc versions,
-    the pin variables) and `fp_env_id`, a hash of the fields that decide
-    the numbers (BLAS kernels and versions, numpy SIMD targets, numpy/scipy
-    versions, machine; not the CPU model).  Family-screen rows carry
-    `fp_env_id` per row.  `python -m panobbgo.fp_env` prints the record
-    for this machine.
+    `architecture`, numpy's active SIMD targets, numpy/scipy/libc/Python
+    versions, the pin variables, torch's version and CPU capability when
+    torch is loaded) and `fp_env_id`, a hash of the fields that decide the
+    numbers (BLAS kernels and versions, numpy SIMD targets, numpy/scipy
+    versions, libc, Python `major.minor`, machine; not the CPU model).  So
+    the laptop (glibc 2.43) and the runners have different ids even where
+    their numbers agree.  Family-screen rows carry `fp_env_id` per row.
+    `python -m panobbgo.fp_pin` prints the record for this machine; a
+    failure to collect it records `None` and never loses a run.
 *   **The checks.**  `benchmark_harness.py compare` and `ioh_benchmark.py
     compare` warn when the ids differ and, with `--fail-on-regression`,
     exit 2 (a file without the record only warns); `family_screen.py

@@ -45,6 +45,11 @@ extra).
 
 ## 2. Follow-ups from the 2026-09-26 PRs
 
+- [ ] **FP pin for the torch path (BO baselines).**  `PIN_ENV` caps torch /
+      MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
+      no fp-check covers a BO cell yet: add one (a `baselines-bo` job in
+      `fp-check.yml`) before claiming bit-identity for BoTorch / TuRBO.
+
 - [ ] **Re-baseline after the FP pin is verified (the 2026-09-26
       references mix two FP classes).**  Dispatch `fp-check.yml`; if all 8
       jobs are bit-identical, `gh workflow run rebaseline.yml -f suites=all

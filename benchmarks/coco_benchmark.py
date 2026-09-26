@@ -40,6 +40,7 @@ import argparse
 import logging
 from typing import Optional
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 import cocoex
 
 from panobbgo.lib.coco_wrapper import CocoProblem

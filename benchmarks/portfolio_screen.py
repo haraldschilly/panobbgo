@@ -65,6 +65,7 @@ import dataclasses
 import statistics as st
 import sys
 
+import panobbgo.fp_pin  # noqa: F401  # first: pins the OpenBLAS / numpy kernels before numpy loads
 from panobbgo.analyzers import Archive
 from panobbgo.harness_ioh import (
     bbob_class_of,

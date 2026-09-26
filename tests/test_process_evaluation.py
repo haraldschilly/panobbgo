@@ -187,7 +187,8 @@ def _proc_alive(pid):
     try:
         with open("/proc/%d/stat" % pid) as f:
             return f.read().split(")")[-1].split()[0] != "Z"
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
+        # reaped between open() and read(): procfs raises ESRCH
         return False
 
 

@@ -136,6 +136,8 @@ class Suite:
 # ones come from local timings (2026-09-26, a laptop under load, niced, one
 # process, seed 42):
 #
+# *   ioh-standard: 0.3-0.5 min per seed in that run (one seed per job
+#     then), so 4 seeds per job; the reference files stay the same.
 # *   ioh-external: per seed 10 cells (d 2 and 5 x 5 instances, 500*d
 #     evaluations) x 14 strategies.  One d = 5 cell (2500 evaluations):
 #     Baseline_NGOpt 40 s, Baseline_Optuna_TPE 34 s (its cost grows about
@@ -154,7 +156,7 @@ SUITES: Dict[str, Suite] = {
         Suite("composite-quick", "composite", "quick", 12),
         Suite("composite-standard", "composite", "standard", 3),
         Suite("ioh-quick", "ioh", "quick", 12),
-        Suite("ioh-standard", "ioh", "standard", 1),
+        Suite("ioh-standard", "ioh", "standard", 4),
         Suite("ioh-external", "ioh", "standard", 4, variant="external", extras=("baselines",)),
         # The expensive-track baselines (BoTorch / SMAC / HEBO, extra
         # ``baselines-bo``) join as a suite of their own here: a variant in
@@ -168,18 +170,44 @@ SUITES: Dict[str, Suite] = {
 }
 
 
-def _external_strategy_names() -> List[str]:
-    """The default IOH specs and baselines plus every pycma / Nevergrad / Optuna baseline."""
-    from panobbgo.harness_baselines import DEFAULT_BASELINE_NAMES, EXTERNAL_BASELINE_NAMES
+#: The extra an external baseline class needs when it names none: every
+#: pycma / Nevergrad / Optuna class comes from ``baselines``.
+DEFAULT_BASELINE_EXTRA = "baselines"
+
+
+def baseline_extra(strategy_class: type) -> str:
+    """The optional-dependency extra that provides an external baseline class.
+
+    Its ``extra`` attribute, else :data:`DEFAULT_BASELINE_EXTRA`.
+    """
+    return str(getattr(strategy_class, "extra", DEFAULT_BASELINE_EXTRA))
+
+
+def external_baselines_for(extras: Sequence[str]) -> List[str]:
+    """The external baselines (``EXTERNAL_BASELINE_NAMES`` order) whose extra is among ``extras``.
+
+    Selected by extra, not by taking the whole name list: a baseline from
+    another extra (e.g. the expensive track's ``baselines-bo``) would make a
+    shard that installs only ``baselines`` fail before its first run.
+    """
+    from panobbgo.harness_baselines import make_external_baseline_strategies
+
+    return [s.name for s in make_external_baseline_strategies() if baseline_extra(s.strategy_class) in extras]
+
+
+def _external_strategy_names(suite: Suite) -> List[str]:
+    """The default IOH specs and baselines plus the external baselines ``suite.extras`` provide."""
+    from panobbgo.harness_baselines import DEFAULT_BASELINE_NAMES
     from panobbgo.harness_ioh import make_ioh_strategies
 
-    return [s.name for s in make_ioh_strategies()] + list(DEFAULT_BASELINE_NAMES) + list(EXTERNAL_BASELINE_NAMES)
+    names = [s.name for s in make_ioh_strategies()] + list(DEFAULT_BASELINE_NAMES)
+    return names + external_baselines_for(suite.extras)
 
 
 #: IOH suite variant -> the ``--strategies`` names its shards run.  Resolved
 #: in the shard, which has the package installed (``plan`` stays stdlib only).
 #: The external baselines join a run only when ``--strategies`` names them.
-STRATEGY_SETS: Dict[str, Callable[[], List[str]]] = {
+STRATEGY_SETS: Dict[str, Callable[[Suite], List[str]]] = {
     "external": _external_strategy_names,
 }
 
@@ -289,7 +317,7 @@ def shard_commands(
             "run",
             f"--{suite.battery}",
             "--baselines",
-            *(["--strategies", *STRATEGY_SETS[suite.variant]()] if suite.variant else []),
+            *(["--strategies", *STRATEGY_SETS[suite.variant](suite)] if suite.variant else []),
             "--seeds",
             *[str(s) for s in seeds],
             "--sync-eval",

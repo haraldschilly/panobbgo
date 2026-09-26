@@ -75,19 +75,63 @@ def test_harness_cli_no_timeout():
     assert build_parser().parse_args(["run", "--quick", "--no-timeout"]).timeout is None
 
 
-def test_external_suite_names_every_external_baseline(tmp_path):
-    from panobbgo.harness_baselines import DEFAULT_BASELINE_NAMES, EXTERNAL_BASELINE_NAMES
+#: The pycma / Nevergrad / Optuna baselines: the ``baselines`` extra's share of
+#: ``EXTERNAL_BASELINE_NAMES`` (other extras may append names there).
+CHEAP_EXTERNAL = (
+    "Baseline_pycma_IPOP",
+    "Baseline_pycma_BIPOP",
+    "Baseline_NGOpt",
+    "Baseline_NG_CMA",
+    "Baseline_NG_TwoPointsDE",
+    "Baseline_Optuna_CmaEs",
+    "Baseline_Optuna_TPE",
+)
+
+
+def test_external_suite_names_the_baselines_of_its_extra(tmp_path):
+    from panobbgo.harness_baselines import DEFAULT_BASELINE_NAMES
     from panobbgo.harness_ioh import make_ioh_strategies
 
     suite = rb.SUITES["ioh-external"]
-    assert suite.kind == "ioh" and suite.battery == "standard" and "baselines" in suite.extras
+    assert suite.kind == "ioh" and suite.battery == "standard" and suite.extras == ("baselines",)
     [(argv, _)] = rb.shard_commands(suite, [42], "01", tmp_path, jobs=2, python="py")
     names = argv[argv.index("--strategies") + 1 : argv.index("--seeds")]
-    expected = [s.name for s in make_ioh_strategies()] + list(DEFAULT_BASELINE_NAMES) + list(EXTERNAL_BASELINE_NAMES)
-    assert names == expected and len(EXTERNAL_BASELINE_NAMES) >= 7
+    expected = [s.name for s in make_ioh_strategies()] + list(DEFAULT_BASELINE_NAMES) + list(CHEAP_EXTERNAL)
+    assert names == expected
     # The plain suites keep the harness' default strategy set.
     [(plain, _)] = rb.shard_commands(rb.SUITES["ioh-standard"], [42], "01", tmp_path, jobs=2, python="py")
     assert "--strategies" not in plain
+
+
+def test_a_baseline_of_another_extra_stays_out_of_the_external_suite(monkeypatch):
+    # An expensive-track baseline appended to the registry (its class names
+    # extra "baselines-bo") must not join a suite that installs only "baselines".
+    import panobbgo.harness_baselines as hb
+
+    class FakeBO:
+        extra = "baselines-bo"
+
+    real = hb.make_external_baseline_strategies
+
+    def with_bo():
+        return real() + [hb.StrategySpec(name="Baseline_FakeBO", strategy_class=FakeBO, heuristics=[])]
+
+    monkeypatch.setattr(hb, "make_external_baseline_strategies", with_bo)
+    names = rb.STRATEGY_SETS["external"](rb.SUITES["ioh-external"])
+    assert "Baseline_FakeBO" not in names and set(CHEAP_EXTERNAL) <= set(names)
+    assert rb.external_baselines_for(("baselines", "baselines-bo"))[-1] == "Baseline_FakeBO"
+
+
+def test_every_strategy_set_is_satisfiable_by_its_suites_extras():
+    import panobbgo.harness_baselines as hb
+
+    classes = {s.name: s.strategy_class for s in hb.make_external_baseline_strategies()}
+    for suite in rb.SUITES.values():
+        if not suite.variant:
+            continue
+        for name in rb.STRATEGY_SETS[suite.variant](suite):
+            if name in classes:
+                assert rb.baseline_extra(classes[name]) in suite.extras, (suite.name, name)
 
 
 def test_ioh_cli_accepts_the_external_strategy_set():
@@ -98,25 +142,25 @@ def test_ioh_cli_accepts_the_external_strategy_set():
     spec.loader.exec_module(cli)
     for module in ("cma", "nevergrad", "optuna", "cmaes"):
         pytest.importorskip(module)
-    names = rb.STRATEGY_SETS["external"]()
+    names = rb.STRATEGY_SETS["external"](rb.SUITES["ioh-external"])
     args = argparse.Namespace(legacy=False, standard=True, full=False, baselines=True, strategies=names)
     assert [s.name for s in cli._resolve_strategies(args)] == names
 
 
-def _ioh_shard(path: Path, seeds, battery: str = "ioh-quick"):
+def _ioh_shard(path: Path, seeds, battery: str = "ioh-quick", strategy: str = "A", aocc: Optional[float] = None):
     results = []
     for seed in seeds:
         run = IOHRunRecord(
             problem_kind="MA-BBOB",
             dim=2,
             instance=0,
-            strategy_name="A",
+            strategy_name=strategy,
             rep=0,
             budget=10,
             n_evals=10,
             best_fx=1.0,
             f_opt=0.0,
-            aocc=seed / 10000,
+            aocc=seed / 10000 if aocc is None else aocc,
             elapsed_s=0.1,
             seed=seed,
         )
@@ -160,18 +204,25 @@ def _fake_shard(suite, seeds, shard: str, root: Path) -> None:
     """The result file(s) and meta a shard of ``suite`` leaves, as ``gh run download`` lays them out."""
     d = root / f"shard-{suite.name}-{shard}" / suite.name
     d.mkdir(parents=True)
+    # Every suite has its own number and spec names, so a summary that reads
+    # another suite's file (e.g. one keyed by battery, not by ref_key) shows.
+    value = _suite_value(suite.name)
     if suite.kind == "composite":
         for seed in seeds:
-            HarnessResult(HarnessConfig(seed=seed), "", 0, 0.0, [], seed / 10000).save(
-                str(d / f"{suite.name}_s{seed}.json")
-            )
+            HarnessResult(HarnessConfig(seed=seed), "", 0, 0.0, [], value).save(str(d / f"{suite.name}_s{seed}.json"))
     elif suite.kind == "ioh":
-        _ioh_shard(d / f"{suite.name}_shard{shard}.json", seeds, battery=f"ioh-{suite.battery}")
+        path = d / f"{suite.name}_shard{shard}.json"
+        _ioh_shard(path, seeds, battery=f"ioh-{suite.battery}", strategy=f"{suite.name}/A", aocc=value)
     else:
-        rows = [{"seed": s, "s": spec, "aocc": 0.5, "err": None} for s in seeds for spec in ("A", "B")]
+        specs = (f"{suite.name}/A", f"{suite.name}/B")
+        rows = [{"seed": s, "s": spec, "aocc": value, "err": None} for s in seeds for spec in specs]
         (d / f"{suite.name}_shard{shard}.json").write_text(json.dumps(rows))
     meta = {"suite": suite.name, "shard": shard, "seeds": list(seeds), "status": 0, "github_run_id": "5"}
     (d / f"meta_{shard}.json").write_text(json.dumps(meta))
+
+
+def _suite_value(name: str) -> float:
+    return (list(rb.SUITES).index(name) + 1) / 100
 
 
 def test_every_suite_goes_through_plan_aggregate_and_summary(tmp_path):
@@ -193,40 +244,69 @@ def test_every_suite_goes_through_plan_aggregate_and_summary(tmp_path):
         entry = summary["suites"][name]
         assert entry["seeds"] == list(rb.ROSTER), name
         assert all((out / f).exists() for f in entry["files"]), name
+        value = _suite_value(name)
         if suite.kind == "composite":
-            assert entry["composite_score"]["mean"] > 0 and len(entry["composite_score"]["per_seed"]) == 12
+            comp = entry["composite_score"]
+            assert comp["mean"] == pytest.approx(value) and comp["per_seed"] == {str(s): value for s in rb.ROSTER}
         elif suite.kind == "ioh":
             assert entry["files"][0] == f"ref_ioh_{suite.ref_key}.json" and len(entry["files"]) == 13
-            assert entry["mean_aocc"] > 0 and set(entry["per_spec_aocc"]) == {"A"}
+            assert entry["mean_aocc"] == pytest.approx(value), name
+            assert entry["per_spec_aocc"] == {f"{name}/A": pytest.approx(value)}, name
         else:
             assert entry["files"] == [f"ref_family_screen_{suite.ref_key}.json"]
             assert entry["rows"] == 24 and entry["failed_rows"] == 0
-            assert entry["mean_aocc"] == pytest.approx(0.5) and set(entry["per_spec_aocc"]) == {"A", "B"}
+            assert entry["mean_aocc"] == pytest.approx(value), name
+            assert entry["per_spec_aocc"] == {f"{name}/A": pytest.approx(value), f"{name}/B": pytest.approx(value)}
     md = rb.summary_markdown(summary)
     assert all(f"| {name} | 12 |" in md for name in rb.SUITES)
 
 
-def test_suite_registry_matches_the_workflow_and_the_extras():
+def _family_screen_presets() -> set:
+    """The keys of ``PRESETS`` in ``benchmarks/family_screen.py`` (a local of its ``main``)."""
+    import ast
+
+    tree = ast.parse((rb.REPO_ROOT / "benchmarks" / "family_screen.py").read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "PRESETS" for t in node.targets):
+            assert isinstance(node.value, ast.Dict)
+            return {k.value for k in node.value.keys if isinstance(k, ast.Constant)}
+    raise AssertionError("no PRESETS in family_screen.py")
+
+
+def test_suite_registry_is_consistent():
     import tomllib
 
-    workflow = (rb.REPO_ROOT / ".github" / "workflows" / "rebaseline.yml").read_text()
     extras = tomllib.loads((rb.REPO_ROOT / "pyproject.toml").read_text())["project"]["optional-dependencies"]
+    presets = _family_screen_presets()
+    assert {"free", "constrained", "shapes", "failure"} <= presets
     for suite in rb.SUITES.values():
-        assert suite.name in workflow, f"{suite.name} missing from the workflow's suites input"
+        assert suite.kind in ("composite", "ioh", "families"), suite.name
         assert set(suite.extras) <= set(extras), suite.name
+        if suite.kind == "families":
+            assert suite.battery in presets, suite.name
         if suite.kind == "ioh":
             assert suite.name.startswith("ioh-"), "the workflow syncs the IOH worker venv for ioh-* suites"
-        if suite.variant and suite.kind == "ioh":
-            assert suite.variant in rb.STRATEGY_SETS
-    # A suite that runs external baselines installs their extra.
-    from panobbgo.harness_baselines import EXTERNAL_BASELINE_NAMES
+        if suite.variant:
+            # A variant picks an IOH strategy set; "s<digits>" would read as a seed in ref_*_s<seed>.json.
+            assert suite.kind == "ioh" and suite.variant in rb.STRATEGY_SETS, suite.name
+            assert not re.fullmatch(r"s\d+", suite.variant), suite.name
+    for variant in rb.STRATEGY_SETS:
+        assert any(s.variant == variant for s in rb.SUITES.values()), f"strategy set {variant} is used by no suite"
 
-    for variant, names in rb.STRATEGY_SETS.items():
-        users = [s for s in rb.SUITES.values() if s.variant == variant]
-        assert users, f"strategy set {variant} is used by no suite"
-        if set(names()) & set(EXTERNAL_BASELINE_NAMES):
-            assert all("baselines" in s.extras for s in users)
-    assert "matrix.extras" in workflow
+
+def test_the_workflow_names_every_suite_and_installs_its_extras():
+    import yaml
+
+    text = (rb.REPO_ROOT / ".github" / "workflows" / "rebaseline.yml").read_text()
+    workflow = yaml.safe_load(text)
+    suites_input = workflow[True]["workflow_dispatch"]["inputs"]["suites"]["description"]  # YAML 1.1: on -> True
+    for name in rb.SUITES:
+        assert name in suites_input, f"{name} missing from the workflow's suites input"
+    [install] = [s for s in workflow["jobs"]["measure"]["steps"] if s.get("name") == "Install dependencies"]
+    # Always run: a cache hit does not say which extras the cached .venv has.
+    assert "if" not in install
+    assert install["env"]["EXTRAS"] == "${{ matrix.extras }}" and "$EXTRAS" in install["run"]
+    assert "--extra dev" in install["run"] and "uv sync" in install["run"]
 
 
 def test_aggregate_rejects_a_seed_measured_twice(tmp_path):

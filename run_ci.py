@@ -18,7 +18,9 @@ Steps that only make sense on a fresh runner (checkout, set up Python,
 install uv, the cached ``uv sync``, ``uv add``, artifact upload) are skipped;
 ``./test.sh`` does the ``uv sync --extra dev`` once up front.  Jobs with a
 job-level ``if:`` (the gh-pages deploy) are skipped, since the condition
-refers to GitHub context that does not exist locally.
+refers to GitHub context that does not exist locally.  Workflows that only
+run on demand (no ``push`` / ``pull_request`` trigger, e.g. the
+``workflow_dispatch`` re-baseline) are not CI gates and are skipped whole.
 
 ``python run_ci.py --dry-run`` prints the plan without running anything.
 """
@@ -106,8 +108,27 @@ def load_workflow_configs(workflows_dir: Path = WORKFLOWS_DIR) -> dict[str, dict
     return configs
 
 
+def _triggers(config: dict) -> set[str]:
+    """The event names a workflow runs on (YAML 1.1 reads a bare ``on:`` key as ``True``)."""
+    on = config.get("on", config.get(True))
+    if isinstance(on, str):
+        return {on}
+    if isinstance(on, (list, dict)):
+        return {str(e) for e in on}
+    return set()
+
+
+def is_ci_gate(config: dict) -> bool:
+    """Whether a workflow runs on ``push`` / ``pull_request`` (a workflow without ``on:`` counts)."""
+    events = _triggers(config)
+    return not events or bool(events & {"push", "pull_request"})
+
+
 def extract_jobs(workflow_name: str, config: dict) -> list[Job]:
     """The locally runnable jobs of one workflow, in file order."""
+    if not is_ci_gate(config):
+        print(f"   (skipping workflow {workflow_name}: not triggered by push / pull_request)")
+        return []
     wf_env = _plain_env(config.get("env"))
     jobs = []
     for job_id, job_cfg in (config.get("jobs") or {}).items():

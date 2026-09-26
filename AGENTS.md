@@ -247,6 +247,32 @@ through `benchmarks/family_screen.py`.
 regress the other — track both. AOCC is the metric of record in
 `planning/GOAL.md`.
 
+### Re-baselining on GitHub runners
+
+`.github/workflows/rebaseline.yml` (manual, `workflow_dispatch`) re-measures
+the references when the local machine is busy: composite quick/standard
+(`benchmark_harness.py run`, one file per seed), IOH quick/standard
+(`ioh_benchmark.py run --baselines --seeds ...`) and the family screens
+(`benchmarks/family_screen.py`, presets free/constrained), sharded over
+(suite × seed chunk), ~28 jobs for the 12-seed roster.  Every shard runs
+`sync_eval`, seeded, with no wall-clock limit (`--no-timeout`), so the
+numbers do not depend on runner speed.  Suites and chunk sizes live in
+`scripts/rebaseline.py`.
+
+```bash
+gh workflow run rebaseline.yml -f suites=all -f seeds=12        # seeds: a count or '42,7'; -f ref=<sha>
+gh run download <RUN_ID> --pattern 'shard-*' --dir rebaseline-raw
+uv run python scripts/rebaseline.py aggregate rebaseline-raw    # -> planning/results/<UTC date>/ref_*
+```
+
+The workflow's last job does the same aggregation and uploads it as the
+`rebaseline-references` artifact.  Outputs: `ref_composite_<mode>_s<seed>.json`
+(for `benchmark_harness.py compare`), `ref_ioh_<battery>.json` (multi-seed,
+for `ioh_benchmark.py compare` against a run with the same `--seeds`) plus
+single-seed `ref_ioh_<battery>_s<seed>.json`, `ref_family_screen_<preset>.json`
+(rows; `family_screen.py from=FILE`) and `ref_MANIFEST.json` (commit, seeds,
+failed shards).
+
 ### Key files
 
 *   `panobbgo/harness.py` — `BenchmarkHarness`, metrics, `compare()`, `statistical_accept()`

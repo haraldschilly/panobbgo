@@ -370,11 +370,11 @@ def cmd_list(args: argparse.Namespace) -> int:
         heuristics = ", ".join(h.__name__ for h, _ in s.heuristics)
         print(f"  {s.name}  [{heuristics}]")
     if args.baselines:
-        from panobbgo.harness_baselines import BO_BASELINE_NAMES, EXTERNAL_BASELINE_NAMES
+        from panobbgo.harness_baselines import ALL_EXTERNAL_BASELINE_NAMES, BO_BASELINE_NAMES
 
         print("\nExternal baselines (opt-in: name them in --strategies; need `uv sync --extra baselines`,")
         print("the ones marked expensive `uv sync --extra baselines-bo`):")
-        for name in EXTERNAL_BASELINE_NAMES:
+        for name in ALL_EXTERNAL_BASELINE_NAMES:
             print(f"  {name}  [opt-in{', expensive' if name in BO_BASELINE_NAMES else ''}]")
 
     print()

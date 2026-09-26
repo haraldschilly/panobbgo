@@ -77,15 +77,19 @@ uv run python benchmark_harness.py compare before.json after.json --statistical 
     `ioh_benchmark.py run` (guide, "External libraries").
 *   The expensive-track baselines — BoTorch qLogEI, TuRBO-1, SMAC3
     BlackBox, Py-BOBYQA (`panobbgo/harness_baselines_bo.py`,
-    `uv sync --extra baselines-bo`, CPU torch) — join the same way
-    (`Baseline_BoTorch_qLogEI`, `Baseline_TuRBO1`, `Baseline_SMAC_BB`,
-    `Baseline_PyBOBYQA`).  Meant for small budgets (10…200·dim) and the
-    virtual clock; GP fits make a dim-10, budget-200 run take minutes
-    (BoTorch at q = 1: tens of minutes), so give them `--no-timeout` and
-    size runner jobs by the table in the guide ("Expensive-track
-    baselines").  Py-BOBYQA is sequential: one point in flight at any q.
-    HEBO and PDFO do not install under numpy 2.5 / Python 3.14 and are
-    left out.
+    `uv sync --extra dev --extra baselines --extra baselines-bo`, CPU
+    torch) — join the same way (`Baseline_BoTorch_qLogEI`,
+    `Baseline_TuRBO1`, `Baseline_SMAC_BB`, `Baseline_PyBOBYQA`; the list
+    `BO_BASELINE_NAMES`, while `EXTERNAL_BASELINE_NAMES` stays the cheap
+    track).  Meant for small budgets: run them with
+    `ioh_benchmark.py run --budget-multiplier 20` (or 100) and the virtual
+    clock.  GP fits make a dim-10, budget-200 run take 5–20 min (BoTorch
+    qLogEI about 15–20 min, on the async virtual clock at any q); size
+    runner jobs by the guide ("Expensive-track baselines").  They are
+    exempt from `benchmark_harness.py`'s per-run wall timeout.  SMAC has
+    no batch acquisition (report it at q = 1); Py-BOBYQA is sequential
+    (one point in flight at any q).  HEBO and PDFO do not install under
+    numpy 2.5 / Python 3.14 and are left out.
 *   `--randomize --randomize-iteration N` uses parametrically randomised
     instances; the same `N` gives the same instances
     (`panobbgo/harness_randomized.py`).

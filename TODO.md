@@ -26,6 +26,12 @@ extra).
       exists (`panobbgo/sealed.py`; MA-BBOB and families are sealed).
 - [ ] Feature logging at checkpoints (landscape features, per-arm
       trajectory statistics): the selector's training data (roadmap §3.4, §4 A).
+- [ ] Expensive-track baselines in the re-baseline workflow: own shards
+      and cache prefix, a small-budget battery (`--budget-multiplier` 20 /
+      100 on families + MA-BBOB, d 2/5/10).  5–20 min per run at dim 10,
+      budget 200 (guide, "Expensive-track baselines").
+- [ ] Py-BOBYQA `seek_global_minimum=True` as a second, global variant of
+      the local BOBYQA reference (`panobbgo/harness_baselines_bo.py`).
 - [ ] Then measure panobbgo vs the incumbents on both tracks, per COCO
       class, budget and q (roadmap §5.2).
 

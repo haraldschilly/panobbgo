@@ -648,7 +648,9 @@ class HarnessConfig:
         strategies: List of strategy names to include.  ``None`` uses the mode
             defaults.
         timeout_per_run: Per-run wall-clock timeout in seconds.  Set to
-            ``None`` to disable.
+            ``None`` to disable.  Strategy classes with
+            ``no_wall_timeout = True`` (the expensive-track baselines) are
+            never cut.
         randomize: If True, replace the fixed problem battery with a
             parametrically randomized one (Phase 3 of the self-improvement
             loop).  Each repetition draws a fresh translated / rotated /
@@ -2004,6 +2006,10 @@ class BenchmarkHarness:
             # We use a daemon thread + join(timeout) instead of SIGALRM
             # because SIGALRM can corrupt state in threaded evaluation workers.
             timeout = self.config.timeout_per_run
+            if timeout is not None and getattr(strat_spec.strategy_class, "no_wall_timeout", False):
+                # Expensive-track baselines (GP fits) take minutes per run by
+                # design; a wall-clock cut would score them on a stub.
+                timeout = None
             run_error: Optional[Exception] = None
             # Set when the run was cut off at its deadline but stopped
             # cleanly: its evaluations up to the stop are still scored.

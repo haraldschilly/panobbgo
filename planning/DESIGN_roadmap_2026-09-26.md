@@ -35,9 +35,11 @@ shapes (`family_screen.py preset=failure|shapes`, #346), dims 30/40 with a
 `bbob-largescale`-style slice and the sealed test set (MA-BBOB + families,
 `panobbgo/sealed.py`), the expensive-track baselines (BoTorch qLogEI,
 TuRBO-1, SMAC3, Py-BOBYQA in the `baselines-bo` extra; HEBO and PDFO do not
-install under numpy 2.5 / Python 3.14).  Open — the real-world set (and its
-share of the sealed set),
-feature logging (`TODO.md` §1).
+install under numpy 2.5 / Python 3.14), feature logging at budget
+checkpoints (`panobbgo/features.py`, `ioh_benchmark.py run --log-features`,
+#361; rank-based ELA-lite, trajectory and per-arm "stuck locally" features,
+bit-identical runs; `doc/dev/benchmarking.md`).  Open — the real-world set
+(and its share of the sealed set) (`TODO.md` §1).
 
 1. **External baselines** as harness arms, batch-capable (ask/tell with q):
    * cheap track: pycma (IPOP/BIPOP), Nevergrad `NGOpt` (the direct rival —
@@ -61,7 +63,7 @@ feature logging (`TODO.md` §1).
      (YAHPO / HPOBench);
    * a **sealed test set** (fresh MA-BBOB seeds + part of the real-world
      set) never used for tuning or training, touched only for claims.
-4. **Feature logging.**  At fixed checkpoints each run records landscape
+4. **Feature logging** (done, #361).  At fixed checkpoints each run records landscape
    features and per-arm trajectory statistics — the training data for
    A and B.
 

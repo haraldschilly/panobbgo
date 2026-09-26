@@ -569,7 +569,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not args.no_nice:
         local_run.be_nice()
     local_run.pin_blas_env()  # before torch loads: it reads OMP_NUM_THREADS once
-    local_run.blas_limit()
+    local_run.pin_blas()
     units = [Unit.parse(u) for u in args.units.split(";") if u.strip()]
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

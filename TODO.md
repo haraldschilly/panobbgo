@@ -109,6 +109,19 @@ Cheap-track items, in GOAL §2c order:
 
 ## 4. Engineering backlog
 
+- [ ] **CI segfault: OpenBLAS 0.3.34 + `OPENBLAS_CORETYPE=Haswell` on
+      AVX-512 Zen 4 runners** (AMD EPYC 9V74, about 1 runner in 4).  Any
+      `dgemm` of a few hundred rows (`A @ B` at 1002x496x496, `lstsq`,
+      `svd`, `qr`) crashes in `dgemm_kernel_HASWELL` (stack overflow; the
+      frame is overwritten with matrix data), also single-threaded and
+      without any threads or tests involved; auto-detected (SkylakeX) and
+      SandyBridge kernels are fine; EPYC 7763 and Xeon runners are fine.
+      Upstream: OpenMathLib/OpenBLAS#6013, #6021, fixed for 0.3.35.  In the
+      suite the first such call is `test_features.py::test_quadratic_fit_…_d30`
+      (#361).  Decision needed: a numpy / scipy-openblas pin to OpenBLAS
+      0.3.33 until 0.3.35, or wait (FP-exact references were measured with
+      0.3.34); measure/rebaseline jobs at `d >= 30` can hit it too.
+
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
       selection is clean) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.

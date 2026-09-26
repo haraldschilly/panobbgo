@@ -565,8 +565,13 @@ def test_failure_share_is_measured_out_of_sample():
     assert p.failure_share == pytest.approx(0.1, abs=0.01)  # ... that still measures the target
 
 
-def test_a_timeout_abandoned_in_flight_is_not_an_early_end():
-    """Threads + ``evaluation.timeout``: an abandoned call is never recorded, but its slot was spent."""
+def test_a_timeout_abandoned_in_flight_is_not_an_early_end(monkeypatch):
+    """Threads + ``evaluation.timeout``: an abandoned call is never recorded, but its slot was spent.
+
+    Two runs back to back: calls abandoned by the first are still running
+    when the second starts, and must not write into the first (finished,
+    scored) run's tracker.
+    """
     import time
 
     from panobbgo.benchmark import StrategySpec
@@ -577,11 +582,14 @@ def test_a_timeout_abandoned_in_flight_is_not_an_early_end():
     assert _early_end_error(24, 30, 30) is None
     assert _early_end_error(8, 8, 30) is not None
 
+    in_flight = _InFlight()
+
     class Slow(Family):
         def eval(self, x):
-            if x[0] > 2.0:
-                time.sleep(0.3)
-            return super().eval(x)
+            with in_flight:
+                if x[0] > 2.0:
+                    time.sleep(0.3)
+                return super().eval(x)
 
     spec = StrategySpec(
         name="R",
@@ -589,7 +597,91 @@ def test_a_timeout_abandoned_in_flight_is_not_an_early_end():
         heuristics=[(Random, {})],
         config_overrides={"evaluation_timeout": 0.05},
     )
-    run = run_family_harness([spec], [("slow", Slow("sphere", dim=2, seed=1))], budget_multiplier=15, progress=False)
-    run = run.runs[0]
-    assert run.n_evals < run.budget  # abandoned calls never reached the trace ...
-    assert run.error is None  # ... but the run spent its budget
+    late_writes = []
+    real_record = PenaltyTracker._record
+
+    def record(self, x, measured):
+        if getattr(self, "_closed", False):
+            late_writes.append(float(x[0]))
+        real_record(self, x, measured)
+
+    monkeypatch.setattr(PenaltyTracker, "_record", record)
+    instances = [("slow1", Slow("sphere", dim=2, seed=1)), ("slow2", Slow("sphere", dim=2, seed=2))]
+    try:
+        res = run_family_harness([spec], instances, budget_multiplier=15, progress=False)
+    finally:
+        in_flight.drain()  # abandoned calls must not run on into the next tests
+    assert len(res.runs) == 2
+    for run in res.runs:
+        assert run.n_evals < run.budget  # abandoned calls never reached the trace ...
+        assert run.error is None  # ... but the run spent its budget
+    assert late_writes == []  # nothing recorded into a finished run
+
+
+class _InFlight:
+    """Counts the calls inside a ``with`` block; :meth:`drain` waits (bounded) until none is left."""
+
+    def __init__(self) -> None:
+        import threading
+
+        self._cv = threading.Condition()
+        self.n = 0
+        self.peak = 0
+
+    def __enter__(self) -> "_InFlight":
+        with self._cv:
+            self.n += 1
+            self.peak = max(self.peak, self.n)
+        return self
+
+    def __exit__(self, *exc) -> None:
+        with self._cv:
+            self.n -= 1
+            self._cv.notify_all()
+
+    def drain(self, timeout: float = 10.0) -> None:
+        with self._cv:
+            assert self._cv.wait_for(lambda: self.n == 0, timeout), f"{self.n} call(s) still running"
+
+
+def test_a_call_that_finishes_after_the_run_is_not_recorded():
+    """A call abandoned in flight that returns after ``restore()`` leaves the finished run's tracker untouched.
+
+    Threads abandoned by ``evaluation.timeout`` cannot be killed; they
+    finish after the harness has scored the run (and while the next run or
+    test is going).  The tracker is closed at ``restore()``: the late
+    result is dropped, a late call is not admitted, and the problem is not
+    called for it.
+    """
+    import threading
+
+    entered, release = threading.Event(), threading.Event()
+    calls = []
+
+    class Held(Family):
+        def eval(self, x):
+            calls.append(float(x[0]))
+            if x[0] > 2.0:
+                entered.set()
+                assert release.wait(10)
+            return super().eval(x)
+
+    p = Held("sphere", dim=2, seed=1, shift=False)
+    tracker = PenaltyTracker(p, budget=10)
+    bound = p.eval  # what a pool thread holds while its call is in flight
+    bound(np.full(2, 1.0))
+    late = threading.Thread(target=bound, args=(np.full(2, 3.0),))
+    late.start()
+    try:
+        assert entered.wait(10)
+        tracker.restore()  # the run ends while the call is in flight
+        frozen = (tracker.n_evals, list(tracker.best_so_far), tracker.best_fx, tracker._reserved)
+    finally:
+        release.set()
+        late.join(10)
+    assert not late.is_alive()
+    assert (tracker.n_evals, list(tracker.best_so_far), tracker.best_fx, tracker._reserved) == frozen
+    assert frozen[0] == 1 and frozen[3] == 2  # one recorded, one admitted in flight
+    assert bound(np.zeros(2)) == tracker.best_fx  # a late call: not admitted ...
+    assert len(calls) == 2  # ... and the problem was not called
+    assert tracker.n_evals == 1

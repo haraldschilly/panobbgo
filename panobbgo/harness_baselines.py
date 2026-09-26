@@ -641,7 +641,10 @@ class AskTellBaselineStrategy(BaselineStrategy):
         the baseline gets ``aocc_time`` like a panobbgo strategy.  The
         duration stream is the one panobbgo strategies use
         (:data:`~panobbgo.virtual_clock.RNG_STREAM_KEY` of the run seed).
-        The results frame stays in dispatch order.
+        The results frame stays in dispatch order.  A signalled timeout (a
+        family's ``failure_at``) is not evaluated on this path, so it is not
+        written to the results frame; the tracker counts it as a spent
+        evaluation all the same.
         """
         from panobbgo.core import keyed_rng
         from panobbgo.virtual_clock import RNG_STREAM_KEY, _model_of, failure_mode, run_ask_tell

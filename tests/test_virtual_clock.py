@@ -1088,7 +1088,7 @@ def test_run_ask_tell_signalled_timeout_is_not_evaluated():
         adapter.ask,
         adapter.tell,
         evaluate,
-        workers=4,
+        workers=1,
         model=ConstantDuration(),
         rng=np.random.default_rng(0),
         budget=40,
@@ -1100,4 +1100,64 @@ def test_run_ask_tell_signalled_timeout_is_not_evaluated():
     n_signalled = sum(1 for _k, fx in adapter.told if np.isnan(fx))
     assert n_signalled > 0 and evaluated[0] == 40 - n_signalled
     assert tracker.n_evals == 40
-    assert sorted(t for t, v in tracker.timeline if np.isnan(v)) == [t for t, v in tracker.timeline if np.isnan(v)]
+    _assert_charged_the_cut(tracker, cut=2.5)
+
+
+def _assert_charged_the_cut(tracker: Any, cut: float) -> None:
+    """q = 1, constant duration 1: each call starts when the previous completes, so the
+    completion-time steps are the durations — ``cut`` for a signalled timeout, 1 otherwise."""
+    times = np.array([0.0] + [t for t, _ in tracker.timeline])
+    spent = [np.isnan(v) for _, v in tracker.timeline]
+    assert any(spent)
+    for step, is_spent in zip(np.diff(times), spent):
+        assert step == pytest.approx(cut if is_spent else 1.0)
+
+
+def test_asktell_baseline_charges_a_signalled_timeout_the_cut():
+    """The Toy baseline on the timeout family: signalled timeouts are not evaluated, charged evaluation.timeout."""
+    _crash, problem = _failure_families()
+    calls = [0]
+    orig = problem.eval
+
+    def counting(x):
+        calls[0] += 1
+        return orig(x)
+
+    problem.eval = counting
+    try:
+        tracker = IOHTracker(problem, budget=40)
+        s = _toy_baseline()(problem, seed=1)
+        s.config.max_eval = 40
+        VirtualSpec(workers=1).apply(s, observer=tracker)
+        s.config.evaluation_timeout = 2.5
+        s.start()
+        tracker.restore()
+    finally:
+        problem.eval = orig
+    n_spent = sum(1 for _, v in tracker.timeline if np.isnan(v))
+    assert tracker.n_evals == 40 and n_spent > 0
+    assert calls[0] == 40 - n_spent  # never evaluated
+    _assert_charged_the_cut(tracker, cut=2.5)
+
+
+def test_objective_signalled_timeout_without_failure_at():
+    """A problem whose eval raises EvaluationTimedOut itself (no failure_at): counted once, charged the timeout."""
+    from panobbgo.lib.lib import EvaluationTimedOut
+
+    class Hangs(Rosenbrock):
+        def eval(self, x):
+            if float(x[0]) > 1.0:
+                raise EvaluationTimedOut("hangs")
+            return super().eval(x)
+
+    problem = Hangs(dim=2)
+    assert not hasattr(problem, "failure_at")
+    tracker = IOHTracker(problem, budget=50)
+    s, rec = _run("virtual", workers=2, max_eval=50, timeout=2.5, problem=problem, observer=tracker)
+    tracker.restore()
+    timed = [r for r in rec.seen if r.timed_out]
+    assert timed and s.n_timed_out == len(timed)
+    for r in timed:
+        assert r.t_complete - r.t_dispatch == pytest.approx(2.5)
+    assert tracker.n_evals == 50
+    assert sum(1 for _, v in tracker.timeline if np.isnan(v)) == len(timed)  # each counted once

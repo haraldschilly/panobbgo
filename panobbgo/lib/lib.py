@@ -62,7 +62,7 @@ def is_simulated_crash(error: Any) -> bool:
 
     The evaluation paths carry a failure as ``repr(exc)`` (a worker process
     can only send a string), so this reads the prefix.  They log such an
-    expected, simulated failure at ``WARNING`` rather than ``ERROR``.
+    expected, simulated failure at ``DEBUG`` rather than ``ERROR``.
     """
     if isinstance(error, BaseException):
         return isinstance(error, EvaluationCrashed)

@@ -92,6 +92,53 @@ class TestCMAES(PanobbgoTestCase):
         assert cma._failed_generations == 1
         assert any(i["gen"] > gen for i in cma._pending.values())
 
+    def test_all_failed_generations_are_charged_and_end_in_one_self_restart(self):
+        """Each dropped generation is charged its emitted count; the MAX-th in a row self-restarts once."""
+        from panobbgo.heuristics import CMAES
+        from panobbgo.lib import Point
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        assert cma.n_self_restarts == 0 and cma.restart_count == 0
+        for k in range(1, CMAES.MAX_FAILED_GENERATIONS + 1):
+            gen = min(cma._gen_results)
+            emitted = cma._gen_emitted.get(gen, cma._lam)
+            counteval, total = cma._counteval, cma._total_evals
+            failed = [Point(np.zeros(self.problem.dim), who) for who, i in cma._pending.items() if i["gen"] == gen]
+            assert len(failed) == emitted
+            cma.on_failed_evaluations(failed)
+            assert cma._total_evals == total + emitted  # survives the restart
+            if k < CMAES.MAX_FAILED_GENERATIONS:
+                assert cma._counteval == counteval + emitted
+                assert cma._failed_generations == k
+                assert cma.n_self_restarts == 0
+        assert cma.n_self_restarts == 1 and cma.restart_count == 1
+        assert cma.last_stop_reason == "failed_generations"
+        assert cma._failed_generations == 0
+
+    def test_an_external_restart_resets_the_failed_generation_count(self):
+        from panobbgo.heuristics import CMAES
+
+        cma = CMAES(self.strategy)
+        cma.on_start()
+        cma._failed_generations = 5
+        cma.on_restart(cma._m.copy(), "external")
+        assert cma._failed_generations == 0
+
+    def test_without_self_restart_failed_generations_only_resample(self):
+        from panobbgo.heuristics import CMAES
+        from panobbgo.lib import Point
+
+        cma = CMAES(self.strategy, self_restart=False)
+        cma.on_start()
+        for _ in range(CMAES.MAX_FAILED_GENERATIONS + 2):
+            gen = min(cma._gen_results)
+            cma.on_failed_evaluations(
+                [Point(np.zeros(self.problem.dim), who) for who, i in cma._pending.items() if i["gen"] == gen]
+            )
+        assert cma.restart_count == 0 and cma.n_self_restarts == 0
+        assert cma._failed_generations == CMAES.MAX_FAILED_GENERATIONS + 2
+
     def test_default_popsize(self):
         from panobbgo.heuristics import CMAES
 

@@ -2915,8 +2915,10 @@ class StrategyBase:
                 new_results.append(self._timed_out_result(o.point, seconds))
             elif not o.ok:
                 # A simulated crash (lib.EvaluationCrashed, a family's failure
-                # region) is expected: a warning, not an error.
-                log = self.logger.warning if is_simulated_crash(o.error) else self.logger.error
+                # region) is expected by design, and a failure preset has
+                # hundreds per run: DEBUG, not an error.  They stay visible as
+                # evaluations that left no result (``n_finished - len(results)``).
+                log = self.logger.debug if is_simulated_crash(o.error) else self.logger.error
                 log("Evaluation failed: %s" % o.error)
                 if o.point is not None:
                     failed.append(o.point)

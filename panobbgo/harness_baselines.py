@@ -184,10 +184,13 @@ def penalized_value(fx: float, cv_vec: Optional[np.ndarray], rho: float = BASELI
     r"""``fx + rho * cv`` with :math:`\mathrm{cv} = \lVert \max(g, 0) \rVert_2` — ``fx`` unchanged without constraints.
 
     The same ``cv`` as :attr:`Result.cv <panobbgo.lib.lib.Result.cv>` (a
-    ``NaN`` entry is an unknown, i.e. infinite, violation), so a baseline
-    minimises exactly what panobbgo's default constraint handler scalarises
+    ``NaN`` entry is an unknown, i.e. infinite, violation) and the same
+    ``rho`` as the default constraint handler's scalar surrogate
     (:meth:`DefaultConstraintHandler.get_penalty_value
-    <panobbgo.lib.constraints.DefaultConstraintHandler.get_penalty_value>`).
+    <panobbgo.lib.constraints.DefaultConstraintHandler.get_penalty_value>`,
+    which scalar-minimising heuristics use).  The handler itself *ranks* by
+    ``(cv, fx)``, feasibility first; a scalar-minimising baseline gets the
+    surrogate.
     """
     if cv_vec is None:
         return fx
@@ -208,7 +211,8 @@ def _make_objective(problem: Problem, log: _EvaluationLog, nan_is_worst: bool = 
     **Constraints.**  The baselines have no constraint handling of their own,
     so on a constrained problem (``eval_constraints`` returns a vector) the
     objective is the penalty value :func:`penalized_value` — ``f + 100·cv``,
-    what panobbgo's default constraint handler minimises — instead of the
+    the default constraint handler's scalar surrogate (``get_penalty_value``;
+    the handler itself ranks by ``(cv, fx)``) — instead of the
     bare ``f``, which would let a baseline score by luck on whichever side of
     the constraints it happens to land.  On an unconstrained problem the
     value is ``f``, bit for bit.

@@ -23,7 +23,9 @@ extra).
 - [ ] Real-world follow-ups: a `realworld` suite in `scripts/rebaseline.py`
       (first a local timing to size its shards), and a re-baseline of
       `families-constrained` for the baselines (they now minimise
-      `f + 100·cv` on constrained problems); RC01u/RC02u (8/9 equalities)
+      `f + 100·cv` on constrained problems — that also changes the
+      baselines on the constrained half of `--families-sealed`, whose
+      numbers before #358 are not comparable for baselines); RC01u/RC02u (8/9 equalities)
       are rarely made feasible at 500·dim, so check whether they
       discriminate at all.
 - [ ] Nearby quadratic step scaling at high d (cap auto-rank candidates and

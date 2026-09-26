@@ -178,9 +178,15 @@ class PenaltyTracker(IOHTracker):
         if cv_vec is None:
             cv = 0.0
         else:
-            positive = np.asarray(cv_vec, dtype=np.float64)
-            positive = positive[positive > 0.0]
-            cv = float(np.linalg.norm(positive)) if positive.size else 0.0
+            vec = np.asarray(cv_vec, dtype=np.float64)
+            if np.isnan(vec).any():
+                # An unknown violation is infeasible, as in ``Result.cv``
+                # (``NaN > 0`` is False, so it used to be dropped).  No family
+                # returns NaN constraints today; this keeps the two in step.
+                cv = float("inf")
+            else:
+                positive = vec[vec > 0.0]
+                cv = float(np.linalg.norm(positive)) if positive.size else 0.0
         return fx, fx + self.rho * cv, cv
 
     def _record(self, x: np.ndarray, measured: Tuple[float, ...]) -> None:

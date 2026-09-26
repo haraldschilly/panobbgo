@@ -846,10 +846,11 @@ summary adds a per-problem table (AOCC and feasible runs per strategy).
 **Baselines on constrained problems.**  The baselines have no constraint
 handling of their own.  On every constrained problem — this track and the
 constrained families — their objective is the penalty value
-:math:`f + 100\,\mathrm{cv}` that panobbgo's default constraint handler
-minimises (``harness_baselines.penalized_value``), not the bare :math:`f`,
-so they do not score by luck on whichever side of the constraints they
-land.  Unconstrained problems are unchanged, bit for bit.  (This changed the
+:math:`f + 100\,\mathrm{cv}` (``harness_baselines.penalized_value``) —
+the scalar surrogate of panobbgo's default constraint handler
+(``get_penalty_value``, same :math:`\rho` and :math:`\mathrm{cv}`; the
+handler itself ranks by ``(cv, fx)``) — not the bare :math:`f`, so they do
+not score by luck on whichever side of the constraints they land.  Unconstrained problems are unchanged, bit for bit.  (This changed the
 baselines' numbers on ``--families-constrained`` on 2026-09-26; older
 reference files for that battery are not comparable for the baselines.)
 

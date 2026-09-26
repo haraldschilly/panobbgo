@@ -46,6 +46,7 @@ from panobbgo.harness_baselines import (
     PycmaIPOPStrategy,
     _PycmaRestartAdapter,
     make_baseline_strategies,
+    make_external_baseline_strategies,
 )
 from panobbgo.lib.classic import Rosenbrock
 
@@ -110,13 +111,81 @@ def test_deterministic_for_fixed_seed(cls):
 
 
 @_needs("nevergrad")
-def test_ngopt_recast_threads_end_after_the_run():
-    """NGOpt at dim 2 / 30 evaluations runs a SciPy method in a Nevergrad thread; the run must end it."""
+def test_ngopt_metamodel_cma_is_deterministic():
+    """dim 5 / 300 evaluations: NGOpt runs MetaModel(CmaFmin2), i.e. ``cma.fmin`` in a Nevergrad thread."""
+    runs = []
+    for _ in range(2):
+        strategy = NevergradNGOptStrategy(Rosenbrock(dims=5), seed=3)
+        strategy.config.max_eval = 300
+        strategy.start()
+        runs.append(strategy.results.results)
+    pd.testing.assert_frame_equal(runs[0], runs[1])
+
+
+@_needs("nevergrad")
+@pytest.mark.parametrize(("dim", "budget"), [(2, 30), (5, 1000)])
+def test_ngopt_close_stops_recast_threads(dim, budget):
+    """NGOpt picks Cobyla (dim 2) or MetaModel(CmaFmin2) (dim 5); both run in a Nevergrad thread."""
+    problem = Rosenbrock(dims=dim)
+    strategy = NevergradNGOptStrategy(problem, seed=1)
     before = set(threading.enumerate())
-    _run(NevergradNGOptStrategy, max_eval=30, seed=1)
-    for thread in set(threading.enumerate()) - before:
+    adapter = strategy.make_adapter(1, budget, 1)  # held: GC must not be what stops the thread
+    for _ in range(20):
+        for key, x in adapter.ask(1):
+            adapter.tell(key, float(problem.eval(x)))
+    started = [t for t in set(threading.enumerate()) - before if t.is_alive()]
+    assert started, "expected a recast worker thread"
+    adapter.close()
+    for thread in started:
         thread.join(timeout=10)
         assert not thread.is_alive()
+
+
+@_needs("cma")
+def test_pycma_popsize_schedule_and_batch_floor():
+    """IPOP populations follow fmin2 (int of a float base) and q raises the base."""
+    adapter = _PycmaRestartAdapter(np.zeros(5), np.ones(5), seed=1, bipop=False)
+    sizes = []
+    while len(sizes) < 4:
+        for key, _x in adapter.ask(100):
+            adapter.tell(key, 1.0)  # flat: every run stops quickly
+        if adapter.popsize not in sizes:
+            sizes.append(adapter.popsize)
+    assert sizes == [8, 17, 35, 70]
+    assert _PycmaRestartAdapter(np.zeros(5), np.ones(5), seed=1, bipop=True, batch_size=20).popsize == 20
+
+
+@_needs("cma")
+def test_run_restores_the_global_rng():
+    np.random.seed(0)
+    state = np.random.get_state()[1].copy()
+    _run(PycmaBIPOPStrategy, max_eval=50, seed=4)
+    assert np.array_equal(np.random.get_state()[1], state)
+
+
+@pytest.mark.parametrize("cls", ADAPTERS)
+def test_nan_is_told_as_worst(cls):
+    """One failed-value rule: NaN -> +inf (Optuna: a COMPLETE trial), and the run goes on."""
+    strategy = cls(Rosenbrock(dims=2), seed=2)
+    adapter = strategy.make_adapter(2, 30, 1)
+    try:
+        for i in range(12):
+            for key, _x in adapter.ask(1):
+                adapter.tell(key, float("nan") if i % 3 == 0 else float(i))
+        if isinstance(strategy, (OptunaCmaEsStrategy, OptunaTPEStrategy)):
+            trials = adapter._study.trials
+            assert all(t.state.name == "COMPLETE" for t in trials)
+            assert trials[0].value == float("inf")
+    finally:
+        adapter.close()
+
+
+@pytest.mark.parametrize("cls", ADAPTERS)
+def test_start_point_is_not_the_centre(cls):
+    _, strategy = _run(cls, max_eval=1, seed=9)
+    x = strategy.results.results[[("x", 0), ("x", 1)]].to_numpy()[0]
+    box = Rosenbrock(dims=2).box
+    assert not np.allclose(x, (box[:, 0] + box[:, 1]) / 2)
 
 
 @_needs("cma")
@@ -184,6 +253,7 @@ def test_driver_batches_in_dispatch_order_and_trims_the_last_batch():
     assert np.allclose(df[("x", 0)].to_numpy(), 0.01 * np.arange(11))
 
 
+@_needs("nevergrad")
 def test_batch_size_via_config_override():
     spec = [s for s in make_baseline_strategies(["Baseline_NGOpt"]) if s.name == "Baseline_NGOpt"][0]
     spec.config_overrides = {"batch_size": 4}
@@ -202,12 +272,34 @@ def test_default_baseline_set_is_unchanged():
     assert names == ["Baseline_Random", "Baseline_SciPyDE", "Baseline_SciPyAnneal"]
 
 
+@_needs("nevergrad", "cma")
 def test_external_baselines_join_by_name():
     names = [s.name for s in make_baseline_strategies(["Baseline_NGOpt", "Baseline_pycma_BIPOP", "Other"])]
     assert names[3:] == ["Baseline_pycma_BIPOP", "Baseline_NGOpt"]
     assert len(set(EXTERNAL_BASELINE_NAMES)) == 7
 
 
+def test_names_derive_from_the_classes():
+    specs = make_external_baseline_strategies()
+    assert tuple(s.name for s in specs) == EXTERNAL_BASELINE_NAMES
+    assert all(s.name == f"Baseline_{s.strategy_class.who}" for s in specs)
+
+
+def test_missing_extra_fails_when_the_spec_is_built(monkeypatch):
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a: None if name == "optuna" else real(name, *a))
+    with pytest.raises(ImportError, match="--extra baselines"):
+        make_baseline_strategies(["Baseline_Optuna_TPE"])
+    make_baseline_strategies(["Baseline_pycma_IPOP"] if real("cma") else None)  # others unaffected
+
+
+def test_baseline_name_without_baselines_flag_is_an_error_with_a_hint():
+    harness = BenchmarkHarness(HarnessConfig(mode="quick", strategies=["Baseline_NGOpt"]))
+    with pytest.raises(ValueError, match="--baselines"):
+        harness.get_strategies()
+
+
+@_needs("optuna")
 def test_harness_selects_external_baseline_through_the_filter():
     config = HarnessConfig(mode="quick", include_baselines=True, strategies=["Baseline_Optuna_TPE"])
     names = [s.name for s in BenchmarkHarness(config).get_strategies()]

@@ -53,7 +53,9 @@ jobs:
         # Runs even on a cache hit: the venv cache key is shared with the
         # other jobs, which install `--extra dev` only, so a hit may lack the
         # `baselines` extra (pycma, Nevergrad, Optuna) whose adapter tests
-        # would then skip.  On a warm venv this sync takes a second.
+        # would then skip.  If the cached venv already has the extra, the
+        # sync only verifies it; otherwise it installs the extra's packages
+        # from uv's download cache or PyPI.
         run: |
           uv sync --extra dev --extra baselines
 

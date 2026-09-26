@@ -1801,9 +1801,10 @@ class BenchmarkHarness:
         else:
             raise ValueError(f"Unknown mode {self.config.mode!r}.")
 
-        if self.config.include_baselines:
-            from panobbgo.harness_baselines import make_baseline_strategies
+        from panobbgo.harness_baselines import check_baseline_selection, make_baseline_strategies
 
+        check_baseline_selection(self.config.strategies, self.config.include_baselines)
+        if self.config.include_baselines:
             # External baselines join only when the name filter asks for them.
             specs = specs + make_baseline_strategies(self.config.strategies)
 

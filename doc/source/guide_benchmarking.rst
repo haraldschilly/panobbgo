@@ -586,9 +586,34 @@ above, and an external baseline joins when ``--strategies`` names it.
   number of parallel workers), plus ``Baseline_NG_CMA`` and
   ``Baseline_NG_TwoPointsDE`` as cross-checks.
 - ``Baseline_Optuna_CmaEs``, ``Baseline_Optuna_TPE`` — Optuna's
-  ``CmaEsSampler`` (no restarts) and ``TPESampler``, default settings.
-  Optuna's per-trial overhead grows with the trial count, so these are
-  slow at budgets of thousands.
+  ``CmaEsSampler`` and ``TPESampler``, default settings.  The CMA-ES
+  sampler runs without restarts (``restart_strategy`` is deprecated since
+  Optuna 4.4; the restart variants are the pycma baselines).  Optuna's
+  per-trial cost grows with the trial count, so wall time is roughly
+  quadratic in the budget (TPE: ~21 s for 2000 evaluations at dim 10).
+  ``benchmark_harness.py``'s default per-run timeout of 120 s would cut
+  such runs short: measure them with ``--no-timeout``
+  (``ioh_benchmark.py`` has no default timeout).
+
+Conventions shared by all of them:
+
+- **Start point** — every run starts from a point drawn uniformly from the
+  box with the run seed (pycma and Optuna CMA-ES ``x0``, Nevergrad's
+  parametrization ``init``), never the box centre, where several classic
+  test functions have their optimum.
+- **Failed values** — a NaN (failed or timed-out evaluation) is the worst
+  value and is told as ``+inf``; Optuna records it as a COMPLETE trial, so
+  TPE learns the region is bad.  ``±inf`` from the objective passes
+  through unchanged.
+- **Determinism** — a fixed seed reproduces a run exactly.  numpy's global
+  RNG is seeded from the run seed for the run and restored afterwards;
+  pycma samples from the adapter's own generator; the ``cma.fmin`` calls
+  Nevergrad makes in a background thread (NGOpt's ``MetaModel(CmaFmin2)``)
+  get their own generator too.
+- **Fail fast** — naming an external baseline without the extra installed
+  is an ``ImportError`` before any run, and naming any baseline without
+  ``--baselines`` is an error with that hint.  ``benchmark_harness.py list
+  --baselines`` shows the external names marked ``[opt-in]``.
 
 .. code-block:: bash
 
@@ -604,15 +629,17 @@ config.batch_size`` (default 1; set it with
 ``StrategySpec(config_overrides={"batch_size": q})``): ask ``q`` points,
 evaluate them in dispatch order, tell them.  A CMA-ES adapter hands out at
 most the rest of its current generation, so a batch can be smaller than
-``q``.  Nevergrad also receives ``q`` as ``num_workers``, which changes
-the algorithm NGOpt picks.
+``q``; pycma therefore raises its base population to at least ``q`` so that
+one generation fills the workers.  Nevergrad receives ``q`` as
+``num_workers``, which changes the algorithm NGOpt picks.
 
 The in-house CMA-ES reference remains the
 :class:`~panobbgo.heuristics.cma_es.CMAES` heuristic (``RoundRobin_CMAES``);
 the pycma baselines are the upstream round-trip against it.
 
 See ``panobbgo/harness_baselines.py`` for the full interface and
-``tests/test_harness_baselines.py`` for the guarantees.
+``tests/test_harness_baselines.py`` and
+``tests/test_harness_baselines_external.py`` for the guarantees.
 
 
 Per-arm sweeps and the decision protocol
@@ -806,8 +833,10 @@ See also
 
 - :mod:`panobbgo.harness` — the harness implementation.
 - :mod:`panobbgo.harness_baselines` — external reference strategies
-  (Random, SciPy DE, SciPy dual annealing).
+  (Random, SciPy DE, SciPy dual annealing; pycma, Nevergrad, Optuna).
 - ``benchmark_harness.py`` — CLI.
 - ``tests/test_harness.py`` — harness test suite (60+ tests).
 - ``tests/test_harness_baselines.py`` — baseline adapter tests.
+- ``tests/test_harness_baselines_external.py`` — pycma / Nevergrad / Optuna
+  adapter tests (skip without the ``baselines`` extra).
 - ``tests/test_harness_stats.py`` — statistical acceptance rule tests.

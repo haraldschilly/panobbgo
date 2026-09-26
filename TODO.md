@@ -87,6 +87,13 @@ followed (#331–#334).  Details in the PR descriptions and commit messages.
       comparison that relies on them.  Runs on GitHub runners via
       `.github/workflows/rebaseline.yml` (AGENTS.md, "Re-baselining on
       GitHub runners"); commit the aggregated `ref_*` files once it is done.
+- [ ] **External baselines in the re-baseline workflow.**  The pycma /
+      Nevergrad / Optuna baselines (`panobbgo/harness_baselines.py`, extra
+      `baselines`) are opt-in by name, so `scripts/rebaseline.py` does not
+      measure them.  Add an `--external-baselines` suite option (IOH run
+      with `--baselines --strategies <defaults> <EXTERNAL_BASELINE_NAMES>`)
+      and `--extra baselines` in `rebaseline.yml`, so the external
+      references come from the sharded workflow.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
       selection is clean since 2026-09-25) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.

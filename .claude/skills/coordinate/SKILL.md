@@ -72,6 +72,7 @@ The reviewer prompt says:
 - Read the diff with `gh pr diff N`.
 - Run things in a scratch worktree under the scratchpad, and remove it
   afterwards. No stash, no push, niced snippets only.
+- Reviewers and verifiers name scratch worktrees and branches uniquely (PR, role, a random suffix): two verifiers collided on a shared name.
 - Report numbered findings, ranked by severity. Each gives file:line, a
   concrete failure scenario, a fix, and confirmed or plausible.
 

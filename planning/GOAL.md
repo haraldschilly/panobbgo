@@ -46,13 +46,12 @@ Concretely, in priority order:
 paired multi-seed decision runs (`harness_ioh.paired_seed_stats`). `composite_score` is the frozen
 legacy contract — keep it green, don't optimize for it.
 
-## 2. State snapshot (2026-09-25 — update when it materially changes)
+## 2. State snapshot (2026-09-25, amended 2026-09-26 — update when it materially changes)
 
 All section references are to `planning/DISCOVERY_2026-09-09.md`; this
-snapshot covers §1–§53.  **Every number below was measured before the
-2026-09-25 audits** and is a pre-audit value: re-measure once on the
-current code before comparing anything against it (see the last bullet
-and §2c item 1).
+snapshot covers §1–§54.  **Every number in the §1–§53 bullets was measured
+before the 2026-09-25 audits** and is a pre-audit value: compare only
+against the post-audit references of §54 (last bullet).
 
 * **The arms.**  `NP_init="auto"` for the DE family and the CMA-ES
   σ-divergence restart are 12-seed accepted defaults (§17–§24).  Paired
@@ -117,14 +116,36 @@ and §2c item 1).
   `max_eval`, composite `success` means "within the budget", IOH
   aggregates count timeouts/crashes) and optimizer fidelity (jSO,
   NL-SHADE, CMA-ES, PSO follow their papers; the default constraint
-  penalty is `fx + 100·cv`), so **all earlier result files must be re-measured
-  once before comparisons** (TODO "Re-baseline once").  Since #337
+  penalty is `fx + 100·cv`), so **result files from before 2026-09-25 are
+  not comparable** with newer ones.  Since #337
   measurements run with synchronous evaluation and module RNG streams
   are keyed per module.  The 12-seed decision-roster rule is dropped: a
   paired multi-seed comparison with delta, CI and wins/n is enough, and
   a screen's best spec is re-checked on fresh seeds
   (`doc/dev/benchmarking.md`).  The nightly self-improvement loop is
   removed (design in `planning/done/`).
+  Settled with Harald on 2026-09-25 (#337–#339): harness measurements run
+  synchronously by default; RNG streams are keyed per module; the deadlock
+  backstop never cuts an outstanding evaluation, and `evaluation.timeout`
+  (unset by default) is a per-call limit in every backend whose firing
+  records a NaN result; warm restarts use the archive only outside the
+  stagnated basin; QuadraticWLS fits on the pull path.  Kept as they are:
+  old storage databases without a fingerprint are refused (escape hatch
+  `storage.adopt_legacy`); block-bandit async credit unchanged;
+  DynamicPenalty / ALM keep their own rho default (10), ALM multipliers
+  grow linearly while the incumbent is stuck; the multi-seed regression
+  gate stays pooled.
+* **Re-baselined and instrumented, 2026-09-26.**  Post-audit references
+  on GitHub runners (`rebaseline.yml`, 12 seeds, §54,
+  `planning/results/2026-09-26/`): composite quick 0.4029 / standard
+  0.4275; IOH mean AOCC quick 0.3592 / standard 0.4999
+  (`Blocks_warm_CMAES_JSO` 0.4187 / 0.6738, `RoundRobin_CMAES`
+  0.3893 / 0.6673).  Roadmap step 1 is partly built: pycma / Nevergrad /
+  Optuna baselines (#344, extra `baselines`, opt-in by name), BBOB shapes
+  and failure-region families with CMA-ES/DE crash handling and the
+  `EndedEarly` run marker (#346), and the virtual-clock parallel backend
+  (#345: q simulated workers, pull-when-free policy, `aocc_time`).  None
+  of them has measured numbers yet.
 
 ## 2b. Previous snapshot (2026-09-10, §1–§31)
 
@@ -146,9 +167,10 @@ for a strong default setup (§2, §2b) → 2026-09-25 audits → 2026-09-26
 roadmap.
 
 **2026-09-26:** the roadmap (`DESIGN_roadmap_2026-09-26.md` §5) comes
-first after the re-baseline: instrument (external baselines, virtual-clock
-parallel simulator, failure-region families, sealed test set, feature
-logging), measure against the incumbents, then failure regions (D),
+first: instrument (external baselines, virtual-clock parallel simulator
+and failure-region families are built; dims 30/40, real-world set, sealed
+test set and feature logging are open — `TODO.md` §1), measure against
+the incumbents, then failure regions (D),
 learned probe→select cycles with forecast allocation (A+B), new sharing
 payloads (C).  The items below remain the cheap-track research line.
 
@@ -156,10 +178,8 @@ Sharing is settled as a low-budget mechanism and its payload is fully
 characterised; what is left is choosing the arm per problem.  In order
 (TODO.md "Research line"):
 
-1. **Re-baseline first.**  Re-measure the composite quick/standard and
-   the IOH / family references on the post-audit code, with sync
-   evaluation and keyed RNG streams, before any comparison that relies
-   on an older number.
+1. **Re-baseline first** — done 2026-09-26 (§54): compare against
+   `planning/results/2026-09-26/ref_*`, never against an older number.
 2. **Probe / regime detector — the main line.**  Target: the per-cell
    oracle gap of +0.015…+0.039 (§53.2); the signal should be observable
    early, as the first arm's progress rate (§52.4).  The oracle gate

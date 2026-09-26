@@ -16,7 +16,7 @@ parallel — local threads by default, optionally a Dask cluster.
 * [Documentation](https://haraldschilly.github.io/panobbgo/) — user guide and API reference
 * [User guide sources](doc/source/guide.rst) — reStructuredText, built with Sphinx
 * [Benchmarking guide](doc/source/guide_benchmarking.rst) — how quality is measured (composite score, statistical acceptance)
-* `AGENTS.md` — entry point for contributors and coding agents (process, commands, benchmarking in `doc/dev/`); `TODO.md` — current status
+* `AGENTS.md` — entry point for contributors and coding agents (process, commands, benchmarking in `doc/dev/`); `TODO.md` — open work
 
 ## Installation
 

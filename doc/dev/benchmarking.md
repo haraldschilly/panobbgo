@@ -106,8 +106,10 @@ Multi-seed screens: `benchmarks/family_screen.py`, `portfolio_screen.py`,
 `arm_sweep.py`, `oracle.py` (guide, "Per-arm sweeps").  `family_screen.py`
 also has `preset=shapes` (BBOB f6/f7/f12/f21/f24 × dims 2/5/10) and
 `preset=failure` (failure regions where evaluations crash or time out,
-`lib.families.FailureRegion`; failed calls are spent budget, and a run that
-stops below its budget is recorded as `EndedEarly`).
+`lib.families.FailureRegion`; failed calls are spent budget).  In every IOH
+and family run, a run that stops by itself below its budget (every arm
+stopped producing) is scored on its short trace but marked `EndedEarly` in
+`IOHRunRecord.error`, next to crashed and timed-out runs in the summary.
 
 **Parallel behaviour (virtual clock).**  `--virtual-workers Q` runs every
 strategy on a deterministic simulation of Q workers
@@ -142,16 +144,18 @@ Result files from before **2026-09-25** are not comparable with newer ones:
 runs now stop at exactly `max_eval`, composite `success` means "tolerance
 met within the budget", measurements run `sync_eval`, and module RNG streams
 are keyed by master seed and module name (`StrategyBase.spawn_rng`), which
-changed every seeded trajectory.  Re-baseline instead of comparing across
-that line (`TODO.md`, "Re-baseline once").
+changed every seeded trajectory.  Compare against the post-audit
+references instead: `planning/results/2026-09-26/ref_*` (DISCOVERY §54,
+measured before #344–#346, which are bit-identical on the default paths).
 
 ## Re-baselining on GitHub runners
 
 `.github/workflows/rebaseline.yml` (manual) re-measures the references:
 composite quick/standard, IOH quick/standard and the family screens,
-sharded over (suite × seed chunk), ~28 jobs for 12 seeds.  Every shard is
-seeded, `sync_eval`, with no wall-clock limit, so the numbers do not depend
-on runner speed.  Suites and chunk sizes: `scripts/rebaseline.py`.
+sharded over (suite × seed chunk), ~28 jobs for 12 seeds.  The external
+baselines and the `shapes` / `failure` presets are not among the suites
+yet (`TODO.md`).  Every shard is seeded, `sync_eval`, with no wall-clock
+limit, so the numbers do not depend on runner speed.  Suites and chunk sizes: `scripts/rebaseline.py`.
 
 ```bash
 gh workflow run rebaseline.yml -f suites=all -f seeds=12        # seeds: a count or '42,7'; -f ref=<sha>

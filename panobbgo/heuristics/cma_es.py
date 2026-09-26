@@ -330,14 +330,20 @@ class CMAES(Heuristic):
             draw once more and project that one (then repaired as under
             ``"project"``).  The sampled distribution becomes a truncated
             Gaussian instead of one with point masses on the faces.
-            ``"mirror"``: reflect the out-of-box coordinates back into the
+            ``"reflect"``: reflect the out-of-box coordinates back into the
             box (periodic reflection at the faces, so any distance maps
-            inside) and repair the step as under ``"project"``.  Every draw
-            comes from :attr:`rng`, the heuristic's own keyed stream.
+            inside) and repair the step as under ``"project"``.  This is a
+            third bound-handling scheme, *not* §57's "mirror test" (that is
+            the reverse experiment on Optuna's side,
+            ``Baseline_Optuna_CmaEs_clip`` in
+            :mod:`panobbgo.harness_baselines`).  Every draw comes from
+            :attr:`rng`, the heuristic's own keyed stream.
         first_start (str): Where the *first* run's mean starts (§57, H2).
-            ``"center"`` (default): the box centre.  ``"random"``: a uniform
-            point of the box, drawn from :attr:`rng` — what Optuna and pycma
-            do.  Restarts are governed by ``restart_from``; a warm start
+            ``"center"`` (default): the box centre — also the default of
+            Optuna's ``CmaEsSampler`` without ``x0``.  ``"random"``: a
+            uniform point of the box, drawn from :attr:`rng` — what the
+            harness's ``Baseline_Optuna_CmaEs`` does (it passes a uniform
+            random ``x0``) and what pycma does in our adapter.  Restarts are governed by ``restart_from``; a warm start
             (``warm_start``) still overrides either when the archive has
             points.
         active (bool): Active CMA-ES (§57, H3): the ``λ − μ`` worst offspring
@@ -358,7 +364,7 @@ class CMAES(Heuristic):
     SUPPORTED_RESTART_FROM = ("random", "best", "center")
 
     #: Accepted values for ``boundary``: out-of-box offspring handling.
-    SUPPORTED_BOUNDARY = ("project", "resample", "mirror")
+    SUPPORTED_BOUNDARY = ("project", "resample", "reflect")
 
     #: Accepted values for ``first_start``: the first run's start mean.
     SUPPORTED_FIRST_START = ("center", "random")
@@ -1719,8 +1725,8 @@ class CMAES(Heuristic):
             x_raw = self._m + self._sigma * y
             if self._boundary == "resample" and not self._inside(x_raw):
                 x_raw, y = self._resample_inside(x_raw, y)
-            if self._boundary == "mirror":
-                x = self._mirror_into_box(x_raw)
+            if self._boundary == "reflect":
+                x = self._reflect_into_box(x_raw)
             else:
                 x = self.problem.project(x_raw)
             # Boundary repair (Hansen 2011, arXiv:1110.4181): a projected point
@@ -1780,8 +1786,8 @@ class CMAES(Heuristic):
         y = self._B @ (self._D * self.rng.standard_normal(n))
         return self._m + self._sigma * y, y
 
-    def _mirror_into_box(self, x: np.ndarray) -> np.ndarray:
-        """Reflect the out-of-box coordinates of ``x`` at the faces (``boundary="mirror"``).
+    def _reflect_into_box(self, x: np.ndarray) -> np.ndarray:
+        """Reflect the out-of-box coordinates of ``x`` at the faces (``boundary="reflect"``).
 
         Periodic reflection: with ``u = (x_i − lo_i)/r_i``, ``u mod 2`` folded
         at 1, so a coordinate any distance outside lands inside.  Coordinates
@@ -1795,9 +1801,9 @@ class CMAES(Heuristic):
         lo, r = self._lo[out], self._ranges[out]
         u = np.mod((x[out] - lo) / np.where(r > 0, r, 1.0), 2.0)
         u = np.where(u > 1.0, 2.0 - u, u)
-        mirrored = x.copy()
-        mirrored[out] = lo + r * u
-        return self.problem.project(mirrored)
+        reflected = x.copy()
+        reflected[out] = lo + r * u
+        return self.problem.project(reflected)
 
     def _update(self, collected: List[dict], n_offspring: int) -> None:
         """Perform one CMA-ES parameter update from a set of evaluated offspring.

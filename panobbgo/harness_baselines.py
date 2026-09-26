@@ -1140,6 +1140,29 @@ def _quiet_optuna(optuna: Any) -> None:
         _OPTUNA_QUIETED = True
 
 
+def _clip_only_cmaes_sampler(optuna: Any) -> type:
+    """``CmaEsSampler`` whose ``cmaes.CMA`` clips out-of-box samples instead of resampling them.
+
+    Optuna 5.0.0 builds its optimizer with ``n_max_resampling = 10·n``
+    (``CmaEsSampler._init_optimizer``) and exposes no option for it.  In
+    cmaes 0.13.1 ``CMA.ask`` checks ``n_max_resampling`` draws for
+    feasibility and then clips one more, so ``0`` is pure clipping (``1``
+    would still be one resample).  The attribute is part of the optimizer's
+    pickled state, which Optuna stores in the trials and restores every
+    generation, so setting it once on the fresh optimizer holds for the run.
+    Everything else — the [0, 1] transform, ``x0``, ``σ0``, the seeds — is
+    Optuna's own code path.
+    """
+
+    class _ClipOnlyCmaEsSampler(optuna.samplers.CmaEsSampler):
+        def _init_optimizer(self, trans: Any, direction: Any) -> Any:
+            optimizer = super()._init_optimizer(trans, direction)
+            optimizer._n_max_resampling = 0
+            return optimizer
+
+    return _ClipOnlyCmaEsSampler
+
+
 class _OptunaAdapter(AskTellAdapter):
     """An in-memory Optuna study with one ``FloatDistribution`` per coordinate.
 
@@ -1155,15 +1178,16 @@ class _OptunaAdapter(AskTellAdapter):
         optuna = _require("optuna")
         _quiet_optuna(optuna)
         names = [f"x{j}" for j in range(len(lo))]
-        if sampler == "cmaes":
+        if sampler in ("cmaes", "cmaes_clip"):
             _require("cmaes")  # CmaEsSampler's backend, not an Optuna dependency
             rng = np.random.default_rng(_seed32(seed))
             x0 = {k: float(v) for k, v in zip(names, rng.uniform(lo, hi))}
+            cls = optuna.samplers.CmaEsSampler if sampler == "cmaes" else _clip_only_cmaes_sampler(optuna)
             with warnings.catch_warnings():
                 # ``x0`` is deprecated since Optuna 4.9 (removal planned for
                 # 6.0); without it the sampler starts at the box centre.
                 warnings.simplefilter("ignore", FutureWarning)
-                smp = optuna.samplers.CmaEsSampler(x0=x0, seed=_seed32(seed), warn_independent_sampling=False)
+                smp = cls(x0=x0, seed=_seed32(seed), warn_independent_sampling=False)
         elif sampler == "tpe":
             smp = optuna.samplers.TPESampler(seed=_seed32(seed))
         else:
@@ -1202,6 +1226,25 @@ class OptunaCmaEsStrategy(AskTellBaselineStrategy):
         del budget, batch_size
         box = self.problem.box
         return _OptunaAdapter(self._sampler, box[:, 0], box[:, 1], seed)
+
+
+class OptunaCmaEsClipStrategy(OptunaCmaEsStrategy):
+    """``Baseline_Optuna_CmaEs`` with clipping instead of resampling — the §57 "mirror test".
+
+    DISCOVERY §57 H1 attributes Optuna CmaEs's lead on MA-BBOB (d = 5,
+    inst 2) to its bound handling (redraw out-of-box samples up to ``10·n``
+    times).  This is the reverse experiment on Optuna's side: the identical
+    sampler with ``n_max_resampling = 0``, i.e. every out-of-box sample
+    clipped onto the box (:func:`_clip_only_cmaes_sampler`).  It shares
+    ``seed_name`` with ``Baseline_Optuna_CmaEs``, so both start from the
+    same ``x0`` with the same sampler seed and differ only where a sample
+    leaves the box.  An opt-in A/B arm (:data:`AB_BASELINE_NAMES`), not in
+    the external-baseline references.
+    """
+
+    who: str = "Optuna_CmaEs_clip"
+    _sampler: str = "cmaes_clip"
+    seed_name: str = "Baseline_Optuna_CmaEs"
 
 
 class OptunaTPEStrategy(OptunaCmaEsStrategy):
@@ -1255,6 +1298,23 @@ EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = tuple(f"Baseline_{cls.who}" for cls i
 #: :func:`make_external_baseline_strategies`.
 ALL_EXTERNAL_BASELINE_NAMES: Tuple[str, ...] = EXTERNAL_BASELINE_NAMES + BO_BASELINE_NAMES
 
+#: Opt-in A/B baselines: selected by name like the external ones, but in no
+#: reference suite (``scripts/rebaseline.py``'s ``ioh-external`` stays as it
+#: is).  :class:`OptunaCmaEsClipStrategy` is §57's reverse bound-handling test.
+_AB_BASELINE_CLASSES: Tuple[type, ...] = (OptunaCmaEsClipStrategy,)
+
+#: Spec names of :data:`_AB_BASELINE_CLASSES`.
+AB_BASELINE_NAMES: Tuple[str, ...] = tuple(f"Baseline_{cls.who}" for cls in _AB_BASELINE_CLASSES)
+
+
+def make_ab_baseline_strategies() -> List[StrategySpec]:
+    """The :class:`StrategySpec` of every opt-in A/B baseline (``seed_name`` from the class)."""
+    return [
+        StrategySpec(name=name, strategy_class=cls, heuristics=[], seed_name=getattr(cls, "seed_name", None))
+        for name, cls in zip(AB_BASELINE_NAMES, _AB_BASELINE_CLASSES)
+    ]
+
+
 #: Spec names of the default ``--baselines`` set.
 DEFAULT_BASELINE_NAMES: Tuple[str, ...] = ("Baseline_Random", "Baseline_SciPyDE", "Baseline_SciPyAnneal")
 
@@ -1284,7 +1344,7 @@ def check_baseline_selection(names: Optional[Iterable[str]], include_baselines: 
     """
     if include_baselines or not names:
         return
-    asked = sorted(set(names) & set(DEFAULT_BASELINE_NAMES + ALL_EXTERNAL_BASELINE_NAMES))
+    asked = sorted(set(names) & set(DEFAULT_BASELINE_NAMES + ALL_EXTERNAL_BASELINE_NAMES + AB_BASELINE_NAMES))
     if asked:
         raise ValueError(
             f"{asked} are baseline strategies: add --baselines (HarnessConfig(include_baselines=True)) to select them"
@@ -1313,7 +1373,9 @@ def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[Stra
             scores 0.
     """
     wanted = set(extra or ())
-    external = [spec for spec in make_external_baseline_strategies() if spec.name in wanted]
+    external = [
+        spec for spec in make_external_baseline_strategies() + make_ab_baseline_strategies() if spec.name in wanted
+    ]
     for spec in external:
         missing = [m for m in getattr(spec.strategy_class, "requires", ()) if importlib.util.find_spec(m) is None]
         if missing:
@@ -1339,6 +1401,7 @@ def make_baseline_strategies(extra: Optional[Iterable[str]] = None) -> List[Stra
 
 
 __all__ = [
+    "AB_BASELINE_NAMES",
     "ALL_EXTERNAL_BASELINE_NAMES",
     "BO_BASELINE_NAMES",
     "DEFAULT_BASELINE_NAMES",
@@ -1350,6 +1413,7 @@ __all__ = [
     "NevergradNGOptStrategy",
     "NevergradStrategy",
     "NevergradTwoPointsDEStrategy",
+    "OptunaCmaEsClipStrategy",
     "OptunaCmaEsStrategy",
     "OptunaTPEStrategy",
     "PycmaBIPOPStrategy",
@@ -1358,6 +1422,7 @@ __all__ = [
     "SciPyDEStrategy",
     "SciPyAnnealStrategy",
     "check_baseline_selection",
+    "make_ab_baseline_strategies",
     "make_baseline_strategies",
     "make_external_baseline_strategies",
 ]

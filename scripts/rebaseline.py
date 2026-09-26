@@ -78,8 +78,10 @@ suite                       reference file(s)
 Opt-in A/B suites, never part of ``--suites all`` (run them by name, with
 ``-f release=none``): ``ioh-cma-ab`` (the IOH standard battery),
 ``ioh-cma-ab-bbob-b200`` and ``ioh-cma-ab-bbob-b500`` (the 24 BBOB functions
-at d 5/10, instances 0/1) run ``RoundRobin_CMAES``, its DISCOVERY §57
-variants and Optuna CmaEs / pycma BIPOP in the same jobs; their files are
+at d 2/5/10, instances 0/1) run ``RoundRobin_CMAES``, its DISCOVERY §57
+variants, Optuna CmaEs, its clip-only twin and pycma BIPOP in the same jobs
+(``plan --release`` refuses them unless ``none``, and refuses a mix with
+reference suites); their files are
 ``ref_ioh_standard_cma_ab.json`` and ``ref_ioh_bbob_cma_ab_b<bm>.json``
 (analyse with ``harness_ioh.paired_seed_stats``).
 
@@ -168,9 +170,10 @@ class Suite:
 #     28 CPU-s, ~1.5 CPU-min per seed at the preset's 3 instances; 4 per job.
 # *   families-failure: 12 CPU-s likewise, ~0.6 CPU-min per seed; 6 per job.
 #     Its failure regions raise instead of sleeping, so no wall time is lost.
-#: The BBOB battery of the CMA-ES A/B suites: the 24 functions at d 5 and 10,
-#: instances 0 and 1 (§53's instance set).
-BBOB_AB_ARGS: Tuple[str, ...] = ("--bbob-dims", "5", "10", "--bbob-instances", "0", "1")
+#: The BBOB battery of the CMA-ES A/B suites: the 24 functions at d 2, 5 and
+#: 10 (§52/§53 ran d 2/5; d = 2 is where pycma BIPOP leads, §57), instances
+#: 0 and 1 (§53's instance set).
+BBOB_AB_ARGS: Tuple[str, ...] = ("--bbob-dims", "2", "5", "10", "--bbob-instances", "0", "1")
 
 SUITES: Dict[str, Suite] = {
     s.name: s
@@ -189,13 +192,15 @@ SUITES: Dict[str, Suite] = {
         Suite("families-shapes", "families", "shapes", 4),
         Suite("families-failure", "families", "failure", 6),
         # Opt-in A/B suites (never in 'all'): the CMA-ES variants of DISCOVERY
-        # §57 against RoundRobin_CMAES, with Optuna CmaEs and pycma BIPOP in the
-        # same jobs, so every comparison is paired and in one FP environment.
-        # Publish with -f release=none (an A/B is not a reference).  Sizing
-        # (estimates from the ioh-external timings above, 7 CMA-ES-like specs
-        # plus Optuna CmaEs): the standard battery ~1-2 min per seed; the BBOB
-        # battery (24 fids x d 5/10 x instances 0/1) ~15 min per seed at
-        # 200*d and ~35 min at 500*d serially, a quarter of that at --jobs 4.
+        # §57 against RoundRobin_CMAES, with Optuna CmaEs (and its clip-only
+        # twin, §57's reverse test) and pycma BIPOP in the same jobs, so every
+        # comparison is paired and in one FP environment.  ``plan`` refuses
+        # them unless release=none (an A/B is not a reference) and refuses to
+        # mix them with reference suites.  Sizing (estimates from the
+        # ioh-external timings above; 6 panobbgo CMA-ES specs, 2 Optuna, 1
+        # pycma): the standard battery ~2 min per seed; the BBOB battery
+        # (24 fids x d 2/5/10 x instances 0/1) ~20 min per seed at 200*d and
+        # ~50 min at 500*d serially, a quarter of that at --jobs 4.
         Suite("ioh-cma-ab", "ioh", "standard", 6, variant="cma_ab", extras=("baselines",), opt_in=True),
         Suite(
             "ioh-cma-ab-bbob-b200",
@@ -255,8 +260,10 @@ def _external_strategy_names(suite: Suite) -> List[str]:
     return names + external_baselines_for(suite.extras)
 
 
-#: The references every CMA-ES A/B suite runs next to the variants.
-CMA_AB_REFERENCES: Tuple[str, ...] = ("Baseline_Optuna_CmaEs", "Baseline_pycma_BIPOP")
+#: The references every CMA-ES A/B suite runs next to the variants: Optuna
+#: CmaEs, its clip-only twin (§57's reverse bound-handling test, sharing its
+#: seed) and pycma BIPOP.
+CMA_AB_REFERENCES: Tuple[str, ...] = ("Baseline_Optuna_CmaEs", "Baseline_Optuna_CmaEs_clip", "Baseline_pycma_BIPOP")
 
 
 def _cma_ab_strategy_names(suite: Suite) -> List[str]:
@@ -334,8 +341,31 @@ def plan(suites: Sequence[Suite], seeds: Sequence[int]) -> List[Dict[str, str]]:
     return entries
 
 
+def check_dispatch(suites: Sequence[Suite], release: Optional[str]) -> None:
+    """Refuse a dispatch that could publish an A/B as a reference.
+
+    Opt-in A/B suites run only with ``release == "none"`` (their files are
+    not references and must never become a release), and never together
+    with reference suites in one run (one aggregate, one manifest, one
+    release decision).  ``release=None`` (a local ``plan`` without
+    ``--release``) checks only the mix.
+    """
+    opt_in = [s.name for s in suites if s.opt_in]
+    regular = [s.name for s in suites if not s.opt_in]
+    if opt_in and regular:
+        raise ValueError(f"do not mix opt-in A/B suites {opt_in} with reference suites {regular} in one dispatch")
+    if opt_in and release is not None and release != "none":
+        raise ValueError(f"opt-in A/B suites {opt_in} need release=none (got {release!r}): an A/B is not a reference")
+
+
 def cmd_plan(args: argparse.Namespace) -> int:
-    entries = plan(resolve_suites(args.suites), resolve_seeds(args.seeds))
+    suites = resolve_suites(args.suites)
+    try:
+        check_dispatch(suites, args.release)
+    except ValueError as exc:
+        print(f"::error::{exc}", file=sys.stderr)
+        return 2
+    entries = plan(suites, resolve_seeds(args.seeds))
     print(json.dumps({"include": entries}, separators=(",", ":")))
     return 0
 
@@ -1075,6 +1105,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     plan_p = sub.add_parser("plan", help="print the job matrix as JSON")
     plan_p.add_argument("--suites", default="all", help=f"'all' or a comma list of: {', '.join(SUITES)}")
+    plan_p.add_argument(
+        "--release",
+        default=None,
+        help="The dispatch's release input ('auto', 'none' or a tag): opt-in A/B suites are refused unless 'none'",
+    )
     plan_p.add_argument(
         "--seeds", default=str(len(ROSTER)), help="a count (the first N roster seeds) or a comma list (one seed: '42,')"
     )

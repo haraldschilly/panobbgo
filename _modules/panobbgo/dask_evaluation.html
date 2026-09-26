@@ -380,77 +380,80 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="232">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
 </span><span data-line="233">                    <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">_timed_out_result</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="n">walltime</span><span class="p">))</span>
 </span><span data-line="234">            <span class="k">elif</span> <span class="n">error</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="235">                <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">"Evaluation failed: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">error</span><span class="p">)</span>
-</span><span data-line="236">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="237">                    <span class="n">failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
-</span><span data-line="238">            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-</span><span data-line="239">                <span class="n">new_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="240">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="241">                <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span data-line="242">
-</span><span data-line="243">    <span class="n">strategy</span><span class="o">.</span><span class="n">_publish_failures</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span>
-</span><span data-line="244">    <span class="k">return</span> <span class="n">new_results</span></div>
-
+</span><span data-line="235">                <span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_simulated_crash</span>
+</span><span data-line="236">
+</span><span data-line="237">                <span class="n">log</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span> <span class="k">if</span> <span class="n">is_simulated_crash</span><span class="p">(</span><span class="n">error</span><span class="p">)</span> <span class="k">else</span> <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span>
+</span><span data-line="238">                <span class="n">log</span><span class="p">(</span><span class="s2">"Evaluation failed: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">error</span><span class="p">)</span>
+</span><span data-line="239">                <span class="k">if</span> <span class="n">point</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="240">                    <span class="n">failed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
+</span><span data-line="241">            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+</span><span data-line="242">                <span class="n">new_results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+</span><span data-line="243">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="244">                <span class="n">new_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 </span><span data-line="245">
-</span><span data-line="246">
-</span><span data-line="247"><span class="k">def</span><span class="w"> </span><span class="nf">_warn_ignored_options</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="248"><span class="w">    </span><span class="sd">"""Warn once that ``evaluation.sync`` does not apply to dask.</span>
+</span><span data-line="246">    <span class="n">strategy</span><span class="o">.</span><span class="n">_publish_failures</span><span class="p">(</span><span class="n">failed</span><span class="p">)</span>
+</span><span data-line="247">    <span class="k">return</span> <span class="n">new_results</span></div>
+
+</span><span data-line="248">
 </span><span data-line="249">
-</span><span data-line="250"><span class="sd">    Results arrive in completion order; the option used to be dropped</span>
-</span><span data-line="251"><span class="sd">    silently.  (``evaluation.timeout`` does apply: see :func:`evaluate_point`.)</span>
-</span><span data-line="252"><span class="sd">    """</span>
-</span><span data-line="253">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-</span><span data-line="254">        <span class="k">return</span>
-</span><span data-line="255">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">"sync_evaluation"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-</span><span data-line="256">        <span class="nb">setattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-</span><span data-line="257">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-</span><span data-line="258">            <span class="s2">"evaluation.sync ignored for evaluation.method 'dask': results arrive in completion order. "</span>
-</span><span data-line="259">            <span class="s2">"Use 'threaded' or 'processes' for reproducible runs."</span>
-</span><span data-line="260">        <span class="p">)</span>
-</span><span data-line="261">
-</span><span data-line="262">
-</span><span data-line="263"><span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="264"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="265"><span class="sd">    Accounting routine for the parallel Dask tasks</span>
-</span><span data-line="266"><span class="sd">    (moved from ``StrategyBase._add_tasks``).</span>
-</span><span data-line="267"><span class="sd">    """</span>
-</span><span data-line="268">    <span class="k">if</span> <span class="n">new_futures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="269">        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">new_futures</span><span class="p">:</span>
-</span><span data-line="270">            <span class="c1"># Use future.key as identifier</span>
-</span><span data-line="271">            <span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">future</span>
-</span><span data-line="272">
-</span><span data-line="273">    <span class="c1"># Find completed futures</span>
-</span><span data-line="274">    <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="275">    <span class="n">completed_keys</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="276">
-</span><span data-line="277">    <span class="k">for</span> <span class="n">future_id</span><span class="p">,</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
-</span><span data-line="278">        <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
-</span><span data-line="279">            <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
-</span><span data-line="280">            <span class="n">completed_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
-</span><span data-line="281">            <span class="n">strategy</span><span class="o">.</span><span class="n">n_finished</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="282">
-</span><span data-line="283">    <span class="k">if</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">show_interval</span><span class="p">):</span>
-</span><span data-line="284">        <span class="n">strategy</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
-</span><span data-line="285">        <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-</span><span data-line="286">
-</span><span data-line="287">
+</span><span data-line="250"><span class="k">def</span><span class="w"> </span><span class="nf">_warn_ignored_options</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="251"><span class="w">    </span><span class="sd">"""Warn once that ``evaluation.sync`` does not apply to dask.</span>
+</span><span data-line="252">
+</span><span data-line="253"><span class="sd">    Results arrive in completion order; the option used to be dropped</span>
+</span><span data-line="254"><span class="sd">    silently.  (``evaluation.timeout`` does apply: see :func:`evaluate_point`.)</span>
+</span><span data-line="255"><span class="sd">    """</span>
+</span><span data-line="256">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="257">        <span class="k">return</span>
+</span><span data-line="258">    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">"sync_evaluation"</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="259">        <span class="nb">setattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_warned_dask_options"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span data-line="260">        <span class="n">strategy</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+</span><span data-line="261">            <span class="s2">"evaluation.sync ignored for evaluation.method 'dask': results arrive in completion order. "</span>
+</span><span data-line="262">            <span class="s2">"Use 'threaded' or 'processes' for reproducible runs."</span>
+</span><span data-line="263">        <span class="p">)</span>
+</span><span data-line="264">
+</span><span data-line="265">
+</span><span data-line="266"><span class="k">def</span><span class="w"> </span><span class="nf">_add_tasks</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">,</span> <span class="n">new_futures</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="267"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="268"><span class="sd">    Accounting routine for the parallel Dask tasks</span>
+</span><span data-line="269"><span class="sd">    (moved from ``StrategyBase._add_tasks``).</span>
+</span><span data-line="270"><span class="sd">    """</span>
+</span><span data-line="271">    <span class="k">if</span> <span class="n">new_futures</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="272">        <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">new_futures</span><span class="p">:</span>
+</span><span data-line="273">            <span class="c1"># Use future.key as identifier</span>
+</span><span data-line="274">            <span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="p">[</span><span class="n">future</span><span class="o">.</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">future</span>
+</span><span data-line="275">
+</span><span data-line="276">    <span class="c1"># Find completed futures</span>
+</span><span data-line="277">    <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="278">    <span class="n">completed_keys</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="279">
+</span><span data-line="280">    <span class="k">for</span> <span class="n">future_id</span><span class="p">,</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+</span><span data-line="281">        <span class="k">if</span> <span class="n">future</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+</span><span data-line="282">            <span class="n">strategy</span><span class="o">.</span><span class="n">new_finished</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
+</span><span data-line="283">            <span class="n">completed_keys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">future_id</span><span class="p">)</span>
+</span><span data-line="284">            <span class="n">strategy</span><span class="o">.</span><span class="n">n_finished</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="285">
+</span><span data-line="286">    <span class="k">if</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">show_interval</span><span class="p">):</span>
+</span><span data-line="287">        <span class="n">strategy</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+</span><span data-line="288">        <span class="n">strategy</span><span class="o">.</span><span class="n">show_last</span> <span class="o">=</span> <span class="n">time_module</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span data-line="289">
+</span><span data-line="290">
 <div class="viewcode-block" id="close">
 <a class="viewcode-back" href="../../core.html#panobbgo.dask_evaluation.close">[docs]</a>
-</span><span data-line="288"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-</span><span data-line="289"><span class="w">    </span><span class="sd">"""</span>
-</span><span data-line="290"><span class="sd">    Cancel any outstanding Dask futures and close client + cluster.</span>
-</span><span data-line="291"><span class="sd">    """</span>
-</span><span data-line="292">    <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
-</span><span data-line="293">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="294">            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
-</span><span data-line="295">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="296">            <span class="k">pass</span>
-</span><span data-line="297">
-</span><span data-line="298">    <span class="c1"># Close Dask client and cluster</span>
-</span><span data-line="299">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_client"</span><span class="p">):</span>
-</span><span data-line="300">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="301">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_cluster"</span><span class="p">):</span>
-</span><span data-line="302">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+</span><span data-line="291"><span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="s2">"StrategyBase"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="292"><span class="w">    </span><span class="sd">"""</span>
+</span><span data-line="293"><span class="sd">    Cancel any outstanding Dask futures and close client + cluster.</span>
+</span><span data-line="294"><span class="sd">    """</span>
+</span><span data-line="295">    <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">strategy</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+</span><span data-line="296">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="297">            <span class="n">future</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+</span><span data-line="298">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="299">            <span class="k">pass</span>
+</span><span data-line="300">
+</span><span data-line="301">    <span class="c1"># Close Dask client and cluster</span>
+</span><span data-line="302">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_client"</span><span class="p">):</span>
+</span><span data-line="303">        <span class="n">strategy</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="304">    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">strategy</span><span class="p">,</span> <span class="s2">"_cluster"</span><span class="p">):</span>
+</span><span data-line="305">        <span class="n">strategy</span><span class="o">.</span><span class="n">_cluster</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">

@@ -115,6 +115,9 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.CocoProblem.initial_solution"><code class="docutils literal notranslate"><span class="pre">CocoProblem.initial_solution</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.EvaluationCrashed"><code class="docutils literal notranslate"><span class="pre">EvaluationCrashed</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.EvaluationFailed"><code class="docutils literal notranslate"><span class="pre">EvaluationFailed</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.lib.EvaluationTimedOut"><code class="docutils literal notranslate"><span class="pre">EvaluationTimedOut</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.lib.LogTransformProblem"><code class="docutils literal notranslate"><span class="pre">LogTransformProblem</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.LogTransformProblem.eval"><code class="docutils literal notranslate"><span class="pre">LogTransformProblem.eval()</span></code></a></li>
 </ul>
@@ -175,6 +178,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.lib.Result.x"><code class="docutils literal notranslate"><span class="pre">Result.x</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.lib.is_simulated_crash"><code class="docutils literal notranslate"><span class="pre">is_simulated_crash()</span></code></a></li>
 <li><a class="reference internal" href="#problem-wrappers">Problem Wrappers</a></li>
 <li><a class="reference internal" href="#panobbgo.lib.wrappers.LogTransformProblem"><code class="docutils literal notranslate"><span class="pre">LogTransformProblem</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.lib.wrappers.LogTransformProblem.eval"><code class="docutils literal notranslate"><span class="pre">LogTransformProblem.eval()</span></code></a></li>
@@ -343,6 +347,45 @@ positive values indicate violation, matching panobbgo’s convention.</p>
 <dd><p>The COCO-provided initial solution.</p>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="panobbgo.lib.EvaluationCrashed">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">EvaluationCrashed</span></span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#EvaluationCrashed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.EvaluationCrashed" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.EvaluationFailed" title="panobbgo.lib.lib.EvaluationFailed"><code class="xref py py-class docutils literal notranslate"><span class="pre">EvaluationFailed</span></code></a></p>
+<p>The call crashed: the evaluation path books it as a <em>failed</em> evaluation.</p>
+<p>Nothing special happens on the way: like any exception raised by an
+objective it leaves no result, stays charged against <code class="docutils literal notranslate"><span class="pre">max_eval</span></code> and is
+published as <code class="docutils literal notranslate"><span class="pre">failed_evaluations</span></code>.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="panobbgo.lib.EvaluationFailed">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">EvaluationFailed</span></span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#EvaluationFailed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.EvaluationFailed" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#Exception" title="(in Python v3.14)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></a></p>
+<p>An objective’s own signal that this call returns no value.</p>
+<p>Base class of <a class="reference internal" href="#panobbgo.lib.EvaluationCrashed" title="panobbgo.lib.EvaluationCrashed"><code class="xref py py-class docutils literal notranslate"><span class="pre">EvaluationCrashed</span></code></a> and <a class="reference internal" href="#panobbgo.lib.EvaluationTimedOut" title="panobbgo.lib.EvaluationTimedOut"><code class="xref py py-class docutils literal notranslate"><span class="pre">EvaluationTimedOut</span></code></a>.
+A problem raises one of them from <a class="reference internal" href="#panobbgo.lib.Problem.eval" title="panobbgo.lib.Problem.eval"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Problem.eval()</span></code></a> to <em>simulate</em> a
+failed evaluation (the failure regions of
+<code class="xref py py-class docutils literal notranslate"><span class="pre">Family</span></code>); a real objective that fails
+raises whatever it raises.  The benchmark trackers
+(<code class="xref py py-class docutils literal notranslate"><span class="pre">IOHTracker</span></code>) count such a call as spent
+budget without progress, and re-raise it.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="panobbgo.lib.EvaluationTimedOut">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">EvaluationTimedOut</span></span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#EvaluationTimedOut"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.EvaluationTimedOut" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#panobbgo.lib.EvaluationFailed" title="panobbgo.lib.lib.EvaluationFailed"><code class="xref py py-class docutils literal notranslate"><span class="pre">EvaluationFailed</span></code></a></p>
+<p>The call <em>would</em> have run past <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>.</p>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">Problem.__call__()</span></code> turns it into the same placeholder the
+evaluation paths book for a real timeout — <code class="docutils literal notranslate"><span class="pre">Result(point,</span> <span class="pre">NaN,</span>
+<span class="pre">cv_vec=None,</span> <span class="pre">timed_out=True)</span></code> — without anyone waiting.  Because the
+conversion happens inside the call, every evaluation path (inline,
+threads, processes, dask, a simulated clock) receives an ordinary
+<a class="reference internal" href="#panobbgo.lib.Result" title="panobbgo.lib.Result"><code class="xref py py-class docutils literal notranslate"><span class="pre">Result</span></code></a> with <a class="reference internal" href="#panobbgo.lib.Result.timed_out" title="panobbgo.lib.Result.timed_out"><code class="xref py py-attr docutils literal notranslate"><span class="pre">Result.timed_out</span></code></a> set and books it as a
+timed-out evaluation, deterministically.  A simulator with a duration
+model reads the same flag to charge the call its timeout duration.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -859,6 +902,15 @@ did generate this point (String).</p>
 <dd><p>Point <span class="math notranslate nohighlight">\(x\)</span> where this result has been evaluated.</p>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.lib.is_simulated_crash">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.lib.</span></span><span class="sig-name descname"><span class="pre">is_simulated_crash</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="_modules/panobbgo/lib/lib.html#is_simulated_crash"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.lib.is_simulated_crash" title="Link to this definition">#</a></dt>
+<dd><p>Is <code class="docutils literal notranslate"><span class="pre">error</span></code> (an exception or the <code class="docutils literal notranslate"><span class="pre">repr</span></code> an evaluation path reports) an <a class="reference internal" href="#panobbgo.lib.EvaluationCrashed" title="panobbgo.lib.EvaluationCrashed"><code class="xref py py-class docutils literal notranslate"><span class="pre">EvaluationCrashed</span></code></a>?</p>
+<p>The evaluation paths carry a failure as <code class="docutils literal notranslate"><span class="pre">repr(exc)</span></code> (a worker process
+can only send a string), so this reads the prefix.  They log such an
+expected, simulated failure at <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> rather than <code class="docutils literal notranslate"><span class="pre">ERROR</span></code>.</p>
 </dd></dl>
 
 <section id="problem-wrappers">

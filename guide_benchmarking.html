@@ -986,7 +986,11 @@ the design’s falsifier.  The same spec is registered in
 generated problem families of <code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.harness_families</span></code> —
 <code class="docutils literal notranslate"><span class="pre">preset=free</span></code> (5 families × dims 2/5/10) and <code class="docutils literal notranslate"><span class="pre">preset=constrained</span></code>
 (4 families × dims 2/5, <code class="docutils literal notranslate"><span class="pre">k</span></code> = 1..3 constraints active at the
-optimum, the first AOCC measurement of the constraint handling).
+optimum, the first AOCC measurement of the constraint handling),
+<code class="docutils literal notranslate"><span class="pre">preset=shapes</span></code> (the BBOB shapes Lunacek double funnel, Gallagher
+peaks, attractive sector, step ellipsoid and bent cigar × dims
+2/5/10) and <code class="docutils literal notranslate"><span class="pre">preset=failure</span></code> (4 families × dims 2/5 with a region
+where evaluations crash or time out; failed calls are spent budget).
 Single runs of the same batteries are also reachable from the IOH CLI
 as <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--families</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-constrained</span></code>
 (and <code class="docutils literal notranslate"><span class="pre">--families-quick</span></code> for a smoke test).</p></td>

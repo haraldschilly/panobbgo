@@ -101,6 +101,7 @@ data-aria-dark="Switch to auto color mode">
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#heuristics">Heuristics</a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES"><code class="docutils literal notranslate"><span class="pre">CMAES</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.MAX_FAILED_GENERATIONS"><code class="docutils literal notranslate"><span class="pre">CMAES.MAX_FAILED_GENERATIONS</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.SUPPORTED_RESTART_FROM"><code class="docutils literal notranslate"><span class="pre">CMAES.SUPPORTED_RESTART_FROM</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.SUPPORTED_WARM_START"><code class="docutils literal notranslate"><span class="pre">CMAES.SUPPORTED_WARM_START</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.bipop_evals_large"><code class="docutils literal notranslate"><span class="pre">CMAES.bipop_evals_large</span></code></a></li>
@@ -109,6 +110,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.last_stop_reason"><code class="docutils literal notranslate"><span class="pre">CMAES.last_stop_reason</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.n_restarts"><code class="docutils literal notranslate"><span class="pre">CMAES.n_restarts</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.n_self_restarts"><code class="docutils literal notranslate"><span class="pre">CMAES.n_self_restarts</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_failed_evaluations"><code class="docutils literal notranslate"><span class="pre">CMAES.on_failed_evaluations()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_new_results"><code class="docutils literal notranslate"><span class="pre">CMAES.on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_restart"><code class="docutils literal notranslate"><span class="pre">CMAES.on_restart()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.CMAES.on_start"><code class="docutils literal notranslate"><span class="pre">CMAES.on_start()</span></code></a></li>
@@ -142,6 +144,7 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution"><code class="docutils literal notranslate"><span class="pre">DifferentialEvolution</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution.on_failed_evaluations"><code class="docutils literal notranslate"><span class="pre">DifferentialEvolution.on_failed_evaluations()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution.on_new_results"><code class="docutils literal notranslate"><span class="pre">DifferentialEvolution.on_new_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.DifferentialEvolution.on_start"><code class="docutils literal notranslate"><span class="pre">DifferentialEvolution.on_start()</span></code></a></li>
 </ul>
@@ -562,6 +565,16 @@ argument existed.</p></li>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
 <dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.MAX_FAILED_GENERATIONS">
+<span class="sig-name descname"><span class="pre">MAX_FAILED_GENERATIONS</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.MAX_FAILED_GENERATIONS" title="Link to this definition">#</a></dt>
+<dd><p>Consecutive all-failed generations before a restart (see
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">_update_if_quorum()</span></code>).  A last resort for a mean stuck inside a
+failure region: on <code class="docutils literal notranslate"><span class="pre">ellipsoid_fhs_crash</span></code> (optimum on the boundary)
+<code class="docutils literal notranslate"><span class="pre">3</span></code> fired on healthy runs and cost precision (1e-6 -&gt; 42 on one
+d5 run); <code class="docutils literal notranslate"><span class="pre">10</span></code> never fired there.</p>
+</dd></dl>
+
+<dl class="py attribute">
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.SUPPORTED_RESTART_FROM">
 <span class="sig-name descname"><span class="pre">SUPPORTED_RESTART_FROM</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('random',</span> <span class="pre">'best',</span> <span class="pre">'center')</span></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.SUPPORTED_RESTART_FROM" title="Link to this definition">#</a></dt>
 <dd><p>Accepted values for the <code class="docutils literal notranslate"><span class="pre">restart_from</span></code> constructor argument.</p>
@@ -617,6 +630,16 @@ mean/σ seed.</p>
 <dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.n_self_restarts">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">n_self_restarts</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.heuristics.CMAES.n_self_restarts" title="Link to this definition">#</a></dt>
 <dd><p>Restarts triggered by the internal termination criteria.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.CMAES.on_failed_evaluations">
+<span class="sig-name descname"><span class="pre">on_failed_evaluations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/heuristics/cma_es.html#CMAES.on_failed_evaluations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.CMAES.on_failed_evaluations" title="Link to this definition">#</a></dt>
+<dd><p>Count a failed offspring (no result: the objective crashed) as the worst of its generation.</p>
+<p>Without this the offspring stays pending forever: a generation that
+loses more than <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">-</span> <span class="pre">min_results_fraction</span></code> of its points to
+crashes never reaches its quorum, and the arm stops emitting for the
+rest of the run.  It is ranked exactly like a non-finite result.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -942,6 +965,17 @@ effective for constrained optimization.</p>
 </dd>
 </dl>
 <p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.heuristics.DifferentialEvolution.on_failed_evaluations">
+<span class="sig-name descname"><span class="pre">on_failed_evaluations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/differential_evolution.html#DifferentialEvolution.on_failed_evaluations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.DifferentialEvolution.on_failed_evaluations" title="Link to this definition">#</a></dt>
+<dd><p>Free the slots whose trial failed to evaluate, and keep them working.</p>
+<p>A failed trial (the objective crashed) produces no result, so without
+this its slot keeps a pending entry forever and is never woken again.
+A failed initial point is redrawn; a failed trial counts as a lost one
+(the target stays) and the slot gets its next trial.  The same rule
+as <code class="xref py py-meth docutils literal notranslate"><span class="pre">LSHADE.on_failed_evaluations</span></code>.</p>
+</dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.heuristics.DifferentialEvolution.on_new_results">
 <span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/heuristics/differential_evolution.html#DifferentialEvolution.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.heuristics.DifferentialEvolution.on_new_results" title="Link to this definition">#</a></dt>

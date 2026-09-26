@@ -680,9 +680,9 @@ class HarnessConfig:
     strategies: Optional[List[str]] = None
     timeout_per_run: Optional[float] = 120.0
     #: If True, append the external baseline strategies (Random, SciPy DE,
-    #: SciPy dual annealing) to the strategy list.  See
-    #: :mod:`panobbgo.harness_baselines` for the adapters and Phase 2 of
-    #: ``planning/done/SELF_IMPROVEMENT_LOOP.md`` for the motivation.
+    #: SciPy dual annealing) to the strategy list, plus any external
+    #: baseline (pycma, Nevergrad, Optuna) that :attr:`strategies` names.
+    #: See :mod:`panobbgo.harness_baselines`.
     include_baselines: bool = False
     #: If True, the problem battery is replaced with randomized families.
     #: See :mod:`panobbgo.harness_randomized` (Phase 3).
@@ -1780,7 +1780,9 @@ class BenchmarkHarness:
         When :attr:`HarnessConfig.include_baselines` is ``True``, the three
         external reference solvers from :mod:`panobbgo.harness_baselines`
         (``Baseline_Random``, ``Baseline_SciPyDE``, ``Baseline_SciPyAnneal``)
-        are appended to the mode's strategy list.  This gives every
+        are appended to the mode's strategy list, plus the external
+        baselines (``Baseline_NGOpt``, ...) that ``config.strategies``
+        names.  This gives every
         ``HarnessResult`` an absolute-performance reference, not just the
         relative "better than previous Panobbgo" signal.
 
@@ -1802,7 +1804,8 @@ class BenchmarkHarness:
         if self.config.include_baselines:
             from panobbgo.harness_baselines import make_baseline_strategies
 
-            specs = specs + make_baseline_strategies()
+            # External baselines join only when the name filter asks for them.
+            specs = specs + make_baseline_strategies(self.config.strategies)
 
         if self.config.strategies:
             specs = _filter_by_name("strategy", specs, self.config.strategies)

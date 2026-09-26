@@ -11,7 +11,8 @@ workflow order (the gh-pages `deploy` job is skipped).
 Independent parallel jobs:
 
 - **test**: `uv run pytest -v --cov=panobbgo` (also syncs the
-  `tools/ioh_worker` venv so the `requires_worker` IOH tests run)
+  `tools/ioh_worker` venv so the `requires_worker` IOH tests run, and the
+  `baselines` extra so the pycma / Nevergrad / Optuna adapter tests run)
 - **lint**: flake8 — *advisory only* (`continue-on-error: true`)
 - **typecheck**: `uv run pyright panobbgo`
 - **docs**: `uv run sphinx-build -b doctest doc/source doc/build/doctest`
@@ -26,7 +27,9 @@ a green PR says nothing about optimization quality. See `AGENTS.md`,
 
 ### Setup and caching
 
-Every job installs UV and runs `uv sync --extra dev`. UV itself and `.venv`
+Every job installs UV and runs `uv sync --extra dev` (the test job adds
+`--extra baselines` and syncs on every run, since the shared cache may
+lack it). UV itself and `.venv`
 are cached with `actions/cache`, keyed on
 `uv-${{ runner.os }}-python-${{ env.PYTHON }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}`,
 so the install steps are skipped on a cache hit. The Python version is set

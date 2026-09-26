@@ -1087,7 +1087,9 @@ optimum, the first AOCC measurement of the constraint handling),
 <code class="docutils literal notranslate"><span class="pre">preset=shapes</span></code> (the BBOB shapes Lunacek double funnel, Gallagher
 peaks, attractive sector, step ellipsoid and bent cigar × dims
 2/5/10) and <code class="docutils literal notranslate"><span class="pre">preset=failure</span></code> (4 families × dims 2/5 with a region
-where evaluations crash or time out; failed calls are spent budget).
+where evaluations crash or time out; failed calls are spent budget;
+a run that stops by itself below its budget is scored on its short
+trace and marked <code class="docutils literal notranslate"><span class="pre">EndedEarly</span></code> in <code class="docutils literal notranslate"><span class="pre">IOHRunRecord.error</span></code>).
 Single runs of the same batteries are also reachable from the IOH CLI
 as <code class="docutils literal notranslate"><span class="pre">ioh_benchmark.py</span> <span class="pre">run</span> <span class="pre">--families</span></code> / <code class="docutils literal notranslate"><span class="pre">--families-constrained</span></code>
 (and <code class="docutils literal notranslate"><span class="pre">--families-quick</span></code> for a smoke test).</p></td>

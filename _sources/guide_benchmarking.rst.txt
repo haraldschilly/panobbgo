@@ -863,7 +863,9 @@ their rows after every seed so an interrupted run loses nothing:
        ``preset=shapes`` (the BBOB shapes Lunacek double funnel, Gallagher
        peaks, attractive sector, step ellipsoid and bent cigar × dims
        2/5/10) and ``preset=failure`` (4 families × dims 2/5 with a region
-       where evaluations crash or time out; failed calls are spent budget).
+       where evaluations crash or time out; failed calls are spent budget;
+       a run that stops by itself below its budget is scored on its short
+       trace and marked ``EndedEarly`` in ``IOHRunRecord.error``).
        Single runs of the same batteries are also reachable from the IOH CLI
        as ``ioh_benchmark.py run --families`` / ``--families-constrained``
        (and ``--families-quick`` for a smoke test).

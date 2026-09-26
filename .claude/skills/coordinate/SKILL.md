@@ -20,7 +20,9 @@ agents; point to them.
   quota along the cgroup chain or `nproc`, whichever is smaller, not the
   hardware threads (`--jobs`, `pytest -n`, BLAS threads; snippet in
   `doc/dev/environment.md`). Locally only targeted tests and one-off snippets; full suites
-  go to CI. Put this rule verbatim into every subagent prompt.
+  go to CI. Put this rule verbatim into every subagent prompt. It is a
+  development rule only: never bake a core limit into panobbgo's own
+  defaults, which may use all cores.
 - Measurements count objective evaluations, not wall time. Heavy runs go
   to GitHub runners: `gh workflow run rebaseline.yml ...`, or a new
   `workflow_dispatch` workflow. Never block the laptop.

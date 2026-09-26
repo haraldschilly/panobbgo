@@ -34,6 +34,7 @@ import pytest
 
 from panobbgo.harness import BenchmarkHarness, HarnessConfig
 from panobbgo.harness_baselines import (
+    AB_BASELINE_NAMES,
     ALL_EXTERNAL_BASELINE_NAMES,
     EXTERNAL_BASELINE_NAMES,
     AskTellAdapter,
@@ -41,11 +42,13 @@ from panobbgo.harness_baselines import (
     NevergradCMAStrategy,
     NevergradNGOptStrategy,
     NevergradTwoPointsDEStrategy,
+    OptunaCmaEsClipStrategy,
     OptunaCmaEsStrategy,
     OptunaTPEStrategy,
     PycmaBIPOPStrategy,
     PycmaIPOPStrategy,
     _PycmaRestartAdapter,
+    make_ab_baseline_strategies,
     make_baseline_strategies,
     make_external_baseline_strategies,
 )
@@ -69,6 +72,7 @@ ADAPTERS = [
     pytest.param(NevergradTwoPointsDEStrategy, marks=_needs("nevergrad"), id="NG_TwoPointsDE"),
     pytest.param(OptunaCmaEsStrategy, marks=_needs("optuna", "cmaes"), id="Optuna_CmaEs"),
     pytest.param(OptunaTPEStrategy, marks=_needs("optuna"), id="Optuna_TPE"),
+    pytest.param(OptunaCmaEsClipStrategy, marks=_needs("optuna", "cmaes"), id="Optuna_CmaEs_clip"),
 ]
 
 
@@ -380,3 +384,57 @@ def test_harness_runs_an_external_baseline_end_to_end():
     (run,) = result.problem_strategy_results[0].runs
     assert run.error is None
     assert run.evaluations_used == 20
+
+
+# ---------------------------------------------------------------------------
+# The clip-only Optuna CmaEs (DISCOVERY §57's reverse bound-handling test)
+# ---------------------------------------------------------------------------
+
+
+def test_clip_baseline_is_opt_in_and_paired_with_optuna_cmaes():
+    assert AB_BASELINE_NAMES == ("Baseline_Optuna_CmaEs_clip",)
+    assert not set(AB_BASELINE_NAMES) & set(ALL_EXTERNAL_BASELINE_NAMES)  # not in the reference suites
+    [spec] = make_ab_baseline_strategies()
+    assert spec.strategy_class is OptunaCmaEsClipStrategy
+    assert spec.rng_identity == "Baseline_Optuna_CmaEs"  # same x0 and sampler seed as the resampling one
+    assert [s.name for s in make_baseline_strategies(["Baseline_Optuna_CmaEs_clip"])][3:] == list(AB_BASELINE_NAMES)
+    with pytest.raises(ValueError, match="--baselines"):
+        BenchmarkHarness(HarnessConfig(mode="quick", strategies=["Baseline_Optuna_CmaEs_clip"])).get_strategies()
+
+
+@_needs("optuna", "cmaes")
+def test_clip_baseline_sets_n_max_resampling_to_zero():
+    """Optuna builds ``cmaes.CMA`` with ``n_max_resampling = 10·n``; the clip twin with 0 (pure clipping)."""
+    import optuna
+
+    from panobbgo.harness_baselines import _clip_only_cmaes_sampler
+    from optuna._transform import _SearchSpaceTransform
+
+    space = {f"x{j}": optuna.distributions.FloatDistribution(-5.0, 5.0) for j in range(3)}
+    trans = _SearchSpaceTransform(space)
+    direction = optuna.study.StudyDirection.MINIMIZE
+    plain = optuna.samplers.CmaEsSampler(seed=1)._init_optimizer(trans, direction)
+    clip = _clip_only_cmaes_sampler(optuna)(seed=1)._init_optimizer(trans, direction)
+    assert plain._n_max_resampling == 30 and clip._n_max_resampling == 0
+    for name in ("_mean", "_sigma", "_popsize", "_weights"):
+        np.testing.assert_array_equal(getattr(plain, name), getattr(clip, name))
+
+
+@_needs("optuna", "cmaes")
+def test_clip_baseline_puts_points_on_the_faces_and_optuna_does_not():
+    """A sphere whose optimum is a box corner: clipping piles samples onto the faces, resampling never."""
+    from panobbgo.lib.classic import DeJong
+
+    on_face = {}
+    for cls in (OptunaCmaEsStrategy, OptunaCmaEsClipStrategy):
+        problem = DeJong(2, box=[(0.0, 10.0)] * 2)
+        strategy = cls(problem, seed=3)
+        strategy.config.max_eval = 200
+        strategy.start()
+        df = strategy.results.results
+        assert df is not None
+        xs = df[[("x", 0), ("x", 1)]].to_numpy()
+        assert np.all(xs >= 0.0) and np.all(xs <= 10.0)
+        on_face[cls.who] = int(np.sum(np.any(xs == 0.0, axis=1)))
+    assert on_face["Optuna_CmaEs"] == 0
+    assert on_face["Optuna_CmaEs_clip"] > 0

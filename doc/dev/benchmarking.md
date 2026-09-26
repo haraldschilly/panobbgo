@@ -516,15 +516,20 @@ gh workflow run rebaseline.yml -f suites=all -f seeds=12   # seeds: a count or '
 ```
 
 **A/B suites** use the same machinery but are not references: they are
-never part of `all` (`Suite.opt_in`), run only when named, and go out with
+never part of `all` (`Suite.opt_in`), run only when named, and only with
 `-f release=none` (the aggregated files stay in the run's
-`rebaseline-references` artifact).  `ioh-cma-ab` (IOH standard) and
-`ioh-cma-ab-bbob-b200` / `-b500` (`ioh_benchmark.py run --bbob`: the 24 BBOB
-functions at d 5/10, instances 0/1) run `RoundRobin_CMAES`, its DISCOVERY
-§57 variants (`harness_ioh.CMAES_VARIANT_NAMES`: bound handling, random
-first start, active CMA; opt-in by `--strategies` name, sharing the
-flagship's `seed_name`) and Optuna CmaEs / pycma BIPOP in the same jobs, so
-every comparison is paired and in one FP environment:
+`rebaseline-references` artifact); the plan step refuses any other release
+and a dispatch that mixes A/B and reference suites.  `ioh-cma-ab` (IOH
+standard) and `ioh-cma-ab-bbob-b200` / `-b500` (`ioh_benchmark.py run
+--bbob`: the 24 BBOB functions at d 2/5/10, instances 0/1) run
+`RoundRobin_CMAES`, its DISCOVERY §57 variants
+(`harness_ioh.CMAES_VARIANT_NAMES`: resample / reflect bound handling,
+random first start, active CMA; opt-in by `--strategies` name, sharing the
+flagship's `seed_name`), Optuna CmaEs, its clip-only twin
+`Baseline_Optuna_CmaEs_clip` (§57's reverse test: `n_max_resampling = 0`,
+sharing Optuna CmaEs's seed; `harness_baselines.AB_BASELINE_NAMES`, in no
+reference suite) and pycma BIPOP in the same jobs, so every comparison is
+paired and in one FP environment:
 
 ```bash
 gh workflow run rebaseline.yml -f suites=ioh-cma-ab,ioh-cma-ab-bbob-b200,ioh-cma-ab-bbob-b500 -f seeds=12 -f release=none

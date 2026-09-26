@@ -885,7 +885,7 @@ def make_ioh_strategies() -> List[StrategySpec]:
 #: ``--strategies`` names it (:func:`make_cmaes_variant_strategies`).
 CMAES_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
     "RoundRobin_CMAES_resample": {"boundary": "resample"},
-    "RoundRobin_CMAES_mirror": {"boundary": "mirror"},
+    "RoundRobin_CMAES_reflect": {"boundary": "reflect"},
     "RoundRobin_CMAES_randstart": {"first_start": "random"},
     "RoundRobin_CMAES_active": {"active": True},
     "RoundRobin_CMAES_resample_randstart_active": {"boundary": "resample", "first_start": "random", "active": True},

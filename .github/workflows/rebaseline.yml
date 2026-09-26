@@ -19,7 +19,8 @@ on:
           'all' or a comma list of: composite-quick, composite-standard,
           ioh-quick, ioh-standard, ioh-external, families-free,
           families-constrained, families-shapes, families-failure;
-          opt-in A/B suites, never in 'all' (use release=none):
+          opt-in A/B suites, never in 'all', only with release=none and
+          never mixed with the others:
           ioh-cma-ab, ioh-cma-ab-bbob-b200, ioh-cma-ab-bbob-b500
         type: string
         default: all
@@ -72,7 +73,9 @@ jobs:
               exit 1
             fi
           fi
-          matrix=$(python3 scripts/rebaseline.py plan --suites "$SUITES" --seeds "$SEEDS")
+          # Also refuses opt-in A/B suites unless release=none, and a mix of
+          # A/B and reference suites.
+          matrix=$(python3 scripts/rebaseline.py plan --suites "$SUITES" --seeds "$SEEDS" --release "$RELEASE")
           sha=$(git rev-parse HEAD)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"

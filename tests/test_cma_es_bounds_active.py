@@ -16,7 +16,7 @@
 
 * H1 ``boundary``: ``"project"`` (default), ``"resample"`` (the ``cmaes`` /
   Optuna scheme: up to ``10·n`` redraws, then one more draw projected),
-  ``"mirror"`` (periodic reflection at the faces).
+  ``"reflect"`` (periodic reflection at the faces).
 * H2 ``first_start``: ``"center"`` (default) or ``"random"``.
 * H3 ``active``: negative recombination weights, Hansen (2016),
   arXiv:1604.00772, eq. 46–53.
@@ -93,7 +93,7 @@ def test_default_trajectory_pinned_to_the_pre_change_module():
 
 
 @pytest.mark.parametrize(
-    "kw", [{"boundary": "resample"}, {"boundary": "mirror"}, {"first_start": "random"}, {"active": True}]
+    "kw", [{"boundary": "resample"}, {"boundary": "reflect"}, {"first_start": "random"}, {"active": True}]
 )
 def test_each_option_changes_the_run_and_is_reproducible(kw):
     """Every option is read (not a dead parameter), and a seeded run stays reproducible."""
@@ -119,9 +119,9 @@ def test_invalid_values_raise():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("boundary", ["resample", "mirror"])
-def test_resample_and_mirror_put_no_point_on_a_face(boundary):
-    """Projection piles points onto the face; resampling and mirroring do not."""
+@pytest.mark.parametrize("boundary", ["resample", "reflect"])
+def test_resample_and_reflect_put_no_point_on_a_face(boundary):
+    """Projection piles points onto the face; resampling and reflecting do not."""
     _, X, fx, _ = _run(boundary=boundary)
     assert len(fx) == 1200
     assert np.all(X >= -2.0) and np.all(X <= 8.0)
@@ -175,6 +175,31 @@ def test_resample_fallback_draw_count_and_projection():
     np.testing.assert_allclose(x_raw, h._m + h._sigma * y)
 
 
+def test_a_point_on_a_face_is_inside():
+    """``cmaes`` accepts ``lo <= x <= hi`` (``_is_feasible``), faces included; so does ``_inside``."""
+    h = _started(boundary="resample")  # box [-2, 8]^3
+    assert h._inside(np.array([-2.0, 8.0, 3.0]))
+    assert h._inside(np.array([-2.0, -2.0, -2.0]))
+    assert not h._inside(np.array([-2.0, 8.0 + 1e-12, 3.0]))
+    assert not h._inside(np.array([np.nextafter(-2.0, -np.inf), 3.0, 3.0]))
+    # A resample draw that lands exactly on a face is kept, not redrawn.
+    h._m, h._sigma = np.array([-2.0, 3.0, 8.0]), 1.0
+    h._B, h._D = np.eye(3), np.ones(3)
+
+    class _Zero:
+        calls = 0
+
+        def standard_normal(self, n):
+            _Zero.calls += 1
+            return np.zeros(n)
+
+    h.rng = _Zero()  # type: ignore[assignment]
+    x_raw, y = h._resample_inside(np.full(3, 100.0), np.full(3, 97.0))
+    assert _Zero.calls == 1
+    np.testing.assert_array_equal(x_raw, [-2.0, 3.0, 8.0])
+    np.testing.assert_array_equal(y, 0.0)
+
+
 def test_resample_returns_the_first_inside_draw():
     h = _started(boundary="resample")
     n = h.problem.dim
@@ -188,16 +213,16 @@ def test_resample_returns_the_first_inside_draw():
     np.testing.assert_allclose(x_raw, h._m + h._sigma * y)
 
 
-def test_mirror_reflects_periodically_and_keeps_inside_coordinates():
-    h = _started(boundary="mirror")  # box [-2, 8]^3, range 10
+def test_reflect_is_periodic_and_keeps_inside_coordinates():
+    h = _started(boundary="reflect")  # box [-2, 8]^3, range 10
     x = np.array([9.0, -2.5, 3.25])
-    out = h._mirror_into_box(x)
+    out = h._reflect_into_box(x)
     np.testing.assert_allclose(out[:2], [7.0, -1.5], atol=1e-12)
     assert out[2] == 3.25  # bit for bit
-    far = h._mirror_into_box(np.array([8.0 + 10.0 + 2.0, -2.0 - 23.0, 0.0]))  # 2 past the far side, 23 below
+    far = h._reflect_into_box(np.array([8.0 + 10.0 + 2.0, -2.0 - 23.0, 0.0]))  # 2 past the far side, 23 below
     np.testing.assert_allclose(far[:2], [0.0, 1.0], atol=1e-12)  # -25: up 23 from -2 is 21, back from 8 to -5, up to 1
     inside = np.array([-2.0, 8.0, 1.0])
-    assert h._mirror_into_box(inside) is inside
+    assert h._reflect_into_box(inside) is inside
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +323,13 @@ def _update_by_hand(h, entries, weights):
     applied to them (the μ positive ones, then any negative ones).
     """
     n, lam, mu = h.problem.dim, h._lam, h._mu
+    # C is updated every generation but B, D only lazily, so the C an update
+    # starts from is in general not B·D²·Bᵀ.  Make that explicit: eq. (46)
+    # must use the *sampling* C^{-1/2} = B·D⁻¹·Bᵀ, and eq. (47) the current C.
+    u = np.arange(1.0, n + 1.0)
+    h._C = h._C + 0.3 * np.outer(u, u) / float(u @ u)
     C0, B, D, p_c0, p_s0 = h._C.copy(), h._B.copy(), h._D.copy(), h._p_c.copy(), h._p_sigma.copy()
+    assert not np.allclose(C0, B @ np.diag(D**2) @ B.T)
     counteval0 = h._counteval
     h._eigeneval = h._counteval + 10**9  # keep the lazy eigendecomposition from rewriting C
     h._update(list(entries), n_offspring=lam)

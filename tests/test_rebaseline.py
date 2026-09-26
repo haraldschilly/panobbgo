@@ -127,7 +127,9 @@ def test_a_baseline_of_another_extra_stays_out_of_the_external_suite(monkeypatch
 def test_every_strategy_set_is_satisfiable_by_its_suites_extras():
     import panobbgo.harness_baselines as hb
 
-    classes = {s.name: s.strategy_class for s in hb.make_external_baseline_strategies()}
+    classes = {
+        s.name: s.strategy_class for s in hb.make_external_baseline_strategies() + hb.make_ab_baseline_strategies()
+    }
     for suite in rb.SUITES.values():
         if not suite.variant:
             continue
@@ -163,16 +165,45 @@ def test_the_cma_ab_suites(tmp_path):
             "RoundRobin_CMAES",
             *CMAES_VARIANT_NAMES,
             "Baseline_Optuna_CmaEs",
+            "Baseline_Optuna_CmaEs_clip",
             "Baseline_pycma_BIPOP",
         ]
         [(argv, _)] = rb.shard_commands(suite, [42, 7], "01", tmp_path, jobs=2, python="py")
         assert "--sync-eval" in argv and "--baselines" in argv and "--timeout" not in argv
     [(argv, _)] = rb.shard_commands(rb.SUITES["ioh-cma-ab-bbob-b500"], [42], "01", tmp_path, jobs=2, python="py")
     cmd = " ".join(argv)
-    assert "--bbob --baselines" in cmd and "--bbob-dims 5 10 --bbob-instances 0 1 --budget-multiplier 500" in cmd
+    assert "--bbob --baselines" in cmd and "--bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500" in cmd
     [(argv, _)] = rb.shard_commands(rb.SUITES["ioh-cma-ab"], [42], "01", tmp_path, jobs=2, python="py")
     assert "--standard" in argv and "--bbob" not in argv
     assert rb.SUITES["ioh-cma-ab-bbob-b200"].ref_key == "bbob_cma_ab_b200"
+
+
+def test_opt_in_suites_need_release_none_and_no_mix(capsys):
+    ab, ref = rb.SUITES["ioh-cma-ab"], rb.SUITES["ioh-standard"]
+    rb.check_dispatch([ab], "none")
+    rb.check_dispatch([ab], None)  # a local plan without --release checks only the mix
+    rb.check_dispatch([ref], "auto")
+    rb.check_dispatch(rb.resolve_suites("all"), "auto")
+    for release in ("auto", "rebaseline-ab-2026-09-27"):
+        with pytest.raises(ValueError, match="release=none"):
+            rb.check_dispatch([ab], release)
+    for release in ("none", "auto", None):
+        with pytest.raises(ValueError, match="do not mix"):
+            rb.check_dispatch([ab, ref], release)
+    # The CLI: a refused plan exits non-zero and prints no matrix.
+    assert rb.main(["plan", "--suites", "ioh-cma-ab", "--seeds", "2", "--release", "auto"]) == 2
+    assert rb.main(["plan", "--suites", "ioh-cma-ab,ioh-quick", "--seeds", "2", "--release", "none"]) == 2
+    assert capsys.readouterr().out == ""
+    assert rb.main(["plan", "--suites", "ioh-cma-ab", "--seeds", "2", "--release", "none"]) == 0
+    assert '"suite":"ioh-cma-ab"' in capsys.readouterr().out
+
+
+def test_the_workflow_plan_step_passes_the_release():
+    import yaml
+
+    workflow = yaml.safe_load((rb.REPO_ROOT / ".github" / "workflows" / "rebaseline.yml").read_text())
+    [step] = [s for s in workflow["jobs"]["plan"]["steps"] if s.get("id") == "plan"]
+    assert '--release "$RELEASE"' in step["run"] and step["env"]["RELEASE"] == "${{ inputs.release }}"
 
 
 def test_ioh_cli_accepts_the_cma_ab_strategy_set():

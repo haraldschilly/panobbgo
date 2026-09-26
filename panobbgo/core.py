@@ -37,7 +37,7 @@ and base-classes for the modules:
 """
 
 from .config import Config
-from panobbgo.lib import Result, Point
+from panobbgo.lib import Result, Point, is_simulated_crash
 from panobbgo.lib.constraints import (
     DefaultConstraintHandler,
     PenaltyConstraintHandler,
@@ -179,9 +179,7 @@ class Results:
             loaded_results = self.backend.load()
             if loaded_results:
                 self.logger.info(f"Loaded {len(loaded_results)} results from storage.")
-                restored = sum(1 for r in loaded_results if getattr(r, "timed_out", False))
-                if restored:
-                    self.strategy.n_timed_out = getattr(self.strategy, "n_timed_out", 0) + restored
+                # ``add_results`` counts the restored timeout placeholders.
                 self.add_results(loaded_results, save_to_storage=False)
                 return len(loaded_results)
         return 0
@@ -320,6 +318,18 @@ class Results:
             return
 
         assert all([isinstance(_, Result) for _ in new_results])
+
+        # The one place ``n_timed_out`` is counted: every timeout placeholder
+        # passes here exactly once — a real ``evaluation.timeout`` (any
+        # evaluation path), one the objective signalled itself
+        # (``lib.EvaluationTimedOut``, which arrives as an ordinary result),
+        # and one restored from storage.
+        timed_out = [r for r in new_results if getattr(r, "timed_out", False)]
+        if timed_out:
+            self.strategy.n_timed_out = getattr(self.strategy, "n_timed_out", 0) + len(timed_out)
+            if save_to_storage:
+                for r in timed_out:
+                    self.logger.debug("Evaluation of %s timed out: recorded as fx=NaN." % getattr(r, "who", "?"))
 
         # Progress stats are computed *before* the batch lands in the buffer
         # below, so "previous best" keeps its meaning.  All of this is skipped
@@ -1553,7 +1563,8 @@ class PipeBridgeHeuristic(Heuristic):
                 continue
             if not np.array_equal(np.asarray(point.x, dtype=float), x_out, equal_nan=True):
                 continue
-            self.logger.warning("%s: the evaluation of its point failed; answering inf" % self.name)
+            # The failure itself is already logged where it was booked.
+            self.logger.debug("%s: the evaluation of its point failed; answering inf" % self.name)
             with self._handoff_lock:
                 if self._outstanding_x is not x_out:
                     return
@@ -2658,7 +2669,10 @@ class StrategyBase:
                     # Not an incident: every queue is empty, nothing is in
                     # flight and the event bus is drained, so nothing in this
                     # process can change any of those three.  The run is over.
-                    self.logger.info(
+                    # Below ``max_eval`` the run is cut short, which a reader
+                    # of the log must see (e.g. an arm that stopped emitting).
+                    short = self.config.max_eval is not None and self._dispatched < self.config.max_eval
+                    (self.logger.warning if short else self.logger.info)(
                         "No heuristic can produce a point (queues empty, bus idle, nothing in "
                         "flight); ending run at %d/%s evaluations." % (len(self.results), self.config.max_eval)
                     )
@@ -2876,7 +2890,7 @@ class StrategyBase:
         ``new_results`` like any result, so heuristics see a bad point and
         every ranking puts it last.
         """
-        self.n_timed_out += 1
+        # Counted in ``Results.add_results``, with every other placeholder.
         self.logger.warning(
             "Evaluation of %s timed out%s (evaluation.timeout): recorded as fx=NaN."
             % (getattr(point, "who", "?"), "" if seconds is None else " after %.1fs" % seconds)
@@ -2900,15 +2914,16 @@ class StrategyBase:
                 seconds = None if o.started is None else o.finished - o.started
                 new_results.append(self._timed_out_result(o.point, seconds))
             elif not o.ok:
-                self.logger.error("Evaluation failed: %s" % o.error)
+                # A simulated crash (lib.EvaluationCrashed, a family's failure
+                # region) is expected: a warning, not an error.
+                log = self.logger.warning if is_simulated_crash(o.error) else self.logger.error
+                log("Evaluation failed: %s" % o.error)
                 if o.point is not None:
                     failed.append(o.point)
+            elif isinstance(o.result, list):
+                new_results.extend(o.result)
             else:
-                batch = o.result if isinstance(o.result, list) else [o.result]
-                new_results.extend(batch)
-                # A timeout the objective signalled itself
-                # (lib.EvaluationTimedOut) arrives as an ordinary result.
-                self.n_timed_out += sum(1 for r in batch if getattr(r, "timed_out", False))
+                new_results.append(o.result)
 
     def _publish_failures(self, points):
         """Publish ``failed_evaluations`` (``points``: the :class:`~panobbgo.lib.Point`\\ s that left no result).

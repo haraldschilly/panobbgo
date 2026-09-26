@@ -232,7 +232,10 @@ def run_evaluation(strategy: "StrategyBase", points: List[Any]) -> List[Any]:
                 if point is not None:
                     new_results.append(strategy._timed_out_result(point, walltime))
             elif error is not None:
-                strategy.logger.error("Evaluation failed: %s" % error)
+                from panobbgo.lib import is_simulated_crash
+
+                log = strategy.logger.warning if is_simulated_crash(error) else strategy.logger.error
+                log("Evaluation failed: %s" % error)
                 if point is not None:
                     failed.append(point)
             elif isinstance(result, list):

@@ -102,6 +102,29 @@ class DifferentialEvolution(Heuristic):
                     if self.population[i] is not None and i not in active_trials:
                         self._generate_trial(i)
 
+    def on_failed_evaluations(self, points):
+        """Free the slots whose trial failed to evaluate, and keep them working.
+
+        A failed trial (the objective crashed) produces no result, so without
+        this its slot keeps a pending entry forever and is never woken again.
+        A failed initial point is redrawn; a failed trial counts as a lost one
+        (the target stays) and the slot gets its next trial.  The same rule
+        as :meth:`LSHADE.on_failed_evaluations
+        <panobbgo.heuristics.lshade.LSHADE.on_failed_evaluations>`.
+        """
+        prefix = f"{self.name}:"
+        for p in points:
+            who = getattr(p, "who", "") or ""
+            if not who.startswith(prefix):
+                continue
+            target_idx = self.pending_trials.pop(who[len(prefix) :], None)
+            if target_idx is None:
+                continue
+            if self.population[target_idx] is None:
+                self._emit_trial(self.problem.random_point(rng=self.rng), target_idx)
+            else:
+                self._generate_trial(target_idx)
+
     def _generate_trial(self, target_idx):
         """
         Generate a trial vector for the individual at target_idx.

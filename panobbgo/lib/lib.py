@@ -57,6 +57,18 @@ class EvaluationCrashed(EvaluationFailed):
     """
 
 
+def is_simulated_crash(error: Any) -> bool:
+    """Is ``error`` (an exception or the ``repr`` an evaluation path reports) an :class:`EvaluationCrashed`?
+
+    The evaluation paths carry a failure as ``repr(exc)`` (a worker process
+    can only send a string), so this reads the prefix.  They log such an
+    expected, simulated failure at ``WARNING`` rather than ``ERROR``.
+    """
+    if isinstance(error, BaseException):
+        return isinstance(error, EvaluationCrashed)
+    return str(error).startswith(EvaluationCrashed.__name__ + "(")
+
+
 class EvaluationTimedOut(EvaluationFailed):
     """The call *would* have run past ``evaluation.timeout``.
 

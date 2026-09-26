@@ -99,7 +99,9 @@ def test_bbob_bases_draw_from_their_own_stream():
     """A BBOB base leaves the instance stream alone: same x_opt, R, f_opt as any other base."""
     ref = Family("sphere", dim=4, seed=77)
     for base in BBOB_BASES:
-        p = Family(base, dim=4, seed=77)
+        # Lunacek's default puts x_opt at BBOB's +-1.25 (same signs); "box" keeps the draw.
+        params = {"placement": "box"} if base == "lunacek_bi_rastrigin" else {}
+        p = Family(base, dim=4, seed=77, base_params=params)
         assert np.array_equal(p.x_opt, ref.x_opt)
         assert np.array_equal(p.rotation, ref.rotation)
         assert p.f_opt == ref.f_opt
@@ -203,23 +205,27 @@ def test_gallagher_structure_is_bbob_f21_and_f22():
     np.testing.assert_allclose(np.sort(f22.c[0]), np.sort(_lam(1e6, dim) / 1e6**0.25))
 
 
-def test_lunacek_matches_bbob_f24():
-    """With BBOB's own ``x_opt = mu0/2 * 1`` the recentred base *is* f24."""
+@pytest.mark.parametrize("rotate", [True, False])
+def test_lunacek_matches_bbob_f24(rotate):
+    """The default instance *is* f24: ``x_opt = mu0/2 * sign``, the literal formula in x."""
     dim = 5
-    rng = np.random.default_rng(16)
-    r = np.linalg.qr(rng.standard_normal((dim, dim)))[0]
-    xopt = np.full(dim, 1.25)
-    ctx = BaseContext(rng=np.random.default_rng(3), x_opt=xopt, rotation=r)
-    f = BASE_FUNCTIONS["lunacek_bi_rastrigin"](dim, ctx)
+    p = Family("lunacek_bi_rastrigin", dim=dim, seed=16, rotate=rotate)
+    xopt = p.x_opt
+    assert np.all(np.abs(xopt) == 1.25)
+    ref = Family("sphere", dim=dim, seed=16)
+    assert np.array_equal(np.sign(xopt), np.sign(ref.x_opt))  # the signs of the instance draw
+    r = p.rotation if rotate else np.eye(dim)
+    q = p._base_fn.q
     mu0, s = 2.5, 1.0 - 1.0 / (2.0 * np.sqrt(dim + 20.0) - 8.2)
     mu1 = -np.sqrt((mu0**2 - 1.0) / s)
+    rng = np.random.default_rng(16)
     for x in rng.uniform(-5.0, 5.0, size=(200, dim)):
         xh = 2.0 * np.sign(xopt) * x
-        z = f.q @ (_lam(100.0, dim) * (r @ (xh - mu0)))
+        z = q @ (_lam(100.0, dim) * (r @ (xh - mu0)))
         want = min(np.sum((xh - mu0) ** 2), dim + s * np.sum((xh - mu1) ** 2)) + 10.0 * (
             dim - np.sum(np.cos(2.0 * np.pi * z))
         )
-        assert f(r @ (x - xopt)) == pytest.approx(want, rel=1e-12)
+        assert p.eval(x) == pytest.approx(want + p.f_opt, rel=1e-12)
 
 
 def test_lunacek_second_funnel_and_knobs():
@@ -227,15 +233,37 @@ def test_lunacek_second_funnel_and_knobs():
     f = BASE_FUNCTIONS["lunacek_bi_rastrigin"](dim)
     assert f.s == pytest.approx(1.0 - 1.0 / (2.0 * np.sqrt(30.0) - 8.2))
     assert f.mu1 == pytest.approx(-np.sqrt((6.25 - 1.0) / f.s))
-    # Every instance keeps the second funnel inside the box (towards the centre).
-    for seed in range(20):
-        p = Family("lunacek_bi_rastrigin", dim=dim, seed=seed)
-        second = p.x_opt - (2.5 - p._base_fn.mu1) / 2.0 * np.where(p.x_opt >= 0, 1.0, -1.0)
-        assert np.all(np.abs(second) <= 5.0)
+    # Both placements keep the second funnel inside the box (towards the centre).
+    for placement in ("bbob", "box"):
+        for seed in range(20):
+            p = Family("lunacek_bi_rastrigin", dim=dim, seed=seed, base_params={"placement": placement})
+            second = p.x_opt - (2.5 - p._base_fn.mu1) / 2.0 * np.where(p.x_opt >= 0, 1.0, -1.0)
+            assert np.all(np.abs(second) <= 5.0)
+            assert p.eval(p.x_opt) == p.f_opt
+    box = Family("lunacek_bi_rastrigin", dim=3, seed=2, base_params={"placement": "box"})
+    assert np.array_equal(box.x_opt, Family("sphere", dim=3, seed=2).x_opt)
     deep = Family("lunacek_bi_rastrigin", dim=2, seed=1, base_params={"d": 0.1, "s": 0.5})
     assert deep._base_fn.d == 0.1 and deep._base_fn.s == 0.5
     with pytest.raises(ValueError):
         Family("lunacek_bi_rastrigin", dim=2, seed=1, base_params={"d": 7.0})
+    with pytest.raises(ValueError):
+        Family("lunacek_bi_rastrigin", dim=2, seed=1, base_params={"placement": "corner"})
+
+
+@pytest.mark.parametrize("base", BBOB_BASES)
+def test_bbob_bases_refuse_an_instance_condition(base):
+    with pytest.raises(ValueError, match="own BBOB conditioning"):
+        Family(base, dim=3, seed=1, condition=100.0)
+
+
+def test_own_streams_are_spawned_children():
+    """The base / failure streams are SeedSequence children, not ``[seed, k]`` (which is ``seed + k * 2**32``)."""
+    p = Family("gallagher", dim=2, seed=5)
+    want = np.random.default_rng(np.random.SeedSequence(5, spawn_key=(1,))).standard_normal(3)
+    assert np.array_equal(p._base_rng().standard_normal(3), want)
+    clash = np.random.default_rng(5 + 2**32).standard_normal(3)
+    assert not np.array_equal(p._base_rng().standard_normal(3), clash)
+    assert not np.array_equal(p._failure_rng().standard_normal(3), p._base_rng().standard_normal(3))
 
 
 def test_base_params_are_validated():
@@ -418,3 +446,112 @@ def test_new_presets_have_the_documented_shape():
     assert d["failure"] == ["fball_crash", "fbox_tmo", "fhs_crash", "fhs_tmo"]
     for _n, p in failure:
         assert p.failure_at(p.x_opt) is None and p.eval(p.x_opt) == p.f_opt
+
+
+# ---------------------------------------------------------------------------
+# Review round 1: booking in every path, robust placement
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("mode", ["crash", "timeout"])
+def test_failed_evaluations_are_booked_in_worker_processes(mode):
+    """The same booking with ``evaluation_method = "processes"``: the signal crosses the pipe."""
+    p = Family("sphere", dim=2, seed=3, failure=FailureRegion("halfspace", share=0.4, mode=mode))
+    spec = [s for s in make_ioh_strategies() if s.name == "RoundRobin_Random"][0]
+    strategy = spec.create_strategy(p, seed=1, max_eval=30)
+    strategy.config.sync_evaluation = True
+    strategy.config.evaluation_method = "processes"
+    strategy.start()
+    df = strategy.results.results
+    inside = np.array([p.failure_at(x) is not None for x in df["x"].to_numpy()])
+    if mode == "crash":
+        assert not inside.any()
+        assert strategy.n_finished == 30 > len(strategy.results)
+    else:
+        timed_out = df[("timed_out", 0)].to_numpy().astype(bool)
+        assert len(strategy.results) == 30
+        assert np.array_equal(timed_out, inside) and inside.any()
+        assert strategy.n_timed_out == int(inside.sum())
+
+
+def _de_spec():
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.heuristics import DifferentialEvolution
+    from panobbgo.strategies import StrategyRoundRobin
+
+    return StrategySpec(
+        name="RoundRobin_DE", strategy_class=StrategyRoundRobin, heuristics=[(DifferentialEvolution, {})]
+    )
+
+
+def test_cmaes_and_de_survive_a_crash_region():
+    """A generation / slot that loses points to crashes keeps going: the full budget is spent.
+
+    ``rastrigin_fball_crash`` d5, instance 0: CMA-ES used to end at 8/500
+    evaluations (its first generation never reached its quorum).
+    """
+    inst = [x for x in make_failure_battery(dims=(5,), n_instances=1) if x[1].family == "rastrigin_fball_crash"]
+    specs = [s for s in make_ioh_strategies() if s.name == "RoundRobin_CMAES"] + [_de_spec()]
+    result = run_family_harness(specs, inst, budget_multiplier=100, base_seed=1, progress=False)
+    assert len(result.runs) == 2
+    for run in result.runs:
+        assert run.error is None, (run.strategy_name, run.error)
+        assert run.n_evals == run.budget == 500
+
+
+def test_a_baseline_survives_a_crash_region():
+    from panobbgo.harness_baselines import make_baseline_strategies
+
+    inst = [x for x in make_failure_battery(dims=(2,), n_instances=1) if "crash" in x[0]]
+    specs = [s for s in make_baseline_strategies() if s.name == "Baseline_SciPyDE"]
+    result = run_family_harness(specs, inst, budget_multiplier=50, base_seed=1, progress=False)
+    for run in result.runs:
+        assert run.error is None, run.error
+        assert run.n_evals == run.budget == 100
+
+
+def test_a_run_that_ends_early_is_marked():
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.core import Heuristic
+    from panobbgo.harness_ioh import EARLY_END_ERROR_PREFIX
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class ThreePoints(Heuristic):
+        def __init__(self, strategy):
+            super().__init__(strategy, name="ThreePoints")
+
+        def on_start(self):
+            for _ in range(3):
+                self._put(Point(self.problem.random_point(rng=self.rng), self.name))
+
+    spec = StrategySpec(name="ThreePoints", strategy_class=StrategyRoundRobin, heuristics=[(ThreePoints, {})])
+    inst = [("sphere_d2_i0", Family("sphere", dim=2, seed=1))]
+    result = run_family_harness([spec], inst, budget_multiplier=20, base_seed=1, progress=False)
+    run = result.runs[0]
+    assert run.n_evals == 3 < run.budget
+    assert run.error is not None and run.error.startswith(EARLY_END_ERROR_PREFIX)
+    assert run.ended_early and not run.crashed and not run.timed_out
+    assert result.per_strategy_counts()["ThreePoints"]["ended_early"] == 1
+
+
+@pytest.mark.parametrize("shape", ["ball", "boxes"])
+def test_unplaceable_regions_fall_back_deterministically(shape):
+    """A ball of 20 % of the box cannot avoid a central optimum at d = 10: fallback, not an error."""
+    region = FailureRegion(shape, share=0.2)
+    p = Family("sphere", dim=10, seed=3, shift=False, failure=region)
+    q = Family("sphere", dim=10, seed=3, shift=False, failure=region)
+    assert p._failure_geom.fallback
+    assert p.failure_at(p.x_opt) is None and p.eval(p.x_opt) == p.f_opt
+    assert 0.0 < p.failure_share <= 0.2 + 0.01
+    assert p.failure_share == q.failure_share
+    assert _mc_share(p, n=5000) == pytest.approx(p.failure_share, abs=0.02)
+    battery = make_family_instances([FamilyConfig(base="sphere", shift=False, failure=region)], dims=(10,))
+    assert len(battery) == 3  # the battery builds
+
+
+def test_failure_share_is_measured_out_of_sample():
+    p = Family("sphere", dim=5, seed=4, failure=FailureRegion("ball", share=0.1))
+    calib = p._failure_rng().uniform(-5.0, 5.0, size=(20000, 5))  # the calibration sample: first draw
+    in_sample = float(np.mean(p._failure_geom.contains_many(calib)))
+    assert p.failure_share != in_sample  # a different sample ...
+    assert p.failure_share == pytest.approx(0.1, abs=0.01)  # ... that still measures the target

@@ -26,6 +26,7 @@ from .lib import (
     EvaluationTimedOut,
     Point,
     Result,
+    is_simulated_crash,
     Problem,
     BoundingBox,
 )
@@ -47,6 +48,7 @@ __all__ = [
     "EvaluationTimedOut",
     "Point",
     "Result",
+    "is_simulated_crash",
     "Problem",
     "BoundingBox",
     "ProblemWrapper",

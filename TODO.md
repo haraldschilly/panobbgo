@@ -86,13 +86,6 @@ followed (#331–#334).  Details in the PR descriptions and commit messages.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
       selection is clean since 2026-09-25) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.
-- [ ] **CMA-ES stalls on crash failures.**  `CMAES` has no
-      `on_failed_evaluations` handler: a generation that loses more than
-      `1 - min_results_fraction` of its points to crashes (no result) never
-      reaches its quorum and the arm stops emitting.  Seen on the new
-      `preset=failure` battery (`rastrigin_fball_crash` d5, RoundRobin_CMAES:
-      the run ends at 8/500 evaluations, no error recorded).  LSHADE/PSO
-      already handle the event; timeout-mode failures (NaN results) are fine.
 - [ ] The shapes and failure family presets (2026-09-26) have no
       reference numbers yet; add them to `scripts/rebaseline.py` when they
       are to be tracked.

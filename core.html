@@ -189,6 +189,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.add"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.add_analyzer"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add_analyzer()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.add_heuristic"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add_heuristic()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.add_pass_observer"><code class="docutils literal notranslate"><span class="pre">StrategyBase.add_pass_observer()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.analyzer"><code class="docutils literal notranslate"><span class="pre">StrategyBase.analyzer()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.analyzers"><code class="docutils literal notranslate"><span class="pre">StrategyBase.analyzers</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.avg_time_per_task"><code class="docutils literal notranslate"><span class="pre">StrategyBase.avg_time_per_task</span></code></a></li>
@@ -1207,6 +1208,18 @@ given maximum number of search points evaluated.</p>
 <dd class="field-odd"><p><strong>h</strong> (<a class="reference internal" href="#panobbgo.core.Heuristic" title="panobbgo.core.Heuristic"><em>Heuristic</em></a>) – The heuristic instance to add</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.add_pass_observer">
+<span class="sig-name descname"><span class="pre">add_pass_observer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.add_pass_observer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.add_pass_observer" title="Link to this definition">#</a></dt>
+<dd><p>Call <code class="docutils literal notranslate"><span class="pre">fn(strategy)</span></code> after every pass of the main loop, and once when it ends.</p>
+<p>For instruments that record the run without changing it
+(<code class="xref py py-class docutils literal notranslate"><span class="pre">panobbgo.features.FeatureLogger</span></code>): <code class="docutils literal notranslate"><span class="pre">fn</span></code> must only read —
+the archive, the heuristics’ state — and must not draw from any
+shared random stream.  Under <code class="docutils literal notranslate"><span class="pre">sync_evaluation</span></code> it runs after the
+pass’s handlers have all returned, so what it reads is a
+deterministic function of the seed.</p>
 </dd></dl>
 
 <dl class="py method">

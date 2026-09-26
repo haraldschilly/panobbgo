@@ -308,7 +308,7 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     baselines (qLogEI, TuRBO-1, SMAC) in shards of their own.  A comparison
     across jobs is an ordinary sample (a different host is an equally valid
     one); every result file records the host's CPU (`/proc/cpuinfo`,
-    `lscpu`) and, once the FP pin records it, `fp_env_id`, as
+    `lscpu`) and `fp_env_id` (the FP pin), as
     reproducibility metadata.
 *   **Coverage.**  SMAC runs at q = 1 only (no batch acquisition).  A GP
     baseline runs on a cell only where one run at q = 1 is estimated at most

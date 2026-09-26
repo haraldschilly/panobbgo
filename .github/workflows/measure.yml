@@ -101,6 +101,16 @@ jobs:
       # A public repository gets 20 concurrent jobs in all: leave 4 for PR CI.
       max-parallel: 16
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    # The FP pin (panobbgo/fp_env.py), as in rebaseline.yml: the entry point
+    # sets it itself; the job-level copy also covers anything that loads numpy
+    # first.  AVX2 and AVX-512 runners then run the same kernels.
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
+      ATEN_CPU_CAPABILITY: avx2
+      MKL_CBWR: AVX2
+      MKL_ENABLE_INSTRUCTIONS: AVX2
+      ONEDNN_MAX_CPU_ISA: AVX2
 
     steps:
       - uses: actions/checkout@v6

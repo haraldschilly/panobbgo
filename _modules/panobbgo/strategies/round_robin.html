@@ -189,7 +189,7 @@ data-aria-dark="Switch to auto color mode">
 </span><span data-line="48">            <span class="c1"># ``produce``, not ``get_points``: an on-demand arm (a solver</span>
 </span><span data-line="49">            <span class="c1"># bridge) has an empty queue between round trips and would be</span>
 </span><span data-line="50">            <span class="c1"># skipped forever beside any arm that keeps one stocked.</span>
-</span><span data-line="51">            <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">hs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">]</span><span class="o">.</span><span class="n">produce</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+</span><span data-line="51">            <span class="n">points</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">hs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">current</span><span class="p">]</span><span class="o">.</span><span class="n">produce</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cap_request</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">)))</span>
 </span><span data-line="52">            <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
 </span><span data-line="53">        <span class="k">return</span> <span class="n">points</span></div>
 </div>

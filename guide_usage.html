@@ -341,23 +341,28 @@ defaults.  On first run Panobbgo writes a default <code class="docutils literal 
 <code class="docutils literal notranslate"><span class="pre">heuristic:</span> <span class="pre">capacity:</span> <span class="pre">20</span></code>, …).  The evaluation, Dask, constraint and
 logging settings are <strong>YAML only</strong> — <code class="docutils literal notranslate"><span class="pre">config.ini</span></code> has no section for them:</p>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nt">evaluation</span><span class="p">:</span>
-</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">        </span><span class="c1"># 'threaded', 'processes' or 'dask'</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">method</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">threaded</span><span class="w">        </span><span class="c1"># 'threaded', 'processes', 'dask' or 'virtual'</span>
 </span><span data-line="3"><span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span><span class="w">             </span><span class="c1"># optional per-call limit, seconds (see below)</span>
 </span><span data-line="4"><span class="w">  </span><span class="nt">sync</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">             </span><span class="c1"># true: bit-reproducible seeded runs</span>
-</span><span data-line="5"><span class="nt">dask</span><span class="p">:</span>
-</span><span data-line="6"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span><span class="w">     </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
-</span><span data-line="7"><span class="w">  </span><span class="nt">local</span><span class="p">:</span>
-</span><span data-line="8"><span class="w">    </span><span class="nt">n_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span data-line="9"><span class="w">    </span><span class="nt">threads_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
-</span><span data-line="10"><span class="w">    </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2GB</span>
-</span><span data-line="11"><span class="w">    </span><span class="nt">dashboard_address</span><span class="p">:</span><span class="w"> </span><span class="s">':8787'</span>
-</span><span data-line="12"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
-</span><span data-line="13"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
-</span><span data-line="14">
-</span><span data-line="15"><span class="nt">constraints</span><span class="p">:</span>
-</span><span data-line="16"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
-</span><span data-line="17"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
-</span><span data-line="18"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
+</span><span data-line="5"><span class="w">  </span><span class="nt">virtual_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span><span class="w">      </span><span class="c1"># method 'virtual' only: simulated workers q</span>
+</span><span data-line="6"><span class="w">  </span><span class="nt">virtual_duration</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">constant</span><span class="w">   </span><span class="c1"># 'lognormal' (mean 1, see below) or a number</span>
+</span><span data-line="7"><span class="w">  </span><span class="nt">virtual_duration_sigma</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.5</span><span class="w">  </span><span class="c1"># log-space sd of 'lognormal'</span>
+</span><span data-line="8"><span class="w">  </span><span class="nt">virtual_duration_mean</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span><span class="w">     </span><span class="c1"># nominal mean (the metric's time unit)</span>
+</span><span data-line="9"><span class="w">  </span><span class="nt">virtual_policy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">async</span><span class="w">        </span><span class="c1"># or 'sync' (regression mode, see below)</span>
+</span><span data-line="10"><span class="nt">dask</span><span class="p">:</span>
+</span><span data-line="11"><span class="w">  </span><span class="nt">cluster_type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local</span><span class="w">     </span><span class="c1"># 'local' (auto-start) or 'remote'</span>
+</span><span data-line="12"><span class="w">  </span><span class="nt">local</span><span class="p">:</span>
+</span><span data-line="13"><span class="w">    </span><span class="nt">n_workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span data-line="14"><span class="w">    </span><span class="nt">threads_per_worker</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</span><span data-line="15"><span class="w">    </span><span class="nt">memory_limit</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2GB</span>
+</span><span data-line="16"><span class="w">    </span><span class="nt">dashboard_address</span><span class="p">:</span><span class="w"> </span><span class="s">':8787'</span>
+</span><span data-line="17"><span class="w">  </span><span class="nt">remote</span><span class="p">:</span>
+</span><span data-line="18"><span class="w">    </span><span class="nt">scheduler_address</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcp://localhost:8786</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="nt">constraints</span><span class="p">:</span>
+</span><span data-line="21"><span class="w">  </span><span class="nt">handler</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DefaultConstraintHandler</span>
+</span><span data-line="22"><span class="w">  </span><span class="c1"># rho, exponent, dynamic_penalty_rate, alm_rate: unset = the handler's</span>
+</span><span data-line="23"><span class="w">  </span><span class="c1"># own default (rho 100 for Default/Penalty/Epsilon, 10 for Dynamic/ALM)</span>
 </span></pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> (seconds, default unset = no limit) is a <strong>per-call</strong>
@@ -389,9 +394,33 @@ discarded; abandoned threads are counted and warned about.  Use
 <code class="docutils literal notranslate"><span class="pre">processes</span></code> or dask for objectives that can hang.  With
 <code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code>, a timeout routes each batch through the thread pool,
 harvested in submission order.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">virtual</span></code>: the call is simulated (below); one whose simulated duration
+exceeds the timeout is not evaluated at all and completes, as the <code class="docutils literal notranslate"><span class="pre">NaN</span></code>
+placeholder, exactly <code class="docutils literal notranslate"><span class="pre">timeout</span></code> virtual time units after its dispatch.</p></li>
 </ul>
 <p>An objective that <em>raises</em> is still a failed evaluation (no result,
 <code class="docutils literal notranslate"><span class="pre">failed_evaluations</span></code> event).</p>
+<p><code class="docutils literal notranslate"><span class="pre">evaluation.method</span> <span class="pre">=</span> <span class="pre">&quot;virtual&quot;</span></code> is a <strong>deterministic simulation of q
+parallel workers</strong> (<a class="reference internal" href="core.html#module-panobbgo.virtual_clock" title="panobbgo.virtual_clock"><code class="xref py py-mod docutils literal notranslate"><span class="pre">panobbgo.virtual_clock</span></code></a>) for benchmarking
+asynchronous behaviour without real waiting: the objective runs in-process
+when a simulated worker picks a candidate up, and only the durations — and
+hence the order in which results reach the strategy — are simulated.  The
+built-in duration models have mean 1 (virtual time is in units of the mean
+duration); an x-dependent model is set on the strategy
+(<code class="docutils literal notranslate"><span class="pre">strategy.config.virtual_duration</span> <span class="pre">=</span> <span class="pre">CallableDuration(f,</span> <span class="pre">mean=...)</span></code>, or a
+callable <code class="docutils literal notranslate"><span class="pre">f(x)</span></code> together with <code class="docutils literal notranslate"><span class="pre">virtual_duration_mean</span></code>: the nominal mean
+is required).  Each result carries <code class="docutils literal notranslate"><span class="pre">Result.t_dispatch</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Result.t_complete</span></code> (in memory only; the sqlite storage backend does not
+store them).  The same seed gives the same run on every machine.</p>
+<p>The default <code class="docutils literal notranslate"><span class="pre">virtual_policy:</span> <span class="pre">async</span></code> is the asynchronous expensive-evaluation
+policy: a decision at every completion instant, candidates only for the free
+workers (the strategy’s <code class="docutils literal notranslate"><span class="pre">request_cap</span></code>; <code class="docutils literal notranslate"><span class="pre">jobs_per_client</span> <span class="pre">=</span> <span class="pre">1</span></code>); with one
+worker the run is strictly one call at a time.  It is an idealized
+pull-when-free loop that the real threaded loop does not implement yet.
+<code class="docutils literal notranslate"><span class="pre">virtual_policy:</span> <span class="pre">sync</span></code> keeps the synchronous batch policy as a regression
+mode: with <code class="docutils literal notranslate"><span class="pre">virtual_workers</span> <span class="pre">=</span> <span class="pre">1</span></code>, a constant duration <strong>and</strong>
+<code class="docutils literal notranslate"><span class="pre">dask.local.n_workers</span> <span class="pre">=</span> <span class="pre">1</span></code> (which sizes the synchronous batches) it is
+exactly the <code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code> run.</p>
 <p>Edit these files to customize behavior.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

@@ -194,6 +194,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.avg_time_per_task"><code class="docutils literal notranslate"><span class="pre">StrategyBase.avg_time_per_task</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.best"><code class="docutils literal notranslate"><span class="pre">StrategyBase.best</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.budget_progress"><code class="docutils literal notranslate"><span class="pre">StrategyBase.budget_progress()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.cap_request"><code class="docutils literal notranslate"><span class="pre">StrategyBase.cap_request()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.check_dependencies"><code class="docutils literal notranslate"><span class="pre">StrategyBase.check_dependencies()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.evaluators"><code class="docutils literal notranslate"><span class="pre">StrategyBase.evaluators</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.execute"><code class="docutils literal notranslate"><span class="pre">StrategyBase.execute()</span></code></a></li>
@@ -207,6 +208,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.record_walltime"><code class="docutils literal notranslate"><span class="pre">StrategyBase.record_walltime()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.request_cap"><code class="docutils literal notranslate"><span class="pre">StrategyBase.request_cap</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.request_stop"><code class="docutils literal notranslate"><span class="pre">StrategyBase.request_stop()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.requires_analyzers"><code class="docutils literal notranslate"><span class="pre">StrategyBase.requires_analyzers</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.rng"><code class="docutils literal notranslate"><span class="pre">StrategyBase.rng</span></code></a></li>
@@ -263,6 +265,58 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.evaluate_point"><code class="docutils literal notranslate"><span class="pre">evaluate_point()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.run_evaluation"><code class="docutils literal notranslate"><span class="pre">run_evaluation()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.dask_evaluation.setup_cluster"><code class="docutils literal notranslate"><span class="pre">setup_cluster()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#virtual-clock-evaluation">Virtual-clock evaluation</a><ul>
+<li><a class="reference internal" href="#virtual-clock-parallel-evaluation">Virtual-clock parallel evaluation</a><ul>
+<li><a class="reference internal" href="#model">Model</a></li>
+<li><a class="reference internal" href="#observers">Observers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.CallableDuration"><code class="docutils literal notranslate"><span class="pre">CallableDuration</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.CallableDuration.describe"><code class="docutils literal notranslate"><span class="pre">CallableDuration.describe()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.ConstantDuration"><code class="docutils literal notranslate"><span class="pre">ConstantDuration</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.ConstantDuration.describe"><code class="docutils literal notranslate"><span class="pre">ConstantDuration.describe()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.DurationModel"><code class="docutils literal notranslate"><span class="pre">DurationModel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.DurationModel.describe"><code class="docutils literal notranslate"><span class="pre">DurationModel.describe()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.DurationModel.mean"><code class="docutils literal notranslate"><span class="pre">DurationModel.mean</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.LogNormalDuration"><code class="docutils literal notranslate"><span class="pre">LogNormalDuration</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.LogNormalDuration.describe"><code class="docutils literal notranslate"><span class="pre">LogNormalDuration.describe()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock"><code class="docutils literal notranslate"><span class="pre">VirtualClock</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.admit"><code class="docutils literal notranslate"><span class="pre">VirtualClock.admit()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.busy"><code class="docutils literal notranslate"><span class="pre">VirtualClock.busy</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.configure"><code class="docutils literal notranslate"><span class="pre">VirtualClock.configure()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.finish"><code class="docutils literal notranslate"><span class="pre">VirtualClock.finish()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.free"><code class="docutils literal notranslate"><span class="pre">VirtualClock.free</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.jobs_per_client"><code class="docutils literal notranslate"><span class="pre">VirtualClock.jobs_per_client</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.n_trimmed"><code class="docutils literal notranslate"><span class="pre">VirtualClock.n_trimmed</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.now"><code class="docutils literal notranslate"><span class="pre">VirtualClock.now</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.observed_mean"><code class="docutils literal notranslate"><span class="pre">VirtualClock.observed_mean()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.request_cap"><code class="docutils literal notranslate"><span class="pre">VirtualClock.request_cap()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.step"><code class="docutils literal notranslate"><span class="pre">VirtualClock.step()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec"><code class="docutils literal notranslate"><span class="pre">VirtualSpec</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.apply"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.apply()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.duration"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.duration</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.mean"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.mean</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.model"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.model()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.policy"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.policy</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.sigma"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.sigma</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.to_dict"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.to_dict()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.workers"><code class="docutils literal notranslate"><span class="pre">VirtualSpec.workers</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.make_duration_model"><code class="docutils literal notranslate"><span class="pre">make_duration_model()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.virtual_clock.validate_config"><code class="docutils literal notranslate"><span class="pre">validate_config()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#per-call-timeout-in-a-child-process">Per-call timeout in a child process</a><ul>
@@ -1187,6 +1241,12 @@ given maximum number of search points evaluated.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.cap_request">
+<span class="sig-name descname"><span class="pre">cap_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.cap_request"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.cap_request" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">n</span></code> limited by <a class="reference internal" href="#panobbgo.core.StrategyBase.request_cap" title="panobbgo.core.StrategyBase.request_cap"><code class="xref py py-attr docutils literal notranslate"><span class="pre">request_cap</span></code></a> (unchanged without a cap).</p>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.check_dependencies">
 <span class="sig-name descname"><span class="pre">check_dependencies</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.check_dependencies"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.check_dependencies" title="Link to this definition">#</a></dt>
 <dd><p>This method is called in self.start() (and only there)
@@ -1272,6 +1332,20 @@ Useful for manual control or custom runners (e.g. benchmarks).</p>
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.record_walltime">
 <span class="sig-name descname"><span class="pre">record_walltime</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seconds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.record_walltime"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.record_walltime" title="Link to this definition">#</a></dt>
 <dd><p>Book the walltime of one finished task (for <a class="reference internal" href="#panobbgo.core.StrategyBase.avg_time_per_task" title="panobbgo.core.StrategyBase.avg_time_per_task"><code class="xref py py-attr docutils literal notranslate"><span class="pre">avg_time_per_task</span></code></a>).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.request_cap">
+<span class="sig-name descname"><span class="pre">request_cap</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#panobbgo.core.StrategyBase.request_cap" title="Link to this definition">#</a></dt>
+<dd><p>How many points <a class="reference internal" href="#panobbgo.core.StrategyBase.execute" title="panobbgo.core.StrategyBase.execute"><code class="xref py py-meth docutils literal notranslate"><span class="pre">execute()</span></code></a> may hand back in the current pass,
+or <code class="docutils literal notranslate"><span class="pre">None</span></code> for no limit.  Set by the main loop before each
+<code class="docutils literal notranslate"><span class="pre">execute</span></code> call where the evaluation mode knows it — the virtual
+clock’s async policy: its free workers, within the budget — and
+honoured by the strategies (<a class="reference internal" href="#panobbgo.core.StrategyBase.cap_request" title="panobbgo.core.StrategyBase.cap_request"><code class="xref py py-meth docutils literal notranslate"><span class="pre">cap_request()</span></code></a>,
+<code class="xref py py-func docutils literal notranslate"><span class="pre">collect_pulls()</span></code>), so a strategy
+only does its bookkeeping (pull counts, discounts, block lengths)
+for points that are dispatched.  The seam for any pull-when-free
+evaluation loop.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -1674,6 +1748,331 @@ the cluster has no workers is reported by the strategy’s waiting WARNING
 <span class="sig-prename descclassname"><span class="pre">panobbgo.dask_evaluation.</span></span><span class="sig-name descname"><span class="pre">setup_cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">problem</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/dask_evaluation.html#setup_cluster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.dask_evaluation.setup_cluster" title="Link to this definition">#</a></dt>
 <dd><p>Set up a Dask cluster based on configuration.
 Supports both local and remote clusters.</p>
+</dd></dl>
+
+</section>
+<section id="virtual-clock-evaluation">
+<h2>Virtual-clock evaluation<a class="headerlink" href="#virtual-clock-evaluation" title="Link to this heading">#</a></h2>
+<p>Deterministic simulation of <code class="docutils literal notranslate"><span class="pre">q</span></code> parallel workers (<code class="docutils literal notranslate"><span class="pre">evaluation_method</span> <span class="pre">=</span>
+<span class="pre">&quot;virtual&quot;</span></code>); the benchmark harnesses score AOCC over virtual time with
+<code class="xref py py-func docutils literal notranslate"><span class="pre">panobbgo.ioh_runner.aocc_virtual_time()</span></code>.</p>
+<section id="virtual-clock-parallel-evaluation">
+<span id="module-panobbgo.virtual_clock"></span><h3>Virtual-clock parallel evaluation<a class="headerlink" href="#virtual-clock-parallel-evaluation" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">evaluation.method</span> <span class="pre">=</span> <span class="pre">&quot;virtual&quot;</span></code>: a deterministic discrete-event simulation
+of <code class="docutils literal notranslate"><span class="pre">q</span></code> parallel workers (<code class="docutils literal notranslate"><span class="pre">evaluation.virtual_workers</span></code>), so that
+asynchronous parallel behaviour can be benchmarked reproducibly on any
+machine, without real waiting.</p>
+<p>The objective is evaluated <strong>synchronously, in-process</strong>, at the moment a
+simulated worker picks a candidate up.  Only the <em>durations</em>, and therefore
+the order in which results reach the strategy and their timestamps, are
+simulated.  The same seed gives the same evaluation sequence on every host,
+whatever its speed.  The main loop runs synchronously (every event handler
+drains before the next decision): optimizer time is taken to be negligible
+next to an expensive evaluation.</p>
+<section id="model">
+<h4>Model<a class="headerlink" href="#model" title="Link to this heading">#</a></h4>
+<ul class="simple">
+<li><p><strong>Workers.</strong>  <code class="docutils literal notranslate"><span class="pre">q</span></code> simulated workers.</p></li>
+<li><p><strong>Durations.</strong>  Each call gets a duration from a <a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">DurationModel</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">evaluation.virtual_duration</span></code>): <code class="docutils literal notranslate"><span class="pre">&quot;constant&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;lognormal&quot;</span></code> (log-space
+standard deviation <code class="docutils literal notranslate"><span class="pre">evaluation.virtual_duration_sigma</span></code>, drawn from the
+run’s own keyed RNG stream, see <code class="xref py py-data docutils literal notranslate"><span class="pre">RNG_STREAM_KEY</span></code>), a number (a
+constant duration) or x-dependent (a <a class="reference internal" href="#panobbgo.virtual_clock.CallableDuration" title="panobbgo.virtual_clock.CallableDuration"><code class="xref py py-class docutils literal notranslate"><span class="pre">CallableDuration</span></code></a>, which needs
+an explicit nominal <code class="docutils literal notranslate"><span class="pre">mean</span></code>).  The built-in models have <strong>mean 1</strong> unless
+<code class="docutils literal notranslate"><span class="pre">evaluation.virtual_duration_mean</span></code> says otherwise; the virtual-time
+metric measures time in units of the model’s mean.</p></li>
+<li><p><strong>Events.</strong>  A call dispatched at virtual time <code class="docutils literal notranslate"><span class="pre">t</span></code> with duration <code class="docutils literal notranslate"><span class="pre">d</span></code>
+completes at <code class="docutils literal notranslate"><span class="pre">t</span> <span class="pre">+</span> <span class="pre">d</span></code>.  Completions form a queue ordered by <code class="docutils literal notranslate"><span class="pre">(time,</span>
+<span class="pre">sequence)</span></code>, the sequence number being the dispatch order, so ties are
+broken deterministically.</p></li>
+<li><p><strong>Policy</strong> (<code class="docutils literal notranslate"><span class="pre">evaluation.virtual_policy</span></code>):</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;async&quot;</span></code> (default) — the asynchronous expensive-evaluation policy.
+There is a decision point at every completion instant: every call
+completing at that instant is delivered (one <code class="docutils literal notranslate"><span class="pre">new_results</span></code> batch), the
+handlers drain, and the strategy is asked for candidates for the free
+workers only.  The main loop sets the strategy’s request cap
+(<a class="reference internal" href="#panobbgo.core.StrategyBase.request_cap" title="panobbgo.core.StrategyBase.request_cap"><code class="xref py py-attr docutils literal notranslate"><span class="pre">StrategyBase.request_cap</span></code></a>)
+to the free workers within the budget, and <code class="docutils literal notranslate"><span class="pre">jobs_per_client</span> <span class="pre">=</span> <span class="pre">1</span></code>, so a
+bandit pulls, and a block counts, exactly what is dispatched.  Nothing is
+queued beyond the free workers; <a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.admit" title="panobbgo.virtual_clock.VirtualClock.admit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">VirtualClock.admit()</span></code></a> is a safety
+net that hands any surplus back to its heuristic’s queue.  If the
+strategy fills fewer workers than are free, it is asked again at the
+same instant; if it has nothing, the clock moves to the next completion.
+With <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code> the run is strictly one call at a time, each candidate
+chosen after the previous result arrived.  This is an <em>idealized</em>
+pull-when-free loop: the real threaded / processes / dask loop does not
+implement it yet (see TODO.md).  Under a capped bandit a generational
+arm’s queued generation drains at the bandit’s share of the free
+workers, so its candidates can get stale while other arms run (a
+TODO.md follow-up).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&quot;sync&quot;</span></code> — a regression mode that keeps the synchronous batch policy:
+a strategy batch (sized by the synchronous rule, <code class="docutils literal notranslate"><span class="pre">max_eval</span> <span class="pre">/</span> <span class="pre">50</span></code> per
+worker) is queued first in, first out and the results are delivered when
+the queue has drained.  With <code class="docutils literal notranslate"><span class="pre">q</span> <span class="pre">=</span> <span class="pre">1</span></code>, a constant duration <strong>and</strong>
+<code class="docutils literal notranslate"><span class="pre">dask.local.n_workers</span> <span class="pre">=</span> <span class="pre">1</span></code> (which sizes the synchronous batches) it
+reproduces the <code class="docutils literal notranslate"><span class="pre">evaluation.sync</span></code> run exactly
+(<code class="docutils literal notranslate"><span class="pre">tests/test_virtual_clock.py</span></code>).</p></li>
+</ul>
+</li>
+<li><p><strong>Timeouts.</strong>  With <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code> set, a call whose simulated
+duration exceeds it is not evaluated: it completes at <code class="docutils literal notranslate"><span class="pre">dispatch</span> <span class="pre">+</span>
+<span class="pre">timeout</span></code> as the usual <code class="docutils literal notranslate"><span class="pre">NaN</span></code> placeholder
+(<a class="reference internal" href="lib.html#panobbgo.lib.Result.timed_out" title="panobbgo.lib.Result.timed_out"><code class="xref py py-attr docutils literal notranslate"><span class="pre">timed_out</span></code></a>).  The timeout is in virtual time
+units here.  A timeout the problem <em>signals</em> (<code class="docutils literal notranslate"><span class="pre">lib.EvaluationTimedOut</span></code>,
+a family’s failure region, known in advance through <code class="docutils literal notranslate"><span class="pre">failure_at</span></code>) is
+treated the same way: not evaluated, completing after <code class="docutils literal notranslate"><span class="pre">evaluation.timeout</span></code>
+(or its drawn duration when no timeout is set).  Crashes are evaluated
+(and fail) at dispatch.  Either failure is one spent, non-improving
+evaluation for an observer, counted once at completion.</p></li>
+<li><p><strong>Recording.</strong>  Every result carries <a class="reference internal" href="lib.html#panobbgo.lib.Result.t_dispatch" title="panobbgo.lib.Result.t_dispatch"><code class="xref py py-attr docutils literal notranslate"><span class="pre">t_dispatch</span></code></a>
+and <a class="reference internal" href="lib.html#panobbgo.lib.Result.t_complete" title="panobbgo.lib.Result.t_complete"><code class="xref py py-attr docutils literal notranslate"><span class="pre">t_complete</span></code></a>, its virtual dispatch and
+completion times (in memory only: the sqlite storage backend does not
+store them).</p></li>
+</ul>
+</section>
+<section id="observers">
+<h4>Observers<a class="headerlink" href="#observers" title="Link to this heading">#</a></h4>
+<p>An evaluation counter such as <code class="xref py py-class docutils literal notranslate"><span class="pre">IOHTracker</span></code> can
+follow the clock (<code class="docutils literal notranslate"><span class="pre">strategy._virtual_observer</span></code>, set by
+<a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.apply" title="panobbgo.virtual_clock.VirtualSpec.apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">VirtualSpec.apply()</span></code></a>): the clock calls <code class="docutils literal notranslate"><span class="pre">begin_call(seq)</span></code> /
+<code class="docutils literal notranslate"><span class="pre">end_call()</span></code> around each objective call and <code class="docutils literal notranslate"><span class="pre">complete_call(seq,</span> <span class="pre">t,</span> <span class="pre">ok)</span></code>
+when the call completes, in completion order.  The tracker then records its
+trace in completion order, with a failed or timed-out call as a spent,
+non-improving evaluation — the input of
+<code class="xref py py-func docutils literal notranslate"><span class="pre">aocc_virtual_time()</span></code>.</p>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.CallableDuration">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">CallableDuration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#CallableDuration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.CallableDuration" title="Link to this definition">#</a></dt>
+<dd><p>x-dependent durations: <code class="docutils literal notranslate"><span class="pre">fn(x)</span></code> for the point’s coordinates <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">mean</span></code> (required) is the nominal mean duration the virtual-time metric
+uses as its unit; it is <em>not</em> estimated from the calls, so two strategies
+that visit different regions are scored on the same time axis.  A run
+whose observed mean is more than <code class="xref py py-data docutils literal notranslate"><span class="pre">MEAN_TOLERANCE</span></code> off warns.
+<code class="docutils literal notranslate"><span class="pre">fn</span></code> must be deterministic in <code class="docutils literal notranslate"><span class="pre">x</span></code> (it does not see the RNG), and
+picklable (a module-level function, not a lambda) if the run goes to a
+worker process (harness <code class="docutils literal notranslate"><span class="pre">jobs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.CallableDuration.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#CallableDuration.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.CallableDuration.describe" title="Link to this definition">#</a></dt>
+<dd><p>A JSON-able description (recorded with harness results).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.ConstantDuration">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">ConstantDuration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#ConstantDuration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.ConstantDuration" title="Link to this definition">#</a></dt>
+<dd><p>Every call takes <code class="docutils literal notranslate"><span class="pre">value</span></code> time units (default 1, must be &gt; 0).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.ConstantDuration.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#ConstantDuration.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.ConstantDuration.describe" title="Link to this definition">#</a></dt>
+<dd><p>A JSON-able description (recorded with harness results).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.DurationModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">DurationModel</span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#DurationModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.DurationModel" title="Link to this definition">#</a></dt>
+<dd><p>Simulated duration of one evaluation call, in virtual time units.</p>
+<p>Subclasses implement <code class="xref py py-meth docutils literal notranslate"><span class="pre">__call__()</span></code>.  <a class="reference internal" href="#panobbgo.virtual_clock.DurationModel.mean" title="panobbgo.virtual_clock.DurationModel.mean"><code class="xref py py-attr docutils literal notranslate"><span class="pre">mean</span></code></a> is the model’s
+nominal mean duration; the anytime metric over virtual time measures
+time in units of it.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.DurationModel.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#DurationModel.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.DurationModel.describe" title="Link to this definition">#</a></dt>
+<dd><p>A JSON-able description (recorded with harness results).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.DurationModel.mean">
+<span class="sig-name descname"><span class="pre">mean</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></span><a class="headerlink" href="#panobbgo.virtual_clock.DurationModel.mean" title="Link to this definition">#</a></dt>
+<dd><p>Nominal mean duration (the unit of the virtual-time metric).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.LogNormalDuration">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">LogNormalDuration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#LogNormalDuration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.LogNormalDuration" title="Link to this definition">#</a></dt>
+<dd><p>Log-normal durations with the given <code class="docutils literal notranslate"><span class="pre">mean</span></code> (default 1) and log-space <code class="docutils literal notranslate"><span class="pre">sigma</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">log</span> <span class="pre">d</span> <span class="pre">~</span> <span class="pre">N(mu,</span> <span class="pre">sigma^2)</span></code> with <code class="docutils literal notranslate"><span class="pre">mu</span> <span class="pre">=</span> <span class="pre">log(mean)</span> <span class="pre">-</span> <span class="pre">sigma^2</span> <span class="pre">/</span> <span class="pre">2</span></code>, so
+<code class="docutils literal notranslate"><span class="pre">E[d]</span> <span class="pre">=</span> <span class="pre">mean</span></code>.  <code class="docutils literal notranslate"><span class="pre">sigma</span> <span class="pre">=</span> <span class="pre">0.5</span></code> gives a coefficient of variation of
+about 0.53; <code class="docutils literal notranslate"><span class="pre">sigma</span> <span class="pre">=</span> <span class="pre">1</span></code> about 1.3 (a heavy right tail).</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.LogNormalDuration.describe">
+<span class="sig-name descname"><span class="pre">describe</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#LogNormalDuration.describe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.LogNormalDuration.describe" title="Link to this definition">#</a></dt>
+<dd><p>A JSON-able description (recorded with harness results).</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">VirtualClock</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock" title="Link to this definition">#</a></dt>
+<dd><p>The simulated worker pool of one strategy (<code class="docutils literal notranslate"><span class="pre">strategy._virtual_clock</span></code>).</p>
+<p>Settings are read from the strategy’s config by <a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.configure" title="panobbgo.virtual_clock.VirtualClock.configure"><code class="xref py py-meth docutils literal notranslate"><span class="pre">configure()</span></code></a>,
+which the strategy calls at set-up and again when the run starts, so a
+harness may change them in between.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.admit">
+<span class="sig-name descname"><span class="pre">admit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock.admit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.admit" title="Link to this definition">#</a></dt>
+<dd><p>Async policy safety net: keep the first candidates the free workers can take, return the rest.</p>
+<p>The strategy was asked for at most <a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.request_cap" title="panobbgo.virtual_clock.VirtualClock.request_cap"><code class="xref py py-meth docutils literal notranslate"><span class="pre">request_cap()</span></code></a> points, so
+this normally trims nothing; when it does, the strategy’s bookkeeping
+already counted the surplus (logged at DEBUG).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.busy">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">busy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.busy" title="Link to this definition">#</a></dt>
+<dd><p>Workers running a call (completed-but-undelivered calls have freed theirs).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.configure">
+<span class="sig-name descname"><span class="pre">configure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock.configure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.configure" title="Link to this definition">#</a></dt>
+<dd><p>Read the <code class="docutils literal notranslate"><span class="pre">evaluation.virtual_*</span></code> settings from the config.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.finish">
+<span class="sig-name descname"><span class="pre">finish</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock.finish"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.finish" title="Link to this definition">#</a></dt>
+<dd><p>End-of-run check: warn if an x-dependent model’s observed mean is far from its nominal mean.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.free">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">free</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.free" title="Link to this definition">#</a></dt>
+<dd><p>Idle workers.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.jobs_per_client">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">jobs_per_client</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.jobs_per_client" title="Link to this definition">#</a></dt>
+<dd><p>the synchronous rule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="docutils literal notranslate"><span class="pre">1</span></code> under the async policy; <code class="docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.n_trimmed">
+<span class="sig-name descname"><span class="pre">n_trimmed</span></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.n_trimmed" title="Link to this definition">#</a></dt>
+<dd><p>a
+strategy that ignores its request cap).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Candidates <a class="reference internal" href="#panobbgo.virtual_clock.VirtualClock.admit" title="panobbgo.virtual_clock.VirtualClock.admit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">admit()</span></code></a> had to hand back (should stay 0</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.now">
+<span class="sig-name descname"><span class="pre">now</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.now" title="Link to this definition">#</a></dt>
+<dd><p>Current virtual time.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.observed_mean">
+<span class="sig-name descname"><span class="pre">observed_mean</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock.observed_mean"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.observed_mean" title="Link to this definition">#</a></dt>
+<dd><p>Mean of the durations drawn so far (<code class="docutils literal notranslate"><span class="pre">None</span></code> before the first call).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.request_cap">
+<span class="sig-name descname"><span class="pre">request_cap</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock.request_cap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.request_cap" title="Link to this definition">#</a></dt>
+<dd><p>Async policy: how many candidates the strategy may produce now (free workers, within the budget).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualClock.step">
+<span class="sig-name descname"><span class="pre">step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualClock.step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualClock.step" title="Link to this definition">#</a></dt>
+<dd><p>One main-loop pass: dispatch <code class="docutils literal notranslate"><span class="pre">points</span></code>, run the clock to the next decision point, deliver.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">VirtualSpec</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">workers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'constant'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">policy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'async'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualSpec"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec" title="Link to this definition">#</a></dt>
+<dd><p>Settings of a virtual-clock run, as a harness passes them.</p>
+<p><a class="reference internal" href="#panobbgo.virtual_clock.VirtualSpec.apply" title="panobbgo.virtual_clock.VirtualSpec.apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply()</span></code></a> switches a constructed strategy to
+<code class="docutils literal notranslate"><span class="pre">evaluation.method</span> <span class="pre">=</span> <span class="pre">&quot;virtual&quot;</span></code> with these settings.  A spec travels to
+worker processes with the harness’s <code class="docutils literal notranslate"><span class="pre">jobs</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>: an x-dependent
+<code class="docutils literal notranslate"><span class="pre">duration</span></code> must then be picklable (a module-level function or a
+<a class="reference internal" href="#panobbgo.virtual_clock.CallableDuration" title="panobbgo.virtual_clock.CallableDuration"><code class="xref py py-class docutils literal notranslate"><span class="pre">CallableDuration</span></code></a> of one), not a lambda.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><span class="pre">StrategyBase</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">observer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualSpec.apply"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.apply" title="Link to this definition">#</a></dt>
+<dd><p>Configure <code class="docutils literal notranslate"><span class="pre">strategy</span></code> (not yet started) for a virtual-clock run; <code class="docutils literal notranslate"><span class="pre">observer</span></code>: see the module docstring.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.duration">
+<span class="sig-name descname"><span class="pre">duration</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'constant'</span></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.duration" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">&quot;constant&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;lognormal&quot;</span></code>, a number, a <a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">DurationModel</span></code></a> or a callable <code class="docutils literal notranslate"><span class="pre">f(x)</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.mean">
+<span class="sig-name descname"><span class="pre">mean</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.mean" title="Link to this definition">#</a></dt>
+<dd><p>Nominal mean duration; required for a callable <code class="docutils literal notranslate"><span class="pre">duration</span></code>, default 1 otherwise.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.model">
+<span class="sig-name descname"><span class="pre">model</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><span class="pre">DurationModel</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualSpec.model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.model" title="Link to this definition">#</a></dt>
+<dd><p>The duration model these settings describe.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.policy">
+<span class="sig-name descname"><span class="pre">policy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'async'</span></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.policy" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">&quot;async&quot;</span></code> (default) or <code class="docutils literal notranslate"><span class="pre">&quot;sync&quot;</span></code> (see the module docstring).</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.sigma">
+<span class="sig-name descname"><span class="pre">sigma</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.5</span></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.sigma" title="Link to this definition">#</a></dt>
+<dd><p>Log-space standard deviation of the <code class="docutils literal notranslate"><span class="pre">&quot;lognormal&quot;</span></code> model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#VirtualSpec.to_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.to_dict" title="Link to this definition">#</a></dt>
+<dd><p>JSON-able description: <code class="docutils literal notranslate"><span class="pre">{&quot;workers&quot;:</span> <span class="pre">q,</span> <span class="pre">&quot;policy&quot;:</span> <span class="pre">...,</span> <span class="pre">**model.describe()}</span></code>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.VirtualSpec.workers">
+<span class="sig-name descname"><span class="pre">workers</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">4</span></span><a class="headerlink" href="#panobbgo.virtual_clock.VirtualSpec.workers" title="Link to this definition">#</a></dt>
+<dd><p>Number of simulated workers <code class="docutils literal notranslate"><span class="pre">q</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.make_duration_model">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">make_duration_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><span class="pre">DurationModel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.14)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.5)"><span class="pre">ndarray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'constant'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mean</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><span class="pre">DurationModel</span></a></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#make_duration_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.make_duration_model" title="Link to this definition">#</a></dt>
+<dd><p>Build a <a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">DurationModel</span></code></a> from a config value.</p>
+<p><code class="docutils literal notranslate"><span class="pre">spec</span></code> is a <a class="reference internal" href="#panobbgo.virtual_clock.DurationModel" title="panobbgo.virtual_clock.DurationModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">DurationModel</span></code></a> (returned as is), <code class="docutils literal notranslate"><span class="pre">&quot;constant&quot;</span></code>
+(duration <code class="docutils literal notranslate"><span class="pre">mean</span></code>, default 1), <code class="docutils literal notranslate"><span class="pre">&quot;lognormal&quot;</span></code> (mean <code class="docutils literal notranslate"><span class="pre">mean</span></code>, default 1,
+log-space <code class="docutils literal notranslate"><span class="pre">sigma</span></code>), a number or numeric string (a constant duration,
+e.g. from YAML), or a callable <code class="docutils literal notranslate"><span class="pre">f(x)</span></code> — which needs an explicit
+<code class="docutils literal notranslate"><span class="pre">mean</span></code> (a <a class="reference internal" href="#panobbgo.virtual_clock.CallableDuration" title="panobbgo.virtual_clock.CallableDuration"><code class="xref py py-class docutils literal notranslate"><span class="pre">CallableDuration</span></code></a>).</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="panobbgo.virtual_clock.validate_config">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.virtual_clock.</span></span><span class="sig-name descname"><span class="pre">validate_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/virtual_clock.html#validate_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.virtual_clock.validate_config" title="Link to this definition">#</a></dt>
+<dd><p>Error messages for the <code class="docutils literal notranslate"><span class="pre">evaluation.virtual_*</span></code> settings (empty if they are valid).</p>
 </dd></dl>
 
 </section>

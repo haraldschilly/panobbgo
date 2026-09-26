@@ -188,9 +188,11 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.add_result">(panobbgo.analyzers.splitter.Splitter.Box method)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.core.Results.add_results">add_results() (panobbgo.core.Results method)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="core.html#panobbgo.core.Results.add_results">add_results() (panobbgo.core.Results method)</a>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.admit">admit() (panobbgo.virtual_clock.VirtualClock method)</a>
 </li>
       <li><a href="core.html#panobbgo.local_pool.LocalPool.ages">ages() (panobbgo.local_pool.LocalPool method)</a>
 </li>
@@ -201,6 +203,8 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="core.html#panobbgo.core.StrategyBase.analyzer">analyzer() (panobbgo.core.StrategyBase method)</a>
 </li>
       <li><a href="core.html#panobbgo.core.StrategyBase.analyzers">analyzers (panobbgo.core.StrategyBase property)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.apply">apply() (panobbgo.virtual_clock.VirtualSpec method)</a>
 </li>
       <li><a href="lib.html#panobbgo.lib.NoisyProblem.apply_noise">apply_noise() (panobbgo.lib.NoisyProblem method)</a>
 
@@ -258,10 +262,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.bipop_regime">bipop_regime (panobbgo.heuristics.CMAES property)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="strategies.html#panobbgo.strategies.StrategyBlockBandit.block_evals">block_evals (panobbgo.strategies.StrategyBlockBandit property)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="_autosummary/panobbgo.lib.lib.BoundingBox.html#panobbgo.lib.BoundingBox">BoundingBox (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.BoundingBox">[1]</a>
 </li>
       <li><a href="classic.html#panobbgo.lib.classic.Box">Box (class in panobbgo.lib.classic)</a>
@@ -286,6 +290,8 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
       <li><a href="core.html#panobbgo.core.budget_progress_of">budget_progress_of() (in module panobbgo.core)</a>
 </li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.busy">busy (panobbgo.virtual_clock.VirtualClock property)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -293,6 +299,8 @@ data-aria-dark="Switch to auto color mode">
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.timeout_call.call_with_timeout">call_with_timeout() (in module panobbgo.timeout_call)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.CallableDuration">CallableDuration (class in panobbgo.virtual_clock)</a>
 </li>
       <li><a href="core.html#panobbgo.core.Heuristic.can_produce">can_produce (panobbgo.core.Heuristic property)</a>
 
@@ -303,6 +311,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li><a href="core.html#panobbgo.core.Heuristic.cap">cap (panobbgo.core.Heuristic attribute)</a>
+</li>
+      <li><a href="core.html#panobbgo.core.StrategyBase.cap_request">cap_request() (panobbgo.core.StrategyBase method)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.Center">Center (class in panobbgo.heuristics)</a>
 
@@ -351,6 +361,10 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="lib.html#panobbgo.lib.CocoProblem">CocoProblem (class in panobbgo.lib)</a>
 </li>
       <li><a href="config.html#panobbgo.config.Config">Config (class in panobbgo.config)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.configure">configure() (panobbgo.virtual_clock.VirtualClock method)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.ConstantDuration">ConstantDuration (class in panobbgo.virtual_clock)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.ConstraintGradient">ConstraintGradient (class in panobbgo.heuristics)</a>
 </li>
@@ -406,10 +420,20 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.Module.derive_rng">derive_rng() (panobbgo.core.Module method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.Module.derive_seed">derive_seed() (panobbgo.core.Module method)</a>
 </li>
+      <li><a href="core.html#panobbgo.virtual_clock.CallableDuration.describe">describe() (panobbgo.virtual_clock.CallableDuration method)</a>
+
+      <ul>
+        <li><a href="core.html#panobbgo.virtual_clock.ConstantDuration.describe">(panobbgo.virtual_clock.ConstantDuration method)</a>
+</li>
+        <li><a href="core.html#panobbgo.virtual_clock.DurationModel.describe">(panobbgo.virtual_clock.DurationModel method)</a>
+</li>
+        <li><a href="core.html#panobbgo.virtual_clock.LogNormalDuration.describe">(panobbgo.virtual_clock.LogNormalDuration method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.DifferentialEvolution">DifferentialEvolution (class in panobbgo.heuristics)</a>
 </li>
       <li><a href="lib.html#panobbgo.lib.Problem.dim">dim (panobbgo.lib.Problem property)</a>
@@ -423,6 +447,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li><a href="classic.html#panobbgo.lib.classic.DixonPrice">DixonPrice (class in panobbgo.lib.classic)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.duration">duration (panobbgo.virtual_clock.VirtualSpec attribute)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.DurationModel">DurationModel (class in panobbgo.virtual_clock)</a>
 </li>
       <li><a href="lib.html#panobbgo.lib.Problem.dx">dx (panobbgo.lib.Problem attribute)</a>
 </li>
@@ -700,6 +728,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="lib.html#panobbgo.lib.wrappers.ProblemWrapper.fingerprint">(panobbgo.lib.wrappers.ProblemWrapper method)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.finish">finish() (panobbgo.virtual_clock.VirtualClock method)</a>
+</li>
       <li><a href="heuristics.html#panobbgo.heuristics.MetaAnalyst.firings">firings (panobbgo.heuristics.MetaAnalyst attribute)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.QuadraticWlsModel.fit_timeout">fit_timeout (panobbgo.heuristics.QuadraticWlsModel attribute)</a>
@@ -724,6 +754,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="classic.html#panobbgo.lib.classic.Wood.formula_version">(panobbgo.lib.classic.Wood attribute)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.free">free (panobbgo.virtual_clock.VirtualClock property)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.Splitter.Box.fx">fx (panobbgo.analyzers.Splitter.Box property)</a>
 
       <ul>
@@ -846,6 +878,10 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="J">J</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.jobs_per_client">jobs_per_client (panobbgo.virtual_clock.VirtualClock property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.JSO">JSO (class in panobbgo.heuristics)</a>
 </li>
   </ul></td>
@@ -892,10 +928,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.splitter.LEAF_SIZE">LEAF_SIZE (in module panobbgo.analyzers.splitter)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.Results.load_from_storage">load_from_storage() (panobbgo.core.Results method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.LocalPenaltySearch">LocalPenaltySearch (class in panobbgo.heuristics)</a>
 </li>
       <li><a href="core.html#panobbgo.local_pool.LocalPool">LocalPool (class in panobbgo.local_pool)</a>
@@ -906,6 +942,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="analyzers.html#panobbgo.analyzers.splitter.Splitter.Box.log_volume">(panobbgo.analyzers.splitter.Splitter.Box property)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.virtual_clock.LogNormalDuration">LogNormalDuration (class in panobbgo.virtual_clock)</a>
+</li>
       <li><a href="lib.html#panobbgo.lib.LogTransformProblem">LogTransformProblem (class in panobbgo.lib)</a>
 
       <ul>
@@ -922,6 +960,8 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.virtual_clock.make_duration_model">make_duration_model() (in module panobbgo.virtual_clock)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.Splitter.Box.MAX_DEPTH">MAX_DEPTH (panobbgo.analyzers.Splitter.Box attribute)</a>
 
       <ul>
@@ -940,6 +980,12 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.splitter.MAX_LEAVES">MAX_LEAVES (in module panobbgo.analyzers.splitter)</a>
 </li>
+      <li><a href="core.html#panobbgo.virtual_clock.DurationModel.mean">mean (panobbgo.virtual_clock.DurationModel attribute)</a>
+
+      <ul>
+        <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.mean">(panobbgo.virtual_clock.VirtualSpec attribute)</a>
+</li>
+      </ul></li>
       <li><a href="heuristics.html#panobbgo.heuristics.MetaAnalyst">MetaAnalyst (class in panobbgo.heuristics)</a>
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.Best.min">min (panobbgo.analyzers.Best property)</a>
@@ -949,6 +995,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
       </ul></li>
       <li><a href="classic.html#panobbgo.lib.classic.MishraBird">MishraBird (class in panobbgo.lib.classic)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.model">model() (panobbgo.virtual_clock.VirtualSpec method)</a>
 </li>
       <li>
     module
@@ -982,6 +1030,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
         <li><a href="core.html#module-panobbgo.timeout_call">panobbgo.timeout_call</a>
 </li>
+        <li><a href="core.html#module-panobbgo.virtual_clock">panobbgo.virtual_clock</a>
+</li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -1002,6 +1052,8 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="heuristics.html#panobbgo.heuristics.CMAES.n_self_restarts">n_self_restarts (panobbgo.heuristics.CMAES property)</a>
 </li>
       <li><a href="core.html#panobbgo.core.StrategyBase.n_timed_out">n_timed_out (panobbgo.core.StrategyBase attribute)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.n_trimmed">n_trimmed (panobbgo.virtual_clock.VirtualClock attribute)</a>
 </li>
       <li><a href="core.html#panobbgo.core.Module.name">name (panobbgo.core.Module property)</a>
 
@@ -1057,6 +1109,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="lib.html#panobbgo.lib.wrappers.NormalizedProblem">(class in panobbgo.lib.wrappers)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.now">now (panobbgo.virtual_clock.VirtualClock attribute)</a>
+</li>
       <li><a href="heuristics.html#panobbgo.heuristics.LSHADE.NP_init">NP_init (panobbgo.heuristics.LSHADE attribute)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.LSHADE.NP_min">NP_min (panobbgo.heuristics.LSHADE attribute)</a>
@@ -1067,6 +1121,8 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.observed_mean">observed_mean() (panobbgo.virtual_clock.VirtualClock method)</a>
+</li>
       <li><a href="core.html#panobbgo.core.StrategyBase.on_converged">on_converged() (panobbgo.core.StrategyBase method)</a>
 </li>
       <li><a href="core.html#panobbgo.core.Heuristic.on_demand">on_demand (panobbgo.core.Heuristic attribute)</a>
@@ -1417,6 +1473,13 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="core.html#module-panobbgo.timeout_call">module</a>
 </li>
       </ul></li>
+      <li>
+    panobbgo.virtual_clock
+
+      <ul>
+        <li><a href="core.html#module-panobbgo.virtual_clock">module</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="utils.html#panobbgo.utils.PanobbgoContext">PanobbgoContext (class in panobbgo.utils)</a>
@@ -1454,6 +1517,8 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="_autosummary/panobbgo.lib.lib.Point.html#panobbgo.lib.Point">Point (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.Point">[1]</a>
 </li>
       <li><a href="lib.html#panobbgo.lib.Result.point">point (panobbgo.lib.Result property)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.policy">policy (panobbgo.virtual_clock.VirtualSpec attribute)</a>
 </li>
       <li><a href="core.html#panobbgo.local_pool.LocalPool.poll">poll() (panobbgo.local_pool.LocalPool method)</a>
 
@@ -1551,6 +1616,10 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.EventBus.register">register() (panobbgo.core.EventBus method)</a>
 </li>
+      <li><a href="core.html#panobbgo.core.StrategyBase.request_cap">request_cap (panobbgo.core.StrategyBase attribute)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.request_cap">request_cap() (panobbgo.virtual_clock.VirtualClock method)</a>
+</li>
       <li><a href="core.html#panobbgo.core.StrategyBase.request_stop">request_stop() (panobbgo.core.StrategyBase method)</a>
 </li>
       <li><a href="core.html#panobbgo.core.Heuristic.required_analyzers">required_analyzers() (panobbgo.core.Heuristic method)</a>
@@ -1581,14 +1650,14 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.Restart">Restart (class in panobbgo.analyzers)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="analyzers.html#panobbgo.analyzers.Restart.restart_count">restart_count (panobbgo.analyzers.Restart property)</a>
 
       <ul>
         <li><a href="heuristics.html#panobbgo.heuristics.CMAES.restart_count">(panobbgo.heuristics.CMAES property)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="_autosummary/panobbgo.lib.lib.Result.html#panobbgo.lib.Result">Result (class in panobbgo.lib)</a>, <a href="lib.html#panobbgo.lib.Result">[1]</a>
 </li>
       <li><a href="core.html#panobbgo.core.Results">Results (class in panobbgo.core)</a>
@@ -1681,6 +1750,8 @@ data-aria-dark="Switch to auto color mode">
 </li>
       <li><a href="core.html#panobbgo.core.EventBus.shutdown">shutdown() (panobbgo.core.EventBus method)</a>
 </li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.sigma">sigma (panobbgo.virtual_clock.VirtualSpec attribute)</a>
+</li>
       <li><a href="classic.html#panobbgo.lib.classic.Simionescu">Simionescu (class in panobbgo.lib.classic)</a>
 </li>
       <li><a href="heuristics.html#panobbgo.heuristics.Sobol">Sobol (class in panobbgo.heuristics)</a>
@@ -1720,6 +1791,8 @@ data-aria-dark="Switch to auto color mode">
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="classic.html#panobbgo.lib.classic.Step">Step (class in panobbgo.lib.classic)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock.step">step() (panobbgo.virtual_clock.VirtualClock method)</a>
 </li>
       <li><a href="core.html#panobbgo.core.StopHeuristic">StopHeuristic</a>
 </li>
@@ -1787,6 +1860,10 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="lib.html#panobbgo.lib.Result.t_complete">t_complete (panobbgo.lib.Result attribute)</a>
+</li>
+      <li><a href="lib.html#panobbgo.lib.Result.t_dispatch">t_dispatch (panobbgo.lib.Result attribute)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.Splitter.target_leaves">target_leaves() (panobbgo.analyzers.Splitter method)</a>
 
       <ul>
@@ -1808,6 +1885,8 @@ data-aria-dark="Switch to auto color mode">
       <li><a href="lib.html#panobbgo.lib.Result.timed_out">timed_out (panobbgo.lib.Result property)</a>
 </li>
       <li><a href="core.html#panobbgo.timeout_call.TimedCall">TimedCall (class in panobbgo.timeout_call)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.to_dict">to_dict() (panobbgo.virtual_clock.VirtualSpec method)</a>
 </li>
       <li><a href="analyzers.html#panobbgo.analyzers.Archive.top_k">top_k() (panobbgo.analyzers.Archive method)</a>
 
@@ -1837,10 +1916,16 @@ data-aria-dark="Switch to auto color mode">
 <h2 id="V">V</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.virtual_clock.validate_config">validate_config() (in module panobbgo.virtual_clock)</a>
+</li>
       <li><a href="core.html#panobbgo.core.StrategyBase.validate_setup">validate_setup() (panobbgo.core.StrategyBase method)</a>
+</li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualClock">VirtualClock (class in panobbgo.virtual_clock)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec">VirtualSpec (class in panobbgo.virtual_clock)</a>
+</li>
       <li><a href="analyzers.html#panobbgo.analyzers.Splitter.Box.volume">volume (panobbgo.analyzers.Splitter.Box property)</a>
 
       <ul>
@@ -1885,8 +1970,6 @@ data-aria-dark="Switch to auto color mode">
       </ul></li>
       <li><a href="core.html#panobbgo.core.Heuristic.WARM_START_MODES">WARM_START_MODES (panobbgo.core.Heuristic attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="core.html#panobbgo.core.Heuristic.warm_start_now">warm_start_now() (panobbgo.core.Heuristic method)</a>
 
       <ul>
@@ -1897,6 +1980,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="heuristics.html#panobbgo.heuristics.PSO.warm_start_now">(panobbgo.heuristics.PSO method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="heuristics.html#panobbgo.heuristics.WeightedAverage">WeightedAverage (class in panobbgo.heuristics)</a>
 </li>
       <li><a href="lib.html#panobbgo.lib.Point.who">who (panobbgo.lib.Point property)</a>
@@ -1913,6 +1998,8 @@ data-aria-dark="Switch to auto color mode">
         <li><a href="heuristics.html#panobbgo.heuristics.LBFGSB.worker">(panobbgo.heuristics.LBFGSB static method)</a>
 </li>
       </ul></li>
+      <li><a href="core.html#panobbgo.virtual_clock.VirtualSpec.workers">workers (panobbgo.virtual_clock.VirtualSpec attribute)</a>
+</li>
       <li><a href="lib.html#panobbgo.lib.NoisyProblem.wrapped">wrapped (panobbgo.lib.NoisyProblem property)</a>
 
       <ul>

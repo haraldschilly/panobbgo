@@ -642,6 +642,105 @@ See ``panobbgo/harness_baselines.py`` for the full interface and
 ``tests/test_harness_baselines_external.py`` for the guarantees.
 
 
+Parallel behaviour on a virtual clock
+-------------------------------------
+
+The primary battlefield is *expensive, parallel* evaluation: ``q`` workers,
+calls of uneven duration.  Measuring that with real threads makes every
+number a function of the machine.  The AOCC track can instead run each
+strategy on a **virtual clock** (:mod:`panobbgo.virtual_clock`,
+``evaluation.method = "virtual"``): a deterministic discrete-event
+simulation of ``q`` workers.  The objective is evaluated in-process when a
+simulated worker picks a candidate up; each call gets a duration from a
+model (``constant``, ``lognormal`` with mean 1, or x-dependent with an
+explicit nominal mean), and results reach the strategy in ``(completion
+time, dispatch order)`` order.  A seeded run is bit-reproducible on any
+host.
+
+The default policy (``--virtual-policy async``) is the asynchronous
+expensive-evaluation one: a decision point at every completion instant, the
+handlers drain (optimizer time is negligible), and the strategy is asked for
+candidates for the free workers only: the loop sets the strategy's request
+cap (``StrategyBase.request_cap``) to the free workers within the budget,
+so a bandit's pull counts and a block's length cover exactly the dispatched
+evaluations, and nothing is queued beyond them.  At ``q = 1`` a run is
+strictly one call at a time, each candidate chosen after the previous
+result arrived.  This models an *idealized* pull-when-free loop; the real
+threaded / processes / dask loop does not implement it yet (a TODO.md
+follow-up), so virtual-clock numbers describe that policy, not today's
+real asynchronous mode.  Under a capped bandit a generational arm's queued
+generation drains at the bandit's share of the workers, so its candidates
+can get stale (a TODO.md follow-up).  ``--virtual-policy sync`` keeps the
+synchronous batch policy as a regression mode: with ``q = 1``, a constant
+duration and ``dask.local.n_workers = 1`` it is exactly the ``sync_eval``
+run.  "sync" means different things in the two drivers: for panobbgo
+strategies the strategy's own synchronous batch sizing, for the ask/tell
+baselines (:func:`~panobbgo.virtual_clock.run_ask_tell`) batches of the free
+workers, asked only when every worker is idle.
+
+.. code-block:: bash
+
+   # q-sweep on the generated families; one JSON per q
+   for q in 1 4 16 64; do
+     uv run python scripts/ioh_benchmark.py run --families --virtual-workers $q \
+         --duration lognormal --output virtual_q$q.json
+   done
+
+The API is the ``virtual=VirtualSpec(workers=q, duration=..., sigma=...)``
+argument of :func:`~panobbgo.harness_ioh.run_ioh_harness`,
+:func:`~panobbgo.harness_ioh.run_ioh_harness_multi_seed` and
+:func:`~panobbgo.harness_families.run_family_harness`.  Run seeds do not
+depend on ``q``, so a sweep is paired cell by cell.
+
+Every run then reports two scores:
+
+* ``aocc`` — AOCC over **evaluations**: the best-so-far after each call,
+  over ``budget`` calls.  On the virtual clock the tracker records calls in
+  *completion* order, and a call that failed or timed out counts as a
+  spent, non-improving evaluation (it used a budget slot and a worker),
+  exactly once, when it completes.  A family's signalled timeout (failure
+  region, ``mode="timeout"``) is charged ``evaluation.timeout`` of virtual
+  time (its drawn duration when none is set) and is not evaluated.
+* ``aocc_time`` — AOCC over **virtual time**
+  (:func:`~panobbgo.ioh_runner.aocc_virtual_time`).  The best-so-far at
+  time :math:`t` is the best value among the calls *completed* by
+  :math:`t` (none before the first completion: the worst gap).  It is
+  sampled at
+
+  .. math::  t_j = j \cdot \bar d / q, \qquad j = 1, \dots, B,
+
+  with :math:`\bar d` the model's mean duration (1 for the built-in
+  models) and :math:`B` the budget, and scored with the usual AOCC formula
+  (log-precision clipped to ``[log_lo, log_hi]``).  Time is thus measured
+  in mean durations; the horizon :math:`B \bar d / q` is the time ``q``
+  perfectly busy workers need to spend the budget; calls completing after
+  it are not scored and a run that ends early is held at its last value.
+  At ``q = 1`` with a constant duration the grid points are the completion
+  times, so ``aocc_time == aocc``.  Idle workers, stale candidates, and —
+  under an x-dependent model — expensive regions all lower it.
+
+  **Structural caps.**  No call completes before one duration, so the first
+  ``q - 1`` grid points are always the worst gap (the score is capped near
+  ``1 - (q-1)/B`` of the ideal), and under a heavy-tailed model (log-normal)
+  the last calls usually complete after the horizon and are not scored.
+  Both grow with ``q``: compare strategies at the *same* ``q`` and duration
+  model, and read comparisons *across* ``q`` with these caps in mind.
+
+``IOHHarnessResult.virtual`` records the settings (``workers``, ``policy``,
+duration model) and ``mean_aocc_time`` / ``per_strategy_aocc_time``
+aggregate the time score over the runs that have one (``n_aocc_time``; a
+crash scores 0).  The ask/tell external baselines (pycma, Nevergrad,
+Optuna; :class:`~panobbgo.harness_baselines.AskTellBaselineStrategy`) run on
+the same clock (:func:`~panobbgo.virtual_clock.run_ask_tell`: ask for up to
+the free workers, evaluate at dispatch, tell at completion) and get
+``aocc_time`` too.  A strategy that evaluates outside any driver (the SciPy
+baselines, which call the problem themselves) does not run on the clock: it
+gets no ``aocc_time``, is left out of the time aggregates, and the harness
+warns.  ``compare`` warns when the two files differ in their
+``virtual`` settings and refuses to gate (exit 2) under
+``--fail-on-regression``; it prints the ``aocc_time`` delta next to the
+AOCC one.
+
 Per-arm sweeps and the decision protocol
 ----------------------------------------
 

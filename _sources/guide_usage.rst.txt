@@ -136,9 +136,14 @@ logging settings are **YAML only** — ``config.ini`` has no section for them:
 .. code-block:: yaml
 
    evaluation:
-     method: threaded        # 'threaded', 'processes' or 'dask'
+     method: threaded        # 'threaded', 'processes', 'dask' or 'virtual'
      timeout: 60             # optional per-call limit, seconds (see below)
      sync: false             # true: bit-reproducible seeded runs
+     virtual_workers: 4      # method 'virtual' only: simulated workers q
+     virtual_duration: constant   # 'lognormal' (mean 1, see below) or a number
+     virtual_duration_sigma: 0.5  # log-space sd of 'lognormal'
+     virtual_duration_mean: 1     # nominal mean (the metric's time unit)
+     virtual_policy: async        # or 'sync' (regression mode, see below)
    dask:
      cluster_type: local     # 'local' (auto-start) or 'remote'
      local:
@@ -184,8 +189,35 @@ heuristics see a bad point and every ranking puts it last.
   ``evaluation.sync``, a timeout routes each batch through the thread pool,
   harvested in submission order.
 
+* ``virtual``: the call is simulated (below); one whose simulated duration
+  exceeds the timeout is not evaluated at all and completes, as the ``NaN``
+  placeholder, exactly ``timeout`` virtual time units after its dispatch.
+
 An objective that *raises* is still a failed evaluation (no result,
 ``failed_evaluations`` event).
+
+``evaluation.method = "virtual"`` is a **deterministic simulation of q
+parallel workers** (:mod:`panobbgo.virtual_clock`) for benchmarking
+asynchronous behaviour without real waiting: the objective runs in-process
+when a simulated worker picks a candidate up, and only the durations — and
+hence the order in which results reach the strategy — are simulated.  The
+built-in duration models have mean 1 (virtual time is in units of the mean
+duration); an x-dependent model is set on the strategy
+(``strategy.config.virtual_duration = CallableDuration(f, mean=...)``, or a
+callable ``f(x)`` together with ``virtual_duration_mean``: the nominal mean
+is required).  Each result carries ``Result.t_dispatch`` and
+``Result.t_complete`` (in memory only; the sqlite storage backend does not
+store them).  The same seed gives the same run on every machine.
+
+The default ``virtual_policy: async`` is the asynchronous expensive-evaluation
+policy: a decision at every completion instant, candidates only for the free
+workers (the strategy's ``request_cap``; ``jobs_per_client = 1``); with one
+worker the run is strictly one call at a time.  It is an idealized
+pull-when-free loop that the real threaded loop does not implement yet.
+``virtual_policy: sync`` keeps the synchronous batch policy as a regression
+mode: with ``virtual_workers = 1``, a constant duration **and**
+``dask.local.n_workers = 1`` (which sizes the synchronous batches) it is
+exactly the ``evaluation.sync`` run.
 
 Edit these files to customize behavior.
 

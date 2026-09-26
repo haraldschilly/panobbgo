@@ -148,6 +148,14 @@ class Result:
       each constraint.
     """
 
+    #: Virtual dispatch / completion time of the call under
+    #: ``evaluation.method = "virtual"`` (:mod:`panobbgo.virtual_clock`);
+    #: ``None`` in every other mode.  Class-level defaults, so results
+    #: pickled before these existed still load.  In memory only: the sqlite
+    #: storage backend does not store them.
+    t_dispatch: Optional[float] = None
+    t_complete: Optional[float] = None
+
     def __init__(
         self,
         point: Optional[Point],
@@ -176,6 +184,8 @@ class Result:
         self._cv_norm: Optional[Union[int, float, str]] = cv_norm
         self._timed_out: bool = bool(timed_out)
         self._time: float = time.time()
+        self.t_dispatch = None
+        self.t_complete = None
         # :attr:`cv` memo: ``cv_vec`` and ``cv_norm`` never change after
         # construction, and rankers ask for ``cv`` on every comparison.
         self._cv: Optional[float] = None

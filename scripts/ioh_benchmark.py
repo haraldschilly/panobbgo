@@ -47,6 +47,12 @@ Examples::
     uv run python scripts/ioh_benchmark.py run --noisy cauchy --noisy-severe
     uv run python scripts/ioh_benchmark.py run --highdim          # d = 10, 20; slow
     uv run python scripts/ioh_benchmark.py run --noisy-highdim gauss
+
+    # Parallel behaviour on a virtual clock (deterministic, no waiting):
+    # q simulated workers, AOCC over evaluations AND over virtual time.
+    for q in 1 4 16 64; do
+      uv run python scripts/ioh_benchmark.py run --families --virtual-workers $q --duration lognormal --output virtual_q$q.json
+    done
 """
 
 from __future__ import annotations
@@ -87,6 +93,7 @@ from panobbgo.harness_ioh import (
     run_ioh_harness_multi_seed,
     t_ci,
 )
+from panobbgo.virtual_clock import VirtualSpec
 
 
 def _resolve_battery(args: argparse.Namespace) -> IOHBatterySpec:
@@ -174,11 +181,45 @@ def _resolve_seeds(args: argparse.Namespace) -> Optional[List[int]]:
     return None
 
 
-def _print_eval_mode(sync_eval: bool) -> None:
-    if sync_eval:
+def _print_eval_mode(sync_eval: bool, virtual: Optional[VirtualSpec] = None) -> None:
+    if virtual is not None:
+        print(f"Eval mode: virtual clock {virtual.to_dict()} (deterministic; no real waiting)")
+    elif sync_eval:
         print("Eval mode: sync (deterministic result batches; reproducible seeded runs)")
     else:
         print("Eval mode: async (--no-sync-eval; trajectories depend on thread scheduling)")
+
+
+def _resolve_virtual(args: argparse.Namespace) -> Optional[VirtualSpec]:
+    q = getattr(args, "virtual_workers", None)
+    if q is None:
+        return None
+    return VirtualSpec(
+        workers=int(q),
+        duration=args.duration or "constant",
+        sigma=0.5 if args.duration_sigma is None else float(args.duration_sigma),
+        policy=args.virtual_policy or "async",
+    )
+
+
+def _positive_int(text: str) -> int:
+    try:
+        v = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected an integer >= 1, got {text!r}") from None
+    if v < 1:
+        raise argparse.ArgumentTypeError(f"expected an integer >= 1, got {v}")
+    return v
+
+
+def _non_negative_float(text: str) -> float:
+    try:
+        v = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number >= 0, got {text!r}") from None
+    if not (v >= 0 and np.isfinite(v)):
+        raise argparse.ArgumentTypeError(f"expected a finite number >= 0, got {v}")
+    return v
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -186,6 +227,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     if not strategies:
         print("No strategies selected.", file=sys.stderr)
         return 2
+    virtual = _resolve_virtual(args)
     result: Any
     family = _resolve_family_battery(args)
     if family is not None:
@@ -196,7 +238,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         print(f"Strategies: {[s.name for s in strategies]}")
         print(f"Per-run budget: {[budget_multiplier * d for d in dims]} (dim={dims})")
-        _print_eval_mode(args.sync_eval)
+        _print_eval_mode(args.sync_eval, virtual)
         if _resolve_seeds(args) is not None:
             # The multi-seed roster is an IOHBatterySpec construction;
             # ``benchmarks/family_screen.py`` is the multi-seed instrument
@@ -218,6 +260,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             battery_name=name,
             timeout_s=args.timeout,
             jobs=args.jobs,
+            virtual=virtual,
         )
     else:
         battery = _resolve_battery(args)
@@ -225,7 +268,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"Battery: {battery.name}  dims={battery.dims}  instances={battery.instances}  reps={battery.reps}")
         print(f"Strategies: {[s.name for s in strategies]}")
         print(f"Per-run budget: {[battery.budget_for(d) for d in battery.dims]} (dim={battery.dims})")
-        _print_eval_mode(args.sync_eval)
+        _print_eval_mode(args.sync_eval, virtual)
         if seeds is not None:
             print(f"Seeds ({len(seeds)}): {seeds}")
             result = run_ioh_harness_multi_seed(
@@ -236,6 +279,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 sync_eval=args.sync_eval,
                 timeout_s=args.timeout,
                 jobs=args.jobs,
+                virtual=virtual,
             )
         else:
             result = run_ioh_harness(
@@ -246,6 +290,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                 sync_eval=args.sync_eval,
                 timeout_s=args.timeout,
                 jobs=args.jobs,
+                virtual=virtual,
             )
     result.print_summary()
     if args.output:
@@ -257,6 +302,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 def _compare_single(before: IOHHarnessResult, after: IOHHarnessResult, fail_on_regression: bool) -> int:
     delta = after.mean_aocc - before.mean_aocc
     print(f"mean AOCC:  before={before.mean_aocc:.4f}  after={after.mean_aocc:.4f}  delta={delta:+.4f}")
+    _print_time_delta(before, after)
     print("\n  per strategy (after - before):")
     p_before = before.per_strategy_aocc()
     p_after = after.per_strategy_aocc()
@@ -322,6 +368,7 @@ def _compare_multi(before: IOHMultiSeedResult, after: IOHMultiSeedResult, fail_o
     print(f"  seeds: {', '.join(str(s) for s in common_seeds)}")
     delta = after.mean_aocc - before.mean_aocc
     print(f"mean AOCC:  before={before.mean_aocc:.4f}  after={after.mean_aocc:.4f}  delta={delta:+.4f}")
+    _print_time_delta(before, after)
     print("\n  per strategy (paired by seed; CI95 via t-dist on the per-seed deltas):")
     print(f"    {'strategy':32s}  {'before':>7s}  {'after':>7s}  {'Δmean':>8s}  {'sd':>7s}  {'CI95':>19s}")
     for name, st in stats.items():
@@ -362,6 +409,20 @@ def _compare_multi(before: IOHMultiSeedResult, after: IOHMultiSeedResult, fail_o
     return 0
 
 
+def _virtual_of(d: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The virtual-clock settings of a result file (a multi-seed file: its first seed's)."""
+    if d.get("virtual") is not None:
+        return d["virtual"]
+    results = d.get("results") or []
+    return results[0].get("virtual") if d.get("multi_seed") and results else None
+
+
+def _print_time_delta(before: Any, after: Any) -> None:
+    b, a = before.mean_aocc_time, after.mean_aocc_time
+    if b is not None and a is not None:
+        print(f"AOCC (time): before={b:.4f}  after={a:.4f}  delta={a - b:+.4f}")
+
+
 def cmd_compare(args: argparse.Namespace) -> int:
     d_before: Dict[str, Any] = json.loads(Path(args.before).read_text())
     d_after: Dict[str, Any] = json.loads(Path(args.after).read_text())
@@ -374,6 +435,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
             "different scheduling regimes; deltas are not decision-grade.",
             file=sys.stderr,
         )
+    b_virtual, a_virtual = _virtual_of(d_before), _virtual_of(d_after)
+    if b_virtual != a_virtual:
+        print(
+            f"warning: virtual-clock mismatch ({args.before} virtual={b_virtual}, {args.after} "
+            f"virtual={a_virtual}) — different worker counts, duration models or policies are not "
+            "comparable" + ("; --fail-on-regression refuses to gate." if args.fail_on_regression else "."),
+            file=sys.stderr,
+        )
+        if args.fail_on_regression:
+            return 2
     b_multi = bool(d_before.get("multi_seed"))
     a_multi = bool(d_after.get("multi_seed"))
     if b_multi != a_multi:
@@ -501,6 +572,35 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         "scored on its trajectory so far and marked with a TimeoutError.  A wedged IOH "
         "worker is bounded separately by IOHProblem.call_timeout (300 s per round-trip).",
     )
+    run_p.add_argument(
+        "--virtual-workers",
+        type=_positive_int,
+        default=None,
+        metavar="Q",
+        help="Simulate Q parallel workers on a virtual clock (panobbgo.virtual_clock): deterministic, "
+        "no real waiting.  Also scores AOCC over virtual time (aocc_time).  Default: off.",
+    )
+    run_p.add_argument(
+        "--duration",
+        choices=("constant", "lognormal"),
+        default=None,
+        help="Duration model of the virtual clock (mean 1): constant (default), or lognormal with "
+        "--duration-sigma.  Needs --virtual-workers.",
+    )
+    run_p.add_argument(
+        "--duration-sigma",
+        type=_non_negative_float,
+        default=None,
+        help="Log-space standard deviation of --duration lognormal (default 0.5).  Needs --virtual-workers.",
+    )
+    run_p.add_argument(
+        "--virtual-policy",
+        choices=("async", "sync"),
+        default=None,
+        help="Dispatch policy of the virtual clock: async (default; a decision at every completion, "
+        "candidates only for the free workers) or sync (the synchronous batch policy, a regression mode).  "
+        "Needs --virtual-workers.",
+    )
     run_p.add_argument("--output", help="Save full result as JSON.")
     run_p.add_argument("--quiet", action="store_true", help="Suppress per-run progress lines.")
     local_run.add_jobs_argument(run_p)
@@ -520,6 +620,18 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
 
     local_run.add_arguments(p)
     args = p.parse_args(argv)
+    if getattr(args, "cmd", None) == "run" and args.virtual_workers is None:
+        given = [
+            flag
+            for flag, v in (
+                ("--duration", args.duration),
+                ("--duration-sigma", args.duration_sigma),
+                ("--virtual-policy", args.virtual_policy),
+            )
+            if v is not None
+        ]
+        if given:
+            p.error(f"{', '.join(given)} only apply to the virtual clock: add --virtual-workers Q")
     if apply_hygiene:
         local_run.apply(args)
     return args.func(args)

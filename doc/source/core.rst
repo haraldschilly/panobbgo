@@ -34,6 +34,17 @@ imported lazily so the core carries no Dask dependency. Install the
    :members:
    :undoc-members:
 
+Virtual-clock evaluation
+------------------------
+
+Deterministic simulation of ``q`` parallel workers (``evaluation_method =
+"virtual"``); the benchmark harnesses score AOCC over virtual time with
+:func:`panobbgo.ioh_runner.aocc_virtual_time`.
+
+.. automodule:: panobbgo.virtual_clock
+   :members: DurationModel, ConstantDuration, LogNormalDuration, CallableDuration, make_duration_model,
+      VirtualSpec, VirtualClock, validate_config
+
 Per-call timeout in a child process
 -----------------------------------
 

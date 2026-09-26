@@ -179,10 +179,10 @@ class StrategyRewarding(StrategyBase):
             if self.credit == "ema":
                 heurs = self.heuristics
                 return self._select_ema(heurs, target) if heurs else None
-            return rewarding_select(self.heuristics, target, s, self.config.discount)
+            return rewarding_select(self.heuristics, target, s, self.config.discount, rng=self._exact_split_rng())
 
         return collect_pulls(self, selector, count_outstanding=False)
 
     def _select_ema(self, heurs, target):
         """Probability matching with an exploration floor over heuristics that have points."""
-        return ema_select(heurs, target, self.explore)
+        return ema_select(heurs, target, self.explore, rng=self._exact_split_rng())

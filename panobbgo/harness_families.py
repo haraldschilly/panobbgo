@@ -106,8 +106,10 @@ from panobbgo.harness_ioh import (
     _run_tasks_in_pool,
     _run_tracked,
     _TrackedRun,
+    warn_missing_time_scores,
 )
 from panobbgo.lib.families import FailureRegion, Family, FamilyConfig, FamilyLike, make_family_instances
+from panobbgo.virtual_clock import VirtualSpec
 
 #: Penalty coefficient of :class:`DefaultConstraintHandler
 #: <panobbgo.lib.constraints.DefaultConstraintHandler>`.  Pinned here as a
@@ -348,6 +350,7 @@ def _run_one(
     log_hi: float,
     sync_eval: bool,
     timeout_s: Optional[float] = None,
+    virtual: Optional[VirtualSpec] = None,
 ) -> IOHRunRecord:
     """Run one strategy on one family instance; same driver as ``harness_ioh._run_one``."""
     t0 = time.time()
@@ -368,6 +371,7 @@ def _run_one(
             log_lo=log_lo,
             log_hi=log_hi,
             timeout_s=timeout_s,
+            virtual=virtual,
         )
     except Exception as e:  # noqa: BLE001 — record and continue, as the IOH track does
         tracked.error = f"{type(e).__name__}: {e}"
@@ -388,6 +392,7 @@ def _run_one(
         error=tracked.error,
         trace_evals=tracked.trace_evals,
         trace_fx=tracked.trace_fx,
+        aocc_time=tracked.aocc_time,
     )
 
 
@@ -410,6 +415,7 @@ def run_family_harness(
     battery_name: str = "families",
     timeout_s: Optional[float] = None,
     jobs: int = 1,
+    virtual: Optional[VirtualSpec] = None,
 ) -> IOHHarnessResult:
     """Score every spec on every instance and return an AOCC result.
 
@@ -448,6 +454,10 @@ def run_family_harness(
         processes, as in :func:`run_ioh_harness
         <panobbgo.harness_ioh.run_ioh_harness>`; the records are the same
         for every ``jobs`` (except ``elapsed_s``) and in cell order.
+    virtual
+        Run on the virtual clock (:class:`~panobbgo.virtual_clock.VirtualSpec`)
+        and score ``aocc_time`` too, as in :func:`run_ioh_harness
+        <panobbgo.harness_ioh.run_ioh_harness>`.
 
     Returns
     -------
@@ -478,6 +488,7 @@ def run_family_harness(
                     log_hi=log_hi,
                     sync_eval=sync_eval,
                     timeout_s=timeout_s,
+                    virtual=virtual,
                 )
                 if jobs > 1:
                     tasks.append(task)
@@ -495,14 +506,18 @@ def run_family_harness(
     if tasks:
         runs = _run_tasks_in_pool(tasks, jobs, total, progress, fn=_run_one)
 
-    return IOHHarnessResult(
+    result = IOHHarnessResult(
         battery_name=battery_name,
         problem_kind="families",
         log_lo=log_lo,
         log_hi=log_hi,
-        sync_eval=sync_eval,
+        sync_eval=sync_eval or virtual is not None,
         runs=runs,
+        virtual=None if virtual is None else virtual.to_dict(),
     )
+
+    warn_missing_time_scores(result)
+    return result
 
 
 def describe_instances(instances: Sequence[Tuple[str, Family]]) -> Dict[str, Any]:

@@ -48,6 +48,6 @@ class StrategyRoundRobin(StrategyBase):
             # ``produce``, not ``get_points``: an on-demand arm (a solver
             # bridge) has an empty queue between round trips and would be
             # skipped forever beside any arm that keeps one stocked.
-            points.extend(hs[self.current].produce(self.size))
+            points.extend(hs[self.current].produce(self.cap_request(self.size)))
             attempts += 1
         return points

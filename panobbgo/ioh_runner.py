@@ -33,7 +33,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 
@@ -94,6 +94,69 @@ def aocc(
     log_p = np.clip(log_p, log_lo, log_hi)
     normalised_gap = (log_p - log_lo) / (log_hi - log_lo)
     return float(1.0 - normalised_gap.mean())
+
+
+def aocc_virtual_time(
+    timeline: Sequence[Tuple[float, float]],
+    *,
+    budget: int,
+    workers: int,
+    f_opt: float = 0.0,
+    mean_duration: float = 1.0,
+    log_lo: float = AOCC_LOG_LO,
+    log_hi: float = AOCC_LOG_HI,
+) -> float:
+    r"""AOCC over *virtual time* for a run on ``workers`` simulated workers.
+
+    ``timeline`` holds one ``(t_complete, value)`` pair per evaluation: the
+    virtual time at which its result became known and the metric's value
+    for it, ``NaN`` for a spent call that failed or timed out (as
+    :attr:`IOHTracker.timeline` records them, :mod:`panobbgo.virtual_clock`).  The best-so-far at time :math:`t` is the
+    minimum over the evaluations completed by :math:`t` (``+inf`` before the
+    first).  It is sampled on the grid
+
+    .. math::  t_j = j \cdot \bar d / q, \qquad j = 1, \dots, B
+
+    (:math:`\bar d` = ``mean_duration``, :math:`q` = ``workers``,
+    :math:`B` = ``budget``) and scored with :func:`aocc`.  Time is thus in
+    units of the mean duration, the horizon is :math:`B \bar d / q` — the
+    time :math:`q` perfectly busy workers need to spend the budget — and
+    the score is the right Riemann sum of the log-precision curve over it,
+    with :math:`B` samples like the per-evaluation AOCC.  Evaluations
+    completing after the horizon are not scored; a run that ends early is
+    held at its last best value.
+
+    At ``workers = 1`` with a constant duration of ``mean_duration`` the grid
+    points are exactly the completion times, so the value equals
+    :func:`aocc` over evaluations.  Idle workers, stale candidates and slow
+    points (under an x-dependent duration model) all lower it.
+
+    Structural caps — read comparisons *across* ``q`` with them in mind:
+    no call can complete before :math:`\bar d` (with a constant duration),
+    so the first :math:`q - 1` grid points are always ``+inf`` (the worst
+    gap), which caps the score at about :math:`1 - (q-1)/B` of the ideal;
+    and with a heavy-tailed duration model (log-normal) the last calls
+    usually complete after the horizon and are not scored.  Both effects
+    grow with ``q``.  Comparisons at the *same* ``q`` and duration model are
+    unaffected.
+    """
+    budget = int(budget)
+    if budget <= 0 or not timeline:
+        return 0.0
+    if int(workers) < 1 or not mean_duration > 0:
+        raise ValueError("workers must be >= 1 and mean_duration > 0")
+    arr = np.asarray(timeline, dtype=np.float64).reshape(-1, 2)
+    order = np.argsort(arr[:, 0], kind="stable")
+    times = arr[order, 0]
+    vals = arr[order, 1]
+    vals = np.where(np.isnan(vals), np.inf, vals)
+    best = np.minimum.accumulate(vals)
+    grid = np.arange(1, budget + 1, dtype=np.float64) * (float(mean_duration) / int(workers))
+    # A completion at exactly a grid time counts at that time; the relative
+    # slack absorbs the rounding of accumulated virtual times.
+    n_done = np.searchsorted(times, grid * (1.0 + 1e-9), side="right")
+    sampled = np.where(n_done > 0, best[np.maximum(n_done - 1, 0)], np.inf)
+    return aocc(sampled.tolist(), f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +265,17 @@ class IOHTracker:
         self.on_timeout: Optional[Callable[[], None]] = None
         #: Evaluations admitted against the budget: recorded plus in flight.
         self._reserved: int = 0
+        #: Virtual-clock observer state (:mod:`panobbgo.virtual_clock`): while
+        #: a simulated call runs, the key of that call; its measurements wait
+        #: in ``_deferred`` until the call *completes* (:meth:`complete_call`),
+        #: so the traces are recorded in completion order.
+        self._defer_key: Optional[int] = None
+        self._deferred: Dict[int, List[Tuple[np.ndarray, Tuple[float, ...]]]] = {}
+        #: ``(t_complete, value)`` per counted evaluation of a virtual-clock
+        #: run, in completion order — ``value`` is the one the metric scores
+        #: (the true value on a noisy problem), ``NaN`` for a spent call that
+        #: failed or timed out.  Input of :func:`aocc_virtual_time`.
+        self.timeline: List[Tuple[float, float]] = []
 
         # Noisy problems expose ``eval_pair(x) -> (noisy, true)``: both
         # values out of *one* inner evaluation, so the true trace costs no
@@ -258,12 +332,75 @@ class IOHTracker:
                 self._reserved -= 1  # the slot was never used
             raise
         with self._lock:
-            self.n_evals += 1
-            self._record(x, measured)
+            if self._defer_key is not None:
+                # A simulated call: counted when it completes (complete_call).
+                self._deferred.setdefault(self._defer_key, []).append(
+                    (np.asarray(x, dtype=np.float64).copy(), measured)
+                )
+            else:
+                self.n_evals += 1
+                self._record(x, measured)
         return measured[0]
 
+    # ── virtual-clock observer (panobbgo.virtual_clock) ──
+
+    def begin_call(self, key: int) -> None:
+        """A simulated call ``key`` starts evaluating: defer what it measures."""
+        self._defer_key = int(key)
+
+    def end_call(self) -> None:
+        """The objective call of the current simulated call returned (or raised)."""
+        self._defer_key = None
+
+    def complete_call(self, key: int, t_complete: float, ok: bool) -> None:
+        """Simulated call ``key`` completed at virtual time ``t_complete``; fold it into the traces.
+
+        A successful call records its deferred measurement(s).  A failed or
+        timed-out one (``ok`` false) is one spent, non-improving evaluation
+        (:meth:`record_spent`): it used a budget slot and a worker, whatever
+        it may have measured before failing — extra slots its measurements
+        reserved are released.  Called in completion order.
+        """
+        with self._lock:
+            entries = self._deferred.pop(int(key), [])
+            if ok and entries:
+                for x, measured in entries:
+                    self.n_evals += 1
+                    self._record(x, measured)
+                    self.timeline.append((float(t_complete), float(measured[1])))
+                return
+            # The failed call's measurements give their slots back; it is
+            # charged exactly one below.
+            self._reserved -= len(entries)
+        self.record_spent(t_complete)
+
+    def record_spent(self, t_complete: float) -> None:
+        """Count one spent, non-improving evaluation (a failed or timed-out call) completing at ``t_complete``.
+
+        Subject to the budget and the wall-clock deadline like any evaluation.
+        """
+        fire_timeout = False
+        with self._lock:
+            if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
+                self.timed_out = True
+                fire_timeout = True
+            if not self.timed_out and self._reserved < self.budget:
+                self._reserved += 1
+                self._spend(float(t_complete))
+        if fire_timeout and self.on_timeout is not None:
+            self.on_timeout()
+
+    def _spend(self, t_complete: float) -> None:
+        """One spent evaluation: the traces repeat their last value (called under the lock)."""
+        self.n_evals += 1
+        self.best_so_far.append(self.best_fx)
+        if self.has_true:
+            self.best_so_far_true.append(self.best_true_fx)
+            self.best_so_far_reco.append(self._incumbent_true)
+        self.timeline.append((t_complete, float("nan")))
+
     def _measure(self, x: np.ndarray) -> Tuple[float, ...]:
-        """Evaluate ``x`` (outside the lock); element 0 goes back to the strategy."""
+        """Evaluate ``x`` (outside the lock); element 0 goes back to the strategy, element 1 is scored."""
         if self._eval_pair is not None:
             noisy, true_fx = self._eval_pair(x)
             return float(noisy), float(true_fx)

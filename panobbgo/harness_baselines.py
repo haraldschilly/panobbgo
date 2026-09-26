@@ -80,8 +80,11 @@ Design notes
   :class:`AskTellBaselineStrategy` drives it synchronously with batch size
   ``q = config.batch_size`` (default 1): ask ``q`` points, evaluate them
   in dispatch order, tell them.  With ``q > 1`` the results frame is in
-  dispatch order.  A virtual-clock parallel simulator can drive the same
-  adapter asynchronously via :meth:`AskTellBaselineStrategy.make_adapter`.
+  dispatch order.  On the virtual clock (a harness ``virtual=VirtualSpec``)
+  the same adapter is driven asynchronously with ``q`` simulated workers
+  (:func:`panobbgo.virtual_clock.run_ask_tell`): ask for up to the free
+  workers, evaluate at dispatch, tell at completion time — so these
+  baselines get ``aocc_time`` too.
 
 Usage
 -----
@@ -597,8 +600,18 @@ class AskTellBaselineStrategy(BaselineStrategy):
         """
         raise NotImplementedError
 
+    #: Evaluation observer of a virtual-clock run (an IOH tracker), set by
+    #: :meth:`VirtualSpec.apply <panobbgo.virtual_clock.VirtualSpec.apply>`.
+    _virtual_observer: Any = None
+
+    @property
+    def _virtual(self) -> bool:
+        """Run on the virtual clock (``VirtualSpec.apply`` set ``evaluation_method = "virtual"``)?"""
+        return getattr(self.config, "evaluation_method", None) == "virtual"
+
     def _optimize(self, log: _EvaluationLog) -> None:
-        q = max(1, int(self.config.batch_size))
+        # On the virtual clock ``q`` is the number of simulated workers.
+        q = max(1, int(getattr(self.config, "virtual_workers", 1) if self._virtual else self.config.batch_size))
         seed = self._run_seed()
         # pycma and Nevergrad's recast CMA draw from numpy's global RNG (the
         # latter in a background thread, seeded from the clock unless the
@@ -609,11 +622,57 @@ class AskTellBaselineStrategy(BaselineStrategy):
         adapter: Optional[AskTellAdapter] = None
         try:
             adapter = self.make_adapter(seed, log.max_eval, q)
-            self._drive(adapter, log, q)
+            if self._virtual:
+                self._drive_virtual(adapter, log, q, seed)
+            else:
+                self._drive(adapter, log, q)
         finally:
             if adapter is not None:
                 adapter.close()
             np.random.set_state(global_state)
+
+    def _drive_virtual(self, adapter: AskTellAdapter, log: _EvaluationLog, q: int, seed: int) -> None:
+        """Drive the adapter on the virtual clock with ``q`` simulated workers.
+
+        :func:`panobbgo.virtual_clock.run_ask_tell`: under the default async
+        policy it asks for up to the free workers at every completion
+        instant, evaluates at dispatch and tells at completion time, and
+        feeds the tracker (``_virtual_observer``) in completion order, so
+        the baseline gets ``aocc_time`` like a panobbgo strategy.  The
+        duration stream is the one panobbgo strategies use
+        (:data:`~panobbgo.virtual_clock.RNG_STREAM_KEY` of the run seed).
+        The results frame stays in dispatch order.
+        """
+        from panobbgo.core import keyed_rng
+        from panobbgo.virtual_clock import RNG_STREAM_KEY, _model_of, run_ask_tell
+
+        cfg = self.config
+        objective = _make_objective(self.problem, log)
+        timeout = getattr(cfg, "evaluation_timeout", None)
+
+        def ask(n: int) -> List[Tuple[int, np.ndarray]]:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                return adapter.ask(n)
+
+        def tell(key: int, fx: float) -> None:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                adapter.tell(key, fx)
+
+        run_ask_tell(
+            ask,
+            tell,
+            objective,
+            workers=q,
+            model=_model_of(cfg),
+            rng=keyed_rng(seed, RNG_STREAM_KEY),
+            budget=log.max_eval,
+            policy=getattr(cfg, "virtual_policy", "async"),
+            timeout=float(timeout) if timeout else None,
+            observer=self._virtual_observer,
+            reraise=(_BudgetExhausted,),
+        )
 
     def _drive(self, adapter: AskTellAdapter, log: _EvaluationLog, q: int) -> None:
         objective = _make_objective(self.problem, log)

@@ -258,6 +258,10 @@ class QuadraticWlsModel(HeuristicSubprocess):
                 self.logger.debug("QuadraticWlsModel: terminating the worker failed: %s" % exc)
 
     def _sync(self) -> bool:
+        # ``_sync_mode``: evaluation.sync, or the virtual clock (which implies it).
+        sync = getattr(self.strategy, "_sync_mode", None)
+        if isinstance(sync, bool):
+            return sync
         return bool(getattr(self.config, "sync_evaluation", False))
 
     def _worker_alive(self) -> bool:

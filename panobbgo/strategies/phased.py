@@ -438,7 +438,7 @@ class StrategyPhased(StrategyBase):
             if not phase_heurs:
                 break
             current = current % len(phase_heurs)
-            new_points = phase_heurs[current].produce(size)
+            new_points = phase_heurs[current].produce(self.cap_request(size))
             points.extend(new_points)
             current = (current + 1) % len(phase_heurs)
             attempts += 1
@@ -452,13 +452,19 @@ class StrategyPhased(StrategyBase):
         """Rewarding selection logic: EMA probability matching, or the legacy rule (``credit="legacy"``)."""
         credit, explore, discount = self._rewarding_params(strat_kwargs)
         if credit == "ema":
-            return collect_pulls(self, lambda target: ema_select(phase_heurs, target, explore), count_outstanding=False)
+            return collect_pulls(
+                self,
+                lambda target: ema_select(phase_heurs, target, explore, rng=self._exact_split_rng()),
+                count_outstanding=False,
+            )
         try:
             s = float(self.config.smooth)
         except (ValueError, TypeError):
             s = 0.5
         return collect_pulls(
-            self, lambda target: rewarding_select(phase_heurs, target, s, discount), count_outstanding=False
+            self,
+            lambda target: rewarding_select(phase_heurs, target, s, discount, rng=self._exact_split_rng()),
+            count_outstanding=False,
         )
 
     def _execute_ucb(self, phase_heurs, strat_kwargs):
@@ -505,6 +511,10 @@ class StrategyPhased(StrategyBase):
         policy = _policy(strat_cls)
         if policy is None:  # _validate_phases rejects these; kept as a guard
             raise ValueError(f"Unknown strategy class: {strat_cls}")
+        if self.request_cap is not None:
+            # The phase budget caps the request too, so the selector's
+            # bookkeeping never covers points trimmed just below.
+            self.request_cap = min(self.request_cap, remaining)
         points = getattr(self, f"_execute_{policy}")(phase_heurs, strat_kwargs)
 
         if len(points) > remaining:

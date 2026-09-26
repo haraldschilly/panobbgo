@@ -406,7 +406,11 @@ uv run python scripts/ioh_benchmark.py run --families --log-features --output fe
         (d = 30 / 40: 992 / 1722), else `null`; a condition estimate near
         that limit is noisy and grows with d, and `coverage_ratio` of a
         uniform design grows with d too (boundary effects): compare both
-        within one d.
+        within one d.  `sep_ratio`, `log10_cond` and `hess_pos` are `null`
+        unless `r2_quad > 0.05`.  The fits run in coordinates centred and
+        scaled at the sample (standardised normal equations for large
+        designs, `lstsq` on a near-singular factor), so a converged,
+        clustered archive is fitted as accurately as a spread-out one.
     *   `traj`: rank progress rate, stall, recent improvements, failure
         share.
     *   `arms` (per heuristic): share, recent credit, best rank, and the

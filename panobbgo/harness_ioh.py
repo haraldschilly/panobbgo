@@ -1694,6 +1694,19 @@ def refuse_sealed_features(log_features: Optional[FeatureLogSpec], name: str) ->
         raise ValueError(f"feature logging is refused on the sealed battery {name!r}: never train on the sealed set")
 
 
+def _is_sealed_problem(problem: Any) -> bool:
+    """A sealed problem: marked ``sealed`` (families), or an IOH problem on a sealed MA-BBOB id (wrappers unwrapped)."""
+    p = problem
+    for _ in range(8):
+        if getattr(p, "sealed", False) or getattr(p, "ioh_instance", None) in SEALED_MABBOB_INSTANCES:
+            return True
+        inner = getattr(p, "inner", None)
+        if inner is None or inner is p:
+            return False
+        p = inner
+    return False
+
+
 def wall_timeout_for(strategy_spec: StrategySpec, timeout_s: Optional[float]) -> Optional[float]:
     """The per-run wall-clock deadline for ``strategy_spec``: ``None`` for a ``no_wall_timeout`` class.
 
@@ -1758,7 +1771,7 @@ def _run_tracked_unpinned(
     np.random.seed(seed)
     logger: Optional[FeatureLogger] = None
     try:
-        if getattr(problem, "sealed", False):
+        if _is_sealed_problem(problem):
             # Defence in depth behind the battery-level refusals (inside the
             # ``try``: the tracker is restored either way).
             refuse_sealed_features(log_features, str(getattr(problem, "family", problem)))

@@ -70,6 +70,14 @@ def pin_blas_env(threads: int = BLAS_THREADS) -> None:
         os.environ[var] = str(int(threads))
 
 
+def blas_thread_counts() -> List[int]:
+    """Thread counts of the BLAS libraries loaded in this process (loads numpy first)."""
+    import numpy  # noqa: F401  # pyright: ignore[reportUnusedImport]  (loads BLAS for threadpoolctl)
+    from threadpoolctl import threadpool_info
+
+    return [int(lib["num_threads"]) for lib in threadpool_info() if lib.get("user_api") == "blas"]
+
+
 def blas_limit(threads: int = BLAS_THREADS) -> Any:
     """``threadpoolctl.threadpool_limits(threads)``: a context manager, or a global limit when not entered."""
     from threadpoolctl import threadpool_limits

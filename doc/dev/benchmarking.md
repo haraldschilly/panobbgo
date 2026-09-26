@@ -20,10 +20,15 @@ with the full background is
 ## Evaluations, not wall time
 
 Progress is counted in **objective evaluations**.  Every measurement runs
-with `sync_eval`, seeded, so a run is bit-reproducible and independent of
-machine speed and load.  That is why a busy laptop and a GitHub runner give
-the same numbers, and why time-based termination or stall guards are never
-a quality signal.
+with `sync_eval`, seeded, so a run is bit-reproducible on one machine and
+independent of its speed and load, which is why time-based termination or
+stall guards are never a quality signal.  It is **not** independent of the
+floating-point environment: GitHub runners come in at least two FP classes,
+even within one workflow run, and last-bit BLAS kernel differences,
+amplified chaotically along a trajectory, move a cell by up to about
+0.08 AOCC.  **A paired comparison is valid only when both sides ran in the
+same floating-point environment; until the FP environment is pinned
+(follow-up), compare laptop vs laptop, or runs from one runner class.**
 
 ## Evidence for a PR
 

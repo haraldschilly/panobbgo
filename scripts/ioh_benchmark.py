@@ -507,6 +507,13 @@ def cmd_compare(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    for key, what in (("sealed", "one side is the sealed test set"), ("blas_threads", "BLAS thread counts differ")):
+        if d_before.get(key) != d_after.get(key):
+            print(
+                f"warning: {key} mismatch ({args.before} {key}={d_before.get(key)}, {args.after} "
+                f"{key}={d_after.get(key)}): {what}.",
+                file=sys.stderr,
+            )
     b_multi = bool(d_before.get("multi_seed"))
     a_multi = bool(d_after.get("multi_seed"))
     if b_multi != a_multi:

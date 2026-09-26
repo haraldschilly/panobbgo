@@ -147,7 +147,14 @@ def test_ioh_cli_accepts_the_external_strategy_set():
     assert [s.name for s in cli._resolve_strategies(args)] == names
 
 
-def _ioh_shard(path: Path, seeds, battery: str = "ioh-quick", strategy: str = "A", aocc: Optional[float] = None):
+def _ioh_shard(
+    path: Path,
+    seeds,
+    battery: str = "ioh-quick",
+    strategy: str = "A",
+    aocc: Optional[float] = None,
+    blas_threads: Optional[int] = None,
+):
     results = []
     for seed in seeds:
         run = IOHRunRecord(
@@ -165,7 +172,9 @@ def _ioh_shard(path: Path, seeds, battery: str = "ioh-quick", strategy: str = "A
             seed=seed,
         )
         results.append(IOHHarnessResult(battery, "MA-BBOB", -8, 2, [run], sync_eval=True))
-    multi = IOHMultiSeedResult(battery, "MA-BBOB", -8, 2, list(seeds), results, sync_eval=True)
+    multi = IOHMultiSeedResult(
+        battery, "MA-BBOB", -8, 2, list(seeds), results, sync_eval=True, blas_threads=blas_threads
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(multi.to_json())
 
@@ -307,6 +316,17 @@ def test_the_workflow_names_every_suite_and_installs_its_extras():
     assert "if" not in install
     assert install["env"]["EXTRAS"] == "${{ matrix.extras }}" and "$EXTRAS" in install["run"]
     assert "--extra dev" in install["run"] and "uv sync" in install["run"]
+
+
+def test_aggregate_keeps_blas_threads_and_refuses_a_mix(tmp_path):
+    _ioh_shard(tmp_path / "a" / "ioh-quick" / "ioh-quick_shard01.json", [42], blas_threads=1)
+    _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], blas_threads=1)
+    rb.aggregate(tmp_path, tmp_path / "ref")
+    merged = IOHMultiSeedResult.from_dict(json.loads((tmp_path / "ref" / "ref_ioh_quick.json").read_text()))
+    assert merged.blas_threads == 1
+    _ioh_shard(tmp_path / "b" / "ioh-quick" / "ioh-quick_shard02.json", [7], blas_threads=None)
+    with pytest.raises(ValueError, match="BLAS thread"):
+        rb.aggregate(tmp_path, tmp_path / "ref2")
 
 
 def test_aggregate_rejects_a_seed_measured_twice(tmp_path):

@@ -178,12 +178,22 @@ IOH and family mean AOCC and per spec, plus the release tag and URL).
 **The raw `ref_*` files are not committed** (Harald, 2026-09-26; ~14 MB
 per run).  They live in a GitHub release that the job creates:
 
-*   **Tag** `rebaseline-<UTC date>` on the measured commit, marked
-    *pre-release* and never *latest*, titled "Re-baseline <date> (reference
-    data)".  A tag that already belongs to another run gets
-    `-run<RUN_ID>` appended; `-f release=<tag>` names it explicitly
-    (a smoke test: `-f release=rebaseline-smoke-<date>`), `-f release=none`
-    skips it.
+*   **Tag** `rebaseline-<UTC date the run started>` (the earliest shard
+    start) on the measured commit, marked *pre-release* and never
+    *latest*, titled "Re-baseline <date> (reference data)".  The release
+    notes carry the run id as a marker: a release with this run's marker is
+    reused under whatever tag it has, so re-running the job never
+    duplicates it.  A taken tag (another run's release, or a bare git tag
+    such as the burned `rebaseline-2026-09-26`) gets `-run<RUN_ID>`
+    appended; if that is taken too, the step fails.  An existing tag must
+    point at the measured commit.  `-f release=<tag>` names the release
+    explicitly (it must start with `rebaseline-`; a smoke test:
+    `-f release=rebaseline-smoke-<date>`), `-f release=none` skips it.
+    With `auto`, a run with failed shards is not published (the step
+    fails; the artifact is still uploaded) — publish it under an explicit
+    tag if it is still wanted.  A local `publish` without a single run id
+    needs `--tag` and has no fallback.  Only one aggregate job publishes
+    at a time (`concurrency: rebaseline-release`).
 *   **Assets**: `<tag>.tar.gz` (every `ref_*.json`, flat), and
     `ref_MANIFEST.json` and `SUMMARY.json` separately.
 *   **Immutable.**  The repository has immutable releases enabled: once
@@ -197,7 +207,10 @@ per run).  They live in a GitHub release that the job creates:
 
 Commit only the small files: download the release into
 `planning/results/<date>/` (`.gitignore` excludes the raw `ref_*` there)
-and add `SUMMARY.json` and `ref_MANIFEST.json`:
+and add `SUMMARY.json` and `ref_MANIFEST.json`.  `fetch` unpacks only
+`<tag>.tar.gz` and never overwrites an existing `SUMMARY.json` or
+manifest: identical copies are skipped, differing ones kept with a
+warning.
 
 ```bash
 uv run python scripts/rebaseline.py fetch rebaseline-2026-09-26-run36228301268   # -> planning/results/2026-09-26/

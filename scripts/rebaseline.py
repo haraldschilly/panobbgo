@@ -43,9 +43,11 @@ The engine behind ``.github/workflows/rebaseline.yml`` (``doc/dev/benchmarking.m
 ``summarize``
     (Re)write ``SUMMARY.json`` of an aggregated directory.
 
-Release convention: tag ``rebaseline-<UTC date>`` (``rebaseline-<date>-run<id>``
-when that tag already belongs to another workflow run), a *pre-release* never
-marked latest, the tag on the measured commit.  Assets: ``<tag>.tar.gz``
+Release convention: tag ``rebaseline-<UTC date the run started>``
+(``rebaseline-<date>-run<id>`` when that tag is taken, by another release or a
+bare git tag), a *pre-release* never marked latest, the tag on the measured
+commit.  A release whose notes carry the run's marker is reused, never
+duplicated.  Assets: ``<tag>.tar.gz``
 (every ``ref_*.json``, flat), ``ref_MANIFEST.json`` and ``SUMMARY.json``.
 The repository has immutable releases: a published release never changes,
 and the tag of a deleted one cannot be used again.
@@ -506,7 +508,7 @@ def write_summary(out_dir: Path, release: Optional[Dict[str, str]] = None) -> Di
 
 def summary_markdown(summary: Dict[str, Any]) -> str:
     """Markdown rendering of a summary: the release notes and the workflow's job summary."""
-    run = ", ".join(summary.get("github_run_id") or []) or "local"
+    run = run_label(summary)
     sha = ", ".join(s[:7] for s in summary.get("git_sha") or []) or "unknown"
     lines = [
         "Reference data of a re-baseline (`.github/workflows/rebaseline.yml`), not a software release.",
@@ -532,7 +534,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         "Unpack locally: `uv run python scripts/rebaseline.py fetch <tag>` (doc/dev/benchmarking.md).",
         "",
         # resolve_tag() recognises the release of its own run by this marker.
-        f"<!-- rebaseline-run: {run} -->",
+        _marker(run),
     ]
     return "\n".join(lines) + "\n"
 
@@ -563,43 +565,120 @@ def _repo_args(repo: Optional[str]) -> List[str]:
     return ["--repo", repo] if repo else []
 
 
-def default_tag(summary: Dict[str, Any]) -> str:
-    """``rebaseline-<UTC date of the aggregation>``."""
-    created = summary.get("created") or datetime.now(tz=timezone.utc).isoformat()
-    return f"{TAG_PREFIX}{created[:10]}"
+def default_tag(manifest: Dict[str, Any]) -> str:
+    """``rebaseline-<UTC date the run started>``: the earliest shard start, else the aggregation time.
+
+    Keyed to the start, not the aggregation, so a re-run of the aggregate
+    job after midnight names the same release.
+    """
+    starts = [m["started"] for m in manifest.get("shards", []) if m.get("started")]
+    stamp = min(starts, default=None) or manifest.get("created") or datetime.now(tz=timezone.utc).isoformat()
+    return f"{TAG_PREFIX}{stamp[:10]}"
 
 
 #: Release states :func:`resolve_tag` reports.
 ABSENT, DRAFT, PUBLISHED = "absent", "draft", "published"
 
 
-def _release_state(tag: str, repo: Optional[str]) -> Tuple[str, str]:
-    """``(state, notes)`` of the release ``tag``; ``(ABSENT, "")`` when there is none."""
-    view = _gh(["release", "view", tag, "--json", "body,isDraft", *_repo_args(repo)], check=False)
-    if view.returncode != 0:
-        return ABSENT, ""
-    data = json.loads(view.stdout or "{}")
-    return (DRAFT if data.get("isDraft") else PUBLISHED), data.get("body") or ""
+def run_label(summary: Dict[str, Any]) -> str:
+    """The run a summary comes from, as its release notes' marker names it (``local`` without one)."""
+    return ", ".join(summary.get("github_run_id") or []) or "local"
 
 
-def resolve_tag(tag: str, run_id: str, repo: Optional[str]) -> Tuple[str, str]:
-    """``(tag, state)``: ``tag`` itself when it is free or already this run's release.
+def _marker(label: str) -> str:
+    return f"<!-- rebaseline-run: {label} -->"
 
-    A release of another workflow run is never touched: this run gets
-    ``<tag>-run<run_id>`` instead.  Without a run id (a local publish) an
-    existing release counts as this run's.
+
+def repo_name(repo: Optional[str]) -> str:
+    """``owner/name``; default: this checkout's GitHub repository."""
+    if repo:
+        return repo
+    return _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).stdout.strip()
+
+
+def list_releases(repo: str) -> Dict[str, Tuple[str, str]]:
+    """Every release (drafts included) as ``tag -> (state, notes)``.
+
+    One listing instead of ``gh release view`` per tag: a failed call raises
+    rather than passing for "no such release".
     """
-    state, body = _release_state(tag, repo)
-    if state == ABSENT or not run_id or f"rebaseline-run: {run_id} -->" in body:
-        return tag, state
-    alt = f"{tag}-run{run_id}"
-    return alt, _release_state(alt, repo)[0]
+    jq = ".[] | {tag: .tag_name, draft: .draft, body: .body}"
+    out = _gh(["api", "--paginate", f"repos/{repo}/releases?per_page=100", "--jq", jq]).stdout
+    releases = {}
+    for line in out.splitlines():
+        if line.strip():
+            r = json.loads(line)
+            releases[r["tag"]] = (DRAFT if r.get("draft") else PUBLISHED, r.get("body") or "")
+    return releases
 
 
-def release_url(repo: Optional[str], tag: str) -> str:
-    """The release page (``repo`` = ``owner/name``; default: this checkout's GitHub repository)."""
-    if not repo:
-        repo = _gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).stdout.strip()
+def tag_commit(tag: str, repo: str) -> Optional[str]:
+    """The commit the git tag ``tag`` points at, or ``None`` when there is no such tag.
+
+    Uses the exact-match endpoint ``git/ref/`` (``git/refs/`` also returns
+    prefix matches).  Anything but a 404 raises.
+    """
+    proc = _gh(["api", f"repos/{repo}/git/ref/tags/{tag}"], check=False)
+    if proc.returncode != 0:
+        if "HTTP 404" in proc.stderr:
+            return None
+        raise RuntimeError(f"cannot look up tag {tag}: {proc.stderr.strip()}")
+    obj = json.loads(proc.stdout)["object"]
+    if obj["type"] == "tag":  # annotated: dereference to the commit
+        obj = json.loads(_gh(["api", f"repos/{repo}/git/tags/{obj['sha']}"]).stdout)["object"]
+    return obj["sha"]
+
+
+def _same_commit(a: str, b: str) -> bool:
+    return a.startswith(b) or b.startswith(a)
+
+
+def resolve_tag(
+    summary: Dict[str, Any], tag: Optional[str], repo: str, target: Optional[str], default: str
+) -> Tuple[str, str]:
+    """``(tag, state)`` of the release this run publishes to (``tag`` if given, else ``default``).
+
+    *   A release whose notes carry this run's marker is this run's: it is
+        reused (whatever its tag, so a re-run after midnight does not publish
+        a duplicate).  Only with a single workflow run id is every release
+        searched; otherwise only the explicit ``tag``.
+    *   Otherwise the tag must be free: no release and no git tag.  A taken
+        tag (another run's release, or a bare tag, e.g. one burned by a
+        deleted immutable release) gives ``<tag>-run<run_id>``, which must
+        be free in turn.
+    *   Without a single run id (a local publish) ``tag`` is required and
+        there is no fallback.
+    *   A tag that exists must point at ``target``.
+    """
+    runs = summary.get("github_run_id") or []
+    run_id = runs[0] if len(runs) == 1 else ""
+    if not run_id and not tag:
+        raise ValueError("no single workflow run id in the manifest: name the release with --tag")
+    releases = list_releases(repo)
+    mine = _marker(run_label(summary))
+    own = [t for t, (_, body) in releases.items() if mine in body and (run_id or t == tag)]
+    if len(own) > 1:
+        raise ValueError(f"several releases carry this run's marker: {sorted(own)}")
+    if own:
+        chosen, state = own[0], releases[own[0]][0]
+    else:
+        chosen = tag or default
+        if chosen in releases or tag_commit(chosen, repo) is not None:
+            if not run_id:
+                raise ValueError(f"tag {chosen} is taken (a release or a bare git tag); choose another --tag")
+            chosen = f"{chosen}-run{run_id}"
+            if chosen in releases or tag_commit(chosen, repo) is not None:
+                raise ValueError(f"tag {chosen} is taken too; name the release with --tag")
+        state = ABSENT
+    if state != PUBLISHED and target:
+        sha = tag_commit(chosen, repo)
+        if sha is not None and not _same_commit(sha, target):
+            raise ValueError(f"tag {chosen} points at {sha}, not at the measured commit {target}")
+    return chosen, state
+
+
+def release_url(repo: str, tag: str) -> str:
+    """The release page of ``tag`` in ``repo`` (``owner/name``)."""
     return f"https://github.com/{repo}/releases/tag/{tag}"
 
 
@@ -624,29 +703,42 @@ def publish(out_dir: Path, tag: Optional[str], repo: Optional[str], target: Opti
     attached to a draft, so the release is created as a draft, filled, then
     published.  A draft left by an interrupted attempt is resumed; this run's
     release that is already published cannot change and is left as it is.
+    Which tag: :func:`resolve_tag`.  With failed shards the default tag is
+    refused (an explicit ``tag`` publishes anyway).  The local
+    ``SUMMARY.json`` records the release only once it is published.
     """
     summary = write_summary(out_dir)
-    runs = summary.get("github_run_id") or []
-    run_id = runs[0] if len(runs) == 1 else ""
-    tag, state = resolve_tag(tag or default_tag(summary), run_id, repo)
+    if tag is None and summary.get("failed_shards"):
+        raise ValueError(
+            f"failed shards {summary['failed_shards']}: not publishing an incomplete re-baseline "
+            "under the default tag (name it explicitly with --tag to publish anyway)"
+        )
+    repo = repo_name(repo)
+    manifest = json.loads((out_dir / MANIFEST).read_text())
+    tag, state = resolve_tag(summary, tag, repo, target, default_tag(manifest))
     release = {"tag": tag, "url": release_url(repo, tag), "asset": f"{tag}.tar.gz"}
-    summary = write_summary(out_dir, release)
     if state == PUBLISHED:
         print(f"{release['url']} is already published (immutable); nothing uploaded")
-        return summary
+        return write_summary(out_dir, release)
+    summary["release"] = release
     with tempfile.TemporaryDirectory() as tmp:
+        # The uploaded SUMMARY.json names the release; the local one only
+        # does once the release is published (below).
+        (Path(tmp) / SUMMARY).write_text(json.dumps(summary, indent=2) + "\n")
         notes = Path(tmp) / "notes.md"
         notes.write_text(summary_markdown(summary))
         tarball = make_tarball(out_dir, tag, Path(tmp))
+        label = tag[len(TAG_PREFIX) :] if tag.startswith(TAG_PREFIX) else tag
         if state == ABSENT:
-            create = ["release", "create", tag, "--title", f"Re-baseline {tag[len(TAG_PREFIX) :]} (reference data)"]
+            create = ["release", "create", tag, "--title", f"Re-baseline {label} (reference data)"]
             create += ["--notes-file", str(notes), "--draft", "--prerelease", "--latest=false"]
             create += ["--target", target] if target else []
             _gh(create + _repo_args(repo))
-        assets = [str(tarball), str(out_dir / MANIFEST), str(out_dir / SUMMARY)]
+        assets = [str(tarball), str(out_dir / MANIFEST), str(Path(tmp) / SUMMARY)]
         _gh(["release", "upload", tag, *assets, "--clobber", *_repo_args(repo)])
         finish = ["release", "edit", tag, "--notes-file", str(notes), "--draft=false", "--prerelease", "--latest=false"]
         _gh(finish + _repo_args(repo))
+    summary = write_summary(out_dir, release)
     print(f"published {tarball.name}, {MANIFEST} and {SUMMARY} to {release['url']}")
     return summary
 
@@ -665,26 +757,38 @@ def default_fetch_dir(tag: str) -> Path:
 def fetch(tag: str, dest: Optional[Path] = None, repo: Optional[str] = None) -> List[Path]:
     """Download a re-baseline release and unpack its reference files into ``dest``; return them.
 
-    ``dest`` also receives ``ref_MANIFEST.json`` and ``SUMMARY.json``; the
-    tarball is removed after unpacking.
+    Only the asset ``<tag>.tar.gz`` is unpacked (in a temporary directory, so
+    nothing else in ``dest`` is touched).  ``ref_MANIFEST.json`` and
+    ``SUMMARY.json`` are committed files: an existing copy is kept — skipped
+    when identical, a warning when it differs — and written only when absent.
     """
     dest = dest or default_fetch_dir(tag)
     dest.mkdir(parents=True, exist_ok=True)
-    download = ["release", "download", tag, "--dir", str(dest), "--clobber"]
-    download += ["--pattern", "*.tar.gz", "--pattern", MANIFEST, "--pattern", SUMMARY]
-    _gh(download + _repo_args(repo))
-    tarballs = sorted(dest.glob("*.tar.gz"))
-    if not tarballs:
-        raise ValueError(f"release {tag} has no .tar.gz asset")
-    unpacked: List[Path] = []
-    for tarball in tarballs:
-        with tarfile.open(tarball) as tar:
+    asset = f"{tag}.tar.gz"
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = Path(tmp)
+        download = ["release", "download", tag, "--dir", tmp, "--pattern", asset, "--pattern", SUMMARY]
+        _gh(download + _repo_args(repo))
+        if not (tmp_dir / asset).exists():
+            raise ValueError(f"release {tag} has no asset {asset}")
+        unpacked_dir = tmp_dir / "unpacked"
+        with tarfile.open(tmp_dir / asset) as tar:
             members = [m for m in tar.getmembers() if m.isfile()]
-            tar.extractall(dest, members=members, filter="data")
-        unpacked += [dest / m.name for m in members]
-        tarball.unlink()
-    print(f"unpacked {len(unpacked)} reference files of {tag} into {dest}")
-    return sorted(unpacked)
+            tar.extractall(unpacked_dir, members=members, filter="data")
+        if (tmp_dir / SUMMARY).exists():
+            shutil.copyfile(tmp_dir / SUMMARY, unpacked_dir / SUMMARY)
+        files: List[Path] = []
+        for src in sorted(unpacked_dir.iterdir()):
+            out = dest / src.name
+            if src.name in (MANIFEST, SUMMARY) and out.exists():
+                if out.read_bytes() != src.read_bytes():
+                    print(f"warning: {out} differs from the release's copy; kept the local file", file=sys.stderr)
+            else:
+                shutil.copyfile(src, out)
+            if src.name != SUMMARY:
+                files.append(out)
+    print(f"unpacked {len(files)} reference files of {tag} into {dest}")
+    return files
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
@@ -727,7 +831,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     pub_p = sub.add_parser("publish", help="create or update the GitHub release of an aggregated directory")
     pub_p.add_argument("dir", help="directory holding ref_MANIFEST.json and the ref_* files")
-    pub_p.add_argument("--tag", help=f"release tag (default: {TAG_PREFIX}<UTC date of the aggregation>)")
+    pub_p.add_argument(
+        "--tag",
+        help=f"release tag (default: {TAG_PREFIX}<UTC date the run started>; required without a single run id)",
+    )
     pub_p.add_argument("--repo", help="owner/name (default: this checkout's GitHub repository)")
     pub_p.add_argument("--target", help="commit a new tag points at: the measured commit")
     pub_p.set_defaults(func=cmd_publish)

@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -137,7 +138,8 @@ def test_aggregate_rejects_a_seed_measured_twice(tmp_path):
 def _aggregated(tmp_path: Path) -> Path:
     """A small aggregated directory: composite quick (2 seeds) and families-free."""
     src = tmp_path / "raw"
-    for seed, score in ((42, 0.5), (7, 0.25)):
+    # The run started before midnight; aggregation happens "now".
+    for seed, score, started in ((42, 0.5, "2026-01-02T00:10:00+00:00"), (7, 0.25, "2026-01-01T23:50:00+00:00")):
         d = src / f"shard-{seed}" / "composite-quick"
         d.mkdir(parents=True)
         HarnessResult(HarnessConfig(seed=seed), "", 0, 0.0, [], score).save(str(d / f"composite-quick_s{seed}.json"))
@@ -147,6 +149,7 @@ def _aggregated(tmp_path: Path) -> Path:
             "status": 0,
             "git_sha": "abc1234",
             "github_run_id": "99",
+            "started": started,
         }
         (d / f"meta_{seed}.json").write_text(json.dumps(meta))
     fam = src / "f" / "families-free"
@@ -176,24 +179,38 @@ def test_aggregate_writes_the_summary(tmp_path):
 
 
 class FakeGh:
-    """Records ``gh`` calls; ``releases`` maps tag -> ``(notes, is_draft)`` of the releases that exist."""
+    """Records ``gh`` calls against a fake repository ``o/r``.
 
-    def __init__(self, releases=None, tarball=None):
+    ``releases``: tag -> ``(notes, is_draft)``; ``tags``: git tag -> commit
+    (a published release's tag exists implicitly, pointing at ``abc1234``).
+    """
+
+    def __init__(self, releases=None, tags=None, tarball=None, summary=None):
         self.calls = []
         self.releases = dict(releases or {})
+        self.tags = dict(tags or {})
+        for tag, (_, draft) in self.releases.items():
+            if not draft:
+                self.tags.setdefault(tag, "abc1234")
         self.tarball = tarball
+        self.summary = summary
         self.uploaded = {}
+
+    def writes(self):
+        return [c for c in self.calls if c[0] == "release" and c[1] in ("create", "upload", "edit")]
 
     def __call__(self, args, check=True):
         args = list(args)
         self.calls.append(args)
-        rc, out = 0, ""
-        if args[:2] == ["release", "view"]:
-            if args[2] in self.releases:
-                body, draft = self.releases[args[2]]
-                out = json.dumps({"body": body, "isDraft": draft})
+        rc, out, err = 0, "", ""
+        if args[:2] == ["api", "--paginate"]:
+            out = "".join(json.dumps({"tag": t, "draft": d, "body": b}) + "\n" for t, (b, d) in self.releases.items())
+        elif args[0] == "api":
+            tag = args[1].rsplit("/git/ref/tags/", 1)[1]
+            if tag in self.tags:
+                out = json.dumps({"object": {"type": "commit", "sha": self.tags[tag]}})
             else:
-                rc = 1
+                rc, err = 1, "gh: Not Found (HTTP 404)"
         elif args[:2] == ["release", "upload"]:
             # The tarball lives in a temporary directory: read it now.
             for a in args[3:]:
@@ -206,20 +223,22 @@ class FakeGh:
             dest = Path(args[args.index("--dir") + 1])
             assert self.tarball is not None
             shutil.copyfile(self.tarball, dest / self.tarball.name)
-            (dest / "SUMMARY.json").write_text("{}")
+            if self.summary is not None:
+                (dest / "SUMMARY.json").write_text(self.summary)
         if check and rc:
-            raise subprocess.CalledProcessError(rc, ["gh", *args])
-        return subprocess.CompletedProcess(["gh", *args], rc, out, "")
+            raise subprocess.CalledProcessError(rc, ["gh", *args], out, err)
+        return subprocess.CompletedProcess(["gh", *args], rc, out, err)
 
 
 def test_publish_creates_a_prerelease_and_records_it(tmp_path, monkeypatch):
     out = _aggregated(tmp_path)
     gh = FakeGh()
     monkeypatch.setattr(rb, "_gh", gh)
+    assert json.loads((out / "SUMMARY.json").read_text())["release"] is None
     summary = rb.publish(out, None, "o/r", "abc1234")
 
-    tag = rb.default_tag(summary)
-    assert tag.startswith("rebaseline-20")
+    # The date of the earliest shard start, not of the aggregation.
+    tag = "rebaseline-2026-01-01"
     # Immutable releases: create a draft, attach the assets, then publish.
     assert [c[:2] for c in gh.calls[-3:]] == [["release", "create"], ["release", "upload"], ["release", "edit"]]
     create, _, finish = gh.calls[-3:]
@@ -230,50 +249,179 @@ def test_publish_creates_a_prerelease_and_records_it(tmp_path, monkeypatch):
     assert "ref_MANIFEST.json" in gh.uploaded[f"{tag}.tar.gz"]
     release = {"tag": tag, "url": f"https://github.com/o/r/releases/tag/{tag}", "asset": f"{tag}.tar.gz"}
     assert gh.uploaded["SUMMARY.json"]["release"] == release
+    assert summary["release"] == release
     assert json.loads((out / "SUMMARY.json").read_text())["release"] == release
+    assert gh.uploaded["SUMMARY.json"] == summary  # the committed copy equals the asset
     # Nothing but the summary is left behind next to the results.
     assert not list(tmp_path.glob("*.tar.gz")) and not list(out.glob("*.tar.gz"))
     # Re-summarizing keeps the recorded release.
     assert rb.write_summary(out)["release"] == release
 
 
-def test_publish_never_overwrites_another_runs_release(tmp_path, monkeypatch):
-    out = _aggregated(tmp_path)
-    gh = FakeGh(releases={"rebaseline-x": ("<!-- rebaseline-run: 12 -->", False)})
+OTHER = "<!-- rebaseline-run: 12 -->"
+MINE = "<!-- rebaseline-run: 99 -->"
+
+
+def _publish(out, monkeypatch, tag: Optional[str] = "rebaseline-x", target=None, **fake):
+    gh = FakeGh(**fake)
     monkeypatch.setattr(rb, "_gh", gh)
-    assert rb.publish(out, "rebaseline-x", "o/r", None)["release"]["tag"] == "rebaseline-x-run99"
-    assert any(c[:3] == ["release", "create", "rebaseline-x-run99"] for c in gh.calls)
-    assert not any(c[2] == "rebaseline-x" for c in gh.calls if c[1] in ("upload", "edit"))
+    return rb.publish(out, tag, "o/r", target)["release"], gh
+
+
+def test_publish_never_touches_another_runs_release(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    release, gh = _publish(out, monkeypatch, releases={"rebaseline-x": (OTHER, False)})
+    assert release["tag"] == "rebaseline-x-run99"
+    assert [c[:3] for c in gh.writes()][0] == ["release", "create", "rebaseline-x-run99"]
+    assert all(c[2] == "rebaseline-x-run99" for c in gh.writes())
+    # Another run's *draft* is not adopted either.
+    release, gh = _publish(out, monkeypatch, releases={"rebaseline-x": (OTHER, True)})
+    assert release["tag"] == "rebaseline-x-run99"
+
+
+def test_publish_treats_a_bare_tag_as_taken(tmp_path, monkeypatch):
+    # e.g. a tag burned by a deleted immutable release: no release, but the tag exists.
+    out = _aggregated(tmp_path)
+    release, gh = _publish(out, monkeypatch, tag=None, tags={"rebaseline-2026-01-01": "abc1234"})
+    assert release["tag"] == "rebaseline-2026-01-01-run99"
+    assert gh.writes()[0][:3] == ["release", "create", "rebaseline-2026-01-01-run99"]
 
 
 def test_publish_resumes_its_draft_and_leaves_its_published_release(tmp_path, monkeypatch):
     out = _aggregated(tmp_path)
     # An interrupted attempt of this run left a draft: fill and publish it.
-    gh = FakeGh(releases={"rebaseline-x": ("<!-- rebaseline-run: 99 -->", True)})
-    monkeypatch.setattr(rb, "_gh", gh)
-    assert rb.publish(out, "rebaseline-x", "o/r", None)["release"]["tag"] == "rebaseline-x"
-    assert [c[:3] for c in gh.calls[1:]] == [["release", "upload", "rebaseline-x"], ["release", "edit", "rebaseline-x"]]
+    release, gh = _publish(out, monkeypatch, releases={"rebaseline-x": (MINE, True)})
+    assert release["tag"] == "rebaseline-x"
+    assert [c[:3] for c in gh.writes()] == [["release", "upload", "rebaseline-x"], ["release", "edit", "rebaseline-x"]]
 
-    # Already published: immutable, nothing to do (a re-run of the job does not fail).
-    gh = FakeGh(releases={"rebaseline-x": ("<!-- rebaseline-run: 99 -->", False)})
-    monkeypatch.setattr(rb, "_gh", gh)
-    assert rb.publish(out, "rebaseline-x", "o/r", None)["release"]["tag"] == "rebaseline-x"
-    assert [c[:2] for c in gh.calls] == [["release", "view"]]
+    # Already published: immutable, nothing written (a re-run of the job does not fail).
+    release, gh = _publish(out, monkeypatch, releases={"rebaseline-x": (MINE, False)})
+    assert release["tag"] == "rebaseline-x" and gh.writes() == []
+
+
+def test_publish_finds_its_fallback_release(tmp_path, monkeypatch):
+    # Another run owns rebaseline-x, this run already owns rebaseline-x-run99.
+    out = _aggregated(tmp_path)
+    releases = {"rebaseline-x": (OTHER, False), "rebaseline-x-run99": (MINE, True)}
+    release, gh = _publish(out, monkeypatch, releases=releases)
+    assert release["tag"] == "rebaseline-x-run99"
+    assert [c[:3] for c in gh.writes()] == [
+        ["release", "upload", "rebaseline-x-run99"],
+        ["release", "edit", "rebaseline-x-run99"],
+    ]
+    releases["rebaseline-x-run99"] = (MINE, False)
+    release, gh = _publish(out, monkeypatch, releases=releases)
+    assert release["tag"] == "rebaseline-x-run99" and gh.writes() == []
+
+
+def test_publish_reuses_its_release_under_any_tag(tmp_path, monkeypatch):
+    # A re-run after midnight must not publish a duplicate under a new date.
+    out = _aggregated(tmp_path)
+    release, gh = _publish(out, monkeypatch, tag=None, releases={"rebaseline-2025-12-31": (MINE, False)})
+    assert release["tag"] == "rebaseline-2025-12-31" and gh.writes() == []
+
+
+def test_publish_refuses(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    # A resumed draft whose (existing) tag points elsewhere than the measured commit.
+    with pytest.raises(ValueError, match="points at"):
+        _publish(
+            out,
+            monkeypatch,
+            target="def5678",
+            releases={"rebaseline-x": (MINE, True)},
+            tags={"rebaseline-x": "abc1234"},
+        )
+    # The fallback is taken too.
+    with pytest.raises(ValueError, match="taken too"):
+        _publish(out, monkeypatch, tags={"rebaseline-x": "a", "rebaseline-x-run99": "b"})
+    # Any gh failure but a 404 is an error, not "absent".
+    monkeypatch.setattr(rb, "_gh", lambda args, check=True: subprocess.CompletedProcess(args, 1, "", "HTTP 502"))
+    with pytest.raises(RuntimeError, match="502"):
+        rb.tag_commit("rebaseline-x", "o/r")
+
+
+def test_publish_without_a_run_id_needs_a_tag(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    manifest = json.loads((out / "ref_MANIFEST.json").read_text())
+    manifest["github_run_id"] = []
+    (out / "ref_MANIFEST.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="--tag"):
+        _publish(out, monkeypatch, tag=None)
+    # An explicit tag of a release from some run is never adopted, and there is no fallback.
+    with pytest.raises(ValueError, match="taken"):
+        _publish(out, monkeypatch, releases={"rebaseline-x": (MINE, True)})
+    release, gh = _publish(out, monkeypatch, releases={"rebaseline-x": ("<!-- rebaseline-run: local -->", True)})
+    assert release["tag"] == "rebaseline-x" and gh.writes()[0][1] == "upload"
+
+
+def test_publish_refuses_failed_shards_under_the_default_tag(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    manifest = json.loads((out / "ref_MANIFEST.json").read_text())
+    manifest["failed_shards"] = ["ioh-standard/03"]
+    (out / "ref_MANIFEST.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="failed shards"):
+        _publish(out, monkeypatch, tag=None)
+    release, _ = _publish(out, monkeypatch, tag="rebaseline-partial")
+    assert release["tag"] == "rebaseline-partial"
+
+
+def test_publish_failure_leaves_the_local_summary_unpublished(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    gh = FakeGh()
+
+    def failing(args, check=True):
+        if args[:2] == ["release", "edit"]:
+            raise subprocess.CalledProcessError(1, args)
+        return gh(args, check)
+
+    monkeypatch.setattr(rb, "_gh", failing)
+    with pytest.raises(subprocess.CalledProcessError):
+        rb.publish(out, "rebaseline-x", "o/r", None)
+    assert json.loads((out / "SUMMARY.json").read_text())["release"] is None
+
+
+def test_title_of_a_tag_without_the_prefix(tmp_path, monkeypatch):
+    out = _aggregated(tmp_path)
+    _, gh = _publish(out, monkeypatch, tag="smoke")
+    create = gh.writes()[0]
+    assert create[create.index("--title") + 1] == "Re-baseline smoke (reference data)"
 
 
 def test_fetch_unpacks_the_reference_files(tmp_path, monkeypatch):
     out = _aggregated(tmp_path)
     tarball = rb.make_tarball(out, "rebaseline-2026-01-02", tmp_path)
-    gh = FakeGh(tarball=tarball)
+    committed = (out / "SUMMARY.json").read_text()
+    gh = FakeGh(tarball=tarball, summary=committed)
     monkeypatch.setattr(rb, "_gh", gh)
 
     dest = tmp_path / "fetched"
+    dest.mkdir()
+    (dest / "other.tar.gz").write_text("not ours")
     files = rb.fetch("rebaseline-2026-01-02", dest, repo="o/r")
     assert [f.name for f in files] == sorted(p.name for p in out.glob("ref_*.json"))
     assert HarnessResult.load(str(dest / "ref_composite_quick_s7.json")).config.seed == 7
-    assert not list(dest.glob("*.tar.gz")) and (dest / "SUMMARY.json").exists()
+    assert (dest / "SUMMARY.json").read_text() == committed
+    assert (dest / "other.tar.gz").read_text() == "not ours"  # only <tag>.tar.gz is handled
+    assert not (dest / "rebaseline-2026-01-02.tar.gz").exists()
     (download,) = gh.calls
     assert download[:3] == ["release", "download", "rebaseline-2026-01-02"] and download[-2:] == ["--repo", "o/r"]
+    assert "rebaseline-2026-01-02.tar.gz" in download and "*.tar.gz" not in download
+
+
+def test_fetch_keeps_differing_committed_files(tmp_path, monkeypatch, capsys):
+    out = _aggregated(tmp_path)
+    tarball = rb.make_tarball(out, "rebaseline-2026-01-02", tmp_path)
+    monkeypatch.setattr(rb, "_gh", FakeGh(tarball=tarball, summary='{"release": "from the release"}'))
+    dest = tmp_path / "fetched"
+    dest.mkdir()
+    (dest / "SUMMARY.json").write_text("local summary")
+    (dest / "ref_MANIFEST.json").write_text("local manifest")
+    rb.fetch("rebaseline-2026-01-02", dest, repo="o/r")
+    assert (dest / "SUMMARY.json").read_text() == "local summary"
+    assert (dest / "ref_MANIFEST.json").read_text() == "local manifest"
+    err = capsys.readouterr().err
+    assert "SUMMARY.json differs" in err and "ref_MANIFEST.json differs" in err
 
 
 def test_default_fetch_dir():

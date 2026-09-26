@@ -45,6 +45,13 @@ extra).
 
 ## 2. Follow-ups from the 2026-09-26 PRs
 
+- [ ] **Re-baseline after the FP pin is verified (the 2026-09-26
+      references mix two FP classes).**  Dispatch `fp-check.yml`; if all 8
+      jobs are bit-identical, `gh workflow run rebaseline.yml -f suites=all
+      -f seeds=12` and switch the references (TODO header,
+      `doc/dev/benchmarking.md` "Comparability") to the new release
+      (`doc/dev/benchmarking.md`, "Evaluations, not wall time").
+
 - [ ] **Real async loop → pull-when-free.**  The threaded / processes /
       dask loop sizes batches by `jobs_per_client` from wall-clock timings
       and can queue past the free workers; bring it to the virtual clock's

@@ -38,6 +38,11 @@ other jobs makes a ``d = 160`` run 7-70x slower under load.  The harnesses
 pin it per run (:func:`blas_limit`, in ``harness_ioh._run_tracked``);
 :func:`apply` and the pool workers also set the environment variables, so
 child processes inherit them.
+
+The floating-point kernels (OpenBLAS core type, numpy's SIMD targets) are
+pinned by the entry points before numpy loads (:mod:`panobbgo.fp_env`);
+the spawned :class:`TaskPool` workers inherit that environment, so they
+run the same kernels as the process that started them.
 """
 
 from __future__ import annotations

@@ -13,6 +13,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # The FP pin (panobbgo/fp_env.py, doc/dev/benchmarking.md): pytest loads
+    # numpy before any entry point could pin it, so set it for the whole job.
+    # Pinned trajectory tests then see the same kernels on AVX2 and AVX-512
+    # runners.
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
 
     steps:
       - uses: actions/checkout@v6

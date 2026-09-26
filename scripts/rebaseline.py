@@ -77,7 +77,11 @@ suite                       reference file(s)
 
 Every measurement is synchronous (``sync_eval``) and seeded, with no
 wall-clock limit, so a result depends on the code and the seed only — not
-on the runner's speed or the ``--jobs`` count.
+on the runner's speed or the ``--jobs`` count — within one floating-point
+environment: the kernels are pinned (``panobbgo/fp_env.py``), every result
+file and shard meta records ``fp_env`` / ``fp_env_id``, and ``aggregate``
+refuses to merge shards of one suite from different ids unless
+``--allow-mixed-fp``.
 """
 
 from __future__ import annotations
@@ -352,6 +356,13 @@ def _git_sha() -> str:
         return os.environ.get("GITHUB_SHA", "unknown")
 
 
+def _fp_env() -> Dict[str, Any]:
+    """The FP environment of this runner (the shards' result files carry their own)."""
+    from panobbgo import fp_env
+
+    return fp_env.collect()
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     suite = SUITES[args.suite]
     seeds = seed_list(args.seeds)
@@ -368,6 +379,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         "started": datetime.now(tz=timezone.utc).isoformat(),
         "commands": [" ".join(argv[1:]) for argv, _ in commands],
         "jobs": jobs,
+        "fp_env": _fp_env(),
     }
     status = 0
     for argv, out in commands:
@@ -403,10 +415,35 @@ def _check_unique(suite: str, seeds: Sequence[int]) -> None:
         raise ValueError(f"{suite}: seed(s) {dup} appear in more than one shard file")
 
 
-def _aggregate_composite(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, Any]:
+def _fp_ids(suite: Suite, ids: Sequence[Optional[str]], allow_mixed_fp: bool) -> List[Optional[str]]:
+    """The distinct ``fp_env_id`` values of a suite's shards; more than one raises unless allowed.
+
+    A reference merged from two FP environments is not a reference: the
+    same seed need not give the same numbers in both (``doc/dev/benchmarking.md``).
+    ``None`` (a file without the record) counts as an id of its own.
+    """
+    distinct = sorted(set(ids), key=str)
+    if len(distinct) > 1:
+        what = f"{suite.name}: shards measured in different FP environments (fp_env_id {', '.join(map(str, distinct))})"
+        if not allow_mixed_fp:
+            raise ValueError(what + "; re-run them in one environment, or pass --allow-mixed-fp")
+        print(f"warning: {what}; merged anyway (--allow-mixed-fp)", file=sys.stderr)
+    return distinct
+
+
+def _merged_fp_id(ids: Sequence[Optional[str]]) -> Optional[str]:
+    """The id a merged file carries: the shared one, or ``mixed:<ids>`` (never equal to a real id)."""
+    return ids[0] if len(ids) == 1 else "mixed:" + ",".join(map(str, ids))
+
+
+def _aggregate_composite(
+    suite: Suite, files: List[Path], out_dir: Path, allow_mixed_fp: bool = False
+) -> Dict[str, Any]:
     by_seed: Dict[int, Path] = {}
     scores: Dict[int, float] = {}
     seeds = []
+    ids: List[Optional[str]] = []
+    envs: Dict[str, Any] = {}
     for f in files:
         data = json.loads(f.read_text())
         seed = int(data["config"]["seed"])
@@ -415,7 +452,11 @@ def _aggregate_composite(suite: Suite, files: List[Path], out_dir: Path) -> Dict
         seeds.append(seed)
         by_seed[seed] = f
         scores[seed] = float(data["composite_score"])
+        ids.append(data.get("fp_env_id"))
+        if data.get("fp_env_id"):
+            envs[data["fp_env_id"]] = data.get("fp_env")
     _check_unique(suite.name, seeds)
+    fp_ids = _fp_ids(suite, ids, allow_mixed_fp)
     written = []
     for seed in sorted(by_seed, key=_seed_order):
         dest = out_dir / f"ref_composite_{suite.ref_key}_s{seed}.json"
@@ -426,10 +467,16 @@ def _aggregate_composite(suite: Suite, files: List[Path], out_dir: Path) -> Dict
     print(f"{suite.name}: {len(scores)} seed(s), composite mean {mean:.4f}")
     for s in ordered:
         print(f"    seed {s:>6d}  {scores[s]:.4f}")
-    return {"seeds": ordered, "files": written, "composite_score": {str(s): scores[s] for s in ordered}}
+    return {
+        "seeds": ordered,
+        "files": written,
+        "composite_score": {str(s): scores[s] for s in ordered},
+        "fp_env_ids": fp_ids,
+        "_fp_envs": envs,
+    }
 
 
-def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, Any]:
+def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path, allow_mixed_fp: bool = False) -> Dict[str, Any]:
     from panobbgo.harness_ioh import IOHMultiSeedResult
 
     parts = [IOHMultiSeedResult.from_dict(json.loads(f.read_text())) for f in files]
@@ -443,6 +490,7 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, 
     threads = {p.blas_threads for p in parts}
     if len(threads) != 1:
         raise ValueError(f"{suite.name}: shards measured with different BLAS thread counts {sorted(map(str, threads))}")
+    fp_ids = _fp_ids(suite, [p.fp_env_id for p in parts], allow_mixed_fp)
     pairs = [(s, r) for p in parts for s, r in zip(p.base_seeds, p.results)]
     _check_unique(suite.name, [s for s, _ in pairs])
     pairs.sort(key=lambda sr: _seed_order(sr[0]))
@@ -456,6 +504,8 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, 
         results=[r for _, r in pairs],
         sync_eval=True,
         blas_threads=first.blas_threads,
+        fp_env=first.fp_env if len(fp_ids) == 1 else None,
+        fp_env_id=_merged_fp_id(fp_ids),
     )
     stem = f"ref_ioh_{suite.ref_key}"
     written = [f"{stem}.json"]
@@ -467,13 +517,20 @@ def _aggregate_ioh(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, 
     print(f"{suite.name}: {len(pairs)} seed(s), mean AOCC {combined.mean_aocc:.4f}")
     for name, val in sorted(combined.per_strategy_aocc().items(), key=lambda kv: -kv[1]):
         print(f"    {name:32s}  {val:.4f}")
-    return {"seeds": combined.base_seeds, "files": written, "mean_aocc": combined.mean_aocc}
+    return {
+        "seeds": combined.base_seeds,
+        "files": written,
+        "mean_aocc": combined.mean_aocc,
+        "fp_env_ids": fp_ids,
+        "_fp_envs": {p.fp_env_id: p.fp_env for p in parts if p.fp_env_id},
+    }
 
 
-def _aggregate_families(suite: Suite, files: List[Path], out_dir: Path) -> Dict[str, Any]:
+def _aggregate_families(suite: Suite, files: List[Path], out_dir: Path, allow_mixed_fp: bool = False) -> Dict[str, Any]:
     chunks = [json.loads(f.read_text()) for f in files]
     seeds = [s for rows in chunks for s in sorted({r["seed"] for r in rows})]
     _check_unique(suite.name, seeds)
+    fp_ids = _fp_ids(suite, [r.get("fp_env_id") for rows in chunks for r in rows], allow_mixed_fp)
     rows = [r for c in chunks for r in c]
     # Stable sort: within a seed the screen's own row order is kept.
     rows.sort(key=lambda r: _seed_order(int(r["seed"])))
@@ -481,7 +538,7 @@ def _aggregate_families(suite: Suite, files: List[Path], out_dir: Path) -> Dict[
     (out_dir / name).write_text(json.dumps(rows))
     ordered = sorted(set(seeds), key=_seed_order)
     print(f"{suite.name}: {len(ordered)} seed(s), {len(rows)} rows (re-analyse: family_screen.py from={name})")
-    return {"seeds": ordered, "files": [name], "rows": len(rows)}
+    return {"seeds": ordered, "files": [name], "rows": len(rows), "fp_env_ids": fp_ids, "_fp_envs": {}}
 
 
 MANIFEST = "ref_MANIFEST.json"
@@ -500,11 +557,16 @@ def missing_shards(planned: Sequence[Dict[str, str]], metas: Sequence[Dict[str, 
     return [f"{e['suite']}/{e['shard']}" for e in planned if (e["suite"], str(e["shard"])) not in seen]
 
 
-def aggregate(src: Path, out_dir: Path, planned: Optional[Sequence[Dict[str, str]]] = None) -> Dict[str, Any]:
+def aggregate(
+    src: Path, out_dir: Path, planned: Optional[Sequence[Dict[str, str]]] = None, allow_mixed_fp: bool = False
+) -> Dict[str, Any]:
     """Write the reference files for every suite found under ``src``; return the manifest.
 
     ``planned`` is the job matrix (``plan``'s ``include`` list): a planned
-    shard without a meta file counts as failed.
+    shard without a meta file counts as failed.  Shards of one suite from
+    different FP environments (``fp_env_id``) raise ``ValueError`` unless
+    ``allow_mixed_fp``; the manifest records every id (``fp_env_ids``, per
+    suite and overall) and what each stands for (``fp_env``).
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     metas = [json.loads(p.read_text()) for p in sorted(src.rglob("meta_*.json"))]
@@ -519,12 +581,21 @@ def aggregate(src: Path, out_dir: Path, planned: Optional[Sequence[Dict[str, str
         "suites": {},
         "shards": metas,
     }
+    fp_envs: Dict[str, Any] = {m["fp_env"]["id"]: m["fp_env"] for m in metas if (m.get("fp_env") or {}).get("id")}
     for suite in SUITES.values():
         files = _result_files(src, suite.name)
         if files:
-            manifest["suites"][suite.name] = _AGGREGATORS[suite.kind](suite, files, out_dir)
+            info = _AGGREGATORS[suite.kind](suite, files, out_dir, allow_mixed_fp)
+            fp_envs.update({k: v for k, v in info.pop("_fp_envs").items() if v})
+            manifest["suites"][suite.name] = info
     if not manifest["suites"]:
         raise ValueError(f"no shard result files found under {src}")
+    all_ids = sorted({i for v in manifest["suites"].values() for i in v["fp_env_ids"]}, key=str)
+    manifest["fp_env_ids"] = all_ids
+    manifest["mixed_fp"] = any(len(v["fp_env_ids"]) > 1 for v in manifest["suites"].values())
+    manifest["fp_env"] = {k: fp_envs.get(k) for k in all_ids if k is not None}
+    if len(all_ids) > 1:
+        print(f"warning: the suites were measured in different FP environments: {all_ids}", file=sys.stderr)
     if len(manifest["git_sha"]) > 1:
         print(f"warning: shards come from several commits: {manifest['git_sha']}", file=sys.stderr)
     if manifest["failed_shards"]:
@@ -545,7 +616,7 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
     if args.plan:
         data = json.loads(Path(args.plan).read_text())
         planned = data["include"] if isinstance(data, dict) else data
-    aggregate(Path(args.src), out_dir, planned)
+    aggregate(Path(args.src), out_dir, planned, allow_mixed_fp=args.allow_mixed_fp)
     print(f"\nwrote the reference files to {out_dir}")
     return 0
 
@@ -603,6 +674,7 @@ def summarize(out_dir: Path) -> Dict[str, Any]:
         "git_sha": manifest.get("git_sha", []),
         "github_run_id": manifest.get("github_run_id", []),
         "failed_shards": manifest.get("failed_shards", []),
+        "fp_env_ids": manifest.get("fp_env_ids"),
         "release": None,
         "suites": suites,
     }
@@ -960,6 +1032,11 @@ def build_parser() -> argparse.ArgumentParser:
     agg_p.add_argument(
         "--plan", help="the job matrix (JSON of `plan`): planned shards that left no meta file count as failed"
     )
+    agg_p.add_argument(
+        "--allow-mixed-fp",
+        action="store_true",
+        help="merge shards of one suite measured in different FP environments (fp_env_id) instead of refusing",
+    )
     agg_p.set_defaults(func=cmd_aggregate)
 
     sum_p = sub.add_parser("summarize", help="(re)write SUMMARY.json of an aggregated directory")
@@ -989,7 +1066,22 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _pin_fp() -> None:
+    """Pin the FP kernels for this process and its shard commands (``panobbgo.fp_env``).
+
+    ``plan`` runs with a bare interpreter (no dependencies, panobbgo not
+    importable): then there is nothing to pin, and the shard commands pin
+    themselves anyway.
+    """
+    try:
+        from panobbgo.fp_env import pin_fp_env
+    except ImportError:
+        return
+    pin_fp_env()
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    _pin_fp()
     args = build_parser().parse_args(argv)
     return args.func(args)
 

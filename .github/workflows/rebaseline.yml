@@ -91,6 +91,12 @@ jobs:
       fail-fast: false
       max-parallel: 20
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    # The FP pin (panobbgo/fp_env.py): the entry points set it themselves;
+    # the job-level copy also covers anything that loads numpy first.
+    # AVX2 and AVX-512 runners then run the same kernels.
+    env:
+      OPENBLAS_CORETYPE: Haswell
+      NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512_ICL AVX512_SPR
 
     steps:
       - uses: actions/checkout@v6
@@ -149,6 +155,11 @@ jobs:
         run: |
           cd tools/ioh_worker
           uv sync
+
+      - name: Runner CPU
+        run: |
+          lscpu | grep -E '^Model name' || true
+          echo "ISA: $(grep -o -w -E 'avx2|fma|avx512f' /proc/cpuinfo | sort -u | tr '\n' ' ')"
 
       - name: Measure
         env:

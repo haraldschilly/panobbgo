@@ -199,30 +199,44 @@ def _sqdist(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 def _adj_r2(design: np.ndarray, y: np.ndarray) -> Tuple[float, Optional[np.ndarray]]:
     """Adjusted R² of a least-squares fit (first column the intercept); ``NaN`` unless ``n > p``.
 
-    Large designs (the full quadratic at d >= 15) are solved through the
-    normal equations with a vanishing ridge (Cholesky; ~6x faster than an SVD
-    at d = 40); a failed factorisation falls back to :func:`numpy.linalg.lstsq`.
+    The non-intercept columns are centred and scaled to unit variance before
+    the solve and the coefficients mapped back, so the Gram matrix of a
+    clustered sample (a converged run) stays well conditioned.  Large designs
+    (the full quadratic at d >= 14) are solved through these standardised
+    normal equations (Cholesky; ~6x faster than an SVD at d = 40); when the
+    factor's reciprocal condition estimate is below 1e-10 (collinear
+    columns), the fit falls back to :func:`numpy.linalg.lstsq`.
     """
     n, p = design.shape
     if n <= p:
         return float("nan"), None
-    coef: Optional[np.ndarray] = None
-    if p > 100:
-        from scipy.linalg import LinAlgError, cho_factor, cho_solve
-
-        gram = design.T @ design
-        gram[np.diag_indices(p)] += 1e-12 * float(np.trace(gram)) / p
-        try:
-            coef = cho_solve(cho_factor(gram, check_finite=False), design.T @ y, check_finite=False)
-        except LinAlgError:
-            coef = None
-    if coef is None:
-        coef, *_ = np.linalg.lstsq(design, y, rcond=None)
-    resid = y - design @ coef
     sst = float(((y - y.mean()) ** 2).sum())
     if sst <= 0:
         return float("nan"), None
+    body = design[:, 1:]
+    mu = body.mean(axis=0)
+    sd = body.std(axis=0)
+    sd = np.where(sd > 0, sd, 1.0)
+    z = (body - mu) / sd
+    yc = y - y.mean()
+    beta: Optional[np.ndarray] = None
+    if p > 100:
+        from scipy.linalg import LinAlgError, cho_factor, cho_solve
+
+        gram = z.T @ z
+        try:
+            factor = cho_factor(gram, check_finite=False)
+            dg = np.abs(np.diag(factor[0]))
+            if dg.min() > 0 and (dg.min() / dg.max()) ** 2 >= 1e-10:
+                beta = cho_solve(factor, z.T @ yc, check_finite=False)
+        except LinAlgError:
+            beta = None
+    if beta is None:
+        beta, *_ = np.linalg.lstsq(z, yc, rcond=None)
+    resid = yc - z @ beta
     r2 = 1.0 - float(resid @ resid) / sst
+    slopes = beta / sd
+    coef = np.r_[float(y.mean() - mu @ slopes), slopes]
     return 1.0 - (1.0 - r2) * (n - 1) / (n - p), coef
 
 
@@ -283,6 +297,12 @@ def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAU
       Hessian (capped at 12); ``hess_pos`` — share of its positive
       eigenvalues.  A condition estimate from a fit near its sample limit is
       noisy and grows with d even on a sphere: compare it within one d.
+      Both are ``None`` unless ``r2_quad > 0.05`` (on noise ranks the
+      Hessian is noise).
+    * Unlike flacco, which sets ``nb := nn`` for the tied-best points, the
+      points sharing the best rank are dropped from the NBC statistics, and
+      ``nbc_nb_fitness_cor`` is the rank (Spearman) variant of flacco's
+      ``nb_fitness.cor``.
     """
     from scipy.stats import rankdata
 
@@ -341,8 +361,12 @@ def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAU
         if kk < m and mean_all > 0:
             out[f"disp_{round(q * 100)}"] = float(dist[np.ix_(top, top)].sum()) / (kk * (kk - 1)) / mean_all
 
-    # meta-models on normalised ranks (rank-R²)
-    c = us - 0.5
+    # meta-models on normalised ranks (rank-R²), in coordinates centred and
+    # scaled per axis at the sample: the same model spaces (and, mapped back,
+    # the same Hessian), but well conditioned on a clustered sample
+    centre, scale = us.mean(axis=0), us.std(axis=0)
+    scale = np.where(scale > 0, scale, 1.0)
+    c = (us - centre) / scale
     y = r / max(m - 1, 1)
     ones = np.ones((m, 1))
     out["r2_lin"], _ = _adj_r2(np.hstack([ones, c]), y)
@@ -353,7 +377,9 @@ def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAU
             cq, yq, r2_add_q = c, y, out["r2_add"]
         else:
             idq = _subsample(n, need, keep)
-            cq = u[idq] - 0.5
+            centre, scale = u[idq].mean(axis=0), u[idq].std(axis=0)
+            scale = np.where(scale > 0, scale, 1.0)
+            cq = (u[idq] - centre) / scale
             rq = rankdata(ranks[idq], method="average") - 1.0
             yq = rq / max(idq.size - 1, 1)
             r2_add_q, _ = _adj_r2(np.hstack([np.ones((idq.size, 1)), cq, cq * cq]), yq)
@@ -362,11 +388,13 @@ def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAU
         out["r2_quad"] = r2q
         if math.isfinite(r2q) and r2q > 0.05 and math.isfinite(r2_add_q):
             out["sep_ratio"] = max(r2_add_q, 0.0) / r2q
-        if coef is not None:
+        if coef is not None and math.isfinite(r2q) and r2q > 0.05:
+            # Hessian in the scaled coordinates, mapped back to the unit box
             h = np.zeros((d, d))
             h[np.diag_indices(d)] = 2.0 * coef[1 + d : 1 + 2 * d]
             h[ii, jj] = coef[1 + 2 * d :]
             h[jj, ii] = coef[1 + 2 * d :]
+            h = h / np.outer(scale, scale)
             ev = np.linalg.eigvalsh(h)
             a = np.abs(ev)
             if a.max() > 0:

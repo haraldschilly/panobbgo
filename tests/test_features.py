@@ -201,7 +201,8 @@ def test_quadratic_fit_needs_twice_its_coefficients_and_works_at_d30():
     u = rng.random((2 * p + 10, d))
     noise = landscape_features(u, avg_ranks(rng.random(u.shape[0])))
     assert abs(noise["r2_quad"]) < 0.15  # pure-noise ranks: nothing to explain
-    assert math.isnan(noise["sep_ratio"])  # r2_quad too small for a ratio
+    assert noise["r2_quad"] <= 0.05  # too small for a ratio or a Hessian: all gated to None
+    assert math.isnan(noise["sep_ratio"]) and math.isnan(noise["log10_cond"]) and math.isnan(noise["hess_pos"])
     sphere = landscape_features(u, avg_ranks(((u - 0.3) ** 2).sum(1)))
     assert sphere["r2_quad"] > 0.9 and sphere["log10_cond"] < 1.0 and sphere["hess_pos"] == 1.0
 
@@ -377,7 +378,7 @@ def test_cma_state_uses_the_box_normalised_current_covariance():
     assert st["sigma_rel"] == pytest.approx(0.5)
 
 
-def _replay_run(problem, spec, budget, observers, seed=7):
+def _replay_run(problem, spec, budget, observers, seed=7, virtual=None):
     """The body of ``_run_tracked`` with extra pass observers: (tracker, strategy)."""
     np.random.seed(seed)
     tracker = PenaltyTracker(problem, budget=budget)
@@ -386,12 +387,18 @@ def _replay_run(problem, spec, budget, observers, seed=7):
         strategy.config.max_eval = budget
         strategy.config.sync_evaluation = True
         strategy.config.stop_on_convergence = False
+        if virtual is not None:
+            virtual.apply(strategy, observer=tracker)
         for make in observers:
             strategy.add_pass_observer(make(tracker))
         strategy.start()
     finally:
         tracker.restore()
     return tracker, strategy
+
+
+def _history(strategy):
+    return {k: np.array(v, copy=True) for k, v in strategy.results.get_history().items()}
 
 
 def test_pass_observers_run_once_more_when_the_loop_ends():
@@ -403,37 +410,150 @@ def test_pass_observers_run_once_more_when_the_loop_ends():
     assert calls[-1] == calls[-2] == strategy.loops
 
 
-def test_checkpoint_snapshot_equals_the_state_of_a_replayed_run():
-    """Replaying the seed and stopping at the recorded pass reproduces the snapshot: the branch point is exact."""
+@pytest.mark.parametrize("virtual", [None, VirtualSpec(workers=4, duration="lognormal")], ids=["sync", "virtual"])
+def test_checkpoint_snapshot_equals_the_state_of_a_replayed_run(virtual):
+    """Replaying the seed and stopping at the recorded pass reproduces the archive and the snapshot bit-exactly."""
     _n, problem = make_families_battery(dims=(3,), n_instances=1)[1]
     spec, budget, log = _spec("Blocks_warm_CMAES_JSO"), 300, FeatureLogSpec(checkpoints=(0.2, 0.4))
-    loggers = []
+    loggers, hist_logged = [], []
 
     def make_logger(tracker):
         lg = FeatureLogger(log, budget=budget, spent=lambda: tracker.n_evals, failed=lambda: tracker.n_failed)
         loggers.append(lg)
-        return lg
 
-    _replay_run(problem, spec, budget, [make_logger])
+        def observe(strategy):
+            lg(strategy)
+            if len(lg.records) == 2 and not hist_logged:
+                hist_logged.append(_history(strategy))
+
+        return observe
+
+    _replay_run(problem, spec, budget, [make_logger], virtual=virtual)
     recorded = loggers[0].records[1]
     target = recorded["ctx"]["pass"]
-    snaps = []
+    assert ("vtime" in recorded["ctx"]) == (virtual is not None)
+    snaps, hist_replayed = [], []
 
     def make_probe(tracker):
         lg = FeatureLogger(log, budget=budget, spent=lambda: tracker.n_evals, failed=lambda: tracker.n_failed)
 
         def probe(strategy):
             if strategy.loops == target and not snaps:
+                hist_replayed.append(_history(strategy))
                 snaps.append(lg._snapshot(strategy, tracker.n_evals))
                 strategy.request_stop()
 
         return probe
 
-    _replay_run(problem, spec, budget, [make_probe])
+    _replay_run(problem, spec, budget, [make_probe], virtual=virtual)
     assert snaps and snaps[0] == {k: v for k, v in recorded.items() if k != "checkpoint"}
+    a, b = hist_logged[0], hist_replayed[0]
+    assert a.keys() == b.keys()
+    for k in a:
+        if a[k].dtype.kind == "f":
+            assert np.array_equal(a[k], b[k], equal_nan=True), k
+        else:
+            assert np.array_equal(a[k], b[k]), k
 
 
 def test_run_tracked_refuses_a_sealed_problem():
     _n, problem = make_sealed_families_battery()[0]
     with pytest.raises(ValueError, match="feature logging is refused"):
         _tracked(_spec("RoundRobin_Random"), problem, 20, FeatureLogSpec())
+
+
+def test_run_tracked_refuses_a_sealed_mabbob_instance_without_a_sealed_flag():
+    from panobbgo.harness_ioh import _is_sealed_problem
+    from panobbgo.sealed import SEALED_MABBOB_INSTANCES
+
+    class Fake:
+        def __init__(self, inst, inner=None):
+            self.ioh_instance = inst
+            self.inner = inner
+
+    assert _is_sealed_problem(Fake(SEALED_MABBOB_INSTANCES[0]))
+    assert _is_sealed_problem(type("Noisy", (), {"inner": Fake(SEALED_MABBOB_INSTANCES[3])})())
+    assert not _is_sealed_problem(Fake(0))
+
+
+def test_ioh_run_one_refuses_logging_on_a_sealed_instance():
+    from panobbgo.harness_ioh import _run_one
+    from panobbgo.sealed import SEALED_MABBOB_INSTANCES
+
+    with pytest.raises(ValueError, match="feature logging is refused"):
+        _run_one(
+            _spec("RoundRobin_Random"),
+            "MA-BBOB",
+            2,
+            SEALED_MABBOB_INSTANCES[0],
+            0,
+            20,
+            1,
+            {},
+            -8.0,
+            2.0,
+            sealed=True,
+            log_features=FeatureLogSpec(),
+        )
+
+
+class _Boom:
+    """A strategy class whose construction fails: the run raises."""
+
+    def __init__(self, *args, **kwargs):
+        raise RuntimeError("boom")
+
+
+def test_a_raising_run_records_empty_features_on_every_track():
+    import dataclasses
+
+    from panobbgo.harness_families import _run_one as family_run_one
+    from panobbgo.harness_ioh import _run_one as ioh_run_one
+    from panobbgo.harness_realworld import _run_one as realworld_run_one
+    from panobbgo.lib.realworld import make_realworld_instances
+
+    spec = dataclasses.replace(_spec("RoundRobin_Random"), strategy_class=_Boom)
+    log = FeatureLogSpec()
+    _n, fam = make_families_battery(dims=(2,), n_instances=1)[0]
+    _n, rw = make_realworld_instances(["RC17"])[0]
+    recs = [
+        family_run_one(spec, fam, 0, 20, 1, -8.0, 2.0, True, log_features=log),
+        realworld_run_one(spec, rw, 0, 20, 1, -8.0, 0.0, True, log_features=log),
+        ioh_run_one(spec, "MA-BBOB", 2, 0, 0, 20, 1, {}, -8.0, 2.0, log_features=log),
+    ]
+    for rec in recs:
+        assert rec.error is not None and rec.features == []
+    off = family_run_one(spec, fam, 0, 20, 1, -8.0, 2.0, True)
+    assert off.error is not None and off.features is None
+
+
+def test_nearest_better_is_strictly_better():
+    """Tied points are not each other's nearest better (hand-computed, d = 1)."""
+    u = np.array([[0.0], [0.1], [0.2], [0.5], [0.9]])
+    land = landscape_features(u, avg_ranks(np.array([0.0, 1.0, 1.0, 2.0, 3.0])))
+    # nn = .1 .1 .3 .4 and strict nb = .1 .2 .3 .4 (point 2's tie at .1 does not count)
+    assert land["nbc_mean_ratio"] == pytest.approx(0.9 / 1.0)
+
+
+def test_quadratic_fit_on_a_clustered_sample_matches_lstsq():
+    """A converged run (radius 1e-5) at d = 15: the standardised normal equations agree with an SVD solve."""
+    from panobbgo.features import _adj_r2, _quad_design
+
+    rng = np.random.default_rng(4)
+    d = 15
+    p = 1 + 2 * d + d * (d - 1) // 2
+    u = 0.37 + 1e-5 * rng.standard_normal((2 * p + 5, d))
+    q, _ = np.linalg.qr(rng.standard_normal((d, d)))
+    z = (u - 0.37) @ q
+    y = avg_ranks((10 ** np.linspace(0, 2, d) * z**2).sum(1)) / (u.shape[0] - 1)
+    design, _ii, _jj = _quad_design(u - 0.5)
+    assert np.linalg.cond(design) > 1e8  # the raw design is badly conditioned
+    r2, coef = _adj_r2(design, y)
+    ref, *_ = np.linalg.lstsq(design, y, rcond=None)
+    fit_ref = design @ ref
+    n = u.shape[0]
+    r2_ref = 1 - ((y - fit_ref) ** 2).sum() / ((y - y.mean()) ** 2).sum()
+    assert r2 == pytest.approx(1 - (1 - r2_ref) * (n - 1) / (n - p), abs=1e-6)
+    assert np.allclose(design @ coef, fit_ref, atol=1e-6)
+    land = landscape_features(u, y)
+    assert land["r2_quad"] == pytest.approx(r2, abs=1e-6)

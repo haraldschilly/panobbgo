@@ -37,11 +37,44 @@ stepping on each other.
 *   **Before pushing**, run `ruff`, `pyright` and the tests of the modules
     you touched.  The full suite runs in CI.
 
+## Autonomy (Harald, 2026-09-26)
+
+Agents working on this project may, without asking:
+
+*   create branches, git worktrees and pull requests;
+*   in a larger pipeline of work, **merge their own PRs** — under the loop
+    below.
+
+The loop for every PR:
+
+1.  **CI green.**
+2.  **Review by a subagent.**  Spawn a fresh reviewer agent and tell it to
+    check the PR (split by angle when the change is large: substance —
+    fidelity, fairness, realism — and integration).
+3.  **Fix** the raised issues on the same branch and amend the PR.
+4.  **Check again**: a verifier agent confirms the fixes and looks for
+    regressions (mutation-test: break a fixed behaviour, a test must fail).
+5.  **Merge** only when CI is green and the remaining issues are minor;
+    then continue with the next item.
+
+**Stop and ask Harald** — and stop working on that line — when something
+is impossible to resolve, raises a real concern, contradicts a standing
+decision or another source, or you are otherwise stuck.  Do not guess
+around it.
+
+Decisions that are conventional or reversible, the agent makes itself and
+states in the PR.  Direction changes, irreversible actions beyond merging
+(deleting releases or tags, rewriting history) and anything that affects
+Harald's machine or accounts are his.
+
 ## Review and merge
 
+The mechanics of the loop above when a coordinator delegates:
+
 1.  The implementing agent opens the PR, waits for CI
-    (`gh pr checks <N> --watch`) and stops.  It does not merge.  It may run
-    its own reviewers before handing back.
+    (`gh pr checks <N> --watch`) and stops.  It does not merge unless the
+    coordinator tells it to after the review loop.  It may run its own
+    reviewers before handing back.
 2.  The coordinator runs one or more fresh reviewer agents on the diff.
     The findings get fixed on the same branch (commits `Review #N: ...`).
     Perfection is not the bar; the reviewers' real findings are.

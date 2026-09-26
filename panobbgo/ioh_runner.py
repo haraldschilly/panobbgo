@@ -296,6 +296,11 @@ class IOHTracker:
         #: value.  Non-monotone under noise; see :class:`Trajectory`.
         self.best_so_far_reco: List[float] = []
         self._incumbent_true: float = float("inf")
+        #: Set by :meth:`restore`: the run is over and its traces are frozen.
+        #: A call still in flight — a thread abandoned by
+        #: ``evaluation.timeout`` keeps running after the run — is neither
+        #: admitted nor recorded, so it cannot change a scored run.
+        self._closed: bool = False
 
         self._orig_eval: Callable[[np.ndarray], float] = problem.eval
         problem.eval = self._tracked_eval  # type: ignore[method-assign]
@@ -303,6 +308,10 @@ class IOHTracker:
     def _tracked_eval(self, x: np.ndarray) -> float:
         fire_timeout = False
         with self._lock:
+            if self._closed:
+                # The run is over (restore); a late caller gets a
+                # non-improvement and the problem is not called.
+                return self._closed_value()
             if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
                 self.timed_out = True
                 fire_timeout = True
@@ -330,7 +339,9 @@ class IOHTracker:
             # like any measurement (a ``None`` marker) and counted once, when
             # the call completes (complete_call).
             with self._lock:
-                if self._defer_key is not None:
+                if self._closed:
+                    pass  # finished after the run: not recorded
+                elif self._defer_key is not None:
                     self._deferred.setdefault(self._defer_key, []).append(
                         (np.asarray(x, dtype=np.float64).copy(), None)
                     )
@@ -341,9 +352,14 @@ class IOHTracker:
             raise
         except BaseException:
             with self._lock:
-                self._reserved -= 1  # the slot was never used
+                if not self._closed:
+                    self._reserved -= 1  # the slot was never used
             raise
         with self._lock:
+            if self._closed:
+                # An abandoned call that finished after the run: the traces
+                # are frozen (restore), so it is dropped.
+                return measured[0]
             if self._defer_key is not None:
                 # A simulated call: counted when it completes (complete_call).
                 self._deferred.setdefault(self._defer_key, []).append(
@@ -386,6 +402,8 @@ class IOHTracker:
         order.
         """
         with self._lock:
+            if self._closed:
+                return
             entries = self._deferred.pop(int(key), [])
             failed = not ok or any(m is None for _x, m in entries)
             if not failed and not entries:
@@ -409,6 +427,8 @@ class IOHTracker:
         """
         fire_timeout = False
         with self._lock:
+            if self._closed:
+                return
             if not self.timed_out and self._deadline is not None and time.monotonic() > self._deadline:
                 self.timed_out = True
                 fire_timeout = True
@@ -458,7 +478,16 @@ class IOHTracker:
             self.best_so_far_reco.append(self._incumbent_true)
 
     def restore(self) -> None:
-        """Restore the original ``eval`` so the problem can be reused."""
+        """Restore the original ``eval`` so the problem can be reused, and close the tracker.
+
+        Closing freezes the counts and traces: a call still in flight — a
+        thread abandoned by ``evaluation.timeout`` cannot be killed and keeps
+        running after the run — is not recorded when it finishes, and a
+        late call is not admitted.  What the run is scored on is therefore
+        exactly what was recorded when it ended.
+        """
+        with self._lock:
+            self._closed = True
         self.problem.eval = self._orig_eval  # type: ignore[method-assign]
 
     def trajectory(self) -> Trajectory:

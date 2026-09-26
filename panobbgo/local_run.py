@@ -35,9 +35,14 @@ BLAS threads are pinned to :data:`BLAS_THREADS` (one) for every
 measurement: at ``d >= 80`` a seeded run's numbers depend on the OpenBLAS
 thread count (CMA-ES's ``eigh``), and an unpinned BLAS pool fighting the
 other jobs makes a ``d = 160`` run 7-70x slower under load.  The harnesses
-pin it per run (:func:`blas_limit`, in ``harness_ioh._run_tracked``);
-:func:`apply` and the pool workers also set the environment variables, so
-child processes inherit them.
+pin it before every run (:func:`pin_blas`, in ``harness_ioh._run_tracked``)
+and leave it pinned: the limit is process-wide and is never raised back
+while the process lives, because an evaluation thread abandoned by
+``evaluation.timeout`` may still be inside BLAS, and changing the OpenBLAS
+thread count under a running call is not safe (a CI segfault in 2026-09
+came from restoring the limit per run).  :func:`apply` and the pool
+workers also set the environment variables, so child processes inherit
+them.
 
 The floating-point kernels (OpenBLAS core type, numpy's SIMD targets) are
 pinned by the entry points before numpy loads (:mod:`panobbgo.fp_env`);
@@ -68,7 +73,7 @@ _BLAS_ENV_VARS = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
 def pin_blas_env(threads: int = BLAS_THREADS) -> None:
     """Set the BLAS / OpenMP thread variables, for this process's children.
 
-    A library already loaded in this process ignores them; :func:`blas_limit`
+    A library already loaded in this process ignores them; :func:`pin_blas`
     covers that case.
     """
     for var in _BLAS_ENV_VARS:
@@ -83,11 +88,19 @@ def blas_thread_counts() -> List[int]:
     return [int(lib["num_threads"]) for lib in threadpool_info() if lib.get("user_api") == "blas"]
 
 
-def blas_limit(threads: int = BLAS_THREADS) -> Any:
-    """``threadpoolctl.threadpool_limits(threads)``: a context manager, or a global limit when not entered."""
+def pin_blas(threads: int = BLAS_THREADS) -> None:
+    """Limit the BLAS / OpenMP libraries loaded in this process to ``threads`` threads, and leave them there.
+
+    Process-wide and deliberately never restored: raising the OpenBLAS
+    thread count again while another thread — say one abandoned by
+    ``evaluation.timeout`` — is still inside a BLAS call is not safe.  A
+    repeated call with the same count changes nothing.  Loads numpy first,
+    so its BLAS is among the libraries limited.
+    """
+    import numpy  # noqa: F401  # pyright: ignore[reportUnusedImport]  (loads BLAS for threadpoolctl)
     from threadpoolctl import threadpool_limits
 
-    return threadpool_limits(limits=int(threads))
+    threadpool_limits(limits=int(threads))
 
 
 def be_nice(niceness: int = DEFAULT_NICENESS) -> int:
@@ -164,7 +177,7 @@ def apply(args: argparse.Namespace) -> None:
     if not args.no_nice:
         be_nice(args.nice)
     pin_blas_env()
-    blas_limit()
+    pin_blas()
 
 
 # -- a process pool for independent runs -------------------------------------
@@ -197,7 +210,7 @@ def screen_jobs(opts: Mapping[str, str]) -> int:
 
 def _worker_init(niceness: Optional[int]) -> None:
     pin_blas_env()
-    blas_limit()
+    pin_blas()
     if niceness is not None:
         be_nice(niceness)
 

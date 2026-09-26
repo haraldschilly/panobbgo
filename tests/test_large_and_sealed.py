@@ -261,7 +261,13 @@ def test_cmaes_smoke_at_d40():
 
 
 def test_runs_are_blas_pinned(monkeypatch):
-    """Every AOCC run goes through ``_run_tracked``, which pins BLAS to one thread."""
+    """Every AOCC run goes through ``_run_tracked``, which pins BLAS to one thread and never lifts the pin.
+
+    Restoring the previous limit after a run raised the OpenBLAS thread
+    count while threads abandoned by ``evaluation.timeout`` could still be
+    inside BLAS; the pin is process-wide instead (``local_run.pin_blas``).
+    """
+    import threadpoolctl
     from threadpoolctl import threadpool_info
 
     seen = []
@@ -271,11 +277,21 @@ def test_runs_are_blas_pinned(monkeypatch):
         seen.extend(lib["num_threads"] for lib in threadpool_info() if lib.get("user_api") == "blas")
         return real(*args, **kwargs)
 
+    restores = []
+
+    class Limits(threadpoolctl.threadpool_limits):
+        def restore_original_limits(self):
+            restores.append(self)
+            return super().restore_original_limits()
+
     monkeypatch.setattr(harness_ioh, "_run_tracked_unpinned", spy)
+    monkeypatch.setattr(threadpoolctl, "threadpool_limits", Limits)
     spec = [s for s in harness_ioh.make_ioh_strategies() if s.name == "RoundRobin_Random"]
     inst = harness_families.make_families_battery(dims=(2,), n_instances=1)[:1]
     harness_families.run_family_harness(spec, inst, budget_multiplier=3, progress=False)
     assert seen and set(seen) == {1}
+    assert restores == []  # the limit is never restored (raised) behind a run
+    assert set(lib["num_threads"] for lib in threadpool_info() if lib.get("user_api") == "blas") == {1}
 
 
 def test_pool_workers_run_with_blas_pinned():

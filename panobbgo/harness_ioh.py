@@ -94,7 +94,7 @@ from panobbgo.ioh_runner import (  # noqa: F401
     aocc_virtual_time,
 )
 from panobbgo import fp_env
-from panobbgo.local_run import BLAS_THREADS, blas_limit
+from panobbgo.local_run import BLAS_THREADS, pin_blas
 from panobbgo.sealed import (
     DEV_INSTANCE_LIMIT,
     SEALED_MABBOB_DIMS,
@@ -1726,9 +1726,14 @@ def _run_tracked(*args: Any, **kwargs: Any) -> _TrackedRun:
     measure with an unpinned BLAS pool: at ``d >= 80`` CMA-ES's ``eigh``
     gives thread-count-dependent results, and an oversubscribed pool is
     7-70x slower under load (``panobbgo.local_run``).
+
+    The pin is process-wide and stays after the run
+    (:func:`~panobbgo.local_run.pin_blas`): a thread abandoned by
+    ``evaluation.timeout`` can still be inside BLAS when the run returns,
+    and raising the OpenBLAS thread count under it is not safe.
     """
-    with blas_limit():
-        return _run_tracked_unpinned(*args, **kwargs)
+    pin_blas()
+    return _run_tracked_unpinned(*args, **kwargs)
 
 
 def _run_tracked_unpinned(

@@ -29,14 +29,17 @@ a quality signal.
 
 *   Say what was measured, how, and what was not.  Call unmeasured claims
     unmeasured.
-*   **Bug fixes** that restore documented or published behaviour land
-    without a benchmark.
-*   **Tuning or default changes**: a quick paired multi-seed comparison
-    (`harness_ioh.paired_seed_stats`) is enough — quote delta, CI and
+*   **Development speed first** (Harald, 2026-09-26).  Panobbgo is in
+    development mode with no outside users, so changing a default needs no
+    extra gate.  No `--standard`/`--full` runs before merging.
+*   **Bug fixes** land without a benchmark.
+*   **Improvements** land on any real evidence: a quick paired multi-seed
+    comparison (`harness_ioh.paired_seed_stats`) — quote delta, CI and
     wins/n.
-*   Keep evidence rules lean (Harald, 2026-09-25: the former 12-seed roster
-    gate is gone).  Two rules remain because they were learned the hard
-    way:
+*   Either way, a **review agent** checks the PR before merge
+    ([process.md](process.md#review-and-merge)); lean on reviews, not on
+    long benchmark runs.
+*   Two rules stay because they were learned the hard way:
     *   **The best spec of a multi-spec screen is a selected maximum.**
         Re-check it on fresh seeds before believing its margin
         (DISCOVERY §30: +0.050 on 3 seeds became −0.006).

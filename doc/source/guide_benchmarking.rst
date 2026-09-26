@@ -307,10 +307,10 @@ When to run which mode
 
 - **During development** — ``--quick`` after each meaningful change.  Fast
   enough to keep you honest without hurting flow.
-- **Before opening a PR** — ``--standard``.  Saves the result JSON as a build
-  artefact so reviewers can compare.
-- **Before merging a significant algorithmic change** — ``--full``, on a
-  machine you are not actively using.
+- **Before opening a PR** — a quick paired multi-seed comparison is enough
+  evidence for an improvement; bug fixes need none.  ``--standard`` and
+  ``--full`` are for re-baselining and deliberate studies, not a merge gate
+  (the project's rules: ``doc/dev/benchmarking.md``).
 
 
 Pitfalls and statistical caveats

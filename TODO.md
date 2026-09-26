@@ -94,11 +94,6 @@ Cheap-track items, in GOAL §2c order:
 - [ ] **Composite registry**: `CMAES_Portfolio`, `IPOP_CMAES`, `BIPOP_CMAES`
       all pair CMA-ES with the `Restart` analyzer (measured −0.067); the
       composite score is a frozen contract.
-- [ ] **`--standard` / `--full` before merging a significant algorithmic
-      change**: bring the recommendation back to `doc/dev/benchmarking.md`?
-      #347 dropped it as conflicting with the lean evidence rules; the
-      user guide (`guide_benchmarking.rst`, "When to run which mode") still
-      recommends it.
 - [ ] **Re-baseline result size**: ~14 MB of JSON per run, committed
       (`planning/results/2026-09-26/`).  Keep as is, compress, or keep only
       the aggregates?

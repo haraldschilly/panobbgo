@@ -291,7 +291,8 @@ class VirtualSpec:
     policy: str = "async"
     #: Seed of the duration stream (common random numbers).  The harnesses set
     #: it per cell, the same for every strategy on the cell
-    #: (:func:`cell_duration_seed`); ``None``: the strategy's own seed.
+    #: (:meth:`with_cell`, a ``_derive_seed`` of the cell under
+    #: :data:`DURATION_STREAM_IDENTITY`); ``None``: the strategy's own seed.
     duration_seed: Optional[int] = None
 
     def __post_init__(self) -> None:
@@ -319,7 +320,7 @@ class VirtualSpec:
         strategy._virtual_observer = observer
 
     def with_cell(self, seed: int) -> "VirtualSpec":
-        """This spec with the duration stream of one cell (``seed``: :func:`cell_duration_seed`)."""
+        """This spec with the duration stream of one cell (``seed``: derived per cell under :data:`DURATION_STREAM_IDENTITY`)."""
         return replace(self, duration_seed=int(seed))
 
     def to_dict(self) -> Dict[str, Any]:

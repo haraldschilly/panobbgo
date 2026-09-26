@@ -345,22 +345,49 @@ def shard_minutes(units: Sequence[Unit], jobs: int) -> float:
 CORE_TARGET_MINUTES = 30.0
 
 
-def _entry(shard: str, group: str, items: Sequence[Unit], jobs: int) -> Dict[str, Any]:
+def _entry(shard: str, group: str, items: Sequence[Unit], jobs: int, calibration: bool = False) -> Dict[str, Any]:
     return {
         "shard": shard,
         "group": group,
         "units": ";".join(u.id for u in items),
         "n_units": len(items),
         "est_min": int(math.ceil(shard_minutes(items, jobs))),
+        # Calibration units (``--extra-units``) are timed and reported apart, never analysed with the grid.
+        "calibration": calibration,
     }
+
+
+def runs_of(unit: Unit) -> Set[Unit]:
+    """The per-instance units a unit covers (itself, if it is one already)."""
+    return set(unit.split())
+
+
+def uncovered(extra: Sequence[Unit], grid: Iterable[Unit]) -> List[Unit]:
+    """The parts of ``extra`` the grid does not run already, as per-instance units where needed.
+
+    An extra unit wholly covered by the grid is dropped; one partly covered
+    keeps its uncovered instances; duplicates among the extras collapse.
+    """
+    have: Set[Unit] = set()
+    for u in grid:
+        have |= runs_of(u)
+    out: List[Unit] = []
+    for u in extra:
+        parts = runs_of(u)
+        left = sorted(parts - have)
+        if left:
+            out.extend([u] if len(left) == len(parts) else left)
+        have |= parts
+    return out
 
 
 def plan(units: Sequence[Unit], jobs: int, target_minutes: float, extra: Sequence[Unit] = ()) -> List[Dict[str, Any]]:
     """The matrix entries: one per shard, the core group first, then ``extra`` units one shard each.
 
     A unit estimated above the target is split per instance first
-    (:func:`split_long`).  ``extra`` units (calibration runs outside the
-    grid) are never packed together.
+    (:func:`split_long`).  ``extra`` units are calibration runs: one shard
+    each, marked ``calibration``, and only the runs the grid does not do
+    already (:func:`uncovered`), so no run is measured twice.
     """
     entries = []
     for group in GROUPS:
@@ -368,9 +395,8 @@ def plan(units: Sequence[Unit], jobs: int, target_minutes: float, extra: Sequenc
         mine = split_long([u for u in units if u.group == group], jobs, target)
         for i, items in enumerate(pack(mine, jobs, target), 1):
             entries.append(_entry(f"{group}-{i:02d}", group, items, jobs))
-    have = {u for e in entries for u in e["units"].split(";")}
-    for i, u in enumerate((u for u in extra if u.id not in have), 1):
-        entries.append(_entry(f"extra-{i:02d}", u.group, [u], jobs))
+    for i, u in enumerate(uncovered(extra, units), 1):
+        entries.append(_entry(f"extra-{i:02d}", u.group, [u], jobs, calibration=True))
     return entries
 
 
@@ -559,6 +585,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         "started": datetime.now(tz=timezone.utc).isoformat(),
         "jobs": jobs,
         "host": host,
+        "calibration": args.calibration,
     }
     meta_path = out_dir / f"meta_{args.shard}.json"
     print(f"shard {args.shard}: {len(units)} unit(s) on {fp_class(host)}, {jobs} process(es)", flush=True)
@@ -572,7 +599,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             meta["failed"].append(unit.id)
             status = 1
         else:
-            payload.update(shard=args.shard, host=host, git_sha=meta["git_sha"])
+            payload.update(shard=args.shard, host=host, git_sha=meta["git_sha"], calibration=args.calibration)
             write_atomic(out_dir / f"{unit.id}.json", json.dumps(payload, default=float))
             meta["done"].append(unit.id)
             print(f"    done in {payload['elapsed_s'] / 60:.1f} min", flush=True)
@@ -610,11 +637,15 @@ class Obs:
     fp: str
     error: Optional[str]
     elapsed_s: float
+    #: Ended by an exception (``IOHRunRecord.crashed``): scored 0 on both metrics.
+    crashed: bool = False
+    #: Cut by a wall-clock deadline (``IOHRunRecord.timed_out``): scored up to the cut.
+    timed_out: bool = False
 
     @property
     def hard_error(self) -> bool:
-        """A crash or a timeout (``EndedEarly`` is a scored run that stopped itself, not an error)."""
-        return bool(self.error) and not str(self.error).startswith("EndedEarly")
+        """A crash or a wall-clock timeout (``EndedEarly`` is a scored run that stopped itself, not an error)."""
+        return self.crashed or self.timed_out
 
 
 def label(name: str) -> str:
@@ -653,10 +684,15 @@ def load_units(src: Path) -> Tuple[List[Dict[str, Any]], List[str]]:
 def collect(payloads: Iterable[Dict[str, Any]]) -> Dict[Cell, Dict[str, Dict[Key, Obs]]]:
     """``cell -> strategy -> (seed, family, instance) -> Obs``; a run seen twice is an error.
 
-    A run that crashed or timed out has ``aocc = 0`` and no ``aocc_time``;
-    it is scored ``aocc_time = 0`` too, so the time metric does not average
-    over the survivors only.
+    Scores as the harness aggregates them (``harness_ioh.time_score``): a
+    crashed run has ``aocc = 0`` and no ``aocc_time`` of its own and scores
+    ``aocc_time = 0`` too, so the time metric does not average over the
+    survivors only; a run cut by a wall-clock deadline (none is set here)
+    keeps both scores up to the cut; an ``EndedEarly`` run is scored on its
+    short trace and is not an error.
     """
+    from panobbgo.harness_ioh import run_record_from_dict, time_score
+
     cells: Dict[Cell, Dict[str, Dict[Key, Obs]]] = {}
     seen: Set[str] = set()
     for d in payloads:
@@ -667,17 +703,19 @@ def collect(payloads: Iterable[Dict[str, Any]]) -> Dict[Cell, Dict[str, Dict[Key
         fp = fp_label(d)
         virtual = d["result"].get("virtual") is not None
         for r in d["result"]["runs"]:
+            rec = run_record_from_dict(r)
             key: Key = (int(d["seed"]), str(r["problem_kind"]), int(r["instance"]))
+            t = time_score(rec) if virtual else rec.aocc_time
             obs = Obs(
-                aocc=float(r["aocc"]),
-                aocc_time=None if r.get("aocc_time") is None else float(r["aocc_time"]),
+                aocc=float(rec.aocc),
+                aocc_time=None if t is None else float(t),
                 shard=str(d.get("shard")),
                 fp=fp,
-                error=r.get("error"),
-                elapsed_s=float(r.get("elapsed_s") or 0.0),
+                error=rec.error,
+                elapsed_s=float(rec.elapsed_s or 0.0),
+                crashed=rec.crashed,
+                timed_out=rec.timed_out,
             )
-            if obs.aocc_time is None and obs.hard_error and virtual:
-                obs.aocc_time = 0.0
             runs = cells.setdefault(cell, {}).setdefault(r["strategy_name"], {})
             if key in runs:
                 raise ValueError(f"run {r['strategy_name']} {key} of cell {cell} appears twice")
@@ -795,6 +833,7 @@ def _status(obs: Dict[Key, Obs], seeds: Set[int], instances: Set[Tuple[str, int]
         "complete": complete,
         "errors": sum(1 for o in obs.values() if o.hard_error),
         "ended_early": sum(1 for o in obs.values() if o.error and not o.hard_error),
+        "timed_out": sum(1 for o in obs.values() if o.timed_out),
     }
 
 
@@ -811,9 +850,10 @@ def summarize(
         c: {n: _status(obs, expected[c].get(n, set()), instances[c]) for n, obs in s.items()} for c, s in cells.items()
     }
 
-    # The fixed pool per (preset, dim, bm): externals present, complete and
-    # error-free in EVERY q cell of it, so best-of does not change with q
-    # because the pool changed.
+    # The fixed pool per (preset, dim, bm): the externals that ran in EVERY q
+    # cell of it without a crashed run, so best-of does not change with q
+    # because the pool changed.  A missing unit (a cut shard) does not
+    # exclude: the comparisons run on the common runs instead (below).
     groups: Dict[Tuple[str, int, int], List[Cell]] = {}
     for c in cells:
         groups.setdefault(c[:3], []).append(c)
@@ -821,15 +861,14 @@ def summarize(
     excluded: Dict[Tuple[str, int, int], Dict[str, str]] = {}
     for g, cs in groups.items():
         why: Dict[str, List[str]] = {}
-        for n in sorted({n for c in cs for n in cells[c] if is_external(n)}):
+        names = sorted({n for c in cs for n in cells[c] if is_external(n)})
+        for n in names:
             for c in sorted(cs, key=lambda c: c[3]):
                 st = status[c].get(n)
-                problem = (
-                    "absent" if st is None else "incomplete" if not st["complete"] else "errors" if st["errors"] else ""
-                )
+                problem = "absent" if st is None else "errors" if st["errors"] else ""
                 if problem:
                     why.setdefault(n, []).append(f"{problem} at q={c[3]}")
-        pool[g] = sorted({n for c in cs for n in cells[c] if is_external(n)} - set(why))
+        pool[g] = sorted(set(names) - set(why))
         excluded[g] = {n: ", ".join(r) for n, r in why.items()}
 
     out: Dict[str, Dict[str, Any]] = {}
@@ -838,11 +877,24 @@ def summarize(
         strats = cells[c]
         hm = headline_metric(q)
         cell_pool = pool[c[:3]]
+        # The common runs: the (seed, family, instance) keys present for the
+        # headline spec and every pool member.  Every mean, best-of and delta
+        # below is taken on them (each pair on its intersection with them), so
+        # one cut shard shrinks n instead of emptying the pool.
+        anchors = [n for n in [HEADLINE_SPEC, *cell_pool] if n in strats]
+        common: Set[Key] = (
+            set.intersection(*(set(strats[n]) for n in anchors))
+            if anchors
+            else {k for obs in strats.values() for k in obs}
+        )
+        planned_seeds = expected[c].get(HEADLINE_SPEC) or set().union(*expected[c].values())
+        planned_runs = len(planned_seeds) * len(instances[c])
         rows: Dict[str, Any] = {}
         for name, obs in strats.items():
+            keys = [k for k in obs if k in common]
             fams: Dict[str, Dict[str, Optional[float]]] = {}
-            for fam in sorted({k[1] for k in obs}):
-                fk = [k for k in obs if k[1] == fam]
+            for fam in sorted({k[1] for k in keys}):
+                fk = [k for k in keys if k[1] == fam]
                 fams[fam] = {m: mean_over_seeds(obs, m, fk) for m in METRICS}
             rows[name] = {
                 "label": label(name),
@@ -850,21 +902,27 @@ def summarize(
                 "group": group_of(name),
                 "in_pool": name in cell_pool,
                 **status[c][name],
+                "n_common": len(keys),
                 "seconds_per_run": sum(o.elapsed_s for o in obs.values()) / len(obs) if obs else None,
-                **{m: mean_over_seeds(obs, m) for m in METRICS},
+                **{m: mean_over_seeds(obs, m, keys) for m in METRICS},
                 "per_family": fams,
             }
         best = {
             m: max(cell_pool, key=lambda n: rows[n][m] if rows[n][m] is not None else -1.0, default=None)
             for m in METRICS
         }
-        # Flag every external outside the pool that scores above the pool's best (it is a reference row).
         flags = []
+        if not cell_pool:
+            flags.append("empty pool: no external ran error-free in every q cell")
+        if len(common) < planned_runs:
+            flags.append(f"n = {len(common)} common runs, below the plan's {planned_runs}")
+        # Flag every external outside the pool that scores above the pool's best (it is a reference row).
         for m in METRICS:
             b = best[m]
-            floor = rows[b][m] if b and rows[b][m] is not None else -1.0
+            if b is None or rows[b][m] is None:
+                continue
             for n in sorted(strats):
-                if is_external(n) and n not in cell_pool and rows[n][m] is not None and rows[n][m] > floor:
+                if is_external(n) and n not in cell_pool and rows[n][m] is not None and rows[n][m] > rows[b][m]:
                     reason = excluded[c[:3]].get(n, "?")
                     flags.append(f"{m}: {label(n)} scores above the pool's best but is outside the pool ({reason})")
         externals = [n for n in strats if is_external(n)]
@@ -872,17 +930,16 @@ def summarize(
             if is_external(name):
                 continue
             r = rows[name]
-            r["vs"] = {e: {m: paired(strats[name], strats[e], m) for m in METRICS} for e in externals}
+            r["vs"] = {e: {m: paired(strats[name], strats[e], m, common) for m in METRICS} for e in externals}
             r["vs_pool_best"] = {}
             for m in METRICS:
                 bm_name = best[m]
-                r["vs_pool_best"][m] = paired(strats[name], strats[bm_name], m) if bm_name else None
+                r["vs_pool_best"][m] = paired(strats[name], strats[bm_name], m, common) if bm_name else None
             best_hm = best[hm]
             if best_hm:
                 bo = strats[best_hm]
                 r["per_family_vs_pool_best"] = {
-                    fam: paired(strats[name], bo, hm, [k for k in strats[name] if k[1] == fam])
-                    for fam in r["per_family"]
+                    fam: paired(strats[name], bo, hm, [k for k in common if k[1] == fam]) for fam in r["per_family"]
                 }
         planned_names = sorted(expected[c])
         out[f"{preset}/d{dim}/b{bm}/q{q}"] = {
@@ -894,6 +951,10 @@ def summarize(
             "pool": cell_pool,
             "pool_excluded": excluded[c[:3]],
             "pool_best": best,
+            "n_common": len(common),
+            "n_common_seeds": len({k[0] for k in common}),
+            "planned_runs": planned_runs,
+            "planned_seeds": len(planned_seeds),
             "flags": flags,
             "planned": planned_names,
             "present": sorted(strats),
@@ -920,18 +981,25 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
 
     Per cell (preset, dim, bm, q):
 
-    * every strategy's mean AOCC and ``aocc_time`` (mean over seeds of the
-      per-seed instance mean; a crashed or timed-out run scores 0 on both),
-      per-family means, seeds against the plan, errors;
-    * the **pool**: the externals present, complete and error-free in every q
-      cell of the (preset, dim, bm) — fixed across q, so a delta does not move
-      with q because the pool changed.  Others (SMAC at q = 1, a baseline
-      left out of some cells, one with errors) are reference rows;
-    * for every panobbgo spec the paired-seed delta against the pool's best
-      (per metric) and against every external, and per family against the
-      pool's best on the headline metric;
+    * the **pool**: the externals that ran in every q cell of the (preset,
+      dim, bm) with no crashed or timed-out run — fixed across q, so a delta
+      does not move with q because the pool changed.  Others (SMAC at q = 1,
+      a baseline left out of some cells, one with errors) are reference rows;
+    * the **common runs**: the (seed, family, instance) keys present for the
+      headline spec and every pool member.  A missing unit (a cut shard)
+      keeps its strategy in the pool and shrinks these instead; the cell is
+      flagged when they fall below the plan;
+    * on the common runs: every strategy's mean AOCC and ``aocc_time`` (mean
+      over seeds of the per-seed instance mean; a crashed run scores 0 on
+      both), per-family means, seeds against the plan, errors; for every
+      panobbgo spec the paired-seed delta against the pool's best (per
+      metric) and against every external, and per family against the pool's
+      best on the headline metric;
     * the headline: :data:`HEADLINE_SPEC` against the pool's best on
       :func:`headline_metric`, Holm-adjusted over the cells.
+
+    Calibration units (``run --calibration``) are left out of all of this and
+    reported apart (``calibration``: s/run and scores per unit).
     """
     from panobbgo.harness_ioh import make_ioh_strategies
 
@@ -944,6 +1012,10 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
             metas.append(json.loads(p.read_text()))
         except (OSError, ValueError) as exc:
             unreadable.append(f"{p}: {type(exc).__name__}: {exc}")
+    calibration = [d for d in payloads if d.get("calibration")]
+    payloads = [d for d in payloads if not d.get("calibration")]
+    if not payloads:
+        raise ValueError(f"no grid unit result files under {src} (only calibration units)")
     cells = collect(payloads)
     done = {d["unit"] for d in payloads}
     missing = sorted(set(planned_units or []) - done)
@@ -962,7 +1034,33 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
         "virtual": {"duration": DURATION, "sigma": SIGMA, "policy": "async", "durations": "crn"},
         "headline_spec": HEADLINE_SPEC,
         "cells": summarize(cells, planned_units, [s.name for s in make_ioh_strategies()]),
+        "calibration": calibration_rows(calibration),
     }
+
+
+def calibration_rows(payloads: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Per calibration unit and strategy: seconds per run and the mean scores (no comparison)."""
+    out = []
+    for d in sorted(payloads, key=lambda d: d["unit"]):
+        by: Dict[str, List[Dict[str, Any]]] = {}
+        for r in d["result"]["runs"]:
+            by.setdefault(r["strategy_name"], []).append(r)
+        for name, runs in sorted(by.items()):
+            times = [float(r["aocc_time"]) for r in runs if r.get("aocc_time") is not None]
+            out.append(
+                {
+                    "unit": d["unit"],
+                    "strategy": name,
+                    "runs": len(runs),
+                    "unit_minutes": float(d.get("elapsed_s") or 0.0) / 60.0,
+                    "seconds_per_run": sum(float(r.get("elapsed_s") or 0.0) for r in runs) / len(runs),
+                    "aocc": sum(float(r["aocc"]) for r in runs) / len(runs),
+                    "aocc_time": sum(times) / len(times) if times else None,
+                    "errors": sum(1 for r in runs if r.get("error")),
+                    "fp": fp_label(d),
+                }
+            )
+    return out
 
 
 def _fmt(x: Optional[float], nd: int = 3) -> str:
@@ -999,9 +1097,14 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         f"- Pre-declared: the headline spec is `{hs}`; the other panobbgo specs are secondary.  The headline "
         "metric is AOCC at q = 1 and `aocc_time` at q > 1; tables are sorted by it.",
         "- Δ = panobbgo spec − reference: the mean over seeds of the per-seed instance-mean delta, t-CI95 over "
-        "seeds, wins/seeds.  Crashed or timed-out runs score 0 on both metrics.",
+        "seeds, wins/seeds.  A crashed run scores 0 on both metrics; a run cut by a wall-clock deadline (none "
+        "is set in this workflow) would keep its scores up to the cut; an `EndedEarly` run is scored on its "
+        "short trace and is not an error.",
+        "- Every mean and Δ of a cell is taken on its *common runs*: the (seed, instance) keys present for the "
+        "headline spec and every pool member (each pair on its intersection with them).  `n` counts them against "
+        "the plan; a cell below the plan is flagged.  A missing unit shrinks n, it does not exclude a baseline.",
         "- *Pool best*: the best external of a pool fixed per (preset, dim, budget) — the externals present, "
-        "complete and error-free in every q cell — so the reference does not change with q because a baseline "
+        "run in every q cell with no crashed run — so the reference does not change with q because a baseline "
         "is missing at some q.  SMAC (q = 1 only) and baselines left out of some cells are reference rows.",
         "- The pool's best is a selected maximum over several baselines, which favours the baseline side.",
         f"- Multiplicity: many cells, specs and baselines are compared.  Only the headline set (`{hs}` vs the "
@@ -1018,8 +1121,9 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         "",
         "## Headline",
         "",
-        f"| cell | metric | pool best | {hs} | Δ [CI95] wins | p | p_holm | best other panobbgo | errors pb/ext | flags |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        f"| cell | metric | n (runs/plan) | pool best | {hs} | Δ [CI95] wins | p | p_holm | best other panobbgo "
+        "| errors pb/ext | flags |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for name, c in summary["cells"].items():
         rows, hm = c["strategies"], c["headline_metric"]
@@ -1036,6 +1140,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
                 [
                     name,
                     hm,
+                    f"{c['n_common']}/{c['planned_runs']}{'' if c['n_common'] >= c['planned_runs'] else '!'}",
                     f"{label(b)} {_fmt(rows[b][hm])} ({_seeds(rows[b])})" if b else "–",
                     f"{_fmt(h[hm])} ({_seeds(h)})" if h else "–",
                     _fmt_delta(hl),
@@ -1098,6 +1203,23 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
                 + " | ".join(deltas)
                 + f" | {r['errors']} | {_fmt(r['seconds_per_run'], 1)} |"
             )
+    if summary.get("calibration"):
+        lines += [
+            "",
+            "## Calibration",
+            "",
+            "Extra units run to calibrate the cost model (`--extra-units`): not part of the grid, not in any "
+            "comparison above.",
+            "",
+            "| unit | strategy | runs | unit min | s/run | AOCC | aocc_time | errors | FP |",
+            "|---|---|---|---|---|---|---|---|---|",
+        ]
+        for r in summary["calibration"]:
+            lines.append(
+                f"| {r['unit']} | {label(r['strategy'])} | {r['runs']} | {_fmt(r['unit_minutes'], 1)} | "
+                f"{_fmt(r['seconds_per_run'], 1)} | {_fmt(r['aocc'])} | {_fmt(r['aocc_time'])} | {r['errors']} | "
+                f"{r['fp']} |"
+            )
     if summary["missing_units"] or summary["failed_units"] or summary["unreadable_files"]:
         lines += ["", "## Missing / failed units, unreadable files", ""]
         lines += [f"- missing: {u}" for u in summary["missing_units"]]
@@ -1111,7 +1233,8 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
     if args.plan:
         data = json.loads(Path(args.plan).read_text())
         entries = data["include"] if isinstance(data, dict) else data
-        planned = [u for e in entries for u in e["units"].split(";") if u]
+        # Calibration entries are not part of the grid: their units are not "planned" for the analysis.
+        planned = [u for e in entries if not e.get("calibration") for u in e["units"].split(";") if u]
     summary = aggregate(Path(args.src), planned)
     out = Path(args.out_dir)
     write_atomic(out / "summary.json", json.dumps(summary, indent=2, default=float) + "\n")
@@ -1154,6 +1277,11 @@ def build_parser() -> argparse.ArgumentParser:
     rn.add_argument("--jobs", type=int, default=0, help="Worker processes (default: all cores).")
     rn.add_argument("--progress", action="store_true", help="Print a line per run.")
     rn.add_argument("--no-nice", action="store_true", help="Do not raise the niceness to 15.")
+    rn.add_argument(
+        "--calibration",
+        action="store_true",
+        help="Mark the results as calibration runs (plan's extra units): timed and reported apart, not analysed.",
+    )
     rn.set_defaults(func=cmd_run)
 
     ag = sub.add_parser("aggregate", help="Summarize downloaded shard results.")

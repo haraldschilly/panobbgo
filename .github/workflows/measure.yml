@@ -154,9 +154,13 @@ jobs:
         env:
           UNITS: ${{ matrix.units }}
           SHARD: ${{ matrix.shard }}
+          # Extra units (-f extra_units) are calibration runs: reported apart, never analysed with the grid.
+          CALIBRATION: ${{ matrix.calibration }}
         run: |
+          cal=()
+          if [ "$CALIBRATION" = true ]; then cal=(--calibration); fi
           uv run python scripts/measure.py run --units "$UNITS" --shard "$SHARD" \
-            --out-dir measure-out --jobs "$(nproc)" --no-nice
+            --out-dir measure-out --jobs "$(nproc)" --no-nice "${cal[@]}"
 
       - name: Upload shard results
         if: always()

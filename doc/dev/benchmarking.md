@@ -337,13 +337,22 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
         portfolio accepted at low budget) against the pool's best, on AOCC
         at q = 1 and on `aocc_time` at q > 1, Holm-adjusted over the cells.
         The other panobbgo specs are secondary.
-    *   **The pool** of a (preset, dim, bm): the externals present, complete
-        (every planned seed and instance) and free of crashed runs in every
-        q cell.  Best-of is taken over it, so the reference does not change
-        with q because a baseline is missing at some q.  SMAC (q = 1 only)
-        and baselines outside the pool are reference rows; a cell is flagged
-        when one of them scores above the pool's best.
-    *   Crashed and timed-out runs score 0 on both metrics.
+    *   **The pool** of a (preset, dim, bm): the externals that ran in
+        every q cell with no crashed or timed-out run.  Best-of is taken over
+        it, so the reference does not change with q because a baseline is
+        missing at some q.  SMAC (q = 1 only) and baselines outside the pool
+        are reference rows; a cell is flagged when one of them scores above
+        the pool's best.
+    *   **Common runs:** every mean, best-of and Δ of a cell is taken on the
+        (seed, instance) keys present for the headline spec and every pool
+        member.  A missing unit (a cut shard) keeps its baseline in the pool
+        and shrinks n; a cell below the plan is flagged (`n runs/plan`).
+    *   A crashed run scores 0 on both metrics (`harness_ioh.time_score`); a
+        run cut by a wall-clock deadline (none is set here) keeps its scores
+        up to the cut; `EndedEarly` is scored and is not an error.
+    *   **Calibration units** (`-f extra_units`) run only what the grid does
+        not run already, are marked `calibration`, and are reported in their
+        own section (s/run and scores per unit), never in the analysis.
     *   Δ per panobbgo spec against every external (`summary.json`; the
         markdown shows the pool's best and the two strongest others), per
         family against the pool's best, paired over seeds (t-CI95,

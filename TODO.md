@@ -47,6 +47,15 @@ extra).
 
 ## 2. Expensive track and recent follow-ups
 
+- [ ] **Model-based arms, fresh seeds (§66).**  In sample, the opt-in
+      `RoundRobin_TRQ` (d = 2) / `Blocks_warm_CMAES_JSO_TRQ` (d ≥ 5) and
+      `COBYQA` alone (q = 1) close the q = 1 and most 20·d losses, but most
+      of the margin is the exactly quadratic ellipsoid family, and at d = 10
+      outside it the third arm costs −0.019.  Next: a fresh-seed runner run
+      (new base seeds) of the three at q 1/4/16/64 with an ex-ellipsoid
+      view, MA-BBOB at 20·d / 100·d, and the f-scale quadratic R² plus the
+      TR ratio-test rate as logged features (roadmap A's probe).  Needs the
+      specs wired into `scripts/measure.py` (opt-in, not in the core group).
 - [ ] **FP pin for the torch path (BO baselines).**  `PIN_ENV` caps torch /
       MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in

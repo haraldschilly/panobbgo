@@ -113,6 +113,7 @@ from panobbgo.harness_ioh import (
     IOHMultiSeedResult,
     ALL_BBOB_FIDS,
     CMAES_VARIANT_NAMES,
+    TRUST_REGION_NAMES,
     make_bbob_battery,
     make_cmaes_variant_strategies,
     make_full_battery,
@@ -125,6 +126,7 @@ from panobbgo.harness_ioh import (
     make_quick_battery,
     make_sealed_battery,
     make_standard_battery,
+    make_trust_region_strategies,
     paired_seed_stats,
     run_ioh_harness,
     run_ioh_harness_multi_seed,
@@ -229,6 +231,8 @@ def _resolve_strategies(args: argparse.Namespace) -> List[StrategySpec]:
     if args.strategies:
         # The §57 CMA-ES variants join only when --strategies names them.
         strats.extend(make_cmaes_variant_strategies(args.strategies))
+        # So do the §66 trust-region specs.
+        strats.extend(make_trust_region_strategies(args.strategies))
     try:
         check_baseline_selection(args.strategies, args.baselines)
         if args.baselines:
@@ -821,6 +825,8 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         nargs="+",
         help="Restrict to these strategy names.  The opt-in RoundRobin_CMAES variants of DISCOVERY §57 ("
         + ", ".join(CMAES_VARIANT_NAMES)
+        + ") and the trust-region specs of §66 ("
+        + ", ".join(TRUST_REGION_NAMES)
         + ") join only when named here.",
     )
     run_p.add_argument("--seed", type=int, default=42)

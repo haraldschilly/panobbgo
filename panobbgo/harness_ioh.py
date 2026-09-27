@@ -71,7 +71,9 @@ Public surface
   per-pair detail.  Serialises to JSON for diffing.
 * :func:`make_ioh_strategies` — the strategy registry of the batteries of
   record; :func:`make_cmaes_variant_strategies` — opt-in ``RoundRobin_CMAES``
-  variants (§57: bound handling, first start, active CMA), selected by name.
+  variants (§57: bound handling, first start, active CMA), selected by name;
+  :func:`make_trust_region_strategies` — opt-in specs with the quadratic
+  trust-region arm (§66).
 * :func:`run_ioh_harness` — main entry point.
 """
 
@@ -933,6 +935,46 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
         for name, kw in CMAES_VARIANT_OPTIONS.items()
         if wanted is None or name in wanted
     ]
+
+
+#: Opt-in specs with the quadratic trust-region arm
+#: (:class:`~panobbgo.heuristics.trust_region.TrustRegionQuadratic`, DISCOVERY
+#: §66): the arm alone, and the headline portfolio with it as a third arm.
+#: Not in :func:`make_ioh_strategies`; they join only when named
+#: (:func:`make_trust_region_strategies`).
+TRUST_REGION_NAMES: Tuple[str, ...] = ("RoundRobin_TRQ", "Blocks_warm_CMAES_JSO_TRQ")
+
+
+def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
+    """The §66 trust-region specs — opt-in, selected by name like :func:`make_cmaes_variant_strategies`.
+
+    ``Blocks_warm_CMAES_JSO_TRQ`` is ``Blocks_warm_CMAES_JSO`` with
+    ``TrustRegionQuadratic`` appended (so the uniform block rotation is
+    CMA-ES, jSO, TR) and ``seed_name`` pinned to the portfolio, so the two
+    arms it shares draw the same keyed RNG streams.  ``names`` restricts the
+    list (unknown names are ignored); ``None`` returns both.
+    """
+    from panobbgo.heuristics import TrustRegionQuadratic
+    from panobbgo.strategies import StrategyRoundRobin
+
+    blocks = next(s for s in make_ioh_strategies() if s.name == "Blocks_warm_CMAES_JSO")
+    specs = [
+        StrategySpec(
+            name="RoundRobin_TRQ",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(TrustRegionQuadratic, {})],
+        ),
+        StrategySpec(
+            name="Blocks_warm_CMAES_JSO_TRQ",
+            strategy_class=blocks.strategy_class,
+            heuristics=list(blocks.heuristics) + [(TrustRegionQuadratic, {})],
+            analyzers=list(blocks.analyzers),
+            config_overrides=dict(blocks.config_overrides),
+            seed_name="Blocks_warm_CMAES_JSO",
+        ),
+    ]
+    wanted = None if names is None else set(names)
+    return [s for s in specs if wanted is None or s.name in wanted]
 
 
 # ---------------------------------------------------------------------------

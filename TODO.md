@@ -77,8 +77,13 @@ extra).
       axis only.  Next, in §62.8 order:
       (a) re-run the grid on the active-CMA default, with SMAC's d = 10
           estimate raised;
-      (b) worker utilisation of Blocks at q = 64 (idle workers?) and a
-          dispatch fix;
+      (b) ~~worker utilisation of Blocks at q = 64~~ done (§63): idle
+          workers confirmed (25 % busy at d5/q64); the fix is CMA-ES's
+          λ ≥ q floor (`popsize_min_workers`, default on), +0.016
+          `aocc_time` there locally.  Re-measure the q ≥ 16 cells of the
+          grid with it.  Open cost: Blocks d2/100·d/q16 −0.012 (1/5):
+          size a block to at least one generation of its owner, or apply
+          the floor only where the arms cannot fill the workers — untried;
       (c) 12 seeds on the 100·d, q 4–16 band;
       (d) the `failure` preset.
 - [ ] **Re-baseline suite for the expensive-track baselines** (BoTorch

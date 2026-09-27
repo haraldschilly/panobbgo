@@ -182,6 +182,19 @@ class CMAES(Heuristic):
             On IPOP restarts the population is multiplied relative to the
             *current* λ; in BIPOP mode the large-regime population grows from
             this base value.
+        popsize_min_workers (bool): Raise the default base λ to the number
+            of parallel workers (``len(strategy.evaluators)``: the virtual
+            clock's ``q``, the thread or process count) when that is larger,
+            so one generation fills the workers.  Default ``True``.  It is
+            the rule the pycma baseline adapter uses
+            (:mod:`panobbgo.harness_baselines`, ``popsize0 = max(4 + 3 ln n,
+            q)``); IPOP/BIPOP grow λ from the raised base.  An explicit
+            ``popsize`` is never raised.  Without it a λ = 8 arm keeps at
+            most about 1.5·λ of 64 virtual workers busy (DISCOVERY §63).
+            The warm start's archive fit keeps the size it has without the
+            floor (see :meth:`_warm_start_seeds`): the floor is a throughput
+            decision and must not change how greedy the hand-off is.
+            ``False`` restores the pre-§63 behaviour.
         min_results_fraction (float): Fraction of λ that must arrive before
             a CMA-ES update is triggered.  Default 0.5 (= μ).
         ipop_factor (float): Population multiplication factor applied on each
@@ -429,6 +442,7 @@ class CMAES(Heuristic):
         strategy,
         sigma0: float = 0.3,
         popsize: Optional[int] = None,
+        popsize_min_workers: bool = True,
         min_results_fraction: float = 0.5,
         ipop_factor: float = 2.0,
         restart_mode: str = "ipop",
@@ -468,6 +482,7 @@ class CMAES(Heuristic):
         self._who_prefix = f"{self.name}:"
         self._sigma0_frac = sigma0
         self._popsize_override = popsize
+        self._popsize_min_workers = bool(popsize_min_workers)
         self._min_results_fraction = min_results_fraction
         self._ipop_factor = float(ipop_factor)
         if restart_mode not in ("ipop", "bipop"):
@@ -601,6 +616,9 @@ class CMAES(Heuristic):
         # IPOP restart tracking
         self._restart_count: int = 0
         self._base_lam: int = 0  # λ at first on_start() — base for IPOP/BIPOP
+        #: The base λ without the worker floor (``popsize_min_workers``);
+        #: equal to ``_base_lam`` when the floor did not bind.
+        self._serial_base_lam: int = 0
 
         # BIPOP regime tracking (Hansen 2009)
         # _bipop_large_count: how many times the large regime has been selected
@@ -768,7 +786,10 @@ class CMAES(Heuristic):
         n = self.problem.dim
 
         # Population size, recombination weights and adaptation constants
-        lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
+        serial_lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
+        lam = serial_lam
+        if self._popsize_min_workers and not self._popsize_override:
+            lam = max(lam, self._n_workers())
         self._set_population(lam)
         mu = self._mu
 
@@ -805,6 +826,7 @@ class CMAES(Heuristic):
         # Remember base population so IPOP doubling scales correctly
         if self._base_lam == 0:
             self._base_lam = lam
+            self._serial_base_lam = serial_lam
 
         # BIPOP: first run counts as the large regime, anchor at 0 evals
         self._bipop_current_regime = "large"
@@ -837,6 +859,24 @@ class CMAES(Heuristic):
     # Warm start from the shared archive
     # ------------------------------------------------------------------
 
+    def _n_workers(self) -> int:
+        """Parallel workers of the owning strategy (``len(strategy.evaluators)``), at least 1."""
+        try:
+            return max(1, int(len(self.strategy.evaluators)))
+        except Exception:  # noqa: BLE001 — a strategy stub without evaluators: serial
+            return 1
+
+    def _serial_lam(self) -> int:
+        """λ as it would be without the worker floor (``popsize_min_workers``).
+
+        The current λ scaled by the unfloored/floored base ratio, so IPOP
+        and BIPOP growth carry over.  Exactly :attr:`_lam` when the floor did
+        not bind (the ratio is 1).
+        """
+        if self._base_lam <= 0 or self._serial_base_lam in (0, self._base_lam):
+            return self._lam
+        return max(1, int(round(self._lam * self._serial_base_lam / self._base_lam)))
+
     def _warm_start_seeds(self) -> List[np.ndarray]:
         """Positions of the archive points this warm start is fitted to.
 
@@ -851,9 +891,14 @@ class CMAES(Heuristic):
         The floor only bites above ``n = 3``: at ``n = 2`` the default λ is
         already 6 > 2n, at ``n = 5`` it is 8 < 10.  That asymmetry is exactly
         the confound §48.3's hypothesis (B) names.
+
+        λ here is :meth:`_serial_lam`, the population without the worker
+        floor: raising λ to 64 workers would otherwise fit the mean to the
+        archive's top 64 instead of its top 8, a less greedy hand-off that
+        cost 0.007–0.010 AOCC over time on its own (DISCOVERY §63).
         """
         n = self.problem.dim
-        k = max(self._lam, 4 + int(3 * np.log(max(n, 2))))
+        k = max(self._serial_lam(), 4 + int(3 * np.log(max(n, 2))))
         if self.warm_start == "archive_cov" or self._warm_start_wide_seeds:
             k = max(k, 2 * n)
         seeds = self.archive_seed(k, mode=self.warm_start, box=self.warm_start_box)
@@ -939,7 +984,8 @@ class CMAES(Heuristic):
         X = np.vstack(seeds)
 
         # --- mean: μ-weighted recombination of the best seeds ---
-        mu = max(1, min(self._mu, len(X)))
+        # μ of the serial λ (``_serial_lam() // 2 == _mu`` unless the worker floor binds).
+        mu = max(1, min(self._mu, self._serial_lam() // 2, len(X)))
         w = self._w if mu == len(self._w) else self._recombination_weights(mu)[0]
         self._m = self.problem.project(w[:mu] @ X[:mu])
 

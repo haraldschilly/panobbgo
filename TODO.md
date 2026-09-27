@@ -74,17 +74,19 @@ extra).
       new classes yet; ruggedness (Weierstrass/Katsuura), noise and
       discrete variables are still missing.
 - [ ] **TRQ on the wide preset (§69).**  Diagnosed: `levy_embed` is the
-      start radius (COBYQA effectively starts at 0.5 of the box, TRQ at
-      0.1; not the neutral directions), `attractive_sector` a C¹ kink the
+      start radius, most likely (COBYQA's first steps move
+      min(0.05·max width, 0.5) of each axis — 0.5 on the ±5 family boxes —
+      TRQ's 0.1; not the neutral directions), `attractive_sector` a C¹ kink the
       quadratic cannot fit (dropping the curvature prior helps it and costs
       the smooth families; left as is), `styblinski_tang_sep` d2 a restart
       loop into the arm's own tabu ball — fixed (a step that improves into
       a tabu ball makes its centre tabu).  Open: `radius_init = 0.5` as a
       candidate for the fresh-seed / fresh-battery run (in sample +0.05 on
-      wide, mixed on free); the catch costs `sharp_ridge` (−0.08 on the 3
-      in-sample instances) and `step_ellipsoid` at d2/q1; the `cobyqa.py`
-      comment says its first step explores ~10 % of the axis, with
-      `scale=True` it is 50 %.
+      wide, mixed on free); the catch costs `step_ellipsoid` at d2/q1
+      (−0.14 in sample, −0.13 on a fresh battery), `sharp_ridge` (−0.08 on
+      the 3 in-sample instances) and `levy_embed` d5/q1 (−0.05); the
+      converse check (COBYQA started at 0.1) is not run.  (The `cobyqa.py`
+      docstrings on the start radius were corrected in #386.)
 - [ ] **FP pin for the torch path (BO baselines).**  `PIN_ENV` caps torch /
       MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in

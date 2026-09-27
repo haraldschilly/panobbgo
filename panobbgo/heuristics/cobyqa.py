@@ -124,9 +124,13 @@ def _build_cobyqa_options(
 
 # Sensible defaults: ``1e-6`` is the COBYQA library default for final TR
 # radius (essentially "machine-precision-ish" for double precision); the
-# initial TR radius defaults to one tenth of the typical box width when the
-# user does not override it.  Scaling is on by default — every Panobbgo
-# problem has finite bounds, and scaling to ``[-1, 1]`` keeps the
+# initial TR radius defaults to ``0.1 · max(box_width)`` when the user does
+# not override it.  With ``scale=True`` SciPy applies that number in the
+# scaled space ``[-1, 1]^d``, where it is capped at 1 (half the scaled
+# width): the first design is ``c ± min(0.05 · max_width, 0.5)`` of each
+# axis's width — half the axis on the ±5 boxes of the benchmark families,
+# not a tenth (``planning/DISCOVERY_2026-09-09.md`` §69.1).
+# Scaling is on by default — every Panobbgo problem has finite bounds, and scaling to ``[-1, 1]`` keeps the
 # interpolation geometry well-conditioned for boxes whose axes span very
 # different magnitudes.
 _DEFAULT_FINAL_TR_RADIUS: float = 1e-6
@@ -143,8 +147,11 @@ class COBYQA(PipeBridgeHeuristic):
         initial_tr_radius: Initial trust-region radius.  Sensible values
             are in the order of one tenth of the greatest expected change
             to the variables.  When ``None`` (default) the heuristic uses
-            ``0.1 · max(box_width)`` so the first step explores a useful
-            slice of the feasible region.  Must be positive.
+            ``0.1 · max(box_width)``.  With ``scale=True`` SciPy applies
+            the value in the scaled space ``[-1, 1]^d`` (capped at 1), so
+            the default first steps move ``min(0.05 · max_width, 0.5)``
+            of each axis's width — half the axis on ``[-5, 5]^d``.  Must
+            be positive.
         final_tr_radius: Final trust-region radius — accuracy required in
             the converged variables.  COBYQA terminates once the radius
             falls below this threshold.  Default ``1e-6``.  Must be
@@ -221,10 +228,12 @@ class COBYQA(PipeBridgeHeuristic):
         """Pick a sensible initial trust-region radius from the box width.
 
         When the user sets ``initial_tr_radius`` we use it verbatim.
-        Otherwise we default to ``0.1 · max(box_width)`` so the first
-        step explores ~10% of the largest axis — large enough to leave
-        a degenerate starting point, small enough that COBYQA does not
-        immediately stall against the bounds.
+        Otherwise we default to ``0.1 · max(box_width)``.  With
+        ``scale=True`` (the default) SciPy's COBYQA reads this radius in
+        the scaled space ``[-1, 1]^d`` and caps it at 1, so the first
+        steps move ``min(0.05 · max_width, 0.5)`` of each axis's width:
+        half of every axis on a ``[-5, 5]^d`` box, a tenth only on a box
+        of width 2.  With ``scale=False`` it is the radius in ``x`` units.
         """
         if self.initial_tr_radius is not None:
             return float(self.initial_tr_radius)

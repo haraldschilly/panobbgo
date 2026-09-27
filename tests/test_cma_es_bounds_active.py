@@ -87,9 +87,12 @@ def test_positive_only_trajectory_pinned_to_the_pre_change_module():
     onto the lower face).  That was the default path until DISCOVERY §60
     made active CMA the default; the pin keeps the positive-only update
     bit-identical.  ``test_self_restart_off_reproduces_the_pre_change_trajectory``
-    pins the no-restart path the same way.
+    pins the no-restart path the same way.  ``quorum="fraction",
+    late_results="drop"``: after the restart λ = 14 exceeds RoundRobin's
+    10-point request, and since §64 such a generation waits for its second
+    batch instead of closing on the first.
     """
-    h, X, fx, _ = _run(active=False)
+    h, X, fx, _ = _run(active=False, quorum="fraction", late_results="drop")
     assert len(fx) == 1200
     assert h.n_restarts == 1
     assert _on_face(X) == 50
@@ -97,19 +100,37 @@ def test_positive_only_trajectory_pinned_to_the_pre_change_module():
     assert float(np.sum(fx)) == pytest.approx(2522.28979759724, rel=1e-9)
 
 
-def test_default_trajectory_pinned():
-    """The default path (guarded active CMA, DISCOVERY §60) on the same run as the pin above.
+def test_active_drop_trajectory_pinned():
+    """Guarded active CMA (DISCOVERY §60) with the pre-§64 quorum: the default until §64.
 
     Recorded 2026-09-27 with the commit that made ``active=True`` the default
     (seed 42, DeJong(3) on [-2, 8]^3, 1200 evaluations, one IPOP self-restart,
-    63 points projected onto the lower face).
+    63 points projected onto the lower face).  After the restart 64 late
+    offspring are dropped.
+    """
+    h, X, fx, _ = _run(quorum="fraction", late_results="drop")
+    assert len(fx) == 1200
+    assert h.n_restarts == 1
+    assert _on_face(X) == 63
+    assert h.n_late_dropped == 64
+    assert float(np.min(fx)) == pytest.approx(1.5349983286946815e-15, rel=1e-6)  # BLAS order differs across CPUs
+    assert float(np.sum(fx)) == pytest.approx(6155.544241568712, rel=1e-9)
+
+
+def test_default_trajectory_pinned():
+    """The default path (guarded active CMA, ``quorum="dispatched"``, DISCOVERY §64) on the same run.
+
+    Recorded 2026-09-27: the same best value as the pre-§64 run above; after
+    the IPOP restart each λ = 14 generation waits for its second synchronous
+    batch, so nothing arrives late.
     """
     h, X, fx, _ = _run()
     assert len(fx) == 1200
     assert h.n_restarts == 1
-    assert _on_face(X) == 63
+    assert _on_face(X) == 67
+    assert (h.n_late_folded, h.n_late_dropped) == (0, 0)
     assert float(np.min(fx)) == pytest.approx(1.5349983286946815e-15, rel=1e-6)  # BLAS order differs across CPUs
-    assert float(np.sum(fx)) == pytest.approx(6155.544241568712, rel=1e-9)
+    assert float(np.sum(fx)) == pytest.approx(6078.039386907837, rel=1e-9)
 
 
 @pytest.mark.parametrize(

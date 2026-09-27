@@ -136,8 +136,15 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     ("CMAES", "restart_mode"): "selects between _restart_ipop/_restart_bipop, both reached only from on_restart",
     # --- binds only with more parallel workers than the default λ ----------
     ("CMAES", "popsize_min_workers"): (
-        "raises λ only when len(strategy.evaluators) exceeds the default λ; the solo probe runs on the "
-        "default 2 workers — covered by tests/test_cma_es_workers.py (DISCOVERY §63)"
+        '"auto" floors λ on the virtual clock only, and any mode binds only when '
+        "strategy._n_evaluators() exceeds the default λ; the solo probe runs on a real pool with 2 "
+        "workers — covered by tests/test_cma_es_workers.py (DISCOVERY §63)"
+    ),
+    # --- binds only when results of a dispatched generation arrive apart ---
+    ("CMAES", "min_results_fraction"): (
+        'with quorum="dispatched" a generation closes early only once all its offspring are dispatched and '
+        "some are still in flight; the synchronous probe delivers each generation in one batch — covered by "
+        "tests/test_cma_es_quorum.py (DISCOVERY §64)"
     ),
     # --- Hansen termination criteria that never trip on the probe ---------
     ("CMAES", "tolx"): "termination criterion; sigma/D never fall below it within the probe budget",

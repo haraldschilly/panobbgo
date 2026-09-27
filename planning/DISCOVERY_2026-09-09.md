@@ -4514,9 +4514,14 @@ event model instead of bridged:
 * **model**: full quadratic, weighted least squares on the archive points
   within 3 radii (inf-norm) of the centre, nearest first, at most
   max(2d + 1, 1.5·p) with p = 1 + 2d + d(d−1)/2.  With fewer points than
-  coefficients, the least change of the previous model's Hessian
-  (NEWUOA's idea).  The archive is every result of every arm
-  (`on_new_results`), so another arm's points feed the model;
+  coefficients, **approximately** NEWUOA's least change: a Euclidean
+  minimum-norm correction over all coefficients (constant, gradient and
+  Hessian) around the previous model's Hessian — not NEWUOA's
+  Frobenius-norm update of the Hessian change.  The prior is reset to
+  zero at every restart and when the centre moves by more than 3 radii
+  (carried across kinks or rugged basins it grew to 1e7–1e8).  The archive
+  is every result of every arm (`on_new_results`), so another arm's
+  points feed the model;
 * **rank test**: the model is used only when the displacements of its
   points from the centre have numerical rank d (SVD, relative tolerance
   1e-3); otherwise the arm emits geometry points along the least-covered
@@ -4549,8 +4554,13 @@ reproduction: 2‖x − (0.4, −1.2)‖² in [0, 2] × [−2, 2], best 2.88 at
 design ordered +e_1…+e_d first, and the least-change Hessian: on d = 10
 quadratics with condition 1e3 (600 evaluations) the best value went from
 1.5 (separable) / 17 (rotated) with the rank test alone to 4e-24 / 4e-23.
-Tests pin both.  A no-descent model used to shrink the radius on every
-`produce` call without new data; now once per archive state.
+Tests pin both, and a collinear-archive test pins the rank test itself
+(with the rank test disabled, every other test still passed).  A
+no-descent model used to shrink the radius on every `produce` call
+without new data; now once per archive state, and a restart due then
+happens inside `produce`.  The second review round added the prior reset
+above; it changed 780 of the 2 700 TR runs (restarts and far jumps
+happen), and the tables below are from that final version.
 
 Constants are the textbook ones: radius 0.1 of the box (Py-BOBYQA's
 rhobeg), fit span 3; not tuned on these seeds.
@@ -4571,15 +4581,17 @@ spec name), so its numbers will differ by seed noise.  No default changes.
 | d2 20·d q1 | TuRBO1 0.145 | 0.095 | **+0.157** [+0.141, +0.174] 5/5 | **+0.070** [+0.042, +0.097] 5/5 |
 | d2 20·d q4 | qLogEI 0.100 | 0.090 | **+0.128** [+0.103, +0.153] 5/5 | **+0.034** [+0.014, +0.054] 5/5 |
 | d5 20·d q1 | NGOpt 0.073 | 0.044 | **+0.110** [+0.095, +0.125] 5/5 | **+0.050** [+0.024, +0.077] 5/5 |
-| d5 20·d q4 | qLogEI 0.049 | 0.044 | **+0.081** [+0.030, +0.132] 5/5 | **+0.042** [+0.019, +0.065] 5/5 |
+| d5 20·d q4 | qLogEI 0.049 | 0.044 | **+0.089** [+0.054, +0.124] 5/5 | **+0.042** [+0.019, +0.065] 5/5 |
 | d10 20·d q1 | NGOpt 0.051 | 0.028 | −0.016 [−0.022, −0.010] 0/5 | **+0.069** [+0.047, +0.090] 5/5 |
-| d10 20·d q4 | qLogEI 0.034 | 0.028 | −0.003 [−0.014, +0.008] 1/5 | **+0.025** [+0.003, +0.047] 5/5 |
-| d2 100·d q1 | PyBOBYQA 0.440 | 0.226 | **+0.089** [+0.055, +0.124] 5/5 | −0.004 [−0.028, +0.020] 2/5 |
-| d2 100·d q4 | qLogEI 0.209 | 0.203 | **+0.250** [+0.225, +0.274] 5/5 | **+0.203** [+0.172, +0.234] 5/5 |
-| d5 100·d q1 | PyBOBYQA 0.145 | 0.131 | **+0.211** [+0.185, +0.238] 5/5 | **+0.165** [+0.118, +0.212] 5/5 |
-| d5 100·d q4 | TuRBO1 0.112 | 0.123 | **+0.201** [+0.169, +0.234] 5/5 | **+0.183** [+0.151, +0.215] 5/5 |
-| d10 100·d q1 | TuRBO1 0.096 | 0.086 | **+0.047** [+0.045, +0.049] 5/5 | **+0.154** [+0.147, +0.160] 5/5 |
-| d10 100·d q4 | TuRBO1 0.085 | 0.083 | +0.046 [−0.006, +0.098] 5/5 | **+0.135** [+0.122, +0.148] 5/5 |
+| d10 20·d q4 | qLogEI 0.034 | 0.028 | −0.003 [−0.014, +0.008] 1/5 | +0.024 [−0.001, +0.048] 4/5 |
+| d2 100·d q1 | PyBOBYQA 0.440 | 0.226 | **+0.089** [+0.055, +0.124] 5/5 | −0.002 [−0.034, +0.029] 2/5 |
+| d2 100·d q4 | qLogEI 0.209 | 0.203 | **+0.251** [+0.227, +0.275] 5/5 | **+0.199** [+0.181, +0.218] 5/5 |
+| d5 100·d q1 | PyBOBYQA 0.145 | 0.131 | **+0.220** [+0.193, +0.246] 5/5 | **+0.163** [+0.114, +0.212] 5/5 |
+| d5 100·d q4 | TuRBO1 0.112 | 0.123 | **+0.219** [+0.204, +0.233] 5/5 | **+0.183** [+0.153, +0.213] 5/5 |
+| d10 100·d q1 | TuRBO1 0.096 | 0.086 | **+0.047** [+0.045, +0.049] 5/5 | **+0.145** [+0.114, +0.177] 5/5 |
+| d10 100·d q4 | TuRBO1 0.085 | 0.083 | **+0.070** [+0.037, +0.103] 5/5 | **+0.116** [+0.070, +0.162] 5/5 |
+
+(**bold**: unadjusted CI above 0.)
 
 **Without the ellipsoid family** (Δ vs the pool best; **bold** now marks a
 CI *below* 0):
@@ -4587,41 +4599,44 @@ CI *below* 0):
 | cell | RR_TRQ | Blocks3_TRQ |
 |---|---|---|
 | d2 20·d q1 | +0.014 [−0.001, +0.029] 5/5 | **−0.038** [−0.061, −0.015] 0/5 |
-| d2 20·d q4 | +0.014 [+0.002, +0.026] 4/5 | −0.005 [−0.016, +0.005] 2/5 |
+| d2 20·d q4 | +0.014 [+0.002, +0.027] 4/5 | −0.005 [−0.016, +0.005] 2/5 |
 | d5 20·d q1 | −0.001 [−0.020, +0.019] 2/5 | **−0.028** [−0.049, −0.007] 0/5 |
-| d5 20·d q4 | +0.013 [+0.009, +0.016] 5/5 | **−0.007** [−0.010, −0.003] 0/5 |
-| d10 20·d q1 | **−0.020** [−0.027, −0.013] 0/5 | **−0.028** [−0.035, −0.021] 0/5 |
-| d10 20·d q4 | **−0.009** [−0.009, −0.008] 0/5 | **−0.009** [−0.012, −0.006] 0/5 |
-| d2 100·d q1 | +0.070 [+0.024, +0.116] 5/5 | **−0.035** [−0.065, −0.004] 1/5 |
-| d2 100·d q4 | +0.113 [+0.083, +0.144] 5/5 | +0.076 [+0.027, +0.125] 5/5 |
-| d5 100·d q1 | +0.067 [+0.045, +0.088] 5/5 | +0.023 [−0.032, +0.077] 4/5 |
-| d5 100·d q4 | +0.039 [−0.002, +0.080] 5/5 | +0.023 [−0.017, +0.063] 4/5 |
-| d10 100·d q1 | **−0.020** [−0.023, −0.018] 0/5 | **−0.027** [−0.032, −0.022] 0/5 |
-| d10 100·d q4 | **−0.044** [−0.055, −0.034] 0/5 | **−0.023** [−0.024, −0.021] 0/5 |
+| d5 20·d q4 | +0.013 [+0.010, +0.017] 5/5 | **−0.007** [−0.010, −0.003] 0/5 |
+| d10 20·d q1 | **−0.020** [−0.027, −0.013] 0/5 | **−0.028** [−0.036, −0.020] 0/5 |
+| d10 20·d q4 | **−0.009** [−0.010, −0.008] 0/5 | **−0.009** [−0.012, −0.006] 0/5 |
+| d2 100·d q1 | +0.070 [+0.024, +0.116] 5/5 | −0.033 [−0.072, +0.006] 1/5 |
+| d2 100·d q4 | +0.115 [+0.085, +0.145] 5/5 | +0.071 [+0.037, +0.106] 5/5 |
+| d5 100·d q1 | +0.077 [+0.055, +0.098] 5/5 | +0.022 [−0.032, +0.076] 4/5 |
+| d5 100·d q4 | +0.063 [+0.033, +0.093] 5/5 | +0.023 [−0.015, +0.061] 4/5 |
+| d10 100·d q1 | **−0.020** [−0.022, −0.017] 0/5 | **−0.026** [−0.031, −0.021] 0/5 |
+| d10 100·d q4 | **−0.041** [−0.051, −0.032] 0/5 | **−0.022** [−0.026, −0.018] 0/5 |
 
-* **All five families.**  RR_TRQ has its CI above 0 in 10 of 12 cells;
-  Blocks3_TRQ in 11 (d2/100·d/q1: −0.004 n.s.).  Against Blocks,
-  Blocks3_TRQ is +0.032…+0.210 with 5/5 in every cell.
+* **All five families.**  RR_TRQ has its CI above 0 in 10 of 12 cells (not
+  at d10/20·d, q1 or q4); Blocks3_TRQ also in 10 (not at d2/100·d/q1,
+  −0.002, and d10/20·d/q4, +0.024 n.s.).  Against Blocks, Blocks3_TRQ is
+  +0.030…+0.211 with 5/5 and the CI above 0 in every cell.  (After the
+  first review round, before the prior reset, RR_TRQ was at 9 of 12:
+  d10/100·d/q4 was +0.046 [−0.006, +0.098].)
 * **Without ellipsoid**, the 20·d cells are **not** closed: Blocks3_TRQ is
-  behind the pool best with CI < 0 in 5 of the 6 20·d cells and 8 of 12
-  cells overall (pre-fix: 7 of 12), ahead only at d2/100·d/q4.  RR_TRQ is
-  ahead with CI > 0 in 5 cells (d2/20·d/q4, d5/20·d/q4, d2/100·d q1 and
-  q4, d5/100·d/q1), n.s. in 3, and behind in all 4 d = 10 cells.
+  behind the pool best with CI < 0 in 5 of the 6 20·d cells and 7 of 12
+  cells overall, ahead only at d2/100·d/q4.  RR_TRQ is ahead with CI > 0
+  in 6 cells (d2/20·d/q4, d5/20·d/q4, and d2 and d5 at 100·d, q1 and q4),
+  n.s. in 2 (d2 and d5 at 20·d/q1), and behind in all 4 d = 10 cells.
 * **The d2/100·d/q1 gap** (Blocks −0.214 against Py-BOBYQA) is closed by
   RR_TRQ: +0.089 [+0.055, +0.124] with all families, +0.070
   [+0.024, +0.116] without ellipsoid.  Per family vs Py-BOBYQA: ellipsoid
   +0.166, sharp_ridge +0.107, ackley +0.100, rosenbrock +0.123, rastrigin
   −0.049.  (Pre-fix it was +0.016 n.s.; the CI claim is the fixed arm's.)
 * **"Sharing pays" is entirely ellipsoid.**  At d10/100·d/q1 the third arm
-  (0.250) is far above the arm alone (0.143), but on ellipsoid alone
-  (0.876 against 0.315); without ellipsoid the arm alone is 0.100 and the
+  (0.242) is far above the arm alone (0.143), but on ellipsoid alone
+  (0.832 against 0.315); without ellipsoid the arm alone is 0.101 and the
   third arm 0.094.  The shared archive helps the model where the function
   *is* a quadratic; nothing here shows it helping elsewhere.
 * **At d = 10 outside ellipsoid neither form helps**: against Blocks the
-  third arm is −0.014 [−0.019, −0.009] (q1) and −0.020 [−0.033, −0.007]
-  (q4) at 100·d, the arm alone −0.007 and −0.042.
+  third arm is −0.013 [−0.019, −0.007] (q1) and −0.019 [−0.032, −0.007]
+  (q4) at 100·d, the arm alone −0.007 and −0.039.
 * **The box-centre start** is worth up to 0.06 at d = 2 (RR_TRQ with a
-  random start: 0.468 against 0.529 at d2/100·d/q1), 0.02 at d = 5, and
+  random start: 0.468 against 0.529 at d2/100·d/q1), 0.03 at d = 5, and
   nothing at d = 10 (0.152 against 0.143).  Py-BOBYQA and TuRBO start at
   random points; CMA-ES and COBYQA at the centre.  The family optimum is
   uniform in the box with a margin, so the centre is a good fixed start,
@@ -4635,18 +4650,18 @@ Both rules were defined after seeing the pre-fix numbers and kept
 unchanged for the fixed arm (re-picking them again would select twice).
 
 * `Rule_dim`: RR_TRQ at d = 2, Blocks3_TRQ at d ≥ 5.  Against the pool
-  best: CI above 0 in all 12 cells with the five families; without
-  ellipsoid ahead in 3 (d2/20·d/q4, d2/100·d q1 and q4), behind in 6
-  (d5/20·d q1 and q4, every d = 10 cell), n.s. in 3.  With the fixed arm
-  RR_TRQ is better than Blocks3_TRQ at d = 5 too, with and without
-  ellipsoid; the rule is not the best one on these numbers any more, and
-  that is in-sample either way.
+  best: CI above 0 in 11 of 12 cells with the five families (d10/20·d/q4:
+  +0.024 n.s.); without ellipsoid ahead in 3 (d2/20·d/q4, d2/100·d q1 and
+  q4), behind in 6 (d5/20·d q1 and q4, every d = 10 cell), n.s. in 3.
+  With the fixed arm RR_TRQ is better than Blocks3_TRQ at d = 5 too, with
+  and without ellipsoid; the rule is not the best one on these numbers any
+  more, and that is in-sample either way.
 * `Rule_probe` — an **uncharged oracle upper bound**: as `Rule_dim`, but at
   d = 10 the third arm only on the instances a probe flags as quadratic
   (below), Blocks otherwise; the probe's evaluations are not charged and
-  its verdict is taken from knowing the family.  It adds +0.011…+0.016 at
+  its verdict is taken from knowing the family.  It adds +0.010…+0.016 at
   d10/100·d and removes the ex-ellipsoid cost there (−0.013 / −0.003
-  against the pool best instead of −0.027 / −0.023), i.e. it is Blocks.
+  against the pool best instead of −0.026 / −0.022), i.e. it is Blocks.
   At d = 10 the full-quadratic fit needs 2p = 132 points, most of a 20·d
   budget, so a real probe must read the archive the arms fill anyway.
 * **The probe feature.**  The rank-based ELA-lite features of `features.py`
@@ -4665,7 +4680,7 @@ unchanged for the fixed arm (re-picking them again would select twice).
 1. **Candidates for the confirmation run** — only at the measured q ∈ {1,
    4} and budgets 20·d / 100·d, and only as candidates:
    * `RoundRobin_TRQ` at d ≤ 5 (CI above 0 in all 8 d ≤ 5 cells with the
-     five families, in 5 of 8 without ellipsoid, never below 0);
+     five families, in 6 of 8 without ellipsoid, never below 0);
    * `COBYQA` alone at q = 1 (the strongest arm without ellipsoid at d 5
      and 10);
    * `Blocks_warm_CMAES_JSO_TRQ` at d = 10 only behind a probe that says

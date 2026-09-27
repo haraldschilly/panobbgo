@@ -25,11 +25,15 @@ flight).
 
 * **Model.**  A quadratic fitted by weighted least squares to the archive
   points nearest to the centre, within ``fit_span`` trust radii.  With
-  fewer points than coefficients the fit is the least change of the
-  previous model's Hessian (NEWUOA's minimum-Frobenius-norm idea, done
-  here as a minimum-norm correction), not a minimum-norm quadratic: the
-  curvature learned so far is kept in the directions the new points do
-  not determine.  The archive is the *shared* one: every result of every arm
+  fewer points than coefficients the fit is approximately NEWUOA's least
+  change of the previous model's Hessian: a Euclidean minimum-norm
+  correction over *all* coefficients (constant, gradient and Hessian
+  together) around the previous Hessian, not NEWUOA's Frobenius-norm
+  update of the Hessian change alone.  The curvature learned so far is
+  kept in the directions the new points do not determine.  The prior is
+  dropped (reset to zero) at every restart and whenever the centre moves
+  by more than ``fit_span`` radii: carried across kinks or rugged basins it
+  grew to 1e7–1e8 in review.  The archive is the *shared* one: every result of every arm
   (``on_new_results`` sees them all) is a candidate interpolation point,
   so a CMA-ES generation that lands near the centre improves this arm's
   model for free.
@@ -203,6 +207,8 @@ class TrustRegionQuadratic(Heuristic):
         self._F = np.empty(0)  # their penalty values (finite only)
         #: The last model's Hessian in normalised coordinates and f units (the least-change prior).
         self._H_u = np.zeros((dim, dim))
+        #: Centre of the previous proposal (the prior is dropped after a far jump).
+        self._last_center: Optional[np.ndarray] = None
         self.radius = self.radius_init
         self._tabu: List[np.ndarray] = []
         self._restart_u: Optional[np.ndarray] = None  # unevaluated restart centre
@@ -310,6 +316,7 @@ class TrustRegionQuadratic(Heuristic):
             self._tabu.append(np.array(c, copy=True))
         self.radius = self.radius_init
         self._need_geometry = False
+        self._H_u = np.zeros_like(self._H_u)  # a new basin: no curvature prior
         self.n_restarts += 1
 
     # -- proposals ---------------------------------------------------------
@@ -344,9 +351,10 @@ class TrustRegionQuadratic(Heuristic):
         scale = float(np.max(np.abs(y))) or 1.0
         w = 1.0 / (1.0 + (dist[near] / self.radius) ** 2)
         A = quadratic_features(s) * np.sqrt(w)[:, None]
-        # Least change of the Hessian (NEWUOA's idea): with fewer points than
-        # coefficients, the minimum-norm correction to the previous model's
-        # Hessian, not to zero.  Overdetermined fits do not depend on it.
+        # Approximately NEWUOA's least change: with fewer points than
+        # coefficients, the Euclidean minimum-norm correction (all
+        # coefficients) around the previous model's Hessian, not around zero.
+        # Overdetermined fits do not depend on it.
         base = pack_hessian(self._H_u * self.radius**2 / scale)
         delta, *_ = np.linalg.lstsq(A, (y / scale) * np.sqrt(w) - A @ base, rcond=None)
         _, g, H = unpack_quadratic(base + delta, d)
@@ -434,6 +442,10 @@ class TrustRegionQuadratic(Heuristic):
     def _propose(self, k: int) -> List[Tuple[np.ndarray, Dict[str, Any]]]:
         c, f_c = self._center()
         assert c is not None
+        last = self._last_center
+        if last is not None and float(np.max(np.abs(c - last))) > self.fit_span * self.radius:
+            self._H_u = np.zeros_like(self._H_u)  # a far jump: the old curvature is not local here
+        self._last_center = np.array(c, copy=True)
         model, weak = (None, []) if self._need_geometry else self._fit(c, f_c)
         out: List[Tuple[np.ndarray, Dict[str, Any]]] = []
         extra: List[np.ndarray] = []

@@ -39,8 +39,8 @@ on:
       extra_units:
         description: >-
           Extra units, one shard each (calibration runs), ';'-joined ids
-          <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>], e.g.
-          'qLogEI.free.b100.q16.d5.s42.i0;qLogEI.free.b100.q64.d5.s42.i0'
+          <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>], e.g.
+          'SMAC.free.b20.q1.d10.s42.i0;qLogEI.free.b100.q64.d5.s42.f0'
         type: string
         default: ""
       ref:
@@ -67,7 +67,9 @@ jobs:
 
       - name: Plan the shards
         id: plan
-        # Stdlib only: no dependencies needed to plan.
+        # Stdlib only: no dependencies needed to plan.  The planner refuses
+        # (exit 2, which fails this step) a plan with a shard estimated above
+        # its target (90 min): no shard is meant to run into the step limit.
         env:
           SEEDS: ${{ inputs.seeds }}
           PRESETS: ${{ inputs.presets }}
@@ -89,13 +91,18 @@ jobs:
             echo "| shard | units | est. min |"
             echo "|---|---|---|"
             echo "$matrix" | python3 -c 'import json, sys; [print("|", e["shard"], "|", e["n_units"], "|", e["est_min"], "|") for e in json.load(sys.stdin)["include"]]'
+            echo
+            echo "$matrix" | python3 -c 'import json, sys; e = [x["est_min"] for x in json.load(sys.stdin)["include"]]; print(f"{len(e)} shards, the longest ~{max(e)} min, ~{sum(e) / 60:.1f} runner-hours (conservative estimates)")'
           } >> "$GITHUB_STEP_SUMMARY"
 
   measure:
     needs: plan
     name: ${{ matrix.shard }} (${{ matrix.n_units }} units, ~${{ matrix.est_min }} min)
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    # Shards are planned at <= 90 estimated minutes (a conservative p90 cost
+    # model, scripts/measure.py RUNNER_SECONDS); the limits leave room for a
+    # slow runner and the set-up.
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       # A public repository gets 20 concurrent jobs in all: leave 4 for PR CI.
@@ -149,9 +156,9 @@ jobs:
           mkdir -p measure-out && mv lscpu.txt "measure-out/lscpu_${{ matrix.shard }}.txt"
 
       - name: Measure
-        # Below the job's 350: the upload below still runs, with every unit
+        # Below the job's 150: the upload below still runs, with every unit
         # finished so far (each unit's file is written when it finishes).
-        timeout-minutes: 330
+        timeout-minutes: 140
         env:
           UNITS: ${{ matrix.units }}
           SHARD: ${{ matrix.shard }}

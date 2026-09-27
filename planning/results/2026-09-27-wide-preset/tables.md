@@ -7,7 +7,11 @@ AOCC at q = 1, `aocc_time` at q = 4; mean over 5 seeds × 3 instances;
 `schwefel_sep` rows come from a re-run of that family alone (`.f9` units)
 after its base became `schwefel_box`; every other family was checked
 bit-identical after that change (60/60 runs of
-`core.wide.b100.q1.d2.s42.f0` and `.f14`).  Produced by `perfam.py`.
+`core.wide.b100.q1.d2.s42.f0` and `.f14`).  The `levy_embed` rows come
+from a re-run of that family (`.f13` units) after review #385 made its
+centre test apply to the optimal set (6 of its 9 instances changed; every
+other family checked unchanged, instance by instance).  Produced by
+`perfam.py` (`perfam.py SMOKE_DIR OVERRIDE_DIR`).
 
 Short names: RR_CMA = RoundRobin_CMAES, Blocks = Blocks_warm_CMAES_JSO,
 RR_TRQ = RoundRobin_TRQ, Bl3_TRQ = Blocks_warm_CMAES_JSO_TRQ, COBYQA =
@@ -34,10 +38,10 @@ Baseline_Optuna_TPE, PyBOBYQA (sequential).
 | styblinski_tang_sep | 0.232 | 0.444 | 0.084 | 0.559 | **0.631** | 0.254 | 0.303 | 0.244 | 0.303 | 0.600 | COBYQA | 0.55 |
 | lunacek_box | 0.125 | **0.138** | 0.126 | 0.133 | 0.117 | 0.132 | 0.112 | 0.127 | 0.126 | 0.111 | Blocks | 0.03 |
 | gallagher21 | 0.212 | 0.301 | 0.304 | 0.293 | 0.169 | 0.200 | 0.211 | 0.177 | 0.299 | **0.345** | PyBOBYQA | 0.18 |
-| levy_embed | 0.704 | 0.805 | 0.831 | 0.902 | **0.948** | 0.667 | 0.507 | 0.711 | 0.586 | 0.815 | COBYQA | 0.44 |
+| levy_embed | 0.704 | 0.802 | 0.830 | 0.904 | **0.951** | 0.637 | 0.454 | 0.717 | 0.589 | 0.765 | COBYQA | 0.50 |
 | rosenbrock_edge | 0.242 | 0.211 | **0.737** | 0.551 | 0.672 | 0.214 | 0.180 | 0.172 | 0.205 | 0.572 | RR_TRQ | 0.57 |
-| **mean** | 0.237 | 0.285 | 0.443 | 0.424 | 0.413 | 0.223 | 0.231 | 0.228 | 0.232 | 0.421 | RR_TRQ | |
-| mean ex-ellipsoid | 0.249 | 0.299 | 0.406 | 0.391 | 0.377 | 0.235 | 0.228 | 0.238 | 0.246 | 0.393 | RR_TRQ | |
+| **mean** | 0.237 | 0.285 | 0.443 | 0.424 | 0.413 | 0.221 | 0.228 | 0.228 | 0.232 | 0.417 | RR_TRQ | |
+| mean ex-ellipsoid | 0.249 | 0.298 | 0.406 | 0.391 | 0.377 | 0.233 | 0.224 | 0.239 | 0.247 | 0.390 | RR_TRQ | |
 
 families won: RR_TRQ 5, PyBOBYQA 4, COBYQA 3, Bl3_TRQ 1, RR_CMA 1, Blocks 1
 
@@ -58,10 +62,10 @@ families won: RR_TRQ 5, PyBOBYQA 4, COBYQA 3, Bl3_TRQ 1, RR_CMA 1, Blocks 1
 | styblinski_tang_sep | 0.190 | 0.388 | **0.593** | 0.484 | 0.427 | 0.196 | 0.267 | 0.205 | 0.263 | 0.311 | RR_TRQ | 0.40 |
 | lunacek_box | 0.128 | 0.136 | 0.124 | **0.138** | 0.102 | 0.125 | 0.108 | 0.135 | 0.133 | 0.090 | Bl3_TRQ | 0.05 |
 | gallagher21 | 0.194 | 0.251 | 0.275 | **0.288** | 0.159 | 0.190 | 0.193 | 0.203 | 0.285 | 0.180 | Bl3_TRQ | 0.13 |
-| levy_embed | 0.663 | 0.761 | 0.706 | **0.883** | 0.769 | 0.554 | 0.501 | 0.577 | 0.601 | 0.582 | Bl3_TRQ | 0.38 |
+| levy_embed | 0.652 | 0.771 | 0.704 | **0.877** | 0.783 | 0.528 | 0.444 | 0.640 | 0.592 | 0.543 | Bl3_TRQ | 0.43 |
 | rosenbrock_edge | 0.218 | 0.162 | **0.495** | 0.370 | 0.124 | 0.178 | 0.108 | 0.139 | 0.202 | 0.117 | RR_TRQ | 0.39 |
-| **mean** | 0.213 | 0.257 | 0.396 | 0.391 | 0.256 | 0.181 | 0.196 | 0.193 | 0.226 | 0.205 | RR_TRQ | |
-| mean ex-ellipsoid | 0.223 | 0.271 | 0.357 | 0.360 | 0.229 | 0.192 | 0.197 | 0.203 | 0.240 | 0.200 | Bl3_TRQ | |
+| **mean** | 0.212 | 0.258 | 0.396 | 0.390 | 0.257 | 0.179 | 0.193 | 0.197 | 0.225 | 0.202 | RR_TRQ | |
+| mean ex-ellipsoid | 0.222 | 0.272 | 0.357 | 0.360 | 0.230 | 0.190 | 0.193 | 0.208 | 0.239 | 0.197 | Bl3_TRQ | |
 
 families won: RR_TRQ 7, Bl3_TRQ 7, COBYQA 1
 
@@ -82,10 +86,10 @@ families won: RR_TRQ 7, Bl3_TRQ 7, COBYQA 1
 | styblinski_tang_sep | 0.176 | 0.206 | **0.535** | 0.435 | 0.066 | 0.109 | 0.250 | 0.166 | 0.126 | 0.419 | RR_TRQ | 0.47 |
 | lunacek_box | 0.062 | 0.063 | 0.058 | 0.071 | **0.084** | 0.055 | 0.060 | 0.058 | 0.060 | 0.031 | COBYQA | 0.05 |
 | gallagher21 | 0.133 | 0.148 | 0.136 | 0.158 | **0.244** | 0.133 | 0.151 | 0.181 | 0.142 | 0.153 | COBYQA | 0.11 |
-| levy_embed | 0.564 | 0.672 | 0.177 | 0.811 | **0.934** | 0.559 | 0.692 | 0.567 | 0.521 | 0.381 | COBYQA | 0.76 |
+| levy_embed | 0.547 | 0.700 | 0.225 | 0.774 | **0.932** | 0.547 | 0.661 | 0.574 | 0.517 | 0.457 | COBYQA | 0.71 |
 | rosenbrock_edge | 0.088 | 0.095 | **0.540** | 0.392 | 0.472 | 0.111 | 0.128 | 0.050 | 0.059 | 0.334 | RR_TRQ | 0.49 |
-| **mean** | 0.153 | 0.173 | 0.271 | 0.282 | 0.279 | 0.135 | 0.170 | 0.151 | 0.132 | 0.191 | Bl3_TRQ | |
-| mean ex-ellipsoid | 0.163 | 0.185 | 0.225 | 0.241 | 0.289 | 0.145 | 0.181 | 0.161 | 0.141 | 0.196 | COBYQA | |
+| **mean** | 0.152 | 0.175 | 0.274 | 0.279 | 0.279 | 0.135 | 0.167 | 0.151 | 0.131 | 0.196 | COBYQA | |
+| mean ex-ellipsoid | 0.162 | 0.187 | 0.229 | 0.239 | 0.288 | 0.144 | 0.178 | 0.161 | 0.141 | 0.201 | COBYQA | |
 
 families won: COBYQA 7, RR_TRQ 5, Blocks 2, RR_CMA 1
 
@@ -106,10 +110,10 @@ families won: COBYQA 7, RR_TRQ 5, Blocks 2, RR_CMA 1
 | styblinski_tang_sep | 0.158 | 0.201 | **0.523** | 0.237 | 0.056 | 0.077 | 0.146 | 0.079 | 0.111 | 0.128 | RR_TRQ | 0.47 |
 | lunacek_box | 0.059 | 0.062 | 0.058 | **0.067** | 0.067 | 0.050 | 0.041 | 0.057 | 0.059 | 0.020 | Bl3_TRQ | 0.05 |
 | gallagher21 | 0.132 | 0.162 | 0.122 | **0.172** | 0.158 | 0.127 | 0.118 | 0.145 | 0.113 | 0.082 | Bl3_TRQ | 0.09 |
-| levy_embed | 0.573 | 0.661 | 0.176 | **0.784** | 0.729 | 0.489 | 0.305 | 0.524 | 0.504 | 0.205 | Bl3_TRQ | 0.61 |
+| levy_embed | 0.546 | 0.677 | 0.167 | **0.762** | 0.722 | 0.471 | 0.336 | 0.511 | 0.504 | 0.291 | Bl3_TRQ | 0.59 |
 | rosenbrock_edge | 0.088 | 0.105 | **0.388** | 0.276 | 0.124 | 0.064 | 0.019 | 0.022 | 0.041 | 0.011 | RR_TRQ | 0.38 |
-| **mean** | 0.149 | 0.168 | 0.241 | 0.259 | 0.158 | 0.110 | 0.095 | 0.120 | 0.122 | 0.074 | Bl3_TRQ | |
-| mean ex-ellipsoid | 0.160 | 0.179 | 0.198 | 0.218 | 0.168 | 0.118 | 0.101 | 0.128 | 0.130 | 0.079 | Bl3_TRQ | |
+| **mean** | 0.147 | 0.169 | 0.241 | 0.257 | 0.157 | 0.109 | 0.097 | 0.119 | 0.122 | 0.080 | Bl3_TRQ | |
+| mean ex-ellipsoid | 0.158 | 0.180 | 0.197 | 0.217 | 0.168 | 0.117 | 0.103 | 0.127 | 0.130 | 0.085 | Bl3_TRQ | |
 
 families won: RR_TRQ 6, Bl3_TRQ 5, RR_CMA 3, COBYQA 1
 
@@ -141,5 +145,5 @@ runs from uniform starts that reach f_opt.
 | styblinski_tang_sep | 0.04 | 2.3e-02 | +0.62 | 0.00 | 0.00 | 0.18 | 0.17 | 0.46 | 8.8e+03 |
 | lunacek_box | 0.14 | 9.3e-01 | +0.35 | 0.67 | 0.00 | 0.05 | 0.00 | 0.49 | 3.1e+02 |
 | gallagher21 | 0.75 | 2.6e-01 | +0.35 | 0.23 | 0.00 | 0.36 | 0.07 | 0.46 | 8.3e+01 |
-| levy_embed | 0.39 | 4.0e-02 | +0.41 | 0.30 | 0.00 | 0.45 | 0.50 | 0.57 | 6.5e+01 |
+| levy_embed | 0.34 | 4.0e-02 | +0.53 | 0.31 | 0.00 | 0.41 | 0.48 | 0.60 | 7.6e+01 |
 | rosenbrock_edge | 0.03 | 7.0e-02 | +0.83 | 0.05 | 0.00 | 0.35 | 0.58 | 0.80 | 5.7e+06 |

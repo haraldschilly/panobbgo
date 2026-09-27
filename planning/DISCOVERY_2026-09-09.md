@@ -4738,15 +4738,20 @@ instance are unchanged, bit for bit):
   over the box);
 * four `Family` knobs, drawn from a stream of their own (spawn key 3), so
   an instance without them is bit-identical and one with them keeps its
-  R, f_opt and constraints: `min_centre_dist` (x_opt at least that
-  fraction of B·√d from the centre, by rejection, so uniform on the rest),
+  R, f_opt and constraints: `min_centre_dist` (every optimum at least that
+  fraction of B·√d from the centre — for an embedding the nearest point of
+  the optimal set, ‖R[:k] x_opt‖ — by rejection, so uniform on the rest;
+  bounded by 0.6·(1 − opt_margin)·√(k/d), which keeps a draw's acceptance
+  above 1 % up to d = 160),
   `boundary_faces` (x_opt on the faces of ceil(fraction·d) coordinates plus
   a linear pull `slope·Σ(B − s_i x_i)`, zero there and positive inside, so
   f_opt stays exact but the gradient does not vanish and the unconstrained
   minimiser lies outside the box), `signed_permutation` (separable, but no
   two instances aligned alike) and `effective_dim` (the base sees only the
   first ceil(fraction·d) coordinates of Λ R (x − x_opt): a random subspace,
-  the rest exactly neutral);
+  the rest exactly neutral; only for the bases of `EMBEDDABLE_BASES`, each
+  checked to stay non-constant with an exact optimum down to k = 1 —
+  rosenbrock is constant at k = 1 and is refused);
 * `harness_families.WIDE_FAMILIES` / `make_wide_battery()`, the preset
   `wide` in `scripts/measure.py` (`--presets wide`; default `free`), in
   `benchmarks/family_screen.py preset=wide`, and `measure.py cost`, the
@@ -4754,11 +4759,24 @@ instance are unchanged, bit for bit):
 * tests (`tests/test_families_wide.py`, `tests/test_measure.py`): f(x_opt)
   == f_opt bit for bit and nothing below it on random points and the
   corners of the box, finite everywhere, determinism and pickling per
-  instance, x_opt never within 0.3·B·√d of the centre, every instance
+  instance, no optimum (for levy_embed: no point of the optimal set)
+  within 0.3·B·√d of the centre, the acceptance bound at d up to 160 and the
+  placement's error path, every instance
   rotated (Haar) or signed-permuted, the face optimum really bound by the
   box (just outside is lower, just inside the slope ≥ 0.5), the embedding's
-  other directions exactly neutral, and the shared-label instances equal
-  to `free`'s unless redrawn.
+  other directions exactly neutral, the embeddable bases (and the refused
+  ones), levy at d = 1, and the shared-label instances equal to `free`'s
+  unless redrawn.
+
+**Review #385** (after the first push): the centre test of an embedding now
+applies to its optimal set, not to x_opt alone (the old test let a
+levy_embed optimum set pass within 0.3·B·√d of the centre); the
+`min_centre_dist` bound above replaced a bound that allowed acceptance to
+vanish at large d; `effective_dim` is limited to the checked bases;
+`schwefel_box` refuses `min_centre_dist` (it places x_opt itself, |x_opt_i|
+≥ 4.01).  Only the six levy_embed instances whose optimal set was too close
+changed (checked instance by instance against the first version); their
+smoke rows below are re-run.
 
 ### 68.1 The free preset along the axes that decide the algorithm
 
@@ -4810,12 +4828,14 @@ variables; constraints and failure regions (presets of their own).
 ### 68.2 The wide preset
 
 `make_wide_battery()`: 15 families × d 2/5/10 × 3 instances (135
-instances), battery seed as `free`.  Every family: x_opt at least
+instances), battery seed as `free`.  Every family: every optimum at least
 0.3·B·√d from the centre (`WIDE_MIN_CENTRE_DIST`; at d = 2 that excludes
-the central 22 % of uniform draws, at d = 10 almost none), a random f_opt,
+the central 22 % of uniform draws, at d = 10 almost none; schwefel_sep
+places its own optimum at |x_opt_i| ≥ 4.01, levy_embed tests its optimal
+set), a random f_opt,
 and a Haar rotation — except the two separable families, which get a random
-signed permutation.  Families that share a label with `free` or `shapes`
-share their instance seeds: 38 of the 45 `free` instances are identical in
+signed permutation.  The 8 families that share a label with `free` (5) or
+`shapes` (3) share their instance seeds: 38 of the 45 `free` instances are identical in
 `wide`, the other 7 had x_opt within 0.3·B·√d and were redrawn.
 
 | family | base | axes it adds (✓ = the axis it is there for) |
@@ -4859,7 +4879,7 @@ method and the full table: `planning/results/2026-09-27-wide-preset/tables.md`):
 | styblinski_tang_sep | 0.04 | 0.02 | +0.62 | **0.00** | 0 | 0.18 | 0.17 |
 | lunacek_box | 0.14 | 0.93 | +0.35 | 0.67 | 0 | 0.05 | 0.00 |
 | gallagher21 | 0.75 | 0.26 | +0.35 | 0.23 | 0 | 0.36 | 0.07 |
-| levy_embed | 0.39 | 0.04 | +0.41 | 0.30 | 0 | 0.45 | 0.50 |
+| levy_embed | 0.34 | 0.04 | +0.53 | 0.31 | 0 | 0.41 | 0.48 |
 | rosenbrock_edge | 0.03 | 0.07 | +0.83 | 0.05 | 0 | 0.35 | 0.58 |
 
 * Only `ellipsoid` is a quadratic near its optimum (1−R² 5e-28); the next
@@ -4872,7 +4892,7 @@ method and the full table: `planning/results/2026-09-27-wide-preset/tables.md`):
   quantile 0.05–0.15 on sharp_ridge, lunacek_box, rastrigin, ackley,
   rosenbrock): the minimum distance takes away the free *hit*, not the
   fact that a centre point is on average closer to a uniform optimum than
-  a random one.  On schwefel_sep (0.53) and levy_embed (0.45) the centre
+  a random one.  On schwefel_sep (0.53) and levy_embed (0.41) the centre
   is an average point.  Removing the advantage fully would need optima
   biased *away* from the centre, which is a bias of its own.
 
@@ -4921,10 +4941,10 @@ d = 5, q = 1:
 | styblinski_tang_sep | 0.176 | 0.206 | **0.535** | 0.435 | 0.066 | 0.109 | 0.250 | 0.166 | 0.126 | 0.419 |
 | lunacek_box | 0.062 | 0.063 | 0.058 | 0.071 | **0.084** | 0.055 | 0.060 | 0.058 | 0.060 | 0.031 |
 | gallagher21 | 0.133 | 0.148 | 0.136 | 0.158 | **0.244** | 0.133 | 0.151 | 0.181 | 0.142 | 0.153 |
-| levy_embed | 0.564 | 0.672 | 0.177 | 0.811 | **0.934** | 0.559 | 0.692 | 0.567 | 0.521 | 0.381 |
+| levy_embed | 0.547 | 0.700 | 0.225 | 0.774 | **0.932** | 0.547 | 0.661 | 0.574 | 0.517 | 0.457 |
 | rosenbrock_edge | 0.088 | 0.095 | **0.540** | 0.392 | 0.472 | 0.111 | 0.128 | 0.050 | 0.059 | 0.334 |
-| **mean** | 0.153 | 0.173 | 0.271 | **0.282** | 0.279 | 0.135 | 0.170 | 0.151 | 0.132 | 0.191 |
-| mean ex-ellipsoid | 0.163 | 0.185 | 0.225 | 0.241 | **0.289** | 0.145 | 0.181 | 0.161 | 0.141 | 0.196 |
+| **mean** | 0.152 | 0.175 | 0.274 | 0.279 | **0.279** | 0.135 | 0.167 | 0.151 | 0.131 | 0.196 |
+| mean ex-ellipsoid | 0.162 | 0.187 | 0.229 | 0.239 | **0.288** | 0.144 | 0.178 | 0.161 | 0.141 | 0.201 |
 
 (RR_CMA = `RoundRobin_CMAES`, Blocks = `Blocks_warm_CMAES_JSO`, RR_TRQ =
 `RoundRobin_TRQ`, Bl3_TRQ = `Blocks_warm_CMAES_JSO_TRQ`, COBYQA =
@@ -4935,10 +4955,10 @@ Means over the 15 families, all four cells:
 
 | cell | best mean | best ex-ellipsoid | family winners (arm: families) |
 |---|---|---|---|
-| d2 q1 | RR_TRQ 0.443 (PyBOBYQA 0.421, Bl3_TRQ 0.424) | RR_TRQ 0.406 | RR_TRQ 5, PyBOBYQA 4, COBYQA 3, Bl3_TRQ, RR_CMA, Blocks 1 each |
-| d2 q4 | RR_TRQ 0.396 (Bl3_TRQ 0.391) | Bl3_TRQ 0.360 | RR_TRQ 7, Bl3_TRQ 7, COBYQA 1 |
-| d5 q1 | Bl3_TRQ 0.282 (COBYQA 0.279) | COBYQA 0.289 | COBYQA 7, RR_TRQ 5, Blocks 2, RR_CMA 1 |
-| d5 q4 | Bl3_TRQ 0.259 (RR_TRQ 0.241) | Bl3_TRQ 0.218 | RR_TRQ 6, Bl3_TRQ 5, RR_CMA 3, COBYQA 1 |
+| d2 q1 | RR_TRQ 0.443 (Bl3_TRQ 0.424, PyBOBYQA 0.417) | RR_TRQ 0.406 | RR_TRQ 5, PyBOBYQA 4, COBYQA 3, Bl3_TRQ, RR_CMA, Blocks 1 each |
+| d2 q4 | RR_TRQ 0.396 (Bl3_TRQ 0.390) | Bl3_TRQ 0.360 | RR_TRQ 7, Bl3_TRQ 7, COBYQA 1 |
+| d5 q1 | COBYQA 0.2794, Bl3_TRQ 0.2791 (a tie) | COBYQA 0.288 | COBYQA 7, RR_TRQ 5, Blocks 2, RR_CMA 1 |
+| d5 q4 | Bl3_TRQ 0.257 (RR_TRQ 0.241) | Bl3_TRQ 0.217 | RR_TRQ 6, Bl3_TRQ 5, RR_CMA 3, COBYQA 1 |
 
 **Reading.**
 
@@ -4948,24 +4968,25 @@ Means over the 15 families, all four cells:
   now, which is what a selector needs: the model-based arms own the smooth
   and the boundary families (ellipsoid, bent_cigar, rosenbrock_edge,
   styblinski_tang_sep), COBYQA's large initial trust region owns the
-  funnels with ripples (ackley 0.655, levy_embed 0.934, gallagher21), the
+  funnels with ripples (ackley 0.655, levy_embed 0.932, gallagher21), the
   CMA-ES portfolios are best or level on the plateaus and the regular
   multimodal families (step_ellipsoid, rastrigin), and the baselines lead
   nowhere at d = 5 (PyBOBYQA leads 4 families at d = 2, q = 1).
 * **Ellipsoid no longer decides the mean**: at d5/q1 the gap between
-  RR_TRQ and Blocks is 0.098 with it and 0.040 without; on free the ex-ellipsoid
+  RR_TRQ and Blocks is 0.099 with it and 0.042 without; on free the ex-ellipsoid
   view flipped the sign of several comparisons (§66.3).  The mean still moves with the
-  ellipsoid by up to 0.04 (RR_TRQ at d = 5): 1/15 of the weight on a
+  ellipsoid by up to 0.045 (RR_TRQ at d = 5): 1/15 of the weight on a
   0.9 spread.
 * **The quadratic arms' lead is broader than §66 could show**, but not
-  uniform: RR_TRQ collapses on `levy_embed` at d = 5 (0.177 against 0.934
-  for COBYQA and 0.672 for Blocks) — with 3 of 5 directions exactly
+  uniform: RR_TRQ collapses on `levy_embed` at d = 5 (0.225 against 0.932
+  for COBYQA and 0.700 for Blocks) — with 3 of 5 directions exactly
   neutral, presumably its model or rank test is misled by directions
   without curvature; not investigated — and on attractive_sector (0.066).  As the third Blocks arm it keeps
-  most of Blocks' robustness (levy_embed 0.811).  A wide preset is how
+  most of Blocks' robustness (levy_embed 0.774).  A wide preset is how
   such failure modes of a new arm show up before a claim.
 * **Deception is unsolved by everyone**: schwefel_sep scores 0.000–0.010
-  for every arm at d = 5 (and ≤ 0.30 at d = 2); lunacek_box ≤ 0.084.
+  for every arm at d = 5 (and ≤ 0.304 at d = 2); lunacek_box ≤ 0.138 at d = 2
+  and ≤ 0.084 at d = 5.
   schwefel_sep at d ≥ 5 is a "nothing works at this budget" class: it adds
   no ranking information there (see 68.5).
 * **Separable families reward axis-aligned steps**: RR_TRQ's coordinate
@@ -4992,13 +5013,13 @@ Means over the 15 families, all four cells:
    the free, shapes, constrained and failure families; changing it is a
    contract change (roadmap §3) and was not done.  Before a claim on the
    wide classes, a sealed counterpart (a fresh battery seed) is needed.
-5. **Duplicates across presets.**  Nine wide families share labels (and
+5. **Duplicates across presets.**  Eight wide families share labels (and
    instances) with free / shapes: results of the same arm on those
    instances are the same runs, not new evidence.
 6. **Still missing**: ruggedness (Weierstrass, Katsuura, Schaffers),
    noise, discrete variables, and real-world problems.  Constraints and
    failure regions stay their own presets.
-7. **Cost**: the full wide grid is refused (> 256 shards, ≈ 440 runner-h);
+7. **Cost**: the full wide grid is refused (> 256 shards, ≈ 444 runner-h);
    use the reduced grid of 68.3.
 8. **Next**: the runner run of 68.3 on fresh seeds, the per-family table
    and the ex-ellipsoid view as in §66; then the wide preset is the

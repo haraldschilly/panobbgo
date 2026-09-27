@@ -270,8 +270,8 @@ WIDE_FAMILIES: Tuple[FamilyConfig, ...] = (
     # multimodal with global structure
     FamilyConfig(base="rastrigin", extra=dict(_W)),
     FamilyConfig(base="ackley", extra=dict(_W)),
-    # separable (signed permutation instead of a rotation)
-    FamilyConfig(base="schwefel_box", label="schwefel_sep", rotate=False, extra={**_W, "signed_permutation": True}),
+    # separable (signed permutation instead of a rotation); schwefel_box places x_opt itself, |x_opt_i| >= 4.01
+    FamilyConfig(base="schwefel_box", label="schwefel_sep", rotate=False, extra={"signed_permutation": True}),
     FamilyConfig(
         base="styblinski_tang", label="styblinski_tang_sep", rotate=False, extra={**_W, "signed_permutation": True}
     ),
@@ -404,9 +404,11 @@ def make_wide_battery(
     Built for the selector of roadmap §4 A, which needs a problem set wide
     enough to learn from, and for scores no single shape can decide (the
     free preset's one exactly quadratic family in five decided its mean,
-    DISCOVERY §66).  Every family is shifted (``x_opt`` at least
+    DISCOVERY §66).  Every family is shifted (every optimum — for
+    ``levy_embed`` every point of its optimal set — at least
     :data:`WIDE_MIN_CENTRE_DIST` of :math:`B\\sqrt{d}` from the box centre, so
-    a centre start is no free hit) and rotated by a Haar ``R`` — except the
+    a centre start is no free hit; ``schwefel_sep`` places its own optimum at
+    ``|x_opt_i| >= 4.01``) and rotated by a Haar ``R`` — except the
     two separable families, which get a random signed permutation instead.
     ``f_opt`` is known exactly for every instance.  The families and the
     axes they cover (:data:`WIDE_FAMILIES`; DISCOVERY §68 has the table):

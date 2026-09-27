@@ -35,7 +35,13 @@ from panobbgo.harness_families import (
     make_families_battery,
     make_wide_battery,
 )
-from panobbgo.lib.families import STYBLINSKI_TANG_ARGMIN, Family
+from panobbgo.lib.families import (
+    BASE_FUNCTIONS,
+    EMBEDDABLE_BASES,
+    MAX_CENTRE_DIST_FRACTION,
+    STYBLINSKI_TANG_ARGMIN,
+    Family,
+)
 
 B = 5.0
 
@@ -75,10 +81,21 @@ def test_f_opt_is_exact_and_the_minimum_over_the_box(wide):
 
 
 def test_the_optimum_is_never_near_the_box_centre(wide):
+    """Every optimum, including every point of an embedding's optimal set, is >= 0.3 B sqrt(d) from the centre."""
     for name, p in wide:
         x = p.x_opt
-        assert np.linalg.norm(x) >= WIDE_MIN_CENTRE_DIST * B * np.sqrt(p.dim) - 1e-12, name
+        bound = WIDE_MIN_CENTRE_DIST * B * np.sqrt(p.dim)
         assert np.all(np.abs(x) <= B), name
+        assert np.linalg.norm(x) >= bound - 1e-12, name
+        assert p.centre_distance(x) >= bound - 1e-12, name
+        if p.effective_dim < 1.0:
+            # The nearest point of the optimal set x_opt + span(R[k:]): the projection onto span(R[:k]).
+            k = int(np.ceil(p.effective_dim * p.dim - 1e-9))
+            r = p.rotation
+            assert r is not None
+            nearest = r[:k].T @ (r[:k] @ x)
+            assert p.eval(nearest) == pytest.approx(p.f_opt, abs=1e-9), name
+            assert np.linalg.norm(nearest) >= bound - 1e-12, name
 
 
 def test_every_instance_is_shifted_and_rotated_or_signed_permuted(wide):
@@ -143,7 +160,7 @@ def test_shared_labels_keep_the_free_instances_unless_redrawn():
 
 def test_placement_knobs_do_not_move_the_instance_stream():
     plain = Family("rastrigin", dim=5, seed=31)
-    knobs = Family("rastrigin", dim=5, seed=31, min_centre_dist=0.5, boundary_faces=0.4)
+    knobs = Family("rastrigin", dim=5, seed=31, min_centre_dist=0.45, boundary_faces=0.4)
     assert plain.f_opt == knobs.f_opt
     assert np.array_equal(plain.rotation, knobs.rotation)
     # Knobs at their defaults: bit-identical to an instance built without them.
@@ -174,6 +191,7 @@ def test_effective_dim_leaves_the_other_directions_neutral(dim):
     p = Family("levy", dim=dim, seed=8, effective_dim=1.0 / 3.0)
     k = int(np.ceil(dim / 3))
     r = p.rotation
+    assert r is not None
     for j in range(k, dim):  # rows of R past k: directions the function does not see
         y = p.x_opt + 0.7 * r[j]
         assert p.eval(y) == pytest.approx(p.f_opt, abs=1e-9)
@@ -206,6 +224,7 @@ def test_schwefel_box_maps_the_box_onto_a_window_without_the_penalty(dim):
         assert p.eval(p.x_opt) == p.f_opt
         assert np.all((np.abs(p.x_opt) >= 4.0) & (np.abs(p.x_opt) <= B))
         r = p.rotation
+        assert r is not None
         xs = _box_probes(dim, 300, 0)
         # u = 80 * R (x - x_opt) + 420.97 stays inside the classic domain, and f is raw Schwefel there.
         us = 80.0 * (xs - p.x_opt) @ r.T + 420.9687463319553
@@ -225,6 +244,7 @@ def test_schwefel_box_maps_the_box_onto_a_window_without_the_penalty(dim):
         ({"signed_permutation": True}, "rotate=False"),
         ({"effective_dim": 0.0}, "effective_dim"),
         ({"min_centre_dist": 0.9}, "min_centre_dist"),
+        ({"min_centre_dist": 0.49}, "min_centre_dist"),  # above 0.6 * (1 - 0.2)
         ({"boundary_faces": 1.5}, "boundary_faces"),
         ({"boundary_faces": 0.5, "shift": False}, "shift=True"),
     ],
@@ -237,5 +257,68 @@ def test_bad_knobs_are_refused(kwargs, match):
 def test_knob_combinations_the_bbob_bases_refuse():
     with pytest.raises(ValueError, match="effective_dim"):
         Family("gallagher", dim=3, seed=0, effective_dim=0.5)
+    with pytest.raises(ValueError, match="schwefel_box"):
+        Family("schwefel_box", dim=3, seed=0, rotate=False, min_centre_dist=0.3)
     with pytest.raises(ValueError, match="placement='box'"):
         Family("lunacek_bi_rastrigin", dim=3, seed=0, min_centre_dist=0.3)
+
+
+# ---------------------------------------------------------------------------
+# review #385: placement bounds, embeddable bases, levy at k = 1
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("frac", [1.0, 1.0 / 3.0])
+@pytest.mark.parametrize("dim", [2, 5, 10, 40, 160])
+def test_the_min_centre_dist_bound_keeps_the_acceptance_high(dim, frac):
+    """At the largest allowed ``min_centre_dist`` a uniform draw is accepted with probability > 1 %."""
+    k = max(1, int(np.ceil(frac * dim - 1e-9)))
+    rho = MAX_CENTRE_DIST_FRACTION * 0.8 * np.sqrt(k / dim)
+    rng = np.random.default_rng(dim)
+    xs = rng.uniform(-4.0, 4.0, size=(4000, dim))
+    q, r = np.linalg.qr(rng.standard_normal((dim, dim)))
+    rows = (q * np.sign(np.diag(r))).T[:k]
+    for proj in (rows, np.eye(dim)[:k]):  # a Haar subspace and a coordinate one
+        acc = np.mean(np.linalg.norm(xs @ proj.T, axis=1) >= rho * B * np.sqrt(dim))
+        assert acc > 0.01, (dim, frac, acc)
+    # ... and an instance at that bound builds (well within MAX_PLACEMENT_TRIES).
+    base = "levy" if frac < 1.0 else "sphere"
+    p = Family(base, dim=dim, seed=3, effective_dim=frac, min_centre_dist=rho * (1 - 1e-9))
+    assert p.centre_distance(p.x_opt) >= rho * (1 - 1e-9) * B * np.sqrt(dim)
+
+
+def test_placement_gives_up_with_an_error(monkeypatch):
+    """The redraw loop is bounded: with no redraws allowed, a first draw that is too close raises."""
+    monkeypatch.setattr(Family, "MAX_PLACEMENT_TRIES", 0)
+    raised = 0
+    for seed in range(40):
+        try:
+            Family("sphere", dim=2, seed=seed, min_centre_dist=0.45)
+        except ValueError as exc:
+            assert "could not place x_opt" in str(exc)
+            raised += 1
+    assert raised > 0
+
+
+@pytest.mark.parametrize("base", EMBEDDABLE_BASES)
+@pytest.mark.parametrize("frac", [0.3, 0.5])  # k = 1 and k = 2 at d = 3
+def test_embeddable_bases_keep_an_exact_nonconstant_optimum(base, frac):
+    p = Family(base, dim=3, seed=5, effective_dim=frac)
+    assert p.eval(p.x_opt) == p.f_opt
+    values = np.array([p.eval(x) for x in _box_probes(3, 500, 1)])
+    assert values.min() >= p.f_opt - 1e-9
+    assert np.ptp(values) > 1e-3
+
+
+@pytest.mark.parametrize("base", ["rosenbrock", "sharp_ridge", "discus", "schwefel", "attractive_sector"])
+def test_effective_dim_refuses_bases_that_do_not_embed(base):
+    with pytest.raises(ValueError, match="effective_dim"):
+        Family(base, dim=3, seed=0, effective_dim=0.5)
+
+
+def test_levy_at_dimension_one():
+    f = BASE_FUNCTIONS["levy"](1)
+    assert f(np.zeros(1)) == 0.0
+    us = np.linspace(-30.0, 30.0, 6001)
+    values = np.array([f(np.array([u])) for u in us])
+    assert values.min() >= 0.0 and values.max() > 1.0

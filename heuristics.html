@@ -487,9 +487,12 @@ late points took about 40 % of the μ selected slots at q ≥ 16.
 Their steps are measured from the <em>moved</em> mean (the mean shift is
 not clipped, so a late <code class="docutils literal notranslate"><span class="pre">y</span></code> carries about <code class="docutils literal notranslate"><span class="pre">−Δm/σ</span></code>), which
 shortens <code class="docutils literal notranslate"><span class="pre">p_σ</span></code> and pulls σ down: ‖p_σ‖/χ_n 0.83 → 0.76 and
-mean log10 σ/σ0 −0.61 → −0.87 at d5/q4 against <code class="docutils literal notranslate"><span class="pre">&quot;drop&quot;</span></code>; the
-A/B still favours it (§64).  The termination histories (TolFun,
-stagnation) then mix offspring of two distributions.
+mean log10 σ/σ0 −0.61 → −0.87 at d5/q4 against <code class="docutils literal notranslate"><span class="pre">&quot;drop&quot;</span></code>.  The
+shrink is small at q = 2 (−0.73 → −0.81 at d5); at q = 64 σ
+hardly moves from σ0 in any arm (runs of only about 10
+generations).  The A/B still favours it (§64).  The termination
+histories (TolFun, stagnation) then mix offspring of two
+distributions.
 <code class="docutils literal notranslate"><span class="pre">&quot;fold_capped&quot;</span></code>: at most <code class="docutils literal notranslate"><span class="pre">max(1,</span> <span class="pre">λ</span> <span class="pre">//</span> <span class="pre">4)</span></code> late points per
 update, the best-ranked kept (<code class="docutils literal notranslate"><span class="pre">_maybe_inject</span></code>’s cap and rule);
 it measured the same as <code class="docutils literal notranslate"><span class="pre">&quot;fold&quot;</span></code> (the best late points are the

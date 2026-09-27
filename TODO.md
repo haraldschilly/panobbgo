@@ -111,7 +111,9 @@ Cheap-track items, in GOAL §2c order:
       are stale for every spec with a CMA-ES arm.
       `gh workflow run rebaseline.yml -f suites=all -f seeds=12`, then switch
       the references (this header, `doc/dev/benchmarking.md`
-      "Comparability").
+      "Comparability", the `planning/GOAL.md` §2 pointer).  Then recheck the
+      block scheduler's `REGIME_TABLE_V1` (`strategies/blocks.py`): it was
+      measured with positive-only CMA-ES.
 - [ ] **BoundTransform-style genotype mapping** as the principled
       alternative to the active guard (§59): run CMA-ES in an unbounded
       genotype space with a smooth fold into the box for evaluation (pycma's

@@ -12,20 +12,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""``CMAES(boundary=, first_start=, active=)`` — the three opt-in options of DISCOVERY §57.
+"""``CMAES(boundary=, first_start=, active=)`` — the three options of DISCOVERY §57.
 
 * H1 ``boundary``: ``"project"`` (default), ``"resample"`` (the ``cmaes`` /
   Optuna scheme: up to ``10·n`` redraws, then one more draw projected),
   ``"reflect"`` (periodic reflection at the faces).
 * H2 ``first_start``: ``"center"`` (default) or ``"random"``.
 * H3 ``active``: negative recombination weights, Hansen (2016),
-  arXiv:1604.00772, eq. 46–53.
+  arXiv:1604.00772, eq. 46–53.  The default since DISCOVERY §60 (with the
+  repair guard of §59); ``active=False`` is the positive-only update.
 
-Pinned here: the defaults are the old code bit for bit (omitted, explicit,
-and a numeric pin recorded with the pre-change module), every draw comes from
-the heuristic's own keyed stream, and the active weights and covariance
-update are the tutorial's (checked against a from-scratch formula and, when
-the ``baselines`` extra is installed, against the ``cmaes`` library Optuna uses).
+Pinned here: ``active=False`` with the other defaults is the old code bit for
+bit (a numeric pin recorded with the pre-change module), the new default has
+its own numeric pin, every draw comes from the heuristic's own keyed stream,
+and the active weights and covariance update are the tutorial's (checked
+against a from-scratch formula and, when the ``baselines`` extra is installed,
+against the ``cmaes`` library Optuna uses).
 """
 
 from __future__ import annotations
@@ -38,8 +40,9 @@ from panobbgo.lib.classic import DeJong, Rosenbrock
 from panobbgo.strategies import StrategyRoundRobin
 
 # A sphere whose optimum (0, 0, 0) sits near the lower face -2 and far from
-# the box centre (3, 3, 3): the default run projects 50 of its 1200 points
-# onto that face, so every boundary path is exercised.
+# the box centre (3, 3, 3): the positive-only run projects 50 of its 1200
+# points onto that face (the default, active run 63), so every boundary path
+# is exercised.
 BOX = [(-2.0, 8.0)] * 3
 
 
@@ -68,7 +71,7 @@ def _on_face(X, lo=-2.0, hi=8.0):
 
 
 def test_explicit_defaults_equal_omitted():
-    """Passing the documented defaults is the same run as not passing them (active=True since §60)."""
+    """Passing the documented defaults is the same run as not passing them."""
     _, X0, fx0, who0 = _run()
     _, X1, fx1, who1 = _run(boundary="project", first_start="center", active=True, active_skip_repaired=True)
     np.testing.assert_array_equal(X0, X1)
@@ -81,10 +84,10 @@ def test_positive_only_trajectory_pinned_to_the_pre_change_module():
 
     Recorded 2026-09-26 with the module at 097d797 (seed 42, DeJong(3) on
     [-2, 8]^3, 1200 evaluations, one IPOP self-restart, 50 points projected
-    onto the lower face) — the default until the active-CMA switch of §60,
-    and still the positive-only path bit for bit.
-    ``test_self_restart_off_reproduces_the_pre_change_trajectory`` pins the
-    no-restart path the same way.
+    onto the lower face).  That was the default path until DISCOVERY §60
+    made active CMA the default; the pin keeps the positive-only update
+    bit-identical.  ``test_self_restart_off_reproduces_the_pre_change_trajectory``
+    pins the no-restart path the same way.
     """
     h, X, fx, _ = _run(active=False)
     assert len(fx) == 1200
@@ -94,8 +97,30 @@ def test_positive_only_trajectory_pinned_to_the_pre_change_module():
     assert float(np.sum(fx)) == pytest.approx(2522.28979759724, rel=1e-9)
 
 
+def test_default_trajectory_pinned():
+    """The default path (guarded active CMA, DISCOVERY §60) on the same run as the pin above.
+
+    Recorded 2026-09-27 with the commit that made ``active=True`` the default
+    (seed 42, DeJong(3) on [-2, 8]^3, 1200 evaluations, one IPOP self-restart,
+    63 points projected onto the lower face).
+    """
+    h, X, fx, _ = _run()
+    assert len(fx) == 1200
+    assert h.n_restarts == 1
+    assert _on_face(X) == 63
+    assert float(np.min(fx)) == pytest.approx(1.5349983286946815e-15, rel=1e-6)  # BLAS order differs across CPUs
+    assert float(np.sum(fx)) == pytest.approx(6155.544241568712, rel=1e-9)
+
+
 @pytest.mark.parametrize(
-    "kw", [{"boundary": "resample"}, {"boundary": "reflect"}, {"first_start": "random"}, {"active": False}]
+    "kw",
+    [
+        {"boundary": "resample"},
+        {"boundary": "reflect"},
+        {"first_start": "random"},
+        {"active": False},
+        {"active_skip_repaired": False},
+    ],
 )
 def test_each_option_changes_the_run_and_is_reproducible(kw):
     """Every option is read (not a dead parameter), and a seeded run stays reproducible."""
@@ -289,7 +314,7 @@ def test_active_weights_follow_the_tutorial(lam, n):
     assert float(np.sum(h._w)) == pytest.approx(1.0, rel=1e-14)
     assert np.all(h._w_neg <= 0.0)
     if lam % 2 == 0:
-        # even λ: the positive weights are the ones the default path uses
+        # even λ: the positive weights are the ones the positive-only path uses
         np.testing.assert_allclose(h._w, CMAES._recombination_weights(mu)[0], rtol=1e-13)
 
 
@@ -458,7 +483,7 @@ def test_injected_point_through_the_production_path(skip):
 
 
 def test_emitted_offspring_carry_the_repaired_flag():
-    """The flag is set exactly when the boundary repair changed the step (the default path included)."""
+    """The flag is set exactly when the boundary repair changed the step (the positive-only path included)."""
     for active in (False, True):
         h = _started(dim=3, active=active)
         h._m = np.array([7.9, 3.0, 3.0])  # next to the upper face of [-2, 8]^3
@@ -553,7 +578,9 @@ def test_variant_specs_are_opt_in_and_share_the_flagship_seed_name():
         "active_skip_repaired": False,
     }
     assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_active"] == {"active": True, "active_skip_repaired": False}
-    assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_active_guarded"] == {"active": True}
+    # Spelled out, so neither name depends on the constructor default (active=True since §60).
+    assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_active_guarded"] == {"active": True, "active_skip_repaired": True}
+    assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_positive"] == {"active": False}
 
 
 def _ioh_cli():

@@ -186,7 +186,8 @@ def test_restart_from_is_reproducible_and_respected():
     assert h_best.n_restarts == len(d)
 
 
-def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not():
+@pytest.mark.parametrize("active", [True, False])
+def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not(active):
     """``stagnation_frac`` restarts on a budget slice, not on n and λ.
 
     Rastrigin at d=5 is multimodal enough that a 1500-evaluation run settles
@@ -194,18 +195,19 @@ def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not():
     at a 1e-11 range) has anything to say — that gap is the whole reason the
     criterion exists.
 
-    The scenario (seed 7, frac 0.05) was built on the positive-only
-    trajectory, so it runs with ``active=False``.  The criterion does not
-    depend on the covariance update: with the active default (§60) it fires
-    as well (last stop reason ``stagnation_evals``), but there it replaces
-    the reference run's ``tolfun`` restart instead of adding one.
+    Seed 1 since the active-CMA default (DISCOVERY §60, 2026-09-27); the
+    scenario was built on seed 7 with the positive-only update.  There the
+    active run's one budget-slice restart falls where the reference run's
+    single ``tolfun`` restart does (1 vs 1).  On seed 1 the budget criterion
+    adds restarts under both updates (active 3 vs 1, positive-only 2 vs 1;
+    seeds 2 and 3 agree), so both are run.
     """
     from panobbgo.lib.classic import Rastrigin
 
     def run(**kw):
         problem = Rastrigin(dims=5)
-        np.random.seed(7)
-        s = StrategyRoundRobin(problem, max_evaluations=1500, seed=7, parse_args=False, testing_mode=True)
+        np.random.seed(1)
+        s = StrategyRoundRobin(problem, max_evaluations=1500, seed=1, parse_args=False, testing_mode=True)
         s.config.sync_evaluation = True
         s.config.stop_on_convergence = False
         h = CMAES(s, **kw)
@@ -213,8 +215,8 @@ def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not():
         s.start()
         return h
 
-    ref = run(restart_from="best", active=False)
-    budget = run(restart_from="best", stagnation_frac=0.05, active=False)
+    ref = run(restart_from="best", active=active)
+    budget = run(restart_from="best", stagnation_frac=0.05, active=active)
     assert budget.n_self_restarts > ref.n_self_restarts
     assert budget.last_stop_reason == "stagnation_evals"
     # The window is max(10λ, frac·max_eval) = max(80, 75) = 80 evaluations at

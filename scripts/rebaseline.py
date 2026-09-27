@@ -79,7 +79,7 @@ Opt-in A/B suites, never part of ``--suites all`` (run them by name, with
 ``-f release=none``): ``ioh-cma-ab`` (the IOH standard battery),
 ``ioh-cma-ab-bbob-b200`` and ``ioh-cma-ab-bbob-b500`` (the 24 BBOB functions
 at d 2/5/10, instances 0/1) run ``RoundRobin_CMAES``, its DISCOVERY §57
-variants, Optuna CmaEs, its clip-only twin and pycma BIPOP in the same jobs
+variants (without ``_active_guarded``, the default since §60), Optuna CmaEs, its clip-only twin and pycma BIPOP in the same jobs
 (``plan --release`` refuses them unless ``none``, and refuses a mix with
 reference suites); their files are
 ``ref_ioh_standard_cma_ab.json`` and ``ref_ioh_bbob_cma_ab_b<bm>.json``
@@ -197,8 +197,9 @@ SUITES: Dict[str, Suite] = {
         # comparison is paired and in one FP environment.  ``plan`` refuses
         # them unless release=none (an A/B is not a reference) and refuses to
         # mix them with reference suites.  Sizing (estimates from the
-        # ioh-external timings above; 6 panobbgo CMA-ES specs, 2 Optuna, 1
-        # pycma): the standard battery ~2 min per seed; the BBOB battery
+        # ioh-external timings above; 7 panobbgo CMA-ES specs -- the flagship
+        # and the variants but ``_active_guarded`` (see _cma_ab_strategy_names)
+        # --, 2 Optuna, 1 pycma): the standard battery ~2 min per seed; the BBOB battery
         # (24 fids x d 2/5/10 x instances 0/1) ~20 min per seed at 200*d and
         # ~50 min at 500*d serially, a quarter of that at --jobs 4.
         Suite("ioh-cma-ab", "ioh", "standard", 6, variant="cma_ab", extras=("baselines",), opt_in=True),
@@ -266,11 +267,18 @@ def _external_strategy_names(suite: Suite) -> List[str]:
 CMA_AB_REFERENCES: Tuple[str, ...] = ("Baseline_Optuna_CmaEs", "Baseline_Optuna_CmaEs_clip", "Baseline_pycma_BIPOP")
 
 
+#: Variants the A/B suites leave out: ``RoundRobin_CMAES_active_guarded`` is
+#: the ``CMAES`` default since DISCOVERY §60, so it is bit-identical to
+#: ``RoundRobin_CMAES``.  The name stays in ``CMAES_VARIANT_OPTIONS``.
+CMA_AB_SKIPPED_VARIANTS: Tuple[str, ...] = ("RoundRobin_CMAES_active_guarded",)
+
+
 def _cma_ab_strategy_names(suite: Suite) -> List[str]:
-    """``RoundRobin_CMAES``, its §57 variants, and Optuna CmaEs / pycma BIPOP."""
+    """``RoundRobin_CMAES``, its §57 variants (but :data:`CMA_AB_SKIPPED_VARIANTS`), and Optuna CmaEs / pycma BIPOP."""
     from panobbgo.harness_ioh import CMAES_VARIANT_NAMES
 
-    return ["RoundRobin_CMAES", *CMAES_VARIANT_NAMES, *CMA_AB_REFERENCES]
+    variants = [n for n in CMAES_VARIANT_NAMES if n not in CMA_AB_SKIPPED_VARIANTS]
+    return ["RoundRobin_CMAES", *variants, *CMA_AB_REFERENCES]
 
 
 #: IOH suite variant -> the ``--strategies`` names its shards run.  Resolved

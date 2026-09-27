@@ -147,6 +147,12 @@ against the post-audit references of §54 (last bullet).
   `EndedEarly` run marker (#346), and the virtual-clock parallel backend
   (#345: q simulated workers, pull-when-free policy, `aocc_time`).  None
   of them has measured numbers yet.
+* **Active CMA is the CMA-ES default, 2026-09-27** (§57–§60).
+  `CMAES(active=True)` with the repair guard: +0.013 / +0.044 AOCC over
+  the positive-only update on the 24 BBOB functions at 200·d / 500·d (11/12,
+  12/12 seeds), ahead of Optuna CmaEs, no COCO class worse.  Every CMA-ES
+  trajectory changed; the §56 references are stale for strategies with
+  a CMA-ES arm until the re-baseline (`TODO.md`).
 
 ## 2b. Previous snapshot (2026-09-10, §1–§31)
 

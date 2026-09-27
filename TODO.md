@@ -125,15 +125,17 @@ extra).
       (Holm 3 / 7 / 11; proposals in §65.6); (c), 12 fresh seeds, is done:
       §67 (Holm 4 / 2 / 3 over its 9 cells).  In order:
       (b) decide whether the floor's budget cap stays (§65.6 and §67.6
-          propose to keep it: d5/q64 is parity on fresh seeds, the d2/q64
-          loss is the block rule and the 3 rounds, not the cap) and whether
-          to close Blocks d2/100·d/q16 without tuning (§67: −0.011, 3/12,
-          n.s., ex-ellipsoid −0.004; the §63.4 block-sizing ideas stay
-          untried);
+          propose to keep it: d5/q64 is parity on fresh seeds; the d2/q64
+          loss is likely the block rule and the 3 rounds rather than the
+          cap — inferred, not measured) and whether to close Blocks
+          d2/100·d/q16 without tuning (§67: gap to qLogEI −0.011, 3/12,
+          n.s., mostly ellipsoid; ex-ellipsoid −0.004 is post-hoc and
+          descriptive; the §63.4 block-sizing ideas stay untried);
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
           family).
       New from §67: d10/100·d/q4 is a Holm loss to TuRBO1 (−0.008) that
-      CMA-ES alone (the regime-gate row) wins (+0.006): selector evidence.
+      CMA-ES alone (the regime-gate row, and `RoundRobin_CMAES`) leads
+      (+0.006, unadjusted): selector evidence.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at

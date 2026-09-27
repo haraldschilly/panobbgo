@@ -191,7 +191,9 @@ class CMAES(Heuristic):
             q)``); IPOP/BIPOP grow λ from the raised base.  An explicit
             ``popsize`` is never raised.  The raised λ is capped by the
             budget so the run keeps at least :attr:`MIN_GENERATIONS`
-            generations (``λ ≤ max(λ_default, max_eval // 10)``).  Without
+            generations (``λ ≤ max(λ_default, max_eval // 10)``).  The cap
+            applies to the base λ only: IPOP/BIPOP restarts grow λ from it
+            and may exceed it.  Without
             the floor a λ = 8 arm keeps at most about 1.5·λ of 64 virtual
             workers busy (DISCOVERY §63).  The warm start's archive fit
             keeps the size it has without the floor (see
@@ -210,27 +212,48 @@ class CMAES(Heuristic):
             virtual clock was measured (§63); set ``True`` for a real pool
             with expensive evaluations.
         min_results_fraction (float): Fraction of λ that must arrive before
-            a CMA-ES update is triggered.  Default 0.5 (= μ).  Only with more
-            than one parallel worker (``strategy._n_evaluators()``): with one
-            worker the quorum is the whole emitted generation, because
-            results arrive one at a time and an early update would buy no
-            parallelism, only drop the rest of the generation (DISCOVERY §64).
-            Under ``evaluation.sync`` without the virtual clock results arrive
-            in batches of the strategy's request (``StrategyRoundRobin``: 10),
-            so the quorum binds there only for a generation larger than one
-            batch (λ > 10 after IPOP growth).
+            a CMA-ES update may fire early.  Default 0.5 (= μ).  Under
+            ``quorum="dispatched"`` it applies only once every offspring of
+            the generation has left the output queue (see ``quorum``).
+        quorum (str): When a generation may close before all its results are
+            in (DISCOVERY §64).  ``"dispatched"`` (default): at
+            ``min_results_fraction · λ`` results, but only once no offspring
+            of the generation still waits in this heuristic's output queue;
+            until then the whole generation.  Closing early pays only when it
+            lets the next generation fill workers that would otherwise idle;
+            while the generation still has queued points the workers have
+            work, and an early close would rank the first arrivals only.  So
+            one worker (every result but the last arrives with points still
+            queued), few workers against a large λ, and synchronous batches
+            smaller than λ (``StrategyRoundRobin`` asks for 10 points: an
+            IPOP- or BIPOP-grown λ, or an explicit ``popsize`` > 10) all rank
+            the whole generation.  ``"fraction"``: close at the fraction
+            regardless, the rule before §64 — with results one at a time it
+            ranked only the first μ arrivals, left no rank for active CMA's
+            negative weights and dropped λ − μ evaluated offspring.
         late_results (str): What happens to an offspring whose result arrives
-            after its generation was closed by the quorum (only with more
-            than one worker; DISCOVERY §64).  ``"fold"`` (default): it joins
-            the next update like an injected point —
-            converted to the oldest open generation's coordinates,
-            Mahalanobis-clipped (:meth:`_clip_injected`), never counted toward
-            that generation's quorum, and never given a negative weight under
-            ``active_skip_repaired``.  It is not charged again.  ``"drop"``:
-            it is ignored, the behaviour before §64; it was evaluated and
-            charged all the same.  Under ``evaluation.sync`` without the
-            virtual clock it binds only for a generation larger than one
-            request batch (see ``min_results_fraction``).
+            after its generation closed early (DISCOVERY §64).  ``"fold"``
+            (default): it joins the next update like an injected point — its
+            evaluated position (``x_eval``, not a repaired ``x``) is converted
+            to the oldest open generation's coordinates and Mahalanobis-clipped
+            to ``c_y`` (:meth:`_clip_injected`); it never counts toward that
+            generation's quorum, never gets a negative weight under
+            ``active_skip_repaired`` and is not charged again.  Uncapped:
+            late points took about 40 % of the μ selected slots at q ≥ 16.
+            Their steps are measured from the *moved* mean (the mean shift is
+            not clipped, so a late ``y`` carries about ``−Δm/σ``), which
+            shortens ``p_σ`` and pulls σ down: ‖p_σ‖/χ_n 0.83 → 0.76 and
+            mean log10 σ/σ0 −0.61 → −0.87 at d5/q4 against ``"drop"``; the
+            A/B still favours it (§64).  The termination histories (TolFun,
+            stagnation) then mix offspring of two distributions.
+            ``"fold_capped"``: at most ``max(1, λ // 4)`` late points per
+            update, the best-ranked kept (``_maybe_inject``'s cap and rule);
+            it measured the same as ``"fold"`` (the best late points are the
+            ones that reach the selected slots anyway).  ``"drop"``: ignored,
+            the behaviour before §64; they were evaluated and charged all the
+            same.  ``n_late_folded`` / ``n_late_dropped`` count them; a
+            result for a *flushed* generation (restart, warm start) is ignored
+            silently and counted in neither.
         ipop_factor (float): Population multiplication factor applied on each
             IPOP restart.  Default 2.0 (standard IPOP doubling).  Ignored in
             BIPOP mode (which always doubles the large regime).
@@ -457,7 +480,10 @@ class CMAES(Heuristic):
     SUPPORTED_BOUNDARY = ("project", "resample", "reflect")
 
     #: Accepted values for ``late_results``: a closed generation's late offspring.
-    SUPPORTED_LATE_RESULTS = ("drop", "fold")
+    SUPPORTED_LATE_RESULTS = ("drop", "fold", "fold_capped")
+
+    #: Accepted values for ``quorum``: when a generation may close early.
+    SUPPORTED_QUORUM = ("dispatched", "fraction")
 
     #: Accepted values for ``first_start``: the first run's start mean.
     SUPPORTED_FIRST_START = ("center", "random")
@@ -510,6 +536,7 @@ class CMAES(Heuristic):
         active: bool = True,
         active_skip_repaired: bool = True,
         late_results: str = "fold",
+        quorum: str = "dispatched",
     ):
         super().__init__(strategy, name=name or "CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -617,8 +644,12 @@ class CMAES(Heuristic):
             raise ValueError(f"first_start must be one of {self.SUPPORTED_FIRST_START!r}, got {first_start!r}")
         if late_results not in self.SUPPORTED_LATE_RESULTS:
             raise ValueError(f"late_results must be one of {self.SUPPORTED_LATE_RESULTS!r}, got {late_results!r}")
-        #: Late offspring of a generation closed by the quorum (§64): ``"drop"`` or ``"fold"``.
+        #: Late offspring of a generation closed by the quorum (§64).
         self._late_results = late_results
+        if quorum not in self.SUPPORTED_QUORUM:
+            raise ValueError(f"quorum must be one of {self.SUPPORTED_QUORUM!r}, got {quorum!r}")
+        #: When a generation may close at ``min_results_fraction`` (§64).
+        self._quorum_rule = quorum
         #: Out-of-box offspring handling (§57 H1); ``"project"`` is the default path.
         self._boundary = boundary
         #: The first run's start mean (§57 H2); ``"center"`` is the default path.
@@ -1326,7 +1357,7 @@ class CMAES(Heuristic):
         if gen_bucket is None:
             # A late offspring: its generation was closed by the quorum
             # (a flushed generation's offspring are no longer ``_pending``).
-            if self._late_results == "fold":
+            if self._late_results != "drop":
                 self._fold_late(info, penalty)
             else:
                 self.n_late_dropped += 1
@@ -1352,7 +1383,7 @@ class CMAES(Heuristic):
         for gen in sorted(self._gen_results.keys()):
             bucket = self._gen_results[gen]
             emitted = self._gen_emitted.get(gen, self._lam)
-            min_needed = self._quorum(emitted)
+            min_needed = self._quorum(gen, emitted)
             if len(bucket) >= min_needed:
                 # Injected foreign points (§2.1) and folded late offspring
                 # (§64) are added to the bucket here — after the quorum check,
@@ -1390,16 +1421,28 @@ class CMAES(Heuristic):
                     self._emit_generation()
                 break
 
-    def _quorum(self, emitted: int) -> int:
-        """Results a generation of ``emitted`` offspring needs before its update.
+    def _queued(self, gen: int) -> int:
+        """Offspring of generation ``gen`` still waiting in this heuristic's output queue (not dispatched)."""
+        prefix = f"{self._who_prefix}g{gen}:"
+        q = self._output
+        with q.mutex:
+            return sum(1 for p in q.queue if str(getattr(p, "who", "")).startswith(prefix))
 
-        ``min_results_fraction`` of it with parallel workers.  With one worker
-        the whole generation: results then arrive one at a time, and closing
-        at μ would only drop the other λ − μ evaluated offspring (they were
-        charged all the same), lose the μ-of-λ truncation selection and leave
-        no rank for active CMA's negative weights (DISCOVERY §64).
+    def _quorum(self, gen: int, emitted: int) -> int:
+        """Results generation ``gen`` of ``emitted`` offspring needs before its update.
+
+        ``min_results_fraction`` of it once every offspring has been
+        dispatched (arrived or in flight); the whole generation while any of
+        them still waits in the output queue.  Closing early pays only when
+        it lets the next generation fill workers that would otherwise idle:
+        while this generation still has queued points, the workers have
+        work, and an early close would only rank the first arrivals and drop
+        the rest (DISCOVERY §64).  Special cases: one worker (every point
+        but the last is queued when a result arrives: the full generation),
+        few workers against a large λ, and ``evaluation.sync`` batches
+        smaller than λ.
         """
-        if self._n_workers() <= 1:
+        if self._quorum_rule == "dispatched" and self._queued(gen) > 0:
             return max(1, int(emitted))
         return max(2, int(min(self._lam, emitted) * self._min_results_fraction))
 
@@ -1429,7 +1472,19 @@ class CMAES(Heuristic):
             "injected": True,
             "late": True,
         }
-        self._late.setdefault(min(self._gen_results.keys()), []).append(entry)
+        bucket = self._late.setdefault(min(self._gen_results.keys()), [])
+        if self._late_results == "fold_capped":
+            # At most max(1, λ // 4) per update, the best-ranked kept — the
+            # cap and rule of ``_maybe_inject``.
+            late_max = max(1, self._lam // 4)
+            if len(bucket) >= late_max:
+                worst = max(range(len(bucket)), key=lambda i: bucket[i]["penalty"])
+                self.n_late_dropped += 1
+                if bucket[worst]["penalty"] <= entry["penalty"]:
+                    return
+                bucket[worst] = entry
+                return
+        bucket.append(entry)
         self.n_late_folded += 1
 
     def _abandoned_evaluations(self) -> int:

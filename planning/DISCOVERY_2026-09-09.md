@@ -3958,114 +3958,180 @@ larger than RoundRobin's 10-point request arrives in more than one sync
 batch, and the half quorum closes it early.  At d5/500·d/seed 42,
 `RoundRobin_CMAES` ranked 35766 of 37512 emitted offspring, with 89
 generations at ≤ μ.  At d ≤ 10 the default λ ≤ 10 fits one batch, so only
-restarted runs are affected.
+runs with a larger λ are affected: after an IPOP restart, in BIPOP's large
+regime, or with an explicit `popsize` > 10.
 
 ### 64.1 The fix
 
-* **A (bug fix): with one worker the quorum is the whole generation.**
-  One worker (`strategy._n_evaluators() == 1`) means results arrive one at a time and
-  an early update buys no parallelism.  `CMAES._quorum`.  With it, virtual
-  q = 1 reproduces the synchronous trajectory exactly (0.11091832778914675
-  above; pinned by `tests/test_cma_es_quorum.py`).  With 2 threads, the
-  cheap-track default, it does not bind.
-* **B: `late_results="fold"` (new default; `"drop"` restores the old
-  behaviour).**  A late offspring of a closed generation joins the next
-  update as an injected point.  Its evaluated position is converted to
-  the current mean, σ and C and Mahalanobis-clipped (`_clip_injected`,
-  as `inject=True` does).  It is added after the quorum check, so it
-  never counts toward the quorum, and it gets no negative weight under
-  `active_skip_repaired`.  It is not charged again.  Failed late results
-  and results with no open generation are dropped (`n_late_dropped`).
-  This beats re-ranking the stored step with the next generation: that
-  step was drawn from the old distribution, so its `y` is wrong for the
-  new mean.  The injection path already converts it correctly and carries
-  the guard's rule for foreign points.
-* Rejected: a full-λ barrier at q > 1 (`min_results_fraction = 1`).  On
-  seed 3 it idles workers during each generation's log-normal tail.  At
-  d5/q4, `RoundRobin_CMAES` `aocc_time` went 0.065 → 0.088, against
-  0.105 with fold, and `Blocks_warm_CMAES_JSO` went 0.132 → 0.107.  With
-  #379's λ ≥ q floor (§63), the half quorum is what keeps the next
-  generation queued.  Fold keeps that pipelining and still ranks the late
-  half.
+* **Quorum rule (`quorum="dispatched"`, new default; `"fraction"` is the
+  old rule).**  A generation may close at `min_results_fraction · λ`
+  only once none of its offspring still waits in CMA-ES's own output
+  queue (arrived + in flight = emitted).  Until then it waits for the
+  whole generation.  Closing early pays only when it lets the next
+  generation fill workers that would otherwise idle.  While the
+  generation still has queued points the workers have work, and an early
+  close only ranks the first arrivals.  Special cases:
+  * one worker: every result but the last arrives with points still
+    queued, so the whole generation is ranked.  Virtual q = 1 reproduces
+    the synchronous trajectory exactly (0.11091832778914675 above; pinned
+    in `tests/test_cma_es_quorum.py`);
+  * q = 2 against λ = 8 closes after about λ − 2 results;
+  * synchronous batches smaller than λ.  The IPOP-grown generations above
+    now wait for their second batch, and nothing arrives late on the
+    cheap track.
+  A first version of this PR used "one worker ⇒ full generation"
+  (`_n_evaluators() == 1`).  That version is identical to the new rule at
+  q = 1 and at q ≥ 16 in every run below, and within noise at q = 2/4
+  (§64.2).
+* **Late offspring (`late_results="fold"`, new default; `"drop"` is the
+  old behaviour, and `"fold_capped"` keeps at most λ//4, best-ranked).**
+  A late result of an early-closed generation joins the next update as
+  an injected point:
+  * its *evaluated* position is used (`x_eval`, not a repaired `x`),
+    converted to the current mean, σ and C, and Mahalanobis-clipped to
+    `c_y` (`_clip_injected`, as `inject=True` does);
+  * it is added after the quorum check, so it never counts toward the
+    quorum;
+  * it gets no negative weight under `active_skip_repaired`;
+  * it is not charged again.
+
+  Re-ranking the stored step with the next generation was rejected
+  because that `y` was drawn from the old distribution.  Counters:
+  `n_late_folded`, `n_late_dropped`.  A result for a *flushed* generation
+  (restart, warm start) is ignored silently and counted in neither.
+* **Rejected: a full-λ barrier at q > 1** (`min_results_fraction = 1`).
+  On seed 3 at d5/q4, `RoundRobin_CMAES` `aocc_time` reached 0.088 (fold
+  0.105), and `Blocks_warm_CMAES_JSO` fell 0.132 → 0.107.  With #379's
+  λ ≥ q floor (§63), the early close is what keeps the next generation
+  queued, and fold keeps that pipelining.
 
 ### 64.2 A/B on the measure path
 
-These are the `measure.py` core settings, run locally (4 processes,
-niced): free preset, 100·d, virtual async, log-normal σ 0.5, CRN per
-cell, 5 seeds (3, 7, 42, 1234, 2025), 15 instances per seed.  Δ is paired
-over the seeds on the mean of the 15 runs, with a t-CI95 and wins/5,
-unadjusted.  "Old" is the runner's run 36305967615 (3ce8ee0, reproduced
-bit for bit locally).  A changes only q = 1, and B only q > 1 (at q = 1
-there are no late results), so old → A+B is shown per cell.  At q ≤ 4
-#379's floor does not bind (default λ 6/8/10), so these cells are the
-same on #379.
+Run locally with the `measure.py` core settings: free preset, 100·d,
+virtual async, log-normal σ 0.5, CRN per cell, 5 seeds (3, 7, 42, 1234,
+2025), 15 instances per seed, both specs, on master a2c5f0e (#379: λ ≥ q
+on the virtual clock, capped at `max_eval // 10`).  Δ is paired over the
+seeds on the mean of the 15 runs, with a t-CI95 and wins/5, unadjusted.
+"Old" is `quorum="fraction", late_results="drop"`.  The old arm at
+q ≤ 4 reproduces run 36305967615 bit for bit (the floor does not bind
+there).  "id." = bit-identical in every run.
 
-| cell | spec | AOCC old → new, Δ [CI95] wins | `aocc_time` old → new, Δ [CI95] wins |
-|---|---|---|---|
-| d2 q1 (A) | RoundRobin_CMAES | 0.147 → 0.192, +0.045 [+0.021, +0.069] 5/5 | +0.044 [+0.020, +0.069] 5/5 |
-| d2 q1 (A) | Blocks | 0.216 → 0.226, +0.011 [−0.025, +0.046] 3/5 | +0.011 [−0.023, +0.044] 3/5 |
-| d5 q1 (A) | RoundRobin_CMAES | 0.069 → 0.111, +0.042 [+0.035, +0.049] 5/5 | +0.042 [+0.035, +0.049] 5/5 |
-| d5 q1 (A) | Blocks | 0.120 → 0.131, +0.011 [−0.002, +0.024] 4/5 | +0.011 [−0.002, +0.024] 4/5 |
-| d10 q1 (A) | RoundRobin_CMAES | 0.044 → 0.087, +0.043 [+0.036, +0.051] 5/5 | +0.043 [+0.036, +0.051] 5/5 |
-| d10 q1 (A) | Blocks | 0.080 → 0.086, +0.006 [−0.006, +0.019] 4/5 | +0.006 [−0.006, +0.019] 4/5 |
-| d5 q4 (B) | RoundRobin_CMAES | 0.067 → 0.108, +0.041 [+0.034, +0.048] 5/5 | 0.067 → 0.107, +0.041 [+0.034, +0.047] 5/5 |
-| d5 q4 (B) | Blocks | 0.117 → 0.121, +0.004 [−0.008, +0.017] 4/5 | 0.116 → 0.120, +0.004 [−0.008, +0.016] 4/5 |
-| d10 q4 (B) | RoundRobin_CMAES | 0.044 → 0.095, +0.052 [+0.044, +0.060] 5/5 | 0.043 → 0.095, +0.052 [+0.043, +0.061] 5/5 |
-| d10 q4 (B) | Blocks | 0.081 → 0.088, +0.008 [−0.005, +0.020] 4/5 | 0.081 → 0.088, +0.008 [−0.005, +0.020] 4/5 |
+AOCC, Δ against old (old's mean in brackets):
 
-At q ≥ 16 the comparison is on top of #379 at 022674c (λ ≥ q on the
-virtual clock, capped at `max_eval // 10`), drop against fold, both run
-locally:
+| cell | spec | dispatched + fold (default) | dispatched + fold_capped | dispatched + drop | capped − fold | dispatched − fraction, both fold |
+|---|---|---|---|---|---|---|
+| d2 q1 | RR (0.147) | +0.045 [+0.021, +0.069] 5/5 | = fold | = fold | id. | +0.010 [−0.009, +0.030] 4/5 |
+| d5 q1 | RR (0.069) | +0.042 [+0.035, +0.049] 5/5 | = fold | = fold | id. | +0.001 [−0.007, +0.009] 2/5 |
+| d10 q1 | RR (0.044) | +0.043 [+0.036, +0.051] 5/5 | = fold | = fold | id. | **−0.007 [−0.011, −0.003] 0/5** |
+| d5 q2 | RR (0.063) | +0.051 [+0.046, +0.056] 5/5 | = fold | +0.041 [+0.035, +0.046] 5/5 | id. | +0.002 [−0.006, +0.009] 4/5 |
+| d10 q2 | RR (0.044) | +0.044 [+0.042, +0.047] 5/5 | = fold | +0.039 [+0.035, +0.043] 5/5 | id. | −0.003 [−0.012, +0.006] 2/5 |
+| d5 q4 | RR (0.067) | +0.044 [+0.038, +0.049] 5/5 | +0.046 [+0.043, +0.050] 5/5 | +0.021 [+0.017, +0.025] 5/5 | +0.003 [−0.001, +0.006] 4/5 | +0.003 [−0.005, +0.010] 4/5 |
+| d10 q4 | RR (0.043) | +0.049 [+0.044, +0.054] 5/5 | +0.050 [+0.047, +0.053] 5/5 | +0.026 [+0.019, +0.032] 5/5 | +0.001 [−0.003, +0.005] 4/5 | −0.003 [−0.010, +0.004] 1/5 |
+| d5 q16 | RR (0.069) | +0.016 [+0.013, +0.019] 5/5 | +0.015 [+0.011, +0.020] 5/5 | id. | −0.001 [−0.005, +0.002] 2/5 | id. |
+| d10 q16 | RR (0.044) | +0.026 [+0.023, +0.029] 5/5 | +0.029 [+0.027, +0.031] 5/5 | id. | +0.003 [−0.001, +0.006] 5/5 | id. |
+| d2 q64 | RR (0.133) | +0.016 [+0.008, +0.025] 5/5 | +0.012 [+0.002, +0.022] 5/5 | id. | −0.004 [−0.011, +0.003] 1/5 | id. |
+| d5 q64 | RR (0.050) | +0.003 [+0.001, +0.006] 5/5 | +0.002 [−0.001, +0.006] 4/5 | id. | −0.001 [−0.004, +0.002] 2/5 | id. |
+| d10 q64 | RR (0.030) | +0.001 [+0.000, +0.001] 5/5 | +0.001 [+0.000, +0.002] 5/5 | id. | +0.000 [−0.001, +0.001] 3/5 | id. |
+| d2 q1 | Blocks (0.215) | +0.011 [−0.025, +0.046] 3/5 | = fold | = fold | id. | +0.011 [−0.025, +0.046] 3/5 |
+| d5 q1 | Blocks (0.120) | +0.011 [−0.002, +0.024] 4/5 | = fold | = fold | id. | +0.002 [−0.012, +0.016] 3/5 |
+| d10 q1 | Blocks (0.080) | +0.006 [−0.006, +0.019] 4/5 | = fold | = fold | id. | −0.005 [−0.014, +0.004] 1/5 |
+| d5 q2 | Blocks (0.117) | +0.007 [−0.008, +0.022] 3/5 | = fold | = fold | id. | +0.004 [−0.007, +0.014] 3/5 |
+| d10 q2 | Blocks (0.079) | +0.002 [−0.004, +0.009] 4/5 | = fold | = fold | id. | −0.006 [−0.020, +0.009] 2/5 |
+| d5 q4 | Blocks (0.117) | +0.007 [−0.005, +0.020] 3/5 | = fold | = fold | id. | +0.003 [−0.003, +0.009] 4/5 |
+| d10 q4 | Blocks (0.081) | +0.002 [−0.008, +0.013] 4/5 | = fold | = fold | id. | −0.005 [−0.020, +0.009] 1/5 |
+| q16, d2 q64 | Blocks | id. | id. | id. | id. | id. |
+| d5 q64 | Blocks (0.076) | −0.000 [−0.003, +0.003] 2/5 | = fold | = fold | id. | = |
+| d10 q64 | Blocks (0.055) | −0.000 [−0.001, +0.001] 1/5 | = fold | = fold | id. | = |
 
-| cell | spec | AOCC drop → fold, Δ [CI95] wins | `aocc_time` drop → fold, Δ [CI95] wins |
-|---|---|---|---|
-| d2 q64 | RoundRobin_CMAES | 0.133 → 0.149, +0.016 [+0.008, +0.025] 5/5 | 0.081 → 0.084, +0.003 [−0.001, +0.007] 5/5 |
-| d5 q16 | RoundRobin_CMAES | 0.069 → 0.085, +0.016 [+0.013, +0.019] 5/5 | 0.064 → 0.078, +0.014 [+0.011, +0.017] 5/5 |
-| d5 q64 | RoundRobin_CMAES | 0.050 → 0.053, +0.003 [+0.001, +0.006] 5/5 | 0.044 → 0.046, +0.002 [−0.001, +0.004] 4/5 |
-| d10 q16 | RoundRobin_CMAES | 0.044 → 0.071, +0.026 [+0.023, +0.029] 5/5 | 0.041 → 0.064, +0.023 [+0.021, +0.026] 5/5 |
-| d10 q64 | RoundRobin_CMAES | 0.030 → 0.031, +0.001 [+0.000, +0.001] 5/5 | 0.029 → 0.029, +0.001 [+0.000, +0.001] 5/5 |
-| all five | Blocks | bit-identical | bit-identical |
+`aocc_time` has the same pattern.  Default against old:
+* `RoundRobin_CMAES`: +0.042…+0.050 at q ≤ 4 (5/5), +0.014 / +0.023 at
+  d5 / d10 q16 (5/5), +0.001…+0.003 at q64 (4–5/5, CIs touching 0).
+* `Blocks_warm_CMAES_JSO`: +0.002…+0.011 at q ≤ 4, and −0.0004…0 at q64
+  (CIs spanning 0).
 
-Before #379 (λ = 8/10), fold at q ≥ 16 gave `RoundRobin_CMAES` +0.034…+0.050
-AOCC (5/5 everywhere) and +0.002…+0.034 `aocc_time`.  Blocks was
-bit-identical at q16 and d2/q64, and within ±0.005 (CIs spanning 0) at
-d5/q64 and d10/q64.
+Blocks is bit-identical at q16 and d2/q64, and its q64 deltas come from
+the quorum rule alone, not from fold.
+
+**σ and p_σ** (mean over all updates of the 5 seeds × 15 runs: log10
+σ/σ0 of the current run, ‖p_σ‖/χ_n, and the share of the μ selected
+slots taken by late points; `RoundRobin_CMAES`):
+
+| cell | old | dispatched + drop | dispatched + fold | dispatched + fold_capped |
+|---|---|---|---|---|
+| d5 q2 | −0.47 / 0.88 / — | −0.73 / 0.80 / — | −0.81 / 0.77 / 10 % | = fold |
+| d5 q4 | −0.47 / 0.87 / — | −0.61 / 0.83 / — | −0.87 / 0.76 / 32 % | −0.88 / 0.75 / 31 % |
+| d10 q4 | −0.56 / 0.89 / — | −0.77 / 0.84 / — | −1.14 / 0.76 / 25 % | −1.11 / 0.77 / 24 % |
+| d5 q16 | −0.24 / 0.87 / — | = old | −0.38 / 0.80 / 42 % | −0.38 / 0.80 / 40 % |
+| d10 q16 | −0.40 / 0.88 / — | −0.40 / 0.88 / — | −0.73 / 0.77 / 42 % | −0.74 / 0.77 / 40 % |
+| d2 q64 | −0.01 / 0.94 / — | = old | −0.01 / 0.91 / 38 % | −0.01 / 0.90 / 36 % |
+| d10 q64 | +0.08 / 0.98 / — | +0.08 / 0.99 / — | +0.08 / 0.97 / 40 % | +0.08 / 0.97 / 39 % |
 
 **Cheap track** (sync, families preset at 500·d, d 2/5/10, the same 5
-seeds, drop → fold): `RoundRobin_CMAES` +0.0004 [−0.0022, +0.0030] 3/5,
-+0.0003 [−0.0007, +0.0013] 4/5, +0.0007 [−0.0003, +0.0016] 5/5.
-`Blocks_warm_CMAES_JSO` is bit-identical.
+seeds, old → default): `RoundRobin_CMAES` +0.0019 [−0.0001, +0.0038]
+4/5, −0.0002 [−0.0013, +0.0008] 3/5, +0.0003 [+0.0000, +0.0005] 5/5.
+`Blocks_warm_CMAES_JSO` is identical in every seed.  No point is folded
+on this path.
 
 ### 64.3 Reading
 
 * **§62's CMA-ES numbers measure a crippled CMA-ES.**  Every panobbgo
   spec on the expensive track ran with half of CMA-ES's evaluations
   unranked, no truncation selection and no active update, pre- and
-  post-#375 alike.  `RoundRobin_CMAES` gains +0.04…+0.05 AOCC at q ≤ 4,
-  and on #379 +0.016 / +0.026 at d5 / d10 q16 and +0.001…+0.016 at q64,
-  5/5 on AOCC in every cell.  At q = 1 it now equals the cheap track's
-  synchronous run.
+  post-#375 alike.  The default gains `RoundRobin_CMAES` +0.04…+0.05 AOCC
+  at q ≤ 4, +0.016 / +0.026 at d5 / d10 q16, and +0.001…+0.016 at q64,
+  5/5 in every cell.
+* **Both parts carry weight.**  The quorum rule alone (dispatched + drop)
+  is +0.021…+0.045 at q ≤ 4.  Fold adds +0.005…+0.023 at q = 2/4 and all
+  of the gain at q ≥ 16, where the rule changes nothing (λ = q
+  generations are dispatched at once).
+* **The rule against the first version (fraction + fold at q > 1, full
+  generation at q = 1)** is identical at q = 1 and q ≥ 16, and within
+  ±0.006 at q = 2/4 with every CI spanning 0.  So it is kept as the
+  principled rule.
+  * **One contradiction worth a follow-up:** at q = 1, closing at μ and
+    folding (fraction + fold) *beats* ranking the whole generation at
+    d10: −0.007 [−0.011, −0.003] 0/5 for the full generation, and Blocks
+    −0.005 1/5.
+  * At d2 it is the other way round (+0.010 4/5), and at d5 even.
+  * So at d10 the pipelined, σ-shrinking fold helps even without
+    parallelism.  That looks like a step-size effect, not a scheduling
+    one.
+* **Fold biases σ down, as predicted.**  Late steps are measured from
+  the moved mean (the mean shift is not clipped, so a late `y` carries
+  about −Δm/σ).  ‖p_σ‖/χ_n falls from 0.83–0.88 to 0.76–0.80 at q = 4–16,
+  and mean σ runs 1.4–2.4× smaller than under dispatched + drop
+  (log10 −0.14…−0.37).  AOCC gains
+  anyway: on these unimodal-leaning free families a smaller σ is not
+  costly at 100·d.  On multimodal problems at larger budgets it could
+  be.  Unmeasured.
+* **The cap does not change the volume that matters.**  λ//4 best-ranked
+  keeps about 40 % of the selected slots late (42 % → 40 % at q16),
+  because the best late points are the ones that get selected anyway.
+  Its AOCC is the same as uncapped (−0.004…+0.003, every CI spanning 0).
+  Uncapped `"fold"` stays the default; `"fold_capped"` stays available.
+  A cap that bounds the selected share would have to pick
+  earliest-arrived or random late points, or down-weight them.  Untried.
 * **Blocks barely depends on CMA-ES's own updates here.**  Its blocks
-  are 10 evaluations at d = 5 (n_blocks = 50) and it warm-starts on every
-  re-acquisition.  A CMA-ES block is about one generation fitted from the
-  archive, so the update rule reaches it only when a block spans a
-  generation boundary (q ≤ 4).  With λ = q ≥ 16 it never does, and fold
-  is bit-identical there.  Gains at q ≤ 4 are small (+0.004…+0.011, 3–4/5,
-  CIs spanning 0).
-* No cell is worse under A or B: the smallest lower CI bound on
-  `RoundRobin_CMAES` is −0.001, and on #379's base Blocks' Δ is ≥ 0 in
-  every cell (before #379, −0.0006 and −0.0001 `aocc_time` at q64, CIs
-  spanning 0).  **fold is the default.**
-* **Comparability.**  Expensive-track (`measure.yml`) numbers of every
-  spec with a CMA-ES arm change, and the q = 1 cells change most.  The
-  cheap-track references (`rebaseline-2026-09-27`, §61) change only for
-  CMA-ES runs whose λ outgrew one request batch after an IPOP restart
-  (`RoundRobin_CMAES`, `CMAES_alone`, the composite registry's CMA-ES
-  entries, `RegimeGate_oracle` where it runs CMA-ES alone):
-  `RoundRobin_CMAES` +0.0003…+0.0007 on the families, CIs spanning 0.  Blocks is bit-identical in every run
-  measured.  The pinned trajectories keep `late_results="drop"`
-  (`tests/test_cma_es_bounds_active.py`).
+  are 10 evaluations at d = 5 (n_blocks = 50), and it warm-starts on
+  every re-acquisition.  A CMA-ES block is about one generation fitted
+  from the archive, so the update rule reaches it only when a block
+  spans a generation boundary (q ≤ 4).
+* The termination histories (TolFun, stagnation) now mix late points
+  from the previous distribution with the current offspring, as
+  `inject=True` already did.  Not checked separately.
+* **Comparability.**
+  * Expensive-track (`measure.yml`) numbers of every spec with a CMA-ES
+    arm change.
+  * Cheap-track references (`rebaseline-2026-09-27`, §61) change only for
+    CMA-ES runs whose λ exceeds one synchronous request batch: after an
+    IPOP restart, in BIPOP's large regime, or with an explicit `popsize`
+    > 10.  That covers `RoundRobin_CMAES`, `CMAES_alone`, the composite
+    registry's CMA-ES entries, and `RegimeGate_oracle` where it runs
+    CMA-ES alone.  `RoundRobin_CMAES` moves −0.0002…+0.0019 on the
+    families; Blocks is unchanged.
+  * The pre-§64 pins keep `quorum="fraction", late_results="drop"`
+    (`tests/test_cma_es_bounds_active.py`).
 * **Not measured:** 20·d cells, the failure preset, MA-BBOB/BBOB at
   500·d, and real (threaded/dask) async, where the same rules apply.
-* **Next:** re-run the `measure.yml` grid on this and #379 (§62.8 step (a)
-  now includes both), and a cheap-track re-baseline when one is next due.
+* **Next:** re-run the `measure.yml` grid on this; look at the d10/q1
+  step-size effect above.

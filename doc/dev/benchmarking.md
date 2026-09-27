@@ -566,19 +566,20 @@ new default).  References and result files from before this commit are not
 comparable for any strategy with a CMA-ES arm; the current references
 (`rebaseline-2026-09-27`, §61) are measured with it.
 
-**CMA-ES quorum (2026-09-27, DISCOVERY §64).**  With one worker a
-generation's update now waits for all λ results, and with more workers
-the late offspring of a generation closed at the half quorum are folded
-into the next update (`late_results="fold"`, the new default;
-`late_results="drop"` is the previous behaviour).  Expensive-track results
-(`measure.yml`, the virtual clock) from before this change are not
-comparable for any spec with a CMA-ES arm: until then CMA-ES there ranked
-only the first μ arrivals of each generation and never ran the active
-update.  On the cheap track, only CMA-ES runs whose λ outgrew one request
-batch after an IPOP restart change (`RoundRobin_CMAES` +0.0003…+0.0007 on
-the families, CIs spanning 0; `Blocks_warm_CMAES_JSO` bit-identical).
-The §61 references are still used for the cheap track until the next
-re-baseline.
+**CMA-ES quorum (2026-09-27, DISCOVERY §64).**  A generation now closes
+early (at `min_results_fraction · λ`) only once all its offspring are
+dispatched (`quorum="dispatched"`; `"fraction"` is the old rule), and the
+late offspring of an early-closed generation are folded into the next
+update (`late_results="fold"`; `"drop"` is the old behaviour).
+Expensive-track results (`measure.yml`, the virtual clock) from before
+this change are not comparable for any spec with a CMA-ES arm: until then
+CMA-ES there ranked only the first μ arrivals of each generation and never
+ran the active update.  On the cheap track only CMA-ES runs whose λ
+exceeds one synchronous request batch (10 points) change: after an IPOP
+restart, in BIPOP's large regime, or with an explicit `popsize` > 10
+(`RoundRobin_CMAES` −0.0002…+0.0019 on the families; `Blocks_warm_CMAES_JSO`
+unchanged).  The §61 references are still used for the cheap track until
+the next re-baseline.
 
 ## Re-baselining on GitHub runners
 

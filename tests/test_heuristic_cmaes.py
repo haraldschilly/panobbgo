@@ -295,7 +295,6 @@ class TestCMAES(PanobbgoTestCase):
         """Offspring still in flight at the quorum are evaluations spent too."""
         from panobbgo.heuristics import CMAES
 
-        self.strategy._n_evaluators = lambda: 4  # parallel workers: the fractional quorum applies (§64)
         cma = CMAES(self.strategy, min_results_fraction=0.5)
         cma.on_start()
         points = cma.get_points(100)
@@ -415,7 +414,6 @@ class TestCMAES(PanobbgoTestCase):
         """
         from panobbgo.heuristics import CMAES
 
-        self.strategy._n_evaluators = lambda: 4  # parallel workers: the fractional quorum applies (§64)
         cma = CMAES(self.strategy, min_results_fraction=0.5)
         cma.on_start()
         points = cma.get_points(100)
@@ -536,7 +534,6 @@ class TestCMAES(PanobbgoTestCase):
         """Partial generation (min_results_fraction=0.5) should still trigger update."""
         from panobbgo.heuristics import CMAES
 
-        self.strategy._n_evaluators = lambda: 4  # parallel workers: the fractional quorum applies (§64)
         cma = CMAES(self.strategy, popsize=8, min_results_fraction=0.5)
         cma.on_start()
         points = cma.get_points(100)

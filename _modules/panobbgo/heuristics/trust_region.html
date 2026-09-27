@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.heuristics.trust_region - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.heuristics.trust_region"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_benchmarking.html">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.heuristics.trust_region</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.heuristics.trust_region</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="c1"># Copyright 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
+</span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="7"><span class="c1">#</span>
+</span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="9"><span class="c1">#</span>
+</span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
+</span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="14"><span class="c1"># limitations under the License.</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="sd">"""</span>
+</span><span data-line="17"><span class="sd">Quadratic trust region on the shared archive</span>
+</span><span data-line="18"><span class="sd">============================================</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">A small model-based local search in the spirit of Powell's BOBYQA / NEWUOA,</span>
+</span><span data-line="21"><span class="sd">written for panobbgo's event model instead of wrapped around a sequential</span>
+</span><span data-line="22"><span class="sd">solver (compare :class:`~panobbgo.heuristics.cobyqa.COBYQA`, which bridges</span>
+</span><span data-line="23"><span class="sd">SciPy's COBYQA through a subprocess and can only ever have one point in</span>
+</span><span data-line="24"><span class="sd">flight).</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="sd">* **Model.**  A quadratic fitted by weighted least squares to the archive</span>
+</span><span data-line="27"><span class="sd">  points nearest to the centre, within ``fit_span`` trust radii.  With</span>
+</span><span data-line="28"><span class="sd">  fewer points than coefficients the fit is approximately NEWUOA's least</span>
+</span><span data-line="29"><span class="sd">  change of the previous model's Hessian: a Euclidean minimum-norm</span>
+</span><span data-line="30"><span class="sd">  correction over *all* coefficients (constant, gradient and Hessian</span>
+</span><span data-line="31"><span class="sd">  together) around the previous Hessian, not NEWUOA's Frobenius-norm</span>
+</span><span data-line="32"><span class="sd">  update of the Hessian change alone.  The curvature learned so far is</span>
+</span><span data-line="33"><span class="sd">  kept in the directions the new points do not determine.  The prior is</span>
+</span><span data-line="34"><span class="sd">  dropped (reset to zero) at every restart and whenever the centre moves</span>
+</span><span data-line="35"><span class="sd">  by more than ``fit_span`` radii: carried across kinks or rugged basins it</span>
+</span><span data-line="36"><span class="sd">  grew to 1e7–1e8 in review.  The archive is the *shared* one: every result of every arm</span>
+</span><span data-line="37"><span class="sd">  (``on_new_results`` sees them all) is a candidate interpolation point,</span>
+</span><span data-line="38"><span class="sd">  so a CMA-ES generation that lands near the centre improves this arm's</span>
+</span><span data-line="39"><span class="sd">  model for free.</span>
+</span><span data-line="40"><span class="sd">* **Centre.**  The best archive point outside the tabu balls of earlier</span>
+</span><span data-line="41"><span class="sd">  converged centres — whoever found it.</span>
+</span><span data-line="42"><span class="sd">* **Step.**  The model minimiser in the box trust region</span>
+</span><span data-line="43"><span class="sd">  ``|u - c|_inf &lt;= radius`` intersected with the problem box (coordinates</span>
+</span><span data-line="44"><span class="sd">  normalised to ``[0, 1]^d``).  The usual ratio test on the step's result</span>
+</span><span data-line="45"><span class="sd">  grows (``rho &gt; 0.7`` at the boundary), keeps, or shrinks</span>
+</span><span data-line="46"><span class="sd">  (``rho &lt; 0.1``) the radius.</span>
+</span><span data-line="47"><span class="sd">* **Geometry.**  The model is used only when the displacements of its</span>
+</span><span data-line="48"><span class="sd">  points from the centre span all ``d`` directions (numerical rank ``d``</span>
+</span><span data-line="49"><span class="sd">  of their SVD).  Counting points is not enough: a min-norm fit sets the</span>
+</span><span data-line="50"><span class="sd">  gradient and curvature to zero outside the span, so the arm would never</span>
+</span><span data-line="51"><span class="sd">  move there.  While the span is short, or after a failed step on a thin</span>
+</span><span data-line="52"><span class="sd">  model, the arm emits geometry points instead: first along the</span>
+</span><span data-line="53"><span class="sd">  least-covered directions (the smallest right singular vectors), then</span>
+</span><span data-line="54"><span class="sd">  the coordinate design ``c + radius·e_i``, ``c - radius·e_i`` (BOBYQA's</span>
+</span><span data-line="55"><span class="sd">  first ``2d + 1`` points), then space-filling points in the trust region.</span>
+</span><span data-line="56"><span class="sd">* **Restart.**  When the radius falls below ``radius_min`` the centre</span>
+</span><span data-line="57"><span class="sd">  becomes tabu and the radius is reset.  The tabu ball is an inf-norm ball</span>
+</span><span data-line="58"><span class="sd">  of ``radius_init`` (box-normalised units) around the converged centre:</span>
+</span><span data-line="59"><span class="sd">  no archive point inside any tabu ball can become a centre again, so the</span>
+</span><span data-line="60"><span class="sd">  next centre is the best non-tabu archive point, or a uniform random</span>
+</span><span data-line="61"><span class="sd">  point when there is none.</span>
+</span><span data-line="62"><span class="sd">* **A moving centre keeps its radius.**  When the centre jumps (another</span>
+</span><span data-line="63"><span class="sd">  arm found a better point far away) the radius is *not* reset.  The fit</span>
+</span><span data-line="64"><span class="sd">  only uses points within ``fit_span`` radii of the new centre, so a small</span>
+</span><span data-line="65"><span class="sd">  radius after a far jump means a geometry phase first.</span>
+</span><span data-line="66"><span class="sd">* **Batches.**  :meth:`produce` is on demand (:attr:`on_demand`): each call</span>
+</span><span data-line="67"><span class="sd">  refits on everything known and returns up to ``limit`` points: the</span>
+</span><span data-line="68"><span class="sd">  model step, then steps at halved radii, then geometry points, never</span>
+</span><span data-line="69"><span class="sd">  repeating a point that is already evaluated or in flight.  At ``q = 1``</span>
+</span><span data-line="70"><span class="sd">  it is a plain sequential trust-region method; at ``q &gt; 1`` the extra</span>
+</span><span data-line="71"><span class="sd">  workers get the shorter steps and geometry points.</span>
+</span><span data-line="72">
+</span><span data-line="73"><span class="sd">The arm is opt-in: no registry spec uses it by default</span>
+</span><span data-line="74"><span class="sd">(``planning/DISCOVERY_2026-09-09.md`` §66).</span>
+</span><span data-line="75"><span class="sd">"""</span>
+</span><span data-line="76">
+</span><span data-line="77"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="78">
+</span><span data-line="79"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="80"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
+</span><span data-line="81">
+</span><span data-line="82"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="83"><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.optimize</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
+</span><span data-line="84">
+</span><span data-line="85"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Heuristic</span>
+</span><span data-line="86"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Point</span>
+</span><span data-line="87">
+</span><span data-line="88">
+</span><span data-line="89"><span class="k">def</span><span class="w"> </span><span class="nf">quadratic_features</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="90"><span class="w">    </span><span class="sd">"""Design matrix of a full quadratic in ``d`` variables: ``1, s_i, s_i^2 / 2, s_i s_j (i &lt; j)``.</span>
+</span><span data-line="91">
+</span><span data-line="92"><span class="sd">    ``s`` has shape ``(n, d)``; the result has ``1 + 2d + d(d-1)/2`` columns.</span>
+</span><span data-line="93"><span class="sd">    """</span>
+</span><span data-line="94">    <span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">shape</span>
+</span><span data-line="95">    <span class="n">iu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="96">    <span class="n">cross</span> <span class="o">=</span> <span class="p">(</span><span class="n">s</span><span class="p">[:,</span> <span class="p">:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">s</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:])[:,</span> <span class="n">iu</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">iu</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="k">if</span> <span class="n">d</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</span><span data-line="97">    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">s</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">s</span> <span class="o">*</span> <span class="n">s</span><span class="p">,</span> <span class="n">cross</span><span class="p">])</span>
+</span><span data-line="98">
+</span><span data-line="99">
+</span><span data-line="100"><span class="k">def</span><span class="w"> </span><span class="nf">unpack_quadratic</span><span class="p">(</span><span class="n">coef</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+</span><span data-line="101"><span class="w">    </span><span class="sd">"""``(c, g, H)`` of the model ``c + g·s + s·H·s / 2`` from :func:`quadratic_features` coefficients."""</span>
+</span><span data-line="102">    <span class="n">c</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">coef</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span data-line="103">    <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coef</span><span class="p">[</span><span class="mi">1</span> <span class="p">:</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">d</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="104">    <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coef</span><span class="p">[</span><span class="mi">1</span> <span class="o">+</span> <span class="n">d</span> <span class="p">:</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="105">    <span class="k">if</span> <span class="n">d</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="106">        <span class="n">iu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="107">        <span class="n">cross</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">coef</span><span class="p">[</span><span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="p">:],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="108">        <span class="n">H</span><span class="p">[</span><span class="n">iu</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">iu</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cross</span>
+</span><span data-line="109">        <span class="n">H</span><span class="p">[</span><span class="n">iu</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">iu</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="n">cross</span>
+</span><span data-line="110">    <span class="k">return</span> <span class="n">c</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">H</span>
+</span><span data-line="111">
+</span><span data-line="112">
+</span><span data-line="113"><span class="k">def</span><span class="w"> </span><span class="nf">pack_hessian</span><span class="p">(</span><span class="n">H</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="114"><span class="w">    </span><span class="sd">"""The :func:`quadratic_features` coefficient vector of ``s·H·s / 2`` (constant and gradient zero)."""</span>
+</span><span data-line="115">    <span class="n">d</span> <span class="o">=</span> <span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="116">    <span class="n">iu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">triu_indices</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="117">    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">d</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">H</span><span class="p">),</span> <span class="n">H</span><span class="p">[</span><span class="n">iu</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">iu</span><span class="p">[</span><span class="mi">1</span><span class="p">]]])</span>
+</span><span data-line="118">
+</span><span data-line="119">
+</span><span data-line="120"><span class="k">def</span><span class="w"> </span><span class="nf">minimize_quadratic_in_box</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">H</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">lo</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">hi</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="121"><span class="w">    </span><span class="sd">"""Approximate minimiser of ``g·s + s·H·s / 2`` over the box ``lo &lt;= s &lt;= hi`` (``lo &lt;= 0 &lt;= hi``).</span>
+</span><span data-line="122">
+</span><span data-line="123"><span class="sd">    L-BFGS-B from a few starts (the origin, the clipped Newton step when</span>
+</span><span data-line="124"><span class="sd">    ``H`` is positive definite, the clipped steepest-descent corner); the</span>
+</span><span data-line="125"><span class="sd">    best end point wins.  Deterministic.</span>
+</span><span data-line="126"><span class="sd">    """</span>
+</span><span data-line="127">
+</span><span data-line="128">    <span class="k">def</span><span class="w"> </span><span class="nf">fun</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+</span><span data-line="129">        <span class="n">hs</span> <span class="o">=</span> <span class="n">H</span> <span class="o">@</span> <span class="n">s</span>
+</span><span data-line="130">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">g</span> <span class="o">@</span> <span class="n">s</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">s</span> <span class="o">@</span> <span class="n">hs</span><span class="p">),</span> <span class="n">g</span> <span class="o">+</span> <span class="n">hs</span>
+</span><span data-line="131">
+</span><span data-line="132">    <span class="n">starts</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">g</span><span class="p">)]</span>
+</span><span data-line="133">    <span class="k">try</span><span class="p">:</span>
+</span><span data-line="134">        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">H</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">):</span>
+</span><span data-line="135">            <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">g</span><span class="p">),</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">))</span>
+</span><span data-line="136">    <span class="k">except</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">LinAlgError</span><span class="p">:</span>
+</span><span data-line="137">        <span class="k">pass</span>
+</span><span data-line="138">    <span class="n">gn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g</span><span class="p">))</span>
+</span><span data-line="139">    <span class="k">if</span> <span class="n">gn</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="140">        <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="o">-</span><span class="n">g</span> <span class="o">/</span> <span class="n">gn</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">))</span>
+</span><span data-line="141">    <span class="n">bounds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">))</span>
+</span><span data-line="142">    <span class="n">best_s</span><span class="p">,</span> <span class="n">best_v</span> <span class="o">=</span> <span class="n">starts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">0.0</span>
+</span><span data-line="143">    <span class="k">for</span> <span class="n">s0</span> <span class="ow">in</span> <span class="n">starts</span><span class="p">:</span>
+</span><span data-line="144">        <span class="n">res</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">s0</span><span class="p">,</span> <span class="n">jac</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"L-BFGS-B"</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span> <span class="n">options</span><span class="o">=</span><span class="p">{</span><span class="s2">"maxiter"</span><span class="p">:</span> <span class="mi">200</span><span class="p">})</span>
+</span><span data-line="145">        <span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="146">        <span class="n">v</span> <span class="o">=</span> <span class="n">fun</span><span class="p">(</span><span class="n">s</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="147">        <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="n">best_v</span><span class="p">:</span>
+</span><span data-line="148">            <span class="n">best_s</span><span class="p">,</span> <span class="n">best_v</span> <span class="o">=</span> <span class="n">s</span><span class="p">,</span> <span class="n">v</span>
+</span><span data-line="149">    <span class="k">return</span> <span class="n">best_s</span>
+</span><span data-line="150">
+</span><span data-line="151">
+<div class="viewcode-block" id="TrustRegionQuadratic">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.TrustRegionQuadratic">[docs]</a>
+</span><span data-line="152"><span class="k">class</span><span class="w"> </span><span class="nc">TrustRegionQuadratic</span><span class="p">(</span><span class="n">Heuristic</span><span class="p">):</span>
+</span><span data-line="153"><span class="w">    </span><span class="sd">"""Quadratic-model trust-region local search on the shared archive (see the module docstring).</span>
+</span><span data-line="154">
+</span><span data-line="155"><span class="sd">    Args:</span>
+</span><span data-line="156"><span class="sd">        strategy: The owning :class:`~panobbgo.core.StrategyBase`.</span>
+</span><span data-line="157"><span class="sd">        radius_init: Initial (and restart) trust radius, as a fraction of</span>
+</span><span data-line="158"><span class="sd">            the box width per axis.  Default ``0.1`` (Py-BOBYQA's ``rhobeg``</span>
+</span><span data-line="159"><span class="sd">            with ``scaling_within_bounds``).</span>
+</span><span data-line="160"><span class="sd">        radius_min: Radius below which the centre is declared converged and</span>
+</span><span data-line="161"><span class="sd">            the arm restarts.  Default ``1e-7``.</span>
+</span><span data-line="162"><span class="sd">        radius_max: Upper bound of the radius.  Default ``0.5``.</span>
+</span><span data-line="163"><span class="sd">        fit_span: Only archive points within ``fit_span * radius`` (inf-norm)</span>
+</span><span data-line="164"><span class="sd">            of the centre enter the model.  Default ``3``.</span>
+</span><span data-line="165"><span class="sd">        first_start: Where the first centre is when the archive is empty:</span>
+</span><span data-line="166"><span class="sd">            ``"center"`` of the box (default, like ``CMAES`` and ``COBYQA``)</span>
+</span><span data-line="167"><span class="sd">            or a uniform ``"random"`` point (like the Py-BOBYQA baseline).</span>
+</span><span data-line="168"><span class="sd">            Restarts always draw a random point when the archive offers no</span>
+</span><span data-line="169"><span class="sd">            non-tabu centre.</span>
+</span><span data-line="170"><span class="sd">        name: Override the heuristic's name.</span>
+</span><span data-line="171"><span class="sd">    """</span>
+</span><span data-line="172">
+</span><span data-line="173">    <span class="n">on_demand</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="174">
+</span><span data-line="175">    <span class="c1">#: Ratio-test thresholds and factors.</span>
+</span><span data-line="176">    <span class="n">ETA_BAD</span><span class="p">,</span> <span class="n">ETA_GOOD</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.7</span>
+</span><span data-line="177">    <span class="n">SHRINK</span><span class="p">,</span> <span class="n">GROW</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span>
+</span><span data-line="178">
+</span><span data-line="179">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="180">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="181">        <span class="n">strategy</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="182">        <span class="n">radius_init</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+</span><span data-line="183">        <span class="n">radius_min</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-7</span><span class="p">,</span>
+</span><span data-line="184">        <span class="n">radius_max</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="185">        <span class="n">fit_span</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+</span><span data-line="186">        <span class="n">first_start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"center"</span><span class="p">,</span>
+</span><span data-line="187">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="188">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="189">        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;</span> <span class="n">radius_min</span> <span class="o">&lt;</span> <span class="n">radius_init</span> <span class="o">&lt;=</span> <span class="n">radius_max</span><span class="p">):</span>
+</span><span data-line="190">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"TrustRegionQuadratic: need 0 &lt; radius_min &lt; radius_init &lt;= radius_max"</span><span class="p">)</span>
+</span><span data-line="191">        <span class="k">if</span> <span class="ow">not</span> <span class="n">fit_span</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="192">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"TrustRegionQuadratic: fit_span must be &gt; 1"</span><span class="p">)</span>
+</span><span data-line="193">        <span class="k">if</span> <span class="n">first_start</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"center"</span><span class="p">,</span> <span class="s2">"random"</span><span class="p">):</span>
+</span><span data-line="194">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"TrustRegionQuadratic: first_start must be 'center' or 'random'"</span><span class="p">)</span>
+</span><span data-line="195">        <span class="n">Heuristic</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"TrustRegionQuadratic"</span><span class="p">)</span>
+</span><span data-line="196">        <span class="bp">self</span><span class="o">.</span><span class="n">radius_init</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">radius_init</span><span class="p">)</span>
+</span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">radius_min</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">radius_min</span><span class="p">)</span>
+</span><span data-line="198">        <span class="bp">self</span><span class="o">.</span><span class="n">radius_max</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">radius_max</span><span class="p">)</span>
+</span><span data-line="199">        <span class="bp">self</span><span class="o">.</span><span class="n">fit_span</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">fit_span</span><span class="p">)</span>
+</span><span data-line="200">        <span class="bp">self</span><span class="o">.</span><span class="n">first_start</span> <span class="o">=</span> <span class="n">first_start</span>
+</span><span data-line="201">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">RLock</span><span class="p">()</span>
+</span><span data-line="202">        <span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="p">:],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="203">        <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="o">=</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">_width</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="205">        <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="206">        <span class="bp">self</span><span class="o">.</span><span class="n">_U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>  <span class="c1"># evaluated points, normalised</span>
+</span><span data-line="207">        <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># their penalty values (finite only)</span>
+</span><span data-line="208">        <span class="c1">#: The last model's Hessian in normalised coordinates and f units (the least-change prior).</span>
+</span><span data-line="209">        <span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="210">        <span class="c1">#: Centre of the previous proposal (the prior is dropped after a far jump).</span>
+</span><span data-line="211">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_center</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="212">        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_init</span>
+</span><span data-line="213">        <span class="bp">self</span><span class="o">.</span><span class="n">_tabu</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="214">        <span class="bp">self</span><span class="o">.</span><span class="n">_restart_u</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># unevaluated restart centre</span>
+</span><span data-line="215">        <span class="c1">#: who -&gt; what an in-flight point was emitted as.</span>
+</span><span data-line="216">        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">_need_geometry</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="218">        <span class="c1">#: Archive size at the last no-descent shrink: one model state shrinks the radius at most once.</span>
+</span><span data-line="219">        <span class="bp">self</span><span class="o">.</span><span class="n">_no_descent_state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="220">        <span class="c1">#: Diagnostics.</span>
+</span><span data-line="221">        <span class="bp">self</span><span class="o">.</span><span class="n">n_steps</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="222">        <span class="bp">self</span><span class="o">.</span><span class="n">n_geometry</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="223">        <span class="bp">self</span><span class="o">.</span><span class="n">n_restarts</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">n_grow</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">n_shrink</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="226">
+</span><span data-line="227">    <span class="c1"># -- coordinates -------------------------------------------------------</span>
+</span><span data-line="228">
+</span><span data-line="229">    <span class="k">def</span><span class="w"> </span><span class="nf">_to_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="230">        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_width</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="231">
+</span><span data-line="232">    <span class="k">def</span><span class="w"> </span><span class="nf">_to_x</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="233">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">project</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_width</span><span class="p">)</span>
+</span><span data-line="234">
+</span><span data-line="235">    <span class="c1"># -- archive -----------------------------------------------------------</span>
+</span><span data-line="236">
+</span><span data-line="237">    <span class="k">def</span><span class="w"> </span><span class="nf">_penalty</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="238">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="239">            <span class="n">v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">constraint_handler</span><span class="o">.</span><span class="n">get_penalty_value</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+</span><span data-line="240">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="241">            <span class="n">v</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"fx"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)))</span>
+</span><span data-line="242">        <span class="k">return</span> <span class="n">v</span>
+</span><span data-line="243">
+</span><span data-line="244">    <span class="k">def</span><span class="w"> </span><span class="nf">_center</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="nb">float</span><span class="p">]:</span>
+</span><span data-line="245"><span class="w">        </span><span class="sd">"""Best finite archive point outside every tabu ball, or the restart point."""</span>
+</span><span data-line="246">        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">):</span>
+</span><span data-line="247">            <span class="n">ok</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+</span><span data-line="248">            <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tabu</span><span class="p">:</span>
+</span><span data-line="249">                <span class="n">ok</span> <span class="o">&amp;=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span> <span class="o">-</span> <span class="n">t</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_init</span>
+</span><span data-line="250">            <span class="k">if</span> <span class="n">ok</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+</span><span data-line="251">                <span class="n">i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">ok</span><span class="p">)[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">[</span><span class="n">ok</span><span class="p">])])</span>
+</span><span data-line="252">                <span class="bp">self</span><span class="o">.</span><span class="n">_restart_u</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="253">                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+</span><span data-line="254">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="255">            <span class="n">first</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_restarts</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">first_start</span> <span class="o">==</span> <span class="s2">"center"</span>
+</span><span data-line="256">            <span class="bp">self</span><span class="o">.</span><span class="n">_restart_u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">)</span> <span class="k">if</span> <span class="n">first</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="257">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_restart_u</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
+</span><span data-line="258">
+<div class="viewcode-block" id="TrustRegionQuadratic.on_new_results">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.TrustRegionQuadratic.on_new_results">[docs]</a>
+</span><span data-line="259">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="260"><span class="w">        </span><span class="sd">"""Add every result (any arm's) to the archive; run the ratio test on this arm's steps."""</span>
+</span><span data-line="261">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="262">            <span class="n">new_u</span><span class="p">,</span> <span class="n">new_f</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+</span><span data-line="263">            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="264">                <span class="n">f</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_penalty</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+</span><span data-line="265">                <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="266">                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+</span><span data-line="267">                    <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">info</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"step"</span><span class="p">:</span>
+</span><span data-line="268">                        <span class="bp">self</span><span class="o">.</span><span class="n">_step_failed</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+</span><span data-line="269">                    <span class="k">continue</span>
+</span><span data-line="270">                <span class="n">new_u</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">x</span><span class="p">))</span>
+</span><span data-line="271">                <span class="n">new_f</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</span><span data-line="272">                <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">info</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"step"</span><span class="p">:</span>
+</span><span data-line="273">                    <span class="n">rho</span> <span class="o">=</span> <span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s2">"f_center"</span><span class="p">]</span> <span class="o">-</span> <span class="n">f</span><span class="p">)</span> <span class="o">/</span> <span class="n">info</span><span class="p">[</span><span class="s2">"pred"</span><span class="p">]</span> <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="s2">"pred"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="o">-</span><span class="mf">1.0</span>
+</span><span data-line="274">                    <span class="k">if</span> <span class="n">rho</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">ETA_BAD</span><span class="p">:</span>
+</span><span data-line="275">                        <span class="bp">self</span><span class="o">.</span><span class="n">_step_failed</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+</span><span data-line="276">                    <span class="k">elif</span> <span class="n">rho</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">ETA_GOOD</span> <span class="ow">and</span> <span class="n">info</span><span class="p">[</span><span class="s2">"at_boundary"</span><span class="p">]</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+</span><span data-line="277">                        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">GROW</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_max</span><span class="p">)</span>
+</span><span data-line="278">                        <span class="bp">self</span><span class="o">.</span><span class="n">n_grow</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="279">            <span class="k">if</span> <span class="n">new_u</span><span class="p">:</span>
+</span><span data-line="280">                <span class="bp">self</span><span class="o">.</span><span class="n">_U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">new_u</span><span class="p">)])</span>
+</span><span data-line="281">                <span class="bp">self</span><span class="o">.</span><span class="n">_F</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">new_f</span><span class="p">)])</span>
+</span><span data-line="282">            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_restart</span><span class="p">()</span></div>
+
+</span><span data-line="283">
+<div class="viewcode-block" id="TrustRegionQuadratic.on_failed_evaluations">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.TrustRegionQuadratic.on_failed_evaluations">[docs]</a>
+</span><span data-line="284">    <span class="k">def</span><span class="w"> </span><span class="nf">on_failed_evaluations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="285"><span class="w">        </span><span class="sd">"""A failed step counts as a failed step; a failed geometry point is just dropped."""</span>
+</span><span data-line="286">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="287">            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+</span><span data-line="288">                <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="289">                <span class="k">if</span> <span class="n">info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">info</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"step"</span><span class="p">:</span>
+</span><span data-line="290">                    <span class="bp">self</span><span class="o">.</span><span class="n">_step_failed</span><span class="p">(</span><span class="n">info</span><span class="p">)</span>
+</span><span data-line="291">            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_restart</span><span class="p">()</span></div>
+
+</span><span data-line="292">
+</span><span data-line="293">    <span class="k">def</span><span class="w"> </span><span class="nf">_current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="294"><span class="w">        </span><span class="sd">"""Does a step's outcome still speak for the current radius?</span>
+</span><span data-line="295">
+</span><span data-line="296"><span class="sd">        Only a full-radius step emitted at the radius in force now moves the</span>
+</span><span data-line="297"><span class="sd">        radius: a shorter batch step, or one that was in flight while the</span>
+</span><span data-line="298"><span class="sd">        radius already changed (``q &gt; 1``), must not shrink or grow it twice.</span>
+</span><span data-line="299"><span class="sd">        """</span>
+</span><span data-line="300">        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"primary"</span><span class="p">))</span> <span class="ow">and</span> <span class="n">info</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"radius"</span><span class="p">)</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>
+</span><span data-line="301">
+</span><span data-line="302">    <span class="k">def</span><span class="w"> </span><span class="nf">_step_failed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="303">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_current</span><span class="p">(</span><span class="n">info</span><span class="p">):</span>
+</span><span data-line="304">            <span class="k">return</span>
+</span><span data-line="305">        <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="s2">"n_fit"</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="306">            <span class="bp">self</span><span class="o">.</span><span class="n">_need_geometry</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># a thin model: improve it before shrinking</span>
+</span><span data-line="307">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="308">            <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">SHRINK</span>
+</span><span data-line="309">            <span class="bp">self</span><span class="o">.</span><span class="n">n_shrink</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="310">
+</span><span data-line="311">    <span class="k">def</span><span class="w"> </span><span class="nf">_maybe_restart</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="312">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_min</span><span class="p">:</span>
+</span><span data-line="313">            <span class="k">return</span>
+</span><span data-line="314">        <span class="n">c</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_center</span><span class="p">()</span>
+</span><span data-line="315">        <span class="k">if</span> <span class="n">c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="316">            <span class="bp">self</span><span class="o">.</span><span class="n">_tabu</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</span><span data-line="317">        <span class="bp">self</span><span class="o">.</span><span class="n">radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_init</span>
+</span><span data-line="318">        <span class="bp">self</span><span class="o">.</span><span class="n">_need_geometry</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="319">        <span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span><span class="p">)</span>  <span class="c1"># a new basin: no curvature prior</span>
+</span><span data-line="320">        <span class="bp">self</span><span class="o">.</span><span class="n">n_restarts</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="321">
+</span><span data-line="322">    <span class="c1"># -- proposals ---------------------------------------------------------</span>
+</span><span data-line="323">
+</span><span data-line="324">    <span class="c1">#: Relative singular-value tolerance of the rank test in :meth:`_fit`.</span>
+</span><span data-line="325">    <span class="n">RANK_RTOL</span> <span class="o">=</span> <span class="mf">1e-3</span>
+</span><span data-line="326">
+</span><span data-line="327">    <span class="k">def</span><span class="w"> </span><span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">f_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]]:</span>
+</span><span data-line="328"><span class="w">        </span><span class="sd">"""``(model, weak)``: the model ``(g, H, scale, n_fit)`` in ``s = (u - c) / radius`` units, or ``None``.</span>
+</span><span data-line="329">
+</span><span data-line="330"><span class="sd">        ``weak`` lists the unit directions the displacements of the fit</span>
+</span><span data-line="331"><span class="sd">        points from the centre do not cover, least covered first.  The model</span>
+</span><span data-line="332"><span class="sd">        is ``None`` whenever ``weak`` is not empty: a rank-deficient fit has</span>
+</span><span data-line="333"><span class="sd">        zero gradient and curvature outside its span.</span>
+</span><span data-line="334"><span class="sd">        """</span>
+</span><span data-line="335">        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="336">        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">f_c</span><span class="p">):</span>
+</span><span data-line="337">            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="p">[]</span>
+</span><span data-line="338">        <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span> <span class="o">-</span> <span class="n">c</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="339">        <span class="n">p</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">+</span> <span class="n">d</span> <span class="o">*</span> <span class="p">(</span><span class="n">d</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+</span><span data-line="340">        <span class="n">cap</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1.5</span> <span class="o">*</span> <span class="n">p</span><span class="p">))</span>
+</span><span data-line="341">        <span class="n">near</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">dist</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_span</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)</span>
+</span><span data-line="342">        <span class="n">near</span> <span class="o">=</span> <span class="n">near</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">dist</span><span class="p">[</span><span class="n">near</span><span class="p">],</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"stable"</span><span class="p">)][:</span><span class="n">cap</span><span class="p">]</span>
+</span><span data-line="343">        <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">[</span><span class="n">near</span><span class="p">]</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>
+</span><span data-line="344">        <span class="n">_</span><span class="p">,</span> <span class="n">sv</span><span class="p">,</span> <span class="n">vt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="345">        <span class="n">sv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">sv</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">sv</span><span class="p">))])</span>
+</span><span data-line="346">        <span class="n">tol</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">RANK_RTOL</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">sv</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="mf">1e-300</span><span class="p">)</span>
+</span><span data-line="347">        <span class="n">weak</span> <span class="o">=</span> <span class="p">[</span><span class="n">vt</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">sv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">tol</span><span class="p">]</span>
+</span><span data-line="348">        <span class="k">if</span> <span class="n">weak</span><span class="p">:</span>
+</span><span data-line="349">            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">weak</span>
+</span><span data-line="350">        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">[</span><span class="n">near</span><span class="p">]</span> <span class="o">-</span> <span class="n">f_c</span>
+</span><span data-line="351">        <span class="n">scale</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y</span><span class="p">)))</span> <span class="ow">or</span> <span class="mf">1.0</span>
+</span><span data-line="352">        <span class="n">w</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="p">(</span><span class="n">dist</span><span class="p">[</span><span class="n">near</span><span class="p">]</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+</span><span data-line="353">        <span class="n">A</span> <span class="o">=</span> <span class="n">quadratic_features</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">w</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
+</span><span data-line="354">        <span class="c1"># Approximately NEWUOA's least change: with fewer points than</span>
+</span><span data-line="355">        <span class="c1"># coefficients, the Euclidean minimum-norm correction (all</span>
+</span><span data-line="356">        <span class="c1"># coefficients) around the previous model's Hessian, not around zero.</span>
+</span><span data-line="357">        <span class="c1"># Overdetermined fits do not depend on it.</span>
+</span><span data-line="358">        <span class="n">base</span> <span class="o">=</span> <span class="n">pack_hessian</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">scale</span><span class="p">)</span>
+</span><span data-line="359">        <span class="n">delta</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="p">(</span><span class="n">y</span> <span class="o">/</span> <span class="n">scale</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="o">-</span> <span class="n">A</span> <span class="o">@</span> <span class="n">base</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span data-line="360">        <span class="n">_</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">H</span> <span class="o">=</span> <span class="n">unpack_quadratic</span><span class="p">(</span><span class="n">base</span> <span class="o">+</span> <span class="n">delta</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+</span><span data-line="361">        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">g</span><span class="p">))</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">H</span><span class="p">))):</span>
+</span><span data-line="362">            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="p">[]</span>
+</span><span data-line="363">        <span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span> <span class="o">=</span> <span class="n">H</span> <span class="o">*</span> <span class="n">scale</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="o">**</span><span class="mi">2</span>
+</span><span data-line="364">        <span class="k">return</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">near</span><span class="p">)),</span> <span class="p">[]</span>
+</span><span data-line="365">
+</span><span data-line="366">    <span class="k">def</span><span class="w"> </span><span class="nf">_taken</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">extra</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="367"><span class="w">        </span><span class="sd">"""Is ``u`` within ``tol`` (inf-norm) of an evaluated, in-flight or just-proposed point?"""</span>
+</span><span data-line="368">        <span class="n">pts</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="369">        <span class="n">pend</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="s2">"u"</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span> <span class="o">+</span> <span class="n">extra</span>
+</span><span data-line="370">        <span class="k">if</span> <span class="n">pend</span><span class="p">:</span>
+</span><span data-line="371">            <span class="n">pts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pend</span><span class="p">))</span>
+</span><span data-line="372">        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">P</span> <span class="o">-</span> <span class="n">u</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">tol</span><span class="p">))</span> <span class="k">for</span> <span class="n">P</span> <span class="ow">in</span> <span class="n">pts</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">P</span><span class="p">))</span>
+</span><span data-line="373">
+</span><span data-line="374">    <span class="k">def</span><span class="w"> </span><span class="nf">_geometry_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">extra</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="375"><span class="w">        </span><span class="sd">"""Next coordinate-design point ``c ± radius·e_i`` not yet present, else a space-filling one."""</span>
+</span><span data-line="376">        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>
+</span><span data-line="377">        <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span>
+</span><span data-line="378">        <span class="n">tol</span> <span class="o">=</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">r</span>
+</span><span data-line="379">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_taken</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">extra</span><span class="p">,</span> <span class="mf">1e-12</span> <span class="o">+</span> <span class="mf">1e-9</span> <span class="o">*</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="380">            <span class="k">return</span> <span class="n">c</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+</span><span data-line="381">        <span class="k">for</span> <span class="n">sign</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">):</span>  <span class="c1"># c + r e_1 ... c + r e_d first: together they span every direction</span>
+</span><span data-line="382">            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+</span><span data-line="383">                <span class="n">u</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+</span><span data-line="384">                <span class="n">u</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">r</span>
+</span><span data-line="385">                <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">u</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+</span><span data-line="386">                    <span class="n">u</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">r</span>  <span class="c1"># BOBYQA's flip into the box</span>
+</span><span data-line="387">                <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="388">                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_taken</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">extra</span><span class="p">,</span> <span class="n">tol</span><span class="p">):</span>
+</span><span data-line="389">                    <span class="k">return</span> <span class="n">u</span>
+</span><span data-line="390">        <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">r</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="n">r</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="391">        <span class="n">cand</span> <span class="o">=</span> <span class="n">lo</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="mi">20</span> <span class="o">*</span> <span class="n">d</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span> <span class="o">*</span> <span class="p">(</span><span class="n">hi</span> <span class="o">-</span> <span class="n">lo</span><span class="p">)</span>
+</span><span data-line="392">        <span class="n">ref</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span> <span class="o">-</span> <span class="n">c</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">r</span><span class="p">]]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_U</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="393">        <span class="n">pend</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="s2">"u"</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span> <span class="o">+</span> <span class="n">extra</span>
+</span><span data-line="394">        <span class="k">if</span> <span class="n">pend</span><span class="p">:</span>
+</span><span data-line="395">            <span class="n">ref</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">pend</span><span class="p">))</span>
+</span><span data-line="396">        <span class="n">ref</span> <span class="o">=</span> <span class="p">[</span><span class="n">R</span> <span class="k">for</span> <span class="n">R</span> <span class="ow">in</span> <span class="n">ref</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">R</span><span class="p">)]</span>
+</span><span data-line="397">        <span class="k">if</span> <span class="ow">not</span> <span class="n">ref</span><span class="p">:</span>
+</span><span data-line="398">            <span class="k">return</span> <span class="n">cand</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="399">        <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">ref</span><span class="p">)</span>
+</span><span data-line="400">        <span class="n">md</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">cand</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">R</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="401">        <span class="k">return</span> <span class="n">cand</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">md</span><span class="p">))]</span>
+</span><span data-line="402">
+</span><span data-line="403">    <span class="k">def</span><span class="w"> </span><span class="nf">_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">f_c</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+</span><span data-line="404"><span class="w">        </span><span class="sd">"""The model minimiser in the trust region of ``radius``: ``(u, info)`` or ``None`` (no descent)."""</span>
+</span><span data-line="405">        <span class="n">g</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">n_fit</span> <span class="o">=</span> <span class="n">model</span>
+</span><span data-line="406">        <span class="n">k</span> <span class="o">=</span> <span class="n">radius</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>  <span class="c1"># the model lives in s = (u - c) / self.radius units</span>
+</span><span data-line="407">        <span class="n">lo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="o">-</span><span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)</span>
+</span><span data-line="408">        <span class="n">hi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">)</span>
+</span><span data-line="409">        <span class="n">s</span> <span class="o">=</span> <span class="n">minimize_quadratic_in_box</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span>
+</span><span data-line="410">        <span class="n">pred</span> <span class="o">=</span> <span class="o">-</span><span class="nb">float</span><span class="p">(</span><span class="n">g</span> <span class="o">@</span> <span class="n">s</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">s</span> <span class="o">@</span> <span class="n">H</span> <span class="o">@</span> <span class="n">s</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span>
+</span><span data-line="411">        <span class="k">if</span> <span class="ow">not</span> <span class="n">pred</span> <span class="o">&gt;</span> <span class="mf">1e-14</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">f_c</span><span class="p">)):</span>
+</span><span data-line="412">            <span class="k">return</span> <span class="kc">None</span>
+</span><span data-line="413">        <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="n">s</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="414">        <span class="n">at_boundary</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">s</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="n">k</span><span class="p">)</span>
+</span><span data-line="415">        <span class="n">info</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="416">            <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"step"</span><span class="p">,</span>
+</span><span data-line="417">            <span class="s2">"pred"</span><span class="p">:</span> <span class="n">pred</span><span class="p">,</span>
+</span><span data-line="418">            <span class="s2">"f_center"</span><span class="p">:</span> <span class="n">f_c</span><span class="p">,</span>
+</span><span data-line="419">            <span class="s2">"radius"</span><span class="p">:</span> <span class="n">radius</span><span class="p">,</span>
+</span><span data-line="420">            <span class="s2">"primary"</span><span class="p">:</span> <span class="n">radius</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span>
+</span><span data-line="421">            <span class="s2">"at_boundary"</span><span class="p">:</span> <span class="n">at_boundary</span><span class="p">,</span>
+</span><span data-line="422">            <span class="s2">"n_fit"</span><span class="p">:</span> <span class="n">n_fit</span><span class="p">,</span>
+</span><span data-line="423">        <span class="p">}</span>
+</span><span data-line="424">        <span class="k">return</span> <span class="n">u</span><span class="p">,</span> <span class="n">info</span>
+</span><span data-line="425">
+</span><span data-line="426">    <span class="k">def</span><span class="w"> </span><span class="nf">_direction_point</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">extra</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+</span><span data-line="427"><span class="w">        </span><span class="sd">"""``c ± radius·v`` inside the box and not yet present, or ``None``."""</span>
+</span><span data-line="428">        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>
+</span><span data-line="429">        <span class="k">for</span> <span class="n">sign</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="430">            <span class="n">u</span> <span class="o">=</span> <span class="n">c</span> <span class="o">+</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">r</span> <span class="o">*</span> <span class="n">v</span>
+</span><span data-line="431">            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">u</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">u</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_taken</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">extra</span><span class="p">,</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="432">                <span class="k">return</span> <span class="n">u</span>
+</span><span data-line="433">        <span class="c1"># Both ends leave the box: the clipped end that still moves furthest along v.</span>
+</span><span data-line="434">        <span class="n">best</span><span class="p">,</span> <span class="n">moved</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">r</span>
+</span><span data-line="435">        <span class="k">for</span> <span class="n">sign</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">):</span>
+</span><span data-line="436">            <span class="n">u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="n">sign</span> <span class="o">*</span> <span class="n">r</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="437">            <span class="n">m</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">((</span><span class="n">u</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">@</span> <span class="n">v</span><span class="p">))</span>
+</span><span data-line="438">            <span class="k">if</span> <span class="n">m</span> <span class="o">&gt;</span> <span class="n">moved</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_taken</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">extra</span><span class="p">,</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">r</span><span class="p">):</span>
+</span><span data-line="439">                <span class="n">best</span><span class="p">,</span> <span class="n">moved</span> <span class="o">=</span> <span class="n">u</span><span class="p">,</span> <span class="n">m</span>
+</span><span data-line="440">        <span class="k">return</span> <span class="n">best</span>
+</span><span data-line="441">
+</span><span data-line="442">    <span class="k">def</span><span class="w"> </span><span class="nf">_propose</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+</span><span data-line="443">        <span class="n">c</span><span class="p">,</span> <span class="n">f_c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_center</span><span class="p">()</span>
+</span><span data-line="444">        <span class="k">assert</span> <span class="n">c</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="445">        <span class="n">last</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_center</span>
+</span><span data-line="446">        <span class="k">if</span> <span class="n">last</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">last</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_span</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">:</span>
+</span><span data-line="447">            <span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_H_u</span><span class="p">)</span>  <span class="c1"># a far jump: the old curvature is not local here</span>
+</span><span data-line="448">        <span class="bp">self</span><span class="o">.</span><span class="n">_last_center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="449">        <span class="n">model</span><span class="p">,</span> <span class="n">weak</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">[])</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_need_geometry</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">f_c</span><span class="p">)</span>
+</span><span data-line="450">        <span class="n">out</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="451">        <span class="n">extra</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="452">        <span class="n">radius</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span>
+</span><span data-line="453">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+</span><span data-line="454">            <span class="n">prop</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="455">            <span class="k">while</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">radius</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius_min</span> <span class="ow">and</span> <span class="n">prop</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="456">                <span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">f_c</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
+</span><span data-line="457">                <span class="n">radius</span> <span class="o">*=</span> <span class="mf">0.5</span>
+</span><span data-line="458">                <span class="k">if</span> <span class="n">step</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="459">                    <span class="k">if</span> <span class="ow">not</span> <span class="n">out</span><span class="p">:</span>
+</span><span data-line="460">                        <span class="bp">self</span><span class="o">.</span><span class="n">_no_descent</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+</span><span data-line="461">                    <span class="k">break</span>
+</span><span data-line="462">                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_taken</span><span class="p">(</span><span class="n">step</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">extra</span><span class="p">,</span> <span class="mf">1e-3</span> <span class="o">*</span> <span class="n">step</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"radius"</span><span class="p">]):</span>
+</span><span data-line="463">                    <span class="n">prop</span> <span class="o">=</span> <span class="n">step</span>
+</span><span data-line="464">            <span class="k">while</span> <span class="n">prop</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">weak</span><span class="p">:</span>
+</span><span data-line="465">                <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_direction_point</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">weak</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">extra</span><span class="p">)</span>
+</span><span data-line="466">                <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="467">                    <span class="n">prop</span> <span class="o">=</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="p">{</span><span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"geometry"</span><span class="p">})</span>
+</span><span data-line="468">            <span class="k">if</span> <span class="n">prop</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="469">                <span class="n">prop</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geometry_point</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">extra</span><span class="p">),</span> <span class="p">{</span><span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"geometry"</span><span class="p">})</span>
+</span><span data-line="470">            <span class="k">if</span> <span class="n">prop</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"kind"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"geometry"</span><span class="p">:</span>
+</span><span data-line="471">                <span class="bp">self</span><span class="o">.</span><span class="n">_need_geometry</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="472">            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prop</span><span class="p">)</span>
+</span><span data-line="473">            <span class="n">extra</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">prop</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span><span data-line="474">        <span class="k">return</span> <span class="n">out</span>
+</span><span data-line="475">
+</span><span data-line="476">    <span class="k">def</span><span class="w"> </span><span class="nf">_no_descent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="477"><span class="w">        </span><span class="sd">"""A full-rank model predicts no descent at the full radius: one failed iteration.</span>
+</span><span data-line="478">
+</span><span data-line="479"><span class="sd">        It shrinks the radius (or asks for geometry on a thin model) at most</span>
+</span><span data-line="480"><span class="sd">        once per model state -- the archive size -- so repeated</span>
+</span><span data-line="481"><span class="sd">        :meth:`produce` calls with no new result in between do not shrink it</span>
+</span><span data-line="482"><span class="sd">        again and again without evaluating anything.</span>
+</span><span data-line="483"><span class="sd">        """</span>
+</span><span data-line="484">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_no_descent_state</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">):</span>
+</span><span data-line="485">            <span class="k">return</span>
+</span><span data-line="486">        <span class="bp">self</span><span class="o">.</span><span class="n">_no_descent_state</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_F</span><span class="p">)</span>
+</span><span data-line="487">        <span class="bp">self</span><span class="o">.</span><span class="n">_step_failed</span><span class="p">({</span><span class="s2">"n_fit"</span><span class="p">:</span> <span class="n">model</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="s2">"radius"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span> <span class="s2">"primary"</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
+</span><span data-line="488">
+<div class="viewcode-block" id="TrustRegionQuadratic.produce">
+<a class="viewcode-back" href="../../../heuristics.html#panobbgo.heuristics.TrustRegionQuadratic.produce">[docs]</a>
+</span><span data-line="489">    <span class="k">def</span><span class="w"> </span><span class="nf">produce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Point</span><span class="p">]:</span>
+</span><span data-line="490"><span class="w">        </span><span class="sd">"""Up to ``limit`` fresh points (one when ``limit`` is ``None``), computed now from the archive."""</span>
+</span><span data-line="491">        <span class="k">del</span> <span class="n">timeout</span>
+</span><span data-line="492">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span><span class="p">:</span>
+</span><span data-line="493">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="494">        <span class="n">k</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">limit</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">int</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+</span><span data-line="495">        <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="496">            <span class="k">return</span> <span class="p">[]</span>
+</span><span data-line="497">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="498">            <span class="c1"># Points the strategy handed back undispatched (``_return_to_queues``) come first;</span>
+</span><span data-line="499">            <span class="c1"># they are still in ``_pending`` and keep their meaning.</span>
+</span><span data-line="500">            <span class="n">points</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_points</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+</span><span data-line="501">            <span class="n">proposals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_propose</span><span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">))</span> <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="502">            <span class="bp">self</span><span class="o">.</span><span class="n">_maybe_restart</span><span class="p">()</span>
+</span><span data-line="503">            <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">proposals</span><span class="p">:</span>
+</span><span data-line="504">                <span class="n">who</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">new_who</span><span class="p">()</span>
+</span><span data-line="505">                <span class="n">info</span><span class="p">[</span><span class="s2">"u"</span><span class="p">]</span> <span class="o">=</span> <span class="n">u</span>
+</span><span data-line="506">                <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">[</span><span class="n">who</span><span class="p">]</span> <span class="o">=</span> <span class="n">info</span>
+</span><span data-line="507">                <span class="k">if</span> <span class="n">info</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"step"</span><span class="p">:</span>
+</span><span data-line="508">                    <span class="bp">self</span><span class="o">.</span><span class="n">n_steps</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="509">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="510">                    <span class="bp">self</span><span class="o">.</span><span class="n">n_geometry</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="511">                <span class="n">points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Point</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_x</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">who</span><span class="p">))</span>
+</span><span data-line="512">            <span class="k">return</span> <span class="n">points</span></div>
+
+</span><span data-line="513">
+</span><span data-line="514">    <span class="k">def</span><span class="w"> </span><span class="nf">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="515"><span class="w">        </span><span class="sd">"""Forget the in-flight bookkeeping: points still pending when the run ends are never reported."""</span>
+</span><span data-line="516">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="517">            <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="518">        <span class="n">Heuristic</span><span class="o">.</span><span class="n">__stop__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+</span><span data-line="519">
+</span><span data-line="520">    <span class="nd">@property</span>
+</span><span data-line="521">    <span class="k">def</span><span class="w"> </span><span class="nf">can_produce</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="522"><span class="w">        </span><span class="sd">"""Always, until stopped: a geometry point is always available."""</span>
+</span><span data-line="523">        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stopped</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

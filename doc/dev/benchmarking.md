@@ -199,7 +199,11 @@ Multi-seed screens: `benchmarks/family_screen.py`, `portfolio_screen.py`,
 `arm_sweep.py`, `oracle.py` (guide, "Per-arm sweeps").  `family_screen.py`
 also has `preset=shapes` (BBOB f6/f7/f12/f21/f24 × dims 2/5/10) and
 `preset=failure` (failure regions where evaluations crash or time out,
-`lib.families.FailureRegion`; failed calls are spent budget).  In every IOH
+`lib.families.FailureRegion`; failed calls are spent budget) and
+`preset=wide` (opt-in, `make_wide_battery`: 15 families × dims 2/5/10 —
+separable, conditioned, non-quadratic, kinked, plateaus, deceptive, weak
+structure, low effective dimension, a boundary optimum; every `x_opt` at
+least 0.3·B·√d from the box centre; DISCOVERY §68).  In every IOH
 and family run, a run that stops by itself below its budget (every arm
 stopped producing) is scored on its short trace but marked `EndedEarly` in
 `IOHRunRecord.error`, next to crashed and timed-out runs in the summary.
@@ -322,7 +326,19 @@ gh workflow run measure.yml -f presets=failure                  # the failure pr
 gh workflow run measure.yml -f seeds=911,912,913,914,915 \
     -f groups=core,qLogEI,TuRBO1,SMAC,trq                       # the opt-in §66 specs, fresh seeds
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
+python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated runner-hours per group
 ```
+
+*   **The `wide` preset** (opt-in, `presets=wide`; the default stays
+    `free`).  15 families (`harness_families.WIDE_FAMILIES`, DISCOVERY §68),
+    d 2/5/10, 3 instances: a unit is 3× a free unit.  Families that share a
+    label with the free preset are the free instances, except where the
+    preset's minimum distance of `x_opt` from the box centre redrew it (7 of
+    45).  The full default grid on `wide` with the GP groups is about 440
+    estimated runner-hours and over 256 shards, so `plan` refuses it; the
+    reduced grid of §68 (q ∈ {1, 4}; qLogEI at 20·d only, in a dispatch of
+    its own) is about 110.  `measure.py cost` prints the estimate of any
+    grid (same arguments as `plan`).
 
 *   **Units and shards.**  A unit is one strategy group on one (preset,
     bm, q, dim) cell and one base seed, optionally one instance index of

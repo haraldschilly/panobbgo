@@ -300,6 +300,84 @@ def _sharp_ridge_base(dim: int) -> Callable[[np.ndarray], float]:
     return f
 
 
+def _different_powers_base(dim: int) -> Callable[[np.ndarray], float]:
+    """BBOB f14 shape: :math:`\\sqrt{\\sum_i |z_i|^{2 + 4 i/(d-1)}}`.  Minimum ``0`` at ``0``.
+
+    Smooth away from the optimum but *not* quadratic: the exponents run
+    from 2 to 6, so the curvature degenerates towards the optimum along the
+    high-power directions and the square root turns the bottom into a cone.
+    A quadratic model fits it only locally and badly — the counterpart of
+    ``ellipsoid`` in the wide preset.
+    """
+    exps = 2.0 + 4.0 * np.arange(dim) / max(dim - 1, 1)
+
+    def f(z: np.ndarray) -> float:
+        return float(np.sqrt(float(np.sum(np.power(np.abs(z), exps)))))
+
+    return f
+
+
+def _styblinski_tang_root() -> float:
+    """The global per-coordinate minimiser of :math:`u^4 - 16u^2 + 5u`, by Newton to float precision.
+
+    The root of :math:`4u^3 - 32u + 5` near ``-2.9035``; the rounded
+    textbook value would leave ``f_opt`` off by ~1e-9, which is why the
+    base was not offered before.  Newton from ``-2.9`` settles in a handful
+    of steps; the loop stops when the iterate repeats.
+    """
+    u = -2.9
+    for _ in range(100):
+        nxt = u - (4.0 * u**3 - 32.0 * u + 5.0) / (12.0 * u * u - 32.0)
+        if nxt == u:
+            break
+        u = nxt
+    return u
+
+
+#: Argmin of the Styblinski–Tang term (see :func:`_styblinski_tang_root`).
+STYBLINSKI_TANG_ARGMIN: float = _styblinski_tang_root()
+
+
+def _styblinski_tang_base(dim: int) -> Callable[[np.ndarray], float]:
+    """Styblinski–Tang, :math:`\\tfrac12 \\sum_i (u_i^4 - 16u_i^2 + 5u_i)`, recentred on its minimiser.
+
+    Separable, :math:`2^d` local minima (per coordinate ``-2.9035`` global,
+    ``+2.7468`` local, 14.1 higher), quartic growth, so the recentred
+    minimum is global over :math:`\\mathbb{R}^d`.  Its natural domain is
+    ``[-5, 5]``, the scale of the instance box: no argument scaling.  In a
+    family instance the second minimum of a coordinate lies 5.65 away from
+    ``x_opt`` on one side; for about 40 % of the coordinates (a uniform
+    ``x_opt`` in ``[-4, 4]``) it falls inside the box.
+    """
+
+    def raw(u: np.ndarray) -> float:
+        return float(0.5 * np.sum(u**4 - 16.0 * u * u + 5.0 * u))
+
+    return _normalise(raw, np.full(dim, STYBLINSKI_TANG_ARGMIN))
+
+
+def _levy_base(dim: int) -> Callable[[np.ndarray], float]:
+    r"""Levy (the BO test-function standard), minimum ``0`` at :math:`u = (1, \ldots, 1)`.
+
+    :math:`w = 1 + (u - 1)/4`, :math:`f = \sin^2(\pi w_1) + \sum_{i<d} (w_i - 1)^2
+    [1 + 10 \sin^2(\pi w_i + 1)] + (w_d - 1)^2 [1 + \sin^2(2\pi w_d)]`.
+    Every term is non-negative and vanishes at :math:`w = 1`, so the minimum
+    is global.  Multimodal with a clear global trend; defined for ``d = 1``
+    too, which the embedded family (``effective_dim``) needs at ``d = 2``.
+    Natural domain ``[-10, 10]``: the instance box's reach, no scaling.
+    """
+
+    def raw(u: np.ndarray) -> float:
+        w = 1.0 + (np.asarray(u, dtype=np.float64) - 1.0) / 4.0
+        head = np.sin(np.pi * w[0]) ** 2
+        mid = w[:-1]
+        body = np.sum((mid - 1.0) ** 2 * (1.0 + 10.0 * np.sin(np.pi * mid + 1.0) ** 2))
+        tail = (w[-1] - 1.0) ** 2 * (1.0 + np.sin(2.0 * np.pi * w[-1]) ** 2)
+        return float(head + body + tail)
+
+    return _normalise(raw, np.ones(dim))
+
+
 # ---------------------------------------------------------------------------
 # BBOB bases (Hansen et al. 2009, RR-6829)
 # ---------------------------------------------------------------------------
@@ -619,9 +697,12 @@ class _LunacekBiRastrigin:
 #: at the origin over the whole of :math:`\mathbb{R}^d` (see the module
 #: note on Schwefel's boundary penalty).
 #:
+#: ``styblinski_tang`` computes its minimiser by Newton to float precision
+#: (``classic.py``'s ``StyblinskiTang`` uses a rounded root, so ``f_opt``
+#: would carry a ~1e-9 error; that class is still not used here).
+#:
 #: Deliberately *not* offered as bases, having checked ``classic.py``:
-#: ``StyblinskiTang`` (minimiser ``-2.903534...`` is a rounded root, so
-#: ``f_opt`` would carry a ~1e-9 error), ``Himmelblau`` /
+#: ``Himmelblau`` /
 #: ``GoldsteinPrice`` / ``Branin`` (fixed 2-D, no ``dims``),
 #: ``DixonPrice`` / ``Zakharov`` / ``Salomon`` / ``Trigonometric``
 #: (minimiser documented only implicitly or drifting with ``dim``), and
@@ -636,6 +717,9 @@ BASE_FUNCTIONS: Dict[str, BaseFactory] = {
     "ellipsoid": _ellipsoid_base,
     "discus": _discus_base,
     "sharp_ridge": _sharp_ridge_base,
+    "different_powers": _different_powers_base,
+    "styblinski_tang": _styblinski_tang_base,
+    "levy": _levy_base,
     "attractive_sector": _AttractiveSector,
     "step_ellipsoid": _StepEllipsoid,
     "bent_cigar": _BentCigar,
@@ -989,6 +1073,43 @@ class Family(Problem):
         ``{"n_peaks": 21}`` for ``gallagher``.  Other bases take none.
     failure
         A :class:`FailureRegion`, or ``None`` (every point evaluates).
+    min_centre_dist
+        ``x_opt`` at least this far from the box centre, as a fraction of
+        :math:`B\sqrt{d}` (Euclidean; ``0.0``: no requirement).  A draw
+        closer than that is replaced by a uniform redraw from the placement
+        stream (rejection sampling, so the distribution stays uniform on
+        the rest of the box).  Against the free box-centre hit of an arm
+        that starts at the centre (DISCOVERY §66.3).
+    boundary_faces
+        Fraction of the coordinates whose optimum sits **on a box face**
+        (``m = ceil(fraction * d)``, random coordinates and sides;
+        ``0.0``: none).  The objective gains
+        :math:`\text{boundary\_slope} \cdot \sum_{i \in A} (B - s_i x_i)`,
+        which is ``0`` on the faces and positive inside the box, so the
+        optimum stays ``x_opt`` with ``f_opt`` — but only *within the
+        box*: the gradient does not vanish there and the unconstrained
+        minimiser lies outside.  The engineering case of an optimum at a
+        bound.
+    boundary_slope
+        The slope of that pull (default ``1.0``).
+    signed_permutation
+        With ``rotate=False`` only: replace ``R = I`` by a random signed
+        permutation.  Keeps a separable base separable (so coordinate-wise
+        methods may exploit it) while no instance is aligned the same way.
+    effective_dim
+        Fraction of the dimensions the function depends on
+        (``k = ceil(fraction * d)``, ``1.0``: all).  The base is built at
+        dimension ``k`` and sees the first ``k`` coordinates of
+        :math:`\Lambda R (x - x_{\mathrm{opt}})` — with a Haar ``R`` a random
+        ``k``-dimensional subspace; the other ``d - k`` directions are
+        exactly neutral, the minimiser set is ``x_opt`` plus their span.
+        Not for the BBOB bases of :data:`CONTEXT_BASES`.
+
+    The placement knobs draw from a stream of their own (spawn key ``3``,
+    see :meth:`_base_rng`), so an instance without them is bit-identical
+    to before, and one with them keeps its ``R``, ``f_opt`` and
+    constraints — only ``x_opt`` (and ``R`` for ``signed_permutation``)
+    can change.
 
     The constraint construction
     ---------------------------
@@ -1053,6 +1174,11 @@ class Family(Problem):
         instance: int = 0,
         base_params: Optional[Dict[str, Any]] = None,
         failure: Optional[FailureRegion] = None,
+        min_centre_dist: float = 0.0,
+        boundary_faces: float = 0.0,
+        boundary_slope: float = 1.0,
+        signed_permutation: bool = False,
+        effective_dim: float = 1.0,
     ) -> None:
         if base not in BASE_FUNCTIONS:
             raise ValueError(f"unknown base function {base!r}; known: {sorted(BASE_FUNCTIONS)}")
@@ -1072,6 +1198,19 @@ class Family(Problem):
             # would condition some of its terms and not others (Lunacek's
             # funnels vs its Rastrigin term).
             raise ValueError(f"base {base!r} has its own BBOB conditioning; condition must be 1.0, got {condition}")
+        if not 0.0 <= float(min_centre_dist) < 1.0 - float(opt_margin):
+            raise ValueError(f"min_centre_dist must be in [0, 1 - opt_margin), got {min_centre_dist}")
+        if not 0.0 <= float(boundary_faces) <= 1.0 or float(boundary_slope) <= 0.0:
+            raise ValueError("boundary_faces must be in [0, 1] and boundary_slope > 0")
+        if signed_permutation and rotate:
+            raise ValueError("signed_permutation replaces R = I: it needs rotate=False")
+        if not 0.0 < float(effective_dim) <= 1.0:
+            raise ValueError(f"effective_dim is a fraction in (0, 1], got {effective_dim}")
+        if float(effective_dim) < 1.0 and base in CONTEXT_BASES:
+            raise ValueError(f"effective_dim is not supported for the BBOB base {base!r}")
+        lunacek_bbob = base == "lunacek_bi_rastrigin" and params.get("placement", "bbob") == "bbob"
+        if lunacek_bbob and (float(min_centre_dist) > 0.0 or float(boundary_faces) > 0.0):
+            raise ValueError("lunacek_bi_rastrigin with placement='bbob' fixes x_opt; use placement='box'")
 
         rng = np.random.default_rng(int(seed))
         b = float(box_half_width)
@@ -1109,8 +1248,20 @@ class Family(Problem):
             # BBOB f24's own optimum, +-mu0/2, with the signs of the draw
             # (no extra draw: the instance stream is unchanged).
             x_opt = _LunacekBiRastrigin.bbob_x_opt(x_opt_draw)
-        self._x_opt: np.ndarray = x_opt
         self._rotation: Optional[np.ndarray] = rotation if rotate else None
+
+        # -- the placement knobs (a stream of their own, spawn key 3) ---------
+        self.min_centre_dist: float = float(min_centre_dist)
+        self.boundary_faces: float = float(boundary_faces)
+        self.boundary_slope: float = float(boundary_slope)
+        self.signed_permutation: bool = bool(signed_permutation)
+        self.effective_dim: float = float(effective_dim)
+        self._eff_dim: int = max(1, int(np.ceil(self.effective_dim * dim - 1e-9)))
+        self._face_idx: np.ndarray = np.zeros(0, dtype=int)
+        self._face_sign: np.ndarray = np.zeros(0)
+        if self.min_centre_dist > 0.0 or self.boundary_faces > 0.0 or self.signed_permutation:
+            x_opt = self._place(x_opt, reach, b, shift)
+        self._x_opt: np.ndarray = x_opt
 
         if self.condition != 1.0:
             exps = np.zeros(dim) if dim < 2 else np.arange(dim) / (dim - 1)
@@ -1175,11 +1326,60 @@ class Family(Problem):
         """The stream the failure region is drawn from (spawn key ``2``, see :meth:`_base_rng`)."""
         return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(2,)))
 
+    def _placement_rng(self) -> np.random.Generator:
+        """The stream of the placement knobs (spawn key ``3``, see :meth:`_base_rng`)."""
+        return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(3,)))
+
+    #: Redraws of ``x_opt`` for ``min_centre_dist`` before giving up (at the
+    #: largest allowed distance a draw is accepted with probability > 1e-3
+    #: at every ``d``, so this never fires in practice).
+    MAX_PLACEMENT_TRIES: int = 100000
+
+    def _place(self, x_opt: np.ndarray, reach: float, b: float, shift: bool) -> np.ndarray:
+        """Apply ``signed_permutation``, ``boundary_faces`` and ``min_centre_dist``.
+
+        The draws come in a fixed order from :meth:`_placement_rng` —
+        permutation, signs, face coordinates, face sides, then the redraws —
+        and every one is made whether or not its knob is set, so turning one
+        knob on does not move the others' draws.
+        """
+        if not shift and (self.min_centre_dist > 0.0 or self.boundary_faces > 0.0):
+            raise ValueError("min_centre_dist and boundary_faces place x_opt: they need shift=True")
+        dim = x_opt.shape[0]
+        prng = self._placement_rng()
+        perm = prng.permutation(dim)
+        signs = prng.choice([-1.0, 1.0], size=dim)
+        face_order = prng.permutation(dim)
+        face_sides = prng.choice([-1.0, 1.0], size=dim)
+        if self.signed_permutation:
+            self._rotation = np.eye(dim)[perm] * signs[:, None]
+        x = np.array(x_opt, dtype=np.float64)
+        if self.boundary_faces > 0.0:
+            m = max(1, int(np.ceil(self.boundary_faces * dim - 1e-9)))
+            self._face_idx = np.sort(face_order[:m])
+            self._face_sign = face_sides[self._face_idx]
+            x[self._face_idx] = self._face_sign * b
+        if self.min_centre_dist > 0.0:
+            r_min = self.min_centre_dist * b * np.sqrt(dim)
+            free = np.setdiff1d(np.arange(dim), self._face_idx)
+            for _ in range(self.MAX_PLACEMENT_TRIES):
+                if float(np.linalg.norm(x)) >= r_min:
+                    break
+                x[free] = prng.uniform(-reach, reach, size=free.shape[0])
+            else:  # pragma: no cover - see MAX_PLACEMENT_TRIES
+                raise ValueError(f"could not place x_opt at distance >= {r_min:g} from the centre")
+        return x
+
+    def _boundary_term(self, x: np.ndarray) -> float:
+        """``slope * sum_{i in A} (B - s_i x_i)``: ``0`` on the optimum's faces, positive inside the box."""
+        idx = self._face_idx
+        return self.boundary_slope * float(np.sum(self._half_width - self._face_sign * x[idx]))
+
     def _build_base(self) -> Callable[[np.ndarray], float]:
         """The base callable; deterministic in the instance data, so a pickle can rebuild it."""
         factory = BASE_FUNCTIONS[self.base]
         if self.base not in CONTEXT_BASES:
-            return factory(self.dim)
+            return factory(getattr(self, "_eff_dim", self.dim))
         ctx = BaseContext(
             rng=self._base_rng(),
             x_opt=self._x_opt,
@@ -1253,7 +1453,11 @@ class Family(Problem):
             z = self._rotation @ z
         if self._scaling is not None:
             z = self._scaling * z
-        return self._base_fn(z) + self._f_opt
+        k = getattr(self, "_eff_dim", self.dim)
+        value = self._base_fn(z if k == self.dim else z[:k]) + self._f_opt
+        if getattr(self, "_face_idx", None) is not None and self._face_idx.shape[0]:
+            value += self._boundary_term(np.asarray(x, dtype=np.float64))
+        return value
 
     def eval_constraints(self, x: np.ndarray) -> Optional[np.ndarray]:
         """Violation vector ``g(x)``; ``<= 0`` is feasible, as in ``classic.py``.

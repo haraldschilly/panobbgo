@@ -141,12 +141,14 @@ LABELS: Dict[str, str] = {
 }
 
 #: Presets of the family track this measurement knows, with their dimensions.
-PRESET_DIMS: Dict[str, Tuple[int, ...]] = {"free": (2, 5, 10), "failure": (2, 5)}
+PRESET_DIMS: Dict[str, Tuple[int, ...]] = {"free": (2, 5, 10), "failure": (2, 5), "wide": (2, 5, 10)}
 
-#: Instances per (family, dim) of both presets (the preset default), and the
-#: families per preset: the number of runs of a unit is their product.
+#: Instances per (family, dim) of every preset (the preset default), and the
+#: families per preset: the number of runs of a unit is their product.  ``wide``
+#: (opt-in, ``harness_families.make_wide_battery``, DISCOVERY §68): 15 families,
+#: so a unit is 3x a free unit; the default stays ``free``.
 N_INSTANCES = 3
-PRESET_FAMILIES: Dict[str, int] = {"free": 5, "failure": 4}
+PRESET_FAMILIES: Dict[str, int] = {"free": 5, "failure": 4, "wide": 15}
 
 #: The virtual clock of every run: async policy, log-normal durations.
 DURATION = "lognormal"
@@ -558,7 +560,8 @@ def plan_problems(entries: Sequence[Dict[str, Any]], target_minutes: float) -> L
     return problems
 
 
-def cmd_plan(args: argparse.Namespace) -> int:
+def _grid(args: argparse.Namespace) -> Tuple[List[Unit], List[Unit]]:
+    """The grid units and the extra (calibration) units of ``plan`` / ``cost``'s arguments."""
     groups = (
         list(DEFAULT_GROUPS) if args.groups in ("", "all") else [g.strip() for g in args.groups.split(",") if g.strip()]
     )
@@ -571,6 +574,55 @@ def cmd_plan(args: argparse.Namespace) -> int:
         groups,
     )
     extra = [Unit.parse(u) for u in (args.extra_units or "").split(";") if u.strip()]
+    return units, extra
+
+
+def plan_cost(entries: Sequence[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Per group of a plan: units, runs, shards, estimated runner-minutes and the longest shard.
+
+    The same estimate :func:`plan` packs by (:func:`unit_minutes`: the
+    :data:`RUNNER_SECONDS` p90 per run, in rounds over the runner's cores,
+    plus the per-unit overhead), so a total leans high and is not a
+    measurement.  Runner-minutes (the sum of the shards' estimates) are what
+    a run bills; its wall time is about the longest shard when every shard
+    gets a runner at once, and more when the account's concurrent-job limit
+    queues them.  Calibration shards are a row of their own per group.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    for e in entries:
+        key = e["group"] + (" (extra)" if e["calibration"] else "")
+        row = out.setdefault(key, {"units": 0, "runs": 0, "shards": 0, "runner_min": 0, "longest_min": 0})
+        items = [Unit.parse(t) for t in e["units"].split(";")]
+        row["units"] += len(items)
+        row["runs"] += sum(u.n_runs for u in items)
+        row["shards"] += 1
+        row["runner_min"] += int(e["est_min"])
+        row["longest_min"] = max(row["longest_min"], int(e["est_min"]))
+    return out
+
+
+def cmd_cost(args: argparse.Namespace) -> int:
+    """Print the plan's estimated cost per group (markdown), and why ``plan`` would refuse it, if it would."""
+    units, extra = _grid(args)
+    if not units and not extra:
+        print("error: the grid is empty", file=sys.stderr)
+        return 2
+    entries = plan(units, args.runner_cores, args.target_minutes, extra)
+    rows = plan_cost(entries)
+    print("| group | units (after splits) | runs | shards | runner-h (est.) | longest shard (min) |")
+    print("|---|---|---|---|---|---|")
+    for group, r in rows.items():
+        hours = r["runner_min"] / 60
+        print(f"| {group} | {r['units']} | {r['runs']} | {r['shards']} | {hours:.1f} | {r['longest_min']} |")
+    total = sum(r["runner_min"] for r in rows.values()) / 60
+    print(f"| total | | {sum(r['runs'] for r in rows.values())} | {len(entries)} | {total:.1f} | |")
+    for p in plan_problems(entries, args.target_minutes):
+        print(f"refused by plan: {p}")
+    return 0
+
+
+def cmd_plan(args: argparse.Namespace) -> int:
+    units, extra = _grid(args)
     if not units and not extra:
         print("error: the grid is empty", file=sys.stderr)
         return 2
@@ -674,9 +726,9 @@ def _strategies(group: str) -> List[Any]:
 
 
 def _instances(preset: str, dim: int, inst: int = -1, fam: int = -1) -> List[Any]:
-    from panobbgo.harness_families import make_failure_battery, make_families_battery
+    from panobbgo.harness_families import make_failure_battery, make_families_battery, make_wide_battery
 
-    make = {"free": make_families_battery, "failure": make_failure_battery}[preset]
+    make = {"free": make_families_battery, "failure": make_failure_battery, "wide": make_wide_battery}[preset]
     instances = list(make(dims=(dim,), n_instances=N_INSTANCES))
     families = list(dict.fromkeys(str(p.family) for _, p in instances))  # battery order
     if len(families) != PRESET_FAMILIES[preset]:
@@ -1527,32 +1579,41 @@ def cmd_aggregate(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    sub = p.add_subparsers(dest="cmd", required=True)
-
-    pl = sub.add_parser("plan", help="Print the job matrix (JSON).")
-    pl.add_argument("--seeds", default="5", help="A count (the first N of the decision roster) or a comma list.")
-    pl.add_argument("--presets", default="free", help="Comma list of: free, failure.")
-    pl.add_argument("--budgets", default="20,100", help="Budget multipliers (budget = bm*dim).")
-    pl.add_argument("--dims", default="", help="Restrict the presets' dimensions (default: all of them).")
-    pl.add_argument("--qs", default="1,4,16,64", help="Virtual worker counts; q <= bm only.")
-    pl.add_argument(
+def _grid_args(p: argparse.ArgumentParser) -> None:
+    """The grid arguments ``plan`` and ``cost`` share."""
+    p.add_argument("--seeds", default="5", help="A count (the first N of the decision roster) or a comma list.")
+    p.add_argument("--presets", default="free", help="Comma list of: free, failure, wide (wide: opt-in).")
+    p.add_argument("--budgets", default="20,100", help="Budget multipliers (budget = bm*dim).")
+    p.add_argument("--dims", default="", help="Restrict the presets' dimensions (default: all of them).")
+    p.add_argument("--qs", default="1,4,16,64", help="Virtual worker counts; q <= bm only.")
+    p.add_argument(
         "--groups",
         default="all",
         help=f"'all' (= {','.join(DEFAULT_GROUPS)}) or a comma list of: {', '.join(GROUPS)} (trq: opt-in).",
     )
-    pl.add_argument(
+    p.add_argument(
         "--extra-units", default="", help="';'-joined unit ids run in shards of their own (calibration runs)."
     )
-    pl.add_argument("--runner-cores", type=int, default=4, help="Processes per runner (default 4).")
-    pl.add_argument(
+    p.add_argument("--runner-cores", type=int, default=4, help="Processes per runner (default 4).")
+    p.add_argument(
         "--target-minutes",
         type=float,
         default=TARGET_MINUTES,
         help=f"Estimated wall minutes per shard (default {TARGET_MINUTES:g}); a plan with a shard above it is refused.",
     )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    pl = sub.add_parser("plan", help="Print the job matrix (JSON).")
+    _grid_args(pl)
     pl.set_defaults(func=cmd_plan)
+
+    co = sub.add_parser("cost", help="Print the estimated cost of a plan per group (markdown).")
+    _grid_args(co)
+    co.set_defaults(func=cmd_cost)
 
     rn = sub.add_parser("run", help="Run the units of one shard.")
     rn.add_argument("--units", required=True, help="';'-joined unit ids.")

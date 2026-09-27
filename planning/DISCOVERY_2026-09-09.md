@@ -5277,7 +5277,7 @@ d = 10 on the wide preset; 20·d on the wide preset; q ≥ 16; the r05
 variant for Bl3_TRQ; the r05 variant out of sample; COBYQA with a 0.1
 start radius (the converse check); MA-BBOB.
 
-## 70. Selector data pipeline (roadmap §4 A step 1): a shared probe, counterfactual labels per arm, and the headroom — the oracle over five arms is 0.078 above the best single arm, 0.051 if it may only see the instance (2026-09-27)
+## 70. Selector data pipeline (roadmap §4 A step 1): a shared probe, counterfactual labels per arm, and the headroom — the per-task oracle over five arms is 0.078 above the best single arm, but a pick that does not see the task's own score keeps 0.015 (instance, other seeds) and −0.003 (family, other instances): little learnable headroom on this menu and set (2026-09-27)
 
 > **In sample, descriptive.**  Wide preset (§68), d 2/5, 100·d, q 1/4,
 > roster seeds 42/7/1234 — the seeds and battery §68/§69 looked at (RR_TRQ's
@@ -5299,9 +5299,9 @@ defined): `Blocks_warm_CMAES_JSO`, `RoundRobin_CMAES`, `RoundRobin_TRQ`,
 **Probe.**  A scrambled Latin hypercube of k = 10·d points in the box, seeded
 per (base seed, instance), the same for every arm and for q = 1 and q = 4.
 Why 10·d: at 100·d it is 10 % of the budget; it is the smallest round
-multiple of d with enough points for the full-quadratic fits at d ≤ 5 (they
-need 2p: 12 at d = 2, 42 at d = 5 — the §66.4 separator of exact quadratics
-lives there), whereas 2d + 1 (BOBYQA's initial design) supports only a linear
+multiple of d with enough points for the full-quadratic fits at the measured
+d ≤ 5 (they need 2p: 12 at d = 2, 42 at d = 5, 56 at d = 6 — 10·d suffices
+up to d = 6; the §66.4 separator of exact quadratics lives there), whereas 2d + 1 (BOBYQA's initial design) supports only a linear
 fit.  ELA practice recommends ~50·d for stable features, which a 100·d budget
 cannot pay: the probe features are noisy (the roadmap's risk item).  At
 d = 10, 2p = 132 > 100: the full-quadratic features are undefined there with
@@ -5313,7 +5313,12 @@ from the centre bias of §68.2.
 the probe results are booked in `initialize()` on the storage-resume path —
 in the store and published as `new_results` *before* the `start` event, and
 counted as dispatched, so with `max_eval = B` the arm evaluates B − k new
-points.  How each arm uses the probe:
+points.  It raises after `initialize()`.  With a storage backend the preload
+is saved like any booked result (it is part of the run's archive, and a resume
+must not re-spend its budget share), so a resumed run gets it from storage —
+preloading a run that restored results would book it twice and is refused.
+Each arm gets its own copies of the probe results.  How each arm uses the
+probe:
 
 * both Blocks specs — unchanged: their CMA-ES / jSO arms already have
   `warm_start="archive"` (m / σ fitted to the archive's top points, jSO's
@@ -5344,7 +5349,8 @@ over evaluations, `aocc_time` over the continuation's virtual time (horizon
 final log precision.  **Label** = `max_a s_a − s_arm` with s = AOCC at q = 1
 and `aocc_time` at q > 1 (0 = the task's best arm; AOCC units, already
 normalised by the log-precision range); also stored: the regret on the final
-precision, the rank, `best_arm`.
+precision, the rank, `best_arm` (first in menu order on a tie) and `n_best`
+(arms tied at the top; win counts split a tie equally).
 
 **Features at the probe** (`probe_features`; never raw f or raw x): the
 rank-based ELA-lite of `features.landscape_features` (FDC, the five NBC
@@ -5374,7 +5380,9 @@ cold arms, 11.5 min wall on 4 workers (a COBYQA run adds its solver
 subprocess beside its waiting worker).  Every run clean (no exception); every
 arm but COBYQA spends exactly B − k; COBYQA ends early (converged, it does not
 restart) in 83 % of the tasks and is scored at its final best for the rest,
-as in §66.  One row per task, 100 columns, 108 KB:
+as in §66.  Its label is therefore a worst case for a COBYQA *selection*: a
+selector that picks it would hand the unspent budget to another arm, which
+this pipeline does not simulate.  One row per task, 100 columns, 108 KB:
 `planning/results/2026-09-27-selector-labels/labels_wide_d2d5_bm100.csv.gz`;
 the tables below are from `analysis.md` there (`selector_labels.py analyze`).
 
@@ -5382,19 +5390,24 @@ the tables below are from `analysis.md` there (`selector_labels.py analyze`).
 
 | arm | mean score | mean regret | median | p90 | wins | regret < 0.01 |
 |---|---|---|---|---|---|---|
-| Blocks | 0.247 | 0.231 | 0.136 | 0.647 | 14 % | 16 % |
+| Blocks | 0.247 | 0.231 | 0.136 | 0.647 | 11 % | 16 % |
 | RR_CMAES (warm) | 0.208 | 0.270 | 0.172 | 0.719 | 8 % | 14 % |
 | RR_TRQ | **0.400** | **0.078** | 0.000 | 0.246 | 48 % | 57 % |
-| RR_COBYQA (warm) | 0.283 | 0.195 | 0.104 | 0.586 | 16 % | 22 % |
+| RR_COBYQA (warm) | 0.283 | 0.195 | 0.104 | 0.586 | 17 % | 22 % |
 | Blocks_TRQ | 0.349 | 0.129 | 0.068 | 0.367 | 15 % | 22 % |
 
+Wins split ties equally: 17 of the 540 tasks tie at the top — all
+schwefel_sep (4 at d = 2, 13 at d = 5), all five arms at score 0 — and `best_arm`
+gives all of them to the first in menu order, Blocks (the first push of this
+section counted them that way: Blocks 14 %, schwefel_sep "Blocks wins 64 %").
 RR_TRQ is the best arm on average in every (d, q) cell (mean regret
-0.050–0.106) and wins about half the tasks; every arm wins somewhere (8–16 %
+0.050–0.106) and wins about half the tasks; every arm wins somewhere (8–17 %
 each).  Per family RR_TRQ owns the smooth and separable ones (ellipsoid and
 levy_embed 92 % of the tasks, rosenbrock_edge 72 %, styblinski_tang_sep 67 %)
 and loses where §68/§69 said it would: step_ellipsoid (RR_CMAES wins 47 %,
-Blocks best on average), schwefel_sep (Blocks wins 64 %, COBYQA best on
-average — its face-snapped start of 70.1 lands near the face optimum),
+Blocks best on average), schwefel_sep (COBYQA best on average and 32 % of
+the wins, Blocks 26 % — COBYQA's face-snapped start of 70.1 lands near the
+face optimum),
 rastrigin, attractive_sector and lunacek_box (Blocks_TRQ best on average),
 ackley (COBYQA best on average).  The labels are heavy-tailed (p90
 0.25–0.72): where an arm loses, it loses a lot.
@@ -5403,25 +5416,39 @@ ackley (COBYQA best on average).  The labels are heavy-tailed (p90
 
 SBS = the arm with the best mean score in hindsight (RR_TRQ in every scope);
 gap = oracle − SBS = the SBS's mean regret; CI = cluster bootstrap over the
-90 instances.
+90 instances.  Instance and family oracles in two forms: **in sample** (the
+arm with the best mean over the instance's 3 seeds, resp. the family's tasks
+at that d and q, *including the task's own score*) and **leave-one-out**
+(the same pick without the task: the instance's other seeds — a mean over
+only 2 seeds — resp. the family's other instances).  Only the LOO form is
+headroom a selector could in principle reach; the in-sample form, reported
+first by this section, credits the pick with the task's own luck.
 
-| scope | tasks | SBS mean | task oracle | **gap** [CI] | instance oracle gap | family oracle gap |
+| scope | tasks | SBS mean | task oracle | **gap** [CI] | instance oracle gap: in sample / **LOO** | family oracle gap: in sample / **LOO** |
 |---|---|---|---|---|---|---|
-| all | 540 | 0.400 | 0.478 | **0.078** [0.057, 0.104] | 0.051 | 0.032 |
-| ex-ellipsoid | 504 | 0.364 | 0.447 | 0.083 [0.060, 0.108] | 0.055 | 0.034 |
-| d2 q1 | 135 | 0.511 | 0.617 | 0.106 [0.061, 0.161] | 0.072 | 0.039 |
-| d2 q4 | 135 | 0.476 | 0.549 | 0.073 [0.044, 0.111] | 0.041 | 0.022 |
-| d5 q1 | 135 | 0.321 | 0.402 | 0.081 [0.052, 0.113] | 0.056 | 0.045 |
-| d5 q4 | 135 | 0.294 | 0.344 | 0.050 [0.031, 0.070] | 0.036 | 0.022 |
+| all | 540 | 0.400 | 0.478 | **0.078** [0.057, 0.104] | 0.051 / **0.015** | 0.032 / **−0.003** |
+| ex-ellipsoid | 504 | 0.364 | 0.447 | 0.083 [0.060, 0.108] | 0.055 / **0.016** | 0.034 / **−0.003** |
+| d2 q1 | 135 | 0.511 | 0.617 | 0.106 [0.061, 0.161] | 0.072 / **0.022** | 0.039 / **−0.027** |
+| d2 q4 | 135 | 0.476 | 0.549 | 0.073 [0.044, 0.111] | 0.041 / **−0.001** | 0.022 / **−0.005** |
+| d5 q1 | 135 | 0.321 | 0.402 | 0.081 [0.052, 0.113] | 0.056 / **0.021** | 0.045 / **0.025** |
+| d5 q4 | 135 | 0.294 | 0.344 | 0.050 [0.031, 0.070] | 0.036 / **0.018** | 0.022 / **−0.004** |
 
 * **The task oracle is 0.078 AOCC above the best single arm** (0.083
   without ellipsoid) — two to five times §53's cheap-track per-cell oracle
-  gap (0.015…0.039).  Part of it is seed luck no selector can see: the
-  **instance oracle** (the arm best on average over an instance's 3 seeds,
-  applied to each seed) keeps **0.051**, the **family oracle** (the best arm
-  per family × d × q, a perfect family classifier) 0.032.  A realistic target
-  for a probe-feature selector lies below 0.051, and 0.032 would already be a
-  perfect family classifier.
+  gap (0.015…0.039).  Its CI barely moves when the SBS is re-chosen in
+  every bootstrap resample ([0.057, 0.104] either way; per cell at most
+  0.005 narrower): RR_TRQ is the SBS in nearly every resample.
+* **Most of it is not learnable from these data.**  Choosing an arm per
+  instance from its *other* seeds keeps only **0.015** (the in-sample
+  0.051 was mostly the task's own luck), and per family from its *other*
+  instances **−0.003** — a perfect family classifier trained on sibling
+  instances does no better than always running RR_TRQ.  Caveats that make
+  the LOO numbers pessimistic: the instance pick averages only 2 seeds, and
+  the family pick sees 2 sibling instances; with more seeds and instances
+  both estimates get less noisy.  A probe-feature selector sees less than
+  the instance identity, so on this menu and this set the step-2 target is
+  small: of the order of the 0.015 instance-LOO gap, not the 0.078 headline.
+  Only d5 q1 (0.021 / 0.025) shows both LOO gaps clearly above 0.
 * **Context alone gives nothing**: the best arm per (d, q) cell is RR_TRQ
   in every cell, so an NGOpt-style rule on d, budget and q selects the SBS.
   What a selector gains here must come from the landscape features.
@@ -5443,8 +5470,9 @@ the rank `nbc_nb_fitness_cor` (+0.22 Blocks); `q` is +0.27 for COBYQA
 (sequential).  **RR_TRQ's regret is nearly uncorrelated with every single
 feature** (|ρ| ≤ 0.13): where it loses is not visible in one feature — that
 is the selector's job (interactions; trees).  By winning arm: the tasks
-RR_TRQ wins have the most quadratic probes (mean `flog_quad_gap` −2.44;
-Blocks' wins −0.92) and the most skewed f (1.19 vs 0.51).  `y_ties` is 0 on
+RR_TRQ wins have the most quadratic probes (mean `flog_quad_gap` −2.41;
+Blocks' wins −1.11; weighted by win share) and the most skewed f (1.18 vs
+0.61).  `y_ties` is 0 on
 every probe (10·d LHS points never land on one step_ellipsoid plateau twice):
 a plateau feature needs repeated or nearby points.
 
@@ -5463,9 +5491,15 @@ q ≥ 16; free / shapes / MA-BBOB; fresh seeds or a fresh battery; noise,
 constraints and failure regions (the probe refuses non-finite values); a
 COBYQA warm start with a radius that keeps the point; the bootstrap variance
 of the probe features; the "stuck locally" features (in-run, later cycles);
-probe sizes other than 10·d.  Next (step 2): xgboost on these labels with
-leave-instance-out and leave-family-out CV, reporting the share of the SBS →
-instance-oracle gap it closes; widen the data first (fresh seeds, d = 10 with
-a larger probe, runners) if the CV is noisy.  The dataset regenerates in
+probe sizes other than 10·d.  Next (step 2), with the target stated
+honestly: the learnable headroom on this menu and set looks small (70.4:
+0.015 instance-LOO, −0.003 family-LOO against 0.078 in-sample per task).
+Before training xgboost (leave-instance-out and leave-family-out CV,
+reported against the LOO gaps, not the task oracle), widen the data where the
+LOO gap could grow — more seeds per instance (the instance-LOO pick averages
+only 2), more instances per family, d = 10 with a ≥ 14·d probe, 20·d — and
+consider arms that differ more where RR_TRQ loses (step_ellipsoid,
+schwefel_sep, rastrigin, attractive_sector) and in-run switching (B), where
+the per-task luck a one-shot pick cannot see becomes observable.  The dataset regenerates in
 ~12 min locally with the command of 70.2; a larger one (> 1 MB) belongs in a
 GitHub release asset (`gh release upload <tag> labels.csv.gz`), not in git.

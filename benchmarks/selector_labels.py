@@ -143,6 +143,56 @@ def _cluster_boot(values: np.ndarray, clusters: np.ndarray, n_boot: int = 2000, 
     return float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))
 
 
+def win_shares(scores: np.ndarray) -> np.ndarray:
+    """Per task and arm, the share of the win: ``1/k`` for each of the ``k`` arms tied at the best score."""
+    s = np.asarray(scores, dtype=np.float64)
+    top = s == s.max(axis=1, keepdims=True)
+    return top / top.sum(axis=1, keepdims=True)
+
+
+def loo_picks(df: Any, arms: Sequence[str]) -> Dict[str, np.ndarray]:
+    """Arm indices a selector could pick per task *without* that task's own score.
+
+    ``df`` needs ``inst_key`` (family, d, instance), ``family``, ``dim`` and ``q``.
+
+    * ``instance_loo`` — the arm with the best mean over the *other* seeds of
+      the same instance and q (with 3 seeds: a mean over 2);
+    * ``family_loo`` — the arm with the best mean over the *other* instances
+      of the same family, d and q (all their seeds).
+
+    Tasks with nothing left to average get ``-1``.
+    """
+    cols = [f"{a}:score" for a in arms]
+    s = df[cols].to_numpy(dtype=np.float64)
+    inst = df.groupby(["inst_key", "q"])[cols]
+    fam = df.groupby(["family", "dim", "q"])[cols]
+    i_sum, i_n = inst.transform("sum").to_numpy(), inst.transform("count").to_numpy()
+    f_sum, f_n = fam.transform("sum").to_numpy(), fam.transform("count").to_numpy()
+    out = {}
+    with np.errstate(invalid="ignore", divide="ignore"):
+        m_inst = (i_sum - s) / (i_n - 1)
+        m_fam = (f_sum - i_sum) / (f_n - i_n)
+    for name, m in (("instance_loo", m_inst), ("family_loo", m_fam)):
+        ok = np.isfinite(m).all(axis=1)
+        out[name] = np.where(ok, np.argmax(np.where(np.isfinite(m), m, -np.inf), axis=1), -1)
+    return out
+
+
+def _boot_gap_resbs(s: np.ndarray, clusters: np.ndarray, n_boot: int = 2000, seed: int = 0) -> tuple:
+    """95 % CI of oracle − SBS with the SBS re-chosen in every cluster-bootstrap resample."""
+    rng = np.random.default_rng(seed)
+    uniq, inv = np.unique(clusters, return_inverse=True)
+    sums = np.zeros((uniq.size, s.shape[1]))
+    np.add.at(sums, inv, s)
+    osum = np.zeros(uniq.size)
+    np.add.at(osum, inv, s.max(axis=1))
+    cnt = np.bincount(inv).astype(np.float64)
+    idx = rng.integers(0, uniq.size, size=(n_boot, uniq.size))
+    n = cnt[idx].sum(axis=1)
+    gaps = osum[idx].sum(axis=1) / n - sums[idx].sum(axis=1).max(axis=1) / n
+    return float(np.percentile(gaps, 2.5)), float(np.percentile(gaps, 97.5))
+
+
 def analyze(df: Any, arms: Sequence[str]) -> str:
     """The §70 sanity analysis as markdown."""
     import pandas as pd
@@ -155,16 +205,24 @@ def analyze(df: Any, arms: Sequence[str]) -> str:
     df["cell"] = "d" + df["dim"].astype(str) + " q" + df["q"].astype(str)
     S = df[[f"{a}:score" for a in arms]].to_numpy(dtype=float)
     R = df[[f"{a}:regret" for a in arms]].to_numpy(dtype=float)
+    W = win_shares(S)
+    for j, a in enumerate(arms):
+        df[f"{a}:win"] = W[:, j]
     short = {a: a.replace("Blocks_warm_CMAES_JSO", "Blocks").replace("RoundRobin_", "RR_") for a in arms}
     p(f"{len(df)} labelled tasks, {df['inst_key'].nunique()} instances, cells: {sorted(df['cell'].unique())}\n")
+    n_tied = int((W.max(axis=1) < 1).sum())
+    p(
+        f"{n_tied} tasks tie at the best score (several arms at the same final value); their win is split "
+        "equally between the tied arms in every win share below.\n"
+    )
 
     # 1. label distribution
     p("### Label distribution (regret vs the best arm of the task; score: AOCC at q = 1, aocc_time at q = 4)\n")
-    p("| arm | mean score | mean regret | median | p90 | max | wins (regret 0) | regret < 0.01 | EndedEarly |")
+    p("| arm | mean score | mean regret | median | p90 | max | wins (ties split) | regret < 0.01 | EndedEarly |")
     p("|---|---|---|---|---|---|---|---|---|")
     for j, a in enumerate(arms):
         r = R[:, j]
-        wins = (df["best_arm"] == a).mean()
+        wins = W[:, j].mean()
         early = df[f"{a}:error"].astype(str).str.startswith("EndedEarly").mean()
         p(
             f"| {short[a]} | {_fmt(S[:, j].mean())} | {_fmt(r.mean())} | {_fmt(np.median(r))} | "
@@ -175,7 +233,7 @@ def analyze(df: Any, arms: Sequence[str]) -> str:
     p("| cell | " + " | ".join(short[a] for a in arms) + " |")
     p("|---" * (len(arms) + 1) + "|")
     for cell, g in df.groupby("cell"):
-        cells = [f"{g[f'{a}:regret'].mean():.3f} ({(g['best_arm'] == a).mean():.0%})" for a in arms]
+        cells = [f"{g[f'{a}:regret'].mean():.3f} ({g[f'{a}:win'].mean():.0%})" for a in arms]
         p(f"| {cell} | " + " | ".join(cells) + " |")
     p("")
 
@@ -184,10 +242,15 @@ def analyze(df: Any, arms: Sequence[str]) -> str:
     p(
         "SBS = the arm with the best mean score over the tasks in scope (chosen in hindsight on "
         "the same tasks); gap = oracle mean − SBS mean = the SBS's mean regret.  CIs: cluster "
-        "bootstrap over instances (2000 resamples).\n"
+        "bootstrap over instances (2000 resamples); the second CI re-chooses the SBS in every resample.  "
+        "Instance / family oracle *in sample*: the arm with the best mean over the instance's seeds "
+        "(the family's tasks), the task's own score included.  *LOO*: the same pick without the task's "
+        "own score — the other seeds of the instance (a mean over 2 seeds with 3), the other instances "
+        "of the family (same d, q).  Only the LOO numbers are headroom a selector could reach.\n"
     )
     p(
-        "| scope | tasks | SBS | SBS mean | task oracle | gap (task oracle) [CI] | instance oracle gap | family oracle gap |"
+        "| scope | tasks | SBS | SBS mean | task oracle | gap (task oracle) [CI] [CI, SBS re-chosen] "
+        "| instance oracle gap: in sample / LOO | family oracle gap: in sample / LOO |"
     )
     p("|---|---|---|---|---|---|---|---|")
 
@@ -197,15 +260,22 @@ def analyze(df: Any, arms: Sequence[str]) -> str:
         oracle = s.max(axis=1)
         gap = oracle - s[:, sbs]
         lo, hi = _cluster_boot(gap, g["inst_key"].to_numpy())
-        # instance oracle: the arm best on average over the seeds of an instance (a selector cannot see seed luck)
+        lo2, hi2 = _boot_gap_resbs(s, g["inst_key"].to_numpy())
+        rows = np.arange(len(g))
+        # in sample: the arm best on average over an instance's seeds / a family's tasks, own score included
         inst_means = g.groupby(["inst_key", "q"])[[f"{a}:score" for a in arms]].transform("mean").to_numpy()
-        inst_pick = s[np.arange(len(g)), inst_means.argmax(axis=1)]
+        inst_pick = s[rows, inst_means.argmax(axis=1)]
         fam_means = g.groupby(["family", "dim", "q"])[[f"{a}:score" for a in arms]].transform("mean").to_numpy()
-        fam_pick = s[np.arange(len(g)), fam_means.argmax(axis=1)]
+        fam_pick = s[rows, fam_means.argmax(axis=1)]
+        loo_gap = {}
+        for name, pick in loo_picks(g, arms).items():
+            ok = pick >= 0
+            loo_gap[name] = float((s[rows[ok], pick[ok]] - s[ok, sbs]).mean()) if ok.any() else float("nan")
         p(
             f"| {label} | {len(g)} | {short[arms[sbs]]} | {_fmt(s[:, sbs].mean())} | {_fmt(oracle.mean())} | "
-            f"**{_fmt(gap.mean())}** [{_fmt(lo)}, {_fmt(hi)}] | {_fmt((inst_pick - s[:, sbs]).mean())} | "
-            f"{_fmt((fam_pick - s[:, sbs]).mean())} |"
+            f"**{_fmt(gap.mean())}** [{_fmt(lo)}, {_fmt(hi)}] [{_fmt(lo2)}, {_fmt(hi2)}] | "
+            f"{_fmt((inst_pick - s[:, sbs]).mean())} / **{_fmt(loo_gap['instance_loo'])}** | "
+            f"{_fmt((fam_pick - s[:, sbs]).mean())} / **{_fmt(loo_gap['family_loo'])}** |"
         )
 
     headroom(df, "all")
@@ -231,8 +301,8 @@ def analyze(df: Any, arms: Sequence[str]) -> str:
     for fam, g in df.groupby("family"):
         m = g[[f"{a}:score" for a in arms]].mean()
         order = np.argsort(-m.to_numpy())
-        wins = g["best_arm"].value_counts(normalize=True)
-        wtxt = ", ".join(f"{short[a]} {v:.0%}" for a, v in wins.items())
+        wins = sorted(((g[f"{a}:win"].mean(), a) for a in arms), reverse=True)
+        wtxt = ", ".join(f"{short[a]} {v:.0%}" for v, a in wins if v > 0)
         p(
             f"| {fam} | {short[arms[order[0]]]} ({m.iloc[order[0]]:.3f}) | {short[arms[order[1]]]} "
             f"({m.iloc[order[1]]:.3f}) | {m.max() - m.min():.3f} | {wtxt} |"
@@ -279,13 +349,18 @@ def analyze(df: Any, arms: Sequence[str]) -> str:
         "f_y_skew",
     ]
     key = [k for k in key if k in df.columns]
-    p("Mean feature value by winning arm (tasks it wins):\n")
+    p("Mean feature value by winning arm (tasks it wins, weighted by its win share):\n")
     p("| winner | tasks | " + " | ".join(k[2:] for k in key) + " |")
     p("|---" * (len(key) + 2) + "|")
     for a in arms:
-        g = df[df["best_arm"] == a]
-        if len(g):
-            p(f"| {short[a]} | {len(g)} | " + " | ".join(_fmt(g[k].astype(float).mean(), 2) for k in key) + " |")
+        w = df[f"{a}:win"].to_numpy(dtype=float)
+        if w.sum() > 0:
+            vals = []
+            for k in key:
+                x = df[k].to_numpy(dtype=float)
+                ok = np.isfinite(x) & (w > 0)
+                vals.append(_fmt(float((x[ok] * w[ok]).sum() / w[ok].sum()) if ok.any() else float("nan"), 2))
+            p(f"| {short[a]} | {w.sum():.1f} | " + " | ".join(vals) + " |")
     p("")
 
     # 4. diagnostics: warm vs cold

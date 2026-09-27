@@ -2089,6 +2089,8 @@ class StrategyBase:
         self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
         #: Results booked before the first pass (:meth:`preload_results`).
         self._preload: List[Result] = []
+        #: Set once :meth:`initialize` has booked the preload: later calls are refused.
+        self._preload_closed: bool = False
         #: How many points :meth:`execute` may hand back in the current pass,
         #: or ``None`` for no limit.  Set by the main loop before each
         #: ``execute`` call where the evaluation mode knows it — the free
@@ -2200,12 +2202,21 @@ class StrategyBase:
         self._ensure_cluster()
 
         # Load previous results if storage is enabled
+        n_restored = 0
         if hasattr(self.results, "load_from_storage"):
-            self.results.load_from_storage()
+            n_restored = int(self.results.load_from_storage() or 0)
         # Then a preloaded archive (preload_results), on the same path: booked
         # and published before the ``start`` event, charged against max_eval.
+        self._preload_closed = True
         if self._preload:
             preload, self._preload = self._preload, []
+            if n_restored:
+                # The preload was saved to storage when the run first started:
+                # booking it again would count it twice.
+                raise ValueError(
+                    "preload_results on a run that resumed %d results from storage: the preload is "
+                    "already in them (it is saved when first booked); do not preload a resumed run" % n_restored
+                )
             self.results.add_results(preload)
 
         self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
@@ -2236,7 +2247,20 @@ class StrategyBase:
         ``max_eval = B`` and ``k`` preloaded results evaluates ``B - k``
         new points.  Nothing is evaluated here, and a run without a preload
         is unchanged.
+
+        With a storage backend the preload is **saved** like any booked
+        result, deliberately: it is part of the run's archive, and a resumed
+        run must see it (and must not re-evaluate its budget share).  So a
+        resumed run gets it from storage — preloading it again there would
+        book it twice, and :meth:`initialize` refuses that (``ValueError``).
+        The results are booked as given (the same objects); a caller that
+        reuses them across runs passes copies.
+
+        Raises ``RuntimeError`` after :meth:`initialize` (the preload would
+        never be booked) and ``TypeError`` for anything but ``Result``.
         """
+        if self._preload_closed:
+            raise RuntimeError("preload_results must be called before initialize() / start()")
         if any(not isinstance(r, Result) for r in results):
             raise TypeError("preload_results takes panobbgo.lib.Result objects")
         self._preload.extend(results)

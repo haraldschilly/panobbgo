@@ -43,11 +43,14 @@ extra).
 - [ ] **Selector, roadmap §4 A step 2 (§70).**  Step 1 is in:
       `panobbgo/selector_data.py` (menu v0, shared 10·d LHS probe,
       continuation via `preload_results`, labels), `benchmarks/selector_labels.py`,
-      540 labelled tasks (wide, d 2/5, 100·d, q 1/4).  Headroom in sample:
-      task oracle 0.078 over the best single arm (RR_TRQ), instance oracle
-      0.051, family oracle 0.032; context alone gives 0.  Next: xgboost with
-      leave-instance-out / leave-family-out CV; more data (fresh seeds, d = 10
-      with a ≥ 14·d probe, 20·d); a COBYQA warm start that keeps its point.
+      540 labelled tasks (wide, d 2/5, 100·d, q 1/4).  Headroom: task oracle
+      0.078 over the best single arm (RR_TRQ), but leave-one-out the instance
+      pick (other seeds) keeps 0.015 and the family pick (other instances)
+      −0.003; context alone gives 0.  The learnable headroom on this menu
+      and set looks small.  Next: more seeds / instances per family, d = 10
+      with a ≥ 14·d probe, 20·d, arms that differ where RR_TRQ loses; then
+      xgboost with leave-instance-out / leave-family-out CV judged against the
+      LOO gaps; a COBYQA warm start that keeps its point.
 - [ ] Py-BOBYQA `seek_global_minimum=True` as a second, global variant of
       the local BOBYQA reference (`panobbgo/harness_baselines_bo.py`).
 - [ ] Then measure panobbgo vs the incumbents per COCO class, budget and

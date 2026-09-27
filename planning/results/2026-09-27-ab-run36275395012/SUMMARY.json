@@ -1,0 +1,145 @@
+{
+  "created": "2026-09-26T23:21:04.594176+00:00",
+  "git_sha": [
+    "30bb3bdd198b31a0be26492d73f73fc8e87b1f2c"
+  ],
+  "github_run_id": [
+    "36275395012"
+  ],
+  "failed_shards": [],
+  "fp_env_ids": [
+    "80ee2a0090c4"
+  ],
+  "release": null,
+  "suites": {
+    "ioh-cma-ab": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_standard_cma_ab.json",
+        "ref_ioh_standard_cma_ab_s42.json",
+        "ref_ioh_standard_cma_ab_s7.json",
+        "ref_ioh_standard_cma_ab_s1234.json",
+        "ref_ioh_standard_cma_ab_s2025.json",
+        "ref_ioh_standard_cma_ab_s3.json",
+        "ref_ioh_standard_cma_ab_s11.json",
+        "ref_ioh_standard_cma_ab_s99.json",
+        "ref_ioh_standard_cma_ab_s123.json",
+        "ref_ioh_standard_cma_ab_s777.json",
+        "ref_ioh_standard_cma_ab_s2024.json",
+        "ref_ioh_standard_cma_ab_s31337.json",
+        "ref_ioh_standard_cma_ab_s555.json"
+      ],
+      "mean_aocc": 0.6821418267809611,
+      "per_spec_aocc": {
+        "Baseline_Optuna_CmaEs_clip": 0.7099799275850649,
+        "RoundRobin_CMAES_active": 0.7054370177298935,
+        "Baseline_Optuna_CmaEs": 0.70519953090051,
+        "RoundRobin_CMAES_resample_randstart_active": 0.6904255473531359,
+        "RoundRobin_CMAES_reflect": 0.6782602399083232,
+        "RoundRobin_CMAES_resample": 0.6710060866310622,
+        "RoundRobin_CMAES": 0.6673858972408525,
+        "Baseline_pycma_BIPOP": 0.6670818473909659,
+        "RoundRobin_CMAES_randstart": 0.6445003462888425
+      }
+    },
+    "ioh-cma-ab-bbob-b200": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_bbob_cma_ab_b200.json",
+        "ref_ioh_bbob_cma_ab_b200_s42.json",
+        "ref_ioh_bbob_cma_ab_b200_s7.json",
+        "ref_ioh_bbob_cma_ab_b200_s1234.json",
+        "ref_ioh_bbob_cma_ab_b200_s2025.json",
+        "ref_ioh_bbob_cma_ab_b200_s3.json",
+        "ref_ioh_bbob_cma_ab_b200_s11.json",
+        "ref_ioh_bbob_cma_ab_b200_s99.json",
+        "ref_ioh_bbob_cma_ab_b200_s123.json",
+        "ref_ioh_bbob_cma_ab_b200_s777.json",
+        "ref_ioh_bbob_cma_ab_b200_s2024.json",
+        "ref_ioh_bbob_cma_ab_b200_s31337.json",
+        "ref_ioh_bbob_cma_ab_b200_s555.json"
+      ],
+      "mean_aocc": 0.22313114161225153,
+      "per_spec_aocc": {
+        "RoundRobin_CMAES_active": 0.23914155327234532,
+        "Baseline_Optuna_CmaEs_clip": 0.22855064586404708,
+        "RoundRobin_CMAES": 0.22820912888988718,
+        "Baseline_Optuna_CmaEs": 0.22629481210885918,
+        "RoundRobin_CMAES_resample_randstart_active": 0.2238452670197676,
+        "Baseline_pycma_BIPOP": 0.21971093564256358,
+        "RoundRobin_CMAES_reflect": 0.21853892610542403,
+        "RoundRobin_CMAES_resample": 0.21441488327521296,
+        "RoundRobin_CMAES_randstart": 0.2094741223321569
+      }
+    },
+    "ioh-cma-ab-bbob-b500": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_bbob_cma_ab_b500.json",
+        "ref_ioh_bbob_cma_ab_b500_s42.json",
+        "ref_ioh_bbob_cma_ab_b500_s7.json",
+        "ref_ioh_bbob_cma_ab_b500_s1234.json",
+        "ref_ioh_bbob_cma_ab_b500_s2025.json",
+        "ref_ioh_bbob_cma_ab_b500_s3.json",
+        "ref_ioh_bbob_cma_ab_b500_s11.json",
+        "ref_ioh_bbob_cma_ab_b500_s99.json",
+        "ref_ioh_bbob_cma_ab_b500_s123.json",
+        "ref_ioh_bbob_cma_ab_b500_s777.json",
+        "ref_ioh_bbob_cma_ab_b500_s2024.json",
+        "ref_ioh_bbob_cma_ab_b500_s31337.json",
+        "ref_ioh_bbob_cma_ab_b500_s555.json"
+      ],
+      "mean_aocc": 0.37500171304288976,
+      "per_spec_aocc": {
+        "RoundRobin_CMAES_active": 0.402917929254571,
+        "RoundRobin_CMAES_resample_randstart_active": 0.3921645568977455,
+        "Baseline_Optuna_CmaEs_clip": 0.3886694993280296,
+        "Baseline_Optuna_CmaEs": 0.3880863508020788,
+        "Baseline_pycma_BIPOP": 0.3803567452663166,
+        "RoundRobin_CMAES_reflect": 0.3623574661768512,
+        "RoundRobin_CMAES": 0.36234416624403826,
+        "RoundRobin_CMAES_resample": 0.3548214435410053,
+        "RoundRobin_CMAES_randstart": 0.3432972598753716
+      }
+    }
+  }
+}

@@ -5036,10 +5036,19 @@ Means over the 15 families, all four cells:
 > smoke (wide preset, roster seeds 42/7/1234/2025/3), and the before/after
 > numbers are on those cells and on §66's free cells.  One check is out of
 > sample: a fresh wide battery (battery seed 20260927, §69.4).
-> **RoundRobin_TRQ at q = 1 is seed-invariant** (box-centre start, no
-> randomness until a restart finds no archive point): each q = 1 cell is
-> 3 runs per family, not 15, and a CI over its "seeds" means nothing.
+> **RoundRobin_TRQ at q = 1 is nearly seed-invariant** (box-centre start;
+> the only randomness is a random restart point when the archive offers no
+> non-tabu centre, and the space-filling geometry fallback, which leave a
+> small residual spread): each q = 1 cell is essentially 3 runs per family,
+> not 15, and CIs over its "seeds" are not reported.
 > Numbering: §67 stays reserved for the 12-seed write-up.
+>
+> **Erratum pointer for §66.3** (§66 itself is not edited): the same
+> near-invariance holds for RR_TRQ at q = 1 on the free preset, so §66.3's
+> RR_TRQ q = 1 CIs, and the "CI above 0 in 10 of 12 cells" count that
+> includes those cells, carry only the reference's seed variance (and the
+> arm's residual restart randomness) — the caveat §66.1 states for COBYQA
+> applies to them too.
 
 **Question.**  §68 found RR_TRQ far behind COBYQA on `levy_embed` (d = 5,
 q = 1: 0.225 against 0.932) and on `attractive_sector` (0.066), and an
@@ -5051,7 +5060,7 @@ centre, kind, the model's n_fit, weak directions, Hessian eigenvalues,
 gradient norm, ‖H_u‖ of the least-change prior; per step result: the ratio
 ρ, the radius before and after; restarts; whether a step landed in a tabu
 ball) on all 3 instances of each case, then variants screened on the wide
-preset at q = 1 (one seed: seed-invariant) and at q = 4 (5 seeds), then
+preset at q = 1 (one seed: nearly seed-invariant) and at q = 4 (5 seeds), then
 the measurement below.  Tables: `planning/results/2026-09-27-trq-diagnosis/tables.md`.
 
 ### 69.1 The three cases
@@ -5069,15 +5078,19 @@ at 1e3–6e3 (no blow-up), and the radius does not collapse abnormally
 placement) is as bad at d = 5 (0.19–0.23 per instance) as the embedded one
 (0.19).  What differs from COBYQA is the scale the model sees: the bridge
 passes `initial_tr_radius` = 0.1·box width, but with `scale=True` SciPy's
-COBYQA applies it in [−1, 1]^d, so its first design is c ± 0.5·width
-(checked: from 0 in [−5, 5]², its first points are (±5, 0), (0, ±5)).
-COBYQA starts at **0.5** of the box, TRQ at 0.1.  At 0.1 the quadratic fits
+COBYQA reads it in [−1, 1]^d and caps it at 1, so its first design is
+c ± min(0.05·max width, 0.5) of each axis's width (checked: from 0 in
+[−5, 5]², its first points are (±5, 0), (0, ±5); on a box of width 2 the
+offset is 0.1 of the axis, on width 100 it is capped at 0.5).  On the
+±5 family boxes COBYQA starts at **0.5** of the axis, TRQ at 0.1.  At 0.1 the quadratic fits
 Levy's ripples and converges into one; at 0.5 it fits the funnel.  RR_TRQ
 with `radius_init = 0.5`: levy_embed d5/q1 0.919 (COBYQA 0.932), levy_full
 d5 0.24 (the 5-D problem stays hard), levy_embed d2 0.95.  So the low
 effective dimension makes the funnel visible to a *large* model; it is
-not what traps the arm.  (The `cobyqa.py` docstring says the first step
-explores ~10 % of the largest axis; with scaling it is 50 %.)
+not what traps the arm.  (The `cobyqa.py` docstring said the first step
+explores ~10 % of the largest axis; with scaling it is
+min(0.05·max width, 0.5) of each axis — 50 % here.  Corrected in this PR,
+documentation only.)
 
 **attractive_sector (d = 5): a C¹ kink the quadratic cannot fit at any
 radius.**  No restarts; per instance 40–46 % of the steps have ρ < 0 and
@@ -5123,7 +5136,11 @@ centre's value but lies in a tabu ball (the same inf-norm test as the
 centre choice), the centre joins the tabu list and the arm restarts from
 the next best non-tabu point (or a random one) at `radius_init`, prior
 reset — a restart without the convergence.  In-flight steps whose centre
-has become tabu no longer move the radius (q > 1).  No new parameter; TRQ
+has become tabu no longer move the radius (q > 1); a stale catch (q > 1,
+the step's centre is no longer the current one) adds its centre to the
+tabu list but resets the radius and prior only when the current centre
+lies in the new ball (review of #386; the q = 4 rows below are from that
+version).  The test uses the evaluated point.  No new parameter; TRQ
 stays opt-in.  Tests (`tests/test_heuristic_trust_region.py`): a 2-D
 two-basin function (separable Styblinski–Tang on [−5, 6]², whose box
 centre lies in the local basin) where the arm now reaches the global
@@ -5233,7 +5250,9 @@ default: `TrustRegionQuadratic(radius_init=0.5)` needs no code change.
   and neutral at d = 5, confirmed on a fresh battery (+0.014…+0.038), no
   change on the free preset's 20·d and d = 10 cells and on the portfolio
   spec, and a cost on sharp_ridge (−0.08 on the 3 in-sample instances).
-* COBYQA's lead on levy_embed and ackley is its 5× larger start radius.
+* COBYQA's lead on levy_embed and ackley is consistent with its 5× larger
+  start radius on these boxes (RR_TRQ with the same radius closes most of
+  it); the converse check, COBYQA started at 0.1, was not run.
 
 ### 69.7 Not measured
 

@@ -7,8 +7,10 @@ References: cheap track, the 2026-09-27 re-baseline with the active-CMA
 default (§61, release `rebaseline-2026-09-27`,
 `planning/results/2026-09-27/SUMMARY.json`); §64 changes only CMA-ES runs
 with λ > 10 there (≤ 0.002 on the families, other suites unmeasured).
-Expensive track (`measure.yml`): §65 for the core specs (run
-36313485264), §62 for the GP baselines (run 36274781342).
+Expensive track (`measure.yml`): §67 for the core specs at 100·d,
+q 4/16/64 (run 36315576900, 12 fresh seeds, confirmatory); §65 for the
+core specs at q = 1 and 20·d (run 36313485264); §62 for the GP baselines
+elsewhere (run 36274781342).
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -120,16 +122,18 @@ extra).
       chunks.
 - [ ] **q-sweep measurement** (`measure.yml`, `doc/dev/benchmarking.md`
       "Expensive-track measurement").  The re-run on master is §65
-      (Holm 3 / 7 / 11; proposals in §65.6).  In order:
-      (b) decide whether the floor's budget cap stays (§65.6 proposes to
-          keep it) and look at Blocks d2/100·d/q16 (−0.012, 1/5, §63/§65):
-          size a block to at least one generation of its owner, or apply
-          the floor only where the arms cannot fill the workers — untried;
-          decide on the fresh seeds of (c);
-      (c) 12 fresh seeds: run 36315576900 in progress (seeds 1001–1012,
-          100·d, q 4/16/64, core + qLogEI + TuRBO1; pre-declared Holm
-          family = its 9 headline cells);
-      (d) the `failure` preset.
+      (Holm 3 / 7 / 11; proposals in §65.6); (c), 12 fresh seeds, is done:
+      §67 (Holm 4 / 2 / 3 over its 9 cells).  In order:
+      (b) decide whether the floor's budget cap stays (§65.6 and §67.6
+          propose to keep it: d5/q64 is parity on fresh seeds, the d2/q64
+          loss is the block rule and the 3 rounds, not the cap) and whether
+          to close Blocks d2/100·d/q16 without tuning (§67: −0.011, 3/12,
+          n.s., ex-ellipsoid −0.004; the §63.4 block-sizing ideas stay
+          untried);
+      (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
+          family).
+      New from §67: d10/100·d/q4 is a Holm loss to TuRBO1 (−0.008) that
+      CMA-ES alone (the regime-gate row) wins (+0.006): selector evidence.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at

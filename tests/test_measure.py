@@ -99,6 +99,7 @@ def test_units_respect_q_rule_and_coverage():
     # Hours per run: no qLogEI or SMAC at d = 10, 100*d; TuRBO (one proposal per batch) runs there.
     assert ms.covered("qLogEI", 100, 5, 1) and not ms.covered("qLogEI", 100, 10, 1)
     assert not ms.covered("SMAC", 100, 10, 1) and not ms.covered("SMAC", 20, 2, 4)
+    assert not ms.covered("SMAC", 100, 5, 1)
     assert ms.covered("TuRBO1", 100, 10, 1)
     assert not any(u.group == "qLogEI" and u.bm * u.dim > 500 for u in units)
     # The estimate grows with the budget; with q it shrinks for TuRBO and grows for qLogEI.

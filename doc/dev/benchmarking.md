@@ -563,6 +563,10 @@ composite registry's CMA-ES entries, the screens and their variants):
     with an explicit `popsize` > 10 (`RoundRobin_CMAES` −0.0002…+0.0019 on
     the families, Blocks unchanged).
 
+Baselines on constrained problems minimise `f + 100·cv` since #358, so
+their numbers before it on `--families-constrained` and on the
+constrained half of `--families-sealed` are not comparable.
+
 **Current references.**  Cheap track: release `rebaseline-2026-09-27`
 (§61; active CMA, before §63/§64 and still used until the next
 re-baseline; 12 seeds, every

@@ -48,10 +48,13 @@ extra).
 ## 2. Expensive track and recent follow-ups
 
 - [ ] **Model-based arms, fresh seeds (§66).**  In sample, the opt-in
-      `RoundRobin_TRQ` (d = 2) / `Blocks_warm_CMAES_JSO_TRQ` (d ≥ 5) and
-      `COBYQA` alone (q = 1) close the q = 1 and most 20·d losses, but most
-      of the margin is the exactly quadratic ellipsoid family, and at d = 10
-      outside it the third arm costs −0.019.  Next: a fresh-seed runner run
+      `RoundRobin_TRQ` (d ≤ 5) and `COBYQA` alone (q = 1) lead the pool at
+      q ∈ {1, 4}, but much of the margin is the exactly quadratic ellipsoid
+      family; without it the 20·d cells stay behind and at d = 10 the
+      third arm (`Blocks_warm_CMAES_JSO_TRQ`) costs −0.014…−0.020 against
+      Blocks.  The free preset's one exact-quadratic family in five can
+      dominate its means: report the ex-ellipsoid view next to the mean.
+      Next: a fresh-seed runner run
       (new base seeds) of the three at q 1/4/16/64 with an ex-ellipsoid
       view, MA-BBOB at 20·d / 100·d, and the f-scale quadratic R² plus the
       TR ratio-test rate as logged features (roadmap A's probe).  Needs the

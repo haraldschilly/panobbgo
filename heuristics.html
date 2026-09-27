@@ -321,6 +321,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.SHRINK"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.SHRINK</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.can_produce"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.can_produce</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.n_steps"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.n_steps</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.n_tabu_catch"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.n_tabu_catch</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.on_demand"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.on_demand</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.on_failed_evaluations"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.on_failed_evaluations()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.heuristics.TrustRegionQuadratic.on_new_results"><code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic.on_new_results()</span></code></a></li>
@@ -994,8 +995,11 @@ termination-criteria window.</p>
 <li><p><strong>initial_tr_radius</strong> – Initial trust-region radius.  Sensible values
 are in the order of one tenth of the greatest expected change
 to the variables.  When <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) the heuristic uses
-<code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">·</span> <span class="pre">max(box_width)</span></code> so the first step explores a useful
-slice of the feasible region.  Must be positive.</p></li>
+<code class="docutils literal notranslate"><span class="pre">0.1</span> <span class="pre">·</span> <span class="pre">max(box_width)</span></code>.  With <code class="docutils literal notranslate"><span class="pre">scale=True</span></code> SciPy applies
+the value in the scaled space <code class="docutils literal notranslate"><span class="pre">[-1,</span> <span class="pre">1]^d</span></code> (capped at 1), so
+the default first steps move <code class="docutils literal notranslate"><span class="pre">min(0.05</span> <span class="pre">·</span> <span class="pre">max_width,</span> <span class="pre">0.5)</span></code>
+of each axis’s width — half the axis on <code class="docutils literal notranslate"><span class="pre">[-5,</span> <span class="pre">5]^d</span></code>.  Must
+be positive.</p></li>
 <li><p><strong>final_tr_radius</strong> – Final trust-region radius — accuracy required in
 the converged variables.  COBYQA terminates once the radius
 falls below this threshold.  Default <code class="docutils literal notranslate"><span class="pre">1e-6</span></code>.  Must be
@@ -3124,6 +3128,12 @@ non-tabu centre.</p></li>
 <dt class="sig sig-object py" id="panobbgo.heuristics.TrustRegionQuadratic.n_steps">
 <span class="sig-name descname"><span class="pre">n_steps</span></span><a class="headerlink" href="#panobbgo.heuristics.TrustRegionQuadratic.n_steps" title="Link to this definition">#</a></dt>
 <dd><p>Diagnostics.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.heuristics.TrustRegionQuadratic.n_tabu_catch">
+<span class="sig-name descname"><span class="pre">n_tabu_catch</span></span><a class="headerlink" href="#panobbgo.heuristics.TrustRegionQuadratic.n_tabu_catch" title="Link to this definition">#</a></dt>
+<dd><p>Centres made tabu because a step from them improved into a tabu ball (<code class="xref py py-meth docutils literal notranslate"><span class="pre">_into_tabu()</span></code>).</p>
 </dd></dl>
 
 <dl class="py attribute">

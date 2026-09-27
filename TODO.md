@@ -3,11 +3,9 @@
 Open work only; remove an item when it is done.  Results go to
 `planning/DISCOVERY_2026-09-09.md` (§n), the state and plan of record to
 `planning/GOAL.md` §2/§2c, older history to `planning/done/TODO_archive_*`.
-References for every comparison: the FP-exact 2026-09-26 re-baseline
-(§56, release `rebaseline-2026-09-26-run36265786623`, summary in
-`planning/results/2026-09-26-run36265786623/SUMMARY.json`) — **except
-every spec with a CMA-ES arm**, whose trajectories changed with the
-active-CMA default (§60, 2026-09-27); a re-baseline follows.
+References for every comparison: the 2026-09-27 re-baseline with the
+active-CMA default (§61, release `rebaseline-2026-09-27`, summary in
+`planning/results/2026-09-27/SUMMARY.json`).
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -106,14 +104,10 @@ Cheap-track items, in GOAL §2c order:
 - [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2,
       σ-collapse hypothesis on `ellipsoid_ball`).
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
-- [ ] **Re-baseline after the active-CMA default** (§60, decided
-      2026-09-27): every CMA-ES trajectory changed, so the §56 references
-      are stale for every spec with a CMA-ES arm.
-      `gh workflow run rebaseline.yml -f suites=all -f seeds=12`, then switch
-      the references (this header, `doc/dev/benchmarking.md`
-      "Comparability", the `planning/GOAL.md` §2 pointer).  Then recheck the
-      block scheduler's `REGIME_TABLE_V1` (`strategies/blocks.py`): it was
-      measured with positive-only CMA-ES.
+- [ ] **Recheck the block scheduler's `REGIME_TABLE_V1`**
+      (`strategies/blocks.py`): measured with positive-only CMA-ES; with the
+      active default the CMA-ES arm is stronger and the sharing portfolio
+      now trails `CMAES_alone` / `RoundRobin_CMAES` (§61).
 - [ ] **BoundTransform-style genotype mapping** as the principled
       alternative to the active guard (§59): run CMA-ES in an unbounded
       genotype space with a smooth fold into the box for evaluation (pycma's

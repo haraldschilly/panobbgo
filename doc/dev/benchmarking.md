@@ -510,13 +510,14 @@ Result files from before **2026-09-25** are not comparable with newer ones:
 runs now stop at exactly `max_eval`, composite `success` means "tolerance
 met within the budget", measurements run `sync_eval`, and module RNG streams
 are keyed by master seed and module name (`StrategyBase.spawn_rng`), which
-changed every seeded trajectory.  Compare against the FP-exact references:
-release `rebaseline-2026-09-26-run36265786623` (DISCOVERY §56; 12 seeds, every suite incl. the external
-baselines and the shapes/failure families, one `fp_env_id` across all 29
-jobs; numbers in `planning/results/2026-09-26-run36265786623/SUMMARY.json`).  Unpack it with
-`scripts/rebaseline.py fetch` (next section).  The earlier release
-`rebaseline-2026-09-26-run36228301268` (§54) mixes two runner FP classes
-and predates #344–#358; use it only for history.
+changed every seeded trajectory.  Compare against the current references:
+release `rebaseline-2026-09-27` (DISCOVERY §61; the active-CMA default, 12 seeds, every
+suite incl. the external baselines and the shapes/failure families, one
+`fp_env_id` across all 29 jobs; numbers in `planning/results/2026-09-27/SUMMARY.json`).  Unpack it
+with `scripts/rebaseline.py fetch` (next section).  Older releases are
+history: `rebaseline-2026-09-26-run36265786623` (§56, positive-only CMA-ES;
+still bit-identical for every spec without a CMA-ES arm) and
+`rebaseline-2026-09-26-run36228301268` (§54, two runner FP classes).
 
 **Active CMA is the default (2026-09-27, DISCOVERY §60).**  `CMAES()` now
 runs the guarded active update (`active=True, active_skip_repaired=True`);
@@ -528,8 +529,8 @@ the positive-only update stays available as `active=False` (harness spec
 screens (`benchmarks/*_screen.py`, `oracle.py`), the family screens and
 the resample / reflect / randstart variants (they add their option to the
 new default).  References and result files from before this commit are not
-comparable for any strategy with a CMA-ES arm; the §56 release above stays
-valid for the others (the non-CMA-ES specs and the external baselines).  A re-baseline follows (`TODO.md`).
+comparable for any strategy with a CMA-ES arm; the current references
+(`rebaseline-2026-09-27`, §61) are measured with it.
 
 ## Re-baselining on GitHub runners
 

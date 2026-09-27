@@ -70,10 +70,21 @@ extra).
       estimated runner-hours), fresh seeds, then use it as the selector's
       development set (roadmap §4 A).  Open questions from §68.5:
       `schwefel_sep` scores 0 for every arm at d ≥ 5 (rescale, or keep as
-      the "nothing works" class); `RoundRobin_TRQ` collapses on `levy_embed`
-      at d = 5 (neutral directions); the sealed set does not contain the
+      the "nothing works" class); the sealed set does not contain the
       new classes yet; ruggedness (Weierstrass/Katsuura), noise and
       discrete variables are still missing.
+- [ ] **TRQ on the wide preset (§69).**  Diagnosed: `levy_embed` is the
+      start radius (COBYQA effectively starts at 0.5 of the box, TRQ at
+      0.1; not the neutral directions), `attractive_sector` a C¹ kink the
+      quadratic cannot fit (dropping the curvature prior helps it and costs
+      the smooth families; left as is), `styblinski_tang_sep` d2 a restart
+      loop into the arm's own tabu ball — fixed (a step that improves into
+      a tabu ball makes its centre tabu).  Open: `radius_init = 0.5` as a
+      candidate for the fresh-seed / fresh-battery run (in sample +0.05 on
+      wide, mixed on free); the catch costs `sharp_ridge` (−0.08 on the 3
+      in-sample instances) and `step_ellipsoid` at d2/q1; the `cobyqa.py`
+      comment says its first step explores ~10 % of the axis, with
+      `scale=True` it is 50 %.
 - [ ] **FP pin for the torch path (BO baselines).**  `PIN_ENV` caps torch /
       MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in

@@ -5029,3 +5029,214 @@ Means over the 15 families, all four cells:
    selector's development set (roadmap §4 A), with the features of 68.2
    (f-scale quadratic R², interaction, neutrality, FDC) as candidates for
    `features.py`.
+
+## 69. Why RoundRobin_TRQ collapses on three wide families: a start radius (levy_embed), a kink the model cannot fit (attractive_sector), and a restart that steps back into its own tabu ball (styblinski_tang_sep) — the last one fixed (2026-09-27)
+
+> **In sample.**  The cases, the diagnosis and the fix come from the §68
+> smoke (wide preset, roster seeds 42/7/1234/2025/3), and the before/after
+> numbers are on those cells and on §66's free cells.  One check is out of
+> sample: a fresh wide battery (battery seed 20260927, §69.4).
+> **RoundRobin_TRQ at q = 1 is seed-invariant** (box-centre start, no
+> randomness until a restart finds no archive point): each q = 1 cell is
+> 3 runs per family, not 15, and a CI over its "seeds" means nothing.
+> Numbering: §67 stays reserved for the 12-seed write-up.
+
+**Question.**  §68 found RR_TRQ far behind COBYQA on `levy_embed` (d = 5,
+q = 1: 0.225 against 0.932) and on `attractive_sector` (0.066), and an
+unexplained gap on `styblinski_tang_sep` at d = 2 (0.084 at q = 1, 0.593
+at q = 4).  What causes each, and what is a principled fix?
+
+**Method.**  An instrumented copy of the arm (per proposal: radius,
+centre, kind, the model's n_fit, weak directions, Hessian eigenvalues,
+gradient norm, ‖H_u‖ of the least-change prior; per step result: the ratio
+ρ, the radius before and after; restarts; whether a step landed in a tabu
+ball) on all 3 instances of each case, then variants screened on the wide
+preset at q = 1 (one seed: seed-invariant) and at q = 4 (5 seeds), then
+the measurement below.  Tables: `planning/results/2026-09-27-trq-diagnosis/tables.md`.
+
+### 69.1 The three cases
+
+**levy_embed (d = 5, k = 2 effective directions): the start radius, not
+the neutral directions.**  Per instance (old arm, q = 1): 284–296 steps,
+53–65 % with ρ < 0, 3–4 restarts; inst0 ends in a Levy ripple minimum at
+−7.009 (f* −8.170), inst1 at −76.94 (f* −80.48), inst2 reaches f* late
+(AOCC 0.338).  The neutral-direction hypothesis does not hold: the model's
+Hessian has the expected ~0 eigenvalues in 3 directions, the inf-norm
+trust region caps every step at the radius (no huge steps), ‖H_u‖ stays
+at 1e3–6e3 (no blow-up), and the radius does not collapse abnormally
+(it reaches 1e-7 only by converging).  A direct test: RR_TRQ on Levy
+*without* an embedding (`levy_full`, all 5 directions active, same
+placement) is as bad at d = 5 (0.19–0.23 per instance) as the embedded one
+(0.19).  What differs from COBYQA is the scale the model sees: the bridge
+passes `initial_tr_radius` = 0.1·box width, but with `scale=True` SciPy's
+COBYQA applies it in [−1, 1]^d, so its first design is c ± 0.5·width
+(checked: from 0 in [−5, 5]², its first points are (±5, 0), (0, ±5)).
+COBYQA starts at **0.5** of the box, TRQ at 0.1.  At 0.1 the quadratic fits
+Levy's ripples and converges into one; at 0.5 it fits the funnel.  RR_TRQ
+with `radius_init = 0.5`: levy_embed d5/q1 0.919 (COBYQA 0.932), levy_full
+d5 0.24 (the 5-D problem stays hard), levy_embed d2 0.95.  So the low
+effective dimension makes the funnel visible to a *large* model; it is
+not what traps the arm.  (The `cobyqa.py` docstring says the first step
+explores ~10 % of the largest axis; with scaling it is 50 %.)
+
+**attractive_sector (d = 5): a C¹ kink the quadratic cannot fit at any
+radius.**  No restarts; per instance 40–46 % of the steps have ρ < 0 and
+another 11–15 % ρ < 0.1; the radius falls to 2e-5…1e-4 and the arm
+crawls along a sector boundary (inst0: f from 150 to 55 over 480
+evaluations, f* 42.3).  BBOB f6 scales z_i by 100 on one side of each
+hyperplane z_i = 0: the curvature jumps by 1e4 across it, so a quadratic
+through points on both sides is biased by a fixed fraction of the
+quadratic term whatever the radius, and the least-change prior carries the
+curvature of one side into the other (‖H_u‖ 1e6–2e7 in u units, which is
+the real curvature, not a runaway).  Screen (q = 1, d = 5, 8 families):
+dropping the prior entirely lifts attractive_sector to 0.173 but costs
+ellipsoid 0.910→0.802, rosenbrock 0.367→0.237, bent_cigar 0.208→0.145;
+resetting the prior after a step with ρ < 0: 0.137 with similar losses;
+a NEWUOA-style least change (Frobenius norm of the Hessian change only,
+gradient unpenalised): 0.038 and worse on every smooth family; the
+ρ/Δ split below: 0.099.  No change here is free, so none was made:
+attractive_sector stays a known weak family of the arm (COBYQA 0.215,
+Blocks 0.163).
+
+**styblinski_tang_sep (d = 2): a restart that steps back into its own
+tabu ball.**  At q = 1 all three instances descend from the box centre
+into the wrong basin in one coordinate (f − f* = 14.14 on each, one
+coordinate's gap) within ~20 evaluations and converge by ~n = 42.  After
+the restart the next centre is the best non-tabu point — just outside the
+tabu ball, in the same basin.  Its model steps go straight back into the
+ball: they improve on the centre (ρ 0.7–1.0, so the ratio test *grows*
+the radius), but no point inside a tabu ball can become a centre, so the
+centre never moves.  141/143/138 of ~180 steps per instance are such
+steps: the arm spends 150+ of its 200 evaluations in place.  At q = 4 the
+first batch holds 2d + 1 points before the first model step (d + 1 at
+q = 1), the first descent differs and found the global basin on inst0 and
+inst1 (AOCC 0.85) — the loop happens there too (60–124 steps per run),
+but after the global minimum was found; inst2 stays at 0.084 at q = 4
+too.  So the q1/q4 gap is basin luck of one deterministic path, made
+permanent by the loop.  The loop also occurs on levy_embed (2–18 steps per
+instance) and on sharp_ridge (137 on d5/inst0).
+
+### 69.2 The fix: a step that improves into a tabu ball makes its centre tabu
+
+`TrustRegionQuadratic._into_tabu`: when a step's result is better than its
+centre's value but lies in a tabu ball (the same inf-norm test as the
+centre choice), the centre joins the tabu list and the arm restarts from
+the next best non-tabu point (or a random one) at `radius_init`, prior
+reset — a restart without the convergence.  In-flight steps whose centre
+has become tabu no longer move the radius (q > 1).  No new parameter; TRQ
+stays opt-in.  Tests (`tests/test_heuristic_trust_region.py`): a 2-D
+two-basin function (separable Styblinski–Tang on [−5, 6]², whose box
+centre lies in the local basin) where the arm now reaches the global
+minimum within 300 evaluations and, with the catch disabled, stays at
+the local minimum for the whole budget with one restart (the old
+behaviour); the catch by hand; an into-tabu step that does not improve is
+an ordinary failure; an in-flight step of an abandoned centre moves
+nothing.
+
+Variants screened and **not** adopted (q = 1 on the wide preset, seed 42;
+q = 4 5 seeds where given):
+
+| variant | wide d2 q1 | wide d5 q1 | wide d2 q4 | wide d5 q4 | note |
+|---|---|---|---|---|---|
+| old arm | 0.442 | 0.274 | 0.396 | 0.241 | |
+| **tabu catch (adopted)** | **0.474** | **0.276** | **0.409** | **0.245** | |
+| BOBYQA ρ/Δ split alone | 0.403 | 0.281 | | | ρ is a floor for Δ; ×0.1 when a step fails at Δ = ρ on a full model |
+| ρ/Δ split + tabu catch | 0.474 | 0.283 | 0.408 | 0.247 | adds nothing measurable to the catch |
+| a failed step instead of a catch | 0.418 | 0.265 | 0.393 (2 seeds) | | the arm then converges on the ball's rim |
+| catch, but lift a ball when a step beats its centre | 0.475 | 0.277 | | | does not recover sharp_ridge |
+| radius_init 0.5, old arm (diagnostic) | 0.514 | 0.333 | | | a constant, see 69.5 |
+
+The ρ/Δ split (BOBYQA's resolution ρ as a lower bound of the step radius
+Δ, ρ reduced ×0.1 only when a step fails at Δ = ρ with 2d + 1 fit points)
+converges faster and restarts sooner, which alone *hurts* at d = 2
+(step_ellipsoid 0.698→0.366, levy_embed 0.830→0.703): each earlier restart
+fell into the loop.  With the catch it is neutral.  The arm already has
+BOBYQA's model-improvement step (a failed step on a thin model asks for a
+geometry point before shrinking); requiring 2d + 1 fit points before the
+first model step (BOBYQA's initial design) was worse on the d = 5 subset
+(0.276 vs 0.331).  A curvature floor in the neutral directions was not
+tried: nothing in 69.1 points at them.
+
+### 69.3 Before / after
+
+RoundRobin_TRQ, wide preset, 100·d (per family: tables file):
+
+| cell | before | after | Δ | ex-ellipsoid Δ | families that moved > 0.01 |
+|---|---|---|---|---|---|
+| d2 q1 | 0.443 | 0.475 | +0.032 (3 runs/family) | +0.035 | styblinski_tang_sep 0.084→0.546, rastrigin 0.091→0.253, levy_embed 0.830→0.889, ackley 0.524→0.571; **sharp_ridge 0.293→0.213, step_ellipsoid 0.698→0.557**, gallagher21 0.304→0.277 |
+| d2 q4 | 0.396 | 0.410 | +0.015 [+0.004, +0.025] 5/5 | +0.016 | styblinski_tang_sep 0.593→0.711, levy_embed 0.704→0.749, step_ellipsoid 0.285→0.327, gallagher21 0.275→0.301; rastrigin 0.145→0.129 |
+| d5 q1 | 0.274 | 0.276 | +0.002 | +0.002 | gallagher21 0.136→0.239, ackley 0.153→0.192; **sharp_ridge 0.227→0.150, levy_embed 0.225→0.173** |
+| d5 q4 | 0.241 | 0.243 | +0.003 [+0.001, +0.004] 5/5 | +0.003 | styblinski_tang_sep 0.523→0.535, gallagher21 0.122→0.138 |
+
+Blocks_warm_CMAES_JSO_TRQ, wide: within ±0.001 in every cell (the third
+arm rarely converges and restarts inside a portfolio).
+
+Free preset (§66's cells, d 2/5/10, 20·d and 100·d, q 1/4): **every
+20·d cell and every d = 10 cell is unchanged** for both specs (Δ 0.000;
+the arm does not restart there), Bl3_TRQ is unchanged everywhere.
+RR_TRQ: d2/100·d/q1 +0.016 (rastrigin 0.091→0.253, sharp_ridge
+0.285→0.206), d2/100·d/q4 −0.003 [−0.012, +0.006], **d5/100·d/q1 −0.008**
+(sharp_ridge 0.227→0.150, ackley 0.156→0.193), d5/100·d/q4 −0.001
+[−0.004, +0.002].  (The free and wide sharp_ridge instances are the same
+runs.)
+
+**sharp_ridge is the price.**  On the ridge the old arm converges
+falsely (radius 1e-7 on the kink, 20.30 against f* 17.87 on d5/inst0),
+and its loop steps into that ball *did* make progress: one of them
+eventually landed outside the ball below the centre, the centre moved,
+and the second convergence was f* (AOCC 0.309).  The catch abandons that
+region after the first such step (0.145).  Lifting a ball when a step
+beats its converged value did not recover it (0.165), and treating the
+step as a failure instead of a catch is worse everywhere (table above).
+On the fresh battery (69.4) sharp_ridge moves −0.011 (d2) and −0.002
+(d5): in sample the loss is concentrated on these 3 instances.
+
+### 69.4 Out of sample: a fresh wide battery
+
+Battery seed 20260927 (new instances of all 15 families), RR_TRQ, 100·d;
+q = 1 one seed, q = 4 seeds 42/7/1234:
+
+| cell | before | after | Δ |
+|---|---|---|---|
+| d2 q1 | 0.454 | 0.492 | +0.038 (styblinski_tang_sep 0.082→0.613, gallagher21 0.128→0.242; step_ellipsoid 0.337→0.211) |
+| d2 q4 | 0.412 | 0.426 | +0.014 [+0.008, +0.020] 3/3 |
+| d5 q1 | 0.255 | 0.278 | +0.023 (styblinski_tang_sep 0.339→0.638) |
+| d5 q4 | 0.226 | 0.242 | +0.016 [−0.000, +0.031] 3/3 |
+
+The styblinski loop reproduces on fresh instances (0.082 at d2/q1 again)
+and the catch removes it.  step_ellipsoid d2/q1 loses on both batteries
+(0.698→0.557, 0.337→0.211) and wins at q = 4 (0.285→0.327, 0.210→0.223):
+the plateaus make "improving into a tabu ball" common, an open question.
+
+### 69.5 The start radius (diagnostic, not adopted)
+
+RR_TRQ with `radius_init = 0.5` (the fix included) against the fix alone,
+in sample: wide d2 q1 +0.026, d2 q4 +0.059 [+0.014, +0.103] 5/5, d5 q1
++0.053, d5 q4 +0.049 [+0.022, +0.075] 5/5 — levy_embed 0.17→0.92 at
+d = 5, ackley 0.19→0.46 (d5 q1); losses on step_ellipsoid d2 q1
+(0.557→0.192), bent_cigar d5 q1 (0.208→0.091), styblinski_tang_sep d5
+(0.537→0.332).  On free it is mixed: +0.055/+0.048/+0.064 at 100·d q1
+(d 2/5/10), but −0.037 [−0.085, +0.010] at d5/20·d/q4 and −0.016 at
+d10/100·d/q4 (ellipsoid).  It is one constant chosen after seeing these
+cells, so it is a candidate for the fresh-seed / fresh-battery run, not a
+default: `TrustRegionQuadratic(radius_init=0.5)` needs no code change.
+
+### 69.6 Reading
+
+* The three collapses have three different causes; only one is a defect
+  of the arm's logic (the tabu loop), and that one is fixed.
+* The neutral-direction hypothesis is rejected for levy_embed; the
+  asymmetry hypothesis holds for attractive_sector (a biased model at every
+  radius), but no minimal model change fixes it without losing the smooth
+  families; the q1/q4 styblinski gap is basin luck plus the restart loop.
+* The fix is a small positive on the wide preset at d = 2 (+0.015…+0.032)
+  and neutral at d = 5, confirmed on a fresh battery (+0.014…+0.038), no
+  change on the free preset's 20·d and d = 10 cells and on the portfolio
+  spec, and a cost on sharp_ridge (−0.08 on the 3 in-sample instances).
+* COBYQA's lead on levy_embed and ackley is its 5× larger start radius.
+
+### 69.7 Not measured
+
+d = 10 on the wide preset; 20·d on the wide preset; q ≥ 16; the r05
+variant for Bl3_TRQ; the r05 variant out of sample; COBYQA with a 0.1
+start radius (the converse check); MA-BBOB.

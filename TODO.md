@@ -51,7 +51,7 @@ extra).
       `RoundRobin_TRQ` (d ≤ 5) and `COBYQA` alone (q = 1) lead the pool at
       q ∈ {1, 4}, but much of the margin is the exactly quadratic ellipsoid
       family; without it the 20·d cells stay behind and at d = 10 the
-      third arm (`Blocks_warm_CMAES_JSO_TRQ`) costs −0.014…−0.020 against
+      third arm (`Blocks_warm_CMAES_JSO_TRQ`) costs −0.013…−0.019 against
       Blocks.  The free preset's one exact-quadratic family in five can
       dominate its means: report the ex-ellipsoid view next to the mean.
       Next: a fresh-seed runner run

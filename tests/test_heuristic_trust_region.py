@@ -275,6 +275,65 @@ def test_no_descent_shrinks_once_per_model_state():
     assert h.n_shrink == 1
 
 
+def _arm(**kwargs):
+    s = PanobbgoTestCase("__init__")
+    s.setUp()
+    s.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+    return TrustRegionQuadratic(s.strategy, **kwargs)
+
+
+def test_rank_test_collinear_points_give_a_geometry_point_off_the_line():
+    """Review of #383, S-B: many points on one line are not a model in 2-D.
+
+    With the rank test disabled (``weak = []``) the min-norm fit has no
+    gradient across the line, and the next point lies on it again.
+    """
+    h = _arm()
+    box = np.array(h.problem.box[:, :], dtype=float)
+    x2_line = box[1].mean()
+    b = x2_line + 0.3 * (box[1, 1] - box[1, 0])  # the optimum is off the line
+    xs = [np.array([x1, x2_line]) for x1 in np.linspace(box[0, 0] + 0.1, box[0, 1] - 0.1, 9)]
+    h.on_new_results([Result(Point(x, "other"), float(x[0] ** 2 + (x[1] - b) ** 2)) for x in xs])
+    c, f_c = h._center()
+    model, weak = h._fit(c, f_c)
+    assert model is None and len(weak) == 1
+    np.testing.assert_allclose(np.abs(weak[0]), [0.0, 1.0], atol=1e-9)
+    (p,) = h.produce(1)
+    assert abs(p.x[1] - x2_line) > 1e-6
+    assert h.n_geometry == 1 and h.n_steps == 0
+
+
+def test_a_shrink_below_radius_min_inside_produce_restarts_at_once():
+    """S-B: ``_maybe_restart`` runs after ``_propose``, not only on the next result."""
+    h = _arm(radius_init=0.1, radius_min=0.06)
+    pts = h.produce(5)  # the box centre and the coordinate design
+    centre = pts[0].x
+    h._H_u = np.eye(2)
+    h.on_new_results([Result(p, float(np.sum((p.x - centre) ** 2))) for p in pts])
+    h.produce(1)  # no descent: 0.1 -> 0.05 < radius_min, so a restart right here
+    assert h.n_shrink == 1 and h.n_restarts == 1
+    assert h.radius == h.radius_init
+    assert not np.any(h._H_u)  # S-A: the curvature prior does not survive a restart
+
+
+def test_the_curvature_prior_is_dropped_after_a_far_jump():
+    h = _arm()
+    h.produce(1)  # centre at the box centre, u = (0.5, 0.5)
+    h._H_u = 5.0 * np.eye(2)
+    h._last_center = np.array([0.0, 0.0])  # far more than fit_span radii away
+    h.produce(1)
+    assert not np.any(h._H_u)
+
+
+def test_stop_clears_the_pending_bookkeeping():
+    h = _arm()
+    h.produce(3)
+    assert len(h._pending) == 3
+    h.__stop__()
+    assert not h._pending
+    assert h.produce(1) == []
+
+
 def test_points_handed_back_undispatched_are_produced_again():
     s = PanobbgoTestCase("__init__")
     s.setUp()
@@ -295,19 +354,30 @@ def test_registered_in_heuristics_package():
 
 
 def test_end_to_end_round_robin_rosenbrock():
-    """A real strategy run: sync evaluation, the arm alone, 2-D Rosenbrock."""
+    """A real strategy run: the arm alone on 2-D Rosenbrock, sequential on the virtual clock.
+
+    One virtual worker makes the run a pure function of the seed; the
+    threaded pool splits result batches by timing, and its best value
+    varied between 1e-4 and 5e-3 over repeated runs.
+    """
     from panobbgo.lib.classic import Rosenbrock
     from panobbgo.strategies import StrategyRoundRobin
 
-    s = StrategyRoundRobin(Rosenbrock(dims=2), testing_mode=True)
-    s.config.max_eval = 150
-    s.config.evaluation_method = "threaded"
-    s.config.sync_evaluation = True
-    s.config.ui_show = False
-    s.add(TrustRegionQuadratic)
-    s.start()
-    assert len(s.results) == 150
-    assert s.best is not None and s.best.fx < 1e-4
+    def run():
+        s = StrategyRoundRobin(Rosenbrock(dims=2), testing_mode=True)
+        s.config.max_eval = 150
+        s.config.evaluation_method = "virtual"
+        s.config.virtual_workers = 1
+        s.config.ui_show = False
+        s.add(TrustRegionQuadratic)
+        s.start()
+        assert len(s.results) == 150
+        assert s.best is not None
+        return float(s.best.fx)
+
+    best = run()
+    assert best < 1e-4
+    assert run() == best
 
 
 def test_opt_in_specs_are_not_in_the_registry_of_record():

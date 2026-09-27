@@ -67,7 +67,7 @@ extra).
       `TrustRegionQuadratic(failure_aware=True)`, `IOHRunRecord.n_failed`,
       `benchmarks/failure_screen.py`.  In sample: TRQ wastes 47 % of its
       budget to failures (stuck start in a zone, re-proposed failed geometry)
-      and gains +0.038 with model + handling (+0.029 from its own handling);
+      and gains +0.037 with model + handling (+0.028 from its own handling);
       population arms waste 3–7 % and gain nothing measurable; the filter
       *alone* costs TRQ −0.28 on the boundary-optimum family (d2 q1).  Next:
       fresh seeds, d = 10, q ≥ 16; then decide TRQ `failure_aware` as its

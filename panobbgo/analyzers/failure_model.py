@@ -64,12 +64,19 @@ volume of the unit ball).  The choices, each for one of the requirements:
   points within :math:`10^{-3}` of an optimum on the boundary of a
   failure region) the boundary is resolved at the scale of the search, not
   at the scale of the box.
-* **Deterministic failures.**  A point within ``repeat_tol`` (inf-norm, in
+* **Deterministic failures.**  A point within ``repeat_tol`` (Euclidean, in
   normalised units) of a known failure has :math:`p = 1`: evaluating it
   again would fail again.
-* **Cheap.**  A query costs the distances to the failures
-  (:math:`O(n_{\mathrm{fail}} d)`); only a query within reach of a failure
-  computes the distances to the successes as well.  With no failure at all
+* **Cheap.**  A query of :math:`m` points costs the distances to the
+  failures, :math:`O(m\, n_{\mathrm{fail}} d)` (the repeat rule reuses
+  them); only the queries within reach of a failure also compute the
+  distances to the successes, :math:`O(m' n_{\mathrm{ok}} d)`.  Points are
+  stored in growing buffers (amortised :math:`O(d)` per result).  The
+  guard below costs ``N_PROBES`` queries, amortised
+  (:meth:`FailureModel.poisoned_share`).  No spatial index: at the budgets
+  measured a one-point query takes 0.03 ms (d = 2, n = 200) to 0.06 ms
+  (d = 10, n = 1000) and 0.3 ms at n = 10 000, one guard evaluation 1 ms to
+  110 ms (laptop, 2026-09-27); a KD-tree would pay off beyond that.  With no failure at all
   :meth:`p_fail` returns zeros without touching anything else, so a run
   without failures is bit-identical with the model on.
 * **Never the whole box.**  :meth:`in_poison` is ``p >= threshold``
@@ -100,7 +107,10 @@ resampled: the heuristic's sampling distribution is not changed, and a
 CMA-ES generation sees the rejected offspring exactly as it would see a real
 failure, only for free.  Liveness: after ``max_rejects`` consecutive
 rejections of one heuristic's candidates, its next candidate is evaluated
-whatever the model says (which also lets the model correct itself).
+whatever the model says (which also lets the model correct itself); a
+heuristic without an ``on_failed_evaluations`` hook (it refills only on new
+results, like ``Random``) gets ``on_new_results([])`` for its rejected
+candidates, so rejections never drain its queue.
 
 The model only learns from *evaluated* points; a rejected candidate is not
 a failure the model has seen.
@@ -120,6 +130,9 @@ from panobbgo.core import Analyzer
 
 #: Probe points of the "never the whole box" guard.
 N_PROBES = 256
+
+#: :meth:`FailureModel.poisoned_share` is recomputed on every new failure up to this many, then every +10 %.
+SHARE_EXACT_UP_TO = 50
 
 #: The bandwidth cap is ``H_FACTOR`` times the expected ``k``-th neighbour distance of ``n`` uniform points.
 H_FACTOR = 2.0
@@ -141,7 +154,7 @@ class FailureModel(Analyzer):
         threshold: :meth:`in_poison` is ``p_fail >= threshold``.
         prior: The success pseudo-count :math:`\\alpha`.
         k: Neighbour rank of the adaptive bandwidth; ``None``: ``max(3, d + 1)``.
-        repeat_tol: Inf-norm distance (normalised units) within which a
+        repeat_tol: Euclidean distance (normalised units) within which a
             point repeats a known failure.
         max_share: Largest share of the box :meth:`in_poison` may mark before
             it is disarmed.
@@ -185,13 +198,14 @@ class FailureModel(Analyzer):
         self._lo = box[:, 0]
         self._width = np.where(box[:, 1] > box[:, 0], box[:, 1] - box[:, 0], 1.0)
         self._lock = threading.RLock()
-        self._U_fail = np.empty((0, dim))
-        self._U_ok = np.empty((0, dim))
+        self._fail = _Rows(dim)
+        self._ok = _Rows(dim)
         #: Failure kinds seen: ``"crash"``, ``"timeout"``, ``"nan"`` -> count.
         self.kinds: Dict[str, int] = {}
         # A fixed probe set of its own stream: querying it never touches another module's randomness.
         self._probes = np.random.default_rng(0x9015011).random((N_PROBES, dim))
-        self._share: Optional[float] = None  # poisoned probe share, recomputed when a failure arrives
+        self._share: Optional[float] = None  # poisoned probe share (see :meth:`poisoned_share`)
+        self._share_at = 0  # n_fail when it was computed
         #: Consecutive rejections per heuristic name (see :meth:`reject`).
         self._streak: Dict[str, int] = {}
         #: Diagnostics.
@@ -202,11 +216,19 @@ class FailureModel(Analyzer):
 
     @property
     def n_fail(self) -> int:
-        return int(self._U_fail.shape[0])
+        return len(self._fail)
 
     @property
     def n_ok(self) -> int:
-        return int(self._U_ok.shape[0])
+        return len(self._ok)
+
+    @property
+    def _U_fail(self) -> np.ndarray:
+        return self._fail.view()
+
+    @property
+    def _U_ok(self) -> np.ndarray:
+        return self._ok.view()
 
     def _to_u(self, x: Any) -> np.ndarray:
         return (np.atleast_2d(np.asarray(x, dtype=float)) - self._lo) / self._width
@@ -214,14 +236,13 @@ class FailureModel(Analyzer):
     def add_failure(self, x: Any, kind: str = "crash") -> None:
         """Record a failed evaluation at ``x`` (also the entry point for tests and other drivers)."""
         with self._lock:
-            self._U_fail = np.vstack([self._U_fail, self._to_u(x)])
+            self._fail.extend(self._to_u(x))
             self.kinds[kind] = self.kinds.get(kind, 0) + 1
-            self._share = None
 
     def add_success(self, x: Any) -> None:
         """Record a successful evaluation at ``x``."""
         with self._lock:
-            self._U_ok = np.vstack([self._U_ok, self._to_u(x)])
+            self._ok.extend(self._to_u(x))
 
     def on_new_results(self, results: List[Any]) -> None:
         """Label every result: finite value -> success; timed out / non-finite -> failure."""
@@ -238,12 +259,11 @@ class FailureModel(Analyzer):
                 ok.append(np.asarray(x, dtype=float))
         with self._lock:
             if ok:
-                self._U_ok = np.vstack([self._U_ok, self._to_u(np.asarray(ok))])
+                self._ok.extend(self._to_u(np.asarray(ok)))
             if fail:
-                self._U_fail = np.vstack([self._U_fail, self._to_u(np.asarray(fail))])
+                self._fail.extend(self._to_u(np.asarray(fail)))
                 for kind in kinds:
                     self.kinds[kind] = self.kinds.get(kind, 0) + 1
-                self._share = None
 
     def on_failed_evaluations(self, points: List[Any]) -> None:
         """A crashed evaluation (no result) is a failure at its point."""
@@ -251,9 +271,8 @@ class FailureModel(Analyzer):
         if not xs:
             return
         with self._lock:
-            self._U_fail = np.vstack([self._U_fail, self._to_u(np.asarray(xs))])
+            self._fail.extend(self._to_u(np.asarray(xs)))
             self.kinds["crash"] = self.kinds.get("crash", 0) + len(xs)
-            self._share = None
 
     # -- queries -----------------------------------------------------------
 
@@ -284,9 +303,8 @@ class FailureModel(Analyzer):
             wF = np.exp(-0.5 * (dFn / h) ** 2).sum(axis=1)
             wS = np.exp(-0.5 * (D[:, dFn.shape[1] :] / h) ** 2).sum(axis=1)
             out[idx] = wF / (wF + wS + self.prior)
-        # A repeat of a known failure fails again.
-        rep = np.max(np.abs(U[:, None, :] - F[None, :, :]), axis=2).min(axis=1) <= self.repeat_tol
-        out[rep] = 1.0
+        # A repeat of a known failure fails again (Euclidean, from the distances above).
+        out[dF.min(axis=1) <= self.repeat_tol] = 1.0
         return out
 
     def p_fail(self, x: Any) -> Any:
@@ -297,10 +315,23 @@ class FailureModel(Analyzer):
         return float(p[0]) if X.ndim == 1 else p
 
     def poisoned_share(self) -> float:
-        """Share of the fixed probe points the model marks (``p >= threshold``), before the guard."""
+        """Share of the fixed probe points the model marks (``p >= threshold``), before the guard.
+
+        Computed lazily, on the first query after new failures, and amortised:
+        exact while the model knows at most :data:`SHARE_EXACT_UP_TO`
+        failures, then again only once their number has grown by 10 %
+        (successes only lower ``p``, so a stale share errs towards
+        "armed").  One evaluation costs ``N_PROBES`` queries.
+        """
         with self._lock:
-            if self._share is None:
-                self._share = float(np.mean(self._p_u(self._probes) >= self.threshold)) if self.n_fail else 0.0
+            n = self.n_fail
+            stale = self._share is None or (
+                n != self._share_at and (n <= SHARE_EXACT_UP_TO or n >= 1.1 * self._share_at)
+            )
+            if stale:
+                self._share = float(np.mean(self._p_u(self._probes) >= self.threshold)) if n else 0.0
+                self._share_at = n
+            assert self._share is not None
             return self._share
 
     @property
@@ -343,6 +374,30 @@ class FailureModel(Analyzer):
                 self._streak.pop(who, None)
                 out.append(False)
         return out
+
+
+class _Rows:
+    """A growing ``n x d`` float buffer (amortised O(1) appends, no copy per result)."""
+
+    def __init__(self, dim: int) -> None:
+        self._a = np.empty((16, dim))
+        self._n = 0
+
+    def __len__(self) -> int:
+        return self._n
+
+    def extend(self, rows: np.ndarray) -> None:
+        rows = np.atleast_2d(rows)
+        need = self._n + rows.shape[0]
+        if need > self._a.shape[0]:
+            grown = np.empty((max(need, 2 * self._a.shape[0]), self._a.shape[1]))
+            grown[: self._n] = self._a[: self._n]
+            self._a = grown
+        self._a[self._n : need] = rows
+        self._n = need
+
+    def view(self) -> np.ndarray:
+        return self._a[: self._n]
 
 
 def _unit_ball_volume(d: int) -> float:

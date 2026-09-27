@@ -518,6 +518,17 @@ jobs; numbers in `planning/results/2026-09-26-run36265786623/SUMMARY.json`).  Un
 `rebaseline-2026-09-26-run36228301268` (§54) mixes two runner FP classes
 and predates #344–#358; use it only for history.
 
+**Active CMA default (2026-09-27, DISCOVERY §60).**  `CMAES(active=True)`
+with the repair guard (`active_skip_repaired=True`) is the default since
+this commit, so **every CMA-ES trajectory changed**: every spec with a
+CMA-ES arm (`RoundRobin_CMAES`, the portfolios, the regime gate, the family
+screens' CMA-ES specs, the composite registry).  References and result
+files from before it, including release
+`rebaseline-2026-09-26-run36265786623`, are **not comparable** for those
+specs (the non-CMA-ES specs and the external baselines are unaffected); a
+re-baseline follows.  The positive-only update is still `active=False`, and
+as the spec `RoundRobin_CMAES_positive`.
+
 ## Re-baselining on GitHub runners
 
 `.github/workflows/rebaseline.yml` (manual) re-measures the references:

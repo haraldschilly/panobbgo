@@ -69,6 +69,7 @@ labelled.
 
 from __future__ import annotations
 
+import copy
 import math
 import time
 from dataclasses import replace
@@ -226,7 +227,7 @@ def probe_features(u: np.ndarray, fx: np.ndarray, *, dim: int, budget: int, q: i
       (``k / d``), ``remaining_per_d`` (``(B - k) / d``), ``q``.
 
     ``None`` stands for an undefined feature (the full quadratic needs
-    ``2p`` points: at ``k = 10 d`` that is d ≤ 5; see §70).
+    ``2p`` points: at ``k = 10 d`` that is d ≤ 6; see §70).
     """
     u = np.asarray(u, dtype=np.float64)
     fx = np.asarray(fx, dtype=np.float64)
@@ -309,7 +310,8 @@ def continue_from_probe(
         strategy.config.sync_evaluation = True
         strategy.config.stop_on_convergence = False
         virtual.apply(strategy, observer=tracker)
-        strategy.preload_results(list(probe))
+        # copies: a Result carries mutable per-run state (virtual times), and the same probe feeds every arm
+        strategy.preload_results([copy.copy(r) for r in probe])
         tracker.on_timeout = getattr(strategy, "request_stop", None)
         try:
             strategy.start()
@@ -420,7 +422,8 @@ def add_labels(row: Dict[str, Any], arms: Sequence[str] = ARM_MENU_V0) -> Dict[s
     * ``<arm>:regret_final`` — the same on the final precision, in units of
       the log range (``(logp_arm - min_a logp_a) / (log_hi - log_lo)``);
     * ``<arm>:rank`` — 1 = best score (average ranks for ties);
-    * ``best_arm`` — the arm with the best score (the first in menu order on a tie).
+    * ``best_arm`` — the arm with the best score (the first in menu order on a tie);
+    * ``n_best`` — how many arms tie at the best score (a win share is ``1 / n_best``).
 
     A task where some arm has no score gets ``None`` labels.
     """
@@ -435,6 +438,7 @@ def add_labels(row: Dict[str, Any], arms: Sequence[str] = ARM_MENU_V0) -> Dict[s
         for a in arms:
             row[f"{a}:score"] = row[f"{a}:regret"] = row[f"{a}:regret_final"] = row[f"{a}:rank"] = None
         row["best_arm"] = None
+        row["n_best"] = None
         return row
     s = np.asarray(scores, dtype=np.float64)
     lp = np.asarray(logps, dtype=np.float64)
@@ -445,4 +449,5 @@ def add_labels(row: Dict[str, Any], arms: Sequence[str] = ARM_MENU_V0) -> Dict[s
         row[f"{a}:regret_final"] = float((lp[i] - lp.min()) / (AOCC_LOG_HI - AOCC_LOG_LO))
         row[f"{a}:rank"] = float(ranks[i])
     row["best_arm"] = arms[int(np.argmax(s))]
+    row["n_best"] = int((s == s.max()).sum())
     return row

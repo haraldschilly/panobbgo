@@ -1,36 +1,38 @@
 540 labelled tasks, 90 instances, cells: ['d2 q1', 'd2 q4', 'd5 q1', 'd5 q4']
 
+17 tasks tie at the best score (several arms at the same final value); their win is split equally between the tied arms in every win share below.
+
 ### Label distribution (regret vs the best arm of the task; score: AOCC at q = 1, aocc_time at q = 4)
 
-| arm | mean score | mean regret | median | p90 | max | wins (regret 0) | regret < 0.01 | EndedEarly |
+| arm | mean score | mean regret | median | p90 | max | wins (ties split) | regret < 0.01 | EndedEarly |
 |---|---|---|---|---|---|---|---|---|
-| Blocks | 0.247 | 0.231 | 0.136 | 0.647 | 0.974 | 14% | 16% | 0% |
+| Blocks | 0.247 | 0.231 | 0.136 | 0.647 | 0.974 | 11% | 16% | 0% |
 | RR_CMAES | 0.208 | 0.270 | 0.172 | 0.719 | 0.962 | 8% | 14% | 0% |
 | RR_TRQ | 0.400 | 0.078 | 0.000 | 0.246 | 0.904 | 48% | 57% | 0% |
-| RR_COBYQA | 0.283 | 0.195 | 0.104 | 0.586 | 0.962 | 16% | 22% | 83% |
+| RR_COBYQA | 0.283 | 0.195 | 0.104 | 0.586 | 0.962 | 17% | 22% | 83% |
 | Blocks_TRQ | 0.349 | 0.129 | 0.068 | 0.367 | 0.904 | 15% | 22% | 0% |
 
 Per cell, mean regret (wins):
 
 | cell | Blocks | RR_CMAES | RR_TRQ | RR_COBYQA | Blocks_TRQ |
 |---|---|---|---|---|---|
-| d2 q1 | 0.303 (13%) | 0.355 (7%) | 0.106 (52%) | 0.171 (18%) | 0.171 (11%) |
-| d2 q4 | 0.232 (14%) | 0.297 (8%) | 0.073 (57%) | 0.292 (4%) | 0.124 (17%) |
-| d5 q1 | 0.221 (10%) | 0.245 (6%) | 0.081 (36%) | 0.131 (36%) | 0.127 (11%) |
-| d5 q4 | 0.170 (17%) | 0.182 (10%) | 0.050 (46%) | 0.186 (7%) | 0.094 (19%) |
+| d2 q1 | 0.303 (11%) | 0.355 (7%) | 0.106 (52%) | 0.171 (18%) | 0.171 (11%) |
+| d2 q4 | 0.232 (13%) | 0.297 (8%) | 0.073 (57%) | 0.292 (4%) | 0.124 (17%) |
+| d5 q1 | 0.221 (6%) | 0.245 (7%) | 0.081 (37%) | 0.131 (37%) | 0.127 (12%) |
+| d5 q4 | 0.170 (13%) | 0.182 (11%) | 0.050 (47%) | 0.186 (8%) | 0.094 (20%) |
 
 ### Headroom: oracle vs single best arm
 
-SBS = the arm with the best mean score over the tasks in scope (chosen in hindsight on the same tasks); gap = oracle mean − SBS mean = the SBS's mean regret.  CIs: cluster bootstrap over instances (2000 resamples).
+SBS = the arm with the best mean score over the tasks in scope (chosen in hindsight on the same tasks); gap = oracle mean − SBS mean = the SBS's mean regret.  CIs: cluster bootstrap over instances (2000 resamples); the second CI re-chooses the SBS in every resample.  Instance / family oracle *in sample*: the arm with the best mean over the instance's seeds (the family's tasks), the task's own score included.  *LOO*: the same pick without the task's own score — the other seeds of the instance (a mean over 2 seeds with 3), the other instances of the family (same d, q).  Only the LOO numbers are headroom a selector could reach.
 
-| scope | tasks | SBS | SBS mean | task oracle | gap (task oracle) [CI] | instance oracle gap | family oracle gap |
+| scope | tasks | SBS | SBS mean | task oracle | gap (task oracle) [CI] [CI, SBS re-chosen] | instance oracle gap: in sample / LOO | family oracle gap: in sample / LOO |
 |---|---|---|---|---|---|---|---|
-| all | 540 | RR_TRQ | 0.400 | 0.478 | **0.078** [0.057, 0.104] | 0.051 | 0.032 |
-| all, ex-ellipsoid | 504 | RR_TRQ | 0.364 | 0.447 | **0.083** [0.060, 0.108] | 0.055 | 0.034 |
-| d2 q1 | 135 | RR_TRQ | 0.511 | 0.617 | **0.106** [0.061, 0.161] | 0.072 | 0.039 |
-| d2 q4 | 135 | RR_TRQ | 0.476 | 0.549 | **0.073** [0.044, 0.111] | 0.041 | 0.022 |
-| d5 q1 | 135 | RR_TRQ | 0.321 | 0.402 | **0.081** [0.052, 0.113] | 0.056 | 0.045 |
-| d5 q4 | 135 | RR_TRQ | 0.294 | 0.344 | **0.050** [0.031, 0.070] | 0.036 | 0.022 |
+| all | 540 | RR_TRQ | 0.400 | 0.478 | **0.078** [0.057, 0.104] [0.057, 0.104] | 0.051 / **0.015** | 0.032 / **-0.003** |
+| all, ex-ellipsoid | 504 | RR_TRQ | 0.364 | 0.447 | **0.083** [0.060, 0.108] [0.060, 0.108] | 0.055 / **0.016** | 0.034 / **-0.003** |
+| d2 q1 | 135 | RR_TRQ | 0.511 | 0.617 | **0.106** [0.061, 0.161] [0.061, 0.156] | 0.072 / **0.022** | 0.039 / **-0.027** |
+| d2 q4 | 135 | RR_TRQ | 0.476 | 0.549 | **0.073** [0.044, 0.111] [0.044, 0.110] | 0.041 / **-0.001** | 0.022 / **-0.005** |
+| d5 q1 | 135 | RR_TRQ | 0.321 | 0.402 | **0.081** [0.052, 0.113] [0.052, 0.110] | 0.056 / **0.021** | 0.045 / **0.025** |
+| d5 q4 | 135 | RR_TRQ | 0.294 | 0.344 | **0.050** [0.031, 0.070] [0.031, 0.070] | 0.036 / **0.018** | 0.022 / **-0.004** |
 
 Context-only selector (the best arm per (d, q) cell, in hindsight): mean score 0.400, 0.000 above the global SBS; the task oracle is 0.078 above it.
 
@@ -49,7 +51,7 @@ Context-only selector (the best arm per (d, q) cell, in hindsight): mean score 0
 | rastrigin | Blocks_TRQ (0.209) | Blocks (0.149) | 0.092 | Blocks_TRQ 39%, RR_CMAES 19%, RR_TRQ 17%, RR_COBYQA 14%, Blocks 11% |
 | rosenbrock | RR_TRQ (0.366) | RR_COBYQA (0.304) | 0.207 | RR_TRQ 58%, RR_COBYQA 28%, Blocks 8%, RR_CMAES 6% |
 | rosenbrock_edge | RR_TRQ (0.631) | Blocks_TRQ (0.422) | 0.450 | RR_TRQ 72%, RR_COBYQA 19%, Blocks_TRQ 6%, RR_CMAES 3% |
-| schwefel_sep | RR_COBYQA (0.166) | RR_TRQ (0.073) | 0.145 | Blocks 64%, RR_COBYQA 22%, RR_TRQ 11%, Blocks_TRQ 3% |
+| schwefel_sep | RR_COBYQA (0.166) | RR_TRQ (0.073) | 0.145 | RR_COBYQA 32%, Blocks 26%, RR_TRQ 21%, Blocks_TRQ 12%, RR_CMAES 9% |
 | sharp_ridge | RR_TRQ (0.183) | Blocks (0.166) | 0.059 | RR_TRQ 31%, Blocks 28%, RR_COBYQA 22%, RR_CMAES 11%, Blocks_TRQ 8% |
 | step_ellipsoid | Blocks (0.328) | Blocks_TRQ (0.307) | 0.175 | RR_CMAES 47%, Blocks 25%, RR_TRQ 17%, Blocks_TRQ 11% |
 | styblinski_tang_sep | RR_TRQ (0.595) | Blocks_TRQ (0.503) | 0.383 | RR_TRQ 67%, Blocks_TRQ 19%, RR_COBYQA 8%, Blocks 6% |
@@ -95,15 +97,15 @@ Spearman ρ between a probe feature and an arm's regret over all tasks (negative
 | y_kurt | 100% | 0.18 | 0.18 | -0.10 | 0.13 | 0.12 |
 | y_ties | 100% | -0.00 | -0.06 | -0.00 | 0.03 | 0.01 |
 
-Mean feature value by winning arm (tasks it wins):
+Mean feature value by winning arm (tasks it wins, weighted by its win share):
 
 | winner | tasks | flog_quad_gap | fr2_quad | r2_quad | fdc | nbc_nb_fitness_cor | disp_10 | y_ties | fsep_ratio | y_skew |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Blocks | 73 | -0.92 | 0.61 | 0.57 | 0.36 | -0.55 | 0.79 | 0.00 | 0.84 | 0.51 |
-| RR_CMAES | 42 | -1.50 | 0.85 | 0.77 | 0.59 | -0.49 | 0.65 | 0.00 | 0.83 | 0.92 |
-| RR_TRQ | 258 | -2.44 | 0.83 | 0.77 | 0.55 | -0.49 | 0.71 | 0.00 | 0.85 | 1.19 |
-| RR_COBYQA | 88 | -1.10 | 0.81 | 0.79 | 0.56 | -0.52 | 0.76 | 0.00 | 0.91 | 0.66 |
-| Blocks_TRQ | 79 | -1.43 | 0.78 | 0.73 | 0.49 | -0.52 | 0.77 | 0.00 | 0.87 | 1.18 |
+| Blocks | 59.4 | -1.11 | 0.71 | 0.66 | 0.45 | -0.53 | 0.72 | 0.00 | 0.83 | 0.61 |
+| RR_CMAES | 45.4 | -1.39 | 0.80 | 0.72 | 0.54 | -0.50 | 0.68 | 0.00 | 0.84 | 0.86 |
+| RR_TRQ | 261.4 | -2.41 | 0.82 | 0.76 | 0.55 | -0.50 | 0.72 | 0.00 | 0.85 | 1.18 |
+| RR_COBYQA | 91.4 | -1.07 | 0.79 | 0.76 | 0.53 | -0.52 | 0.77 | 0.00 | 0.91 | 0.63 |
+| Blocks_TRQ | 82.4 | -1.38 | 0.75 | 0.70 | 0.47 | -0.53 | 0.78 | 0.00 | 0.87 | 1.13 |
 
 ### Warm continuation vs the registry's cold start (diagnostic arms, not labelled)
 

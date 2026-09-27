@@ -193,6 +193,7 @@ def test_add_labels():
         row[f"{a}:final_logp"] = lp
     add_labels(row)
     assert row["best_arm"] == "RoundRobin_CMAES"  # first of the tie in menu order
+    assert row["n_best"] == 2
     assert row["RoundRobin_TRQ:regret"] == 0.0
     assert row["RoundRobin_COBYQA:regret"] == pytest.approx(0.4)
     assert row["RoundRobin_TRQ:regret_final"] == 0.0
@@ -240,14 +241,130 @@ def test_preload_results_books_before_start():
     strat = spec.create_strategy(p, seed=5, max_eval=30)
     strat.config.sync_evaluation = True
     strat.config.stop_on_convergence = False
+    with pytest.raises(TypeError):
+        strat.preload_results([1.0])
     strat.preload_results(probe)
     strat.start()
     hist = strat.results.get_history()
     assert len(hist["fx"]) == 30
     assert list(hist["who"][:12]) == [PROBE_WHO] * 12
     assert all(w != PROBE_WHO for w in hist["who"][12:])
-    with pytest.raises(TypeError):
-        strat.preload_results([1.0])
+
+
+def _run_history(strategy_class, heuristics, preload=None, max_eval=40, seed=3):
+    p = _problem()
+    spec = StrategySpec(name="t", strategy_class=strategy_class, heuristics=heuristics)
+    strat = spec.create_strategy(p, seed=seed, max_eval=max_eval)
+    strat.config.sync_evaluation = True
+    strat.config.stop_on_convergence = False
+    if preload is not None:
+        strat.preload_results(preload)
+    strat.start()
+    h = strat.results.get_history()
+    return np.asarray(h["x"], dtype=float), np.asarray(h["fx"], dtype=float), list(h["who"])
+
+
+def test_an_empty_preload_leaves_the_run_bit_identical():
+    from panobbgo.heuristics import CMAES
+    from panobbgo.strategies import StrategyRoundRobin
+
+    a = _run_history(StrategyRoundRobin, [(CMAES, {})])
+    b = _run_history(StrategyRoundRobin, [(CMAES, {})], preload=[])
+    assert np.array_equal(a[0], b[0]) and np.array_equal(a[1], b[1]) and a[2] == b[2]
+
+
+@pytest.mark.parametrize("which", ["StrategyRewarding", "StrategyUCB", "StrategyThompsonSampling"])
+def test_preload_smoke_with_bandit_strategies(which):
+    import panobbgo.strategies as strategies
+    from panobbgo.heuristics import CMAES, Random
+
+    probe = _probe(_problem(), 10)
+    x, fx, who = _run_history(getattr(strategies, which), [(CMAES, {}), (Random, {})], preload=probe)
+    assert fx.size == 40
+    assert who[:10] == [PROBE_WHO] * 10 and PROBE_WHO not in who[10:]
+    assert np.all(np.isfinite(fx))
+
+
+def test_preload_after_initialize_and_on_a_resumed_run_are_refused():
+    from panobbgo.heuristics import Random
+    from panobbgo.strategies import StrategyRoundRobin
+
+    p = _problem()
+    probe = _probe(p, 5)
+    spec = StrategySpec(name="t", strategy_class=StrategyRoundRobin, heuristics=[(Random, {})])
+    strat = spec.create_strategy(p, seed=1, max_eval=20)
+    strat.config.sync_evaluation = True
+    try:
+        strat.initialize()
+        with pytest.raises(RuntimeError):
+            strat.preload_results(probe)
+    finally:
+        strat._cleanup()
+    # a resume that restored results (here: faked) must not book the preload a second time
+    strat = spec.create_strategy(p, seed=1, max_eval=20)
+    strat.config.sync_evaluation = True
+    strat.results.load_from_storage = lambda: 5
+    strat.preload_results(probe)
+    try:
+        with pytest.raises(ValueError, match="resumed"):
+            strat.initialize()
+    finally:
+        strat._cleanup()
+
+
+def test_each_arm_gets_its_own_copies_of_the_probe(monkeypatch):
+    from panobbgo.core import StrategyBase
+    from panobbgo.harness_ioh import make_ioh_strategies
+
+    p = _problem()
+    probe = _probe(p, 10)
+    booked = []
+    orig = StrategyBase.preload_results
+
+    def spy(self, results):
+        booked.append(list(results))
+        orig(self, results)
+
+    monkeypatch.setattr(StrategyBase, "preload_results", spy)
+    spec = next(s for s in make_ioh_strategies() if s.name == "RoundRobin_Random")
+    for _ in range(2):
+        continue_from_probe(spec, p, probe, budget=30, seed=1, virtual=VirtualSpec(workers=2))
+    assert len(booked) == 2
+    ids = {id(r) for r in probe}
+    assert not ids & {id(r) for r in booked[0]} and not {id(r) for r in booked[0]} & {id(r) for r in booked[1]}
+    assert [float(r.fx) for r in booked[0]] == [float(r.fx) for r in probe]
+
+
+def test_win_shares_split_ties_and_loo_picks_leave_the_task_out():
+    import importlib.util
+    from pathlib import Path
+
+    import pandas as pd
+
+    path = Path(__file__).resolve().parent.parent / "benchmarks" / "selector_labels.py"
+    spec = importlib.util.spec_from_file_location("selector_labels", path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    w = mod.win_shares(np.array([[0.2, 0.5, 0.5], [0.9, 0.1, 0.0]]))
+    assert np.allclose(w, [[0, 0.5, 0.5], [1, 0, 0]])
+    arms = ["a", "b"]
+    # one instance, 3 seeds: arm a wins seed 0 by a lot, b wins seeds 1 and 2 a little
+    df = pd.DataFrame(
+        {
+            "inst_key": ["f_i0"] * 3 + ["f_i1"] * 3,
+            "family": ["f"] * 6,
+            "dim": [2] * 6,
+            "q": [1] * 6,
+            "a:score": [0.9, 0.1, 0.1, 0.5, 0.5, 0.5],
+            "b:score": [0.2, 0.2, 0.2, 0.6, 0.6, 0.6],
+        }
+    )
+    picks = mod.loo_picks(df, arms)
+    # seed 0 left out: the others say b; seeds 1/2 left out: a's 0.9 + 0.1 -> 0.5 > 0.2, so a
+    assert list(picks["instance_loo"][:3]) == [1, 0, 0]
+    # family LOO: instance 0 is judged by instance 1 (b), instance 1 by instance 0 (a: 0.367 > 0.2)
+    assert list(picks["family_loo"]) == [1, 1, 1, 0, 0, 0]
 
 
 def _cmaes_mean(preload):

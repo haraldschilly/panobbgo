@@ -367,11 +367,19 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     Cells outside the table extrapolate from the same dimension with
     `(budget / b)^1.6`.  To recalibrate, fit the p90 of the per-run
     `elapsed_s` of a run's unit files (the summary's `s/run` columns are
-    means).
+    means).  Only units with at least as many runs as the runner has cores
+    measure under the four-way contention the table assumes: the units of a
+    shard run one after the other, so a split unit of one to three runs (a
+    `.f<k>` or `.i<j>.f<k>` unit, grid or calibration) runs faster than the
+    table says and must not feed it unscaled.  The failure preset has no
+    measurements of its own: its estimates are the free preset's numbers
+    for the same (group, d, budget, q).
 *   **Cost.**  `plan` packs the units into shards of at most 90 estimated
     minutes (`--target-minutes`; core shards 30) on a 4-core runner and
     **refuses** (exit 2, the plan job fails) a plan with any shard above
-    the target — including extra units, which are split like the grid's.
+    the target, with one error line per refused unit — including extra
+    units, which are split and packed like the grid's, per group, in
+    `extra-NN` shards of their own.
     The default grid (5 seeds, free preset) is 140 shards, the longest
     estimated at 90 min, about 155 estimated runner-hours (the plan's job
     summary prints these for every run).  `max-parallel: 16` leaves 4 of

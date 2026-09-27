@@ -267,7 +267,7 @@ class Unit:
 
     @classmethod
     def parse(cls, text: str) -> "Unit":
-        """The inverse of :attr:`id`."""
+        """The inverse of :attr:`id`: only canonical ids (``parse(t).id == t``; no ``.i-1``, ``.i01``)."""
         try:
             parts = text.strip().split(".")
             if len(parts) not in (6, 7, 8):
@@ -294,6 +294,9 @@ class Unit:
             raise ValueError(f"instance out of range in {text!r}")
         if not (-1 <= unit.fam < PRESET_FAMILIES[unit.preset]):
             raise ValueError(f"family out of range in {text!r}")
+        if unit.id != text.strip():
+            # One spelling per unit: result files, the plan and missing_units match ids as strings.
+            raise ValueError(f"not a canonical unit id: {text!r} (the canonical spelling is {unit.id!r})")
         return unit
 
     @property
@@ -349,6 +352,11 @@ def unit_minutes(unit: Unit, jobs: int) -> float:
     return (math.ceil(unit.n_runs / jobs) * per_run + UNIT_OVERHEAD_SECONDS) / 60.0
 
 
+def fits(minutes: float, target_minutes: float) -> bool:
+    """Whether an estimate fits the target, as the plan reports it (``est_min``: whole minutes, rounded up)."""
+    return math.ceil(minutes) <= target_minutes
+
+
 def split_to_fit(unit: Unit, jobs: int, target_minutes: float) -> List[Unit]:
     """``unit`` itself if it fits ``target_minutes``, else the first split whose parts all fit.
 
@@ -357,11 +365,11 @@ def split_to_fit(unit: Unit, jobs: int, target_minutes: float) -> List[Unit]:
     families take two), then both (one run each).  When not even single runs
     fit, the single runs: :func:`cmd_plan` then refuses the plan.
     """
-    if unit_minutes(unit, jobs) <= target_minutes:
+    if fits(unit_minutes(unit, jobs), target_minutes):
         return [unit]
     by_both = [p for part in unit.split() for p in part.split_families()]
     for parts in (unit.split(), unit.split_families()):
-        if all(unit_minutes(p, jobs) <= target_minutes for p in parts):
+        if all(fits(unit_minutes(p, jobs), target_minutes) for p in parts):
             return parts
     return by_both
 
@@ -375,23 +383,24 @@ def pack(units: Sequence[Unit], jobs: int, target_minutes: float) -> List[List[U
     """Pack the units of one group into shards of about ``target_minutes`` wall time on ``jobs`` cores.
 
     First-fit decreasing on :func:`unit_minutes`; a unit longer than the
-    target gets a shard of its own.
+    target gets a shard of its own.  A shard's load is :func:`shard_minutes`
+    and the test :func:`fits`, exactly as :func:`_entry` and
+    :func:`plan_problems` see it.
     """
-    bins: List[Tuple[float, List[Unit]]] = []
+    bins: List[List[Unit]] = []
     for u in sorted(units, key=lambda u: (-unit_minutes(u, jobs), u)):
-        w = unit_minutes(u, jobs)
-        for i, (load, items) in enumerate(bins):
-            if load + w <= target_minutes:
-                bins[i] = (load + w, items + [u])
+        for items in bins:
+            if fits(shard_minutes(items + [u], jobs), target_minutes):
+                items.append(u)
                 break
         else:
-            bins.append((w, [u]))
-    return [sorted(items) for _, items in bins]
+            bins.append([u])
+    return [sorted(items) for items in bins]
 
 
 def shard_minutes(units: Sequence[Unit], jobs: int) -> float:
-    """Estimated wall minutes of a shard: its units one after the other."""
-    return sum(unit_minutes(u, jobs) for u in units)
+    """Estimated wall minutes of a shard: its units one after the other (``fsum``: independent of the order)."""
+    return math.fsum(unit_minutes(u, jobs) for u in units)
 
 
 #: Wall-minute target of a core shard: smaller than the GP shards', so the
@@ -449,21 +458,27 @@ def uncovered(extra: Sequence[Unit], grid: Iterable[Unit]) -> List[Unit]:
 
 
 def plan(units: Sequence[Unit], jobs: int, target_minutes: float, extra: Sequence[Unit] = ()) -> List[Dict[str, Any]]:
-    """The matrix entries: one per shard, the core group first, then ``extra`` units one shard each.
+    """The matrix entries: one per shard, the core group first, then the ``extra`` shards.
 
     A unit estimated above the target is split first (:func:`split_to_fit`).
     ``extra`` units are calibration runs: only the runs the grid does not do
-    already (:func:`uncovered`), so no run is measured twice, split to fit
-    the target like the grid's, one shard per unit, marked ``calibration``.
+    already (:func:`uncovered`), so no run is measured twice, split and packed
+    per group like the grid's, in shards ``extra-NN`` of their own, marked
+    ``calibration``.
     """
+
+    def shards(group: str, todo: Sequence[Unit]) -> List[List[Unit]]:
+        target = min(target_minutes, CORE_TARGET_MINUTES) if group == "core" else target_minutes
+        return pack(split_long(todo, jobs, target), jobs, target)
+
     entries = []
     for group in GROUPS:
-        target = min(target_minutes, CORE_TARGET_MINUTES) if group == "core" else target_minutes
-        mine = split_long([u for u in units if u.group == group], jobs, target)
-        for i, items in enumerate(pack(mine, jobs, target), 1):
+        for i, items in enumerate(shards(group, [u for u in units if u.group == group]), 1):
             entries.append(_entry(f"{group}-{i:02d}", group, items, jobs))
-    for i, u in enumerate(split_long(uncovered(extra, units), jobs, target_minutes), 1):
-        entries.append(_entry(f"extra-{i:02d}", u.group, [u], jobs, calibration=True))
+    left = uncovered(extra, units)
+    extra_shards = [(g, items) for g in GROUPS for items in shards(g, [u for u in left if u.group == g])]
+    for i, (group, items) in enumerate(extra_shards, 1):
+        entries.append(_entry(f"extra-{i:02d}", group, items, jobs, calibration=True))
     return entries
 
 
@@ -474,12 +489,21 @@ def plan_problems(entries: Sequence[Dict[str, Any]], target_minutes: float) -> L
         problems.append(f"the target {target_minutes:g} min is above the step limit {STEP_LIMIT_MINUTES:g} min")
     if len(entries) > 256:
         problems.append(f"{len(entries)} shards; a GitHub matrix takes at most 256")
+    # One line per unit of the grid (or extra), not per single run it was split into.
+    over: Dict[str, List[Tuple[int, str]]] = {}
     for e in entries:
         if e["est_min"] > target_minutes:
-            problems.append(
-                f"shard {e['shard']} is estimated at {e['est_min']} min, above the target {target_minutes:g} "
-                f"(units {e['units']}); not even single runs fit: raise --target-minutes or leave the cell out"
-            )
+            for text in e["units"].split(";"):
+                base = replace(Unit.parse(text), inst=-1, fam=-1).id
+                over.setdefault(base, []).append((e["est_min"], e["shard"]))
+    for base, shards in over.items():
+        longest, where = max(shards)
+        names = sorted({s for _, s in shards})
+        problems.append(
+            f"{base}: {len(names)} shard(s) above the target {target_minutes:g} min, the longest {longest} min "
+            f"({where}{f' and {len(names) - 1} more' if len(names) > 1 else ''}); not even single runs fit: "
+            "raise --target-minutes or leave the cell out"
+        )
     return problems
 
 

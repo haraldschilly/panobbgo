@@ -64,6 +64,13 @@ def test_unit_id_round_trip():
         "core.failure.b20.q4.d5.s42.f4",  # the failure preset 4
         "core.free.b20.q4.d10.s42.f0.i0",  # instance first
         "core.free.b20.q4.d10.s42.i0.f0.x",
+        # Not canonical: one spelling per unit (ids are matched as strings).
+        "core.free.b20.q4.d10.s42.i-1",
+        "core.free.b20.q4.d10.s42.f-1",
+        "core.free.b20.q4.d10.s42.i01",
+        "core.free.b20.q4.d10.s42.i0.f00",
+        "core.free.b020.q4.d10.s42",
+        "core.free.b20.q4.d10.s042",
     ):
         with pytest.raises(ValueError):
             ms.Unit.parse(bad)
@@ -136,7 +143,8 @@ def test_plan_packs_every_run_once_by_group_and_splits_long_units():
         assert e["est_min"] <= ms.TARGET_MINUTES
     assert not ms.plan_problems(entries, ms.TARGET_MINUTES)
     assert entries[0]["group"] == "core"
-    # The extra q = 64 instance does not fit either: one calibration shard per family, each one run.
+    # The extra q = 64 instance does not fit either: split by family, one run each (~73 min), so even
+    # packed every part needs a shard of its own.
     cal = [e for e in entries if e["calibration"]]
     assert [e["shard"] for e in cal] == [f"extra-{k:02d}" for k in range(1, 6)]
     assert [e["units"] for e in cal] == [f"qLogEI.free.b100.q64.d5.s99.i0.f{k}" for k in range(5)]
@@ -161,6 +169,12 @@ def test_extra_units_are_deduplicated_against_the_grid():
     cal = [e for e in entries if e["calibration"]]
     assert [e["units"] for e in cal] == ["qLogEI.free.b100.q64.d5.s42.i0", "TuRBO1.free.b20.q4.d2.s7"]
     assert not any(e["calibration"] for e in entries if not e["shard"].startswith("extra-"))
+    # Extras are packed like the grid (per group, up to the target), not one shard each.
+    small = [ms.Unit.parse(f"TuRBO1.free.b20.q4.d2.s{s}") for s in (7, 8, 9)] + [
+        ms.Unit.parse("SMAC.free.b20.q1.d2.s7")
+    ]
+    cal = [e for e in ms.plan([], 4, ms.TARGET_MINUTES, small) if e["calibration"]]
+    assert [(e["shard"], e["group"], e["n_units"]) for e in cal] == [("extra-01", "TuRBO1", 3), ("extra-02", "SMAC", 1)]
     # The documented smoke example with the default seeds: every run once.
     grid5 = ms.make_units([42, 7, 1234, 2025, 3], ["free"], [20, 100], None, [1, 4, 16, 64], list(ms.GROUPS))
     smoke = [ms.Unit.parse(u) for u in ("qLogEI.free.b100.q16.d5.s42.i0", "qLogEI.free.b100.q64.d5.s42.i0")]
@@ -192,6 +206,11 @@ def test_plan_refuses_a_shard_above_the_target(capsys):
     assert ms.main(grid + ["--target-minutes", "30"]) == 2
     captured = capsys.readouterr()
     assert captured.out == "" and "above the target 30" in captured.err
+    # One line per refused unit of the grid, not one per single run it was split into.
+    [line] = captured.err.strip().splitlines()
+    assert (
+        line.startswith("error: qLogEI.free.b100.q64.d5.s") and "15 shard(s)" in line and "the longest 73 min" in line
+    )
     # An extra (calibration) unit is held to the same target.
     extra = ["plan", "--seeds", "1", "--dims", "2", "--qs", "1", "--groups", "core"]
     assert ms.main(extra + ["--extra-units", "SMAC.free.b20.q1.d10.s42.i0.f0", "--target-minutes", "20"]) == 2
@@ -273,14 +292,25 @@ def _payload(
     """A unit result file: ``scores[strategy]`` = the AOCC per instance (aocc_time = AOCC / 2; None = crashed).
 
     Instances 0, 1 are the ellipsoid's 0, 1; instances 2, 3 rastrigin's 0, 1 (a ``.i<j>`` unit: the two
-    families' instance ``j``).  ``errors``: an error string per run index (e.g. ``EndedEarly``).
+    families' instance ``j``; a ``.f<k>`` unit: family k's instances; both: that one run).  ``errors``: an error string per run index (e.g. ``EndedEarly``).
     """
     u = ms.Unit.parse(unit)
+
+    def kind(i: int) -> str:
+        if u.fam >= 0:  # a .f<k> unit: family k (0 = ellipsoid, 1 = rastrigin), its instances in order
+            return ("ellipsoid", "rastrigin")[u.fam]
+        return "ellipsoid" if (i < 2 if u.inst < 0 else i == 0) else "rastrigin"
+
+    def inst(i: int) -> int:
+        if u.inst >= 0:
+            return u.inst
+        return i if u.fam >= 0 else i % 2
+
     runs = [
         IOHRunRecord(
-            problem_kind="ellipsoid" if (i < 2 if u.inst < 0 else i == 0) else "rastrigin",
+            problem_kind=kind(i),
             dim=u.dim,
-            instance=i % 2 if u.inst < 0 else u.inst,
+            instance=inst(i),
             strategy_name=name,
             rep=0,
             budget=u.bm * u.dim,
@@ -478,6 +508,42 @@ def test_aggregate_over_split_units_equals_the_whole(tmp_path):
     for key in ("pool", "pool_best", "n_common", "headline"):
         assert a[key] == b[key], key
     assert a["strategies"][ms.HEADLINE_SPEC]["aocc"] == b["strategies"][ms.HEADLINE_SPEC]["aocc"]
+
+
+def test_aggregate_over_family_split_units_equals_the_whole(tmp_path):
+    """``.f<k>`` and ``.i<j>.f<k>`` units aggregate to the whole; a missing ``.f`` unit is reported by its id."""
+    scores = {ms.HEADLINE_SPEC: [0.5, 0.6, 0.3, 0.2], "Baseline_NGOpt": [0.4, 0.5, 0.45, 0.4]}
+    whole, fams, atoms = tmp_path / "whole", tmp_path / "fams", tmp_path / "atoms"
+    _write(whole, [_payload(f"core.free.b20.q1.d2.s{s}", "core-01", scores) for s in SEEDS])
+    # Family k (0 = ellipsoid, 1 = rastrigin in _payload) holds runs 2k, 2k + 1 of the whole: instances 0, 1.
+    by_fam = [
+        _payload(f"core.free.b20.q1.d2.s{s}.f{k}", "core-01", {n: v[2 * k : 2 * k + 2] for n, v in scores.items()})
+        for s in SEEDS
+        for k in (0, 1)
+    ]
+    by_run = [
+        _payload(f"core.free.b20.q1.d2.s{s}.i{j}.f{k}", "core-01", {n: [v[2 * k + j]] for n, v in scores.items()})
+        for s in SEEDS
+        for k in (0, 1)
+        for j in (0, 1)
+    ]
+    _write(fams, by_fam)
+    _write(atoms, by_run)
+    a = ms.aggregate(whole)["cells"]["free/d2/b20/q1"]
+    for src, parts in ((fams, by_fam), (atoms, by_run)):
+        ids = [p["unit"] for p in parts]
+        summary = ms.aggregate(src, ids)
+        assert summary["missing_units"] == []
+        b = summary["cells"]["free/d2/b20/q1"]
+        for key in ("pool", "pool_best", "n_common", "headline"):
+            assert a[key] == b[key], (src.name, key)
+        assert a["strategies"][ms.HEADLINE_SPEC]["aocc"] == b["strategies"][ms.HEADLINE_SPEC]["aocc"]
+        assert a["strategies"][ms.HEADLINE_SPEC]["per_family"] == b["strategies"][ms.HEADLINE_SPEC]["per_family"]
+    # A planned .f unit that left no file (a cut shard) is missing by its id; the rest still aggregates.
+    (fams / "core-01" / "core.free.b20.q1.d2.s7.f1.json").unlink()
+    cut = ms.aggregate(fams, [p["unit"] for p in by_fam])
+    assert cut["missing_units"] == ["core.free.b20.q1.d2.s7.f1"]
+    assert cut["cells"]["free/d2/b20/q1"]["n_common"] < a["n_common"]
 
 
 def test_calibration_units_stay_out_of_the_analysis(tmp_path):

@@ -279,7 +279,10 @@ WIDE_FAMILIES: Tuple[FamilyConfig, ...] = (
     FamilyConfig(base="lunacek_bi_rastrigin", label="lunacek_box", base_params={"placement": "box"}, extra=dict(_W)),
     FamilyConfig(base="gallagher", label="gallagher21", base_params={"n_peaks": 21, "alpha_opt": 1e6}, extra=dict(_W)),
     # low effective dimension, boundary optimum
-    FamilyConfig(base="levy", label="levy_embed", extra={**_W, "effective_dim": 1.0 / 3.0}),
+    # min(0.3, 0.48 sqrt(k/d)) at each d: 0.3 at d 2/5/10, 0.28 at d = 30 (MAX_CENTRE_DIST_FRACTION)
+    FamilyConfig(
+        base="levy", label="levy_embed", extra={**_W, "effective_dim": 1.0 / 3.0, "clip_min_centre_dist": True}
+    ),
     FamilyConfig(base="rosenbrock", label="rosenbrock_edge", extra={**_W, "boundary_faces": 0.5}),
 )
 
@@ -406,7 +409,9 @@ def make_wide_battery(
     free preset's one exactly quadratic family in five decided its mean,
     DISCOVERY §66).  Every family is shifted (every optimum — for
     ``levy_embed`` every point of its optimal set — at least
-    :data:`WIDE_MIN_CENTRE_DIST` of :math:`B\\sqrt{d}` from the box centre, so
+    :data:`WIDE_MIN_CENTRE_DIST` of :math:`B\\sqrt{d}` from the box centre;
+    for ``levy_embed`` at most the placement bound ``0.48 sqrt(k/d)``, which
+    is below 0.3 at some ``d`` outside 2/5/10, e.g. 0.28 at ``d = 30``; so
     a centre start is no free hit; ``schwefel_sep`` places its own optimum at
     ``|x_opt_i| >= 4.01``) and rotated by a Haar ``R`` — except the
     two separable families, which get a random signed permutation instead.

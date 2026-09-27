@@ -4832,7 +4832,10 @@ instances), battery seed as `free`.  Every family: every optimum at least
 0.3·B·√d from the centre (`WIDE_MIN_CENTRE_DIST`; at d = 2 that excludes
 the central 22 % of uniform draws, at d = 10 almost none; schwefel_sep
 places its own optimum at |x_opt_i| ≥ 4.01, levy_embed tests its optimal
-set), a random f_opt,
+set against min(0.3, 0.48·√(k/d)) — the placement bound — which is 0.3 at
+d 2/5/10 and below it at some other d, e.g. 0.28 at d = 30;
+`clip_min_centre_dist`, so the preset builds at every d, tested for d 2…40,
+80 and 160), a random f_opt,
 and a Haar rotation — except the two separable families, which get a random
 signed permutation.  The 8 families that share a label with `free` (5) or
 `shapes` (3) share their instance seeds: 38 of the 45 `free` instances are identical in

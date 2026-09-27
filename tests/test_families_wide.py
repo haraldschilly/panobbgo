@@ -322,3 +322,23 @@ def test_levy_at_dimension_one():
     us = np.linspace(-30.0, 30.0, 6001)
     values = np.array([f(np.array([u])) for u in us])
     assert values.min() >= 0.0 and values.max() > 1.0
+
+
+@pytest.mark.parametrize("dim", list(range(2, 41)) + [80, 160])
+def test_wide_builds_at_every_dimension(dim):
+    """Every family builds at every d (``family_screen.py dims=...`` takes any), each optimum at its guaranteed distance.
+
+    The guarantee is ``WIDE_MIN_CENTRE_DIST``, for ``levy_embed`` clipped to the placement bound
+    ``0.48 sqrt(k/d)`` (0.3 at d 2/5/10).
+    """
+    inst = make_wide_battery(dims=(dim,), n_instances=1)
+    assert len(inst) == 15
+    for name, p in inst:
+        assert p.eval(p.x_opt) == p.f_opt, name
+        if p.family == "levy_embed":
+            k = int(np.ceil(dim / 3 - 1e-9))
+            want = min(WIDE_MIN_CENTRE_DIST, MAX_CENTRE_DIST_FRACTION * 0.8 * np.sqrt(k / dim))
+            assert p.min_centre_dist == pytest.approx(want), name
+        elif p.family != "schwefel_sep":
+            assert p.min_centre_dist == WIDE_MIN_CENTRE_DIST, name
+        assert p.centre_distance(p.x_opt) >= p.min_centre_dist * B * np.sqrt(dim) - 1e-9, name

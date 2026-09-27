@@ -1152,6 +1152,11 @@ class Family(Problem):
         so a draw is accepted with probability above 1 % at every
         ``d <= 160`` (tested).  Against the free box-centre hit of an arm
         that starts at the centre (DISCOVERY §66.3).
+    clip_min_centre_dist
+        ``True``: use ``min(min_centre_dist, bound)`` instead of refusing a
+        value above the bound — for a family config that must build at
+        every ``d`` (an embedding's bound shrinks with ``sqrt(k/d)``).  The
+        distance guaranteed is then the clipped value, :attr:`min_centre_dist`.
     boundary_faces
         Fraction of the coordinates whose optimum sits **on a box face**
         (``m = ceil(fraction * d)``, random coordinates and sides;
@@ -1250,6 +1255,7 @@ class Family(Problem):
         base_params: Optional[Dict[str, Any]] = None,
         failure: Optional[FailureRegion] = None,
         min_centre_dist: float = 0.0,
+        clip_min_centre_dist: bool = False,
         boundary_faces: float = 0.0,
         boundary_slope: float = 1.0,
         signed_permutation: bool = False,
@@ -1283,6 +1289,8 @@ class Family(Problem):
             raise ValueError(f"effective_dim < 1 is only for the bases {list(EMBEDDABLE_BASES)}, not {base!r}")
         k_eff = max(1, int(np.ceil(float(effective_dim) * dim - 1e-9)))
         centre_max = MAX_CENTRE_DIST_FRACTION * (1.0 - float(opt_margin)) * np.sqrt(k_eff / dim)
+        if clip_min_centre_dist:
+            min_centre_dist = min(float(min_centre_dist), float(centre_max))
         if not 0.0 <= float(min_centre_dist) <= centre_max:
             raise ValueError(
                 f"min_centre_dist must be in [0, {centre_max:.4g}] here "

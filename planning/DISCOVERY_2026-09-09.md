@@ -4412,7 +4412,7 @@ unless marked):
   * Groups: core + qLogEI + TuRBO1.  qLogEI at d 2/5 dominates the
     cost; there is no qLogEI at d = 10, 100·d.
   * Pre-declare the Holm family as the cells of that run.
-  * **In progress:** run 36315576900, seeds 1001–1012, 100·d, q 4/16/64,
+  * **Done (§67):** run 36315576900, seeds 1001–1012, 100·d, q 4/16/64,
     core + qLogEI + TuRBO1; the pre-declared Holm family is its 9
     headline cells.
 * **(d) The `failure` preset** is unchanged as the next step after (c).
@@ -4712,6 +4712,332 @@ assumes exact values); constraints (the arm minimises the penalty value);
 COBYQA with a random start or restarts; any TR constant other than on
 seeds 101–103; the COBYQA and NelderMead rows were not re-run (they do not
 use the TR arm).
+
+## 67. Out-of-sample confirmation on 12 fresh seeds (100·d, q 4/16/64): 4 Holm wins, 2 losses, 3 unresolved — §65's resolved verdicts all replicate, d10/q4 becomes a loss, "no Holm loss at 100·d, q > 1" does not hold (2026-09-27)
+
+**Run.**  `measure.yml` run 36315576900, pre-declared in §65.6 (c):
+fresh base seeds 1001–1012, the free preset (5 families × 3 instances),
+100·d only, q ∈ {4, 16, 64}, d ∈ {2, 5, 10}, groups core + qLogEI +
+TuRBO1.  That is 432 units (core 108, TuRBO1 108, qLogEI 216, split per
+family) in 207 shards.  All succeeded: none missing, none failed.  The
+cost was 137.8 runner-hours, 129 of them qLogEI, and 9 h 15 min wall.
+Every unit carries `git_sha` 58cf1e7, **the commit §65 measured**, and
+every shard has `fp_env_id` 80ee2a0090c4.  So this is a replication of
+§65's code on new seeds, not a test of later master.  Since 58cf1e7,
+master changed only opt-in paths (the TRQ arm, `preload_results`,
+selector data, a CMA-ES docstring).  That has not been checked by a run.
+
+**Pre-declared test.**  One Holm family: the 9 headline cells,
+`Blocks_warm_CMAES_JSO` − pool best on `aocc_time`.  Everything else
+below is unadjusted and descriptive.  This is the same pool and method
+as §62/§65: t-CI95 over seeds of the per-seed instance-mean delta.
+
+**What is fresh and what is not.**
+* Fresh: the optimizer seeds and the CRN duration streams.  The duration
+  stream is keyed on the base seed per cell (`virtual_clock.py`).
+* **Not fresh: the 15 instances.**  They are fixed by the preset and are
+  the same (family, instance) pairs that §62–§65 measured and that §63/§64
+  chose their variants on.  So this run tests overfitting to seeds, not
+  to instances.  The CIs stay conditional on these 15 instances.
+
+**Files.**  `planning/results/2026-09-27-measure-12seed/`:
+* `summary.md`: the 432 units, re-aggregated locally with the current
+  `scripts/measure.py`.  It adds the descriptive ex-ellipsoid table
+  (#384).  Its headline, per-family and per-cell tables are
+  **identical** to the runner's own `measure-summary` (diffed; the only
+  differences are the two added passages).
+* `plan.json`: the run's plan.
+* `summary-pooled-17seeds.md`: the secondary pooled view (§67.3).
+  Raw units stay in the run's artifacts.
+
+### 67.1 Headline: `Blocks_warm_CMAES_JSO` − pool best, 12 fresh seeds against §65's 5
+
+The "§65, 5 seeds" column is §65's numbers on the same cells (seeds
+3/7/42/1234/2025).  Its p_holm is recomputed **over these 9 cells**
+(`measure.py aggregate` over §65's units for them), so it is comparable.
+§65.1 printed Holm over 21 cells.
+
+| cell | pool best | Blocks | Δ [CI95] wins/12 | p | p_holm | §65, 5 seeds: Δ [CI95] wins (p_holm, 9 cells) | verdict |
+|---|---|---|---|---|---|---|---|
+| d2 q4 | qLogEI 0.194 | 0.215 | +0.021 [−0.002, +0.043] 8/12 | 0.067 | 0.183 | −0.006 [−0.037, +0.026] 2/5 (1.000) | unresolved; sign flipped |
+| d2 q16 | qLogEI 0.176 | 0.165 | −0.011 [−0.022, +0.001] 3/12 | 0.061 | 0.183 | −0.016 [−0.028, −0.005] 0/5 (0.068) | unresolved; the CI now spans 0 |
+| d2 q64 | qLogEI 0.113 | 0.097 | **−0.015 [−0.021, −0.010] 0/12** | 0.0001 | **0.001** | −0.013 [−0.021, −0.006] 0/5 (0.044) | **loss**, replicates |
+| d5 q4 | TuRBO1 0.113 | 0.124 | **+0.011 [+0.007, +0.016] 11/12** | 0.0002 | **0.001** | +0.011 [+0.006, +0.017] 5/5 (0.033) | **win**, replicates |
+| d5 q16 | qLogEI 0.074 | 0.103 | **+0.030 [+0.025, +0.035] 12/12** | <0.0001 | **<0.001** | +0.031 [+0.021, +0.041] 5/5 (0.007) | **win**, replicates |
+| d5 q64 | qLogEI 0.060 | 0.060 | +0.001 [−0.001, +0.002] 8/12 | 0.347 | 0.347 | −0.001 [−0.006, +0.005] 2/5 (1.000) | parity replicates |
+| d10 q4 | TuRBO1 0.086 | 0.079 | **−0.008 [−0.012, −0.004] 1/12** | 0.002 | **0.007** | −0.002 [−0.012, +0.009] 2/5 (1.000) | **loss**, new |
+| d10 q16 | TuRBO1 0.058 | 0.072 | **+0.014 [+0.010, +0.018] 12/12** | <0.0001 | **<0.001** | +0.013 [+0.007, +0.019] 5/5 (0.029) | **win**, replicates |
+| d10 q64 | TuRBO1 0.028 | 0.045 | **+0.017 [+0.016, +0.018] 12/12** | <0.0001 | **<0.001** | +0.018 [+0.016, +0.021] 5/5 (0.000; pool best Optuna TPE 0.028) | **win**, replicates |
+
+**Holm count at 0.05: 4 wins / 2 losses / 3 unresolved.**
+* Wins: d5/q4, d5/q16, d10/q16, d10/q64.
+* Losses: d2/q64 (−0.015 against qLogEI) and d10/q4 (−0.008 against
+  TuRBO1).
+* Unresolved: d2/q4, d2/q16, d5/q64.
+* The runner's summary gives the same count.  §65's units, Holm over the
+  same 9 cells, give 4 / 1 / 4: the same four wins and the d2/q64 loss.
+
+### 67.2 What replicates and what does not
+
+* **Every in-sample verdict that was resolved replicates**, with the same
+  sign and a similar size.  The four wins are within ±0.001 of §65, and
+  so is the d2/q64 loss (−0.013 → −0.015).
+  * d5/q4 was §65.2's near miss: p_holm 0.060 over 21 cells, 5/5.  It is
+    now 11/12, p_holm 0.001.
+  * d10/q16 was the edge win at 0.049.  It is now 12/12, p_holm < 0.001.
+  * d2/q64 was a near miss over 21 cells (0.079).  It is now a clear loss,
+    0/12.
+* **d5/q64 parity replicates**: +0.001 [−0.001, +0.002], 8/12, p 0.35.
+  The effect of §63's λ ≥ q floor (the §62 loss of −0.019 closes to
+  parity) holds on fresh seeds.
+* **d10/q4 is a new Holm loss.**  In §65 it was −0.002 [−0.012, +0.009]
+  2/5, with p 0.64.  With 12 seeds it is −0.008, 1/12.  This is not a
+  reversal: the 5-seed CI contained −0.008.  §65 was underpowered here.
+* **d2/q16: −0.016 → −0.011, n.s.**  The cost of the floor that §63
+  measured in sample is about two-thirds as large on fresh seeds.  Its CI
+  now touches 0 (upper end +0.001).  It is not a Holm loss in either run.
+* **d2/q4 flips sign**: −0.006 → +0.021 [−0.002, +0.043], 8/12.  Neither
+  side is resolved.  Blocks leads the pool in its per-seed mean, but d = 2
+  is the noisiest dimension (CI width 0.045 with 12 seeds).
+* **All 9 of the 12-seed means lie inside §65's 5-seed CIs.**  Nothing
+  contradicts the in-sample numbers.  Against §65's units with Holm over
+  the same 9 cells (4 / 1 / 4), the only change of verdict is d10/q4, and
+  it comes from power.  Against §65.2's 21-cell verdicts, d5/q4 and
+  d2/q64 also change.  That comes from the smaller family plus more
+  seeds; their Δs barely moved.
+* **One §65 statement is falsified: "no Holm loss is left at 100·d with
+  q > 1"** (§65.2).  That was 0 Holm losses in the 9 cells, out of 21 over
+  which Holm was taken.  On fresh seeds and a 9-cell family there are two
+  such losses.  §65.6 read the same 9 cells as "CI above 0 in 4, spans 0
+  in 3, below 0 in 2 (d2/q16, d2/q64)".  Out of sample it is 4 above,
+  3 spanning, 2 below, but one of the "below" cells changed: d10/q4 in,
+  d2/q16 out.
+
+### 67.3 Secondary view: 17 seeds pooled (pre-declared as secondary in §65.6)
+
+The 12 fresh seeds plus §65's 5 give 255 runs per cell.  §65's core
+units come from run 36313485264, and its qLogEI/TuRBO1 units from
+§62's run 36274781342 (1778e1b); §65 explains why they combine.  The
+5 old seeds are the ones §63/§64 selected on, so this view is **not** the
+confirmatory result.  It is a precision view only.
+
+| cell | Δ [CI95] wins/17 | p_holm (9 cells) |
+|---|---|---|
+| d2 q4 | +0.013 [−0.005, +0.031] 10/17 | 0.272 |
+| d2 q16 | −0.012 [−0.020, −0.004] 3/17 | 0.015 |
+| d2 q64 | −0.015 [−0.019, −0.011] 0/17 | <0.001 |
+| d5 q4 | +0.011 [+0.008, +0.015] 16/17 | <0.001 |
+| d5 q16 | +0.030 [+0.026, +0.034] 17/17 | <0.001 |
+| d5 q64 | +0.000 [−0.001, +0.002] 10/17 | 0.727 |
+| d10 q4 | −0.006 [−0.010, −0.002] 3/17 | 0.015 |
+| d10 q16 | +0.014 [+0.010, +0.017] 17/17 | <0.001 |
+| d10 q64 | +0.018 [+0.017, +0.018] 17/17 | <0.001 |
+
+Pooled, d2/q16 would count as a loss (4 / 3 / 2).  That rests on the
+in-sample seeds (0/5 there), so it is not claimed.  The confirmatory
+count is §67.1's 4 / 2 / 3.
+
+### 67.4 Per family and without ellipsoid (descriptive)
+
+Per family, Blocks − pool best (12 seeds; from `summary.md`), set
+against §65.3:
+
+* **d2/q16: the deficit is the ellipsoid family.**
+  * Ellipsoid is −0.037 [−0.050, −0.023], 0/12 (§65: −0.051, 0/5).
+  * The other four families are −0.014…+0.005, all n.s.  §65's
+    sharp_ridge −0.018 [−0.024, −0.012] 0/5 does not replicate: it is now
+    −0.014 [−0.038, +0.011].
+  * Without ellipsoid the cell is −0.004 [−0.016, +0.008], 5/12.
+  * §65.3 also located Blocks' own before → after change at d2/q16 on
+    ellipsoid (−0.028).  The floor's cost is a cost on the one exactly
+    quadratic family, where qLogEI's GP is strong.
+* **d2/q64: broad, not ellipsoid only.**
+  * The CI is below 0 for ackley (−0.029, 0/12; §65 −0.034) and for
+    ellipsoid (−0.025, 1/12; §65 −0.015 n.s.).  The other three families
+    are −0.011…−0.004, all n.s.
+  * Without ellipsoid it is −0.017 [−0.022, −0.011], 1/12.  The pool
+    best there is Optuna TPE (0.135).
+  * It is a time-axis loss, not a search loss:
+    * Blocks' AOCC over evaluations beats qLogEI's, +0.012
+      [+0.005, +0.019] 12/12 (0.145 against 0.133; TuRBO1's is 0.159).
+    * Its `aocc_time`/AOCC ratio is 0.67, against qLogEI's 0.85.
+    * With 200 evaluations at q = 64 the run is about 3 rounds.  §63.3
+      measured the floor's budget cap as immaterial for Blocks here
+      (+0.001), because the block rule already limits a CMA-ES block to
+      20 dispatches.
+* **d2/q4: §65's family losses do not replicate.**
+  * Rastrigin was −0.066 [−0.098, −0.035] 0/5.  It is now +0.022
+    [−0.033, +0.076] 6/12.
+  * Ellipsoid was −0.028, 1/5, and is now −0.004 n.s.
+  * Ackley is +0.077 [+0.047, +0.107], 11/12.
+  * Without ellipsoid the cell is +0.027 [+0.005, +0.050], 8/12: an
+    unadjusted CI above 0.
+* **d5/q64: the parity is a sum of opposite family effects**, as in §65.
+  * Rosenbrock is +0.048, 12/12.
+  * Ackley is −0.019 (0/12), sharp_ridge −0.014 (0/12) and rastrigin
+    −0.012 (1/12).  Rastrigin was n.s. in §65.
+  * For the roadmap's "never much worse on any class", this parity cell
+    has three family CIs below 0.
+* **d10/q4: ackley −0.042 [−0.058, −0.027] 1/12 and rastrigin −0.014
+  [−0.023, −0.005] 2/12.**  §65 had −0.022 (n.s.) and −0.014 (CI ending
+  at +0.000).  Rosenbrock is +0.019, 11/12.
+* d5/q16 rastrigin −0.006 [−0.010, −0.003], 1/12, replicates §65's
+  −0.010 (1/5).  In d10/q16 and d10/q64 no family has a CI below 0.  At
+  d = 10, ellipsoid is +0.000 in every cell (the floor: every strategy
+  scores about 0 there).
+* **Cells with a family CI below 0: 5 of 9** (d2/q16, d2/q64, d5/q16,
+  d5/q64, d10/q4).  §65 also had 5 of the same 9, but with d2/q4 in
+  place of d10/q4.  The worst family entry is
+  −0.042 (d10/q4 ackley); in §65 it was −0.066 (d2/q4 rastrigin, which
+  did not replicate).
+* **Without ellipsoid** (the #384 table), every cell keeps the sign of
+  its headline Δ.  d2/q16 shrinks to −0.004, d2/q4 gets a CI above 0, and
+  the d = 10 deltas grow by about 1/4 (the ellipsoid runs are about 0 for
+  everyone).  This view was added after the run was declared, and it is
+  descriptive.
+
+### 67.5 `RoundRobin_CMAES` and `RegimeGate_oracle`
+
+**`RoundRobin_CMAES` − pool best** (12 seeds, unadjusted):
+* It is ahead in 4 cells:
+  * d5/q16: +0.005 [+0.003, +0.008], 12/12;
+  * d10/q4: +0.006 [+0.003, +0.010], 11/12;
+  * d10/q16: +0.006 [+0.004, +0.009], 12/12;
+  * d10/q64: +0.001 [+0.001, +0.002], 12/12.
+* §65.4 had the first, second and fourth of these at 5/5, and d10/q16 at
+  +0.004, 3/5.  All four replicate, and d10/q16 is now resolved.
+* It is behind at d2 (−0.011 / −0.037 / −0.031 at q 4/16/64) and at
+  d5/q64 (−0.015).  d5/q4 is −0.002, n.s.
+
+**Sharing against CMA-ES alone** (RR − Blocks, `aocc_time`, paired):
+
+| | q = 4 | q = 16 | q = 64 |
+|---|---|---|---|
+| d2 | −0.031 [−0.049, −0.014] 1/12 (§65 −0.022) | −0.027 [−0.035, −0.018] 0/12 (§65 −0.010, n.s.) | −0.015 [−0.022, −0.009] 1/12 (§65 −0.015) |
+| d5 | −0.014 [−0.020, −0.008] 1/12 (§65 −0.013) | −0.024 [−0.028, −0.020] 0/12 (§65 −0.025) | −0.016 [−0.017, −0.014] 0/12 (§65 −0.015) |
+| d10 | **+0.014 [+0.010, +0.018] 12/12** (§65 +0.009, 4/5) | −0.008 [−0.011, −0.004] 0/12 (§65 −0.008) | −0.016 [−0.017, −0.015] 0/12 (§65 −0.017) |
+
+* §65.4's reading replicates.  The portfolio leads CMA-ES alone in every
+  cell except d10/q4, where CMA-ES alone is ahead, now 12/12.
+* At d2/q16 the portfolio's lead is larger out of sample: −0.027,
+  against §65's −0.010 n.s.
+
+**`RegimeGate_oracle`:**
+* At d ≤ 5 it is identical to Blocks in every run.
+* At d = 10 it runs CMA-ES alone inside the block strategy.  RG − Blocks:
+  * **q = 4: +0.014 [+0.010, +0.018] 12/12** (§65: +0.010 [+0.0004,
+    +0.019] 5/5, marginal).  Against TuRBO1 it is +0.006 [+0.003,
+    +0.010] 10/12, so the gate's choice turns the d10/q4 Holm loss into a
+    lead.
+    * Per family, CMA-ES alone recovers Blocks' two losing families:
+      ackley +0.045 (11/12) and rastrigin +0.015 (12/12).
+    * Against TuRBO1 it reaches parity on both families: +0.002 and
+      +0.001, n.s.
+  * **q = 16: −0.002 [−0.005, +0.002] 4/12** (§65 −0.002).
+  * **q = 64: −0.001 [−0.003, +0.001] 5/12** (§65 −0.002).  On AOCC it
+    is −0.007 [−0.009, −0.005], 0/12.
+* So the gate row `dim >= 10, bpd <= 500` → CMA-ES alone is right at
+  q = 4 and neutral at q 16/64 on `aocc_time`.  It is behind on AOCC at
+  q = 64.
+
+### 67.6 What this means
+
+**For §63/§64/§65's claims.**
+* **§63.3, "the floor closes d5/q64 to parity":** confirmed on fresh
+  seeds.
+* **§63.3/§63.4, "the floor costs Blocks at d2/q16" (−0.016 against
+  qLogEI):** the direction holds (−0.011, 3/12), the size is about a
+  third smaller, and it is not significant.  The residual sits on
+  ellipsoid (§67.4).
+* **§63.3/§65.1, "the q = 64 wins at d = 10":** confirmed.  d10/q64 is
+  +0.017, 12/12, and the aocc_time/AOCC ratios at q = 64 are
+  0.67 / 0.80 / 0.85 (§65: 0.66 / 0.80 / 0.84).
+* **§64/§65.4, "at d10/q ≤ 4 CMA-ES alone beats the portfolio"**
+  (q = 4 measured here): confirmed and sharper.  Where it holds, the
+  headline spec loses a Holm cell, and the regime gate would have won
+  it.
+* **§65.2's "no Holm loss at 100·d, q > 1":** falsified (d2/q64, d10/q4).
+  §65.6's roadmap summary for the 9 cells is replaced by the one below.
+* **Roadmap claim at 100·d, q ≥ 4 (confirmatory, free preset, these
+  15 instances):**
+  * Blocks is ahead of the best of 8 externals (7 at d = 10) at d5/q4,
+    d5/q16, d10/q16 and d10/q64, by +0.011…+0.030.
+  * It ties at d5/q64.
+  * It is behind qLogEI at d2/q64 (−0.015) and TuRBO1 at d10/q4 (−0.008).
+  * It is unresolved at d2/q4 (+0.021) and d2/q16 (−0.011).
+  * Per family it is "much worse" nowhere by more than 0.042 at q > 1,
+    but 5 of 9 cells have a family CI below 0.
+* §66's model-based arm results (q ∈ {1, 4}, TRQ, COBYQA) are **not**
+  tested here.  The `trq` group was not in the run, and there is no
+  q = 1.  They remain in-sample.
+
+**For the q-sweep TODO.**
+* **(c) done**: this section.
+* **(b) The budget cap: keep it (proposal unchanged, for Harald to
+  record).**
+  * This run, like §65, ran the capped code only.
+  * The cap binds at d2/q64 and d5/q64.  d5/q64 is parity on fresh seeds.
+  * d2/q64 is a Holm loss, but its signature (AOCC ahead of qLogEI,
+    time axis behind, 3 rounds) is the block rule's 20-dispatch limit
+    and the round count.  It is not the cap: §63.3 measured uncapping as
+    +0.001 for Blocks there.
+  * If d2/q64 is to be attacked, the lever is the block rule at q ≫ λ.
+    Removing the cap is not the lever.
+* **(b) Blocks d2/q16: close it without tuning.**
+  * On fresh seeds it is −0.011, n.s., and ex-ellipsoid −0.004.
+  * What is left is the quadratic family.  A model-based arm (§66) is
+    the natural lever there, not block sizing.
+  * The two §63.4 ideas (a block of at least one owner generation; the
+    floor only where the arms cannot fill the workers) stay untried.
+    Nothing here makes them a priority.
+* **New: d10/q4.**  This is a Holm loss that a known choice fixes: CMA-ES
+  alone (the regime-gate row) is +0.006 against TuRBO1 there.  It is
+  evidence for the selector work (roadmap §4 A: probe → select), not for
+  a new scheduling fix.
+* **(d) The `failure` preset** stays the next step.  Suggested design,
+  from this run's lessons:
+  * 12 seeds, with a seed list disjoint from both 3/7/42/1234/2025 and
+    1001–1012;
+  * the Holm family pre-declared as that run's headline cells;
+  * the ex-ellipsoid-style view pre-declared if the preset has an
+    analogous single family.
+  * At 12 seeds a d = 2 cell still has CI width about 0.045 at q = 4.
+    Expect d = 2 cells to stay unresolved unless the effect is at least
+    about 0.02.
+
+**Reference.**  For the core specs at 100·d, q 4/16/64, this run
+(36315576900, 12 fresh seeds) is now the confirmatory expensive-track
+reference.  §65 (run 36313485264) stays the reference for q = 1 and
+20·d, and §62's run for the GP baselines outside these cells.
+
+### 67.7 Multiplicity and other caveats
+
+* **One pre-declared family of 9, Holm at 0.05, and nothing else is
+  adjusted.**  The per-family table (45 CIs), the ex-ellipsoid table,
+  the RR/RG comparisons, the AOCC deltas and the pooled view come to
+  well over 100 unadjusted CIs.  At 95 % a handful are expected to
+  exclude 0 by chance.  Read single family cells as descriptive,
+  especially the ones that do not replicate across §65 and §67 (d2/q4
+  rastrigin, d2/q16 sharp_ridge).
+* **The pool best is a per-cell maximum** over 8 externals (7 at
+  d = 10).  That favours the baseline side.  At d10/q64 TuRBO1 and
+  Optuna TPE tie at 0.028; §65 picked TPE, here TuRBO1.
+* **Holm is step-down.**  The two d = 2 unresolved cells share p_holm
+  0.183 (monotonicity).  d2/q64's verdict changed between §65.2 (21 cells,
+  0.079) and here partly because the family is smaller, not only because
+  of the data.
+* **Wins/12 as a sign test** (two-sided): 12/12 is p = 0.0005, 11/12
+  p = 0.006, 8/12 p = 0.39.  The t-test and the sign test agree on every
+  resolved cell.
+* **Instances are not fresh** (see the top of this section).  A selection
+  effect of §63/§64 on the 15 instances would not show up here.  The
+  wide preset (§68) or new instance ids would test it.
+* **Only 100·d, q ≥ 4.**  The q = 1 and 20·d cells, where §65's 7 Holm
+  losses are, were not re-run.  Their evidence is still 5 in-sample
+  seeds.
+* **Code: 58cf1e7, the commit §65 measured.**  Later master is not
+  measured by this run.  The changes since are opt-in or docstrings, but
+  no bit-identity check was done.
 
 ## 68. A wide family preset for the selector: 15 families across the axes that decide the algorithm, no free box-centre hit (2026-09-27)
 

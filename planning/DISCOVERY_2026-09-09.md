@@ -3313,3 +3313,44 @@ f2 +0.17, f10 +0.15, f7 +0.14, f13 +0.11, f14 +0.09 (unguarded +0.29,
   * This is the coordinator's call; this entry does not flip the
     default.  A flip changes every CMA-ES trajectory, so it needs a
     re-baseline afterwards.
+
+## 61. Re-baseline with the active-CMA default (2026-09-27)
+
+Master 0629403 (#375: guarded active CMA is the `CMAES` default, §60),
+`rebaseline.yml` run 36295705127, 29 jobs, none failed or missing, one
+`fp_env_id` 80ee2a0090c4, release `rebaseline-2026-09-27`, summary `planning/results/2026-09-27/SUMMARY.json`,
+12 seeds.  Every spec without a CMA-ES arm is bit-identical to §56 (same
+per-spec means to the last digit), so every difference below is the new
+default.
+
+| Suite / spec | §56 (positive-only) | §61 (active) | Δ |
+|---|---|---|---|
+| composite quick / standard | 0.4029 / 0.4257 | 0.4029 / 0.4247 | 0 / −0.001 |
+| IOH standard `RegimeGate_oracle` | 0.6771 | **0.7097** | +0.033 |
+| IOH standard `RoundRobin_CMAES` | 0.6674 | 0.6951 | +0.028 |
+| IOH standard `Blocks_warm_CMAES_JSO` | 0.6738 | 0.6669 | −0.007 |
+| IOH quick `RoundRobin_CMAES` | 0.3893 | 0.3871 | −0.002 |
+| families free `CMAES_alone` | 0.4011 | 0.4641 | +0.063 |
+| families constrained `CMAES_alone` | 0.4872 | 0.5286 | +0.041 |
+| families shapes `CMAES_alone` | 0.3401 | 0.3698 | +0.030 |
+| families failure `CMAES_alone` | 0.3433 | 0.4369 | +0.094 |
+| families `Blocks_uniform_cj_warm2` | 0.340 / 0.417 / 0.338 / 0.281 | 0.329 / 0.420 / 0.343 / 0.291 | −0.011 … +0.010 |
+
+External references (unchanged): Optuna CmaEs 0.7052, pycma BIPOP 0.6671,
+IPOP 0.6546, NGOpt 0.5961 on IOH standard.
+
+Reading (unpaired means; the paired A/B is §60):
+
+* **On the cheap track panobbgo is now ahead of every external baseline**:
+  `RegimeGate_oracle` 0.7097 > Optuna CmaEs 0.7052 (it was −0.028 in §56),
+  and plain `RoundRobin_CMAES` 0.695 > pycma BIPOP 0.667.  §57's single
+  losing cell was the one active CMA fixes (§58).
+* **The sharing portfolio does not profit** from the stronger CMA-ES arm:
+  `Blocks_warm_CMAES_JSO` slips −0.007 and now trails `RoundRobin_CMAES`
+  by 0.028 at 500·d; on the families `CMAES_alone` leads every preset by
+  0.02–0.15 over the portfolio.  Consistent with §46/§53 (sharing pays at
+  low budget, not at 500·d) — and a reason to recheck the block scheduler's
+  policy table (TODO).
+* The failure families gain most (+0.094): active CMA plus the §59 guard
+  handles crash regions better than the positive-only update.
+

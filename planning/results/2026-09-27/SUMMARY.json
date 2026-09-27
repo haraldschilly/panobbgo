@@ -1,0 +1,360 @@
+{
+  "created": "2026-09-27T06:28:17.591751+00:00",
+  "git_sha": [
+    "0629403a4f64b3809cc3042bc4e8d1dd49a29bbb"
+  ],
+  "github_run_id": [
+    "36295705127"
+  ],
+  "failed_shards": [],
+  "fp_env_ids": [
+    "80ee2a0090c4"
+  ],
+  "release": {
+    "tag": "rebaseline-2026-09-27",
+    "url": "https://github.com/haraldschilly/panobbgo/releases/tag/rebaseline-2026-09-27",
+    "asset": "rebaseline-2026-09-27.tar.gz"
+  },
+  "suites": {
+    "composite-quick": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_composite_quick_s42.json",
+        "ref_composite_quick_s7.json",
+        "ref_composite_quick_s1234.json",
+        "ref_composite_quick_s2025.json",
+        "ref_composite_quick_s3.json",
+        "ref_composite_quick_s11.json",
+        "ref_composite_quick_s99.json",
+        "ref_composite_quick_s123.json",
+        "ref_composite_quick_s777.json",
+        "ref_composite_quick_s2024.json",
+        "ref_composite_quick_s31337.json",
+        "ref_composite_quick_s555.json"
+      ],
+      "composite_score": {
+        "mean": 0.4029012345679012,
+        "min": 0.34888888888888886,
+        "max": 0.48666666666666664,
+        "per_seed": {
+          "42": 0.4444444444444444,
+          "7": 0.35259259259259257,
+          "1234": 0.4014814814814815,
+          "2025": 0.4185185185185185,
+          "3": 0.40444444444444444,
+          "11": 0.3785185185185185,
+          "99": 0.34888888888888886,
+          "123": 0.42518518518518517,
+          "777": 0.48666666666666664,
+          "2024": 0.42370370370370375,
+          "31337": 0.39111111111111113,
+          "555": 0.35925925925925933
+        }
+      }
+    },
+    "composite-standard": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_composite_standard_s42.json",
+        "ref_composite_standard_s7.json",
+        "ref_composite_standard_s1234.json",
+        "ref_composite_standard_s2025.json",
+        "ref_composite_standard_s3.json",
+        "ref_composite_standard_s11.json",
+        "ref_composite_standard_s99.json",
+        "ref_composite_standard_s123.json",
+        "ref_composite_standard_s777.json",
+        "ref_composite_standard_s2024.json",
+        "ref_composite_standard_s31337.json",
+        "ref_composite_standard_s555.json"
+      ],
+      "composite_score": {
+        "mean": 0.42473958333333334,
+        "min": 0.41319642857142863,
+        "max": 0.43542857142857144,
+        "per_seed": {
+          "42": 0.4295178571428572,
+          "7": 0.4245,
+          "1234": 0.4179642857142857,
+          "2025": 0.4307857142857143,
+          "3": 0.41730357142857144,
+          "11": 0.41319642857142863,
+          "99": 0.42092857142857143,
+          "123": 0.41601785714285716,
+          "777": 0.43542857142857144,
+          "2024": 0.42566071428571434,
+          "31337": 0.43424999999999997,
+          "555": 0.43132142857142863
+        }
+      }
+    },
+    "ioh-quick": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_quick.json",
+        "ref_ioh_quick_s42.json",
+        "ref_ioh_quick_s7.json",
+        "ref_ioh_quick_s1234.json",
+        "ref_ioh_quick_s2025.json",
+        "ref_ioh_quick_s3.json",
+        "ref_ioh_quick_s11.json",
+        "ref_ioh_quick_s99.json",
+        "ref_ioh_quick_s123.json",
+        "ref_ioh_quick_s777.json",
+        "ref_ioh_quick_s2024.json",
+        "ref_ioh_quick_s31337.json",
+        "ref_ioh_quick_s555.json"
+      ],
+      "mean_aocc": 0.3586523609550973,
+      "per_spec_aocc": {
+        "Blocks_warm_CMAES_JSO": 0.41874349106441694,
+        "RegimeGate_oracle": 0.41874349106441694,
+        "RoundRobin_CMAES": 0.38708692715447685,
+        "Baseline_SciPyDE": 0.3366153024532342,
+        "RoundRobin_Random": 0.3353123889797301,
+        "Baseline_Random": 0.3284792740029863,
+        "Baseline_SciPyAnneal": 0.2855856519664199
+      }
+    },
+    "ioh-standard": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_standard.json",
+        "ref_ioh_standard_s42.json",
+        "ref_ioh_standard_s7.json",
+        "ref_ioh_standard_s1234.json",
+        "ref_ioh_standard_s2025.json",
+        "ref_ioh_standard_s3.json",
+        "ref_ioh_standard_s11.json",
+        "ref_ioh_standard_s99.json",
+        "ref_ioh_standard_s123.json",
+        "ref_ioh_standard_s777.json",
+        "ref_ioh_standard_s2024.json",
+        "ref_ioh_standard_s31337.json",
+        "ref_ioh_standard_s555.json"
+      ],
+      "mean_aocc": 0.5081459191950971,
+      "per_spec_aocc": {
+        "RegimeGate_oracle": 0.7096609216383268,
+        "RoundRobin_CMAES": 0.6950532502349888,
+        "Blocks_warm_CMAES_JSO": 0.6669071013249294,
+        "Baseline_SciPyDE": 0.4227810113725785,
+        "Baseline_SciPyAnneal": 0.3895625322633141,
+        "RoundRobin_Random": 0.37968753490474977,
+        "Baseline_Random": 0.2933690826267922
+      }
+    },
+    "ioh-external": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_standard_external.json",
+        "ref_ioh_standard_external_s42.json",
+        "ref_ioh_standard_external_s7.json",
+        "ref_ioh_standard_external_s1234.json",
+        "ref_ioh_standard_external_s2025.json",
+        "ref_ioh_standard_external_s3.json",
+        "ref_ioh_standard_external_s11.json",
+        "ref_ioh_standard_external_s99.json",
+        "ref_ioh_standard_external_s123.json",
+        "ref_ioh_standard_external_s777.json",
+        "ref_ioh_standard_external_s2024.json",
+        "ref_ioh_standard_external_s31337.json",
+        "ref_ioh_standard_external_s555.json"
+      ],
+      "mean_aocc": 0.5327642445855897,
+      "per_spec_aocc": {
+        "RegimeGate_oracle": 0.7096609216383268,
+        "Baseline_Optuna_CmaEs": 0.70519953090051,
+        "RoundRobin_CMAES": 0.6950532502349888,
+        "Baseline_pycma_BIPOP": 0.6670818473909659,
+        "Blocks_warm_CMAES_JSO": 0.6669071013249294,
+        "Baseline_pycma_IPOP": 0.654575538667496,
+        "Baseline_NGOpt": 0.5961185858474041,
+        "Baseline_NG_CMA": 0.4556316073240306,
+        "Baseline_SciPyDE": 0.4227810113725785,
+        "Baseline_Optuna_TPE": 0.416498628692151,
+        "Baseline_NG_TwoPointsDE": 0.40657225101001937,
+        "Baseline_SciPyAnneal": 0.3895625322633141,
+        "RoundRobin_Random": 0.37968753490474977,
+        "Baseline_Random": 0.2933690826267922
+      }
+    },
+    "families-free": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_family_screen_free.json"
+      ],
+      "rows": 2160,
+      "failed_rows": 0,
+      "mean_aocc": 0.37565912550243724,
+      "per_spec_aocc": {
+        "CMAES_alone": 0.4640970688068032,
+        "LSHADE_alone": 0.3586721637230266,
+        "JSO_alone": 0.3509886297145543,
+        "Blocks_uniform_cj_warm2": 0.32887863976536497
+      }
+    },
+    "families-constrained": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_family_screen_constrained.json"
+      ],
+      "rows": 1152,
+      "failed_rows": 0,
+      "mean_aocc": 0.4621434925520575,
+      "per_spec_aocc": {
+        "CMAES_alone": 0.5285727451463105,
+        "LSHADE_alone": 0.4557008257970962,
+        "JSO_alone": 0.4439014552394148,
+        "Blocks_uniform_cj_warm2": 0.42039894402540856
+      }
+    },
+    "families-shapes": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_family_screen_shapes.json"
+      ],
+      "rows": 2160,
+      "failed_rows": 0,
+      "mean_aocc": 0.3634813151757262,
+      "per_spec_aocc": {
+        "LSHADE_alone": 0.37124354574312235,
+        "CMAES_alone": 0.36980308208432616,
+        "JSO_alone": 0.3694436700416602,
+        "Blocks_uniform_cj_warm2": 0.34343496283379626
+      }
+    },
+    "families-failure": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_family_screen_failure.json"
+      ],
+      "rows": 1152,
+      "failed_rows": 0,
+      "mean_aocc": 0.37505247497984207,
+      "per_spec_aocc": {
+        "CMAES_alone": 0.4369447983193811,
+        "LSHADE_alone": 0.40520348249429694,
+        "JSO_alone": 0.36701669423737554,
+        "Blocks_uniform_cj_warm2": 0.2910449248683146
+      }
+    }
+  }
+}

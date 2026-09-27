@@ -172,6 +172,17 @@ class TrustRegionQuadratic(Heuristic):
             or a uniform ``"random"`` point (like the Py-BOBYQA baseline).
             Restarts always draw a random point when the archive offers no
             non-tabu centre.
+        failure_aware: Default ``False``.  ``True``: every failed point
+            (any arm's crash, timeout or non-finite value, and candidates the
+            failure filter rejected) is remembered and never proposed again
+            (without it a failed geometry point is re-proposed, because only
+            finite results enter the archive), and a candidate in a poison
+            zone of the strategy's
+            :class:`~panobbgo.analyzers.failure_model.FailureModel` is
+            skipped: a poisoned full step shrinks the radius (once per model
+            state) and the step at the smaller radius is tried, so the trust
+            region contracts away from the zone towards its centre; poisoned
+            geometry points are passed over (DISCOVERY §71).
         name: Override the heuristic's name.
     """
 
@@ -189,6 +200,7 @@ class TrustRegionQuadratic(Heuristic):
         radius_max: float = 0.5,
         fit_span: float = 3.0,
         first_start: str = "center",
+        failure_aware: bool = False,
         name: Optional[str] = None,
     ) -> None:
         if not (0 < radius_min < radius_init <= radius_max):
@@ -203,6 +215,7 @@ class TrustRegionQuadratic(Heuristic):
         self.radius_max = float(radius_max)
         self.fit_span = float(fit_span)
         self.first_start = first_start
+        self.failure_aware = bool(failure_aware)
         self._lock = threading.RLock()
         box = np.array(self.problem.box[:, :], dtype=float)
         self._lo = box[:, 0]
@@ -210,6 +223,9 @@ class TrustRegionQuadratic(Heuristic):
         dim = self.problem.dim
         self._U = np.empty((0, dim))  # evaluated points, normalised
         self._F = np.empty(0)  # their penalty values (finite only)
+        self._U_bad = np.empty((0, dim))  # failed points, normalised (``failure_aware`` only)
+        #: Archive size at the last poisoned-step shrink (``failure_aware``): once per model state.
+        self._poison_state: Optional[int] = None
         #: The last model's Hessian in normalised coordinates and f units (the least-change prior).
         self._H_u = np.zeros((dim, dim))
         #: Centre of the previous proposal (the prior is dropped after a far jump).
@@ -230,6 +246,8 @@ class TrustRegionQuadratic(Heuristic):
         self.n_tabu_catch = 0
         self.n_grow = 0
         self.n_shrink = 0
+        #: Candidates skipped because the failure model marks them (``failure_aware``).
+        self.n_poison_skips = 0
 
     # -- coordinates -------------------------------------------------------
 
@@ -271,6 +289,7 @@ class TrustRegionQuadratic(Heuristic):
                 f = self._penalty(r)
                 info = self._pending.pop(str(getattr(r, "who", "") or ""), None)
                 if not np.isfinite(f):
+                    self._remember_bad(getattr(r, "x", None))
                     if info is not None and info["kind"] == "step":
                         self._step_failed(info)
                     continue
@@ -294,10 +313,34 @@ class TrustRegionQuadratic(Heuristic):
         """A failed step counts as a failed step; a failed geometry point is just dropped."""
         with self._lock:
             for p in points:
+                self._remember_bad(getattr(p, "x", None))
                 info = self._pending.pop(str(getattr(p, "who", "") or ""), None)
                 if info is not None and info["kind"] == "step":
                     self._step_failed(info)
             self._maybe_restart()
+
+    def _remember_bad(self, x: Any) -> None:
+        """``failure_aware``: add a failed point (any arm's) to the points never proposed again."""
+        if not self.failure_aware or x is None:
+            return
+        u = self._to_u(np.asarray(x, dtype=float))
+        self._U_bad = np.vstack([self._U_bad, u[None, :]])
+        if self._restart_u is not None and float(np.max(np.abs(u - self._restart_u))) <= 1e-12:
+            # The unevaluated start centre itself failed: with no finite point
+            # to move to, every geometry point around it would be drawn in the
+            # same failure region for the rest of the budget (a box-centre
+            # start inside a crash ball).  Draw a new random start instead.
+            self._restart_u = None
+            self.n_restarts += 1
+
+    def _poisoned(self, u: np.ndarray, tol: float = 1e-12) -> bool:
+        """``failure_aware``: ``u`` repeats a failed point (within ``tol``) or lies in a poison zone."""
+        if not self.failure_aware:
+            return False
+        if len(self._U_bad) and bool(np.any(np.max(np.abs(self._U_bad - u), axis=1) <= tol)):
+            return True
+        model = getattr(self.strategy, "failure_model", None)
+        return model is not None and bool(model.in_poison(self._to_x(u)))
 
     def _current(self, info: Dict[str, Any]) -> bool:
         """Does a step's outcome still speak for the current radius?
@@ -417,7 +460,9 @@ class TrustRegionQuadratic(Heuristic):
         pend = [i["u"] for i in self._pending.values()] + extra
         if pend:
             pts.append(np.asarray(pend))
-        return any(bool(np.any(np.max(np.abs(P - u), axis=1) <= tol)) for P in pts if len(P))
+        if any(bool(np.any(np.max(np.abs(P - u), axis=1) <= tol)) for P in pts if len(P)):
+            return True
+        return self._poisoned(u)
 
     def _geometry_point(self, c: np.ndarray, extra: List[np.ndarray]) -> np.ndarray:
         """Next coordinate-design point ``c ± radius·e_i`` not yet present, else a space-filling one."""
@@ -437,10 +482,18 @@ class TrustRegionQuadratic(Heuristic):
                     return u
         lo, hi = np.clip(c - r, 0.0, 1.0), np.clip(c + r, 0.0, 1.0)
         cand = lo + self.rng.random((20 * d, d)) * (hi - lo)
+        if self.failure_aware:
+            ok = np.array([not self._poisoned(u) for u in cand])
+            if ok.any():  # never none at all: a geometry point is always available
+                cand = cand[ok]
         ref = [self._U[np.max(np.abs(self._U - c), axis=1) <= 2 * r]] if len(self._U) else []
         pend = [i["u"] for i in self._pending.values()] + extra
         if pend:
             ref.append(np.asarray(pend))
+        if self.failure_aware and len(self._U_bad):
+            # Failed points are reference points too: "far from every evaluated
+            # point" must not mean "into the region where only failures are".
+            ref.append(self._U_bad[np.max(np.abs(self._U_bad - c), axis=1) <= 2 * r])
         ref = [R for R in ref if len(R)]
         if not ref:
             return cand[0]
@@ -508,6 +561,15 @@ class TrustRegionQuadratic(Heuristic):
                     if not out:
                         self._no_descent(model)
                     break
+                if self._poisoned(step[0]):
+                    # The model's step lands in a poison zone: shrink the
+                    # trust region away from it (a failed step, once per
+                    # model state) and try the step at the smaller radius.
+                    self.n_poison_skips += 1
+                    if step[1]["primary"] and self._poison_state != len(self._F):
+                        self._poison_state = len(self._F)
+                        self._step_failed(step[1])
+                    continue
                 if not self._taken(step[0], extra, 1e-3 * step[1]["radius"]):
                     prop = step
             while prop is None and weak:

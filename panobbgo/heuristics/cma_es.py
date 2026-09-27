@@ -436,6 +436,15 @@ class CMAES(Heuristic):
             ``c₁``, ``c_μ`` and ``μ_eff`` are the unchanged Table 1 defaults
             (they depend on the positive weights only).  See
             :meth:`_set_population` and :meth:`_update`.
+        failure_aware (bool): Default ``False``.  ``True``: a failed offspring
+            (no finite value -- a crash, a timeout, or a candidate the
+            failure filter of :mod:`panobbgo.analyzers.failure_model`
+            rejected) is never among the recombined parents, even when more
+            than λ − μ of a generation failed; it keeps its last rank (and
+            with ``active`` its negative weight when the μ best are all
+            finite).  Without it, failures are ranked last too, but a
+            generation with fewer than μ finite offspring recombines failed
+            points with positive weights (DISCOVERY §71).
         active_skip_repaired (bool): Only read with ``active=True``.  One
             switch for **two** rules, both about ranked steps that are not
             this instance's own unmodified samples of N(0, C):
@@ -540,8 +549,13 @@ class CMAES(Heuristic):
         active_skip_repaired: bool = True,
         late_results: str = "fold",
         quorum: str = "dispatched",
+        failure_aware: bool = False,
     ):
         super().__init__(strategy, name=name or "CMAES")
+        #: Failed offspring (crash, timeout, non-finite, or rejected by the
+        #: failure filter) never get a positive recombination weight
+        #: (DISCOVERY §71; see the class docstring).
+        self._failure_aware = bool(failure_aware)
         self.logger = self.config.get_logger("H:CMA")
         #: ``who`` tag prefix identifying this instance's own points; a
         #: result whose ``who`` does not start with it is foreign (§2.1/§2.2
@@ -2117,6 +2131,13 @@ class CMAES(Heuristic):
         collected.sort(key=lambda d: d["penalty"])
         self._record_generation(collected, n_offspring)
         selected = collected[: self._mu]
+        if self._failure_aware:
+            # A failed offspring is ranked last, but with more than λ − μ
+            # failures it would still be among the μ selected and pull the
+            # mean towards the failure region.  Recombine the finite ones
+            # only (the caller guarantees at least one); the weights are
+            # re-normalised below as for a short generation.
+            selected = [d for d in selected if np.isfinite(d["penalty"])]
 
         # Recombination weights (may use fewer than μ if fewer arrived)
         actual_mu = len(selected)

@@ -564,8 +564,15 @@ class VirtualClock:
                 observer.complete_call(call.seq, call.t_complete, call.ok)
             self._done.append(call)
 
-    def step(self, points: List[Any]) -> None:
-        """One main-loop pass: dispatch ``points``, run the clock to the next decision point, deliver."""
+    def step(self, points: List[Any], retry: bool = False) -> None:
+        """One main-loop pass: dispatch ``points``, run the clock to the next decision point, deliver.
+
+        ``retry``: the strategy rejected candidates in this pass without
+        evaluating them (the failure filter,
+        :mod:`panobbgo.analyzers.failure_model`); with a worker free it is
+        asked again at this instant instead of the clock waiting for a
+        completion, so a rejection costs no virtual time.
+        """
         strategy = self.strategy
         max_eval = strategy.config.max_eval
         budget_left = not (max_eval and strategy._dispatched >= int(max_eval))
@@ -576,7 +583,7 @@ class VirtualClock:
                 self._dispatch(p)
             # Workers still free and the strategy still producing: ask again
             # at this instant.  Otherwise wait for the next completion.
-            if not (self.free > 0 and points and budget_left) and self._running:
+            if not (self.free > 0 and (points or retry) and budget_left) and self._running:
                 self._advance()
         else:
             queue = list(points)
@@ -586,7 +593,7 @@ class VirtualClock:
                 if queue:  # every worker busy, candidates waiting: wait for one to finish
                     self._advance()
                     continue
-                if self.free > 0 and points and budget_left:
+                if self.free > 0 and (points or retry) and budget_left:
                     break  # decision point: a free worker, nothing waiting — ask the strategy
                 if self._running:  # nothing more to dispatch now: wait for the next completion
                     self._advance()

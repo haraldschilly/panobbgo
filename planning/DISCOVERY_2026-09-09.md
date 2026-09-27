@@ -5869,3 +5869,243 @@ schwefel_sep, rastrigin, attractive_sector) and in-run switching (B), where
 the per-task luck a one-shot pick cannot see becomes observable.  The dataset regenerates in
 ~12 min locally with the command of 70.2; a larger one (> 1 MB) belongs in a
 GitHub release asset (`gh release upload <tag> labels.csv.gz`), not in git.
+
+## 71. Failure regions, roadmap §4 D step 1: TRQ loses 47 % of its budget to failures and the population arms 3–6 %; a shared failure model plus TRQ's own handling wins +0.038 AOCC on TRQ, the generic filter alone is neutral on the population arms and hurts TRQ at a boundary optimum (2026-09-27)
+
+> **In sample, descriptive.**  The `failure` preset (4 families × 3
+> instances), d 2/5, 100·d, q 1/4, roster seeds 42/7/1234/2025/3, virtual
+> clock (async, log-normal σ 0.5), the `measure.py` core path
+> (`run_family_harness`).  The same seeds and battery the design was debugged
+> on (a few single runs of seed 42, d 2/5); the model's one tuned constant
+> (the bandwidth cap, 71.2) was changed once, after a unit test (a partial
+> first run with the old cap, d2 q1, 4 seeds, had been looked at — TRQ +0.049,
+> the others within noise — and was discarded).  No claim about
+> unseen problems.  Numbering: §67 stays
+> reserved.
+
+**Question.**  Roadmap §4 D (Harald, 2026-09-26): failure regions ("poison
+zones") where the objective crashes, returns NaN or times out are modelled,
+and every algorithm avoids proposing there.  Step 1: how does each arm
+handle failures today, how much budget does each waste, and does a shared
+model (opt-in) win it back?
+
+### 71.1 Inventory: what each arm does with a failed point
+
+A crash leaves no result (`failed_evaluations`); a timeout, simulated or
+real, is a `NaN` result with `timed_out=True`; both are charged against
+`max_eval` at dispatch.  The constraint handlers map a `NaN` value to `+inf`.
+
+| arm | a failed point | 
+|---|---|
+| `CMAES` | ranked last (penalty `+inf`, crash and timeout alike); an all-failed generation is dropped and resampled, 10 in a row → self-restart; a late failed offspring is dropped.  **Gap:** with more than λ − μ failures in a generation, failed offspring are among the μ recombined parents, with positive weight (the mean is pulled towards the zone).  With active CMA the failures in ranks μ+1…λ get negative weights. |
+| `JSO` / `LSHADE` / `DifferentialEvolution` | a failed trial is a lost trial (the target stays, the slot gets its next trial); a failed initial point is redrawn uniformly; a timed-out `NaN` trial loses the comparison.  No memory of where failures were. |
+| `TrustRegionQuadratic` | a failed *step* counts as a failed step (radius shrinks, or geometry on a thin model); a failed *geometry* point is dropped — and, since only finite results enter its archive, **proposed again**; a start centre (box centre, or a restart point) that fails is **never replaced**: with no finite point there is no model and no step, and every geometry point around it is drawn in the same zone for the rest of the run. |
+| `COBYQA` (subprocess bridge) | the solver gets `+inf` for the point; SciPy's COBYQA then usually stops (`EndedEarly`, 230 of 240 runs, as on the free preset: no restart). |
+| `NelderMead` (seeded by `Random`) | builds simplices from the Splitter's results, so crashes never enter; a `NaN` value falls back to an unweighted centroid. |
+| `Random` | nothing (uniform in the Splitter's best leaf). |
+| `Blocks_warm_CMAES_JSO` | its arms' rules above. |
+| external (pycma IPOP/BIPOP, NGOpt, Optuna CMA/TPE, Py-BOBYQA) | the objective answers `NaN`, told to the solver as `+inf` (Optuna: a COMPLETE trial of value `inf`, so TPE learns the region). |
+
+No arm retries a failed point on purpose; TRQ repeats them by accident.
+
+**Waste** (base arms; share of spent evaluations that failed, mean over the
+60 runs of a cell; `IOHRunRecord.n_failed`, new):
+
+| arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all | ellipsoid hs | rastrigin ball | rosenbrock hs | sharp_ridge boxes |
+|---|---|---|---|---|---|---|---|---|---|
+| RoundRobin_Random | 0.167 | 0.182 | 0.144 | 0.164 | 0.164 | 0.259 | 0.146 | 0.149 | 0.103 |
+| RoundRobin_CMAES | 0.039 | 0.045 | 0.026 | 0.022 | 0.033 | 0.024 | 0.044 | 0.024 | 0.040 |
+| RoundRobin_JSO | 0.069 | 0.078 | 0.036 | 0.044 | 0.057 | 0.056 | 0.046 | 0.063 | 0.063 |
+| RoundRobin_TRQ | 0.662 | 0.275 | 0.720 | 0.240 | **0.474** | 0.672 | 0.622 | 0.113 | 0.490 |
+| RoundRobin_COBYQA | 0.038 | 0.038 | 0.033 | 0.033 | 0.036 | 0.067 | 0.039 | 0.017 | 0.020 |
+| RoundRobin_Random_NM | 0.157 | 0.164 | 0.182 | 0.178 | 0.170 | 0.253 | 0.134 | 0.188 | 0.106 |
+| Blocks_warm_CMAES_JSO | 0.032 | 0.042 | 0.029 | 0.030 | 0.033 | 0.023 | 0.041 | 0.021 | 0.048 |
+| Baseline_pycma_IPOP | 0.059 | 0.059 | 0.033 | 0.033 | 0.046 | 0.034 | 0.039 | 0.059 | 0.051 |
+| Baseline_pycma_BIPOP | 0.053 | 0.053 | 0.039 | 0.039 | 0.046 | 0.042 | 0.042 | 0.062 | 0.038 |
+| Baseline_NGOpt | 0.133 | 0.127 | 0.028 | 0.191 | 0.120 | 0.208 | 0.067 | 0.129 | 0.074 |
+| Baseline_Optuna_CmaEs | 0.067 | 0.074 | 0.034 | 0.043 | 0.054 | 0.052 | 0.055 | 0.043 | 0.068 |
+| Baseline_Optuna_TPE | 0.100 | 0.106 | 0.031 | 0.031 | 0.067 | 0.076 | 0.051 | 0.078 | 0.064 |
+| Baseline_PyBOBYQA | 0.079 | 0.079 | 0.055 | 0.055 | 0.067 | 0.100 | 0.078 | 0.030 | 0.061 |
+
+* The population methods (panobbgo and external) lose 3–7 %: they sample
+  around a mean or a population that moves away from failures by itself
+  (failures rank last).  There is little budget to win back there.
+* **TRQ loses 47 %**, 66–72 % at q = 1.  72 of its 240 runs spend > 90 % of
+  the budget failing: every q = 1 run of `rastrigin` and `sharp_ridge` at
+  d = 5 (the box-centre start lies in the ball / a box), `ellipsoid` and
+  `sharp_ridge` at d = 2 — the stuck-start defect of the table above.  TRQ
+  is nevertheless the best arm on this preset (AOCC 0.345; next Py-BOBYQA
+  0.170, COBYQA 0.261 over evaluations), on the instances where it starts
+  outside the zones.
+* Random-like arms lose about the region's volume share; NGOpt 12 % (its
+  d = 2 and d5/q4 configurations are random-search-like).
+
+Reproducibility: the base arms re-run from a second checkout with the
+model's code in place gave the same records (624/624 identical), so every
+default path is unchanged by the new code.
+
+### 71.2 The shared failure model (v0)
+
+`panobbgo/analyzers/failure_model.py`, `FailureModel` (opt-in analyzer).
+It learns from every evaluated point: a finite value is a success; a crash,
+a timed-out placeholder or a non-finite value is a failure (kinds are
+counted, one model for all; the roadmap's crash/timeout split is left for
+later — both cost a full evaluation on this preset).
+
+    p_fail(u) = Σ w_i y_i / (Σ w_i + α),   w_i = exp(-½ |u - u_i|² / h(u)²),
+    h(u) = min(h_n, r_k(u)),   h_n = 2 (k / (n V_d))^(1/d)
+
+on box-normalised u, `r_k` the distance to the k-th nearest labelled point
+(k = max(3, d + 1)), `h_n` twice the expected k-NN distance of n uniform
+points, α = 1 a success pseudo-count; `in_poison(x)` is `p ≥ 0.5`.
+
+* **Few failures:** one isolated failure never reaches 0.5 (except on the
+  point itself: a repeat of a known failure has p = 1 — deterministic
+  objectives); a zone needs several failures close together.
+* **Cheap:** distances to the failures first, to the successes only for a
+  query within reach of one; with no failure `p_fail` is zeros without any
+  work — a run without failures is bit-identical (71.4).
+* **Never the whole box:** disarmed while more than `max_share` = 0.5 of a
+  fixed probe set would be marked (all-fail data, or an early cluster whose
+  k-NN vote would cover the box).
+* **Sharp near a converging search:** the bandwidth is the local k-NN
+  distance, so a boundary optimum is resolved at the search's scale.
+* **Honest limit:** within ~h_n of failures it is a smoothed k-NN vote and
+  does extrapolate into unsampled space whose nearest labels are failures
+  (deeper into a half-space; around an early cluster).  The first version
+  (cap `½√d n^{-1/d}`) gave 3 clustered failures a halo of 0.6 box widths;
+  a quarter of it could not recognise a box that fails everywhere (unit test
+  `all_fail`: 34 % marked); the k-NN-based cap does both.
+
+Not chosen for v0: a half-space fit (logistic / linear SVM) extrapolates a
+zone into unexplored space by design — right for this preset's two
+half-space families, wrong for the ball and boxes; a GP classifier is too
+dear per proposal; an axis-aligned tree is the natural v1 for "a
+half-space along one variable".
+
+### 71.3 Integration (opt-in; defaults unchanged)
+
+* **Generic filter** (`FailureModel(filter=True)`): in the main loop, after
+  `execute()` and before dispatch, a candidate with `in_poison` is **not
+  evaluated and costs no budget**; the proposing heuristic is told through
+  a new `predicted_failures` event (relayed to each heuristic's
+  `on_failed_evaluations`), so each arm treats it exactly as a failure of
+  its own (71.1).  Answered, not resampled: CMA-ES's sampling
+  distribution is unchanged — a rejected offspring is ranked like a real
+  failure, for free (the alternatives in the task, resampling or treating
+  it like a repaired point, would change the distribution or waste the
+  sample).  The model learns only from evaluated points.  Liveness: after
+  10 consecutive rejections of one heuristic its next candidate passes.
+  On the virtual clock a pass with rejections asks again at the same
+  instant (`VirtualClock.step(retry=True)`), so a rejection costs no
+  virtual time.  Budget: `max_eval` counts dispatched points only, as
+  before; no conflict (CMA-ES's own IPOP counter counts rejected offspring
+  as spent, which only affects its restart schedule).
+* **`CMAES(failure_aware=True)`:** failed offspring never get a positive
+  recombination weight (the λ − μ gap of 71.1).
+* **`TrustRegionQuadratic(failure_aware=True)`:** remembers failed points
+  (any arm's) and never proposes one again; uses them as reference points of
+  its space-filling geometry; a failed unevaluated start centre is replaced
+  by a random one (the stuck start); a model step in a poison zone shrinks
+  the radius once per model state and the step at the smaller radius is
+  tried (the trust region contracts away from the zone).
+
+A first `failure_aware` TRQ that also treated every point within 0.3 radii
+(geometry) or 10⁻³ radii (steps) of a failure as taken lost 0.36 AOCC on
+one d = 2 boundary-optimum run (it could not approach a boundary it had
+failed across); only exact repeats are excluded now.
+
+### 71.4 Before / after
+
+Paired on the arm's RNG stream (`seed_name`), per-seed means over the 12
+instances, mean ± 95 % t half-width over 5 seeds, seeds up in brackets.
+`+fm` = filter + arm handling, `+filter` / `+aware` = one of them.
+
+**Failed share, Δ** (variant − base):
+
+| arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all |
+|---|---|---|---|---|---|
+| RoundRobin_TRQ+fm | −0.509 ± 0.017 | −0.172 ± 0.047 | −0.648 ± 0.009 | −0.153 ± 0.051 | −0.370 ± 0.009 |
+| RoundRobin_TRQ+aware | −0.490 ± 0.039 | −0.160 ± 0.058 | −0.618 ± 0.010 | −0.137 ± 0.039 | −0.351 ± 0.015 |
+| RoundRobin_TRQ+filter | −0.009 ± 0.015 | −0.040 ± 0.026 | 0.000 | −0.032 ± 0.032 | −0.020 ± 0.011 |
+| RoundRobin_Random+fm | −0.078 ± 0.024 | −0.089 ± 0.014 | −0.030 ± 0.013 | −0.031 ± 0.020 | −0.057 ± 0.007 |
+| RoundRobin_Random_NM+fm | −0.078 ± 0.024 | −0.081 ± 0.020 | −0.034 ± 0.032 | −0.029 ± 0.010 | −0.056 ± 0.005 |
+| RoundRobin_JSO+fm | −0.018 ± 0.011 | −0.025 ± 0.013 | −0.001 ± 0.002 | −0.001 ± 0.001 | −0.011 ± 0.005 |
+| RoundRobin_CMAES+fm | −0.005 ± 0.006 | −0.008 ± 0.007 | −0.001 ± 0.003 | −0.001 ± 0.003 | −0.004 ± 0.003 |
+| Blocks_warm_CMAES_JSO+fm | −0.004 ± 0.005 | −0.010 ± 0.010 | −0.001 ± 0.014 | −0.000 ± 0.004 | −0.004 ± 0.005 |
+| RoundRobin_COBYQA+fm | 0 | 0 | 0 | 0 | 0 |
+
+**AOCC, Δ** (`aocc_time` Δ within 0.001 of the AOCC Δ in every cell):
+
+| arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all |
+|---|---|---|---|---|---|
+| RoundRobin_TRQ+fm | +0.049 ± 0.009 (5/5) | +0.015 ± 0.023 (4/5) | +0.081 ± 0.026 (5/5) | +0.008 ± 0.039 (3/5) | **+0.038 ± 0.013 (5/5)** |
+| RoundRobin_TRQ+aware | +0.050 ± 0.009 (5/5) | +0.005 ± 0.013 (4/5) | +0.057 ± 0.011 (5/5) | +0.003 ± 0.015 (3/5) | +0.029 ± 0.005 (5/5) |
+| RoundRobin_TRQ+filter | **−0.070 (0/5)** | +0.002 ± 0.003 | 0.000 | +0.000 ± 0.009 | −0.017 ± 0.002 (0/5) |
+| RoundRobin_Random_NM+fm | +0.009 ± 0.016 | +0.004 ± 0.010 | +0.000 ± 0.004 | +0.002 ± 0.002 (5/5) | +0.004 ± 0.006 (4/5) |
+| RoundRobin_Random+fm | +0.005 ± 0.008 | +0.000 ± 0.005 | −0.000 ± 0.004 | +0.001 ± 0.002 | +0.001 ± 0.002 |
+| RoundRobin_JSO+fm | +0.005 ± 0.009 | −0.001 ± 0.011 | +0.000 ± 0.001 | −0.002 ± 0.004 | +0.001 ± 0.004 |
+| RoundRobin_CMAES+fm | +0.003 ± 0.007 | −0.001 ± 0.008 | −0.001 ± 0.003 | −0.001 ± 0.002 | −0.000 ± 0.004 |
+| RoundRobin_CMAES+filter | +0.002 ± 0.004 (5/5) | +0.002 ± 0.006 | −0.000 ± 0.001 | +0.000 ± 0.000 | +0.001 ± 0.001 (4/5) |
+| RoundRobin_CMAES+aware | +0.002 ± 0.005 | −0.001 ± 0.007 | −0.001 ± 0.003 | −0.001 ± 0.002 | −0.000 ± 0.004 |
+| Blocks_warm_CMAES_JSO+fm | +0.000 ± 0.006 | +0.004 ± 0.008 | +0.000 ± 0.001 | −0.001 ± 0.002 | +0.001 ± 0.003 |
+| RoundRobin_COBYQA+fm | 0 | 0 | 0 | 0 | 0 |
+
+Absolute AOCC (all cells): RoundRobin_TRQ 0.345 → +fm **0.383**; it was
+already the best arm here (next: COBYQA 0.261, Py-BOBYQA 0.170 over
+evaluations) and the gap grows.
+
+Per family (TRQ): `+aware` and `+fm` fix the stuck starts — `sharp_ridge`
+d = 5 q = 1 from 0.000 to 0.142 (failed share −0.95), `rastrigin` d = 5
+q = 1 from 0.000 to 0.043 (−0.99), `ellipsoid` d = 5 q = 1 +0.140 (`+fm`,
+the filter adds +0.096 there over `+aware`).  **`+filter` alone costs
+TRQ −0.280 on `ellipsoid_fhs_crash` d = 2 q = 1** (the optimum on the
+boundary of the failing half-space; the q = 1 TRQ is seed-invariant, so
+0/5): without the arm handling, rejected steps near the boundary count as
+failed steps, the radius collapses, and rejected geometry points are
+re-proposed until the streak lets them through.  With the arm handling the
+filter's rejections are rare there and the cell is +0.053.
+
+Reading:
+
+1. **The waste is an arm property, not a problem property.**  Population
+   methods waste 3–7 %, and the filter's saving on them (0.4–1.1 points)
+   buys nothing measurable (|ΔAOCC| ≤ 0.005, every CI across 0).  Random-
+   like arms save 3–9 points of budget, also for no measurable AOCC.
+2. **The gain is TRQ's own handling** (+0.029 of the +0.038); the shared
+   model adds on top of it (+0.009 overall, +0.096 on ellipsoid d5 q1) but
+   **hurts without it**.  So "a generic filter that helps every arm" is
+   not what was measured: it is neutral on four arms and harmful on one
+   whose failure handling is poor.
+3. **COBYQA never trips the filter**: it stops after few evaluations with
+   isolated failures that never form a zone.
+4. `CMAES(failure_aware=True)` changes nothing measurable: generations with
+   more than λ − μ failures are rare on this preset.
+
+### 71.5 Free preset: nothing changes without failures
+
+Free preset (5 families × 3 instances), d 2/5, 100·d, q 1/4, seeds 42/7,
+every panobbgo arm (the seven above) with and without `+fm`: **840 of 840
+paired records identical** (AOCC, `aocc_time`, evaluations, precision,
+failures).  With no failure the model is empty, the filter never fires and
+the `failure_aware` branches are never taken; the unit test
+`test_filter_is_bit_identical_without_failures` checks point-for-point
+identity of the evaluated sequences.
+
+### 71.6 Not measured / next
+
+d = 10 and 20·d budgets; q ≥ 16; fresh seeds or a fresh battery (every
+number here is in sample); the ball/box shapes at larger shares; timeouts
+that cost more (or less) virtual time than a success (here a signalled
+timeout takes its drawn duration); a separate crash/timeout model; the
+external baselines with the filter (they do not run through the main
+loop); rejected-candidate counts per run (the strategy counts
+`n_predicted_failures`, the records do not).  Next: (a) take TRQ's
+`failure_aware` handling as its default candidate — it is a defect fix
+(stuck start, repeated failed geometry) and changes nothing without
+failures — after fresh seeds; (b) the filter stays opt-in and off by
+default: it pays only together with an arm that handles a failure
+sensibly; before a default, a filter that knows the arm (e.g. only
+geometry / exploration candidates, never model steps near a boundary) or
+an axis-aligned tree model for half-spaces (v1); (c) the `failure` preset
+in the `measure.yml` q-sweep (TODO §2 (d)) with the `trq` group.

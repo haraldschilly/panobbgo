@@ -162,6 +162,13 @@ local polish (L-BFGS-B / BOBYQA).
 
 ### D. Failure regions ("poison")
 
+**Status 2026-09-27:** step 1 done, opt-in (DISCOVERY §71): the inventory
+per arm, a shared `FailureModel` analyzer (kernel classifier, v0), the
+proposal filter and failure-aware CMA-ES / TRQ.  In sample the gain is
+TRQ's own handling; the generic filter alone is neutral on the population
+arms and hurts TRQ at a boundary optimum.  Open: fresh seeds, an arm-aware
+filter or a tree model, the crash/timeout split, the duration model.
+
 Evaluations that crash or time out (NaN placeholders since #337) are
 information: in real simulators they cluster — a region, often a
 half-space along one variable (a solver diverges above some pressure,

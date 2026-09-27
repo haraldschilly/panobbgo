@@ -776,6 +776,41 @@ def test_aggregate_treats_trq_specs_as_secondary(tmp_path):
     assert "| RoundRobin_COBYQA |" in md and "| Blocks_warm_CMAES_JSO_TRQ |" in md  # the per-cell tables
 
 
+def test_trq_at_a_q_the_grid_lacks_leaves_the_pool_and_headline(tmp_path):
+    """A q cell only trq ran (no external) must not empty the pool of its (preset, dim, bm)."""
+    planned = _grid(tmp_path)
+    before = ms.aggregate(tmp_path, planned)
+    planned = _with_trq(tmp_path, planned, qs=(1, 4, 16))
+    summary = ms.aggregate(tmp_path, planned)
+    for c in ("free/d2/b20/q1", "free/d2/b20/q4"):
+        cell, old = summary["cells"][c], before["cells"][c]
+        assert cell["pool"] == old["pool"] == ["Baseline_NGOpt", "Baseline_TuRBO1", "Baseline_pycma_IPOP"]
+        assert cell["pool_excluded"] == old["pool_excluded"] and cell["pool_best"] == old["pool_best"]
+        assert cell["headline"] == old["headline"] is not None
+    only_trq = summary["cells"]["free/d2/b20/q16"]
+    assert only_trq["pool"] == [] and only_trq["headline"] is None
+    assert any("panobbgo specs only" in f for f in only_trq["flags"])
+    ms.summary_markdown(summary)
+
+
+def test_a_missing_trq_unit_leaves_n_pool_and_headline(tmp_path):
+    """A planned trq unit without a result (a cut trq shard) is reported missing and changes nothing else."""
+    planned = _grid(tmp_path)
+    before = ms.aggregate(tmp_path, planned)
+    planned = _with_trq(tmp_path, planned)
+    (tmp_path / "trq-01" / "trq.free.b20.q1.d2.s7.json").unlink()
+    summary = ms.aggregate(tmp_path, planned)
+    assert summary["missing_units"] == ["trq.free.b20.q1.d2.s7"]
+    for c in ("free/d2/b20/q1", "free/d2/b20/q4"):
+        cell, old = summary["cells"][c], before["cells"][c]
+        assert (cell["n_common"], cell["planned_runs"]) == (old["n_common"], old["planned_runs"])
+        assert cell["pool"] == old["pool"] and cell["pool_best"] == old["pool_best"]
+        assert cell["headline"] == old["headline"]
+    trq = summary["cells"]["free/d2/b20/q1"]["strategies"]["RoundRobin_TRQ"]
+    assert (trq["n_seeds"], trq["planned_seeds"], trq["complete"]) == (2, 3, False)
+    assert "missing: trq.free.b20.q1.d2.s7" in ms.summary_markdown(summary)
+
+
 def test_ex_ellipsoid_view_is_descriptive_and_reselects_the_pool_best(tmp_path):
     planned = _with_trq(tmp_path, _grid(tmp_path))
     summary = ms.aggregate(tmp_path, planned)

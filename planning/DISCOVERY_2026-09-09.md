@@ -4191,7 +4191,10 @@ The new information is:
 
 * the paired comparison against the externals and the Holm context;
 * the 20·d cells, which neither §63 nor §64 ran;
-* instances 1 and 2 at d = 10, where §63's side check used instance 0 only.
+* instances 1 and 2 at d = 10 — but only relative to §63's floor side
+  check, which used instance 0.  §64.2 ran all 15 instances at d = 10
+  and chose #380 on them, so for the quorum and fold part these
+  instances are in sample too.
 
 ### 65.1 Headline: `Blocks_warm_CMAES_JSO` − pool best, before and after
 
@@ -4247,10 +4250,12 @@ matter here.  d2/100·d/q16's CI ends at −0.0001.)
   have nothing to do with a given verdict.
 * Near misses: d5/100·d/q4, +0.011 [+0.006, +0.017] 5/5, p_holm 0.060
   (was +0.004, 3/5), and d2/100·d/q64, −0.013, 0/5, 0.079.
-* Blocks is ahead of every external in 4 cells, as in §62, but not the
-  same four.  It is ahead in d5/100·d/q4 and q16 and d10/100·d/q16 and
+* Blocks is first overall in 4 cells, as in §62, but not the same four:
+  d5/100·d/q4 (tied with `RegimeGate_oracle`) and q16, d10/100·d/q16 and
   q64.  It gains d10/q16 and loses d2/100·d/q4 (0.203 against qLogEI's
-  0.209; it was 0.214).  At d10/100·d, q ≤ 4, `RoundRobin_CMAES` and
+  0.209; it was 0.214).  Ahead of every external it is in 4 cells now
+  against 5 in §62 (d10/100·d/q16 was already ahead of the externals,
+  behind `RegimeGate_oracle`).  At d10/100·d, q ≤ 4, `RoundRobin_CMAES` and
   `RegimeGate_oracle` now rank above Blocks (§65.4).
 * Mean Δ over d per row (the §62.5 view): 100·d is −0.080 / +0.001 /
   +0.009 / +0.001 at q 1/4/16/64 (§62: −0.089 / +0.002 / +0.010 /
@@ -4263,7 +4268,7 @@ matter here.  d2/100·d/q16's CI ends at −0.0001.)
     d5/q64 and −0.012 [−0.016, −0.009] at d10/q64, both 0/5, as §63
     predicted.
   * Blocks' AOCC lead over qLogEI at d5/q64 (§62.5: +0.035) shrinks to
-    about +0.011 (0.076 against 0.065, unpaired).
+    +0.010 (0.076 against 0.065, unpaired).
 
 ### 65.3 Per family (the §62.4 view, the minimum of each row)
 
@@ -4319,14 +4324,18 @@ unless marked):
   * At d = 10 and q ≤ 4 the lead is gone, and CMA-ES alone is ahead at
     q = 4.
   * At q ≥ 16 the portfolio still leads by 0.008–0.025 in every cell
-    (d2/q16, 0.010, is n.s.).
+    (d2/q16, 0.010, is n.s.).  The lead shrank by half or more at q = 16
+    (0.063 / 0.048 / 0.030 → 0.010 / 0.025 / 0.008) and grew at q = 64
+    for d 5/10 (0.012 → 0.015, 0.008 → 0.017), where `RoundRobin_CMAES`
+    gains less than Blocks; at d2/q64 it shrank (0.032 → 0.015).
 * **`RegimeGate_oracle`** equals Blocks at d ≤ 5, as before.  At d = 10
   it runs CMA-ES alone inside the block strategy:
   * **q = 1 / 4, 100·d:** +0.045 / +0.049, 5/5.  The gate's choice now
-    beats the portfolio: RG − Blocks +0.003 (4/5, n.s.) and +0.010
-    [+0.000, +0.019] 5/5.  In §62 it was −0.036 and −0.037.  So §62.2's
+    matches (q = 1: RG − Blocks +0.003 [−0.004, +0.010] 4/5) or slightly
+    beats (q = 4: +0.010 [+0.0004, +0.019] 5/5, unadjusted, marginal)
+    the portfolio.  In §62 it was −0.036 and −0.037.  So §62.2's
     contradiction with the table row (`dim >= 10, bpd <= 500` → CMA-ES
-    alone) came from the half quorum, not from the row.
+    alone) is consistent with the half quorum, not with the row.
   * **q = 16:** −0.009 [−0.020, +0.003] 0/5, AOCC −0.015 [−0.029,
     −0.002].  RG − Blocks goes from +0.012 5/5 to −0.002.  §63's side
     check (instance 0) showed the same sign: −0.006, 2/5.
@@ -4344,22 +4353,22 @@ unless marked):
 | d5/100·d/q64 Blocks, λ ≥ q floor (§63.3) | +0.018 [+0.015, +0.020] 5/5; Δ vs qLogEI "about −0.001" | +0.018 [+0.015, +0.021] 5/5; Δ −0.001 [−0.006, +0.005], p_holm 1.000 | reproduced (same seeds) |
 | d2/100·d/q16 Blocks regression (§63.3/§63.4) | −0.012 [−0.024, −0.000] 1/5; AOCC −0.018; Δ vs qLogEI "about −0.016" | −0.012 [−0.024, −0.000] 1/5; AOCC −0.018 [−0.032, −0.004]; Δ −0.016, p_holm 0.136 | reproduced; not a Holm loss |
 | d2/100·d/q64 and d5/q16 Blocks (§63.3) | +0.007 4/5; +0.005 5/5 (both n.s.) | +0.007 4/5; +0.005 5/5 | reproduced |
-| d10/100·d/q64 Blocks (§63 side check, instance 0) | +0.013 [+0.008, +0.017] 5/5 | +0.013 [+0.013, +0.014] 5/5, all 3 instances; now a Holm win (0.001) | **confirmed on new instances** |
+| d10/100·d/q64 Blocks (§63 side check, instance 0) | +0.013 [+0.008, +0.017] 5/5 | +0.013 [+0.013, +0.014] 5/5, all 3 instances; now a Holm win (0.001) | **confirmed on instances 1 and 2**, which are new to §63's floor check but not to §64.2 (it chose #380 on all 15 instances at d = 10) |
 | d10/100·d/q16 Blocks (same) | +0.003 [−0.011, +0.017] 3/5 | +0.006 [−0.001, +0.012] 4/5; Holm win at 0.049 | direction holds; the win is mostly §62's +0.007 plus a n.s. gain, and it is marginal |
 | `RoundRobin_CMAES` q ≤ 4 at 100·d (§64.2) | +0.042…+0.050 5/5 | +0.035…+0.049 5/5 | reproduced at d 5/10; d2/q4 (+0.035) was not in §64.2 |
-| Blocks q ≤ 4 at 100·d (§64.2) | +0.002…+0.011, all n.s. | q1 +0.010 / +0.011 / +0.006, q4 −0.010 / +0.007 / +0.002, all n.s. | holds except **d2/q4, −0.010 [−0.037, +0.016] 2/5**: not measured in §64.2, n.s., and it turns a Blocks lead (+0.005) into −0.006 |
+| Blocks q ≤ 4 at 100·d (§64.2) | +0.002…+0.011, all n.s. | q1 +0.010 / +0.011 / +0.006, q4 −0.010 / +0.007 / +0.002, all n.s. | holds except **d2/q4, −0.010 [−0.037, +0.016] 2/5**: not measured in §64.2, n.s., from #375 and #380 together (the floor does not bind at q = 4); it turns a Blocks lead (+0.005) into −0.006 |
 | 20·d (never measured locally) | — | Blocks +0.000…+0.005, all n.s.; RR +0.001…+0.005 | the fixes barely matter at 20·d |
 
-* **Where the runner repeats a local cell, it matches to the printed
-  digit**, as it should: deterministic units, same seeds and CRN.  The
-  exception is d5/q64, where #380 adds its −0.000 and the CI end moves
-  by 0.001.  This
+* **Where the runner repeats a local cell, it matches up to rounding**,
+  as it should: deterministic units, same seeds and CRN.  (The d2/q16
+  AOCC CI end is −0.0045, printed −0.005 locally and −0.004 here; at
+  d5/q64 #380 adds its −0.000 and the CI end moves by 0.001.)  This
   confirms that the shipped code is the code that was measured, and that
   the runner and the laptop agree.  It does **not** remove the selection
   bias of §63.3's in-sample choice.  Only fresh seeds do (§65.6).
-* The out-of-sample parts all point the same way as the in-sample ones:
-  d10 instances 1 and 2, the 20·d cells (small), and the paired
-  comparison with the externals.
+* The parts that are out of sample all point the same way as the
+  in-sample ones: the 20·d cells (small), the paired comparison with the
+  externals, and d10 instances 1 and 2 for the floor (not for #380).
 
 ### 65.6 What this means for the q-sweep TODO, steps (b)–(d)
 
@@ -4377,10 +4386,12 @@ unless marked):
   * Nothing here argues for dropping a convention that protects sample
     efficiency on small budgets.  The decision is proposed for Harald to
     record: keep `MIN_GENERATIONS = 10`.
-* **(b) Blocks d2/q16: the cost is real but small, and not the priority.**
+* **Blocks d2/q16 (the rest of (b)): the cost is real but small, and not
+  the priority.**
   * It is −0.012 against its own past, which the runner reproduces.
     Against qLogEI it is −0.016 [−0.028, −0.005] 0/5, p_holm 0.136.
-  * d2/100·d/q4 moved −0.010 as well (n.s., from #380, not the floor).
+  * d2/100·d/q4 moved −0.010 as well (n.s., from #375 and #380
+    together, not the floor).
   * d = 2 at 100·d is where Blocks lost its q = 4 lead.  The two ideas
     in §63.4 (a block of at least one owner generation; the floor only
     where the arms cannot fill the workers) are untried.
@@ -4388,8 +4399,9 @@ unless marked):
     12-seed step and decide on fresh seeds.
 * **(c) 12 seeds on the q 4–16 band, fresh seeds.**  The band
   (100·d, q 4–16) now has two Holm wins (d5/q16, d10/q16 at 0.049), one
-  near miss (d5/q4, 5/5, 0.060) and three open cells with CIs spanning 0
-  (d2/q4, d2/q16, d10/q4).
+  near miss (d5/q4, 5/5, 0.060), one cell with an unadjusted CI below 0
+  that is not a Holm loss (d2/q16, −0.016 [−0.028, −0.005]), and two
+  cells with CIs spanning 0 (d2/q4, d10/q4).
   * Because §63/§64 picked their variants on seeds 3/7/42/1234/2025, the
     step should use **new base seeds** (a comma list in `measure.yml`,
     not the first 12 of the roster).  Report the fresh seeds alone as
@@ -4400,6 +4412,9 @@ unless marked):
   * Groups: core + qLogEI + TuRBO1.  qLogEI at d 2/5 dominates the
     cost; there is no qLogEI at d = 10, 100·d.
   * Pre-declare the Holm family as the cells of that run.
+  * **In progress:** run 36315576900, seeds 1001–1012, 100·d, q 4/16/64,
+    core + qLogEI + TuRBO1; the pre-declared Holm family is its 9
+    headline cells.
 * **(d) The `failure` preset** is unchanged as the next step after (c).
   §62's CMA-ES caveat no longer applies to it.
 * **For the roadmap claim:**

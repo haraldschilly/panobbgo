@@ -58,7 +58,12 @@ flight).
   of ``radius_init`` (box-normalised units) around the converged centre:
   no archive point inside any tabu ball can become a centre again, so the
   next centre is the best non-tabu archive point, or a uniform random
-  point when there is none.
+  point when there is none.  That point usually lies just outside the
+  ball, in the same basin, and its model steps lead back into the ball: a
+  step that improves on its centre but lands in a tabu ball therefore makes
+  that centre tabu as well (a restart without the convergence), so the arm
+  leaves an explored basin instead of stepping into it for the rest of the
+  budget (``planning/DISCOVERY_2026-09-09.md`` §69).
 * **A moving centre keeps its radius.**  When the centre jumps (another
   arm found a better point far away) the radius is *not* reset.  The fit
   only uses points within ``fit_span`` radii of the new centre, so a small
@@ -221,6 +226,8 @@ class TrustRegionQuadratic(Heuristic):
         self.n_steps = 0
         self.n_geometry = 0
         self.n_restarts = 0
+        #: Centres made tabu because a step from them improved into a tabu ball (:meth:`_into_tabu`).
+        self.n_tabu_catch = 0
         self.n_grow = 0
         self.n_shrink = 0
 
@@ -269,6 +276,8 @@ class TrustRegionQuadratic(Heuristic):
                     continue
                 new_u.append(self._to_u(r.x))
                 new_f.append(f)
+                if info is not None and info["kind"] == "step" and self._into_tabu(info, f):
+                    continue
                 if info is not None and info["kind"] == "step":
                     rho = (info["f_center"] - f) / info["pred"] if info["pred"] > 0 else -1.0
                     if rho < self.ETA_BAD:
@@ -297,7 +306,39 @@ class TrustRegionQuadratic(Heuristic):
         radius: a shorter batch step, or one that was in flight while the
         radius already changed (``q > 1``), must not shrink or grow it twice.
         """
+        c = info.get("center")
+        if c is not None and self._in_tabu(c):
+            return False  # emitted from a centre that has become tabu since
         return bool(info.get("primary")) and info.get("radius") == self.radius
+
+    def _in_tabu(self, u: np.ndarray) -> bool:
+        """Is ``u`` inside a tabu ball (the same test as :meth:`_center`'s)?"""
+        return any(float(np.max(np.abs(u - t))) <= self.radius_init for t in self._tabu)
+
+    def _into_tabu(self, info: Dict[str, Any], f: float) -> bool:
+        """A step that improved on its centre but landed in a tabu ball: make that centre tabu too.
+
+        The step's centre descends into a basin the arm has already
+        converged in (its centre is the best point *outside* the tabu balls,
+        typically just outside one).  Such a step can never move the centre
+        -- no point inside a tabu ball becomes a centre -- so without this
+        the arm keeps stepping into the ball, the ratio test even grows the
+        radius on these "successes", and the rest of the budget is spent in
+        place (``planning/DISCOVERY_2026-09-09.md`` §69).  Instead the centre
+        joins the tabu list and the next best non-tabu point (or a random
+        one) takes over at ``radius_init``, like a restart.
+        """
+        c = info.get("center")
+        if not (self._tabu and c is not None and f < info["f_center"]) or self._in_tabu(c):
+            return False
+        if not self._in_tabu(info["u"]):
+            return False
+        self._tabu.append(np.array(c, copy=True))
+        self.radius = self.radius_init
+        self._need_geometry = False
+        self._H_u = np.zeros_like(self._H_u)  # a new basin: no curvature prior
+        self.n_tabu_catch += 1
+        return True
 
     def _step_failed(self, info: Dict[str, Any]) -> None:
         if not self._current(info):
@@ -420,6 +461,7 @@ class TrustRegionQuadratic(Heuristic):
             "primary": radius == self.radius,
             "at_boundary": at_boundary,
             "n_fit": n_fit,
+            "center": np.array(c, copy=True),
         }
         return u, info
 

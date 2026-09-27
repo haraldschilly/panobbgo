@@ -325,6 +325,80 @@ def test_the_curvature_prior_is_dropped_after_a_far_jump():
     assert not np.any(h._H_u)
 
 
+def _two_basins(x):
+    """Separable Styblinski–Tang in 2-D: per coordinate a local minimum at 2.7468 and the global one at -2.9035."""
+    return float(0.5 * np.sum(x**4 - 16.0 * x**2 + 5.0 * x))
+
+
+#: On [-5, 6]^2 the box centre (0.5, 0.5) lies in the basin of the local minimum (2.7468, 2.7468).
+_TWO_BASINS_BOX = [(-5.0, 6.0)] * 2
+_TWO_BASINS_LOCAL = _two_basins(np.full(2, 2.746803))  # -50.06
+_TWO_BASINS_GLOBAL = _two_basins(np.full(2, -2.903534))  # -78.33
+
+
+def test_a_restart_leaves_the_explored_basin(monkeypatch):
+    """§69: after converging, the next centre is the best non-tabu point just outside the tabu ball.
+
+    Its steps went back into the ball: they improved on the centre, so the
+    ratio test even grew the radius, but no point in a tabu ball can become
+    a centre, and the arm spent the rest of the budget there (on the wide
+    preset: styblinski_tang_sep at d = 2, q = 1, 0.084 on every instance).
+    Now such a centre becomes tabu too.  With that disabled, the arm stays
+    at the local minimum for the whole budget.
+    """
+    best, h = _solo_run(_Box(_TWO_BASINS_BOX), _two_basins, 300)
+    assert best < _TWO_BASINS_GLOBAL + 1e-3, (best, h.n_restarts, h.n_tabu_catch)
+    assert h.n_tabu_catch >= 1
+
+    monkeypatch.setattr(TrustRegionQuadratic, "_into_tabu", lambda self, info, f: False)
+    best, h = _solo_run(_Box(_TWO_BASINS_BOX), _two_basins, 300)
+    assert best == pytest.approx(_TWO_BASINS_LOCAL, abs=1e-6)
+    assert h.n_restarts == 1
+
+
+def _step_towards_a_tabu_ball():
+    """An arm with one step in flight and a tabu ball that holds the step but not its centre."""
+    h = _arm()
+    pts = h.produce(5)  # the box centre and the coordinate design
+    centre = pts[0].x
+    h.on_new_results([Result(p, float(np.sum((p.x - centre - 0.3) ** 2))) for p in pts])
+    (step,) = h.produce(1)
+    info = h._pending[step.who]
+    assert info["kind"] == "step"
+    c, u = info["center"], info["u"]
+    h._tabu.append(u + 0.9 * h.radius_init * np.sign(u - c))  # beyond the step, seen from the centre
+    assert h._in_tabu(u) and not h._in_tabu(c)
+    return h, step, info
+
+
+def test_a_step_that_improves_into_a_tabu_ball_makes_its_centre_tabu():
+    h, step, info = _step_towards_a_tabu_ball()
+    c = info["center"]
+    h.radius = info["radius"]
+    h._H_u = np.eye(2)
+    h.on_new_results([Result(step, info["f_center"] - 1.0)])
+    assert h.n_tabu_catch == 1 and h._in_tabu(c)
+    assert h.radius == h.radius_init and not np.any(h._H_u)
+    assert h.n_grow == 0  # the step's "success" does not grow the radius
+
+
+def test_a_step_into_a_tabu_ball_that_does_not_improve_is_an_ordinary_failure():
+    h, step, info = _step_towards_a_tabu_ball()
+    r0 = h.radius
+    h.on_new_results([Result(step, info["f_center"] + 1.0)])
+    assert h.n_tabu_catch == 0 and len(h._tabu) == 1
+    assert h.radius < r0 or h._need_geometry  # the ratio test ran: shrink, or geometry on a thin model
+
+
+def test_a_step_from_a_centre_that_became_tabu_since_does_not_move_the_radius():
+    """At q > 1 steps of an abandoned centre are still in flight; they speak for nothing now."""
+    h, step, info = _step_towards_a_tabu_ball()
+    h._tabu.append(np.array(info["center"], copy=True))
+    h.radius = info["radius"]
+    h.on_new_results([Result(step, info["f_center"] + 1.0)])
+    assert h.radius == info["radius"] and not h._need_geometry and h.n_shrink == 0
+
+
 def test_stop_clears_the_pending_bookkeeping():
     h = _arm()
     h.produce(3)

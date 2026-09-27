@@ -144,7 +144,8 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     ("CMAES", "min_results_fraction"): (
         'with quorum="dispatched" a generation closes early only once all its offspring are dispatched and '
         "some are still in flight; the synchronous probe delivers each generation in one batch — covered by "
-        "tests/test_cma_es_quorum.py (DISCOVERY §64)"
+        "tests/test_cma_es_bounds_active.py::test_injected_point_through_the_production_path, which runs "
+        "min_results_fraction=1.0 (DISCOVERY §64)"
     ),
     # --- Hansen termination criteria that never trip on the probe ---------
     ("CMAES", "tolx"): "termination criterion; sigma/D never fall below it within the probe budget",

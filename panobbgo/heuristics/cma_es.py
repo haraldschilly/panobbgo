@@ -243,8 +243,10 @@ class CMAES(Heuristic):
             Their steps are measured from the *moved* mean (the mean shift is
             not clipped, so a late ``y`` carries about ``−Δm/σ``), which
             shortens ``p_σ`` and pulls σ down: ‖p_σ‖/χ_n 0.83 → 0.76 and
-            mean log10 σ/σ0 −0.61 → −0.87 at d5/q4 against ``"drop"``; the
-            A/B still favours it (§64).  The termination histories (TolFun,
+            mean log10 σ/σ0 −0.61 → −0.87 at d5/q4 against ``"drop"``.  The
+            shrink is small at q = 2 (−0.73 → −0.81 at d5) and absent at
+            q = 64 (σ unchanged at d 2/10), where the λ = q generations
+            leave the fold little to add.  The A/B still favours it (§64).  The termination histories (TolFun,
             stagnation) then mix offspring of two distributions.
             ``"fold_capped"``: at most ``max(1, λ // 4)`` late points per
             update, the best-ranked kept (``_maybe_inject``'s cap and rule);

@@ -2804,3 +2804,238 @@ is the random start and active CMA.
 * Both our specs remain level with pycma BIPOP/IPOP, the reference
   restart CMA-ES, on every pooled cut.
 
+## 58. The §57 A/B: active CMA carries Optuna's lead; bound handling does not (H1 falsified from both sides)
+
+§57 found Optuna CmaEs ahead of our CMA-ES specs on the cheap track, all
+of it on MA-BBOB cell (*d* = 5, inst 2), and named three hypotheses: H1
+bound handling (Optuna resamples, we project), H2 the start point (we
+start at the box centre), H3 active CMA (negative weights).  #368 made
+each an opt-in `CMAES` option, and this is the paired A/B.
+
+**Run.** `rebaseline.yml` run 36275395012 on master 30bb3bd, suites
+`ioh-cma-ab`, `ioh-cma-ab-bbob-b200`, `ioh-cma-ab-bbob-b500`, the 12-seed
+roster, `release=none`.  12 shards, none failed, one `fp_env_id`
+(80ee2a0090c4, the same as §56).  The raw files are in the run's
+`rebaseline-references` artifact (90 days); the manifest, the summary
+and the analysis script are in
+`planning/results/2026-09-27-ab-run36275395012/`.
+
+**Batteries.**
+* IOH standard: MA-BBOB, instances 0–4 at *d* 2/5, 500·d.  This is the
+  battery §57's hypotheses came from, so it is not independent evidence
+  for them.
+* The 24 BBOB functions at *d* 2/5/10, instances 0/1, at 200·d and 500·d
+  (§52's function axis).  These are the independent test.
+
+**Specs**, all in the same jobs:
+* `RoundRobin_CMAES` (RR);
+* its variants `_resample` (H1), `_reflect` (a third bound scheme),
+  `_randstart` (H2), `_active` (H3) and `_resample_randstart_active`, all
+  sharing RR's `seed_name`;
+* `Baseline_Optuna_CmaEs`;
+* `Baseline_Optuna_CmaEs_clip`: the same sampler with
+  `n_max_resampling = 0`, sharing Optuna's seed.  This is §57's "mirror
+  test".  **Correction to §57:** in cmaes 0.13.1 `ask()` checks
+  `n_max_resampling` draws and then clips one more, so 0 is pure clipping;
+  1 would still resample once;
+* `Baseline_pycma_BIPOP`.
+
+**Method.** `paired_seed_stats` on the per-seed mean AOCC over the cells
+in scope (two specs relabelled to one name, so the pairing is by seed),
+t-CI95 over 12 seeds, wins = seeds where the row spec is ahead.  **Bold**
+= CI excludes 0.
+
+**Instrument checks.**
+* RR, Optuna CmaEs and pycma BIPOP on IOH standard are **bit-identical to
+  §56's references**: 360 of 360 runs, AOCC, best f and the full trace.
+  That holds for the shard that ran on an AVX-512 EPYC 9V74 as well as
+  for the EPYC 7763 one.
+* The run predates #370 (FP pin plus `OPENBLAS_L2_SIZE=2048`).  On 9V74
+  hosts OpenBLAS 0.3.34 could differ in bits for large matrix products,
+  but at *d* ≤ 10 the CMA-ES matrices are far below the sizes involved.
+  The 360-run check confirms it for this battery.  Shards ran on EPYC
+  7763, 9V74, 9V45 and a Xeon 8370C.
+* 3 errors, all `Baseline_Optuna_CmaEs` on BBOB f14, *d* = 2, instance 0
+  at 500·d (seeds 7, 2025, 11): Optuna raises `ValueError: nan is invalid
+  value` before the first evaluation, and the runs score 0 (the other
+  seeds reach 0.76–0.82).  Dropping the cell moves every Optuna delta by
+  ≤ 0.002 overall and ≤ 0.011 in the high-conditioning class; no
+  conclusion changes.  Logged in `TODO.md`.
+
+### 58.1 IOH standard (the battery §57 came from)
+
+Mean AOCC: RR 0.667, resample 0.671, reflect 0.678, randstart 0.645,
+**active 0.705**, all three 0.690, Optuna 0.705, Optuna clip 0.710,
+BIPOP 0.667.
+
+| Δ | vs RR | vs Optuna CmaEs |
+|---|---|---|
+| resample | +0.004 [−0.014, +0.022], 6/12 | **−0.034 [−0.060, −0.008], 1/12** |
+| reflect | +0.011 [−0.015, +0.036], 8/12 | **−0.027 [−0.051, −0.003], 3/12** |
+| randstart | −0.023 [−0.064, +0.018], 4/12 | **−0.061 [−0.095, −0.027], 1/12** |
+| **active** | **+0.038 [+0.014, +0.063], 11/12** | +0.000 [−0.021, +0.021], 6/12 |
+| all three | +0.023 [−0.004, +0.050], 7/12 | −0.015 [−0.046, +0.016], 5/12 |
+| Optuna CmaEs | **+0.038 [+0.007, +0.069], 9/12** | — |
+| Optuna clip | **+0.043 [+0.007, +0.078], 10/12** | +0.005 [−0.018, +0.028], 8/12 |
+| pycma BIPOP | −0.000 [−0.042, +0.042], 5/12 | **−0.038 [−0.067, −0.009], 2/12** |
+
+The cuts:
+* At *d* = 5, active − RR is +0.061 [+0.016, +0.107], 11/12.
+* At *d* = 2 nothing separates: every CI includes 0.
+* Without cell (5, 2) every comparison with RR is level (active +0.015
+  [−0.009, +0.039]).
+
+So on this battery, too, the lead is concentrated in one cell.
+
+### 58.2 Cell (5, 2): the hit rates
+
+Runs reaching precision 1e−1 by evaluation 911 (the §57 checkpoint) and
+by the end (2500), and 1e−8 by the end:
+
+| | AOCC | 1e−1 by 911 | 1e−1 by end | 1e−8 by end |
+|---|---|---|---|---|
+| RR | 0.423 | 6/12 | 8/12 | 3/12 |
+| resample | 0.477 | 8/12 | 8/12 | 3/12 |
+| reflect | 0.510 | 7/12 | 10/12 | 5/12 |
+| randstart | 0.463 | 9/12 | 9/12 | 3/12 |
+| **active** | **0.670** | **11/12** | **12/12** | **9/12** |
+| all three | 0.677 | 12/12 | 12/12 | 10/12 |
+| Optuna CmaEs | 0.745 | 12/12 | 12/12 | 12/12 |
+| Optuna clip | 0.665 | 10/12 | 11/12 | 9/12 |
+| pycma BIPOP | 0.404 | 5/12 | 8/12 | 4/12 |
+
+The RR, Optuna and BIPOP counts reproduce §57 exactly (6/12 and 3/12,
+12/12 and 12/12, 5/12 and 4/12).
+
+On the cell:
+* active − RR: **+0.247 [+0.112, +0.381], 11/12**.
+* Optuna clip − Optuna: −0.080 [−0.181, +0.021], 6/12.
+* resample − RR: +0.054 [−0.054, +0.162], 8/12.
+
+Clipping costs Optuna some of the cell, not the basin (11/12 reach 1e−1).
+Resampling gives our CMA-ES almost none of it.  **Active CMA alone moves
+our CMA-ES from 8/12 to 12/12 in the basin and from 3/12 to 9/12 at
+1e−8.**
+
+### 58.3 The 24 BBOB functions (independent of §57)
+
+Pooled over *d* 2/5/10, Δ vs RR (without f5 in brackets, see §58.4):
+
+| Δ vs RR | 200·d | 500·d |
+|---|---|---|
+| resample | **−0.014**, 1/12 (without f5 **+0.005**, 10/12) | −0.008, 2/12 (+0.008, 9/12) |
+| reflect | **−0.010**, 1/12 (**+0.007**, 11/12) | +0.000, 7/12 (**+0.010**, 10/12) |
+| randstart | **−0.019**, 0/12 (**−0.019**) | **−0.019**, 0/12 (**−0.021**, 0/12) |
+| **active** | **+0.011 [+0.003, +0.019], 8/12** (**+0.020**, 11/12) | **+0.041 [+0.031, +0.050], 12/12** (**+0.054**, 12/12) |
+| all three | −0.004, 3/12 (**+0.014**, 11/12) | **+0.030**, 12/12 (**+0.052**, 12/12) |
+| Optuna CmaEs | −0.002, 4/12 (**+0.017**, 12/12) | **+0.026**, 12/12 (**+0.048**, 12/12) |
+| Optuna clip | +0.000, 5/12 (**+0.009**, 11/12) | **+0.026**, 12/12 (**+0.043**, 12/12) |
+| pycma BIPOP | **−0.009**, 1/12 | **+0.018**, 11/12 |
+
+Against Optuna CmaEs:
+* active is **+0.013 [+0.005, +0.021], 8/12** at 200·d and **+0.015
+  [+0.003, +0.026], 8/12** at 500·d.
+* Optuna clip − Optuna is +0.002 and +0.001, level.
+
+Per dimension, active − RR:
+
+| | 200·d | 500·d |
+|---|---|---|
+| *d* = 2 | **+0.028**, 12/12 | **+0.043**, 12/12 |
+| *d* = 5 | +0.006, 7/12 | **+0.041**, 11/12 |
+| *d* = 10 | −0.001, 5/12 | **+0.038**, 12/12 |
+
+Without f5 active is positive with CI > 0 at every *d* and both budgets.
+
+Per COCO class, Δ vs RR:
+
+| class | active 200·d | active 500·d | resample 200·d | resample 500·d | Optuna 500·d |
+|---|---|---|---|---|---|
+| separable (f1–5) | **−0.024 [−0.040, −0.009], 2/12** | −0.013 [−0.027, +0.001], 4/12 | **−0.087**, 0/12 | **−0.069**, 0/12 | **−0.060**, 0/12 |
+| — without f5 | **+0.017**, 11/12 | **+0.053**, 12/12 | +0.002 | +0.005 | **+0.047**, 12/12 |
+| low conditioning (f6–9) | **+0.040**, 11/12 | **+0.071**, 12/12 | **+0.013**, 10/12 | **+0.022**, 8/12 | **+0.033**, 8/12 |
+| high conditioning (f10–14) | **+0.049**, 12/12 | **+0.152**, 12/12 | **+0.009**, 10/12 | +0.010, 9/12 | **+0.143**, 12/12 |
+| multimodal, global (f15–19) | +0.002, 6/12 | +0.013 [−0.009, +0.034], 8/12 | +0.004 | +0.005 | **+0.026**, 9/12 |
+| multimodal, weak (f20–24) | −0.005 [−0.026, +0.015], 6/12 | −0.014 [−0.042, +0.015], 4/12 | −0.003 | +0.000 | −0.011 |
+
+What the classes show:
+* **The gain of active CMA is conditioning**: +0.15 on f10–14 at 500·d,
+  and per function f11 (discus) +0.29, f2 +0.20, f10 +0.20, f7 +0.14,
+  f13 +0.13.  That is exactly the discus / different-powers part of
+  cell (5, 2)'s mixture (f22 f24 f11 f14).
+* Optuna's gain has the same class profile, which is why the two tie.
+* The multimodal classes do not move significantly either way.  f21
+  (Gallagher 101 peaks) is the largest single dip, −0.063 / −0.084, CI
+  including 0, 4/12.
+
+### 58.4 f5: projection is what solves the linear slope
+
+f5's optimum sits on the box boundary.  Δ vs RR on f5 (RR scores 0.85 /
+0.73 / 0.30 at 200·d and 0.94 / 0.88 / 0.60 at 500·d for *d* 2 / 5 / 10):
+
+| f5, 500·d | *d* = 2 | *d* = 5 | *d* = 10 |
+|---|---|---|---|
+| resample | **−0.37** | **−0.40** | **−0.32** |
+| Optuna CmaEs (resamples, active) | **−0.34** | **−0.69** | **−0.44** |
+| Optuna clip (clips, active) | +0.03 | **−0.57** | **−0.51** |
+| active | +0.00 | **−0.45** | **−0.37** |
+
+Two separate costs, and they add up in Optuna:
+* **Resampling** never lets a sample reach the face where f5's optimum
+  lies, at any *d*.  Projection lands on it.
+* **Active CMA** costs at *d* ≥ 5, not at *d* = 2.  Optuna's clip twin,
+  which is active too, shows the same profile.
+* A mechanism, not yet tested: on a linear function the best and the
+  worst offspring lie along the same gradient axis.  The negative update
+  then cancels the rank-μ elongation of C along it, which the run needs
+  to travel to the boundary.  This is logged in `TODO.md`.
+
+f5 is also why resample and reflect look negative pooled on BBOB.
+Without f5 both are small positives: resample +0.005 / +0.008, reflect
++0.007 / +0.010.
+
+### 58.5 Reading
+
+* **H1 (bound handling) is falsified, from both sides.**
+  * Optuna with pure clipping scores as Optuna with resampling on IOH
+    standard (+0.005 [−0.018, +0.028]) and on both BBOB budgets (+0.002,
+    +0.001).
+  * On cell (5, 2) clipping costs Optuna −0.08 (CI including 0), not the
+    basin.
+  * Our CMA-ES with resampling gains nothing on the headline battery
+    (+0.004) and pays on f5.
+* **H2 (random first start) is worse, everywhere it is measurable**:
+  −0.023 (IOH, CI including 0), −0.019 at both BBOB budgets (0/12), and
+  negative in every class.  The centre start is an advantage, not a
+  handicap.  Optuna's lead comes despite its random `x0`.
+* **H3 (active CMA) carries the whole Optuna lead.**
+  * `RoundRobin_CMAES_active` ties Optuna CmaEs on IOH standard (+0.000)
+    and on cell (5, 2) (−0.075, CI including 0).
+  * It beats RR by +0.038, 11/12.
+  * On the independent BBOB battery it beats RR by +0.011 (200·d) and
+    +0.041 (500·d, 12/12), and Optuna CmaEs by +0.013 / +0.015.
+  * The mechanism is visible in the class profile: conditioning, not
+    multimodality.
+* **The combination is worse than active alone** (IOH +0.023 vs +0.038;
+  BBOB 200·d −0.004 vs +0.011).  Resampling and the random start only
+  subtract.
+* **Is active "clearly better" by the rule** (a paired CI excluding 0 on
+  the headline battery, not worse on any BBOB class)?
+  * Headline: yes, +0.038 [+0.014, +0.063].
+  * BBOB classes: at 500·d no class is significantly worse.  At 200·d the
+    separable class is, −0.024 [−0.040, −0.009].
+  * That class loss is all f5 at *d* ≥ 5: the separable class without f5
+    is +0.017, 11/12.
+  * So active **misses the rule on one class at one budget, for one
+    function whose optimum is on the boundary**.
+  * It is the clear candidate for the default.  Whether f5's loss is
+    accepted, or fixed first (§58.4 hypothesis), is the coordinator's
+    call; this entry does not flip the default.
+* **Selected-maximum caveat** (benchmarking.md): active is one of five
+  pre-registered variants, and IOH standard is where the hypotheses came
+  from.  The BBOB battery is the fresh check, 24 functions × 3 dims × 2
+  instances × 2 budgets, and it confirms the sign at both budgets (8/12
+  and 12/12).
+* **Open:** pycma BIPOP also runs active CMA by default (§57.5) and gains
+  far less on the high-conditioning class (+0.056 vs +0.152 at 500·d).
+  Its σ0 and restart schedule differ, and the gap is not explained here.

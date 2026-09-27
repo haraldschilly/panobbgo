@@ -104,17 +104,22 @@ Cheap-track items, in GOAL §2c order:
 - [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2,
       σ-collapse hypothesis on `ellipsoid_ball`).
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
-- [ ] **CMA-ES bound handling: resample vs project (§57 H1).**  Optuna's
-      CmaEsSampler leads the cheap track only on MA-BBOB (d = 5, inst 2),
-      where it finds the global basin 12/12 vs 6/12 for `RoundRobin_CMAES`;
-      its one unique trait is resampling out-of-box samples (≤ 10·n
-      redraws, then clip).  A/B: a `boundary="resample"` option on `CMAES`
-      vs projection, shared `seed_name`, IOH standard 12 seeds, readout the
-      (5, 2) reach-1e−1 count and the paired Δ; mirror test: a `cmaes.CMA`
-      baseline with `n_max_resampling=1`.  Alongside: the external
-      baselines on the BBOB fid battery (§52 axis), to see whether the
-      edge exists outside this one mixture.  Then H2 (random first start)
-      and H3 (active CMA).
+- [ ] **Decide: `CMAES(active=True)` as the default (§58).**  +0.038
+      [+0.014, +0.063], 11/12 on IOH standard (ties Optuna CmaEs); +0.011
+      (b200) / +0.041 (b500, 12/12) on the 24-fid BBOB battery.  Against the
+      rule "no BBOB class worse": at 200·d the separable class is −0.024
+      (CI excludes 0), all of it f5 at d 5/10 (separable without f5
+      +0.017, 11/12).  Coordinator's call; the default is unchanged.
+- [ ] **Active CMA on f5 (linear slope) at d ≥ 5** loses −0.38…−0.45
+      (§58.4); Optuna, which is active too, loses the same way even when
+      clipping.  Hypothesis: the negative update cancels the rank-μ
+      elongation along the gradient.  Test before or with the default flip.
+- [ ] **`Baseline_Optuna_CmaEs` crashes on BBOB f14, d = 2, instance 0 at
+      500·d** in 3 of 12 seeds (7, 2025, 11): `ValueError: nan is invalid
+      value` from Optuna, 0 evaluations, scored 0 (§58; conclusions do not
+      change without the cell).  Reproduce and guard the adapter.
+- [ ] Why pycma BIPOP (active CMA by default) gains only +0.056 on the
+      high-conditioning BBOB class where our `active=True` gains +0.152 (§58).
 - [ ] Sweep CMA-ES's own knobs (`sigma0`, `popsize`, `restart_mode`).
 - [ ] Standing rule: no further bandit tuning without a new mechanism (§31).
 

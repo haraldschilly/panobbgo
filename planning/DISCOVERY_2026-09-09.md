@@ -4135,3 +4135,285 @@ on this path.
   500·d, and real (threaded/dask) async, where the same rules apply.
 * **Next:** re-run the `measure.yml` grid on this; look at the d10/q1
   step-size effect above.
+
+## 65. The expensive track after the CMA-ES fixes (#375, #379, #380): the d5/q64 loss is gone, the 20·d and q = 1 losses stay (2026-09-27)
+
+**Run.** `measure.yml` run 36313485264 on master 58cf1e7, the `core`
+group only, full default grid (free preset, d 2/5/10, 20·d and 100·d,
+q ∈ {1, 4, 16, 64}, q ≤ bm, seeds 3/7/42/1234/2025, 3 instances per
+family).  That is 105 units in 5 shards, all done, none failed, about
+1.4 runner-hours and 26 min wall.  The code under test has
+guarded active CMA as the default (#375, §60/§61), the λ ≥ q floor
+`popsize_min_workers="auto"` with its budget cap (#379, §63), and the
+dispatched quorum with late offspring folded (#380, §64).  §62 measured
+none of the three: it ran on 1778e1b, before all of them.  Run
+36305967615 on 3ce8ee0 had #375, but the half quorum made active CMA a
+no-op there (§64).
+
+**The comparison is a combination of runs.**  The GP groups were not
+re-run.  The aggregate combines:
+
+* the 105 new `core` units (the four panobbgo specs plus pycma
+  IPOP/BIPOP, NGOpt, Optuna CmaEs/TPE, Py-BOBYQA);
+* the qLogEI, TuRBO-1 and SMAC units of §62's run 36274781342 (1778e1b);
+* the two SMAC units that §62 lost (`SMAC.free.b100.q1.d2.s3/.s7`),
+  re-run in 36305967615 (3ce8ee0).
+
+Why the combination is valid:
+
+* Each unit is a deterministic function of (spec, seed, instance), with
+  CRN durations per cell.
+* `harness_baselines_bo.py` is unchanged between 1778e1b and 58cf1e7.
+  `harness_baselines.py` only gained a new Optuna variant.
+* All 325 unit files carry the same `fp_env_id` 80ee2a0090c4.
+* The strongest check: every core-group external and `RoundRobin_Random`
+  is **bit-identical** to §62 in all 21 × 75 runs.  The new runner
+  reproduces the old code path exactly.  Only CMA-ES-bearing specs move.
+
+The combined `summary.md` still shows SMAC at d2/100·d as 3/5.  The two
+re-run units enter it as calibration rows (AOCC 0.249 and 0.249), not
+as grid units.  SMAC is a q = 1 reference row outside the pool, so no
+headline number depends on it.
+
+Files: `planning/results/2026-09-27-measure-confirm/` holds `summary.md`
+(the combined aggregate, `scripts/measure.py aggregate` over the merged
+unit files) and `plan.json` (the confirmation run's plan, 5 core
+shards).  `summary.json` is not committed.  "Before" in this section
+is §62 (run 36274781342).  The core units of run 36305967615 (3ce8ee0)
+are bit-identical to it (§64).  The method is §62's: Holm over the 21
+headline cells, everything else unadjusted, **bold** = p_holm < 0.05.
+
+**Same seeds, so not out of sample.**  The seeds, instances and CRN
+durations are §62's.  §63 and §64 chose their variants on those same
+100·d cells locally, so wherever the runner repeats a local A/B cell it
+reproduces the in-sample number.  It is not an independent confirmation.
+The new information is:
+
+* the paired comparison against the externals and the Holm context;
+* the 20·d cells, which neither §63 nor §64 ran;
+* instances 1 and 2 at d = 10, where §63's side check used instance 0 only.
+
+### 65.1 Headline: `Blocks_warm_CMAES_JSO` − pool best, before and after
+
+"Blocks after − before" is paired over the 5 seeds on the same 75 runs
+(unadjusted).  The pool and the pool's best values are unchanged.
+
+| cell | metric | pool best | Blocks before → after | Blocks after − before | Δ before (p_holm) | Δ after [CI95] wins | p_holm |
+|---|---|---|---|---|---|---|---|
+| d2 20·d q1 | aocc | TuRBO1 0.145 | 0.093 → 0.095 | +0.002 [−0.005, +0.009] 3/5 | **−0.053** (0.029) | **−0.051** [−0.073, −0.028] 0/5 | 0.043 |
+| d2 20·d q4 | time | qLogEI 0.100 | 0.085 → 0.090 | +0.005 [−0.009, +0.019] 3/5 | −0.016 (0.093) | −0.011 [−0.022, +0.000] 1/5 | 0.328 |
+| d2 20·d q16 | time | qLogEI 0.067 | 0.063 → 0.063 | identical (75/75 runs) | −0.003 (0.919) | −0.003 [−0.010, +0.003] 1/5 | 1.000 |
+| d2 100·d q1 | aocc | PyBOBYQA 0.440 | 0.215 → 0.226 | +0.010 [−0.025, +0.046] 3/5 | **−0.224** (<0.001) | **−0.214** [−0.262, −0.166] 0/5 | 0.005 |
+| d2 100·d q4 | time | qLogEI 0.209 | 0.214 → 0.203 | −0.010 [−0.037, +0.016] 2/5 | +0.005 (0.919) | −0.006 [−0.037, +0.026] 2/5 | 1.000 |
+| d2 100·d q16 | time | qLogEI 0.175 | 0.171 → 0.159 | −0.012 [−0.024, −0.000] 1/5 | −0.004 (0.919) | −0.016 [−0.028, −0.005] 0/5 | 0.136 |
+| d2 100·d q64 | time | qLogEI 0.113 | 0.093 → 0.099 | +0.007 [−0.004, +0.017] 4/5 | −0.020 (0.113) | −0.013 [−0.021, −0.006] 0/5 | 0.079 |
+| d5 20·d q1 | aocc | NGOpt 0.073 | 0.044 → 0.044 | +0.000 [−0.002, +0.003] 3/5 | −0.029 (0.080) | −0.029 [−0.045, −0.013] 0/5 | 0.068 |
+| d5 20·d q4 | time | qLogEI 0.049 | 0.044 → 0.044 | +0.000 [−0.001, +0.001] 2/5 | −0.005 (0.187) | −0.005 [−0.009, −0.001] 0/5 | 0.159 |
+| d5 20·d q16 | time | qLogEI 0.040 | 0.034 → 0.035 | +0.001 [−0.000, +0.002] 4/5 | **−0.006** (0.019) | **−0.005** [−0.007, −0.004] 0/5 | 0.020 |
+| d5 100·d q1 | aocc | PyBOBYQA 0.145 | 0.120 → 0.131 | +0.011 [−0.002, +0.024] 4/5 | −0.026 (0.402) | −0.015 [−0.047, +0.017] 2/5 | 1.000 |
+| d5 100·d q4 | time | TuRBO1 0.112 | 0.116 → 0.123 | +0.007 [−0.005, +0.019] 3/5 | +0.004 (0.919) | +0.011 [+0.006, +0.017] 5/5 | 0.060 |
+| d5 100·d q16 | time | qLogEI 0.072 | 0.098 → 0.103 | +0.005 [−0.002, +0.011] 5/5 | **+0.027** (0.008) | **+0.031** [+0.021, +0.041] 5/5 | 0.015 |
+| d5 100·d q64 | time | qLogEI 0.062 | 0.043 → 0.061 | **+0.018 [+0.015, +0.021] 5/5** | **−0.019** (0.001) | −0.001 [−0.006, +0.005] 2/5 | 1.000 |
+| d10 20·d q1 | aocc | NGOpt 0.051 | 0.028 → 0.028 | +0.000 [−0.000, +0.001] 3/5 | **−0.023** (0.007) | **−0.023** [−0.030, −0.017] 0/5 | 0.010 |
+| d10 20·d q4 | time | qLogEI 0.034 | 0.027 → 0.028 | +0.001 [−0.001, +0.002] 4/5 | **−0.007** (0.002) | **−0.007** [−0.009, −0.005] 0/5 | 0.010 |
+| d10 20·d q16 | time | qLogEI 0.031 | 0.026 → 0.026 | +0.001 [−0.000, +0.002] 5/5 | **−0.006** (0.008) | **−0.005** [−0.007, −0.003] 0/5 | 0.023 |
+| d10 100·d q1 | aocc | TuRBO1 0.096 | 0.080 → 0.086 | +0.006 [−0.006, +0.019] 4/5 | −0.017 (0.093) | **−0.010** [−0.015, −0.006] 0/5 | 0.042 |
+| d10 100·d q4 | time | TuRBO1 0.085 | 0.081 → 0.083 | +0.002 [−0.008, +0.013] 4/5 | −0.004 (0.706) | −0.002 [−0.012, +0.009] 2/5 | 1.000 |
+| d10 100·d q16 | time | TuRBO1 0.060 | 0.067 → 0.073 | +0.006 [−0.001, +0.012] 4/5 | +0.007 (0.706) | **+0.013** [+0.007, +0.019] 5/5 | 0.049 |
+| d10 100·d q64 | time | Optuna TPE 0.028 | 0.033 → 0.046 | **+0.013 [+0.013, +0.014] 5/5** | +0.005 (0.058) | **+0.018** [+0.016, +0.021] 5/5 | 0.001 |
+
+(Bold in "after − before" marks the two unadjusted CIs above 0 that
+matter here.  d2/100·d/q16's CI ends at −0.0001.)
+
+### 65.2 Holm count: 1 / 7 / 13 → 3 / 7 / 11
+
+| | wins | losses | unresolved |
+|---|---|---|---|
+| §62 (before) | 1: d5/100·d/q16 | 7: d2/20·d/q1, d2/100·d/q1, d5/20·d/q16, d10/20·d/q1, d10/20·d/q4, d10/20·d/q16, d5/100·d/q64 | 13 |
+| §65 (after) | 3: d5/100·d/q16, **d10/100·d/q16**, **d10/100·d/q64** | 7: d2/20·d/q1, d2/100·d/q1, d5/20·d/q16, d10/20·d/q1, d10/20·d/q4, d10/20·d/q16, **d10/100·d/q1** | 11 |
+
+* **One loss leaves and one enters.**
+  * d5/100·d/q64 leaves: Blocks +0.018, and the Δ is now −0.001.
+  * d10/100·d/q1 enters, although Blocks *gained* there (+0.006, n.s.).
+    Its Δ went from −0.017 to −0.010, but the CI narrowed, so p fell
+    from 0.0085 to 0.0030 and p_holm from 0.093 to 0.042.
+* **Every remaining loss is at q = 1 or at 20·d.**  No Holm loss is
+  left at 100·d with q > 1.  In §62 there was one (d5/q64).
+* **Three verdicts sit at the edge:** d10/100·d/q16 (win, p_holm
+  0.049), d10/100·d/q1 (loss, 0.042) and d2/20·d/q1 (loss, 0.043).
+  Holm is step-down.  Adding small p-values elsewhere changes every
+  adjustment: for example d2/20·d/q16 is bit-identical but moves
+  0.919 → 1.000.  So this count moves with small changes in cells that
+  have nothing to do with a given verdict.
+* Near misses: d5/100·d/q4, +0.011 [+0.006, +0.017] 5/5, p_holm 0.060
+  (was +0.004, 3/5), and d2/100·d/q64, −0.013, 0/5, 0.079.
+* Blocks is ahead of every external in 4 cells, as in §62, but not the
+  same four.  It is ahead in d5/100·d/q4 and q16 and d10/100·d/q16 and
+  q64.  It gains d10/q16 and loses d2/100·d/q4 (0.203 against qLogEI's
+  0.209; it was 0.214).  At d10/100·d, q ≤ 4, `RoundRobin_CMAES` and
+  `RegimeGate_oracle` now rank above Blocks (§65.4).
+* Mean Δ over d per row (the §62.5 view): 100·d is −0.080 / +0.001 /
+  +0.009 / +0.001 at q 1/4/16/64 (§62: −0.089 / +0.002 / +0.010 /
+  −0.011).  20·d is −0.034 / −0.008 / −0.004 (§62: −0.035 / −0.009 /
+  −0.005).  Only q = 64 and the 100·d q = 1 row move.
+* Blocks' `aocc_time`/AOCC ratio at q = 64 is now 0.66 / 0.80 / 0.84
+  (d 2/5/10), against 0.63 / 0.43 / 0.49 in §62 and qLogEI's 0.83 /
+  0.94.
+  * The cost is AOCC over evaluations: −0.025 [−0.038, −0.013] at
+    d5/q64 and −0.012 [−0.016, −0.009] at d10/q64, both 0/5, as §63
+    predicted.
+  * Blocks' AOCC lead over qLogEI at d5/q64 (§62.5: +0.035) shrinks to
+    about +0.011 (0.076 against 0.065, unpaired).
+
+### 65.3 Per family (the §62.4 view, the minimum of each row)
+
+Most rows are unchanged within ±0.004.  These ones change:
+
+| cell | §62 worst family | §65 worst family | families with CI < 0 |
+|---|---|---|---|
+| d2 100·d q4 | rastrigin −0.038 | rastrigin −0.066 | rastrigin → ellipsoid, rastrigin |
+| d2 100·d q16 | ellipsoid −0.023 (n.s.) | ellipsoid −0.051 | none → ellipsoid, sharp_ridge −0.018 |
+| d5 100·d q64 | sharp_ridge −0.049 | sharp_ridge −0.025 | ackley, rastrigin, sharp_ridge → ackley, sharp_ridge |
+| d10 100·d q4 | ackley −0.024 | ackley −0.022 (n.s.) | ackley, rastrigin → none |
+| d10 100·d q64 | rastrigin −0.001 (n.s.) | ellipsoid +0.000 (floor) | none; CI > 0 now in ackley, rastrigin, rosenbrock, sharp_ridge |
+| d10 20·d q4 / q16 | ackley | ackley | rastrigin drops out of both |
+
+* **The d2/100·d losses are spread over families.**  In Blocks' paired
+  change at d2/q16, only ellipsoid has a CI below 0 (−0.028
+  [−0.049, −0.007], 0/5).  The other four families are −0.015…−0.004,
+  all n.s.  At d2/q4 no family is significant; the largest drops are
+  ellipsoid −0.034 and rastrigin −0.028.
+* The count of cells with at least one family CI below 0 is still 16 of
+  21.  d2/100·d/q16 joins it; d10/100·d/q4 leaves it.
+* The q = 1 failures of the roadmap claim are unchanged: ellipsoid
+  −0.655 / −0.116 against Py-BOBYQA (d 2/5, 100·d), and sharp_ridge
+  −0.088 / −0.086 against NGOpt (d 5/10, 20·d).  At q > 1 no family
+  minimum is below −0.066.
+
+### 65.4 `RoundRobin_CMAES` and `RegimeGate_oracle`
+
+`RoundRobin_CMAES`, after − before (headline metric, paired; 5/5
+unless marked):
+
+| | q = 1 | q = 4 | q = 16 | q = 64 |
+|---|---|---|---|---|
+| 100·d, d 2 / 5 / 10 | +0.045 / +0.042 / +0.043 | +0.035 / +0.043 / +0.049 | +0.041 / +0.028 / +0.027 | +0.023 / +0.015 / +0.004 |
+| 20·d, d 2 / 5 / 10 | +0.003 (3/5) / +0.005 / +0.003 | +0.004 (4/5) / +0.004 / +0.003 | +0.001 / +0.004 / +0.002 | — |
+
+* **At 100·d it gains in every cell; at 20·d the gain is small.**  At
+  20·d, 40–200 evaluations are only 4–20 generations.
+* **Against the pool's best it was behind in all 21 cells; now it is
+  ahead in 3, all 5/5, unadjusted:** d5/100·d/q16 +0.006 [+0.003,
+  +0.009], d10/100·d/q4 +0.007 [+0.003, +0.012], d10/100·d/q64 +0.002
+  [+0.000, +0.003].  At d10/100·d/q16 it is +0.004 (3/5, n.s.).
+* **Sharing against CMA-ES alone (RR − Blocks, paired):**
+
+  | 100·d | q = 1 | q = 4 | q = 16 | q = 64 |
+  |---|---|---|---|---|
+  | d2 | −0.069 → −0.034 | −0.067 → −0.022 | −0.063 → −0.010 | −0.032 → −0.015 |
+  | d5 | −0.051 → −0.020 | −0.050 → −0.013 | −0.048 → −0.025 | −0.012 → −0.015 |
+  | d10 | −0.036 → +0.001 | −0.037 → **+0.009** [+0.001, +0.018] 4/5 | −0.030 → −0.008 | −0.008 → −0.017 |
+
+  * §62.2's "at 100·d sharing pays by +0.05…+0.07" was mostly the
+    crippled CMA-ES.  The portfolio's lead is now 0.010–0.034 at d 2/5.
+  * At d = 10 and q ≤ 4 the lead is gone, and CMA-ES alone is ahead at
+    q = 4.
+  * At q ≥ 16 the portfolio still leads by 0.008–0.025 in every cell
+    (d2/q16, 0.010, is n.s.).
+* **`RegimeGate_oracle`** equals Blocks at d ≤ 5, as before.  At d = 10
+  it runs CMA-ES alone inside the block strategy:
+  * **q = 1 / 4, 100·d:** +0.045 / +0.049, 5/5.  The gate's choice now
+    beats the portfolio: RG − Blocks +0.003 (4/5, n.s.) and +0.010
+    [+0.000, +0.019] 5/5.  In §62 it was −0.036 and −0.037.  So §62.2's
+    contradiction with the table row (`dim >= 10, bpd <= 500` → CMA-ES
+    alone) came from the half quorum, not from the row.
+  * **q = 16:** −0.009 [−0.020, +0.003] 0/5, AOCC −0.015 [−0.029,
+    −0.002].  RG − Blocks goes from +0.012 5/5 to −0.002.  §63's side
+    check (instance 0) showed the same sign: −0.006, 2/5.
+  * **q = 64:** +0.012 5/5.  RG − Blocks is −0.002.
+  * At d10/20·d it moves by at most 0.003.
+  * §62.2's unexplained gap at d10/100·d/q16 is now 0.070 (CMA-ES alone
+    inside Blocks) against 0.064 (`RoundRobin_CMAES`), down from 0.079
+    against 0.037.  Most of it was dispatch and the half quorum
+    (§63/§64).
+
+### 65.5 Did §63's and §64's local in-sample claims hold?
+
+| claim (source) | local | runner, 5 seeds × 15 | verdict |
+|---|---|---|---|
+| d5/100·d/q64 Blocks, λ ≥ q floor (§63.3) | +0.018 [+0.015, +0.020] 5/5; Δ vs qLogEI "about −0.001" | +0.018 [+0.015, +0.021] 5/5; Δ −0.001 [−0.006, +0.005], p_holm 1.000 | reproduced (same seeds) |
+| d2/100·d/q16 Blocks regression (§63.3/§63.4) | −0.012 [−0.024, −0.000] 1/5; AOCC −0.018; Δ vs qLogEI "about −0.016" | −0.012 [−0.024, −0.000] 1/5; AOCC −0.018 [−0.032, −0.004]; Δ −0.016, p_holm 0.136 | reproduced; not a Holm loss |
+| d2/100·d/q64 and d5/q16 Blocks (§63.3) | +0.007 4/5; +0.005 5/5 (both n.s.) | +0.007 4/5; +0.005 5/5 | reproduced |
+| d10/100·d/q64 Blocks (§63 side check, instance 0) | +0.013 [+0.008, +0.017] 5/5 | +0.013 [+0.013, +0.014] 5/5, all 3 instances; now a Holm win (0.001) | **confirmed on new instances** |
+| d10/100·d/q16 Blocks (same) | +0.003 [−0.011, +0.017] 3/5 | +0.006 [−0.001, +0.012] 4/5; Holm win at 0.049 | direction holds; the win is mostly §62's +0.007 plus a n.s. gain, and it is marginal |
+| `RoundRobin_CMAES` q ≤ 4 at 100·d (§64.2) | +0.042…+0.050 5/5 | +0.035…+0.049 5/5 | reproduced at d 5/10; d2/q4 (+0.035) was not in §64.2 |
+| Blocks q ≤ 4 at 100·d (§64.2) | +0.002…+0.011, all n.s. | q1 +0.010 / +0.011 / +0.006, q4 −0.010 / +0.007 / +0.002, all n.s. | holds except **d2/q4, −0.010 [−0.037, +0.016] 2/5**: not measured in §64.2, n.s., and it turns a Blocks lead (+0.005) into −0.006 |
+| 20·d (never measured locally) | — | Blocks +0.000…+0.005, all n.s.; RR +0.001…+0.005 | the fixes barely matter at 20·d |
+
+* **Where the runner repeats a local cell, it matches to the printed
+  digit**, as it should: deterministic units, same seeds and CRN.  The
+  exception is d5/q64, where #380 adds its −0.000 and the CI end moves
+  by 0.001.  This
+  confirms that the shipped code is the code that was measured, and that
+  the runner and the laptop agree.  It does **not** remove the selection
+  bias of §63.3's in-sample choice.  Only fresh seeds do (§65.6).
+* The out-of-sample parts all point the same way as the in-sample ones:
+  d10 instances 1 and 2, the 20·d cells (small), and the paired
+  comparison with the externals.
+
+### 65.6 What this means for the q-sweep TODO, steps (b)–(d)
+
+* **(b) The budget cap: keep it.**  This run cannot compare capped with
+  uncapped (only the capped code ran).  What it adds:
+  * The cap binds in four cells of the grid: at 100·d, d2/q64 (λ 64 →
+    20) and d5/q64 (64 → 50); at 20·d, d2/q16 (16 → 6, so no floor at
+    all; Blocks is bit-identical to §62 there) and d5/q16 (16 → 10).
+  * For the headline spec the cap is immaterial: §63.3 measured +0.001 /
+    +0.002 (n.s.) on Blocks.  With the cap on, d5/q64 already reaches
+    parity with qLogEI.
+  * Its only measured cost is `RoundRobin_CMAES` at d2/100·d/q64 (§63.3:
+    +0.020 instead of +0.041).  That is a secondary spec on a 3-round
+    budget, still −0.029 behind qLogEI there.
+  * Nothing here argues for dropping a convention that protects sample
+    efficiency on small budgets.  The decision is proposed for Harald to
+    record: keep `MIN_GENERATIONS = 10`.
+* **(b) Blocks d2/q16: the cost is real but small, and not the priority.**
+  * It is −0.012 against its own past, which the runner reproduces.
+    Against qLogEI it is −0.016 [−0.028, −0.005] 0/5, p_holm 0.136.
+  * d2/100·d/q4 moved −0.010 as well (n.s., from #380, not the floor).
+  * d = 2 at 100·d is where Blocks lost its q = 4 lead.  The two ideas
+    in §63.4 (a block of at least one owner generation; the floor only
+    where the arms cannot fill the workers) are untried.
+  * Rather than tune on these 5 seeds again, run d2/q4 and d2/q16 in the
+    12-seed step and decide on fresh seeds.
+* **(c) 12 seeds on the q 4–16 band, fresh seeds.**  The band
+  (100·d, q 4–16) now has two Holm wins (d5/q16, d10/q16 at 0.049), one
+  near miss (d5/q4, 5/5, 0.060) and three open cells with CIs spanning 0
+  (d2/q4, d2/q16, d10/q4).
+  * Because §63/§64 picked their variants on seeds 3/7/42/1234/2025, the
+    step should use **new base seeds** (a comma list in `measure.yml`,
+    not the first 12 of the roster).  Report the fresh seeds alone as
+    the confirmatory result, and pooled with these 5 only as a secondary
+    view.
+  * Add d2/100·d/q64 (−0.013, 0/5, p_holm 0.079) and d5/100·d/q64
+    (parity).
+  * Groups: core + qLogEI + TuRBO1.  qLogEI at d 2/5 dominates the
+    cost; there is no qLogEI at d = 10, 100·d.
+  * Pre-declare the Holm family as the cells of that run.
+* **(d) The `failure` preset** is unchanged as the next step after (c).
+  §62's CMA-ES caveat no longer applies to it.
+* **For the roadmap claim:**
+  * At 100·d and q ≥ 4, over 9 cells: the unadjusted CI is above 0 in 4
+    (d5/q4, d5/q16, d10/q16, d10/q64), spans 0 in 3, and is below 0 in
+    2 (d2/q16, d2/q64).  No cell is a Holm loss.
+  * At q = 1 (a sequential model or local method wins) and at 20·d
+    (qLogEI wins at every q > 1, and NGOpt/TuRBO1 at q = 1) nothing
+    changed.  Those 7 Holm losses are search, not scheduling, and the
+    CMA-ES fixes do not touch them.  They are the gap a model-based arm
+    (roadmap §4) has to close.
+* **Reference.**  For core specs, this section (run 36313485264) replaces
+  §62 as the expensive-track reference; for the GP baselines, §62's run
+  stays the reference.  Any later core-only run can be combined with
+  those GP units the same way, as long as `harness_baselines_bo.py` and
+  the FP pin do not change.  Check the bit-identity of the core-group
+  externals first; it is the cheapest proof that the path is unchanged.

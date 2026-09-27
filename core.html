@@ -210,6 +210,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.n_timed_out"><code class="docutils literal notranslate"><span class="pre">StrategyBase.n_timed_out</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.name"><code class="docutils literal notranslate"><span class="pre">StrategyBase.name</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.on_converged"><code class="docutils literal notranslate"><span class="pre">StrategyBase.on_converged()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.core.StrategyBase.preload_results"><code class="docutils literal notranslate"><span class="pre">StrategyBase.preload_results()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.record_walltime"><code class="docutils literal notranslate"><span class="pre">StrategyBase.record_walltime()</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.request_cap"><code class="docutils literal notranslate"><span class="pre">StrategyBase.request_cap</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.core.StrategyBase.request_stop"><code class="docutils literal notranslate"><span class="pre">StrategyBase.request_stop()</span></code></a></li>
@@ -1363,6 +1364,33 @@ had to hand back; stays 0 unless a strategy ignores its cap.</p>
 <dt class="sig sig-object py" id="panobbgo.core.StrategyBase.on_converged">
 <span class="sig-name descname"><span class="pre">on_converged</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reason</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.on_converged"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.on_converged" title="Link to this definition">#</a></dt>
 <dd><p>Called when the Convergence analyzer detects convergence.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.core.StrategyBase.preload_results">
+<span class="sig-name descname"><span class="pre">preload_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="lib.html#panobbgo.lib.Result" title="panobbgo.lib.lib.Result"><span class="pre">Result</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/core.html#StrategyBase.preload_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.core.StrategyBase.preload_results" title="Link to this definition">#</a></dt>
+<dd><p>Book <code class="docutils literal notranslate"><span class="pre">results</span></code> before the first pass, as a resume from storage books its results.</p>
+<p>For a run that continues from points evaluated elsewhere — the shared
+probe of a counterfactual branch (<code class="docutils literal notranslate"><span class="pre">panobbgo.selector_data</span></code>), a
+design evaluated before the optimizer was chosen.  Call it before
+<a class="reference internal" href="#panobbgo.core.StrategyBase.start" title="panobbgo.core.StrategyBase.start"><code class="xref py py-meth docutils literal notranslate"><span class="pre">start()</span></code></a>.  <a class="reference internal" href="#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a> adds them right after the storage
+backend’s results: they are in the store, and the <code class="docutils literal notranslate"><span class="pre">new_results</span></code>
+event for them is published, <em>before</em> the <code class="docutils literal notranslate"><span class="pre">start</span></code> event, so every
+module sees them before it emits its first point (an arm with an
+archive warm start, <code class="docutils literal notranslate"><span class="pre">warm_start=&quot;archive&quot;</span></code>, fits its start to
+them).  Like restored results they count as dispatched: a run with
+<code class="docutils literal notranslate"><span class="pre">max_eval</span> <span class="pre">=</span> <span class="pre">B</span></code> and <code class="docutils literal notranslate"><span class="pre">k</span></code> preloaded results evaluates <code class="docutils literal notranslate"><span class="pre">B</span> <span class="pre">-</span> <span class="pre">k</span></code>
+new points.  Nothing is evaluated here, and a run without a preload
+is unchanged.</p>
+<p>With a storage backend the preload is <strong>saved</strong> like any booked
+result, deliberately: it is part of the run’s archive, and a resumed
+run must see it (and must not re-evaluate its budget share).  So a
+resumed run gets it from storage — preloading it again there would
+book it twice, and <a class="reference internal" href="#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a> refuses that (<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>).
+The results are booked as given (the same objects); a caller that
+reuses them across runs passes copies.</p>
+<p>Raises <code class="docutils literal notranslate"><span class="pre">RuntimeError</span></code> after <a class="reference internal" href="#panobbgo.core.StrategyBase.initialize" title="panobbgo.core.StrategyBase.initialize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">initialize()</span></code></a> (the preload would
+never be booked) and <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> for anything but <code class="docutils literal notranslate"><span class="pre">Result</span></code>.</p>
 </dd></dl>
 
 <dl class="py method">

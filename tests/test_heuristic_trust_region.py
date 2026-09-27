@@ -200,6 +200,93 @@ class TrustRegionTests(PanobbgoTestCase):
         np.testing.assert_array_equal(run(), run())
 
 
+def _solo_run(problem, f, n_evals, q=1):
+    """Drive the arm by hand on ``problem`` with objective ``f``: ``(best fx, arm)``."""
+    s = PanobbgoTestCase("__init__")
+    s.problem = problem
+    strategy = s.init_strategy()
+    strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+    h = TrustRegionQuadratic(strategy)
+    best, n = np.inf, 0
+    while n < n_evals:
+        pts = h.produce(q)
+        res = [Result(p, float(f(p.x))) for p in pts]
+        h.on_new_results(res)
+        best = min([best] + [r.fx for r in res])
+        n += len(pts)
+    return best, h
+
+
+class _Box:
+    """A bare problem: a box and ``project``, all the arm reads."""
+
+    def __init__(self, box):
+        from panobbgo.lib.lib import BoundingBox
+
+        self._box = BoundingBox(box)
+        self.dim = len(box)
+
+    @property
+    def box(self):
+        return self._box
+
+    def project(self, x):
+        return np.minimum(np.maximum(x, self._box[:, 0]), self._box[:, 1])
+
+
+def test_the_model_never_collapses_into_a_subspace():
+    """Review of #383, S1: the first 2d + 1 points used to lie on one axis, the min-norm fit had
+    zero gradient along x2, and the arm never varied x2 (best 2.88 at (0.4, 0.0))."""
+    x_opt = np.array([0.4, -1.2])
+    best, _ = _solo_run(_Box([(0.0, 2.0), (-2.0, 2.0)]), lambda x: 2.0 * float(np.sum((x - x_opt) ** 2)), 40)
+    assert best < 1e-8
+
+
+@pytest.mark.parametrize("rotated", [False, True])
+def test_separable_and_rotated_quadratics_at_d10(rotated):
+    """S1: a separable d = 10 quadratic used to stall near 1e-5 while the rotated one reached 1e-24."""
+    d = 10
+    rng = np.random.default_rng(7)
+    x_opt = rng.uniform(-3, 3, d)
+    lam = np.logspace(0, 3, d)
+    R = np.linalg.qr(rng.standard_normal((d, d)))[0] if rotated else np.eye(d)
+    H = R @ np.diag(lam) @ R.T
+
+    def f(x):
+        z = x - x_opt
+        return float(z @ H @ z)
+
+    best, h = _solo_run(_Box([(-5.0, 5.0)] * d), f, 600)
+    assert best < 1e-12, (best, h.n_steps, h.n_geometry, h.n_shrink)
+
+
+def test_no_descent_shrinks_once_per_model_state():
+    """S4: produce calls without a new result must not shrink the radius again and again."""
+    s = PanobbgoTestCase("__init__")
+    s.setUp()
+    s.strategy.constraint_handler.get_penalty_value = lambda r: r.fx
+    h = TrustRegionQuadratic(s.strategy)
+    pts = h.produce(5)  # the box centre and the 2d coordinate-design points
+    centre = pts[0].x
+    h.on_new_results([Result(p, float(np.sum((p.x - centre) ** 2))) for p in pts])
+    # The model's minimum is the centre itself: no descent, a failed iteration.
+    for _ in range(10):
+        h.produce(1)  # nothing is ever reported back
+    assert h.n_shrink == 1
+
+
+def test_points_handed_back_undispatched_are_produced_again():
+    s = PanobbgoTestCase("__init__")
+    s.setUp()
+    h = TrustRegionQuadratic(s.strategy)
+    pts = h.produce(3)
+    with h._output.mutex:
+        h._output.queue.extendleft(reversed(pts[1:]))
+    again = h.produce(3)
+    assert [p.who for p in again[:2]] == [p.who for p in pts[1:]]
+    assert len(again) == 3 and again[2].who not in {p.who for p in pts}
+
+
 def test_registered_in_heuristics_package():
     import panobbgo.heuristics as H
 

@@ -4433,14 +4433,16 @@ unless marked):
   the FP pin do not change.  Check the bit-identity of the core-group
   externals first; it is the cheapest proof that the path is unchanged.
 
-## 66. Model-based arms on the expensive track: the existing COBYQA and a new quadratic trust region close the q = 1 and 20·d gaps — in sample, and mostly on one family (2026-09-27)
+## 66. Model-based arms on the expensive track: COBYQA alone and a new quadratic trust region lead at q = 1 and at d ≤ 5 — in sample, much of it on the one exactly quadratic family, and nothing at d = 10 outside it (2026-09-27)
 
 > **In sample.**  Every number here is on seeds 3/7/42/1234/2025, the
 > instances and CRN durations of §62/§65 — the cells whose losses
 > motivated the work.  The new arm's constants were not tuned on these
-> seeds (a few variants were looked at on seeds 101–103, and nothing was
-> changed), but the rules of §66.4 were chosen after seeing these
-> numbers.  Nothing here is a claim until a fresh-seed run repeats it.
+> seeds (a few variants were looked at on seeds 101–103; nothing was
+> changed), but its review fixes (§66.2) were made after the first
+> measurement of these cells, and the rules of §66.4 were chosen after
+> seeing the numbers.  Nothing here is a claim until a fresh-seed run
+> repeats it.
 
 **Question.**  §65 left 7 Holm losses of `Blocks_warm_CMAES_JSO`, all at
 q = 1 or at 20·d; the largest, d2/100·d/q1, is −0.214 against Py-BOBYQA and
@@ -4456,7 +4458,15 @@ q ∈ {1, 4}.  Blocks and the pool are §65's runner units (core: run
 on d2/100·d/q1/s3 is bit-identical to the runner unit, so the local specs
 pair with the runner's.  Δ is paired over the 5 seeds, t-CI95, wins/5,
 **unadjusted**.  Full tables, all specs, with and without the ellipsoid
-family: `planning/results/2026-09-27-trust-region/tables.md`.
+family, and the pre-fix TR rows:
+`planning/results/2026-09-27-trust-region/tables.md`.
+
+**Read the ex-ellipsoid view.**  The free preset has one exactly
+quadratic family in five (ellipsoid: a rotated, conditioned quadratic).
+A quadratic model solves it exactly, and every pool member scores ~0 on it
+at d = 10, so it can decide a five-family mean on its own.  Every result
+below is given with and without it; reports on the free preset should
+show the ex-ellipsoid view next to the mean.
 
 ### 66.1 Inventory: what panobbgo already has
 
@@ -4468,7 +4478,10 @@ family: `planning/results/2026-09-27-trust-region/tables.md`.
 | `LBFGSB` | finite-difference gradients through a bridge | not tried (d evaluations per gradient) |
 | `GaussianProcessHeuristic`; the analyzers | GP EI; the analyzers (Splitter, Archive, Best, Convergence, Restart, Sensitivity) hold no model | not tried |
 
-**`COBYQA` alone** (`RR_COBYQA`), Δ vs the pool best:
+**`COBYQA` alone** (`RR_COBYQA`), Δ vs the pool best.  **Single run:** it
+is seed-invariant (box-centre start, no randomness), so each "5/5" below
+is one COBYQA run paired with 5 reference runs, and the CIs carry only the
+reference's seed variance.
 
 | | d2 | d5 | d10 |
 |---|---|---|---|
@@ -4477,15 +4490,16 @@ family: `planning/results/2026-09-27-trust-region/tables.md`.
 | 100·d q1 | +0.017 [−0.017, +0.051] 3/5 | **+0.133** [+0.107, +0.160] | **+0.038** [+0.036, +0.040] |
 | 100·d q4 | +0.058 [+0.047, +0.069] | +0.026 | −0.005 |
 
-* **At q = 1 an existing arm already closes the gap in all six cells**
-  (five with the CI above 0).  At q = 4 it is sequential and wins only
-  where it converges before the time horizon (d2/d5 at 100·d; it stops at
-  30 % / 47 % of the budget on average).
-* Caveats: it is **seed-invariant** (centre start, no randomness), so its
-  5/5 is one run against 5 reference runs; it never restarts (`EndedEarly`
-  in 20–100 % of the runs per cell).  Outside ellipsoid its strength is
-  **ackley** (d5/100·d: 0.657 against at most 0.31 for every other spec):
-  the large initial trust region models the funnel, not the ripples.
+* **At q = 1 an existing arm is ahead of the pool best in all six cells**
+  (five with the CI above 0), without ellipsoid too (+0.012 n.s. / +0.055 /
+  +0.028 at 20·d and +0.005 n.s. / +0.158 / +0.046 at 100·d, d 2/5/10).
+  At q = 4 it is sequential and wins only where it converges before the
+  time horizon (d2/d5 at 100·d; it stops at 30 % / 47 % of the budget on
+  average).
+* It never restarts (`EndedEarly` in 20–100 % of the runs per cell).
+  Outside ellipsoid its strength is **ackley** (d5/100·d: 0.657 against at
+  most 0.31 for every other spec): the large initial trust region models
+  the funnel, not the ripples.
 * **As a third Blocks arm it does not help** (`Blocks3_COBYQA`: −0.127 vs
   the pool best at d2/100·d/q1, within ±0.01 of Blocks at d ≥ 5): the
   uniform rotation gives it one block in three, its subprocess keeps its
@@ -4499,29 +4513,47 @@ event model instead of bridged:
 
 * **model**: full quadratic, weighted least squares on the archive points
   within 3 radii (inf-norm) of the centre, nearest first, at most
-  max(2d + 1, 1.5·p) with p = 1 + 2d + d(d−1)/2.  The archive is every
-  result of every arm (`on_new_results`), so another arm's points feed the
-  model;
-* **centre**: the best archive point outside the tabu balls of converged
-  centres, whoever found it; the box centre (default) or a random point
-  while the archive is empty;
+  max(2d + 1, 1.5·p) with p = 1 + 2d + d(d−1)/2.  With fewer points than
+  coefficients, the least change of the previous model's Hessian
+  (NEWUOA's idea).  The archive is every result of every arm
+  (`on_new_results`), so another arm's points feed the model;
+* **rank test**: the model is used only when the displacements of its
+  points from the centre have numerical rank d (SVD, relative tolerance
+  1e-3); otherwise the arm emits geometry points along the least-covered
+  directions first;
+* **centre**: the best archive point outside the tabu balls (inf-norm,
+  radius_init) of converged centres, whoever found it; the box centre
+  (default) or a random point while the archive is empty.  The radius is
+  not reset when the centre jumps;
 * **step**: the model minimiser in box ∩ trust region (L-BFGS-B from up to
   3 starts); ratio test: shrink ×0.5 below 0.1, grow ×2 above 0.7 at the
-  boundary.  Only a full-radius step emitted at the current radius moves the
-  radius, so batch steps and stale in-flight steps do not shrink it twice;
-* **geometry**: the coordinate design c ± r·e_i (BOBYQA's first 2d + 1
-  points), then max-min space-filling points in the region, while fewer
-  than d + 1 points are near or after a failed step on a thin model;
-* **restart** below radius 1e-7 (the centre becomes tabu);
-* **batches**: on demand (`produce(limit)`): the step, then steps at halved
-  radii, then geometry points, never an evaluated or in-flight point again.
-  At q = 1 a sequential TR method; at q > 1 the extra workers get shorter
-  steps and geometry points.
+  boundary.  Only a full-radius step emitted at the current radius moves
+  the radius; a model that predicts no descent shrinks it at most once per
+  archive state;
+* **geometry**: least-covered directions, then the coordinate design
+  c + r·e_i, c − r·e_i (BOBYQA's first 2d + 1 points), then max-min
+  space-filling points in the region;
+* **restart** below radius 1e-7;
+* **batches**: on demand (`produce(limit)`): points the strategy handed
+  back undispatched first, then the step, steps at halved radii and
+  geometry points, never an evaluated or in-flight point again.  At q = 1
+  a sequential TR method; at q > 1 the extra workers get shorter steps and
+  geometry points.
+
+**Review fixes (#383).**  The first version judged "enough points" by
+count, not rank, and fitted a minimum-norm quadratic: its first 2d + 1
+points could lie on a few axes, the fit then had zero gradient and
+curvature outside their span, and the arm never moved there (2-D
+reproduction: 2‖x − (0.4, −1.2)‖² in [0, 2] × [−2, 2], best 2.88 at
+(0.4, 0.0) after 40 evaluations).  Fixed by the rank test, the coordinate
+design ordered +e_1…+e_d first, and the least-change Hessian: on d = 10
+quadratics with condition 1e3 (600 evaluations) the best value went from
+1.5 (separable) / 17 (rotated) with the rank test alone to 4e-24 / 4e-23.
+Tests pin both.  A no-descent model used to shrink the radius on every
+`produce` call without new data; now once per archive state.
 
 Constants are the textbook ones: radius 0.1 of the box (Py-BOBYQA's
-rhobeg), fit span 3.  On seeds 101–103 at d2/100·d/q1, radius 0.2 scored
-0.488 against 0.455 (ackley −0.25, rastrigin +0.27) and fit span 2 0.453;
-nothing was changed.
+rhobeg), fit span 3; not tuned on these seeds.
 
 Opt-in specs (`harness_ioh.make_trust_region_strategies`, named in
 `ioh_benchmark.py run --strategies`): `RoundRobin_TRQ` and
@@ -4532,76 +4564,91 @@ names of the local runs: `Blocks_warm_CMAES_JSO_TRQ` reproduces
 `RoundRobin_TRQ` is `RR_TRQ` on a different RNG stream (the seed hashes the
 spec name), so its numbers will differ by seed noise.  No default changes.
 
-### 66.3 (a) Alone and (b) as a third arm: Δ vs the pool best
+### 66.3 (a) Alone and (b) as a third arm: Δ vs the pool best (fixed arm)
 
 | cell | pool best | Blocks | RR_TRQ | Blocks3_TRQ |
 |---|---|---|---|---|
-| d2 20·d q1 | TuRBO1 0.145 | 0.095 | **+0.117** [+0.100, +0.133] 5/5 | **+0.070** [+0.038, +0.101] 5/5 |
-| d2 20·d q4 | qLogEI 0.100 | 0.090 | **+0.123** [+0.095, +0.151] 5/5 | **+0.039** [+0.014, +0.065] 5/5 |
-| d5 20·d q1 | NGOpt 0.073 | 0.044 | **+0.040** [+0.025, +0.055] 5/5 | **+0.049** [+0.025, +0.074] 5/5 |
-| d5 20·d q4 | qLogEI 0.049 | 0.044 | **+0.032** [+0.008, +0.056] 5/5 | **+0.048** [+0.026, +0.070] 5/5 |
-| d10 20·d q1 | NGOpt 0.051 | 0.028 | −0.016 [−0.022, −0.010] 0/5 | **+0.057** [+0.034, +0.080] 5/5 |
-| d10 20·d q4 | qLogEI 0.034 | 0.028 | −0.007 [−0.009, −0.005] 0/5 | −0.005 [−0.008, −0.002] 0/5 |
-| d2 100·d q1 | PyBOBYQA 0.440 | 0.226 | +0.016 [−0.019, +0.050] 3/5 | +0.009 [−0.025, +0.043] 4/5 |
-| d2 100·d q4 | qLogEI 0.209 | 0.203 | **+0.227** [+0.177, +0.277] 5/5 | **+0.193** [+0.177, +0.208] 5/5 |
-| d5 100·d q1 | PyBOBYQA 0.145 | 0.131 | **+0.109** [+0.087, +0.132] 5/5 | **+0.166** [+0.117, +0.214] 5/5 |
-| d5 100·d q4 | TuRBO1 0.112 | 0.123 | **+0.137** [+0.069, +0.204] 5/5 | **+0.174** [+0.139, +0.210] 5/5 |
-| d10 100·d q1 | TuRBO1 0.096 | 0.086 | **+0.016** [+0.014, +0.018] 5/5 | **+0.151** [+0.143, +0.158] 5/5 |
-| d10 100·d q4 | TuRBO1 0.085 | 0.083 | +0.023 [−0.031, +0.077] 3/5 | **+0.112** [+0.063, +0.160] 5/5 |
+| d2 20·d q1 | TuRBO1 0.145 | 0.095 | **+0.157** [+0.141, +0.174] 5/5 | **+0.070** [+0.042, +0.097] 5/5 |
+| d2 20·d q4 | qLogEI 0.100 | 0.090 | **+0.128** [+0.103, +0.153] 5/5 | **+0.034** [+0.014, +0.054] 5/5 |
+| d5 20·d q1 | NGOpt 0.073 | 0.044 | **+0.110** [+0.095, +0.125] 5/5 | **+0.050** [+0.024, +0.077] 5/5 |
+| d5 20·d q4 | qLogEI 0.049 | 0.044 | **+0.081** [+0.030, +0.132] 5/5 | **+0.042** [+0.019, +0.065] 5/5 |
+| d10 20·d q1 | NGOpt 0.051 | 0.028 | −0.016 [−0.022, −0.010] 0/5 | **+0.069** [+0.047, +0.090] 5/5 |
+| d10 20·d q4 | qLogEI 0.034 | 0.028 | −0.003 [−0.014, +0.008] 1/5 | **+0.025** [+0.003, +0.047] 5/5 |
+| d2 100·d q1 | PyBOBYQA 0.440 | 0.226 | **+0.089** [+0.055, +0.124] 5/5 | −0.004 [−0.028, +0.020] 2/5 |
+| d2 100·d q4 | qLogEI 0.209 | 0.203 | **+0.250** [+0.225, +0.274] 5/5 | **+0.203** [+0.172, +0.234] 5/5 |
+| d5 100·d q1 | PyBOBYQA 0.145 | 0.131 | **+0.211** [+0.185, +0.238] 5/5 | **+0.165** [+0.118, +0.212] 5/5 |
+| d5 100·d q4 | TuRBO1 0.112 | 0.123 | **+0.201** [+0.169, +0.234] 5/5 | **+0.183** [+0.151, +0.215] 5/5 |
+| d10 100·d q1 | TuRBO1 0.096 | 0.086 | **+0.047** [+0.045, +0.049] 5/5 | **+0.154** [+0.147, +0.160] 5/5 |
+| d10 100·d q4 | TuRBO1 0.085 | 0.083 | +0.046 [−0.006, +0.098] 5/5 | **+0.135** [+0.122, +0.148] 5/5 |
 
-(**bold**: unadjusted CI above 0.)
+**Without the ellipsoid family** (Δ vs the pool best; **bold** now marks a
+CI *below* 0):
 
-* **Against Blocks**, Blocks3_TRQ is +0.050…+0.223 with 5/5 in 11 of 12
-  cells (d10/20·d/q4: +0.002, 4/5, n.s.).  RR_TRQ has its CI above 0 in 10
-  (the two d10 q4 cells are +0.000 and +0.025, n.s.).
-* **The d2/100·d/q1 gap is closed**: Blocks −0.214 → RR_TRQ +0.016 and
-  Blocks3_TRQ +0.009, both n.s., i.e. parity with Py-BOBYQA.  Per family,
-  RR_TRQ vs Py-BOBYQA: ellipsoid +0.014 (Blocks: −0.655), rosenbrock
-  +0.102, ackley +0.013, rastrigin −0.020, sharp_ridge −0.030.
-* **Sharing pays for this arm.**  At d = 10 the arm alone has to fit the
-  quadratic's 66 coefficients from its own points and is weak (0.112 at
-  100·d/q1); as a third arm it also models CMA-ES's and jSO's points and
-  reaches 0.247.
-* **Most of the margin is one family.**  Ellipsoid is an exact (rotated,
-  conditioned) quadratic, so the model is exact: at d = 10 every pool
-  member scores 0.000 on it, Blocks3_TRQ 0.88.  Without the ellipsoid
-  family, Blocks3_TRQ against the pool best:
+| cell | RR_TRQ | Blocks3_TRQ |
+|---|---|---|
+| d2 20·d q1 | +0.014 [−0.001, +0.029] 5/5 | **−0.038** [−0.061, −0.015] 0/5 |
+| d2 20·d q4 | +0.014 [+0.002, +0.026] 4/5 | −0.005 [−0.016, +0.005] 2/5 |
+| d5 20·d q1 | −0.001 [−0.020, +0.019] 2/5 | **−0.028** [−0.049, −0.007] 0/5 |
+| d5 20·d q4 | +0.013 [+0.009, +0.016] 5/5 | **−0.007** [−0.010, −0.003] 0/5 |
+| d10 20·d q1 | **−0.020** [−0.027, −0.013] 0/5 | **−0.028** [−0.035, −0.021] 0/5 |
+| d10 20·d q4 | **−0.009** [−0.009, −0.008] 0/5 | **−0.009** [−0.012, −0.006] 0/5 |
+| d2 100·d q1 | +0.070 [+0.024, +0.116] 5/5 | **−0.035** [−0.065, −0.004] 1/5 |
+| d2 100·d q4 | +0.113 [+0.083, +0.144] 5/5 | +0.076 [+0.027, +0.125] 5/5 |
+| d5 100·d q1 | +0.067 [+0.045, +0.088] 5/5 | +0.023 [−0.032, +0.077] 4/5 |
+| d5 100·d q4 | +0.039 [−0.002, +0.080] 5/5 | +0.023 [−0.017, +0.063] 4/5 |
+| d10 100·d q1 | **−0.020** [−0.023, −0.018] 0/5 | **−0.027** [−0.032, −0.022] 0/5 |
+| d10 100·d q4 | **−0.044** [−0.055, −0.034] 0/5 | **−0.023** [−0.024, −0.021] 0/5 |
 
-  | | d2 | d5 | d10 |
-  |---|---|---|---|
-  | 20·d q1 / q4 | −0.038 / −0.010 | −0.029 / −0.005 | −0.029 / −0.009 |
-  | 100·d q1 / q4 | −0.019 / **+0.063** | +0.019 / **+0.028** | **−0.032** / **−0.022** (both CI < 0) |
-
-  and against Blocks: d2 +0.010 / −0.001 / +0.085 / +0.063, d5 +0.007 /
-  +0.001 / +0.008 / +0.013, **d10 −0.000 / −0.001 / −0.019 / −0.019**
-  (20·d q1 / q4, 100·d q1 / q4).  At d = 10 outside ellipsoid the third arm
-  costs a third of the budget for nothing.  RR_TRQ without ellipsoid is
-  ahead of the pool best at d = 2 (+0.033 / +0.012 / +0.016 / +0.086) and
-  behind at d = 10.
-* **The box-centre start is worth up to 0.1** at d = 2 (RR_TRQ with a
-  random start: 0.348 against 0.455 at d2/100·d/q1, mostly ackley and
-  rosenbrock), less at d = 5 and nothing at d2/q4.  Py-BOBYQA and TuRBO
-  start at random points; panobbgo's CMA-ES and COBYQA start at the
-  centre.  The family optimum is uniform in the box (with a margin), so the
-  centre is the best fixed start, not a leak — but part of "the local model
-  beats Py-BOBYQA" is the start point, not the model.
-* Wall time is small: a unit (3 specs × 15 runs) took 5–25 s on 2
+* **All five families.**  RR_TRQ has its CI above 0 in 10 of 12 cells;
+  Blocks3_TRQ in 11 (d2/100·d/q1: −0.004 n.s.).  Against Blocks,
+  Blocks3_TRQ is +0.032…+0.210 with 5/5 in every cell.
+* **Without ellipsoid**, the 20·d cells are **not** closed: Blocks3_TRQ is
+  behind the pool best with CI < 0 in 5 of the 6 20·d cells and 8 of 12
+  cells overall (pre-fix: 7 of 12), ahead only at d2/100·d/q4.  RR_TRQ is
+  ahead with CI > 0 in 5 cells (d2/20·d/q4, d5/20·d/q4, d2/100·d q1 and
+  q4, d5/100·d/q1), n.s. in 3, and behind in all 4 d = 10 cells.
+* **The d2/100·d/q1 gap** (Blocks −0.214 against Py-BOBYQA) is closed by
+  RR_TRQ: +0.089 [+0.055, +0.124] with all families, +0.070
+  [+0.024, +0.116] without ellipsoid.  Per family vs Py-BOBYQA: ellipsoid
+  +0.166, sharp_ridge +0.107, ackley +0.100, rosenbrock +0.123, rastrigin
+  −0.049.  (Pre-fix it was +0.016 n.s.; the CI claim is the fixed arm's.)
+* **"Sharing pays" is entirely ellipsoid.**  At d10/100·d/q1 the third arm
+  (0.250) is far above the arm alone (0.143), but on ellipsoid alone
+  (0.876 against 0.315); without ellipsoid the arm alone is 0.100 and the
+  third arm 0.094.  The shared archive helps the model where the function
+  *is* a quadratic; nothing here shows it helping elsewhere.
+* **At d = 10 outside ellipsoid neither form helps**: against Blocks the
+  third arm is −0.014 [−0.019, −0.009] (q1) and −0.020 [−0.033, −0.007]
+  (q4) at 100·d, the arm alone −0.007 and −0.042.
+* **The box-centre start** is worth up to 0.06 at d = 2 (RR_TRQ with a
+  random start: 0.468 against 0.529 at d2/100·d/q1), 0.02 at d = 5, and
+  nothing at d = 10 (0.152 against 0.143).  Py-BOBYQA and TuRBO start at
+  random points; CMA-ES and COBYQA at the centre.  The family optimum is
+  uniform in the box with a margin, so the centre is a good fixed start,
+  not a leak — but part of the lead over Py-BOBYQA is the start point.
+* Wall time is small: a unit (3 specs × 15 runs) takes 5–25 s on 3
   processes.
 
 ### 66.4 (c) The arm a simple rule would pick
 
-* `Rule_dim`, **chosen after seeing §66.3**: RR_TRQ at d = 2, Blocks3_TRQ
-  at d ≥ 5.  Against the pool best: CI above 0 in 10 of 12 cells, parity
-  at d2/100·d/q1 (+0.016 n.s.), behind at d10/20·d/q4 (−0.005, 0/5).
-  Without ellipsoid: ahead in 3 cells (d2/20·d/q1, d2/100·d/q4,
-  d5/100·d/q4), behind in 6 (every d5/20·d and d10 cell), n.s. in 3.
-* `Rule_probe`: as `Rule_dim`, but at d = 10 the third arm only on the
-  instances a probe flags as quadratic (next point), Blocks otherwise.  It
-  adds +0.015 at d10/100·d and removes the ex-ellipsoid cost there (d10/q4:
-  −0.003 n.s. against the pool best instead of −0.022).  The probe's
-  evaluations are **not charged**: at d = 10 the full-quadratic fit needs
-  2p = 132 points, most of a 20·d budget, so it must be read off the
-  archive the arms fill anyway, not bought.
+Both rules were defined after seeing the pre-fix numbers and kept
+unchanged for the fixed arm (re-picking them again would select twice).
+
+* `Rule_dim`: RR_TRQ at d = 2, Blocks3_TRQ at d ≥ 5.  Against the pool
+  best: CI above 0 in all 12 cells with the five families; without
+  ellipsoid ahead in 3 (d2/20·d/q4, d2/100·d q1 and q4), behind in 6
+  (d5/20·d q1 and q4, every d = 10 cell), n.s. in 3.  With the fixed arm
+  RR_TRQ is better than Blocks3_TRQ at d = 5 too, with and without
+  ellipsoid; the rule is not the best one on these numbers any more, and
+  that is in-sample either way.
+* `Rule_probe` — an **uncharged oracle upper bound**: as `Rule_dim`, but at
+  d = 10 the third arm only on the instances a probe flags as quadratic
+  (below), Blocks otherwise; the probe's evaluations are not charged and
+  its verdict is taken from knowing the family.  It adds +0.011…+0.016 at
+  d10/100·d and removes the ex-ellipsoid cost there (−0.013 / −0.003
+  against the pool best instead of −0.027 / −0.023), i.e. it is Blocks.
+  At d = 10 the full-quadratic fit needs 2p = 132 points, most of a 20·d
+  budget, so a real probe must read the archive the arms fill anyway.
 * **The probe feature.**  The rank-based ELA-lite features of `features.py`
   do not separate the families: `r2_quad` (rank R²) is 0.77–0.83 on
   ellipsoid and 0.69–0.96 on the others, because the ranks of a quadratic
@@ -4613,17 +4660,18 @@ spec name), so its numbers will differ by seed noise.  No default changes.
   MA-BBOB, whose quadratic functions carry T_osz, no function is an exact
   quadratic; the threshold is a free-family artefact until measured there.
 
-### 66.5 Recommendation for roadmap A (probe → select → unleash)
+### 66.5 For roadmap A (probe → select → unleash)
 
-1. **Put the arms on the selector's menu**, opt-in until fresh seeds
-   confirm: `RoundRobin_TRQ` for d ≤ 2 at any q and budget;
-   `Blocks_warm_CMAES_JSO_TRQ` around d = 5; at d ≥ 10 the third arm only
-   when the probe says "quadratic-like", otherwise `Blocks_warm_CMAES_JSO`.
-   At q = 1, `COBYQA` alone is the strongest non-ellipsoid arm at d 5–10
-   (+0.055 / +0.158 / +0.028 / +0.046 vs the pool best without ellipsoid at
-   d5/20·d, d5/100·d, d10/20·d, d10/100·d): keep it on the q = 1 menu, and
-   find out what its large-radius model does on ackley that TR's local fit
-   does not before adding restarts to either.
+1. **Candidates for the confirmation run** — only at the measured q ∈ {1,
+   4} and budgets 20·d / 100·d, and only as candidates:
+   * `RoundRobin_TRQ` at d ≤ 5 (CI above 0 in all 8 d ≤ 5 cells with the
+     five families, in 5 of 8 without ellipsoid, never below 0);
+   * `COBYQA` alone at q = 1 (the strongest arm without ellipsoid at d 5
+     and 10);
+   * `Blocks_warm_CMAES_JSO_TRQ` at d = 10 only behind a probe that says
+     "quadratic"; otherwise `Blocks_warm_CMAES_JSO`.
+   Nothing here speaks for q ≥ 16, for larger budgets, or for problems
+   that are not smooth.
 2. **Probe features to add** (`features.py`, `--log-features`): the
    f-scale quadratic R² (the roadmap's "affine in f" class, not
    monotone-invariant), on the archive; and the TR arm's in-run state —
@@ -4634,12 +4682,11 @@ spec name), so its numbers will differ by seed noise.  No default changes.
 3. **Confirm first**: a fresh-seed runner run (new base seeds, not the
    roster's first 12) of `RoundRobin_TRQ`, `Blocks_warm_CMAES_JSO_TRQ` and
    `COBYQA` alone against §65's pool at q ∈ {1, 4, 16, 64}, with the
-   per-family table and an ex-ellipsoid view; and MA-BBOB at 20·d / 100·d,
+   per-family table and the ex-ellipsoid view; and MA-BBOB at 20·d / 100·d,
    where no function is an exact quadratic.
-4. **Report the ex-ellipsoid view next to the free-preset mean.**  One
-   exactly quadratic family in five decides most of this section's
-   margins; a selector trained on the free preset alone would learn
-   "quadratic model everywhere".
+4. **Report the ex-ellipsoid view next to the free-preset mean.**  A
+   selector trained on the free preset alone would learn "quadratic model
+   everywhere".
 
 ### 66.6 Not measured
 
@@ -4648,4 +4695,5 @@ MA-BBOB; the `failure` preset (TR drops non-finite results and counts a
 failed step as a failed step; untested there); noise (the ratio test
 assumes exact values); constraints (the arm minimises the penalty value);
 COBYQA with a random start or restarts; any TR constant other than on
-seeds 101–103.
+seeds 101–103; the COBYQA and NelderMead rows were not re-run (they do not
+use the TR arm).

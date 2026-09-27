@@ -2087,6 +2087,8 @@ class StrategyBase:
         self.problem = problem
         self._stop_requested = False
         self._dispatched = 0  # evaluations charged against max_eval (see _clamp_to_budget)
+        #: Results booked before the first pass (:meth:`preload_results`).
+        self._preload: List[Result] = []
         #: How many points :meth:`execute` may hand back in the current pass,
         #: or ``None`` for no limit.  Set by the main loop before each
         #: ``execute`` call where the evaluation mode knows it — the free
@@ -2200,6 +2202,11 @@ class StrategyBase:
         # Load previous results if storage is enabled
         if hasattr(self.results, "load_from_storage"):
             self.results.load_from_storage()
+        # Then a preloaded archive (preload_results), on the same path: booked
+        # and published before the ``start`` event, charged against max_eval.
+        if self._preload:
+            preload, self._preload = self._preload, []
+            self.results.add_results(preload)
 
         self.logger.debug("EventBus keys: %s" % self.eventbus.keys)
 
@@ -2213,6 +2220,26 @@ class StrategyBase:
         self._start = time_module.time()
         self.eventbus.register(self)
         self.logger.info("Strategy '%s' initialized" % self._name)
+
+    def preload_results(self, results: List[Result]) -> None:
+        """Book ``results`` before the first pass, as a resume from storage books its results.
+
+        For a run that continues from points evaluated elsewhere — the shared
+        probe of a counterfactual branch (``panobbgo.selector_data``), a
+        design evaluated before the optimizer was chosen.  Call it before
+        :meth:`start`.  :meth:`initialize` adds them right after the storage
+        backend's results: they are in the store, and the ``new_results``
+        event for them is published, *before* the ``start`` event, so every
+        module sees them before it emits its first point (an arm with an
+        archive warm start, ``warm_start="archive"``, fits its start to
+        them).  Like restored results they count as dispatched: a run with
+        ``max_eval = B`` and ``k`` preloaded results evaluates ``B - k``
+        new points.  Nothing is evaluated here, and a run without a preload
+        is unchanged.
+        """
+        if any(not isinstance(r, Result) for r in results):
+            raise TypeError("preload_results takes panobbgo.lib.Result objects")
+        self._preload.extend(results)
 
     def start(self):
         try:

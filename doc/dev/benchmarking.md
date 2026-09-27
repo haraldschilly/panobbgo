@@ -542,6 +542,21 @@ uv run python scripts/ioh_benchmark.py run --families --log-features --output fe
 *   **Wall-clock deadlines**: with `--timeout` the logger's time counts
     toward the run's deadline like any other work in the run.
 
+## Counterfactual selector labels (probe → select, roadmap §4 A)
+
+`benchmarks/selector_labels.py run OUT.csv.gz [preset=wide] [dims=2,5] [bm=100] [qs=1,4] [seeds=3] [jobs=4]`
+builds the training data of the learned selector (`panobbgo/selector_data.py`,
+DISCOVERY §70): per task (instance, seed, q) a shared probe of 10·d
+Latin-hypercube points, its features (`probe_features`: rank-based ELA-lite,
+the f-scale meta-model R² of `features.fscale_features`, context), and every
+arm of the menu `ARM_MENU_V0` continued from that probe archive
+(`StrategyBase.preload_results`) to the budget on the virtual clock.  The
+label is each arm's regret against the task's best arm (AOCC at q = 1,
+`aocc_time` at q > 1, both on the remaining budget).
+`benchmarks/selector_labels.py analyze IN.csv.gz` prints the label
+distribution, the oracle vs single-best-arm headroom and the feature–winner
+correlations.  Tasks are deterministic; the rows do not depend on `jobs`.
+
 ## The sealed test set
 
 A held-out battery for **claims only**: 20 fresh MA-BBOB instances and

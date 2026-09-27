@@ -168,6 +168,14 @@ class COBYQA(PipeBridgeHeuristic):
             interpolation geometry well-conditioned for boxes whose axes
             span very different magnitudes.  Panobbgo problems always
             have finite bounds, so this is safe.
+        warm_start: ``None`` (default): the solve starts at the box centre.
+            One of :attr:`~panobbgo.core.Heuristic.WARM_START_MODES`
+            (``"archive"``): at the ``start`` event, if the shared archive
+            already holds results (a resumed run, or results booked with
+            :meth:`~panobbgo.core.StrategyBase.preload_results`), the solve
+            is restarted at the best of them instead — COBYQA's
+            interpolation set cannot take the archive, so only its start
+            point is warm.  With an empty archive nothing changes.
         name: Override the heuristic's display name.
 
     Notes:
@@ -190,8 +198,13 @@ class COBYQA(PipeBridgeHeuristic):
         final_tr_radius: float = _DEFAULT_FINAL_TR_RADIUS,
         maxfev: Optional[int] = _DEFAULT_MAXFEV,
         scale: bool = _DEFAULT_SCALE,
+        warm_start: Optional[str] = None,
         name: Optional[str] = None,
     ) -> None:
+        if warm_start is not None and warm_start not in PipeBridgeHeuristic.WARM_START_MODES:
+            raise ValueError(
+                f"COBYQA: warm_start must be None or one of {PipeBridgeHeuristic.WARM_START_MODES}, got {warm_start!r}"
+            )
         if initial_tr_radius is not None:
             if not np.isfinite(initial_tr_radius) or initial_tr_radius <= 0.0:
                 raise ValueError(
@@ -216,6 +229,8 @@ class COBYQA(PipeBridgeHeuristic):
         self.final_tr_radius: float = float(final_tr_radius)
         self.maxfev: Optional[int] = maxfev
         self.scale: bool = bool(scale)
+        #: Archive selector for the start point (:meth:`on_start`), or ``None`` for the box centre.
+        self.warm_start: Optional[str] = warm_start
 
         # Subprocess handles — populated by :meth:`__start__`.
         self.p1: Any = None  # parent end of the request pipe
@@ -269,6 +284,20 @@ class COBYQA(PipeBridgeHeuristic):
                 f"Make sure multiprocessing is supported on this system. "
                 f"Original error: {e}"
             ) from e
+
+    def on_start(self) -> None:
+        """With ``warm_start``: restart the solve at the best archive point, if there is one.
+
+        Runs on the event bus after every preloaded or restored result was
+        published, so the archive holds them.  The restart is only recorded
+        here; the first :meth:`produce` performs it, before the initial
+        (box-centre) worker's first point is emitted.
+        """
+        if not self.warm_start:
+            return
+        seeds = self.archive_seed(1, mode=self.warm_start)
+        if seeds:
+            self._request_restart(np.asarray(seeds[0].x, dtype=float))
 
     @staticmethod
     def worker(

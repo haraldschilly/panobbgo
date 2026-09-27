@@ -408,6 +408,93 @@ def landscape_features(u: np.ndarray, ranks: np.ndarray, max_points: int = DEFAU
     return out
 
 
+def fscale_features(u: np.ndarray, fx: np.ndarray) -> Dict[str, float]:
+    r"""Meta-model and y-distribution features on the **values** of ``f``, not their ranks.
+
+    The roadmap's "affine in f" class (§4 A) and the probe feature of
+    DISCOVERY §66.4: the rank-R² of :func:`landscape_features` cannot see an
+    exact quadratic (the ranks of a quadratic are not quadratic), the
+    f-scale R² can.  ``f`` is standardised first (``(f - mean) / sd``),
+    which changes no value below: an OLS fit with an intercept, its adjusted
+    R², the Hessian's eigenvalue *ratios*, skewness and kurtosis are all
+    invariant to ``f -> a·f + b`` with ``a > 0`` (the standardisation only
+    keeps the numbers well scaled).  They are **not** invariant to other
+    monotone transforms of ``f``.  ``u`` is the sample in the unit box
+    (``n x d``); every fit is done in coordinates centred and scaled per axis,
+    as in :func:`landscape_features`.  Keys:
+
+    * ``fr2_lin``, ``fr2_add``, ``fr2_quad`` — adjusted R² of a linear, an
+      additive quadratic and a full quadratic model of ``f``; the full
+      quadratic only with at least ``2p`` points (``p`` =
+      :func:`n_quad_coefficients`), as the rank variant.  ``fr2_lin`` and
+      ``fr2_quad`` are invariant to any affine map of ``x`` (a rotation, a
+      shift, a uniform scale: the model spaces are); ``fr2_add`` is not
+      (separability, deliberately).
+    * ``flog_quad_gap`` — ``log10(max(1 - fr2_quad, 1e-12))``: about -12 on
+      an exact quadratic (§66.4: ``1 - R²`` was 0 to rounding on every
+      ellipsoid probe, at least 2.5e-3 elsewhere).
+    * ``fsep_ratio`` — ``max(fr2_add, 0) / fr2_quad`` when ``fr2_quad > 0.05``
+      (1 = separable; not rotation-invariant).
+    * ``flog10_cond``, ``fhess_pos`` — log10 of max|λ|/min|λ| (capped at 12)
+      and the share of positive eigenvalues of the fitted quadratic's
+      Hessian in unit-box coordinates, when ``fr2_quad > 0.05``;
+      rotation-invariant.
+    * ``y_skew``, ``y_kurt`` — skewness and excess kurtosis of ``f`` (the
+      ELA y-distribution group).
+    * ``y_ties`` — share of points whose value equals another point's
+      (plateaus); invariant to every strictly increasing transform.
+
+    Non-finite values of ``fx`` (failed calls) are dropped first.
+    """
+    from scipy.stats import kurtosis, skew
+
+    keys = ("fr2_lin", "fr2_add", "fr2_quad", "flog_quad_gap", "fsep_ratio", "flog10_cond", "fhess_pos")
+    keys += ("y_skew", "y_kurt", "y_ties")
+    nan = float("nan")
+    out = {k: nan for k in keys}
+    fx = np.asarray(fx, dtype=np.float64)
+    ok = np.isfinite(fx)
+    u = np.asarray(u, dtype=np.float64)[ok]
+    y = fx[ok]
+    n, d = u.shape
+    if n < 4:
+        return out
+    out["y_ties"] = 1.0 - np.unique(y).size / float(n)
+    sd = float(y.std())
+    if not sd > 0:
+        return out
+    y = (y - y.mean()) / sd
+    out["y_skew"] = float(skew(y))
+    out["y_kurt"] = float(kurtosis(y))
+    centre, scale = u.mean(axis=0), u.std(axis=0)
+    scale = np.where(scale > 0, scale, 1.0)
+    c = (u - centre) / scale
+    ones = np.ones((n, 1))
+    out["fr2_lin"], _ = _adj_r2(np.hstack([ones, c]), y)
+    out["fr2_add"], _ = _adj_r2(np.hstack([ones, c, c * c]), y)
+    if n >= 2 * n_quad_coefficients(d):
+        design, ii, jj = _quad_design(c)
+        r2q, coef = _adj_r2(design, y)
+        out["fr2_quad"] = r2q
+        if math.isfinite(r2q):
+            out["flog_quad_gap"] = math.log10(max(1.0 - r2q, 1e-12))
+        if math.isfinite(r2q) and r2q > 0.05:
+            if math.isfinite(out["fr2_add"]):
+                out["fsep_ratio"] = max(out["fr2_add"], 0.0) / r2q
+            if coef is not None:
+                h = np.zeros((d, d))
+                h[np.diag_indices(d)] = 2.0 * coef[1 + d : 1 + 2 * d]
+                h[ii, jj] = coef[1 + 2 * d :]
+                h[jj, ii] = coef[1 + 2 * d :]
+                h = h / np.outer(scale, scale)
+                ev = np.linalg.eigvalsh(h)
+                a = np.abs(ev)
+                if a.max() > 0:
+                    out["flog10_cond"] = float(min(12.0, math.log10(a.max() / max(a.min(), a.max() * 1e-12))))
+                    out["fhess_pos"] = float((ev > 0).mean())
+    return out
+
+
 def coverage_features(u: np.ndarray, probes: np.ndarray) -> Dict[str, float]:
     """How much of the unit box is unsampled (global dispersion).
 

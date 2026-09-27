@@ -5276,3 +5276,196 @@ default: `TrustRegionQuadratic(radius_init=0.5)` needs no code change.
 d = 10 on the wide preset; 20·d on the wide preset; q ≥ 16; the r05
 variant for Bl3_TRQ; the r05 variant out of sample; COBYQA with a 0.1
 start radius (the converse check); MA-BBOB.
+
+## 70. Selector data pipeline (roadmap §4 A step 1): a shared probe, counterfactual labels per arm, and the headroom — the oracle over five arms is 0.078 above the best single arm, 0.051 if it may only see the instance (2026-09-27)
+
+> **In sample, descriptive.**  Wide preset (§68), d 2/5, 100·d, q 1/4,
+> roster seeds 42/7/1234 — the seeds and battery §68/§69 looked at (RR_TRQ's
+> tabu fix of §69 was chosen on them).  No selector is trained; nothing here
+> is a claim about an arm.  Numbering: §67 stays reserved.
+
+**Question.**  Roadmap §4 A (Harald, 2026-09-26): probe → select → unleash;
+xgboost; the label is the counterfactual normalised regret per arm; features
+invariant.  Step 1 is the data: can every arm of a menu be continued from one
+shared probe, what do the labels look like, and how much would a perfect
+selector gain over the best single arm?
+
+### 70.1 Design
+
+**Menu v0** (`panobbgo/selector_data.py`, `ARM_MENU_V0`, the one place it is
+defined): `Blocks_warm_CMAES_JSO`, `RoundRobin_CMAES`, `RoundRobin_TRQ`,
+`RoundRobin_COBYQA`, `Blocks_warm_CMAES_JSO_TRQ`.
+
+**Probe.**  A scrambled Latin hypercube of k = 10·d points in the box, seeded
+per (base seed, instance), the same for every arm and for q = 1 and q = 4.
+Why 10·d: at 100·d it is 10 % of the budget; it is the smallest round
+multiple of d with enough points for the full-quadratic fits at d ≤ 5 (they
+need 2p: 12 at d = 2, 42 at d = 5 — the §66.4 separator of exact quadratics
+lives there), whereas 2d + 1 (BOBYQA's initial design) supports only a linear
+fit.  ELA practice recommends ~50·d for stable features, which a 100·d budget
+cannot pay: the probe features are noisy (the roadmap's risk item).  At
+d = 10, 2p = 132 > 100: the full-quadratic features are undefined there with
+this probe.  LHS rather than Sobol: stratified on every axis for any k (Sobol
+is balanced only at powers of two), and no box-centre point, so no free hit
+from the centre bias of §68.2.
+
+**Continuation.**  A new core hook, `StrategyBase.preload_results(results)`:
+the probe results are booked in `initialize()` on the storage-resume path —
+in the store and published as `new_results` *before* the `start` event, and
+counted as dispatched, so with `max_eval = B` the arm evaluates B − k new
+points.  How each arm uses the probe:
+
+* both Blocks specs — unchanged: their CMA-ES / jSO arms already have
+  `warm_start="archive"` (m / σ fitted to the archive's top points, jSO's
+  population seeded from them); the TR arm's centre is the best archive point;
+* `RoundRobin_TRQ` — unchanged: centre = best archive point, the model is
+  fitted to the archive near it (probe points included);
+* `RoundRobin_CMAES` — continued **with** `warm_start="archive"` + the
+  `Archive` analyzer (the registry spec cold-starts at the centre and would
+  ignore the probe);
+* `RoundRobin_COBYQA` — continued with a new opt-in
+  `COBYQA(warm_start="archive")`: at `start` the solve is restarted at the
+  best archive point.  **Limitation:** SciPy's COBYQA moves a start within
+  its initial radius of a bound onto the bound (or to bound ± radius), and
+  the default radius is half of every axis (§69.1), so the start is the best
+  probe point *quantised* to {lower face, centre, upper face} per axis — it
+  keeps the probe's region, not its point (tested).  COBYQA's interpolation
+  set cannot take the archive either.
+
+No arm had to be dropped.  Default behaviour is unchanged (`preload_results`
+unused, `COBYQA.warm_start=None`).
+
+**Scores and label.**  Each continuation runs as `harness_families` runs it
+(penalty tracker, `sync_evaluation`, virtual clock async, log-normal σ 0.5,
+CRN durations per cell, the harness's per-arm seed).  Scores on the remaining
+B − k evaluations, with the best-so-far starting at the probe's best: AOCC
+over evaluations, `aocc_time` over the continuation's virtual time (horizon
+(B − k)·d̄/q; the probe's time is the same for every arm and not simulated),
+final log precision.  **Label** = `max_a s_a − s_arm` with s = AOCC at q = 1
+and `aocc_time` at q > 1 (0 = the task's best arm; AOCC units, already
+normalised by the log-precision range); also stored: the regret on the final
+precision, the rank, `best_arm`.
+
+**Features at the probe** (`probe_features`; never raw f or raw x): the
+rank-based ELA-lite of `features.landscape_features` (FDC, the five NBC
+features, dispersion 10/25 %, rank-R² linear / additive / quadratic,
+separability ratio, Hessian condition and sign share) — invariant to
+f → a·f + b (a > 0) and to any monotone transform; the new
+`features.fscale_features` (adjusted R² linear / additive / quadratic on
+standardised f, `flog_quad_gap` = log10(1 − R²_quad), the f-scale
+separability ratio, Hessian condition and sign share, y-skewness,
+y-kurtosis, tie share) — invariant to f → a·f + b (a > 0), not to other
+monotone transforms; both groups are invariant to a rotation, shift and
+uniform scaling of x except the additive-model / separability features
+(deliberately); context: d, B/d, k/d, (B − k)/d, q.  Tests
+(`tests/test_selector_data.py`): invariance under three affine f maps, under
+rotation + shift + scale of x, the monotone split (rank features unchanged,
+f-scale ones not), a control that the separability features do change under
+rotation, and the §66.4 separation (f-scale 1 − R² < 1e-9 on exact quadratics
+at d 2/5 while the rank-R² stays < 0.99).  The roadmap's "stuck locally"
+features are in-run and per arm; at the probe there is no arm yet — they
+belong to the later cycles (B).
+
+### 70.2 The data
+
+`uv run python benchmarks/selector_labels.py run OUT.csv.gz preset=wide dims=2,5 bm=100 qs=1,4 seeds=3 jobs=4 diag=1`
+(niced): 90 instances × 3 seeds × 2 q = 540 tasks, 5 arms + 2 diagnostic
+cold arms, 11.5 min wall on 4 workers (a COBYQA run adds its solver
+subprocess beside its waiting worker).  Every run clean (no exception); every
+arm but COBYQA spends exactly B − k; COBYQA ends early (converged, it does not
+restart) in 83 % of the tasks and is scored at its final best for the rest,
+as in §66.  One row per task, 100 columns, 108 KB:
+`planning/results/2026-09-27-selector-labels/labels_wide_d2d5_bm100.csv.gz`;
+the tables below are from `analysis.md` there (`selector_labels.py analyze`).
+
+### 70.3 Labels
+
+| arm | mean score | mean regret | median | p90 | wins | regret < 0.01 |
+|---|---|---|---|---|---|---|
+| Blocks | 0.247 | 0.231 | 0.136 | 0.647 | 14 % | 16 % |
+| RR_CMAES (warm) | 0.208 | 0.270 | 0.172 | 0.719 | 8 % | 14 % |
+| RR_TRQ | **0.400** | **0.078** | 0.000 | 0.246 | 48 % | 57 % |
+| RR_COBYQA (warm) | 0.283 | 0.195 | 0.104 | 0.586 | 16 % | 22 % |
+| Blocks_TRQ | 0.349 | 0.129 | 0.068 | 0.367 | 15 % | 22 % |
+
+RR_TRQ is the best arm on average in every (d, q) cell (mean regret
+0.050–0.106) and wins about half the tasks; every arm wins somewhere (8–16 %
+each).  Per family RR_TRQ owns the smooth and separable ones (ellipsoid and
+levy_embed 92 % of the tasks, rosenbrock_edge 72 %, styblinski_tang_sep 67 %)
+and loses where §68/§69 said it would: step_ellipsoid (RR_CMAES wins 47 %,
+Blocks best on average), schwefel_sep (Blocks wins 64 %, COBYQA best on
+average — its face-snapped start of 70.1 lands near the face optimum),
+rastrigin, attractive_sector and lunacek_box (Blocks_TRQ best on average),
+ackley (COBYQA best on average).  The labels are heavy-tailed (p90
+0.25–0.72): where an arm loses, it loses a lot.
+
+### 70.4 Headroom: oracle vs single best arm (the key number)
+
+SBS = the arm with the best mean score in hindsight (RR_TRQ in every scope);
+gap = oracle − SBS = the SBS's mean regret; CI = cluster bootstrap over the
+90 instances.
+
+| scope | tasks | SBS mean | task oracle | **gap** [CI] | instance oracle gap | family oracle gap |
+|---|---|---|---|---|---|---|
+| all | 540 | 0.400 | 0.478 | **0.078** [0.057, 0.104] | 0.051 | 0.032 |
+| ex-ellipsoid | 504 | 0.364 | 0.447 | 0.083 [0.060, 0.108] | 0.055 | 0.034 |
+| d2 q1 | 135 | 0.511 | 0.617 | 0.106 [0.061, 0.161] | 0.072 | 0.039 |
+| d2 q4 | 135 | 0.476 | 0.549 | 0.073 [0.044, 0.111] | 0.041 | 0.022 |
+| d5 q1 | 135 | 0.321 | 0.402 | 0.081 [0.052, 0.113] | 0.056 | 0.045 |
+| d5 q4 | 135 | 0.294 | 0.344 | 0.050 [0.031, 0.070] | 0.036 | 0.022 |
+
+* **The task oracle is 0.078 AOCC above the best single arm** (0.083
+  without ellipsoid) — two to five times §53's cheap-track per-cell oracle
+  gap (0.015…0.039).  Part of it is seed luck no selector can see: the
+  **instance oracle** (the arm best on average over an instance's 3 seeds,
+  applied to each seed) keeps **0.051**, the **family oracle** (the best arm
+  per family × d × q, a perfect family classifier) 0.032.  A realistic target
+  for a probe-feature selector lies below 0.051, and 0.032 would already be a
+  perfect family classifier.
+* **Context alone gives nothing**: the best arm per (d, q) cell is RR_TRQ
+  in every cell, so an NGOpt-style rule on d, budget and q selects the SBS.
+  What a selector gains here must come from the landscape features.
+* The gap shrinks with q (d5: 0.081 → 0.050): at q = 4 the sequential
+  COBYQA drops out of contention.
+* In-sample oracle caveats: the SBS is chosen on the same tasks; the task
+  oracle is a max over 5 noisy scores (optimistic by construction).  RR_TRQ
+  at q = 1 is nearly seed-invariant from a fixed start (§69), but the probe
+  varies with the seed here, so its 3 seeds are 3 different runs.
+
+### 70.5 Features vs winners
+
+Spearman ρ of each probe feature with each arm's regret (all 540 tasks) is
+weak: |ρ| ≤ 0.30.  The strongest are the f-scale ones: `fr2_quad` /
+`flog_quad_gap` (±0.30 for Blocks, ±0.28 for RR_CMAES and RR_COBYQA — these
+arms do worse where the probe is well fitted by a quadratic, i.e. where the TR
+arms win), `y_skew` (+0.28 / +0.27 / +0.25), `flog10_cond` (+0.27 Blocks),
+the rank `nbc_nb_fitness_cor` (+0.22 Blocks); `q` is +0.27 for COBYQA
+(sequential).  **RR_TRQ's regret is nearly uncorrelated with every single
+feature** (|ρ| ≤ 0.13): where it loses is not visible in one feature — that
+is the selector's job (interactions; trees).  By winning arm: the tasks
+RR_TRQ wins have the most quadratic probes (mean `flog_quad_gap` −2.44;
+Blocks' wins −0.92) and the most skewed f (1.19 vs 0.51).  `y_ties` is 0 on
+every probe (10·d LHS points never land on one step_ellipsoid plateau twice):
+a plateau feature needs repeated or nearby points.
+
+### 70.6 Diagnostic: warm vs cold continuation
+
+The registry's cold forms ran beside the menu (same seeds, unlabelled):
+RR_CMAES warm − cold +0.014…+0.033 with the CI above 0 in all four cells
+(60–73 % of the tasks better); RR_COBYQA +0.031 (d2 q1), −0.010, +0.003,
++0.009, all CIs across 0 — the quantised start (70.1) neither helps nor hurts
+on average.  The continuation forms are not unfair to the arms.
+
+### 70.7 Not measured / next
+
+d = 10 (the full quadratic needs a ≥ 14·d probe there); 20·d budgets;
+q ≥ 16; free / shapes / MA-BBOB; fresh seeds or a fresh battery; noise,
+constraints and failure regions (the probe refuses non-finite values); a
+COBYQA warm start with a radius that keeps the point; the bootstrap variance
+of the probe features; the "stuck locally" features (in-run, later cycles);
+probe sizes other than 10·d.  Next (step 2): xgboost on these labels with
+leave-instance-out and leave-family-out CV, reporting the share of the SBS →
+instance-oracle gap it closes; widen the data first (fresh seeds, d = 10 with
+a larger probe, runners) if the CV is noisy.  The dataset regenerates in
+~12 min locally with the command of 70.2; a larger one (> 1 MB) belongs in a
+GitHub release asset (`gh release upload <tag> labels.csv.gz`), not in git.

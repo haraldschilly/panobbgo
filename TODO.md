@@ -7,8 +7,8 @@ References: cheap track, the 2026-09-27 re-baseline with the active-CMA
 default (§61, release `rebaseline-2026-09-27`,
 `planning/results/2026-09-27/SUMMARY.json`); §64 changes only CMA-ES runs
 with λ > 10 there (≤ 0.002 on the families, other suites unmeasured).
-Expensive track: none yet — §62's panobbgo numbers are superseded
-(pre-active, pre-§63/§64); the re-run is the q-sweep item in §2.
+Expensive track (`measure.yml`): §65 for the core specs (run
+36313485264), §62 for the GP baselines (run 36274781342).
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -68,19 +68,16 @@ extra).
       with a partly dispatched generation, or pull in generation-sized
       chunks.
 - [ ] **q-sweep measurement** (`measure.yml`, `doc/dev/benchmarking.md`
-      "Expensive-track measurement").  §62 (run 36274781342) was the first
-      run; its panobbgo rows measured a crippled CMA-ES (positive-only,
-      and the half quorum of §64), only the externals' numbers stand.
-      In order:
-      (a) re-run the default grid on master (active CMA, λ ≥ q floor §63,
-          dispatched quorum + fold §64) — the confirmatory test of §63/§64
-          and the first expensive-track reference;
-      (b) with it, decide whether the floor's budget cap stays (it halves
-          `RoundRobin_CMAES`'s gain at d2/q64, §63.3) and look at
-          Blocks d2/100·d/q16 (−0.012, 1/5, §63): size a block to at least
-          one generation of its owner, or apply the floor only where the
-          arms cannot fill the workers — untried;
-      (c) 12 seeds on the 100·d, q 4–16 band;
+      "Expensive-track measurement").  The re-run on master is §65
+      (Holm 3 / 7 / 11; proposals in §65.6).  In order:
+      (b) decide whether the floor's budget cap stays (§65.6 proposes to
+          keep it) and look at Blocks d2/100·d/q16 (−0.012, 1/5, §63/§65):
+          size a block to at least one generation of its owner, or apply
+          the floor only where the arms cannot fill the workers — untried;
+          decide on the fresh seeds of (c);
+      (c) 12 fresh seeds: run 36315576900 in progress (seeds 1001–1012,
+          100·d, q 4/16/64, core + qLogEI + TuRBO1; pre-declared Holm
+          family = its 9 headline cells);
       (d) the `failure` preset.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):

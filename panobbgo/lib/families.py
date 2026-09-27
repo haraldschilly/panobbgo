@@ -780,6 +780,31 @@ CONTEXT_BASES: Dict[str, Tuple[str, ...]] = {
     "lunacek_bi_rastrigin": ("d", "s", "placement"),
 }
 
+#: Bases ``effective_dim < 1`` may embed: each checked to be a non-constant
+#: function with its minimum at ``0`` down to dimension ``k = 1``
+#: (``tests/test_families_wide.py``).  Left out: ``rosenbrock`` (constant at
+#: ``k = 1``), ``sharp_ridge`` and ``discus`` (lose their shape at ``k = 1``),
+#: ``schwefel`` / ``schwefel_box`` (their scaling assumes the full box) and the
+#: BBOB bases of :data:`CONTEXT_BASES` (their structure lives in the box).
+EMBEDDABLE_BASES: Tuple[str, ...] = (
+    "levy",
+    "sphere",
+    "ellipsoid",
+    "different_powers",
+    "rastrigin",
+    "ackley",
+    "griewank",
+    "styblinski_tang",
+)
+
+#: Upper bound of ``Family(min_centre_dist=...)`` as a fraction of
+#: ``(1 - opt_margin) * sqrt(k / d)``: a uniform draw's normalised distance
+#: concentrates at ``(1 - opt_margin) / sqrt(3) = 0.577 (1 - opt_margin)``
+#: (times ``sqrt(k / d)`` for an embedding) as ``d`` grows, so a bound above
+#: that would make the rejection sampler's acceptance vanish at large ``d``.
+#: At ``0.6`` it stays above 1 % for every ``d <= 160``.
+MAX_CENTRE_DIST_FRACTION: float = 0.6
+
 #: Constraint constructions understood by :class:`Family`.
 CONSTRAINT_KINDS: Tuple[str, ...] = ("linear", "ball", "mixed")
 
@@ -1115,11 +1140,17 @@ class Family(Problem):
     failure
         A :class:`FailureRegion`, or ``None`` (every point evaluates).
     min_centre_dist
-        ``x_opt`` at least this far from the box centre, as a fraction of
-        :math:`B\sqrt{d}` (Euclidean; ``0.0``: no requirement).  A draw
-        closer than that is replaced by a uniform redraw from the placement
-        stream (rejection sampling, so the distribution stays uniform on
-        the rest of the box).  Against the free box-centre hit of an arm
+        Every optimum at least this far from the box centre, as a fraction
+        of :math:`B\sqrt{d}` (Euclidean; ``0.0``: no requirement).  With
+        ``effective_dim < 1`` the optimum is a set, ``x_opt`` plus the
+        neutral directions, and the distance tested is that of its nearest
+        point, :math:`\lVert R_{:k} x_{\mathrm{opt}} \rVert` (``Λ`` does not
+        change the set).  A draw closer than that is replaced by a uniform
+        redraw from the placement stream (rejection sampling, so the
+        distribution stays uniform on the rest of the box).  At most
+        :data:`MAX_CENTRE_DIST_FRACTION` ``* (1 - opt_margin) * sqrt(k/d)``,
+        so a draw is accepted with probability above 1 % at every
+        ``d <= 160`` (tested).  Against the free box-centre hit of an arm
         that starts at the centre (DISCOVERY §66.3).
     boundary_faces
         Fraction of the coordinates whose optimum sits **on a box face**
@@ -1130,7 +1161,9 @@ class Family(Problem):
         optimum stays ``x_opt`` with ``f_opt`` — but only *within the
         box*: the gradient does not vanish there and the unconstrained
         minimiser lies outside.  The engineering case of an optimum at a
-        bound.
+        bound.  Outside the box the term is negative and unbounded below in
+        the face directions: such an instance is defined on the box only
+        (every harness and strategy keeps its points in it).
     boundary_slope
         The slope of that pull (default ``1.0``).
     signed_permutation
@@ -1144,7 +1177,8 @@ class Family(Problem):
         :math:`\Lambda R (x - x_{\mathrm{opt}})` — with a Haar ``R`` a random
         ``k``-dimensional subspace; the other ``d - k`` directions are
         exactly neutral, the minimiser set is ``x_opt`` plus their span.
-        Not for the BBOB bases of :data:`CONTEXT_BASES`.
+        Only for the bases of :data:`EMBEDDABLE_BASES` (checked to keep
+        their character down to ``k = 1``).
 
     The placement knobs draw from a stream of their own (spawn key ``3``,
     see :meth:`_base_rng`), so an instance without them is bit-identical
@@ -1239,25 +1273,35 @@ class Family(Problem):
             # would condition some of its terms and not others (Lunacek's
             # funnels vs its Rastrigin term).
             raise ValueError(f"base {base!r} has its own BBOB conditioning; condition must be 1.0, got {condition}")
-        if not 0.0 <= float(min_centre_dist) < 1.0 - float(opt_margin):
-            raise ValueError(f"min_centre_dist must be in [0, 1 - opt_margin), got {min_centre_dist}")
         if not 0.0 <= float(boundary_faces) <= 1.0 or float(boundary_slope) <= 0.0:
             raise ValueError("boundary_faces must be in [0, 1] and boundary_slope > 0")
         if signed_permutation and rotate:
             raise ValueError("signed_permutation replaces R = I: it needs rotate=False")
         if not 0.0 < float(effective_dim) <= 1.0:
             raise ValueError(f"effective_dim is a fraction in (0, 1], got {effective_dim}")
-        if float(effective_dim) < 1.0 and base in CONTEXT_BASES:
-            raise ValueError(f"effective_dim is not supported for the BBOB base {base!r}")
+        if float(effective_dim) < 1.0 and base not in EMBEDDABLE_BASES:
+            raise ValueError(f"effective_dim < 1 is only for the bases {list(EMBEDDABLE_BASES)}, not {base!r}")
+        k_eff = max(1, int(np.ceil(float(effective_dim) * dim - 1e-9)))
+        centre_max = MAX_CENTRE_DIST_FRACTION * (1.0 - float(opt_margin)) * np.sqrt(k_eff / dim)
+        if not 0.0 <= float(min_centre_dist) <= centre_max:
+            raise ValueError(
+                f"min_centre_dist must be in [0, {centre_max:.4g}] here "
+                f"(MAX_CENTRE_DIST_FRACTION * (1 - opt_margin) * sqrt(k/d)), got {min_centre_dist}"
+            )
         lunacek_bbob = base == "lunacek_bi_rastrigin" and params.get("placement", "bbob") == "bbob"
         if lunacek_bbob and (float(min_centre_dist) > 0.0 or float(boundary_faces) > 0.0):
             raise ValueError("lunacek_bi_rastrigin with placement='bbob' fixes x_opt; use placement='box'")
         if base == "schwefel_box" and (
-            rotate or not shift or float(condition) != 1.0 or float(box_half_width) != 5.0 or boundary_faces
+            rotate
+            or not shift
+            or float(condition) != 1.0
+            or float(box_half_width) != 5.0
+            or boundary_faces
+            or min_centre_dist
         ):
             raise ValueError(
                 "schwefel_box places x_opt at the box's Schwefel point: it needs rotate=False, shift=True, "
-                "condition=1, box_half_width=5 and no boundary_faces"
+                "condition=1, box_half_width=5, no boundary_faces and no min_centre_dist (|x_opt_i| >= 4.01 anyway)"
             )
 
         rng = np.random.default_rng(int(seed))
@@ -1307,15 +1351,14 @@ class Family(Problem):
         self._eff_dim: int = max(1, int(np.ceil(self.effective_dim * dim - 1e-9)))
         self._face_idx: np.ndarray = np.zeros(0, dtype=int)
         self._face_sign: np.ndarray = np.zeros(0)
-        if self.min_centre_dist > 0.0 or self.boundary_faces > 0.0 or self.signed_permutation or base == "schwefel_box":
-            x_opt = self._place(x_opt, reach, b, shift)
-        self._x_opt: np.ndarray = x_opt
-
         if self.condition != 1.0:
             exps = np.zeros(dim) if dim < 2 else np.arange(dim) / (dim - 1)
             self._scaling: Optional[np.ndarray] = np.power(self.condition, exps)
         else:
             self._scaling = None
+        if self.min_centre_dist > 0.0 or self.boundary_faces > 0.0 or self.signed_permutation or base == "schwefel_box":
+            x_opt = self._place(x_opt, reach, b, shift)
+        self._x_opt: np.ndarray = x_opt
 
         self._f_opt: float = round(float(rng.uniform(-f_opt_range, f_opt_range)), 4) if f_opt_range else 0.0
 
@@ -1382,10 +1425,25 @@ class Family(Problem):
         """The stream of ``schwefel_box``'s window offsets (spawn key ``4``): the placement stream stays as it is."""
         return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(4,)))
 
-    #: Redraws of ``x_opt`` for ``min_centre_dist`` before giving up (at the
-    #: largest allowed distance a draw is accepted with probability > 1e-3
-    #: at every ``d``, so this never fires in practice).
+    #: Redraws of ``x_opt`` for ``min_centre_dist`` before giving up.  The
+    #: bound on ``min_centre_dist`` keeps a draw's acceptance above 1 % up to
+    #: ``d = 160`` (``tests/test_families_wide.py``), so this is a guard
+    #: against a mistake, not a limit a valid instance reaches.
     MAX_PLACEMENT_TRIES: int = 100000
+
+    def centre_distance(self, x: np.ndarray) -> float:
+        """Distance from the box centre to the nearest optimum if ``x`` were ``x_opt``.
+
+        ``||x||``; with ``effective_dim < 1`` the optimum set is ``x`` plus the
+        directions the base does not see, and its nearest point to the centre
+        is the projection of ``x`` onto the first ``k`` rows of ``R`` (``Λ``
+        rescales those rows and leaves their span alone).
+        """
+        k = getattr(self, "_eff_dim", self.dim)
+        if k >= self.dim:
+            return float(np.linalg.norm(x))
+        rows = np.eye(self.dim)[:k] if self._rotation is None else self._rotation[:k]
+        return float(np.linalg.norm(rows @ x))
 
     def _place(self, x_opt: np.ndarray, reach: float, b: float, shift: bool) -> np.ndarray:
         """Apply ``signed_permutation``, ``boundary_faces`` and ``min_centre_dist``.
@@ -1423,12 +1481,15 @@ class Family(Problem):
         if self.min_centre_dist > 0.0:
             r_min = self.min_centre_dist * b * np.sqrt(dim)
             free = np.setdiff1d(np.arange(dim), self._face_idx)
-            for _ in range(self.MAX_PLACEMENT_TRIES):
-                if float(np.linalg.norm(x)) >= r_min:
-                    break
+            tries = 0
+            while self.centre_distance(x) < r_min:
+                if tries >= self.MAX_PLACEMENT_TRIES:
+                    raise ValueError(
+                        f"could not place x_opt at distance >= {r_min:g} from the centre "
+                        f"in {self.MAX_PLACEMENT_TRIES} draws"
+                    )
                 x[free] = prng.uniform(-reach, reach, size=free.shape[0])
-            else:  # pragma: no cover - see MAX_PLACEMENT_TRIES
-                raise ValueError(f"could not place x_opt at distance >= {r_min:g} from the centre")
+                tries += 1
         return x
 
     def _boundary_term(self, x: np.ndarray) -> float:

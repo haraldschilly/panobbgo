@@ -66,7 +66,7 @@ extra).
       15 families, every x_opt away from the box centre) is in; only a
       local smoke of core + trq at d 2/5, 100·d, q 1/4 exists.  Next: a
       runner run on the reduced grid of §68.3 (q ∈ {1, 4}: core, trq,
-      TuRBO1, SMAC in one dispatch, qLogEI at 20·d in a second; ≈ 110
+      TuRBO1, SMAC in one dispatch, qLogEI at 20·d in a second; ≈ 109
       estimated runner-hours), fresh seeds, then use it as the selector's
       development set (roadmap §4 A).  Open questions from §68.5:
       `schwefel_sep` scores 0 for every arm at d ≥ 5 (rescale, or keep as

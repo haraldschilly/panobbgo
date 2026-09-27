@@ -321,6 +321,12 @@ first.  CMA-ES sets <code class="docutils literal notranslate"><span class="pre"
 IPOP restart); the L-SHADE family carries the LPSR-shrunk
 <code class="docutils literal notranslate"><span class="pre">_NP_current</span></code> alongside the constructor’s <code class="docutils literal notranslate"><span class="pre">NP_init</span></code>; PSO and the
 plain DE use <code class="docutils literal notranslate"><span class="pre">NP</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">_lam</span></code> is the <em>raised</em> λ when CMA-ES’s worker floor binds
+(<code class="docutils literal notranslate"><span class="pre">popsize_min_workers</span></code>, DISCOVERY §63), so <code class="docutils literal notranslate"><span class="pre">block_evals=&quot;auto&quot;</span></code>
+then means four generations of the size actually dispatched, not
+of the serial λ (<code class="docutils literal notranslate"><span class="pre">CMAES._serial_lam</span></code>).  Deliberate: a block should
+not cut a generation, whatever its size.  Not measured — the §63
+specs use <code class="docutils literal notranslate"><span class="pre">n_blocks</span></code>, not <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code>.</p>
 </dd></dl>
 
 <dl class="py attribute">

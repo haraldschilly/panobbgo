@@ -404,6 +404,50 @@ def test_active_guard_gives_injected_points_no_negative_weight():
     np.testing.assert_allclose(h._C, C, rtol=1e-12, atol=1e-15)
 
 
+@pytest.mark.parametrize("skip", [True, False])
+def test_injected_point_through_the_production_path(skip):
+    """A foreign result → ``_maybe_inject`` → quorum → ``_update``: the flag, the zero weight, and the coupling.
+
+    One switch controls both rules (the docstring's rule 2): with
+    ``active_skip_repaired=True`` the injected point, ranked 7th of 9 (inside
+    the negative ranks μ+1 … λ), gets weight 0; with ``False`` it keeps the
+    tutorial's negative weight of its rank.
+    """
+    from panobbgo.lib import Point, Result
+    from panobbgo.lib.constraints import DefaultConstraintHandler
+
+    s = StrategyRoundRobin(DeJong(2, box=[(-5.0, 5.0)] * 2), parse_args=False, testing_mode=True, seed=7)
+    s.constraint_handler = DefaultConstraintHandler(s)
+    h = CMAES(s, inject=True, active=True, active_skip_repaired=skip, popsize=8, min_results_fraction=1.0)
+    h.on_start()
+    h.get_points()
+    h._drop_generation()
+    h._sigma = 1e-3  # deep inside the box: no offspring is repaired, so only rule 2 can act
+    h._emit_generation()
+    pts = h.get_points()
+    assert len(pts) == 8
+
+    captured = []
+    h._update = lambda collected, n_offspring: captured.append(sorted(collected, key=lambda d: d["penalty"]))
+    assert h._m is not None
+    h.on_new_results([Result(Point(h._m + 1e-3, "OTHER:x"), 5.5)])  # between own offspring 5 and 6
+    [entry] = h._injected[min(h._gen_results)]
+    assert entry["injected"] is True  # set by _maybe_inject itself
+    for i, p in enumerate(pts):
+        h.on_new_results([Result(p, float(i))])
+    del h._update  # the real method again
+    [entries] = captured
+    assert [e["penalty"] for e in entries] == [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.5, 6.0, 7.0]
+    assert entries[6] is entry and not any(e.get("repaired", False) for e in entries)
+
+    weights = list(h._w) + list(h._w_neg)
+    assert weights[6] < 0
+    if skip:
+        weights[6] = 0.0
+    C, _ = _update_by_hand(h, entries, weights)
+    np.testing.assert_allclose(h._C, C, rtol=1e-12, atol=1e-15)
+
+
 def test_emitted_offspring_carry_the_repaired_flag():
     """The flag is set exactly when the boundary repair changed the step (the default path included)."""
     for active in (False, True):
@@ -492,11 +536,15 @@ def test_variant_specs_are_opt_in_and_share_the_flagship_seed_name():
     assert [s.name for s in make_cmaes_variant_strategies(["RoundRobin_CMAES_active", "nope"])] == [
         "RoundRobin_CMAES_active"
     ]
+    # The §58 names keep their §58 meaning (unguarded); the guard has its own name (§59).
     assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_resample_randstart_active"] == {
         "boundary": "resample",
         "first_start": "random",
         "active": True,
+        "active_skip_repaired": False,
     }
+    assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_active"] == {"active": True, "active_skip_repaired": False}
+    assert CMAES_VARIANT_OPTIONS["RoundRobin_CMAES_active_guarded"] == {"active": True}
 
 
 def _ioh_cli():

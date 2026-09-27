@@ -104,16 +104,24 @@ Cheap-track items, in GOAL §2c order:
 - [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2,
       σ-collapse hypothesis on `ellipsoid_ball`).
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
-- [ ] **Decide: `CMAES(active=True)` as the default (§58).**  +0.038
-      [+0.014, +0.063], 11/12 on IOH standard (ties Optuna CmaEs); +0.011
-      (b200) / +0.041 (b500, 12/12) on the 24-fid BBOB battery.  Against the
-      rule "no BBOB class worse": at 200·d the separable class is −0.024
-      (CI excludes 0), all of it f5 at d 5/10 (separable without f5
-      +0.017, 11/12).  Coordinator's call; the default is unchanged.
-- [ ] **Active CMA on f5 (linear slope) at d ≥ 5** loses −0.38…−0.45
-      (§58.4); Optuna, which is active too, loses the same way even when
-      clipping.  Hypothesis: the negative update cancels the rank-μ
-      elongation along the gradient.  Test before or with the default flip.
+- [ ] **Decide: `CMAES(active=True)` as the default (§58, §59).**  §58
+      (unguarded update): +0.038 [+0.014, +0.063], 11/12 on IOH standard
+      (ties Optuna CmaEs); +0.011 (b200) / +0.041 (b500, 12/12) on the 24-fid
+      BBOB battery; the one failed class (separable at 200·d) is all f5.
+      §59 found the f5 cause (the boundary repair, not the gradient) and the
+      guard (`active_skip_repaired`, on with `active=True`).  Next: the §58
+      A/B again with `RoundRobin_CMAES_active_guarded` next to the unguarded
+      `RoundRobin_CMAES_active`; then the coordinator's call.
+- [ ] **BoundTransform-style genotype mapping** as the principled
+      alternative to the active guard (§59): run CMA-ES in an unbounded
+      genotype space with a smooth fold into the box for evaluation (pycma's
+      default), so no step is ever repaired and active CMA needs no guard.
+      §59's probe says what to beat: resample + active is +0.16…+0.21 over
+      the guard with the optimum *near* a face, −0.29…−0.41 with it *on*
+      the face (f5).
+- [ ] Active guard, finer rule (§59): skip only when a repaired offspring
+      is among the μ selected; +0.06…+0.08 on two probe cells, within noise
+      elsewhere.  Measure on the battery before adopting.
 - [ ] **`Baseline_Optuna_CmaEs` crashes on BBOB f14, d = 2, instance 0 at
       500·d** in 3 of 12 seeds (7, 2025, 11): `ValueError: nan is invalid
       value` from Optuna, 0 evaluations, scored 0 (§58; conclusions do not

@@ -358,13 +358,25 @@ class CMAES(Heuristic):
             ``c₁``, ``c_μ`` and ``μ_eff`` are the unchanged Table 1 defaults
             (they depend on the positive weights only).  See
             :meth:`_set_population` and :meth:`_update`.
-        active_skip_repaired (bool): Only read with ``active=True``.  A
-            generation that contains a *repaired* offspring (one projected
-            onto the box, whose step entered the update truncated) gets the
-            tutorial's positive-only covariance update instead of the active
-            one; and injected foreign points never receive a negative
-            weight.  Default ``True``.  Why (DISCOVERY §58.4 and the f5
-            investigation after it): eq. (46)–(47) balance the μ best steps
+        active_skip_repaired (bool): Only read with ``active=True``.  One
+            switch for **two** rules, both about ranked steps that are not
+            this instance's own unmodified samples of N(0, C):
+
+            1. a generation that contains a *repaired* offspring (one
+               projected onto the box, whose step entered the update
+               truncated) gets the tutorial's positive-only covariance
+               update instead of the active one;
+            2. injected foreign points never receive a negative weight.
+
+            Default ``True``; ``False`` turns both off (the tutorial's update
+            in every generation, as measured in DISCOVERY §58).  Rule 1 is
+            deliberately conservative: it skips on *any* repaired offspring
+            among the λ ranked ones.  Skipping only when a repaired one is
+            among the μ selected is within noise on most probes of §59 and
+            ahead by +0.06…+0.08 on two (an ellipsoid with its optimum near
+            a face at *d* = 10, a small-box ellipsoid at *d* = 5); it is
+            logged as a follow-up, not adopted.  Why the rules (DISCOVERY
+            §58.4, §59): eq. (46)–(47) balance the μ best steps
             against the λ − μ worst ones, which holds when every ranked step
             is an unmodified sample of N(0, C).  At a box face the best
             offspring are the projected ones — their repaired steps are cut
@@ -381,8 +393,9 @@ class CMAES(Heuristic):
             ``BoundTransform`` runs CMA in the unbounded genotype space, so
             no step is ever repaired — and zeroes the negative weights of
             injected solutions (``CMA_active_injected = 0``), the rule
-            adopted here for injected points.  ``False`` is the tutorial's
-            update in every generation, as measured in §58.
+            adopted here for injected points (rule 2).  The principled
+            alternative to rule 1 would be such a genotype mapping for
+            ``boundary`` (``TODO.md``).
     """
 
     #: Accepted values for the ``restart_from`` constructor argument.

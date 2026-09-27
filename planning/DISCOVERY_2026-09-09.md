@@ -3039,3 +3039,167 @@ Without f5 both are small positives: resample +0.005 / +0.008, reflect
 * **Open:** pycma BIPOP also runs active CMA by default (§57.5) and gains
   far less on the high-conditioning class (+0.056 vs +0.152 at 500·d).
   Its σ0 and restart schedule differ, and the gap is not explained here.
+
+## 59. Active CMA at the box face: the f5 loss is the boundary repair, not the gradient; a guard
+
+§58.4 left one weakness of `active=True`: −0.4 to −0.5 AOCC on BBOB f5
+(linear slope, optimum on the box face) at *d* ≥ 5.  The hypothesis
+logged there — the negative update cancels the rank-μ elongation of C
+along the gradient — is **falsified** below.  The cause is an
+interaction with our boundary repair, and PR #373 adds a guard.
+
+**Setup.** All runs are local, niced, one BLAS thread, cheap in-process
+problems, 500·d, sync evaluation.  None of this is battery evidence; it
+locates the mechanism.  BBOB f5 is written out in closed form:
+`x_opt = ±5` per coordinate on the face of [−5, 5]^d,
+`s_i = sign·10^((i−1)/(d−1))`, f5's plateau beyond the face.  8 seeds;
+the instance is drawn per seed.
+
+### 59.1 Reproduction and trace
+
+f5, mean AOCC over 8 seeds:
+
+| | *d* = 5 | *d* = 10 |
+|---|---|---|
+| positive-only (the default) | 0.938 | 0.685 |
+| active, tutorial update (§58's `RoundRobin_CMAES_active`) | 0.525 | 0.199 |
+
+This matches the A/B (§58.4: 0.88 vs 0.43 at *d* = 5).  In a failing seed
+(*d* = 5):
+* The mean stalls ~3 units from the face in its least-weighted
+  coordinate.
+* C collapses along the slope direction: the variance along the
+  gradient, relative to the mean eigenvalue, falls from ~1.2 to
+  0.001–0.006, and cond(C) reaches 1e4.
+* σ then runs to its clamp.
+
+The positive-only run of the same seed keeps that ratio near 0.6 and
+converges.
+
+**The gradient hypothesis is falsified.** The same f5 in a box of
+[−50, 50], where the plateau keeps the optimum value the same and
+nothing is ever projected, gives active 0.991 and positive-only 0.991
+(*d* = 5).  On a linear function without a box, active CMA is fine.
+
+**The mechanism: the boundary repair.**
+* A projected offspring enters the update through the step that
+  reaches the projected point (`_emit_generation`), so its step is cut
+  short at the face.
+* At a face the *best* offspring are exactly the projected ones.  The
+  *worst* step inward and keep their full length.
+* Along that coordinate, eq. (47)'s negative term then outweighs the
+  positive term, and C shrinks there generation after generation.
+* The tutorial's balance assumes every ranked step is an unmodified
+  sample of N(0, C).  A truncated step breaks it.
+
+### 59.2 Treatments
+
+f5, mean AOCC, 8 seeds:
+
+| treatment | *d* = 5 | *d* = 10 |
+|---|---|---|
+| positive-only | 0.938 | 0.685 |
+| active, tutorial | 0.525 | 0.199 |
+| zero only the repaired offspring's own negative weight | 0.655 | 0.581 |
+| raw sampled steps in rank-μ (genotype view) | 0.874 | 0.616 |
+| raw sampled steps in the negative term only | 0.819 | 0.454 |
+| negative weights × unrepaired fraction | 0.661 | 0.490 |
+| negative steps masked in the clipped coordinates | 0.480 | 0.204 |
+| **positive-only update in a generation with any repaired offspring** | **0.860** | **0.702** |
+| … only when a repaired one is among the μ selected | 0.839 | 0.702 |
+
+Zeroing only the repaired offspring's own weight does little, because
+the worst offspring are rarely the projected ones.  Masking coordinates
+breaks eq. (47) differently and also fails on the ellipsoid.
+
+The adopted rule is `CMAES(active_skip_repaired=True)`, on by default
+when `active=True`.  One switch controls two rules:
+1. a generation that contains a repaired offspring gets the tutorial's
+   positive-only update;
+2. injected foreign points never receive a negative weight, pycma's
+   `CMA_active_injected = 0`.
+
+The rule is ours, not Hansen 2016's.  pycma never meets the case,
+because its default `BoundTransform` runs CMA in the unbounded genotype
+space.  The spec names keep §58's meaning:
+* `RoundRobin_CMAES_active` is the unguarded update;
+* `RoundRobin_CMAES_active_guarded` is the guarded one;
+* `…_resample_randstart_active` stays unguarded.
+
+### 59.3 Beyond f5: where the guard helps and what it gives up
+
+The reviewer's probe of #373
+(`scratchpad/rv373/probe.py`, re-run here): 8 seeds, 500·d, rotation
+and instance per seed.  The problems:
+* f5;
+* `ell_near`: rotated ellipsoid, cond 1e6, optimum at ±4.5 per
+  coordinate, near but inside the faces;
+* `ell_mid`: the same at ±3;
+* `lin_ell`: slope toward a face in x₁ plus a rotated ellipsoid in the
+  rest;
+* `ell_out`: cond 1e4, unconstrained optimum outside the box at about
+  ±6, so the constrained optimum lies on faces;
+* `ell_small`: box [−1, 1], interior optimum.
+
+Mean AOCC. pos = positive-only, tut = tutorial active, guard = the
+guard, rs+act = `boundary="resample"` with active:
+
+| problem, *d* | pos | tut | guard | rs+act |
+|---|---|---|---|---|
+| f5, 5 | 0.803 | 0.566 | 0.851 | 0.444 |
+| f5, 10 | 0.622 | 0.279 | 0.722 | 0.430 |
+| ell_near, 5 | 0.327 | 0.308 | 0.424 | 0.580 |
+| ell_near, 10 | 0.079 | 0.021 | 0.151 | 0.361 |
+| ell_mid, 5 | 0.338 | 0.383 | 0.500 | 0.553 |
+| ell_mid, 10 | 0.076 | 0.284 | 0.269 | 0.340 |
+| lin_ell, 5 | 0.225 | 0.274 | 0.422 | 0.429 |
+| lin_ell, 10 | 0.049 | 0.144 | 0.186 | 0.209 |
+| ell_out, 5 | 0.417 | 0.125 | 0.425 | 0.239 |
+| ell_out, 10 | 0.188 | 0.030 | 0.213 | 0.151 |
+| ell_small, 5 | 0.467 | 0.573 | 0.581 | 0.651 |
+| ell_small, 10 | 0.164 | 0.398 | 0.378 | 0.421 |
+
+Paired deltas (mean ± SE over 8 seeds, wins):
+
+| problem, *d* | guard − tut | guard − pos | rs+act − guard | top-μ − guard |
+|---|---|---|---|---|
+| f5, 5 | +0.285 ± 0.102, 8/8 | +0.048 ± 0.090 | −0.407 ± 0.060 | −0.023 |
+| f5, 10 | +0.443 ± 0.048, 8/8 | +0.101 ± 0.079 | −0.292 ± 0.019 | −0.033 |
+| ell_near, 5 | +0.116 ± 0.091 | +0.097 ± 0.035 | +0.156 ± 0.046 | +0.072 ± 0.044 |
+| ell_near, 10 | +0.130 ± 0.039 | +0.072 ± 0.029 | +0.210 ± 0.033 | +0.077 ± 0.026 |
+| ell_mid, 5 | +0.117 ± 0.077 | +0.162 ± 0.030 | +0.053 ± 0.013 | +0.032 ± 0.018 |
+| ell_mid, 10 | −0.015 ± 0.064 | +0.193 ± 0.025 | +0.071 ± 0.032 | −0.007 |
+| lin_ell, 5 | +0.148 ± 0.083 | +0.197 ± 0.019 | +0.007 ± 0.026 | −0.008 |
+| lin_ell, 10 | +0.042 ± 0.027 | +0.137 ± 0.020 | +0.023 ± 0.018 | +0.011 |
+| ell_out, 5 | +0.300 ± 0.047, 8/8 | +0.008 ± 0.034 | −0.186 ± 0.054 | +0.024 |
+| ell_out, 10 | +0.183 ± 0.026, 8/8 | +0.025 ± 0.027 | −0.062 ± 0.037 | −0.007 |
+| ell_small, 5 | +0.008 ± 0.061 | +0.115 ± 0.030 | +0.069 ± 0.012 | +0.059 ± 0.010 |
+| ell_small, 10 | −0.021 ± 0.048 | +0.213 ± 0.030 | +0.043 ± 0.035 | +0.017 |
+
+### 59.4 Reading
+
+* **The guard is needed beyond f5.** Wherever the optimum is on or near
+  a face (f5, `ell_out`, `ell_near`), the tutorial update collapses and
+  the guard recovers +0.12…+0.44.  On interior problems (`ell_mid`,
+  `ell_small` at *d* = 10) the two are level within noise.
+* **The guard never falls below positive-only** (+0.008…+0.213).  On
+  every ellipsoid it keeps active's conditioning gain.
+* **What the guard gives up.**
+  * With the optimum *near* a face but inside, resample + active is
+    ahead of the guard: +0.16 / +0.21 on `ell_near`, +0.05 / +0.07 on
+    `ell_mid`.  Resampling never produces a repaired step, so active
+    runs in every generation.
+  * With the optimum *on* the face, the same combination loses heavily:
+    f5 −0.41 / −0.29, `ell_out` −0.19 / −0.06.  It never samples the
+    face.
+  * Neither of the two dominates.  The principled alternative is a
+    genotype mapping (pycma's `BoundTransform`): unbounded steps, a
+    smooth fold for evaluation, so no repair ever happens and active
+    CMA needs no guard.  Logged in `TODO.md`.
+* **The any-repaired rule is deliberately conservative.**  The top-μ
+  variant is within noise on most cells.  It is ahead by +0.072 /
+  +0.077 on `ell_near` and +0.059 on `ell_small` at *d* = 5, and behind
+  by 0.02–0.03 on f5.  It is a follow-up, not adopted.
+* **Next:** the §58 A/B again with `RoundRobin_CMAES_active_guarded`
+  next to the unguarded `RoundRobin_CMAES_active`, dispatched after #373
+  merges.  The default decision waits for it.

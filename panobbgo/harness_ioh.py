@@ -887,12 +887,17 @@ CMAES_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
     "RoundRobin_CMAES_resample": {"boundary": "resample"},
     "RoundRobin_CMAES_reflect": {"boundary": "reflect"},
     "RoundRobin_CMAES_randstart": {"first_start": "random"},
-    # ``active=True`` includes the repair guard (``active_skip_repaired``);
-    # ``_active_tutorial`` is the unguarded update DISCOVERY §58 measured as
-    # ``RoundRobin_CMAES_active`` (before the guard existed).
-    "RoundRobin_CMAES_active": {"active": True},
-    "RoundRobin_CMAES_active_tutorial": {"active": True, "active_skip_repaired": False},
-    "RoundRobin_CMAES_resample_randstart_active": {"boundary": "resample", "first_start": "random", "active": True},
+    # The §58 names keep their §58 meaning: the unguarded tutorial update
+    # (``active_skip_repaired=False``).  ``_active_guarded`` is ``active=True``
+    # with the repair guard (DISCOVERY §59), the candidate for the default.
+    "RoundRobin_CMAES_active": {"active": True, "active_skip_repaired": False},
+    "RoundRobin_CMAES_active_guarded": {"active": True},
+    "RoundRobin_CMAES_resample_randstart_active": {
+        "boundary": "resample",
+        "first_start": "random",
+        "active": True,
+        "active_skip_repaired": False,
+    },
 }
 
 #: Spec names of :data:`CMAES_VARIANT_OPTIONS`, in registry order.

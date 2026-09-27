@@ -87,6 +87,13 @@ extra).
           stays).  Open cost: Blocks d2/100·d/q16 −0.012 (1/5):
           size a block to at least one generation of its owner, or apply
           the floor only where the arms cannot fill the workers — untried;
+      **§64: every CMA-ES number of §62 is affected.**  The half quorum
+      ranked only the first μ arrivals on the virtual clock (no active
+      update, no truncation selection, λ − μ evaluations dropped).  Fixed:
+      full quorum with one worker, late offspring folded
+      (`late_results="fold"`); `RoundRobin_CMAES` +0.04…+0.05 AOCC at
+      q ≤ 4.  Step (a) re-runs the grid with both this and the λ ≥ q
+      floor;
       (c) 12 seeds on the 100·d, q 4–16 band;
       (d) the `failure` preset.
 - [ ] **Open question: CMA-ES's worker floor on real backends.**

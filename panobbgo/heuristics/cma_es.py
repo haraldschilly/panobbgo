@@ -210,7 +210,27 @@ class CMAES(Heuristic):
             virtual clock was measured (§63); set ``True`` for a real pool
             with expensive evaluations.
         min_results_fraction (float): Fraction of λ that must arrive before
-            a CMA-ES update is triggered.  Default 0.5 (= μ).
+            a CMA-ES update is triggered.  Default 0.5 (= μ).  Only with more
+            than one parallel worker (``strategy._n_evaluators()``): with one
+            worker the quorum is the whole emitted generation, because
+            results arrive one at a time and an early update would buy no
+            parallelism, only drop the rest of the generation (DISCOVERY §64).
+            Under ``evaluation.sync`` without the virtual clock results arrive
+            in batches of the strategy's request (``StrategyRoundRobin``: 10),
+            so the quorum binds there only for a generation larger than one
+            batch (λ > 10 after IPOP growth).
+        late_results (str): What happens to an offspring whose result arrives
+            after its generation was closed by the quorum (only with more
+            than one worker; DISCOVERY §64).  ``"fold"`` (default): it joins
+            the next update like an injected point —
+            converted to the oldest open generation's coordinates,
+            Mahalanobis-clipped (:meth:`_clip_injected`), never counted toward
+            that generation's quorum, and never given a negative weight under
+            ``active_skip_repaired``.  It is not charged again.  ``"drop"``:
+            it is ignored, the behaviour before §64; it was evaluated and
+            charged all the same.  Under ``evaluation.sync`` without the
+            virtual clock it binds only for a generation larger than one
+            request batch (see ``min_results_fraction``).
         ipop_factor (float): Population multiplication factor applied on each
             IPOP restart.  Default 2.0 (standard IPOP doubling).  Ignored in
             BIPOP mode (which always doubles the large regime).
@@ -436,6 +456,9 @@ class CMAES(Heuristic):
     #: Accepted values for ``boundary``: out-of-box offspring handling.
     SUPPORTED_BOUNDARY = ("project", "resample", "reflect")
 
+    #: Accepted values for ``late_results``: a closed generation's late offspring.
+    SUPPORTED_LATE_RESULTS = ("drop", "fold")
+
     #: Accepted values for ``first_start``: the first run's start mean.
     SUPPORTED_FIRST_START = ("center", "random")
 
@@ -486,6 +509,7 @@ class CMAES(Heuristic):
         first_start: str = "center",
         active: bool = True,
         active_skip_repaired: bool = True,
+        late_results: str = "fold",
     ):
         super().__init__(strategy, name=name or "CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -591,6 +615,10 @@ class CMAES(Heuristic):
             raise ValueError(f"boundary must be one of {self.SUPPORTED_BOUNDARY!r}, got {boundary!r}")
         if first_start not in self.SUPPORTED_FIRST_START:
             raise ValueError(f"first_start must be one of {self.SUPPORTED_FIRST_START!r}, got {first_start!r}")
+        if late_results not in self.SUPPORTED_LATE_RESULTS:
+            raise ValueError(f"late_results must be one of {self.SUPPORTED_LATE_RESULTS!r}, got {late_results!r}")
+        #: Late offspring of a generation closed by the quorum (§64): ``"drop"`` or ``"fold"``.
+        self._late_results = late_results
         #: Out-of-box offspring handling (§57 H1); ``"project"`` is the default path.
         self._boundary = boundary
         #: The first run's start mean (§57 H2); ``"center"`` is the default path.
@@ -688,6 +716,13 @@ class CMAES(Heuristic):
         # generation they arrived during (§2.1), keyed the same way as
         # ``_gen_results`` and cleared everywhere that dict is.
         self._injected: Dict[int, List[dict]] = {}
+        # ``late_results="fold"``: late offspring of closed generations,
+        # waiting for the oldest open generation's update (§64); keyed and
+        # cleared like ``_injected``.
+        self._late: Dict[int, List[dict]] = {}
+        #: Late offspring folded into an update / dropped (§64 accounting).
+        self.n_late_folded: int = 0
+        self.n_late_dropped: int = 0
 
         # Box bounds (set in on_start)
         self._lo: Optional[np.ndarray] = None
@@ -846,6 +881,7 @@ class CMAES(Heuristic):
         self._pending = {}
         self._gen_results = {}
         self._injected = {}
+        self._late = {}
 
         # Remember base population so IPOP doubling scales correctly
         if self._base_lam == 0:
@@ -1288,6 +1324,12 @@ class CMAES(Heuristic):
         """Add one evaluated (or failed) offspring to its generation's bucket."""
         gen_bucket = self._gen_results.get(info["gen"])
         if gen_bucket is None:
+            # A late offspring: its generation was closed by the quorum
+            # (a flushed generation's offspring are no longer ``_pending``).
+            if self._late_results == "fold":
+                self._fold_late(info, penalty)
+            else:
+                self.n_late_dropped += 1
             return
         gen_bucket.append(
             {
@@ -1310,13 +1352,13 @@ class CMAES(Heuristic):
         for gen in sorted(self._gen_results.keys()):
             bucket = self._gen_results[gen]
             emitted = self._gen_emitted.get(gen, self._lam)
-            min_needed = max(2, int(min(self._lam, emitted) * self._min_results_fraction))
+            min_needed = self._quorum(emitted)
             if len(bucket) >= min_needed:
-                # Injected foreign points (§2.1) are added to the bucket here
-                # — after the quorum check, so they never count toward
-                # ``min_needed`` — and ranked with the offspring by ``_update``.
-                injected = self._injected.pop(gen, None)
-                entries = bucket + injected if injected else bucket
+                # Injected foreign points (§2.1) and folded late offspring
+                # (§64) are added to the bucket here — after the quorum check,
+                # so they never count toward ``min_needed`` — and ranked with
+                # the offspring by ``_update``.
+                entries = bucket + self._late.pop(gen, []) + self._injected.pop(gen, [])
                 del self._gen_results[gen]
                 self._gen_emitted.pop(gen, None)
                 if not any(np.isfinite(e["penalty"]) for e in entries):
@@ -1347,6 +1389,48 @@ class CMAES(Heuristic):
                 else:
                     self._emit_generation()
                 break
+
+    def _quorum(self, emitted: int) -> int:
+        """Results a generation of ``emitted`` offspring needs before its update.
+
+        ``min_results_fraction`` of it with parallel workers.  With one worker
+        the whole generation: results then arrive one at a time, and closing
+        at μ would only drop the other λ − μ evaluated offspring (they were
+        charged all the same), lose the μ-of-λ truncation selection and leave
+        no rank for active CMA's negative weights (DISCOVERY §64).
+        """
+        if self._n_workers() <= 1:
+            return max(1, int(emitted))
+        return max(2, int(min(self._lam, emitted) * self._min_results_fraction))
+
+    def _fold_late(self, info: Dict[str, Any], penalty: float) -> None:
+        """Queue a late offspring of a closed generation for the next update (``late_results="fold"``).
+
+        Treated as an injected point (:meth:`_maybe_inject`): its evaluated
+        position is converted to the current distribution's coordinates and
+        Mahalanobis-clipped, it joins the oldest open generation after the
+        quorum and never gets a negative weight under
+        ``active_skip_repaired``.  A non-finite penalty (a failed evaluation)
+        carries nothing to rank and is dropped; so is a result that arrives
+        with no open generation.
+        """
+        if not self._gen_results or not np.isfinite(penalty) or self._m is None or self._B is None or self._D is None:
+            self.n_late_dropped += 1
+            return
+        n = self.problem.dim
+        c_y = float(np.sqrt(n) + 2.0 * n / (n + 2.0))
+        x_f = np.asarray(info["x_eval"], dtype=float)
+        y = self._clip_injected((x_f - self._m) / self._sigma, self._B, self._D, c_y)
+        entry = {
+            "penalty": float(penalty),
+            "x": self._m + self._sigma * y,
+            "x_eval": x_f.copy(),
+            "y": y,
+            "injected": True,
+            "late": True,
+        }
+        self._late.setdefault(min(self._gen_results.keys()), []).append(entry)
+        self.n_late_folded += 1
 
     def _abandoned_evaluations(self) -> int:
         """Evaluated offspring of the open generations a flush would drop.
@@ -1604,6 +1688,7 @@ class CMAES(Heuristic):
         self._gen_results.clear()
         self._gen_emitted.clear()
         self._injected.clear()
+        self._late.clear()
         self.clear_output()
 
     def _reset_run_state(self) -> None:

@@ -232,6 +232,8 @@ class TestQuorum(PanobbgoTestCase):
         np.testing.assert_array_equal(entry["x_eval"], x_eval)
         n = cma.problem.dim
         c_y = np.sqrt(n) + 2.0 * n / (n + 2.0)
+        assert cma._B is not None
+        assert cma._D is not None
         expected = cma._clip_injected((x_eval - cma._m) / cma._sigma, cma._B, cma._D, c_y)
         np.testing.assert_allclose(entry["y"], expected)
 

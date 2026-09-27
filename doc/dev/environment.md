@@ -10,7 +10,7 @@ pyright, sphinx-build, scripts).  Never call `.venv/bin/...` or a bare
 uv sync --extra dev                       # install (pip: pip install -e ".[dev]")
 uv sync --extra dev --extra baselines     # + pycma / Nevergrad / Optuna baselines
 uv sync --extra dev --extra baselines --extra baselines-bo  # + BoTorch / TuRBO / SMAC3 / Py-BOBYQA (CPU torch ~0.7 GB)
-uv run pytest -q -n 4                     # full suite (~2300 tests, ~1 min)
+uv run pytest -q -n 4                     # full suite (~3000 tests)
 uv run pytest -q tests/test_core.py       # one file
 uv run ruff format .                      # format (CI gate: ruff format --check .)
 uv run ruff check --fix .                 # lint; ./codestyle.sh runs both

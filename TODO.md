@@ -3,9 +3,12 @@
 Open work only; remove an item when it is done.  Results go to
 `planning/DISCOVERY_2026-09-09.md` (§n), the state and plan of record to
 `planning/GOAL.md` §2/§2c, older history to `planning/done/TODO_archive_*`.
-References for every comparison: the 2026-09-27 re-baseline with the
-active-CMA default (§61, release `rebaseline-2026-09-27`, summary in
-`planning/results/2026-09-27/SUMMARY.json`).
+References: cheap track, the 2026-09-27 re-baseline with the active-CMA
+default (§61, release `rebaseline-2026-09-27`,
+`planning/results/2026-09-27/SUMMARY.json`); §64 changes only CMA-ES runs
+with λ > 10 there (≤ 0.002 on the families, other suites unmeasured).
+Expensive track: none yet — §62's panobbgo numbers are superseded
+(pre-active, pre-§63/§64); the re-run is the q-sweep item in §2.
 
 ## 1. Roadmap step 1: finish the instrument
 
@@ -21,13 +24,11 @@ extra).
       Python 3.14 wheels yet); HPO surrogates (YAHPO Gym pins `numpy < 2`,
       HPOBench is not on PyPI) — recheck when the wheels exist.
 - [ ] Real-world follow-ups: a `realworld` suite in `scripts/rebaseline.py`
-      (first a local timing to size its shards), and a re-baseline of
-      `families-constrained` for the baselines (they now minimise
-      `f + 100·cv` on constrained problems — that also changes the
-      baselines on the constrained half of `--families-sealed`, whose
-      numbers before #358 are not comparable for baselines); RC01u/RC02u (8/9 equalities)
-      are rarely made feasible at 500·dim, so check whether they
-      discriminate at all.
+      (first a local timing to size its shards); a reference for the
+      baselines on `--families-constrained` (they minimise `f + 100·cv`
+      since #358; the `families-constrained` re-baseline suite is the
+      family screen, without baselines); check whether RC01u/RC02u (8/9
+      equalities, rarely feasible at 500·dim) discriminate at all.
 - [ ] Nearby quadratic step scaling at high d (cap auto-rank candidates and
       history): `Nearby(quadratic=True)` takes 7–77 s and up to 1 GB per
       fit at d = 160, on every new best.  Until then `--legacy` is refused
@@ -41,16 +42,15 @@ extra).
       the counterfactual branch labels (roadmap §4 A) are the next step.
 - [ ] Py-BOBYQA `seek_global_minimum=True` as a second, global variant of
       the local BOBYQA reference (`panobbgo/harness_baselines_bo.py`).
-- [ ] Then measure panobbgo vs the incumbents on both tracks, per COCO
-      class, budget and q (roadmap §5.2).
+- [ ] Then measure panobbgo vs the incumbents per COCO class, budget and
+      q (roadmap §5.2; the families part is the q-sweep in §2 below).
 
-## 2. Follow-ups from the 2026-09-26 PRs
+## 2. Expensive track and recent follow-ups
 
 - [ ] **FP pin for the torch path (BO baselines).**  `PIN_ENV` caps torch /
       MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in
       `fp-check.yml`) before claiming bit-identity for BoTorch / TuRBO.
-
 - [ ] **Pull-when-free follow-ups** (the real async loop pulls when free,
       `evaluation.async_policy: pull`, §55).  (a) What is left of candidate
       staleness in pull mode is the heuristics' own output queues: Random
@@ -64,49 +64,40 @@ extra).
 - [ ] **Stale generations under a capped bandit.**  On the virtual clock a
       generational arm (CMA-ES, DE) drains its queued generation at the
       bandit's share of the free workers (max candidate age 49 evaluations,
-      7 before the request cap).  Prefer an arm with a partly dispatched
-      generation, or pull in generation-sized chunks.
-- [ ] **q-sweep measurement**: the instrument is `measure.yml`
-      (`scripts/measure.py`; families at 20·d / 100·d, q ∈ {1, 4, 16, 64},
-      panobbgo, the cheap-track and the GP baselines,
-      `doc/dev/benchmarking.md` "Expensive-track measurement").  Run it and
-      log it as a DISCOVERY section; then the `failure` preset.
-      **First run done (§62, run 36274781342, pre-active CMA-ES):** Holm
-      1 win / 7 losses / 13 open of 21 cells; parity-or-better only at
-      100·d, q 4–16; qLogEI leads at 20·d; the q = 64 loss is on the time
-      axis only.  Next, in §62.8 order:
-      (a) re-run the grid on the active-CMA default, with SMAC's d = 10
-          estimate raised;
-      (b) ~~worker utilisation of Blocks at q = 64~~ done (§63): idle
-          workers confirmed (25 % busy at d5/q64); the fix is CMA-ES's
-          λ ≥ q floor (`popsize_min_workers="auto"`: virtual clock only,
-          budget-capped at 10 generations), +0.018 `aocc_time` there
-          locally, chosen in-sample.  Re-measure the q ≥ 16 cells of the
-          grid with it (the confirmatory test; also decide whether the
-          budget cap, which halves RoundRobin_CMAES's gain at d2/q64,
-          stays).  Open cost: Blocks d2/100·d/q16 −0.012 (1/5):
-          size a block to at least one generation of its owner, or apply
-          the floor only where the arms cannot fill the workers — untried;
-      **§64: every CMA-ES number of §62 is affected.**  The half quorum
-      ranked only the first μ arrivals on the virtual clock (no active
-      update, no truncation selection, λ − μ evaluations dropped).  Fixed:
-      a generation closes early only once fully dispatched, and late
-      offspring are folded; `RoundRobin_CMAES` +0.04…+0.05 AOCC at q ≤ 4.
-      Step (a) re-runs the grid with both this and the λ ≥ q floor.
-      Open from §64: at d10/q1 closing at μ + fold beat the whole
-      generation (−0.007, 0/5) — a step-size effect to look at; a fold
-      cap that bounds the late share of the selected slots (earliest or
-      down-weighted, not best-ranked) is untried;
+      7 before the request cap; measured before §63/§64).  Prefer an arm
+      with a partly dispatched generation, or pull in generation-sized
+      chunks.
+- [ ] **q-sweep measurement** (`measure.yml`, `doc/dev/benchmarking.md`
+      "Expensive-track measurement").  §62 (run 36274781342) was the first
+      run; its panobbgo rows measured a crippled CMA-ES (positive-only,
+      and the half quorum of §64), only the externals' numbers stand.
+      In order:
+      (a) re-run the default grid on master (active CMA, λ ≥ q floor §63,
+          dispatched quorum + fold §64) — the confirmatory test of §63/§64
+          and the first expensive-track reference;
+      (b) with it, decide whether the floor's budget cap stays (it halves
+          `RoundRobin_CMAES`'s gain at d2/q64, §63.3) and look at
+          Blocks d2/100·d/q16 (−0.012, 1/5, §63): size a block to at least
+          one generation of its owner, or apply the floor only where the
+          arms cannot fill the workers — untried;
       (c) 12 seeds on the 100·d, q 4–16 band;
       (d) the `failure` preset.
-- [ ] **Open question: CMA-ES's worker floor on real backends.**
+- [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
+      beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
+      a step-size effect to look at.  (b) Fold biases σ down (strongly at
+      q 4–16, little at q = 2, not at q = 64); harmless on the free
+      families at 100·d, unmeasured on multimodal problems at larger
+      budgets.  (c) A fold cap that bounds the late share of the selected
+      slots (earliest-arrived or down-weighted, not best-ranked) is
+      untried; `"fold_capped"` (best-ranked) measured the same as `"fold"`.
+- [ ] **CMA-ES on real async backends** (threaded / process / dask).
       `popsize_min_workers="auto"` raises λ to the worker count on the
-      virtual clock only (§63).  On threaded / process / dask pools it is
-      off: with cheap objectives on many workers λ = q costs sample
-      efficiency, stretches the stagnation window and removes BIPOP's
-      small regime.  For expensive objectives on a real pool it should
-      help as on the clock — unmeasured.  Decide whether "auto" should
-      look at measured evaluation times, or leave it to `True`.
+      virtual clock only (§63): on real pools λ = q costs sample
+      efficiency with cheap objectives, stretches the stagnation window
+      and removes BIPOP's small regime; for expensive objectives it should
+      help as on the clock.  The §64 quorum and fold rules apply there
+      too.  Both unmeasured; decide whether "auto" should look at measured
+      evaluation times, or leave it to `True`.
 - [ ] **Re-baseline suite for the expensive-track baselines** (BoTorch
       qLogEI, TuRBO-1, SMAC3, Py-BOBYQA; extra `baselines-bo`): the slot
       is marked in `SUITES` in `scripts/rebaseline.py`.  `measure.yml`
@@ -116,10 +107,6 @@ extra).
       `harness_baselines.py` silences the FutureWarning).  Before bumping
       to 6: find another way to seed the start point, or accept the box
       centre and say so in the guide.
-- [ ] **`Blocks_warm_CMAES_JSO` is weaker than plain CMA-ES on
-      `ellipsoid_fhs_crash` d5** (seen in the #346 review, not yet a
-      DISCOVERY entry).  Measure paired on the failure preset; if it holds,
-      find the mechanism (jSO's share of the budget in the crash half-space?).
 
 ## 3. Research line (cheap track)
 
@@ -142,8 +129,9 @@ Cheap-track items, in GOAL §2c order:
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
 - [ ] **Recheck the block scheduler's `REGIME_TABLE_V1`**
       (`strategies/blocks.py`): measured with positive-only CMA-ES; with the
-      active default the CMA-ES arm is stronger and the sharing portfolio
-      now trails `CMAES_alone` / `RoundRobin_CMAES` (§61).
+      active default the sharing portfolio trails `CMAES_alone` /
+      `RoundRobin_CMAES` at 500·d on every family preset, by 0.02–0.15
+      (§61; the #346 review saw it first on `ellipsoid_fhs_crash` d5).
 - [ ] **BoundTransform-style genotype mapping** as the principled
       alternative to the active guard (§59): run CMA-ES in an unbounded
       genotype space with a smooth fold into the box for evaluation (pycma's
@@ -165,17 +153,11 @@ Cheap-track items, in GOAL §2c order:
 
 ## 4. Engineering backlog
 
-- [ ] **OpenBLAS Zen 4 override (#6021) follow-ups.**  The FP pin now sets
-      `OPENBLAS_L2_SIZE=2048` (`panobbgo/fp_env.py`, `doc/dev/benchmarking.md`):
-      without it OpenBLAS 0.3.34 segfaults in `dgemm_kernel_HASWELL` on
-      AVX-512 EPYC 9V74 runners and gives other GEMM bits there.  Open:
-      (a) two shards of the FP-exact re-baseline run 36265786623
-      (`composite-quick 01`, `ioh-external 01`) ran on such hosts without
-      it — re-run those two shards and compare bit for bit (GEMMs with
-      K <= 320 are unaffected, so they are probably identical);
-      (b) when numpy / scipy ship an OpenBLAS whose override skips a forced
-      coretype (upstream #6021, not the 0.3.35 `NO_AVX512` fix), bump them,
-      re-run `fp-check` and drop the variable if it is no longer needed.
+- [ ] **OpenBLAS Zen 4 override (upstream #6021).**  The FP pin sets
+      `OPENBLAS_L2_SIZE=2048` against it (`doc/dev/benchmarking.md`).  When
+      numpy / scipy ship an OpenBLAS whose override skips a forced coretype
+      (not the 0.3.35 `NO_AVX512` fix), bump them, re-run `fp-check` and
+      drop the variable if it is no longer needed.
 - [ ] Adopt ruff 0.16's wider default rules (the pinned E4/E7/E9/F
       selection is clean) — own change.
 - [ ] Zoo compaction — parked until the broader suite shows what is good.

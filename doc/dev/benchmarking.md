@@ -71,9 +71,8 @@ same FP environment, i.e. with the same `fp_env_id`.**
     experiment PR #371).  The variable is not in `fp_env_id` (it restores
     what the pin already meant).  `fp-check.yml` also compares digests of
     such large GEMM / `lstsq` / `eigh` results across its runners
-    (`scripts/fp_blas_digest.py`).  Two shards of the FP-exact re-baseline
-    run 36265786623 (`composite-quick 01`, `ioh-external 01`) ran on such
-    hosts without it (`TODO.md`).
+    (`scripts/fp_blas_digest.py`).  The current references (§61) ran with
+    it; dropping it once upstream is fixed is a `TODO.md` item.
 *   **The record.**  Every result file carries `fp_env` (CPU model,
     avx2/fma/avx512f, the loaded BLAS libraries with version and kernel
     `architecture`, numpy's active SIMD targets, numpy/scipy/libc/Python
@@ -300,8 +299,9 @@ sync` is a regression mode: with q = 1, `--duration constant` and
 in both metrics.  Durations are common random numbers per cell (base seed,
 problem, dimension, instance, rep; not the strategy), so the i-th dispatch of
 a cell takes the same time for every strategy (`"durations": "crn"` in the
-files; older virtual-clock files are not comparable).  The ask/tell external baselines run on the same clock; the
-SciPy baselines get no `aocc_time`.  Metric, model and the metric's caps
+files; older virtual-clock files are not comparable).  The ask/tell
+external baselines run on the same clock; the SciPy baselines get no
+`aocc_time`.  Metric, model and the metric's caps
 across q: guide, "Parallel behaviour on a virtual clock".
 
 ## Expensive-track measurement
@@ -339,9 +339,8 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
 *   **Coverage.**  SMAC runs at q = 1 only (no batch acquisition).  A GP
     baseline runs on a cell only where one run at q = 1 is estimated at most
     an hour on a runner — everything but d = 10 at 100·d for qLogEI and SMAC,
-    and SMAC at d = 5, 100·d (the same cells as the earlier laptop-based
-    rule).  Coverage does not depend on q, so the pool (below) is the same in
-    every q cell.
+    and SMAC at d = 5, 100·d (pinned by tests).  Coverage does not depend
+    on q, so the pool (below) is the same in every q cell.
 *   **Cost model** (`RUNNER_SECONDS` in `scripts/measure.py`).  Runner
     seconds of one run per group and (d, budget, q), the **90th percentile**
     over the 75 runs of each cell of run 36274781342 (2026-09-26; 4 runs at a
@@ -360,12 +359,9 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     99 s); the core group (all its specs on one instance) takes 1 to 52 s.
     A unit is estimated at `ceil(runs / 4)` rounds of that plus 30 s; over
     that run this over-estimates the unit walls by 1.56× in total and
-    under-estimates none.  The laptop-based table it replaces (runner = 1.5×
-    laptop, qLogEI `1 + 0.05 (q − 1)`) was 2–4× too low for the GP groups:
-    SMAC at d = 10, 20·d takes 19–23 min a run, not the estimated 10, and shard `SMAC-01`
-    (four such units, planned at 180 min) hit the 330-minute step limit.
-    Cells outside the table extrapolate from the same dimension with
-    `(budget / b)^1.6`.  To recalibrate, fit the p90 of the per-run
+    under-estimates none (the laptop-based table it replaced, #378, was 2–4×
+    too low for the GP groups).  Cells outside the table extrapolate from
+    the same dimension with `(budget / b)^1.6`.  To recalibrate, fit the p90 of the per-run
     `elapsed_s` of a run's unit files (the summary's `s/run` columns are
     means).  Only units with at least as many runs as the runner has cores
     measure under the four-way contention the table assumes: the units of a
@@ -544,42 +540,40 @@ Result files from before **2026-09-25** are not comparable with newer ones:
 runs now stop at exactly `max_eval`, composite `success` means "tolerance
 met within the budget", measurements run `sync_eval`, and module RNG streams
 are keyed by master seed and module name (`StrategyBase.spawn_rng`), which
-changed every seeded trajectory.  Compare against the current references:
-release `rebaseline-2026-09-27` (DISCOVERY §61; the active-CMA default, 12 seeds, every
+changed every seeded trajectory.  Three CMA-ES changes of 2026-09-27 break
+comparability, where they bind, for every spec with a CMA-ES arm
+(`RoundRobin_CMAES`, `Blocks_warm_CMAES_JSO`, `RegimeGate_oracle`, the
+composite registry's CMA-ES entries, the screens and their variants):
+
+*   **Active CMA is the default** (§60): `CMAES()` runs the guarded active
+    update (`active=True, active_skip_repaired=True`); `active=False` (spec
+    `RoundRobin_CMAES_positive`) is the old positive-only update.  Every
+    CMA-ES trajectory changes.
+*   **λ ≥ q on the virtual clock** (§63, `popsize_min_workers="auto"`): λ
+    is raised to the worker count, capped at `max(λ_default,
+    max_eval // 10)`.  Binds only where q exceeds the default λ (6 / 8 /
+    10 at d 2 / 5 / 10), so never at q ≤ 4 or on the cheap track.
+*   **Dispatched quorum and folded late offspring** (§64,
+    `quorum="dispatched"`, `late_results="fold"`; the old rules are
+    `"fraction"` / `"drop"`): before it, CMA-ES on the virtual clock ranked
+    only the first μ arrivals of each generation and never ran the active
+    update, so no panobbgo row of §62 (run 36274781342) is comparable.  On
+    the cheap track only runs whose λ exceeds one synchronous request batch
+    (10 points) change — after an IPOP restart, in BIPOP's large regime, or
+    with an explicit `popsize` > 10 (`RoundRobin_CMAES` −0.0002…+0.0019 on
+    the families, Blocks unchanged).
+
+**Current references.**  Cheap track: release `rebaseline-2026-09-27`
+(§61; active CMA, before §63/§64 and still used until the next
+re-baseline; 12 seeds, every
 suite incl. the external baselines and the shapes/failure families, one
-`fp_env_id` across all 29 jobs; numbers in `planning/results/2026-09-27/SUMMARY.json`).  Unpack it
-with `scripts/rebaseline.py fetch` (next section).  Older releases are
-history: `rebaseline-2026-09-26-run36265786623` (§56, positive-only CMA-ES;
-still bit-identical for every spec without a CMA-ES arm) and
-`rebaseline-2026-09-26-run36228301268` (§54, two runner FP classes).
-
-**Active CMA is the default (2026-09-27, DISCOVERY §60).**  `CMAES()` now
-runs the guarded active update (`active=True, active_skip_repaired=True`);
-the positive-only update stays available as `active=False` (harness spec
-`RoundRobin_CMAES_positive`).  This changes **every CMA-ES trajectory**:
-`RoundRobin_CMAES`, the portfolios with a CMA-ES arm
-(`Blocks_warm_CMAES_JSO`, `RegimeGate_oracle`), the composite registry's
-`IPOP_CMAES` / `BIPOP_CMAES` / `CMAES_Portfolio` / `CMAES_GP`, the
-screens (`benchmarks/*_screen.py`, `oracle.py`), the family screens and
-the resample / reflect / randstart variants (they add their option to the
-new default).  References and result files from before this commit are not
-comparable for any strategy with a CMA-ES arm; the current references
-(`rebaseline-2026-09-27`, §61) are measured with it.
-
-**CMA-ES quorum (2026-09-27, DISCOVERY §64).**  A generation now closes
-early (at `min_results_fraction · λ`) only once all its offspring are
-dispatched (`quorum="dispatched"`; `"fraction"` is the old rule), and the
-late offspring of an early-closed generation are folded into the next
-update (`late_results="fold"`; `"drop"` is the old behaviour).
-Expensive-track results (`measure.yml`, the virtual clock) from before
-this change are not comparable for any spec with a CMA-ES arm: until then
-CMA-ES there ranked only the first μ arrivals of each generation and never
-ran the active update.  On the cheap track only CMA-ES runs whose λ
-exceeds one synchronous request batch (10 points) change: after an IPOP
-restart, in BIPOP's large regime, or with an explicit `popsize` > 10
-(`RoundRobin_CMAES` −0.0002…+0.0019 on the families; `Blocks_warm_CMAES_JSO`
-unchanged).  The §61 references are still used for the cheap track until
-the next re-baseline.
+`fp_env_id` across all 29 jobs; numbers in
+`planning/results/2026-09-27/SUMMARY.json`).  Unpack it with
+`scripts/rebaseline.py fetch` (next section).  Expensive track: none yet.
+Older releases are history: `rebaseline-2026-09-26-run36265786623` (§56,
+positive-only CMA-ES; still bit-identical for every spec without a CMA-ES
+arm) and `rebaseline-2026-09-26-run36228301268` (§54, two runner FP
+classes).
 
 ## Re-baselining on GitHub runners
 

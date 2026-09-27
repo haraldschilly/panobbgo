@@ -169,6 +169,10 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "offspring; a solo run never produces a foreign result, so on_new_results never has anything "
         "to inject -- pinned as an identity in tests/test_cma_es_inject.py"
     ),
+    ("CMAES", "active_skip_repaired"): (
+        "the repair guard of active CMA, read only with active=True, which defaults to False -- "
+        "pinned by the guard tests in tests/test_cma_es_bounds_active.py"
+    ),
     ("JSO", "shared_pbest"): (
         "widens the pbest pool with the shared Archive analyzer's foreign top-k; the probe's solo run "
         "attaches no Archive, so _archive_analyzer() is None and the pool never changes -- pinned as "

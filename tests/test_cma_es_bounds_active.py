@@ -375,6 +375,84 @@ def test_active_partial_generation_uses_the_leading_negative_weights():
     np.testing.assert_allclose(h._C, C, rtol=1e-12, atol=1e-15)
 
 
+@pytest.mark.parametrize("dim", [3, 5])
+def test_active_guard_falls_back_to_positive_only_with_a_repaired_offspring(dim):
+    """One repaired (projected) offspring anywhere in the generation: the update is eq. (47) without negatives."""
+    h = _started(dim=dim, active=True)
+    entries = _synthetic_generation(h, np.random.default_rng(2))
+    entries[1]["repaired"] = True  # a selected one, as at a box face
+    C, _ = _update_by_hand(h, entries, list(h._w))
+    np.testing.assert_allclose(h._C, C, rtol=1e-12, atol=1e-15)
+
+
+def test_active_guard_off_keeps_the_tutorial_update_with_repaired_offspring():
+    h = _started(dim=5, active=True, active_skip_repaired=False)
+    entries = _synthetic_generation(h, np.random.default_rng(2))
+    entries[1]["repaired"] = True
+    C, _ = _update_by_hand(h, entries, list(h._w) + list(h._w_neg))
+    np.testing.assert_allclose(h._C, C, rtol=1e-12, atol=1e-15)
+
+
+def test_active_guard_gives_injected_points_no_negative_weight():
+    """pycma's CMA_active_injected = 0: an injected point ranked below μ contributes nothing negative."""
+    h = _started(dim=5, active=True)  # λ = 8, μ = 4
+    entries = _synthetic_generation(h, np.random.default_rng(3))
+    entries[6]["injected"] = True
+    weights = list(h._w) + list(h._w_neg)
+    weights[6] = 0.0
+    C, _ = _update_by_hand(h, entries, weights)
+    np.testing.assert_allclose(h._C, C, rtol=1e-12, atol=1e-15)
+
+
+def test_emitted_offspring_carry_the_repaired_flag():
+    """The flag is set exactly when the boundary repair changed the step (the default path included)."""
+    for active in (False, True):
+        h = _started(dim=3, active=active)
+        h._m = np.array([7.9, 3.0, 3.0])  # next to the upper face of [-2, 8]^3
+        h._sigma = 1.0
+        h._pending.clear()
+        h._emit_generation()
+        flags = [info["repaired"] for info in h._pending.values()]
+        assert any(flags) and not all(flags)
+        for info in h._pending.values():
+            assert info["repaired"] == bool(np.any(info["x_eval"] >= 8.0))
+
+
+def _linear_slope_aocc(seed, **kw):
+    """BBOB f5 (linear slope, optimum on the face of [-5, 5]^5) at 500·d — the §58.4 failure case."""
+    from panobbgo.ioh_runner import aocc
+    from panobbgo.lib.lib import Problem
+
+    class LinearSlope(Problem):
+        def __init__(self, dim, rng):
+            sgn = np.where(rng.random(dim) < 0.5, -1.0, 1.0)
+            self.x_opt = 5.0 * sgn
+            self.s = sgn * 10.0 ** (np.arange(dim) / (dim - 1))
+            Problem.__init__(self, [(-5.0, 5.0)] * dim)
+
+        def eval(self, x):
+            z = np.where(self.x_opt * x < 25.0, x, self.x_opt)
+            return float(np.sum(5.0 * np.abs(self.s) - self.s * z))
+
+    _, _, fx, _ = _run(seed=seed, max_eval=2500, problem=LinearSlope(5, np.random.default_rng(1000 + seed)), **kw)
+    return aocc(np.minimum.accumulate(fx), 0.0, budget=2500)
+
+
+def test_active_guard_repairs_the_linear_slope():
+    """Unguarded active CMA collapses C along a face-bound slope; the guard keeps it working.
+
+    Measured 2026-09-27 on these seeds: guarded 0.97 / 0.58 / 0.98 / 0.73,
+    unguarded 0.30 / 0.21 / 0.12 / 0.29 (positive-only 0.96 / 0.96 / 0.98 /
+    0.88).  The margin is ~0.45 in the mean, far above any FP-environment
+    drift of a chaotic trajectory.
+    """
+    seeds = (3, 4, 5, 6)
+    guarded = np.mean([_linear_slope_aocc(s, active=True) for s in seeds])
+    tutorial = np.mean([_linear_slope_aocc(s, active=True, active_skip_repaired=False) for s in seeds])
+    assert guarded > tutorial + 0.2
+    assert guarded > 0.6
+
+
 def test_active_run_keeps_c_positive_definite_and_converges():
     h, _, fx, _ = _run(problem=Rosenbrock(dim=5), max_eval=3000, active=True)
     assert float(np.linalg.eigvalsh(h._C).min()) > 0.0

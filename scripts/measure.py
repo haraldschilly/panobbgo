@@ -17,7 +17,7 @@ virtual time.  Subcommands:
 
         python scripts/measure.py plan --seeds 5
         python scripts/measure.py plan --seeds 1 --dims 2 --qs 1,4 \\
-            --extra-units 'qLogEI.free.b100.q16.d5.s42.i0;qLogEI.free.b100.q64.d5.s42.i0'
+            --extra-units 'SMAC.free.b20.q1.d10.s42.i0;qLogEI.free.b100.q64.d5.s42.f0'
 
 ``run``
     Run the units of one shard and write one result file per unit (atomically,
@@ -34,10 +34,10 @@ virtual time.  Subcommands:
         uv run python scripts/measure.py aggregate measure-raw --plan plan.json --out-dir measure-summary
 
 A **unit** is one strategy group on one cell and one base seed,
-``<group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>]``: every instance of the
-preset at that dimension, or with ``.i<j>`` only instance ``j`` of every
-family (``plan`` splits a unit that would not fit a shard that way).  The
-groups:
+``<group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>]``: every instance
+of the preset at that dimension, with ``.i<j>`` only instance ``j`` of every
+family, with ``.f<k>`` only the ``k``-th family (``plan`` splits a unit that
+would not fit a shard that way, by instance first).  The groups:
 
 ``core``
     The panobbgo specs (``make_ioh_strategies``), the cheap-track external
@@ -47,6 +47,9 @@ groups:
     The GP-based baselines, each in shards of its own (they cost minutes per
     run).  SMAC has no batch acquisition and runs at q = 1 only; qLogEI and
     SMAC are left out where a run would take hours (:func:`covered`).
+
+Cost model: :data:`RUNNER_SECONDS`, measured on the runners; ``plan`` refuses
+a plan with a shard estimated above :data:`TARGET_MINUTES`.
 
 Parallelism: q ∈ ``--qs`` with ``q <= bm`` (at least ``dim`` full rounds of q
 calls), so q = 64 runs at 100·d only.  Seeds: the first N of the decision
@@ -123,90 +126,114 @@ DURATION = "lognormal"
 SIGMA = 0.5
 
 
-#: Measured seconds of ONE run of a GP baseline at q = 1, per (dim, budget = bm*dim), on a
-#: 16-core laptop (2026-09-26, light load, niced, one BLAS thread, one run at a time,
-#: the ellipsoid family).  ``(10, 200)`` qLogEI and SMAC are the guide's numbers
-#: (measured under heavy load); SMAC ``(5, 100)`` is interpolated and ``(5, 500)`` a lower
-#: bound (stopped unfinished after 40 min); the rest are measured.
-#: Other cells extrapolate from the same dimension (:func:`laptop_seconds`).
-LAPTOP_SECONDS: Dict[str, Dict[Tuple[int, int], float]] = {
-    "qLogEI": {(2, 40): 19.0, (2, 200): 87.0, (5, 100): 74.0, (5, 500): 972.0, (10, 200): 1000.0},
-    "TuRBO1": {(2, 40): 9.4, (2, 200): 52.0, (5, 100): 22.0, (5, 500): 146.0, (10, 200): 56.0},
-    "SMAC": {(2, 40): 9.5, (2, 200): 107.0, (5, 100): 45.0, (5, 500): 1800.0 * 1.2, (10, 200): 390.0},
-}
+#: Runner seconds of ONE run, per group and ``(dim, budget = bm*dim, q)``: the 90th
+#: percentile over the 75 runs (5 seeds x 5 families x 3 instances) of each cell of
+#: measure.yml run 36274781342 (2026-09-26, free preset, 4 processes on a 4-core runner,
+#: one BLAS thread each; most runners an AMD EPYC 7763, the slowest class seen), plus
+#: the two calibration units of smoke run 36268659424 (qLogEI d = 5, 100·d, q = 16 / 64).
+#: A GP group's "run" is one strategy on one instance; the core group's is all its specs
+#: on one instance (the p90 of their summed seconds).  The run's elapsed time includes
+#: the contention of four concurrent runs, as in a shard.  With :func:`unit_minutes`
+#: the table over-estimates the measured unit walls of that run by 1.56x in total and
+#: under-estimates none of them.  Rows not measured on a runner (they only decide
+#: coverage) are marked; every other cell extrapolates (:func:`run_seconds`).
+#: The ``s/run`` columns of a run's summary recalibrate it (``doc/dev/benchmarking.md``).
+RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
+    "core": {
+        (2, 40, 1): 1, (2, 40, 4): 2, (2, 40, 16): 1,
+        (2, 200, 1): 6, (2, 200, 4): 6, (2, 200, 16): 5, (2, 200, 64): 3,
+        (5, 100, 1): 2, (5, 100, 4): 4, (5, 100, 16): 4,
+        (5, 500, 1): 20, (5, 500, 4): 20, (5, 500, 16): 21, (5, 500, 64): 14,
+        (10, 200, 1): 7, (10, 200, 4): 8, (10, 200, 16): 8,
+        (10, 1000, 1): 34, (10, 1000, 4): 27, (10, 1000, 16): 27, (10, 1000, 64): 52,
+    },
+    "qLogEI": {
+        (2, 40, 1): 28, (2, 40, 4): 45, (2, 40, 16): 51,
+        (2, 200, 1): 334, (2, 200, 4): 325, (2, 200, 16): 477, (2, 200, 64): 1003,
+        (5, 100, 1): 194, (5, 100, 4): 252, (5, 100, 16): 284,
+        (5, 500, 1): 2527, (5, 500, 4): 2916, (5, 500, 16): 3089, (5, 500, 64): 4330,
+        (10, 200, 1): 695, (10, 200, 4): 831, (10, 200, 16): 819,
+    },
+    "TuRBO1": {
+        (2, 40, 1): 19, (2, 40, 4): 6, (2, 40, 16): 2,
+        (2, 200, 1): 136, (2, 200, 4): 29, (2, 200, 16): 13, (2, 200, 64): 4,
+        (5, 100, 1): 39, (5, 100, 4): 11, (5, 100, 16): 4,
+        (5, 500, 1): 275, (5, 500, 4): 78, (5, 500, 16): 32, (5, 500, 64): 10,
+        (10, 200, 1): 137, (10, 200, 4): 26, (10, 200, 16): 8,
+        (10, 1000, 1): 862, (10, 1000, 4): 334, (10, 1000, 16): 174, (10, 1000, 64): 99,
+    },
+    "SMAC": {
+        (2, 40, 1): 42, (2, 200, 1): 188, (5, 100, 1): 106, (10, 200, 1): 1391,
+        # Not measured on a runner: on the laptop a run was stopped unfinished after
+        # 40 min; the runner took 2-4x the laptop's time on the cells measured on both.
+        (5, 500, 1): 2400 * 2.5,
+    },
+}  # fmt: skip
+
+#: Fixed seconds per unit on top of its runs (process pool, imports, instance set-up):
+#: without it the smallest units, a few seconds of runs each, are under-estimated.
+UNIT_OVERHEAD_SECONDS = 30.0
 
 #: A GP baseline runs on a cell only if one run at q = 1 is estimated at most this
-#: long on the laptop (half an hour).  Coverage does not depend on q (SMAC aside),
-#: so the pool of baselines is the same in every q cell of a (preset, dim, budget).
-MAX_RUN_SECONDS = 1800.0
+#: long on a runner (an hour).  With :data:`RUNNER_SECONDS` that is the coverage the
+#: laptop-based estimate set before (no qLogEI or SMAC at d = 10, 100·d; no SMAC at
+#: d = 5, 100·d); a recalibration must not move it unnoticed (the tests pin it).
+#: Coverage does not depend on q (SMAC aside), so the pool of baselines is the same
+#: in every q cell of a (preset, dim, budget).
+MAX_RUN_SECONDS = 3600.0
 
-#: A GitHub runner core is taken to be this much slower than the laptop's.
-RUNNER_FACTOR = 1.5
-
-#: Growth of a GP baseline's run time with the budget at a fixed dimension (between
-#: linear, a fixed cost per proposal, and quadratic, a fit that grows with the data).
+#: Growth of a run's time with the budget at a fixed dimension, for cells outside the
+#: table (the runner data: 1.5-1.6 for qLogEI, 1.2 for TuRBO, 0.9-1.0 for SMAC over 5x).
 BUDGET_EXPONENT = 1.6
 
-#: qLogEI's cost grows with q: up to q - 1 pending points (``X_pending``) enter a
-#: joint posterior at every proposal.  Factor ``1 + QLOGEI_Q_SLOPE * (q - 1)`` over
-#: its q = 1 time: a GUESS (q = 16: 1.75, q = 64: 4.15) until the smoke run's
-#: q = 16 / 64 units at d = 5, 100·d measure it.
-QLOGEI_Q_SLOPE = 0.05
+#: Wall-minute target of a shard (``plan --target-minutes``): ``plan`` refuses a plan
+#: with a shard estimated above it.
+TARGET_MINUTES = 90.0
 
-#: The step limit of a shard (``measure.yml``) and the planner's warning level below it.
-STEP_LIMIT_MINUTES = 330.0
-WARN_MINUTES = 300.0
+#: The step limit of a shard (``measure.yml``; the job's limit is 10 minutes above it,
+#: for the set-up and the upload).  Well above the target: the estimate is a p90, and a
+#: one-round unit waits for its slowest run.
+STEP_LIMIT_MINUTES = 140.0
 
 
-def laptop_seconds(group: str, dim: int, budget: int, q: int = 1) -> float:
-    """Estimated laptop seconds of one run of ``group`` (the core group: all its specs on one instance).
+def run_seconds(group: str, dim: int, budget: int, q: int) -> float:
+    """Estimated runner seconds of one run of ``group`` (the core group: all its specs on one instance).
 
-    GP groups: the measured entry of :data:`LAPTOP_SECONDS`, else the entry of
-    the same (or the nearest larger) dimension with the nearest budget, scaled
-    by ``(budget / b) ** BUDGET_EXPONENT``.  SMAC fits once per evaluation on
-    the async clock at any q; qLogEI too, with a joint posterior over the
-    pending points (:data:`QLOGEI_Q_SLOPE`); TuRBO proposes once per batch of
-    q, measured at about ``0.1 + 0.9 / q`` of its q = 1 time.
+    The entry of :data:`RUNNER_SECONDS`; else, at the same (or the nearest
+    larger) dimension, the entry with the nearest budget, then the nearest q
+    (on a log scale; a tie goes to the larger, the dearer for qLogEI), scaled
+    by ``(budget / b) ** BUDGET_EXPONENT``.  Sizes the shards and decides
+    coverage only: it never changes a number.
     """
-    if group == "core":
-        # All 10 specs on one instance: about 15 s at d = 10, 1000 evaluations (NGOpt, TPE, Py-BOBYQA dominate).
-        return 2.0 + 0.015 * budget
-    table = LAPTOP_SECONDS[group]
-    if (dim, budget) in table:
-        t = table[(dim, budget)]
-    else:
-        dims = sorted({d for d, _ in table})
-        ref_dim = next((d for d in dims if d >= dim), dims[-1])
-        ref_b = min((b for d, b in table if d == ref_dim), key=lambda b: abs(math.log(b / budget)))
-        t = table[(ref_dim, ref_b)] * (budget / ref_b) ** BUDGET_EXPONENT
-    if group == "TuRBO1":
-        t *= 0.1 + 0.9 / q
-    elif group == "qLogEI":
-        t *= 1.0 + QLOGEI_Q_SLOPE * (q - 1)
-    return t
+    table = RUNNER_SECONDS[group]
+    if (dim, budget, q) in table:
+        return float(table[(dim, budget, q)])
+    dims = sorted({d for d, _, _ in table})
+    ref_dim = next((d for d in dims if d >= dim), dims[-1])
+    ref_b = min({b for d, b, _ in table if d == ref_dim}, key=lambda b: abs(math.log(b / budget)))
+    ref_q = min(
+        sorted({x for d, b, x in table if (d, b) == (ref_dim, ref_b)}, reverse=True),
+        key=lambda x: abs(math.log(x / q)),
+    )
+    return float(table[(ref_dim, ref_b, ref_q)]) * (budget / ref_b) ** BUDGET_EXPONENT
 
 
 def covered(group: str, bm: int, dim: int, q: int) -> bool:
     """Whether ``group`` runs on the cell ``(bm, dim, q)``.
 
     The core group runs everywhere.  A GP baseline runs where one run *at
-    q = 1* is estimated below :data:`MAX_RUN_SECONDS`: with the table above,
-    everything but d = 10 at 100·d for qLogEI (about 3.6 h a run) and SMAC,
-    and SMAC at d = 5, 100·d (over 40 min a run).  SMAC has no batch
+    q = 1* is estimated at most :data:`MAX_RUN_SECONDS`: everything but
+    d = 10 at 100·d for qLogEI (about 2.5 h a run) and SMAC, and SMAC at
+    d = 5, 100·d (over 40 min a run on the laptop).  SMAC has no batch
     acquisition, so it runs at q = 1 only (the guide reports it there).
     """
     if group == "core":
         return True
-    if group not in LAPTOP_SECONDS:
+    if group not in RUNNER_SECONDS:
         raise ValueError(f"unknown group {group!r}")
     if group == "SMAC" and q != 1:
         return False
-    return laptop_seconds(group, dim, bm * dim) <= MAX_RUN_SECONDS
-
-
-def run_seconds(group: str, dim: int, budget: int, q: int) -> float:
-    """Estimated seconds of one run on a GitHub runner core (sizes the shards only: never changes a number)."""
-    return RUNNER_FACTOR * laptop_seconds(group, dim, budget, q)
+    return run_seconds(group, dim, bm * dim, 1) <= MAX_RUN_SECONDS
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +245,9 @@ def run_seconds(group: str, dim: int, budget: int, q: int) -> float:
 class Unit:
     """One strategy group on one cell (preset, budget multiplier, q, dim), one base seed, and instances.
 
-    ``inst = -1``: every instance; ``inst = j``: instance ``j`` of every family.
+    ``inst = -1``: every instance; ``inst = j``: instance ``j`` of every
+    family.  ``fam = -1``: every family; ``fam = k``: only the ``k``-th family
+    of the preset (battery order).  Both set: one run per strategy.
     """
 
     group: str
@@ -228,47 +257,60 @@ class Unit:
     dim: int
     seed: int
     inst: int = -1
+    fam: int = -1
 
     @property
     def id(self) -> str:
-        """``<group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>]`` (also the result file's stem)."""
-        tail = f".i{self.inst}" if self.inst >= 0 else ""
+        """``<group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>]`` (also the result file's stem)."""
+        tail = (f".i{self.inst}" if self.inst >= 0 else "") + (f".f{self.fam}" if self.fam >= 0 else "")
         return f"{self.group}.{self.preset}.b{self.bm}.q{self.q}.d{self.dim}.s{self.seed}{tail}"
 
     @classmethod
     def parse(cls, text: str) -> "Unit":
-        """The inverse of :attr:`id`."""
+        """The inverse of :attr:`id`: only canonical ids (``parse(t).id == t``; no ``.i-1``, ``.i01``)."""
         try:
             parts = text.strip().split(".")
-            if len(parts) not in (6, 7):
+            if len(parts) not in (6, 7, 8):
                 raise ValueError
             group, preset, b, q, d, s = parts[:6]
             if not (b[0] == "b" and q[0] == "q" and d[0] == "d" and s[0] == "s"):
                 raise ValueError
-            inst = -1
-            if len(parts) == 7:
-                if parts[6][0] != "i":
-                    raise ValueError
-                inst = int(parts[6][1:])
-            unit = cls(group, preset, int(b[1:]), int(q[1:]), int(d[1:]), int(s[1:]), inst)
+            inst = fam = -1
+            tail = parts[6:]
+            if tail and tail[0][0] == "i":
+                inst = int(tail.pop(0)[1:])
+            if tail and tail[0][0] == "f":
+                fam = int(tail.pop(0)[1:])
+            if tail:
+                raise ValueError
+            unit = cls(group, preset, int(b[1:]), int(q[1:]), int(d[1:]), int(s[1:]), inst, fam)
         except (ValueError, IndexError):
             raise ValueError(
-                f"not a unit id: {text!r} (want <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>])"
+                f"not a unit id: {text!r} (want <group>.<preset>.b<bm>.q<q>.d<dim>.s<seed>[.i<j>][.f<k>])"
             ) from None
         if unit.group not in GROUPS or unit.preset not in PRESET_DIMS:
             raise ValueError(f"unknown group or preset in {text!r}")
         if not (-1 <= unit.inst < N_INSTANCES):
             raise ValueError(f"instance out of range in {text!r}")
+        if not (-1 <= unit.fam < PRESET_FAMILIES[unit.preset]):
+            raise ValueError(f"family out of range in {text!r}")
+        if unit.id != text.strip():
+            # One spelling per unit: result files, the plan and missing_units match ids as strings.
+            raise ValueError(f"not a canonical unit id: {text!r} (the canonical spelling is {unit.id!r})")
         return unit
 
     @property
     def n_runs(self) -> int:
-        """Instances of the unit (every group runs each of them once per strategy)."""
-        return PRESET_FAMILIES[self.preset] * (N_INSTANCES if self.inst < 0 else 1)
+        """Problem instances of the unit (every group runs each of them once per strategy)."""
+        return (PRESET_FAMILIES[self.preset] if self.fam < 0 else 1) * (N_INSTANCES if self.inst < 0 else 1)
 
     def split(self) -> List["Unit"]:
-        """One unit per instance index (a unit already split stays as it is)."""
+        """One unit per instance index (a unit already split by instance stays as it is)."""
         return [self] if self.inst >= 0 else [replace(self, inst=j) for j in range(N_INSTANCES)]
+
+    def split_families(self) -> List["Unit"]:
+        """One unit per family (a unit already split by family stays as it is)."""
+        return [self] if self.fam >= 0 else [replace(self, fam=k) for k in range(PRESET_FAMILIES[self.preset])]
 
 
 def int_list(spec: str) -> List[int]:
@@ -305,39 +347,60 @@ def make_units(
 
 
 def unit_minutes(unit: Unit, jobs: int) -> float:
-    """Estimated wall minutes of a unit: its runs spread over ``jobs`` processes, in rounds."""
-    return math.ceil(unit.n_runs / jobs) * run_seconds(unit.group, unit.dim, unit.bm * unit.dim, unit.q) / 60.0
+    """Estimated wall minutes of a unit: its runs spread over ``jobs`` processes, in rounds, plus the overhead."""
+    per_run = run_seconds(unit.group, unit.dim, unit.bm * unit.dim, unit.q)
+    return (math.ceil(unit.n_runs / jobs) * per_run + UNIT_OVERHEAD_SECONDS) / 60.0
+
+
+def fits(minutes: float, target_minutes: float) -> bool:
+    """Whether an estimate fits the target, as the plan reports it (``est_min``: whole minutes, rounded up)."""
+    return math.ceil(minutes) <= target_minutes
+
+
+def split_to_fit(unit: Unit, jobs: int, target_minutes: float) -> List[Unit]:
+    """``unit`` itself if it fits ``target_minutes``, else the first split whose parts all fit.
+
+    By instance first (``.i<j>``), then by family (``.f<k>``: all instances of
+    one family, one round on a 4-core runner where an instance's five
+    families take two), then both (one run each).  When not even single runs
+    fit, the single runs: :func:`cmd_plan` then refuses the plan.
+    """
+    if fits(unit_minutes(unit, jobs), target_minutes):
+        return [unit]
+    by_both = [p for part in unit.split() for p in part.split_families()]
+    for parts in (unit.split(), unit.split_families()):
+        if all(fits(unit_minutes(p, jobs), target_minutes) for p in parts):
+            return parts
+    return by_both
 
 
 def split_long(units: Sequence[Unit], jobs: int, target_minutes: float) -> List[Unit]:
-    """Split every unit estimated above ``target_minutes`` into one unit per instance index."""
-    out: List[Unit] = []
-    for u in units:
-        out.extend(u.split() if unit_minutes(u, jobs) > target_minutes else [u])
-    return out
+    """Split every unit estimated above ``target_minutes`` (:func:`split_to_fit`)."""
+    return [p for u in units for p in split_to_fit(u, jobs, target_minutes)]
 
 
 def pack(units: Sequence[Unit], jobs: int, target_minutes: float) -> List[List[Unit]]:
     """Pack the units of one group into shards of about ``target_minutes`` wall time on ``jobs`` cores.
 
     First-fit decreasing on :func:`unit_minutes`; a unit longer than the
-    target gets a shard of its own.
+    target gets a shard of its own.  A shard's load is :func:`shard_minutes`
+    and the test :func:`fits`, exactly as :func:`_entry` and
+    :func:`plan_problems` see it.
     """
-    bins: List[Tuple[float, List[Unit]]] = []
+    bins: List[List[Unit]] = []
     for u in sorted(units, key=lambda u: (-unit_minutes(u, jobs), u)):
-        w = unit_minutes(u, jobs)
-        for i, (load, items) in enumerate(bins):
-            if load + w <= target_minutes:
-                bins[i] = (load + w, items + [u])
+        for items in bins:
+            if fits(shard_minutes(items + [u], jobs), target_minutes):
+                items.append(u)
                 break
         else:
-            bins.append((w, [u]))
-    return [sorted(items) for _, items in bins]
+            bins.append([u])
+    return [sorted(items) for items in bins]
 
 
 def shard_minutes(units: Sequence[Unit], jobs: int) -> float:
-    """Estimated wall minutes of a shard: its units one after the other."""
-    return sum(unit_minutes(u, jobs) for u in units)
+    """Estimated wall minutes of a shard: its units one after the other (``fsum``: independent of the order)."""
+    return math.fsum(unit_minutes(u, jobs) for u in units)
 
 
 #: Wall-minute target of a core shard: smaller than the GP shards', so the
@@ -358,15 +421,28 @@ def _entry(shard: str, group: str, items: Sequence[Unit], jobs: int, calibration
 
 
 def runs_of(unit: Unit) -> Set[Unit]:
-    """The per-instance units a unit covers (itself, if it is one already)."""
-    return set(unit.split())
+    """The single runs (one instance of one family) a unit covers, as units with ``inst`` and ``fam`` set."""
+    return {p for part in unit.split() for p in part.split_families()}
+
+
+def _compact(unit: Unit, left: Sequence[Unit]) -> List[Unit]:
+    """``left`` (single runs of ``unit``) as few units as possible: whole instances where they are complete."""
+    if set(left) == runs_of(unit):
+        return [unit]
+    out: List[Unit] = []
+    for part in unit.split():
+        mine = runs_of(part)
+        have = [r for r in left if r in mine]
+        out.extend([part] if len(have) == len(mine) else sorted(have))
+    return out
 
 
 def uncovered(extra: Sequence[Unit], grid: Iterable[Unit]) -> List[Unit]:
-    """The parts of ``extra`` the grid does not run already, as per-instance units where needed.
+    """The parts of ``extra`` the grid does not run already, as smaller units where needed.
 
     An extra unit wholly covered by the grid is dropped; one partly covered
-    keeps its uncovered instances; duplicates among the extras collapse.
+    keeps its uncovered runs (whole instances where it can); duplicates among
+    the extras collapse.
     """
     have: Set[Unit] = set()
     for u in grid:
@@ -376,28 +452,59 @@ def uncovered(extra: Sequence[Unit], grid: Iterable[Unit]) -> List[Unit]:
         parts = runs_of(u)
         left = sorted(parts - have)
         if left:
-            out.extend([u] if len(left) == len(parts) else left)
+            out.extend(_compact(u, left))
         have |= parts
     return out
 
 
 def plan(units: Sequence[Unit], jobs: int, target_minutes: float, extra: Sequence[Unit] = ()) -> List[Dict[str, Any]]:
-    """The matrix entries: one per shard, the core group first, then ``extra`` units one shard each.
+    """The matrix entries: one per shard, the core group first, then the ``extra`` shards.
 
-    A unit estimated above the target is split per instance first
-    (:func:`split_long`).  ``extra`` units are calibration runs: one shard
-    each, marked ``calibration``, and only the runs the grid does not do
-    already (:func:`uncovered`), so no run is measured twice.
+    A unit estimated above the target is split first (:func:`split_to_fit`).
+    ``extra`` units are calibration runs: only the runs the grid does not do
+    already (:func:`uncovered`), so no run is measured twice, split and packed
+    per group like the grid's, in shards ``extra-NN`` of their own, marked
+    ``calibration``.
     """
+
+    def shards(group: str, todo: Sequence[Unit]) -> List[List[Unit]]:
+        target = min(target_minutes, CORE_TARGET_MINUTES) if group == "core" else target_minutes
+        return pack(split_long(todo, jobs, target), jobs, target)
+
     entries = []
     for group in GROUPS:
-        target = min(target_minutes, CORE_TARGET_MINUTES) if group == "core" else target_minutes
-        mine = split_long([u for u in units if u.group == group], jobs, target)
-        for i, items in enumerate(pack(mine, jobs, target), 1):
+        for i, items in enumerate(shards(group, [u for u in units if u.group == group]), 1):
             entries.append(_entry(f"{group}-{i:02d}", group, items, jobs))
-    for i, u in enumerate(uncovered(extra, units), 1):
-        entries.append(_entry(f"extra-{i:02d}", u.group, [u], jobs, calibration=True))
+    left = uncovered(extra, units)
+    extra_shards = [(g, items) for g in GROUPS for items in shards(g, [u for u in left if u.group == g])]
+    for i, (group, items) in enumerate(extra_shards, 1):
+        entries.append(_entry(f"extra-{i:02d}", group, items, jobs, calibration=True))
     return entries
+
+
+def plan_problems(entries: Sequence[Dict[str, Any]], target_minutes: float) -> List[str]:
+    """Why a plan must not run: too many shards, or a shard estimated above the target (empty: fine)."""
+    problems = []
+    if target_minutes > STEP_LIMIT_MINUTES:
+        problems.append(f"the target {target_minutes:g} min is above the step limit {STEP_LIMIT_MINUTES:g} min")
+    if len(entries) > 256:
+        problems.append(f"{len(entries)} shards; a GitHub matrix takes at most 256")
+    # One line per unit of the grid (or extra), not per single run it was split into.
+    over: Dict[str, List[Tuple[int, str]]] = {}
+    for e in entries:
+        if e["est_min"] > target_minutes:
+            for text in e["units"].split(";"):
+                base = replace(Unit.parse(text), inst=-1, fam=-1).id
+                over.setdefault(base, []).append((e["est_min"], e["shard"]))
+    for base, shards in over.items():
+        longest, where = max(shards)
+        names = sorted({s for _, s in shards})
+        problems.append(
+            f"{base}: {len(names)} shard(s) above the target {target_minutes:g} min, the longest {longest} min "
+            f"({where}{f' and {len(names) - 1} more' if len(names) > 1 else ''}); not even single runs fit: "
+            "raise --target-minutes or leave the cell out"
+        )
+    return problems
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
@@ -415,15 +522,12 @@ def cmd_plan(args: argparse.Namespace) -> int:
         print("error: the grid is empty", file=sys.stderr)
         return 2
     entries = plan(units, args.runner_cores, args.target_minutes, extra)
-    if len(entries) > 256:
-        print(f"error: {len(entries)} shards; a GitHub matrix takes at most 256", file=sys.stderr)
+    problems = plan_problems(entries, args.target_minutes)
+    if problems:
+        # Refuse rather than warn: a shard over its estimate ran into the step limit once (run 36274781342).
+        for p in problems:
+            print(f"error: {p}", file=sys.stderr)
         return 2
-    for e in entries:
-        if e["est_min"] > WARN_MINUTES:
-            print(
-                f"warning: shard {e['shard']} is estimated at {e['est_min']} min (step limit {STEP_LIMIT_MINUTES:.0f})",
-                file=sys.stderr,
-            )
     print(json.dumps({"include": entries}, separators=(",", ":")))
     return 0
 
@@ -512,12 +616,19 @@ def _strategies(group: str) -> List[Any]:
     return specs + [by_name[n] for n in names]
 
 
-def _instances(preset: str, dim: int, inst: int = -1) -> List[Any]:
+def _instances(preset: str, dim: int, inst: int = -1, fam: int = -1) -> List[Any]:
     from panobbgo.harness_families import make_failure_battery, make_families_battery
 
     make = {"free": make_families_battery, "failure": make_failure_battery}[preset]
     instances = list(make(dims=(dim,), n_instances=N_INSTANCES))
-    return instances if inst < 0 else [(n, p) for n, p in instances if int(p.instance) == inst]
+    families = list(dict.fromkeys(str(p.family) for _, p in instances))  # battery order
+    if len(families) != PRESET_FAMILIES[preset]:
+        raise ValueError(f"preset {preset!r}: {len(families)} families, PRESET_FAMILIES says {PRESET_FAMILIES[preset]}")
+    return [
+        (n, p)
+        for n, p in instances
+        if (inst < 0 or int(p.instance) == inst) and (fam < 0 or str(p.family) == families[fam])
+    ]
 
 
 def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
@@ -526,7 +637,7 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
     from panobbgo.virtual_clock import VirtualSpec
 
     t0 = time.time()
-    instances = _instances(unit.preset, unit.dim, unit.inst)
+    instances = _instances(unit.preset, unit.dim, unit.inst, unit.fam)
     if not instances:
         raise ValueError(f"{unit.id}: no instances")
     result = run_family_harness(
@@ -549,6 +660,7 @@ def run_unit(unit: Unit, jobs: int, progress: bool = False) -> Dict[str, Any]:
         "dim": unit.dim,
         "seed": unit.seed,
         "inst": unit.inst,
+        "fam": unit.fam,
         "elapsed_s": time.time() - t0,
         "result": result.to_dict(),
     }
@@ -1268,7 +1380,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--extra-units", default="", help="';'-joined unit ids run in shards of their own (calibration runs)."
     )
     pl.add_argument("--runner-cores", type=int, default=4, help="Processes per runner (default 4).")
-    pl.add_argument("--target-minutes", type=float, default=180.0, help="Estimated wall minutes per shard.")
+    pl.add_argument(
+        "--target-minutes",
+        type=float,
+        default=TARGET_MINUTES,
+        help=f"Estimated wall minutes per shard (default {TARGET_MINUTES:g}); a plan with a shard above it is refused.",
+    )
     pl.set_defaults(func=cmd_plan)
 
     rn = sub.add_parser("run", help="Run the units of one shard.")

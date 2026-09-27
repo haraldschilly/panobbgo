@@ -45,6 +45,14 @@ def test_unit_id_round_trip():
     one = ms.Unit.parse("qLogEI.free.b100.q64.d5.s42.i0")
     assert one.inst == 0 and one.n_runs == 5 and one.id == "qLogEI.free.b100.q64.d5.s42.i0"
     assert [x.inst for x in u.split()] == [0, 1, 2] and one.split() == [one]
+    # Family splits: all instances of the k-th family, or one run with both.
+    fam = ms.Unit.parse("SMAC.free.b20.q1.d10.s42.f4")
+    assert fam.fam == 4 and fam.inst == -1 and fam.n_runs == 3 and fam.id == "SMAC.free.b20.q1.d10.s42.f4"
+    both = ms.Unit.parse("SMAC.free.b20.q1.d10.s42.i2.f4")
+    assert (both.inst, both.fam, both.n_runs) == (2, 4, 1) and ms.Unit.parse(both.id) == both
+    assert [x.fam for x in u.split_families()] == [0, 1, 2, 3, 4] and fam.split_families() == [fam]
+    assert [x.id for x in fam.split()] == [f"SMAC.free.b20.q1.d10.s42.i{j}.f4" for j in range(3)]
+    assert len(ms.runs_of(u)) == u.n_runs and ms.runs_of(both) == {both}
     for bad in (
         "core.free.b20.q4.d10",
         "core.free.20.q4.d10.s42",
@@ -52,6 +60,17 @@ def test_unit_id_round_trip():
         "core.x.b2.q1.d2.s1",
         "core.free.b20.q4.d10.s42.x0",
         "core.free.b20.q4.d10.s42.i3",
+        "core.free.b20.q4.d10.s42.f5",  # the free preset has 5 families
+        "core.failure.b20.q4.d5.s42.f4",  # the failure preset 4
+        "core.free.b20.q4.d10.s42.f0.i0",  # instance first
+        "core.free.b20.q4.d10.s42.i0.f0.x",
+        # Not canonical: one spelling per unit (ids are matched as strings).
+        "core.free.b20.q4.d10.s42.i-1",
+        "core.free.b20.q4.d10.s42.f-1",
+        "core.free.b20.q4.d10.s42.i01",
+        "core.free.b20.q4.d10.s42.i0.f00",
+        "core.free.b020.q4.d10.s42",
+        "core.free.b20.q4.d10.s042",
     ):
         with pytest.raises(ValueError):
             ms.Unit.parse(bad)
@@ -83,11 +102,15 @@ def test_units_respect_q_rule_and_coverage():
     assert ms.covered("TuRBO1", 100, 10, 1)
     assert not any(u.group == "qLogEI" and u.bm * u.dim > 500 for u in units)
     # The estimate grows with the budget; with q it shrinks for TuRBO and grows for qLogEI.
-    assert ms.laptop_seconds("qLogEI", 10, 1000) > ms.MAX_RUN_SECONDS > ms.laptop_seconds("qLogEI", 5, 500)
-    assert ms.laptop_seconds("TuRBO1", 5, 500, q=16) < ms.laptop_seconds("TuRBO1", 5, 500, q=1)
-    assert ms.laptop_seconds("qLogEI", 5, 500, q=64) > ms.laptop_seconds("qLogEI", 5, 500, q=16)
-    assert ms.laptop_seconds("qLogEI", 5, 500, q=16) > ms.laptop_seconds("qLogEI", 5, 500, q=1)
-    assert ms.laptop_seconds("SMAC", 2, 40, q=4) == ms.laptop_seconds("SMAC", 2, 40, q=1)
+    assert ms.run_seconds("qLogEI", 10, 1000, 1) > ms.MAX_RUN_SECONDS > ms.run_seconds("qLogEI", 5, 500, 1)
+    assert ms.run_seconds("SMAC", 5, 500, 1) > ms.MAX_RUN_SECONDS > ms.run_seconds("SMAC", 10, 200, 1)
+    assert ms.run_seconds("TuRBO1", 5, 500, 16) < ms.run_seconds("TuRBO1", 5, 500, 1)
+    assert ms.run_seconds("qLogEI", 5, 500, 64) > ms.run_seconds("qLogEI", 5, 500, 16)
+    assert ms.run_seconds("qLogEI", 5, 500, 16) > ms.run_seconds("qLogEI", 5, 500, 1)
+    # Outside the table: the same dimension's nearest budget (and q), scaled by the budget.
+    assert ms.run_seconds("SMAC", 2, 40, 4) == ms.run_seconds("SMAC", 2, 40, 1)
+    assert ms.run_seconds("TuRBO1", 2, 100, 1) > ms.run_seconds("TuRBO1", 2, 40, 1)
+    assert ms.run_seconds("qLogEI", 5, 500, 32) == ms.run_seconds("qLogEI", 5, 500, 64)  # a log tie: the dearer
     # dims restricts; q == bm is admitted.
     assert {u.dim for u in ms.make_units([42], ["free"], [20], [2], [1], ["core"])} == {2}
     assert {u.q for u in ms.make_units([42], ["free"], [20], [2], [16, 20, 64], ["core"])} == {16, 20}
@@ -100,22 +123,31 @@ def test_units_respect_q_rule_and_coverage():
 def test_plan_packs_every_run_once_by_group_and_splits_long_units():
     units = ms.make_units([42, 7, 1234], ["free"], [20, 100], None, [1, 4, 16, 64], list(ms.GROUPS))
     extra = [ms.Unit.parse("qLogEI.free.b100.q64.d5.s99.i0"), units[0]]  # the second is in the grid already
-    entries = ms.plan(units, jobs=4, target_minutes=180, extra=extra)
+    entries = ms.plan(units, jobs=4, target_minutes=ms.TARGET_MINUTES, extra=extra)
     planned = [ms.Unit.parse(u) for e in entries for u in e["units"].split(";")]
-    # Every (unit, instance) of the grid exactly once, split or not; the extra unit once more.
-    covered = sorted((replace_inst(u, j) for u in planned for j in insts(u)), key=lambda u: u.id)
-    expected = sorted((replace_inst(u, j) for u in units for j in range(ms.N_INSTANCES)), key=lambda u: u.id)
-    assert covered == sorted(expected + [extra[0]], key=lambda u: u.id)
-    assert any(u.inst >= 0 for u in planned), "the long qLogEI units at d = 5, 100*d, q = 64 are split"
+    # Every single run of the grid exactly once, split or not; the extra unit's once more.
+    runs = sorted((r for u in planned for r in ms.runs_of(u)), key=lambda u: u.id)
+    expected = [r for u in units + [extra[0]] for r in ms.runs_of(u)]
+    assert runs == sorted(expected, key=lambda u: u.id)
+    by_id = {u.id: u for u in planned}
+    # SMAC at d = 10, 20*d (80 min a unit on the runners, SMAC-01 of run 36274781342) is split by instance;
+    # qLogEI at d = 5, 100*d, q = 64 (about 100 min an instance) by family, one round of 3 runs.
+    assert "SMAC.free.b20.q1.d10.s42.i0" in by_id and "SMAC.free.b20.q1.d10.s42" not in by_id
+    assert "qLogEI.free.b100.q64.d5.s42.f0" in by_id and "qLogEI.free.b100.q64.d5.s42.i0" not in by_id
+    assert "qLogEI.free.b100.q1.d5.s42.i0" in by_id  # an instance fits: instance first
+    assert "qLogEI.free.b20.q1.d2.s42" in by_id  # a unit that fits stays whole
     for e in entries:
         groups = {ms.Unit.parse(u).group for u in e["units"].split(";")}
         assert groups == {e["group"]}
         assert e["n_units"] == len(e["units"].split(";"))
-        # A shard exceeds the target only when a single unit does.
-        assert e["est_min"] <= 180 + 1 or e["n_units"] == 1
-        assert e["est_min"] <= ms.STEP_LIMIT_MINUTES
+        assert e["est_min"] <= ms.TARGET_MINUTES
+    assert not ms.plan_problems(entries, ms.TARGET_MINUTES)
     assert entries[0]["group"] == "core"
-    assert [e["shard"] for e in entries if e["calibration"]] == ["extra-01"]
+    # The extra q = 64 instance does not fit either: split by family, one run each (~73 min), so even
+    # packed every part needs a shard of its own.
+    cal = [e for e in entries if e["calibration"]]
+    assert [e["shard"] for e in cal] == [f"extra-{k:02d}" for k in range(1, 6)]
+    assert [e["units"] for e in cal] == [f"qLogEI.free.b100.q64.d5.s99.i0.f{k}" for k in range(5)]
     assert len({e["shard"] for e in entries}) == len(entries)
 
 
@@ -133,10 +165,16 @@ def test_extra_units_are_deduplicated_against_the_grid():
     grid = [ms.Unit.parse("TuRBO1.free.b20.q4.d2.s7.i1")]
     left = ms.uncovered([ms.Unit.parse("TuRBO1.free.b20.q4.d2.s7")], grid)
     assert [u.id for u in left] == ["TuRBO1.free.b20.q4.d2.s7.i0", "TuRBO1.free.b20.q4.d2.s7.i2"]
-    entries = ms.plan(units, 4, 180, extra)
+    entries = ms.plan(units, 4, 180, extra)  # at 180 min the q = 64 instance is not split
     cal = [e for e in entries if e["calibration"]]
     assert [e["units"] for e in cal] == ["qLogEI.free.b100.q64.d5.s42.i0", "TuRBO1.free.b20.q4.d2.s7"]
     assert not any(e["calibration"] for e in entries if not e["shard"].startswith("extra-"))
+    # Extras are packed like the grid (per group, up to the target), not one shard each.
+    small = [ms.Unit.parse(f"TuRBO1.free.b20.q4.d2.s{s}") for s in (7, 8, 9)] + [
+        ms.Unit.parse("SMAC.free.b20.q1.d2.s7")
+    ]
+    cal = [e for e in ms.plan([], 4, ms.TARGET_MINUTES, small) if e["calibration"]]
+    assert [(e["shard"], e["group"], e["n_units"]) for e in cal] == [("extra-01", "TuRBO1", 3), ("extra-02", "SMAC", 1)]
     # The documented smoke example with the default seeds: every run once.
     grid5 = ms.make_units([42, 7, 1234, 2025, 3], ["free"], [20, 100], None, [1, 4, 16, 64], list(ms.GROUPS))
     smoke = [ms.Unit.parse(u) for u in ("qLogEI.free.b100.q16.d5.s42.i0", "qLogEI.free.b100.q64.d5.s42.i0")]
@@ -146,13 +184,80 @@ def test_extra_units_are_deduplicated_against_the_grid():
     assert len(runs) == len(set(runs))
 
 
-def replace_inst(u, j):
-    """``u`` for instance ``j`` alone."""
-    return ms.Unit(u.group, u.preset, u.bm, u.q, u.dim, u.seed, j)
+def test_split_to_fit_goes_by_instance_then_family_then_single_runs():
+    u = ms.Unit.parse("qLogEI.free.b100.q64.d5.s42")
+    assert ms.split_to_fit(u, 4, 1000) == [u]
+    assert ms.split_to_fit(u, 4, 150) == u.split()  # 5 runs, 2 rounds: ~145 min
+    assert ms.split_to_fit(u, 4, 90) == u.split_families()  # 3 runs, 1 round: ~73 min
+    atoms = ms.split_to_fit(u, 4, 10)  # nothing fits: single runs, which plan_problems refuses
+    assert len(atoms) == u.n_runs and all(a.n_runs == 1 for a in atoms)
+    # The failure preset: an instance's 4 families are one round, as a family's 3 instances.
+    f = ms.Unit.parse("qLogEI.failure.b100.q64.d5.s42")
+    assert ms.split_to_fit(f, 4, 90) == f.split()
 
 
-def insts(u):
-    return range(ms.N_INSTANCES) if u.inst < 0 else [u.inst]
+def test_plan_refuses_a_shard_above_the_target(capsys):
+    """Exit 2 and no matrix when a shard is estimated above the target (it used to warn only)."""
+    grid = ["plan", "--seeds", "1", "--dims", "5", "--budgets", "100", "--qs", "64", "--groups", "qLogEI"]
+    assert ms.main(grid) == 0
+    out = json.loads(capsys.readouterr().out)["include"]
+    assert out and max(e["est_min"] for e in out) <= ms.TARGET_MINUTES
+    # One run of qLogEI at d = 5, 500 evaluations, q = 64 takes over an hour: no split fits 30 minutes.
+    assert ms.main(grid + ["--target-minutes", "30"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == "" and "above the target 30" in captured.err
+    # One line per refused unit of the grid, not one per single run it was split into.
+    [line] = captured.err.strip().splitlines()
+    assert (
+        line.startswith("error: qLogEI.free.b100.q64.d5.s") and "15 shard(s)" in line and "the longest 73 min" in line
+    )
+    # An extra (calibration) unit is held to the same target.
+    extra = ["plan", "--seeds", "1", "--dims", "2", "--qs", "1", "--groups", "core"]
+    assert ms.main(extra + ["--extra-units", "SMAC.free.b20.q1.d10.s42.i0.f0", "--target-minutes", "20"]) == 2
+    assert "extra-01" in capsys.readouterr().err
+    # A target above the step limit is refused too.
+    assert ms.main(extra + ["--target-minutes", str(ms.STEP_LIMIT_MINUTES + 1)]) == 2
+    assert "step limit" in capsys.readouterr().err
+
+
+def test_the_cost_model_covers_the_measured_units():
+    """The worst unit walls of run 36274781342 (4-core runners, minutes) are within the estimate."""
+    measured = {
+        "SMAC.free.b20.q1.d10.s42": 80.1,  # SMAC-01 held four of these: 5.5 h, cut at the step limit
+        "SMAC.free.b100.q1.d2.s42": 10.8,
+        "qLogEI.free.b100.q1.d5.s42": 127.3,
+        "qLogEI.free.b100.q16.d5.s42": 139.9,
+        "qLogEI.free.b100.q64.d5.s42.i0": 106.4,
+        "qLogEI.free.b100.q64.d2.s42": 54.7,
+        "qLogEI.free.b20.q16.d10.s42": 49.1,
+        "TuRBO1.free.b100.q1.d10.s42": 40.9,
+        "TuRBO1.free.b100.q4.d10.s42": 13.9,
+        "TuRBO1.free.b20.q1.d2.s42": 1.2,
+        "core.free.b100.q64.d10.s42": 3.1,
+        "core.free.b20.q1.d2.s42": 0.2,
+    }
+    for unit, minutes in measured.items():
+        assert ms.unit_minutes(ms.Unit.parse(unit), 4) >= minutes, unit
+    # The default grid: every shard within the target, well below the step limit.
+    grid = ms.make_units(ms.resolve_seeds("5"), ["free", "failure"], [20, 100], None, [1, 4, 16, 64], list(ms.GROUPS))
+    entries = ms.plan(grid, 4, ms.TARGET_MINUTES)
+    assert not ms.plan_problems(entries, ms.TARGET_MINUTES) and len(entries) <= 256
+    assert ms.TARGET_MINUTES < ms.STEP_LIMIT_MINUTES
+
+
+def test_instances_select_the_family_and_the_instance():
+    """``.f<k>`` is the k-th family in battery order (FREE_FAMILIES / FAILURE_FAMILIES)."""
+    from panobbgo.harness_families import FAILURE_FAMILIES, FREE_FAMILIES
+
+    for preset, fams in (("free", FREE_FAMILIES), ("failure", FAILURE_FAMILIES)):
+        assert ms.PRESET_FAMILIES[preset] == len(fams)
+        for k, cfg in enumerate(fams):
+            sel = ms._instances(preset, 2, fam=k)
+            assert [int(p.instance) for _, p in sel] == list(range(ms.N_INSTANCES))
+            assert {str(p.family) for _, p in sel} == {cfg.name()}
+    [(_, one)] = ms._instances("free", 2, inst=2, fam=1)
+    assert (str(one.family), int(one.instance)) == (FREE_FAMILIES[1].name(), 2)
+    assert len(ms._instances("free", 2)) == 15 and len(ms._instances("free", 2, inst=0)) == 5
 
 
 def test_plan_cli_is_stdlib_only():
@@ -167,7 +272,8 @@ def test_plan_cli_is_stdlib_only():
     ids = [u for e in matrix for u in e["units"].split(";")]
     assert "core.free.b20.q4.d2.s42" in ids and "SMAC.free.b20.q1.d2.s42" in ids
     assert not any(".q4." in u for u in ids if u.startswith("SMAC"))
-    assert "qLogEI.free.b100.q64.d5.s42.i0" in ids
+    # The q = 64 instance (~145 min) does not fit the 90-minute target: one shard per family.
+    assert [u for u in ids if ".q64." in u] == [f"qLogEI.free.b100.q64.d5.s42.i0.f{k}" for k in range(5)]
 
 
 # ---------------------------------------------------------------------------
@@ -186,14 +292,25 @@ def _payload(
     """A unit result file: ``scores[strategy]`` = the AOCC per instance (aocc_time = AOCC / 2; None = crashed).
 
     Instances 0, 1 are the ellipsoid's 0, 1; instances 2, 3 rastrigin's 0, 1 (a ``.i<j>`` unit: the two
-    families' instance ``j``).  ``errors``: an error string per run index (e.g. ``EndedEarly``).
+    families' instance ``j``; a ``.f<k>`` unit: family k's instances; both: that one run).  ``errors``: an error string per run index (e.g. ``EndedEarly``).
     """
     u = ms.Unit.parse(unit)
+
+    def kind(i: int) -> str:
+        if u.fam >= 0:  # a .f<k> unit: family k (0 = ellipsoid, 1 = rastrigin), its instances in order
+            return ("ellipsoid", "rastrigin")[u.fam]
+        return "ellipsoid" if (i < 2 if u.inst < 0 else i == 0) else "rastrigin"
+
+    def inst(i: int) -> int:
+        if u.inst >= 0:
+            return u.inst
+        return i if u.fam >= 0 else i % 2
+
     runs = [
         IOHRunRecord(
-            problem_kind="ellipsoid" if (i < 2 if u.inst < 0 else i == 0) else "rastrigin",
+            problem_kind=kind(i),
             dim=u.dim,
-            instance=i % 2 if u.inst < 0 else u.inst,
+            instance=inst(i),
             strategy_name=name,
             rep=0,
             budget=u.bm * u.dim,
@@ -393,6 +510,42 @@ def test_aggregate_over_split_units_equals_the_whole(tmp_path):
     assert a["strategies"][ms.HEADLINE_SPEC]["aocc"] == b["strategies"][ms.HEADLINE_SPEC]["aocc"]
 
 
+def test_aggregate_over_family_split_units_equals_the_whole(tmp_path):
+    """``.f<k>`` and ``.i<j>.f<k>`` units aggregate to the whole; a missing ``.f`` unit is reported by its id."""
+    scores = {ms.HEADLINE_SPEC: [0.5, 0.6, 0.3, 0.2], "Baseline_NGOpt": [0.4, 0.5, 0.45, 0.4]}
+    whole, fams, atoms = tmp_path / "whole", tmp_path / "fams", tmp_path / "atoms"
+    _write(whole, [_payload(f"core.free.b20.q1.d2.s{s}", "core-01", scores) for s in SEEDS])
+    # Family k (0 = ellipsoid, 1 = rastrigin in _payload) holds runs 2k, 2k + 1 of the whole: instances 0, 1.
+    by_fam = [
+        _payload(f"core.free.b20.q1.d2.s{s}.f{k}", "core-01", {n: v[2 * k : 2 * k + 2] for n, v in scores.items()})
+        for s in SEEDS
+        for k in (0, 1)
+    ]
+    by_run = [
+        _payload(f"core.free.b20.q1.d2.s{s}.i{j}.f{k}", "core-01", {n: [v[2 * k + j]] for n, v in scores.items()})
+        for s in SEEDS
+        for k in (0, 1)
+        for j in (0, 1)
+    ]
+    _write(fams, by_fam)
+    _write(atoms, by_run)
+    a = ms.aggregate(whole)["cells"]["free/d2/b20/q1"]
+    for src, parts in ((fams, by_fam), (atoms, by_run)):
+        ids = [p["unit"] for p in parts]
+        summary = ms.aggregate(src, ids)
+        assert summary["missing_units"] == []
+        b = summary["cells"]["free/d2/b20/q1"]
+        for key in ("pool", "pool_best", "n_common", "headline"):
+            assert a[key] == b[key], (src.name, key)
+        assert a["strategies"][ms.HEADLINE_SPEC]["aocc"] == b["strategies"][ms.HEADLINE_SPEC]["aocc"]
+        assert a["strategies"][ms.HEADLINE_SPEC]["per_family"] == b["strategies"][ms.HEADLINE_SPEC]["per_family"]
+    # A planned .f unit that left no file (a cut shard) is missing by its id; the rest still aggregates.
+    (fams / "core-01" / "core.free.b20.q1.d2.s7.f1.json").unlink()
+    cut = ms.aggregate(fams, [p["unit"] for p in by_fam])
+    assert cut["missing_units"] == ["core.free.b20.q1.d2.s7.f1"]
+    assert cut["cells"]["free/d2/b20/q1"]["n_common"] < a["n_common"]
+
+
 def test_calibration_units_stay_out_of_the_analysis(tmp_path):
     planned = _grid(tmp_path)
     # A calibration unit in a q cell the grid does not have (q = 16), for one GP baseline.
@@ -464,7 +617,9 @@ def test_run_and_aggregate_end_to_end(tmp_path, monkeypatch):
     """The panobbgo specs only (no optional extra), instance 0 of the first family at d = 2, 20*d evaluations, q = 4."""
     monkeypatch.setitem(ms.GROUPS, "core", ())
     real_instances = ms._instances
-    monkeypatch.setattr(ms, "_instances", lambda preset, dim, inst=-1: real_instances(preset, dim, inst)[:1])
+    monkeypatch.setattr(
+        ms, "_instances", lambda preset, dim, inst=-1, fam=-1: real_instances(preset, dim, inst, fam)[:1]
+    )
     out = tmp_path / "raw" / "core-01"
     unit = "core.free.b20.q4.d2.s42.i0"
     rc = ms.main(["run", "--units", unit, "--shard", "core-01", "--out-dir", str(out), "--jobs", "1", "--no-nice"])
@@ -516,7 +671,7 @@ def test_the_workflow_matches_the_script():
     [measure] = [s for s in steps if s.get("name") == "Measure"]
     # The step's own limit sits below the job's, so the upload still runs.
     assert measure["timeout-minutes"] == ms.STEP_LIMIT_MINUTES
-    assert measure["timeout-minutes"] < workflow["jobs"]["measure"]["timeout-minutes"] <= 350
+    assert ms.TARGET_MINUTES < measure["timeout-minutes"] < workflow["jobs"]["measure"]["timeout-minutes"] <= 150
     assert "--calibration" in measure["run"] and measure["env"]["CALIBRATION"] == "${{ matrix.calibration }}"
     [upload] = [s for s in steps if s.get("name") == "Upload shard results"]
     assert upload["if"] == "always()" and upload["with"]["overwrite"] is True

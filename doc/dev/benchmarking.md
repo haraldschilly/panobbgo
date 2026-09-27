@@ -317,14 +317,18 @@ default.  Scores: AOCC over evaluations and `aocc_time` over virtual time.
 ```bash
 gh workflow run measure.yml                                     # the full default grid
 gh workflow run measure.yml -f seeds=1 -f dims=2 -f qs=1,4 \
-    -f extra_units='qLogEI.free.b100.q16.d5.s42.i0;qLogEI.free.b100.q64.d5.s42.i0'   # smoke + calibration
+    -f extra_units='SMAC.free.b20.q1.d10.s42.i0;qLogEI.free.b100.q64.d5.s42.f0'   # smoke + calibration
 gh workflow run measure.yml -f presets=failure                  # the failure preset
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
 ```
 
 *   **Units and shards.**  A unit is one strategy group on one (preset,
     bm, q, dim) cell and one base seed, optionally one instance index of
-    every family (`.i<j>`; `plan` splits a unit that would not fit a shard).
+    every family (`.i<j>`) and/or one family (`.f<k>`, the k-th in battery
+    order).  `plan` splits a unit that would not fit a shard: by instance
+    first, by family where an instance is still too long (all three
+    instances of a family are one round on a 4-core runner, the five
+    families of an instance two), then into single runs.
     The `core` group — the `make_ioh_strategies` specs, pycma IPOP/BIPOP,
     NGOpt, Optuna CmaEs/TPE and Py-BOBYQA — runs in one process; the GP
     baselines (qLogEI, TuRBO-1, SMAC) in shards of their own.  A comparison
@@ -334,25 +338,55 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     reproducibility metadata.
 *   **Coverage.**  SMAC runs at q = 1 only (no batch acquisition).  A GP
     baseline runs on a cell only where one run at q = 1 is estimated at most
-    30 laptop minutes — everything but d = 10 at 100·d for qLogEI and SMAC,
-    and SMAC at d = 5, 100·d.  Coverage does not depend on q, so the pool
-    (below) is the same in every q cell.  The measured per-run times behind
-    it (laptop, one BLAS thread, light load): qLogEI 19 s / 87 s at d = 2
-    (40 / 200 evaluations), 74 s / 16 min at d = 5 (100 / 500); TuRBO 9 s /
-    52 s at d = 2, 22 s / 2.5 min at d = 5, 56 s at d = 10 (200); SMAC 10 s
-    / 107 s at d = 2, over 40 min at d = 5 (500); the core group about 15 s
-    for all ten specs on one d = 10 instance at 1000 evaluations.  qLogEI's
-    cost grows with q (pending points in a joint posterior); the estimate's
-    factor `1 + 0.05 (q − 1)` is a guess until the calibration units above
-    measure it.
-*   **Cost.**  `plan` packs the units into shards of about 180 estimated
-    minutes on a 4-core runner (a runner core taken as 1.5× slower than the
-    laptop's) and warns above 300; see the plan's job summary for the
-    current grid.  `max-parallel: 16` leaves 4 of the 20 concurrent jobs of
-    a public repository to PR CI.  The `Measure` step stops at 330 minutes;
-    each unit's file is written atomically when it finishes, so a cut job
-    still uploads what it did.  The summary's `s/run` column recalibrates
-    `LAPTOP_SECONDS`.
+    an hour on a runner — everything but d = 10 at 100·d for qLogEI and SMAC,
+    and SMAC at d = 5, 100·d (the same cells as the earlier laptop-based
+    rule).  Coverage does not depend on q, so the pool (below) is the same in
+    every q cell.
+*   **Cost model** (`RUNNER_SECONDS` in `scripts/measure.py`).  Runner
+    seconds of one run per group and (d, budget, q), the **90th percentile**
+    over the 75 runs of each cell of run 36274781342 (2026-09-26; 4 runs at a
+    time on a 4-core runner, mostly AMD EPYC 7763, the slowest class seen),
+    plus the smoke run's two qLogEI calibration units.  A few p90 values
+    (seconds; d = 2 / 5 / 10 at 20·d → 100·d, q = 1):
+
+    | group | d = 2 | d = 5 | d = 10 |
+    |---|---|---|---|
+    | qLogEI | 28 → 334 | 194 → 2527 | 695 → — |
+    | TuRBO-1 | 19 → 136 | 39 → 275 | 137 → 862 |
+    | SMAC | 42 → 188 | 106 → — | 1391 → — |
+
+    qLogEI grows with q (d = 5, 100·d: 2527 / 2916 / 3089 / 4330 s at
+    q = 1 / 4 / 16 / 64), TuRBO shrinks (d = 10, 100·d: 862 / 334 / 174 /
+    99 s); the core group (all its specs on one instance) takes 1 to 52 s.
+    A unit is estimated at `ceil(runs / 4)` rounds of that plus 30 s; over
+    that run this over-estimates the unit walls by 1.56× in total and
+    under-estimates none.  The laptop-based table it replaces (runner = 1.5×
+    laptop, qLogEI `1 + 0.05 (q − 1)`) was 2–4× too low for the GP groups:
+    SMAC at d = 10, 20·d takes 19–23 min a run, not the estimated 10, and shard `SMAC-01`
+    (four such units, planned at 180 min) hit the 330-minute step limit.
+    Cells outside the table extrapolate from the same dimension with
+    `(budget / b)^1.6`.  To recalibrate, fit the p90 of the per-run
+    `elapsed_s` of a run's unit files (the summary's `s/run` columns are
+    means).  Only units with at least as many runs as the runner has cores
+    measure under the four-way contention the table assumes: the units of a
+    shard run one after the other, so a split unit of one to three runs (a
+    `.f<k>` or `.i<j>.f<k>` unit, grid or calibration) runs faster than the
+    table says and must not feed it unscaled.  The failure preset has no
+    measurements of its own: its estimates are the free preset's numbers
+    for the same (group, d, budget, q).
+*   **Cost.**  `plan` packs the units into shards of at most 90 estimated
+    minutes (`--target-minutes`; core shards 30) on a 4-core runner and
+    **refuses** (exit 2, the plan job fails) a plan with any shard above
+    the target, with one error line per refused unit — including extra
+    units, which are split and packed like the grid's, per group, in
+    `extra-NN` shards of their own.
+    The default grid (5 seeds, free preset) is 140 shards, the longest
+    estimated at 90 min, about 155 estimated runner-hours (the plan's job
+    summary prints these for every run).  `max-parallel: 16` leaves 4 of
+    the 20 concurrent jobs of a public repository to PR CI.  The `Measure`
+    step stops at 140 minutes, the job at 150: a slow runner or a one-round
+    unit waiting for its slowest run has room.  Each unit's file is written
+    atomically when it finishes, so a cut job still uploads what it did.
 *   **Analysis** (`measure-summary`: `summary.md`, `summary.json`,
     `plan.json`; artifacts only, no release):
     *   **Pre-declared headline:** `Blocks_warm_CMAES_JSO` (the sharing

@@ -880,22 +880,24 @@ def make_ioh_strategies() -> List[StrategySpec]:
 
 #: The opt-in CMA-ES variants of DISCOVERY §57 (H1 bound handling, H2 first
 #: start, H3 active CMA): spec name -> the ``CMAES`` kwargs it adds to
-#: ``RoundRobin_CMAES``.  Not in :func:`make_ioh_strategies` — the batteries
-#: of record stay as they are; the harnesses add a variant only when
-#: ``--strategies`` names it (:func:`make_cmaes_variant_strategies`).
+#: ``RoundRobin_CMAES``.  Since DISCOVERY §60 the flagship runs guarded
+#: active CMA, so the resample / reflect / randstart variants add their
+#: option to *that*; ``_positive`` switches active CMA off.  Not in
+#: :func:`make_ioh_strategies` — the batteries of record stay as they are;
+#: the harnesses add a variant only when ``--strategies`` names it
+#: (:func:`make_cmaes_variant_strategies`).
 CMAES_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
     "RoundRobin_CMAES_resample": {"boundary": "resample"},
     "RoundRobin_CMAES_reflect": {"boundary": "reflect"},
     "RoundRobin_CMAES_randstart": {"first_start": "random"},
     # The §58 names keep their §58 meaning: the unguarded tutorial update
     # (``active_skip_repaired=False``).  ``_active_guarded`` is ``active=True``
-    # with the repair guard (DISCOVERY §59) — the default since §60, so it
-    # now runs the same as ``RoundRobin_CMAES`` (kept explicit for the §60
-    # comparisons).  ``_positive`` is the positive-only update every number
-    # before §60 was measured with.
-    "RoundRobin_CMAES_positive": {"active": False},
+    # with the repair guard (DISCOVERY §59) -- the default since §60, spelled
+    # out in full so the name keeps its meaning if the default moves again.
     "RoundRobin_CMAES_active": {"active": True, "active_skip_repaired": False},
-    "RoundRobin_CMAES_active_guarded": {"active": True},
+    "RoundRobin_CMAES_active_guarded": {"active": True, "active_skip_repaired": True},
+    # The positive-only update, CMAES's default until DISCOVERY §60 (history).
+    "RoundRobin_CMAES_positive": {"active": False},
     "RoundRobin_CMAES_resample_randstart_active": {
         "boundary": "resample",
         "first_start": "random",
@@ -909,7 +911,7 @@ CMAES_VARIANT_NAMES: Tuple[str, ...] = tuple(CMAES_VARIANT_OPTIONS)
 
 
 def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
-    """``RoundRobin_CMAES`` with one or more §57 options switched on — opt-in A/B arms.
+    """``RoundRobin_CMAES`` with one or more §57 options changed — opt-in A/B arms.
 
     Every variant shares ``seed_name="RoundRobin_CMAES"`` with the flagship,
     so on each cell both run the identical keyed RNG streams and a paired

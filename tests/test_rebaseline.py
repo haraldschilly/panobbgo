@@ -161,9 +161,11 @@ def test_the_cma_ab_suites(tmp_path):
     assert [s.name for s in rb.resolve_suites(",".join(names))] == names
     for n in names:
         suite = rb.SUITES[n]
+        # _active_guarded is the CMAES default since §60, i.e. RoundRobin_CMAES itself.
+        assert "RoundRobin_CMAES_active_guarded" in CMAES_VARIANT_NAMES
         assert rb.STRATEGY_SETS[suite.variant](suite) == [
             "RoundRobin_CMAES",
-            *CMAES_VARIANT_NAMES,
+            *(v for v in CMAES_VARIANT_NAMES if v != "RoundRobin_CMAES_active_guarded"),
             "Baseline_Optuna_CmaEs",
             "Baseline_Optuna_CmaEs_clip",
             "Baseline_pycma_BIPOP",

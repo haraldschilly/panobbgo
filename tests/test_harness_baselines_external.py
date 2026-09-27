@@ -391,6 +391,7 @@ def test_harness_runs_an_external_baseline_end_to_end():
 # ---------------------------------------------------------------------------
 
 
+@_needs("optuna", "cmaes")  # make_baseline_strategies imports the extra
 def test_clip_baseline_is_opt_in_and_paired_with_optuna_cmaes():
     assert AB_BASELINE_NAMES == ("Baseline_Optuna_CmaEs_clip",)
     assert not set(AB_BASELINE_NAMES) & set(ALL_EXTERNAL_BASELINE_NAMES)  # not in the reference suites

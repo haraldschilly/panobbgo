@@ -518,16 +518,18 @@ jobs; numbers in `planning/results/2026-09-26-run36265786623/SUMMARY.json`).  Un
 `rebaseline-2026-09-26-run36228301268` (§54) mixes two runner FP classes
 and predates #344–#358; use it only for history.
 
-**Active CMA default (2026-09-27, DISCOVERY §60).**  `CMAES(active=True)`
-with the repair guard (`active_skip_repaired=True`) is the default since
-this commit, so **every CMA-ES trajectory changed**: every spec with a
-CMA-ES arm (`RoundRobin_CMAES`, the portfolios, the regime gate, the family
-screens' CMA-ES specs, the composite registry).  References and result
-files from before it, including release
-`rebaseline-2026-09-26-run36265786623`, are **not comparable** for those
-specs (the non-CMA-ES specs and the external baselines are unaffected); a
-re-baseline follows.  The positive-only update is still `active=False`, and
-as the spec `RoundRobin_CMAES_positive`.
+**Active CMA is the default (2026-09-27, DISCOVERY §60).**  `CMAES()` now
+runs the guarded active update (`active=True, active_skip_repaired=True`);
+the positive-only update stays available as `active=False` (harness spec
+`RoundRobin_CMAES_positive`).  This changes **every CMA-ES trajectory**:
+`RoundRobin_CMAES`, the portfolios with a CMA-ES arm
+(`Blocks_warm_CMAES_JSO`, `RegimeGate_oracle`), the composite registry's
+`IPOP_CMAES` / `BIPOP_CMAES` / `CMAES_Portfolio` / `CMAES_GP`, the
+screens (`benchmarks/*_screen.py`, `oracle.py`), the family screens and
+the resample / reflect / randstart variants (they add their option to the
+new default).  References and result files from before this commit are not
+comparable for any strategy with a CMA-ES arm; the §56 release above stays
+valid for the others (the non-CMA-ES specs and the external baselines).  A re-baseline follows (`TODO.md`).
 
 ## Re-baselining on GitHub runners
 
@@ -556,8 +558,11 @@ standard) and `ioh-cma-ab-bbob-b200` / `-b500` (`ioh_benchmark.py run
 --bbob`: the 24 BBOB functions at d 2/5/10, instances 0/1) run
 `RoundRobin_CMAES`, its DISCOVERY §57 variants
 (`harness_ioh.CMAES_VARIANT_NAMES`: resample / reflect bound handling,
-random first start, active CMA; opt-in by `--strategies` name, sharing the
-flagship's `seed_name`), Optuna CmaEs, its clip-only twin
+random first start, unguarded active CMA and, since §60, the old
+positive-only update `RoundRobin_CMAES_positive`; opt-in by `--strategies`
+name, sharing the flagship's `seed_name`; `RoundRobin_CMAES_active_guarded`
+is left out of these suites because it is the default now, i.e.
+`RoundRobin_CMAES` itself), Optuna CmaEs, its clip-only twin
 `Baseline_Optuna_CmaEs_clip` (§57's reverse test: `n_max_resampling = 0`,
 sharing Optuna CmaEs's seed; `harness_baselines.AB_BASELINE_NAMES`, in no
 reference suite) and pycma BIPOP in the same jobs, so every comparison is

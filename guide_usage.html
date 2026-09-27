@@ -139,6 +139,7 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#tuning-the-population-methods">Tuning the Population Methods</a><ul>
 <li><a class="reference internal" href="#population-sizing-np-init-auto">Population Sizing (<code class="docutils literal notranslate"><span class="pre">NP_init="auto"</span></code>)</a></li>
 <li><a class="reference internal" href="#cma-es-restarts">CMA-ES Restarts</a></li>
+<li><a class="reference internal" href="#active-cma-the-default">Active CMA (the default)</a></li>
 <li><a class="reference internal" href="#shared-archive-and-warm-start">Shared Archive and Warm Start</a></li>
 </ul>
 </li>
@@ -1548,6 +1549,42 @@ harmful at the fractions where it fires often.</p>
 <a class="reference internal" href="analyzers.html#panobbgo.analyzers.Restart" title="panobbgo.analyzers.restart.Restart"><code class="xref py py-class docutils literal notranslate"><span class="pre">Restart</span></code></a> analyzer is <strong>not needed</strong>
 with it — and was measured to hurt badly (see the warning under
 <em>Multimodal problems with IPOP-CMA-ES</em> above).</p>
+</div>
+</section>
+<section id="active-cma-the-default">
+<span id="cma-es-active"></span><h3>Active CMA (the default)<a class="headerlink" href="#active-cma-the-default" title="Link to this heading">#</a></h3>
+<p>Since 2026-09-27 <a class="reference internal" href="heuristics.html#panobbgo.heuristics.CMAES" title="panobbgo.heuristics.cma_es.CMAES"><code class="xref py py-class docutils literal notranslate"><span class="pre">CMAES</span></code></a> runs <strong>active
+CMA-ES</strong> by default (<code class="docutils literal notranslate"><span class="pre">active=True</span></code>): the worst <code class="docutils literal notranslate"><span class="pre">λ</span> <span class="pre">−</span> <span class="pre">μ</span></code> offspring of a
+generation enter the covariance update with <em>negative</em> weights, so <code class="docutils literal notranslate"><span class="pre">C</span></code>
+shrinks along directions that proved bad instead of only growing along good
+ones (N. Hansen, “The CMA Evolution Strategy: A Tutorial”,
+arXiv:1604.00772, eq. 46–53).  pycma and Optuna’s <code class="docutils literal notranslate"><span class="pre">CmaEsSampler</span></code> do the
+same.</p>
+<p>The update comes with a <strong>repair guard</strong> (<code class="docutils literal notranslate"><span class="pre">active_skip_repaired=True</span></code>, also
+the default).  A generation in which an offspring was projected back onto the
+box gets the positive-only update, and points injected from other solvers
+never receive a negative weight.  Without the guard, active CMA collapses
+<code class="docutils literal notranslate"><span class="pre">C</span></code> along a coordinate whose optimum lies on a face of the box: the best
+offspring are the projected ones, their steps cut short at the face, while
+the worst step inward at full length.  On BBOB f5 (linear slope) that cost
+up to 0.45 AOCC.</p>
+<p>Measured on the 24 BBOB functions (<em>d</em> 2/5/10, instances 0/1, 12 seeds),
+paired against the old positive-only default: <strong>+0.013 mean AOCC at 200·d
+(11 of 12 seeds positive) and +0.044 at 500·d (12 of 12)</strong>, ahead of
+Optuna’s CMA-ES at both budgets, and no function class significantly worse.
+The largest gains are on the ill-conditioned functions (+0.123 on the
+high-conditioning class at 500·d)
+(<code class="docutils literal notranslate"><span class="pre">planning/DISCOVERY_2026-09-09.md</span></code> §58–§60).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># The default — guarded active CMA.</span>
+</span><span data-line="2"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">)</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># The positive-only update, the default before 2026-09-27.</span>
+</span><span data-line="5"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># Active CMA without the repair guard (Hansen's tutorial update in every</span>
+</span><span data-line="8"><span class="c1"># generation) — only for experiments; it fails on face-bound optima.</span>
+</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">CMAES</span><span class="p">,</span> <span class="n">active_skip_repaired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></pre></div>
 </div>
 </section>
 <section id="shared-archive-and-warm-start">

@@ -1385,6 +1385,48 @@ harmful at the fractions where it fires often.
    with it — and was measured to hurt badly (see the warning under
    *Multimodal problems with IPOP-CMA-ES* above).
 
+.. _cma-es-active:
+
+Active CMA (the default)
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since 2026-09-27 :class:`~panobbgo.heuristics.cma_es.CMAES` runs **active
+CMA-ES** by default (``active=True``): the worst ``λ − μ`` offspring of a
+generation enter the covariance update with *negative* weights, so ``C``
+shrinks along directions that proved bad instead of only growing along good
+ones (N. Hansen, "The CMA Evolution Strategy: A Tutorial",
+arXiv:1604.00772, eq. 46–53).  pycma and Optuna's ``CmaEsSampler`` do the
+same.
+
+The update comes with a **repair guard** (``active_skip_repaired=True``, also
+the default).  A generation in which an offspring was projected back onto the
+box gets the positive-only update, and points injected from other solvers
+never receive a negative weight.  Without the guard, active CMA collapses
+``C`` along a coordinate whose optimum lies on a face of the box: the best
+offspring are the projected ones, their steps cut short at the face, while
+the worst step inward at full length.  On BBOB f5 (linear slope) that cost
+up to 0.45 AOCC.
+
+Measured on the 24 BBOB functions (*d* 2/5/10, instances 0/1, 12 seeds),
+paired against the old positive-only default: **+0.013 mean AOCC at 200·d
+(11 of 12 seeds positive) and +0.044 at 500·d (12 of 12)**, ahead of
+Optuna's CMA-ES at both budgets, and no function class significantly worse.
+The largest gains are on the ill-conditioned functions (+0.123 on the
+high-conditioning class at 500·d)
+(``planning/DISCOVERY_2026-09-09.md`` §58–§60).
+
+.. code-block:: python
+
+   # The default — guarded active CMA.
+   strategy.add(CMAES)
+
+   # The positive-only update, the default before 2026-09-27.
+   strategy.add(CMAES, active=False)
+
+   # Active CMA without the repair guard (Hansen's tutorial update in every
+   # generation) — only for experiments; it fails on face-bound optima.
+   strategy.add(CMAES, active_skip_repaired=False)
+
 .. _shared-archive-warm-start:
 
 Shared Archive and Warm Start

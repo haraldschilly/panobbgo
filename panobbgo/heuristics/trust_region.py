@@ -276,7 +276,7 @@ class TrustRegionQuadratic(Heuristic):
                     continue
                 new_u.append(self._to_u(r.x))
                 new_f.append(f)
-                if info is not None and info["kind"] == "step" and self._into_tabu(info, f):
+                if info is not None and info["kind"] == "step" and self._into_tabu(info, new_u[-1], f):
                     continue
                 if info is not None and info["kind"] == "step":
                     rho = (info["f_center"] - f) / info["pred"] if info["pred"] > 0 else -1.0
@@ -315,7 +315,7 @@ class TrustRegionQuadratic(Heuristic):
         """Is ``u`` inside a tabu ball (the same test as :meth:`_center`'s)?"""
         return any(float(np.max(np.abs(u - t))) <= self.radius_init for t in self._tabu)
 
-    def _into_tabu(self, info: Dict[str, Any], f: float) -> bool:
+    def _into_tabu(self, info: Dict[str, Any], u: np.ndarray, f: float) -> bool:
         """A step that improved on its centre but landed in a tabu ball: make that centre tabu too.
 
         The step's centre descends into a basin the arm has already
@@ -327,17 +327,24 @@ class TrustRegionQuadratic(Heuristic):
         place (``planning/DISCOVERY_2026-09-09.md`` §69).  Instead the centre
         joins the tabu list and the next best non-tabu point (or a random
         one) takes over at ``radius_init``, like a restart.
+
+        ``u`` is the evaluated point (normalised).  A stale step (``q > 1``:
+        emitted from an older centre) still makes its centre tabu, but the
+        radius and the prior are reset only when the current centre falls
+        inside the new ball, i.e. when the arm really has to move.
         """
         c = info.get("center")
         if not (self._tabu and c is not None and f < info["f_center"]) or self._in_tabu(c):
             return False
-        if not self._in_tabu(info["u"]):
+        if not self._in_tabu(u):
             return False
+        current, _ = self._center()
         self._tabu.append(np.array(c, copy=True))
-        self.radius = self.radius_init
-        self._need_geometry = False
-        self._H_u = np.zeros_like(self._H_u)  # a new basin: no curvature prior
         self.n_tabu_catch += 1
+        if float(np.max(np.abs(np.asarray(current) - c))) <= self.radius_init:
+            self.radius = self.radius_init
+            self._need_geometry = False
+            self._H_u = np.zeros_like(self._H_u)  # a new basin: no curvature prior
         return True
 
     def _step_failed(self, info: Dict[str, Any]) -> None:

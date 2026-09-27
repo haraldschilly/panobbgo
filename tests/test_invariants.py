@@ -134,6 +134,11 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
         "Restart analyzer — DISCOVERY_2026-09-09.md §16"
     ),
     ("CMAES", "restart_mode"): "selects between _restart_ipop/_restart_bipop, both reached only from on_restart",
+    # --- binds only with more parallel workers than the default λ ----------
+    ("CMAES", "popsize_min_workers"): (
+        "raises λ only when len(strategy.evaluators) exceeds the default λ; the solo probe runs on the "
+        "default 2 workers — covered by tests/test_cma_es_workers.py (DISCOVERY §63)"
+    ),
     # --- Hansen termination criteria that never trip on the probe ---------
     ("CMAES", "tolx"): "termination criterion; sigma/D never fall below it within the probe budget",
     ("CMAES", "tolfunhist"): "termination criterion; the fitness history never flattens that far on the probe",

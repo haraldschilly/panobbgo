@@ -939,10 +939,11 @@ def make_cmaes_variant_strategies(names: Optional[Iterable[str]] = None) -> List
 
 #: Opt-in specs with the quadratic trust-region arm
 #: (:class:`~panobbgo.heuristics.trust_region.TrustRegionQuadratic`, DISCOVERY
-#: §66): the arm alone, and the headline portfolio with it as a third arm.
-#: Not in :func:`make_ioh_strategies`; they join only when named
-#: (:func:`make_trust_region_strategies`).
-TRUST_REGION_NAMES: Tuple[str, ...] = ("RoundRobin_TRQ", "Blocks_warm_CMAES_JSO_TRQ")
+#: §66): the arm alone, the headline portfolio with it as a third arm, and
+#: SciPy's COBYQA alone (§66.1's ``RR_COBYQA``, the other model-based
+#: candidate of §66.5).  Not in :func:`make_ioh_strategies`; they join only
+#: when named (:func:`make_trust_region_strategies`).
+TRUST_REGION_NAMES: Tuple[str, ...] = ("RoundRobin_TRQ", "Blocks_warm_CMAES_JSO_TRQ", "RoundRobin_COBYQA")
 
 
 def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[StrategySpec]:
@@ -951,10 +952,13 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
     ``Blocks_warm_CMAES_JSO_TRQ`` is ``Blocks_warm_CMAES_JSO`` with
     ``TrustRegionQuadratic`` appended (so the uniform block rotation is
     CMA-ES, jSO, TR) and ``seed_name`` pinned to the portfolio, so the two
-    arms it shares draw the same keyed RNG streams.  ``names`` restricts the
-    list (unknown names are ignored); ``None`` returns both.
+    arms it shares draw the same keyed RNG streams.  ``RoundRobin_COBYQA`` is
+    :class:`~panobbgo.heuristics.cobyqa.COBYQA` alone with its defaults, as
+    §66.1 ran it (``RR_COBYQA``: box-centre start, no restart, so
+    seed-invariant).  ``names`` restricts the list (unknown names are
+    ignored); ``None`` returns all of :data:`TRUST_REGION_NAMES`.
     """
-    from panobbgo.heuristics import TrustRegionQuadratic
+    from panobbgo.heuristics import COBYQA, TrustRegionQuadratic
     from panobbgo.strategies import StrategyRoundRobin
 
     blocks = next(s for s in make_ioh_strategies() if s.name == "Blocks_warm_CMAES_JSO")
@@ -971,6 +975,11 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
             analyzers=list(blocks.analyzers),
             config_overrides=dict(blocks.config_overrides),
             seed_name="Blocks_warm_CMAES_JSO",
+        ),
+        StrategySpec(
+            name="RoundRobin_COBYQA",
+            strategy_class=StrategyRoundRobin,
+            heuristics=[(COBYQA, {})],
         ),
     ]
     wanted = None if names is None else set(names)

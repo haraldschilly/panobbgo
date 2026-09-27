@@ -47,8 +47,17 @@ would not fit a shard that way, by instance first).  The groups:
     The GP-based baselines, each in shards of its own (they cost minutes per
     run).  SMAC has no batch acquisition and runs at q = 1 only; qLogEI and
     SMAC are left out where a run would take hours (:func:`covered`).
+``trq`` (opt-in: not in ``--groups all``)
+    The DISCOVERY §66 candidates (``harness_ioh.make_trust_region_strategies``:
+    ``RoundRobin_TRQ``, ``Blocks_warm_CMAES_JSO_TRQ``, ``RoundRobin_COBYQA``),
+    on every cell like core, in shards of their own.  Secondary panobbgo
+    specs in the aggregate: not in the pool, not the headline.  Pair them
+    with the other groups in one run (``--groups core,qLogEI,TuRBO1,SMAC,trq``),
+    or aggregate a ``trq`` run together with a run of the other groups on the
+    same seeds.
 
-Cost model: :data:`RUNNER_SECONDS`, measured on the runners; ``plan`` refuses
+Cost model: :data:`RUNNER_SECONDS`, measured on the runners (the ``trq`` row: a laptop
+estimate, :data:`TRQ_LAPTOP_SECONDS`); ``plan`` refuses
 a plan with a shard estimated above :data:`TARGET_MINUTES`.
 
 Parallelism: q ∈ ``--qs`` with ``q <= bm`` (at least ``dim`` full rounds of q
@@ -91,17 +100,35 @@ CHEAP_EXTERNALS: Tuple[str, ...] = (
 #: runs with the core group, in the same process as the panobbgo specs.
 LOCAL_REFERENCE = "Baseline_PyBOBYQA"
 
+#: The opt-in §66 specs of the ``trq`` group (``harness_ioh.TRUST_REGION_NAMES``,
+#: spelled out here: ``plan`` imports no panobbgo; a test pins the two equal).
+TRQ_SPECS: Tuple[str, ...] = ("RoundRobin_TRQ", "Blocks_warm_CMAES_JSO_TRQ", "RoundRobin_COBYQA")
+
 #: Group -> the external baselines it runs (``core``: the panobbgo specs too,
-#: resolved at run time from ``make_ioh_strategies``).
+#: resolved at run time from ``make_ioh_strategies``; ``trq``: no external,
+#: only :data:`TRQ_SPECS`).
 GROUPS: Dict[str, Tuple[str, ...]] = {
     "core": CHEAP_EXTERNALS + (LOCAL_REFERENCE,),
     "qLogEI": ("Baseline_BoTorch_qLogEI",),
     "TuRBO1": ("Baseline_TuRBO1",),
     "SMAC": ("Baseline_SMAC_BB",),
+    "trq": (),
 }
 
 #: The GP groups (shards of their own).
 BO_GROUPS: Tuple[str, ...] = ("qLogEI", "TuRBO1", "SMAC")
+
+#: The groups that run panobbgo specs: they run on every cell and are packed
+#: to :data:`CORE_TARGET_MINUTES`.
+PANOBBGO_GROUPS: Tuple[str, ...] = ("core", "trq")
+
+#: ``--groups all``: the measurement of record (core and the GP baselines).
+#: ``trq`` is opt-in, so the default grid and its cost do not change; a
+#: confirmation run names it (``--groups core,qLogEI,TuRBO1,SMAC,trq``).
+DEFAULT_GROUPS: Tuple[str, ...] = ("core",) + BO_GROUPS
+
+#: Opt-in panobbgo specs per group, beyond ``make_ioh_strategies`` (core's).
+GROUP_SPECS: Dict[str, Tuple[str, ...]] = {"trq": TRQ_SPECS}
 
 #: The pre-declared headline panobbgo spec (the sharing portfolio accepted at
 #: low budget); every other panobbgo spec is secondary.
@@ -126,6 +153,27 @@ DURATION = "lognormal"
 SIGMA = 0.5
 
 
+#: Laptop seconds of one run of the ``trq`` group (its three specs on one instance, summed),
+#: per ``(dim, budget, q)``: the 90th percentile over the 15 runs (5 families x 3 instances,
+#: seed 42) of each cell of the free grid, measured locally on 2026-09-27 (Intel Core Ultra 7
+#: 356H, 4 processes, niced; ``measure.py run`` of the 21 units ``trq.free.b*.q*.d*.s42``).
+#: The whole grid took 3 minutes; COBYQA's subprocess bridge is most of a small cell's time.
+#: No runner has run the group yet: :data:`RUNNER_SECONDS` scales these by
+#: :data:`TRQ_RUNNER_FACTOR`.  Recalibrate from the first runner run's ``s/run`` (p90).
+TRQ_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
+    (2, 40, 1): 1.09, (2, 40, 4): 0.80, (2, 40, 16): 0.86,
+    (2, 200, 1): 1.28, (2, 200, 4): 1.45, (2, 200, 16): 2.12, (2, 200, 64): 1.51,
+    (5, 100, 1): 0.89, (5, 100, 4): 0.95, (5, 100, 16): 0.94,
+    (5, 500, 1): 2.72, (5, 500, 4): 2.49, (5, 500, 16): 2.89, (5, 500, 64): 2.92,
+    (10, 200, 1): 1.18, (10, 200, 4): 1.26, (10, 200, 16): 1.23,
+    (10, 1000, 1): 5.94, (10, 1000, 4): 5.17, (10, 1000, 16): 8.00, (10, 1000, 64): 4.57,
+}  # fmt: skip
+
+#: Runner / laptop time of the same run, for the ``trq`` estimate: the top of the 2-4x the
+#: runners took over the laptop on the cells measured on both (the SMAC note below).  A
+#: generous factor costs little here: a trq unit is estimated at under 3 minutes.
+TRQ_RUNNER_FACTOR = 4.0
+
 #: Runner seconds of ONE run, per group and ``(dim, budget = bm*dim, q)``: the 90th
 #: percentile over the 75 runs (5 seeds x 5 families x 3 instances) of each cell of
 #: measure.yml run 36274781342 (2026-09-26, free preset, 4 processes on a 4-core runner,
@@ -137,7 +185,8 @@ SIGMA = 0.5
 #: the table over-estimates the measured unit walls of that run by 1.56x in total and
 #: under-estimates none of them.  Rows not measured on a runner (they only decide
 #: coverage) are marked; every other cell extrapolates (:func:`run_seconds`).
-#: The ``s/run`` columns of a run's summary recalibrate it (``doc/dev/benchmarking.md``).
+#: The ``s/run`` columns of a run's summary recalibrate it (``doc/dev/benchmarking.md``).  The ``trq`` row
+#: is not measured on a runner: an estimate (:data:`TRQ_LAPTOP_SECONDS` x :data:`TRQ_RUNNER_FACTOR`).
 RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
     "core": {
         (2, 40, 1): 1, (2, 40, 4): 2, (2, 40, 16): 1,
@@ -168,6 +217,8 @@ RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
         # 40 min; the runner took 2-4x the laptop's time on the cells measured on both.
         (5, 500, 1): 2400 * 2.5,
     },
+    # An ESTIMATE, not measured on a runner: the laptop's p90 x TRQ_RUNNER_FACTOR.
+    "trq": {k: math.ceil(v * TRQ_RUNNER_FACTOR) for k, v in TRQ_LAPTOP_SECONDS.items()},
 }  # fmt: skip
 
 #: Fixed seconds per unit on top of its runs (process pool, imports, instance set-up):
@@ -221,13 +272,13 @@ def run_seconds(group: str, dim: int, budget: int, q: int) -> float:
 def covered(group: str, bm: int, dim: int, q: int) -> bool:
     """Whether ``group`` runs on the cell ``(bm, dim, q)``.
 
-    The core group runs everywhere.  A GP baseline runs where one run *at
+    The core and ``trq`` groups run everywhere.  A GP baseline runs where one run *at
     q = 1* is estimated at most :data:`MAX_RUN_SECONDS`: everything but
     d = 10 at 100·d for qLogEI (about 2.5 h a run) and SMAC, and SMAC at
     d = 5, 100·d (over 40 min a run on the laptop).  SMAC has no batch
     acquisition, so it runs at q = 1 only (the guide reports it there).
     """
-    if group == "core":
+    if group in PANOBBGO_GROUPS:
         return True
     if group not in RUNNER_SECONDS:
         raise ValueError(f"unknown group {group!r}")
@@ -468,7 +519,7 @@ def plan(units: Sequence[Unit], jobs: int, target_minutes: float, extra: Sequenc
     """
 
     def shards(group: str, todo: Sequence[Unit]) -> List[List[Unit]]:
-        target = min(target_minutes, CORE_TARGET_MINUTES) if group == "core" else target_minutes
+        target = min(target_minutes, CORE_TARGET_MINUTES) if group in PANOBBGO_GROUPS else target_minutes
         return pack(split_long(todo, jobs, target), jobs, target)
 
     entries = []
@@ -508,7 +559,9 @@ def plan_problems(entries: Sequence[Dict[str, Any]], target_minutes: float) -> L
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
-    groups = list(GROUPS) if args.groups in ("", "all") else [g.strip() for g in args.groups.split(",") if g.strip()]
+    groups = (
+        list(DEFAULT_GROUPS) if args.groups in ("", "all") else [g.strip() for g in args.groups.split(",") if g.strip()]
+    )
     units = make_units(
         resolve_seeds(args.seeds),
         [p.strip() for p in args.presets.split(",") if p.strip()],
@@ -605,10 +658,14 @@ def fp_label(payload: Dict[str, Any]) -> str:
 
 def _strategies(group: str) -> List[Any]:
     from panobbgo.harness_baselines import make_baseline_strategies
-    from panobbgo.harness_ioh import make_ioh_strategies
+    from panobbgo.harness_ioh import make_ioh_strategies, make_trust_region_strategies
 
     names = list(GROUPS[group])
     specs = list(make_ioh_strategies()) if group == "core" else []
+    if group == "trq":
+        specs = make_trust_region_strategies(TRQ_SPECS)
+        if [s.name for s in specs] != list(TRQ_SPECS):
+            raise ValueError(f"trq: make_trust_region_strategies gave {[s.name for s in specs]}, want {TRQ_SPECS}")
     by_name = {s.name: s for s in make_baseline_strategies(names)}
     missing = [n for n in names if n not in by_name]
     if missing:
@@ -772,8 +829,8 @@ def is_external(name: str) -> bool:
 
 
 def group_of(name: str) -> str:
-    """The group a strategy runs in (every panobbgo spec: ``core``)."""
-    return next((g for g, names in GROUPS.items() if name in names), "core")
+    """The group a strategy runs in (a panobbgo spec: ``core``, unless an opt-in group names it)."""
+    return next((g for g, names in {**GROUPS, **GROUP_SPECS}.items() if name in names), "core")
 
 
 def load_units(src: Path) -> Tuple[List[Dict[str, Any]], List[str]]:
@@ -923,7 +980,8 @@ def _expected(
     if planned_units is not None:
         for text in planned_units:
             u = Unit.parse(text)
-            names = list(GROUPS[u.group]) + (list(core_names) if u.group == "core" else [])
+            names = list(GROUPS[u.group]) + list(GROUP_SPECS.get(u.group, ()))
+            names += list(core_names) if u.group == "core" else []
             per = out.setdefault((u.preset, u.dim, u.bm, u.q), {})
             for n in names:
                 per.setdefault(n, set()).add(u.seed)
@@ -947,6 +1005,53 @@ def _status(obs: Dict[Key, Obs], seeds: Set[int], instances: Set[Tuple[str, int]
         "errors": sum(1 for o in obs.values() if o.hard_error),
         "ended_early": sum(1 for o in obs.values() if o.error and not o.hard_error),
         "timed_out": sum(1 for o in obs.values() if o.timed_out),
+    }
+
+
+#: The family the ex-ellipsoid view leaves out: the free preset's one exactly
+#: quadratic family (the failure preset's ``ellipsoid_*`` too), which a
+#: quadratic model solves exactly and which can decide a five-family mean on
+#: its own (DISCOVERY §66).
+EX_FAMILY = "ellipsoid"
+
+
+def is_ex_family(family: str) -> bool:
+    """Whether ``family`` is :data:`EX_FAMILY` or a variant of it (``ellipsoid_fhs_crash``)."""
+    return family == EX_FAMILY or family.startswith(EX_FAMILY + "_")
+
+
+def ex_ellipsoid(strats: Dict[str, Dict[Key, Obs]], pool: Sequence[str], common: Set[Key]) -> Optional[Dict[str, Any]]:
+    """The cell without the ellipsoid family: descriptive, not part of the Holm family.
+
+    On the cell's common runs minus the :data:`EX_FAMILY` instances: every
+    strategy's means, the pool's best **re-selected** on these means (per
+    metric; the pool itself is the cell's), and each panobbgo spec's
+    paired delta against it.  ``None`` when the cell has no such family or
+    nothing else.
+    """
+    keys = {k for k in common if not is_ex_family(k[1])}
+    if not keys or len(keys) == len(common):
+        return None
+    means: Dict[str, Dict[str, Optional[float]]] = {
+        n: {m: mean_over_seeds(obs, m, [k for k in obs if k in keys]) for m in METRICS} for n, obs in strats.items()
+    }
+
+    def score(n: str, m: str) -> float:
+        v = means[n][m]
+        return -1.0 if v is None else v
+
+    best = {m: max(pool, key=lambda n: score(n, m), default=None) for m in METRICS}
+    rows: Dict[str, Any] = {}
+    for n, obs in strats.items():
+        row: Dict[str, Any] = dict(means[n])
+        if not is_external(n):
+            row["vs_pool_best"] = {m: paired(obs, strats[b], m, keys) if (b := best[m]) else None for m in METRICS}
+        rows[n] = row
+    return {
+        "excluded": sorted({k[1] for k in common if is_ex_family(k[1])}),
+        "n_common": len(keys),
+        "pool_best": best,
+        "strategies": rows,
     }
 
 
@@ -1055,6 +1160,7 @@ def summarize(
                     fam: paired(strats[name], bo, hm, [k for k in common if k[1] == fam]) for fam in r["per_family"]
                 }
         planned_names = sorted(expected[c])
+        ex = ex_ellipsoid(strats, cell_pool, common)
         out[f"{preset}/d{dim}/b{bm}/q{q}"] = {
             "preset": preset,
             "dim": dim,
@@ -1073,6 +1179,7 @@ def summarize(
             "present": sorted(strats),
             "missing": sorted(set(planned_names) - set(strats)),
             "strategies": rows,
+            "ex_ellipsoid": ex,
         }
     # Holm over the headline set: the headline spec vs the pool's best, per cell, on the headline metric.
     ps = {
@@ -1109,7 +1216,14 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
       metric) and against every external, and per family against the pool's
       best on the headline metric;
     * the headline: :data:`HEADLINE_SPEC` against the pool's best on
-      :func:`headline_metric`, Holm-adjusted over the cells.
+      :func:`headline_metric`, Holm-adjusted over the cells;
+    * ``ex_ellipsoid``: the same without the :data:`EX_FAMILY` instances,
+      the pool's best re-selected on them, descriptive (unadjusted, outside
+      the Holm family; :func:`ex_ellipsoid`).
+
+    Every panobbgo spec other than :data:`HEADLINE_SPEC` is secondary, the
+    opt-in ``trq`` group's (:data:`TRQ_SPECS`) included: never in the pool,
+    never the headline.
 
     Calibration units (``run --calibration``) are left out of all of this and
     reported apart (``calibration``: s/run and scores per unit).
@@ -1227,6 +1341,9 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         "- The CIs are over optimizer seeds and conditional on the fixed instances: they do not generalize "
         "over problem instances beyond the 3 per family.",
         "- `n/planned` counts seeds against the plan; `!` marks a strategy missing some (seed, instance) run.",
+        f"- *Best other panobbgo*: the best secondary panobbgo spec of the cell (the opt-in `trq` group's specs "
+        f"too, when its units are aggregated here), with its Δ vs the pool best.  The table without the "
+        f"{EX_FAMILY} family is descriptive: read it next to the headline, not instead of it.",
         "",
         "FP environments (per shard): "
         + "; ".join(f"{fp}: {len(shards)} shard(s)" for fp, shards in summary["fp_classes"].items())
@@ -1266,6 +1383,44 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             )
             + " |"
         )
+    ex_cells = {name: c for name, c in summary["cells"].items() if c.get("ex_ellipsoid")}
+    if ex_cells:
+        lines += [
+            "",
+            f"## Without the {EX_FAMILY} family (descriptive)",
+            "",
+            f"The headline table on the common runs minus the {EX_FAMILY} instances: the one exactly quadratic "
+            "family, which a quadratic model solves exactly and which can decide a family mean on its own "
+            "(DISCOVERY §66).  The pool is the cell's; its best is re-selected on these runs.  **Descriptive**: "
+            "unadjusted, not part of the Holm family above, which stays over all families.",
+            "",
+            f"| cell | metric | n (runs) | pool best | {hs} | Δ [CI95] wins | best other panobbgo |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for name, c in ex_cells.items():
+            ex, hm = c["ex_ellipsoid"], c["headline_metric"]
+            rows = ex["strategies"]
+            b = ex["pool_best"][hm]
+            h = rows.get(hs)
+            others = [(r[hm], n) for n, r in rows.items() if not is_external(n) and n != hs and r[hm] is not None]
+            other = max(others)[1] if others else None
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        name,
+                        hm,
+                        str(ex["n_common"]),
+                        f"{label(b)} {_fmt(rows[b][hm])}" if b else "–",
+                        _fmt(h[hm]) if h else "–",
+                        _fmt_delta(h["vs_pool_best"][hm]) if h else "–",
+                        f"{other} {_fmt(rows[other][hm])} {_fmt_delta(rows[other]['vs_pool_best'][hm])}"
+                        if other
+                        else "–",
+                    ]
+                )
+                + " |"
+            )
     fams = sorted({f for c in summary["cells"].values() for r in c["strategies"].values() for f in r["per_family"]})
     lines += [
         "",
@@ -1375,7 +1530,11 @@ def build_parser() -> argparse.ArgumentParser:
     pl.add_argument("--budgets", default="20,100", help="Budget multipliers (budget = bm*dim).")
     pl.add_argument("--dims", default="", help="Restrict the presets' dimensions (default: all of them).")
     pl.add_argument("--qs", default="1,4,16,64", help="Virtual worker counts; q <= bm only.")
-    pl.add_argument("--groups", default="all", help=f"'all' or a comma list of: {', '.join(GROUPS)}.")
+    pl.add_argument(
+        "--groups",
+        default="all",
+        help=f"'all' (= {','.join(DEFAULT_GROUPS)}) or a comma list of: {', '.join(GROUPS)} (trq: opt-in).",
+    )
     pl.add_argument(
         "--extra-units", default="", help="';'-joined unit ids run in shards of their own (calibration runs)."
     )

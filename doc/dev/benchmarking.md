@@ -319,6 +319,8 @@ gh workflow run measure.yml                                     # the full defau
 gh workflow run measure.yml -f seeds=1 -f dims=2 -f qs=1,4 \
     -f extra_units='SMAC.free.b20.q1.d10.s42.i0;qLogEI.free.b100.q64.d5.s42.f0'   # smoke + calibration
 gh workflow run measure.yml -f presets=failure                  # the failure preset
+gh workflow run measure.yml -f seeds=911,912,913,914,915 \
+    -f groups=core,qLogEI,TuRBO1,SMAC,trq                       # the opt-in §66 specs, fresh seeds
 python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix, locally
 ```
 
@@ -331,7 +333,16 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     families of an instance two), then into single runs.
     The `core` group — the `make_ioh_strategies` specs, pycma IPOP/BIPOP,
     NGOpt, Optuna CmaEs/TPE and Py-BOBYQA — runs in one process; the GP
-    baselines (qLogEI, TuRBO-1, SMAC) in shards of their own.  A comparison
+    baselines (qLogEI, TuRBO-1, SMAC) in shards of their own.
+    `groups=all` is these four.  The **opt-in `trq` group** (never in
+    `all`) runs the DISCOVERY §66 candidates
+    (`harness_ioh.make_trust_region_strategies`: `RoundRobin_TRQ`,
+    `Blocks_warm_CMAES_JSO_TRQ`, `RoundRobin_COBYQA`) on exactly the core
+    cells and seeds, with the same instances and CRN durations (the duration
+    stream is per cell, not per process), in `trq-NN` shards packed like
+    core's.  `all` stays the measurement of record so the default grid, its
+    cost and the specs its headline is compared with do not change when a
+    candidate is added.  A comparison
     across jobs is an ordinary sample (a different host is an equally valid
     one); every result file records the host's CPU (`/proc/cpuinfo`,
     `lscpu`) and `fp_env_id` (the FP pin), as
@@ -370,6 +381,13 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     table says and must not feed it unscaled.  The failure preset has no
     measurements of its own: its estimates are the free preset's numbers
     for the same (group, d, budget, q).
+    The **`trq` row is an estimate**, not a runner measurement: the laptop
+    p90 of one run (its three specs on one instance, seed 42, 15 runs per
+    cell, 4 processes; `TRQ_LAPTOP_SECONDS`, 0.8–8 s) times
+    `TRQ_RUNNER_FACTOR` = 4 (the top of the 2–4× runner/laptop ratio seen
+    elsewhere), so 4–32 s a run.  Five seeds of the free grid are 105 units
+    in 5 shards, about 2 estimated runner-hours; the default grid does not
+    change (140 shards).  Recalibrate it from the first run's `s/run`.
 *   **Cost.**  `plan` packs the units into shards of at most 90 estimated
     minutes (`--target-minutes`; core shards 30) on a 4-core runner and
     **refuses** (exit 2, the plan job fails) a plan with any shard above
@@ -388,7 +406,18 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
     *   **Pre-declared headline:** `Blocks_warm_CMAES_JSO` (the sharing
         portfolio accepted at low budget) against the pool's best, on AOCC
         at q = 1 and on `aocc_time` at q > 1, Holm-adjusted over the cells.
-        The other panobbgo specs are secondary.
+        The other panobbgo specs are secondary — the opt-in `trq` specs
+        too, when their units are aggregated with core's: never in the
+        pool, never the headline, shown in the headline table's *best
+        other panobbgo* column and in the per-cell tables.
+    *   **Without the ellipsoid family** (descriptive): a second headline
+        table on the common runs minus the ellipsoid instances (the free
+        preset's one exactly quadratic family, which a quadratic model
+        solves exactly and which can decide a five-family mean alone,
+        DISCOVERY §66), the pool's best re-selected on them
+        (`summary.json`: `ex_ellipsoid` per cell).  Unadjusted and outside
+        the Holm family, which stays the headline spec vs the pool's best
+        over all families.
     *   **The pool** of a (preset, dim, bm): the externals that ran in
         every q cell with no crashed or timed-out run.  Best-of is taken over
         it, so the reference does not change with q because a baseline is

@@ -129,9 +129,11 @@ Cheap-track items, in GOAL §2c order:
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
 - [ ] **Recheck the block scheduler's `REGIME_TABLE_V1`**
       (`strategies/blocks.py`): measured with positive-only CMA-ES; with the
-      active default the sharing portfolio trails `CMAES_alone` /
-      `RoundRobin_CMAES` at 500·d on every family preset, by 0.02–0.15
-      (§61; the #346 review saw it first on `ellipsoid_fhs_crash` d5).
+      active default the sharing portfolio trails `CMAES_alone` on every
+      family preset by 0.02–0.15 and `RoundRobin_CMAES` on IOH standard by
+      0.028 (§61).  The #346 review saw it first on `ellipsoid_fhs_crash`
+      d5; a mechanism to check there: jSO's share of the budget in the
+      crash half-space?
 - [ ] **BoundTransform-style genotype mapping** as the principled
       alternative to the active guard (§59): run CMA-ES in an unbounded
       genotype space with a smooth fold into the box for evaluation (pycma's

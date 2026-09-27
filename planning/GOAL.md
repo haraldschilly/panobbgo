@@ -50,7 +50,8 @@ legacy contract — keep it green, don't optimize for it.
 ## 2. State snapshot (2026-09-25, amended 2026-09-26 — update when it materially changes)
 
 All section references are to `planning/DISCOVERY_2026-09-09.md`; this
-snapshot covers §1–§54.  **Every number in the §1–§53 bullets was measured
+snapshot covers §1–§54; for §55–§64 (pull-when-free, FP pin, active CMA
+default, λ ≥ q floor, CMA-ES quorum) see `TODO.md` and the DISCOVERY log.  **Every number in the §1–§53 bullets was measured
 before the 2026-09-25 audits** and is a pre-audit value: compare only
 against the post-audit references of §54 (last bullet).
 

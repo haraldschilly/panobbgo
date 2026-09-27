@@ -152,6 +152,17 @@ class TrustRegionTests(PanobbgoTestCase):
         assert np.linalg.norm(pts[0].x - x_star) < 0.05
         assert h.n_steps == 1
 
+    def test_radius_grows_up_to_radius_max(self):
+        """On a linear function every step is a full success at the boundary: the radius doubles, capped."""
+        h = TrustRegionQuadratic(self.strategy, radius_init=0.05, radius_max=0.15)
+        f = lambda x: float(np.sum(x))  # noqa: E731
+        radii = []
+        for _ in range(40):
+            self._feed(h, f, h.produce(1))
+            radii.append(h.radius)
+        assert h.n_grow >= 2
+        assert max(radii) == pytest.approx(0.15)
+
     def test_failed_steps_shrink_the_radius_and_restart(self):
         h = TrustRegionQuadratic(self.strategy, radius_min=1e-3)
         f = lambda x: float(np.sum(x**2))  # noqa: E731

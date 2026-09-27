@@ -153,6 +153,11 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     ("CMAES", "conditioncov"): "termination criterion; the covariance stays far better conditioned than 1e14",
     ("CMAES", "noeffectaxis"): "termination criterion; the probe never reaches a no-effect axis",
     ("CMAES", "noeffectcoord"): "termination criterion; the probe never reaches a no-effect coordinate",
+    # --- a cap the probe's radius never reaches ----------------------------
+    ("TrustRegionQuadratic", "radius_max"): (
+        "the trust radius never grows past radius_init on the 150-evaluation probe — covered by "
+        "tests/test_heuristic_trust_region.py::TrustRegionTests::test_radius_grows_up_to_radius_max"
+    ),
     ("CMAES", "stagnation_rel_tol"): "only read when stagnation_frac is set, and that defaults to None",
     ("CMAES", "sigma_divergence"): (
         "the sigma-divergence restart only fires once sigma exceeds sigma_max_frac of the box range; "
@@ -280,6 +285,9 @@ PERTURBATIONS: Dict[Tuple[str, str], Any] = {
     ("NLSHADE_LBC", "p_CR_init"): 2.0,
     ("NLSHADE_LBC", "p_CR_final"): 2.5,
     ("NLSHADE_LBC", "m_lbc"): 1.0,
+    ("TrustRegionQuadratic", "radius_min"): 1e-3,
+    ("TrustRegionQuadratic", "fit_span"): 1.5,
+    ("TrustRegionQuadratic", "first_start"): "random",
 }
 
 #: Perturbations keyed by argument name alone, applied to every heuristic
@@ -336,6 +344,8 @@ PROBE_SETTINGS: Dict[str, Tuple[str, int]] = {
     "RegionUCB": ("dejong", 600),
     "NLSHADE_RSP": ("dejong", 600),
     "NLSHADE_LBC": ("dejong", 600),
+    # dejong's optimum is the box centre, the arm's first point: it then only shrinks.
+    "TrustRegionQuadratic": ("rosenbrock", 150),
 }
 DEFAULT_PROBE: Tuple[str, int] = ("dejong", 150)
 
@@ -754,6 +764,8 @@ BEATS_UNIFORM_MEASURED: Dict[str, Tuple[float, float]] = {
     "RegionUCB": (-0.868, -0.754),
     "PSO": (-0.677, -0.590),
     "ClaudeHeuristic": (-0.549, -0.490),
+    # Measured 2026-09-27 at 1301d2e (DISCOVERY §66); the box centre is dejong's optimum.
+    "TrustRegionQuadratic": (-11.725, -11.926),
     # ---- STRONG_CLASSIFY (-0.45) is here ---------------------------------
     # Better than uniform, but not by enough for the classification to be
     # stable across seed blocks.  Only the no-harm bar applies.

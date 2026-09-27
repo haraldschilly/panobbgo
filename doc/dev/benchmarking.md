@@ -203,7 +203,8 @@ also has `preset=shapes` (BBOB f6/f7/f12/f21/f24 × dims 2/5/10) and
 `preset=wide` (opt-in, `make_wide_battery`: 15 families × dims 2/5/10 —
 separable, conditioned, non-quadratic, kinked, plateaus, deceptive, weak
 structure, low effective dimension, a boundary optimum; every optimum at
-least 0.3·B·√d from the box centre; DISCOVERY §68).  In every IOH
+least 0.3·B·√d from the box centre — for `levy_embed` at least
+min(0.3, 0.48·√(k/d))·B·√d, 0.3 at d 2/5/10; DISCOVERY §68).  In every IOH
 and family run, a run that stops by itself below its budget (every arm
 stopped producing) is scored on its short trace but marked `EndedEarly` in
 `IOHRunRecord.error`, next to crashed and timed-out runs in the summary.

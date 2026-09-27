@@ -195,6 +195,30 @@ def test_signed_permutation_and_styblinski_tang():
     assert d01 == pytest.approx(d0, rel=1e-9, abs=1e-9)
 
 
+@pytest.mark.parametrize("dim", [2, 5, 10])
+def test_schwefel_box_maps_the_box_onto_a_window_without_the_penalty(dim):
+    """The box is plain Schwefel (``80 s x + o`` inside ``[-500, 500]``): the penalty never fires in it."""
+    from panobbgo.lib.classic import Schwefel
+
+    ps = [Family("schwefel_box", dim=dim, seed=s, rotate=False, signed_permutation=True) for s in (1, 2, 3)]
+    raw = Schwefel(dims=dim)
+    for p in ps:
+        assert p.eval(p.x_opt) == p.f_opt
+        assert np.all((np.abs(p.x_opt) >= 4.0) & (np.abs(p.x_opt) <= B))
+        r = p.rotation
+        xs = _box_probes(dim, 300, 0)
+        # u = 80 * R (x - x_opt) + 420.97 stays inside the classic domain, and f is raw Schwefel there.
+        us = 80.0 * (xs - p.x_opt) @ r.T + 420.9687463319553
+        assert np.all(np.abs(us) <= 500.0 + 1e-9)
+        base0 = raw.eval(80.0 * (p.x_opt - p.x_opt) @ r.T + 420.9687463319553)
+        for x, u in zip(xs[:20], us[:20]):
+            assert p.eval(x) - p.f_opt == pytest.approx(raw.eval(u) - base0, rel=1e-9, abs=1e-6)
+    # Instances with the same sign pattern still differ (the random window offset).
+    assert len({tuple(np.round(p.x_opt, 9)) for p in ps}) == 3
+    with pytest.raises(ValueError, match="schwefel_box"):
+        Family("schwefel_box", dim=dim, seed=1)  # rotated: refused
+
+
 @pytest.mark.parametrize(
     "kwargs, match",
     [

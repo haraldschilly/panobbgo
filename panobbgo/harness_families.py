@@ -271,7 +271,7 @@ WIDE_FAMILIES: Tuple[FamilyConfig, ...] = (
     FamilyConfig(base="rastrigin", extra=dict(_W)),
     FamilyConfig(base="ackley", extra=dict(_W)),
     # separable (signed permutation instead of a rotation)
-    FamilyConfig(base="schwefel", label="schwefel_sep", rotate=False, extra={**_W, "signed_permutation": True}),
+    FamilyConfig(base="schwefel_box", label="schwefel_sep", rotate=False, extra={**_W, "signed_permutation": True}),
     FamilyConfig(
         base="styblinski_tang", label="styblinski_tang_sep", rotate=False, extra={**_W, "signed_permutation": True}
     ),

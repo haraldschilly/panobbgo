@@ -62,6 +62,18 @@ extra).
       `groups=all`; its cost row is a laptop estimate, recalibrate from the
       first run), and the summary has the ex-ellipsoid table: run
       `gh workflow run measure.yml -f seeds=<fresh list> -f groups=core,qLogEI,TuRBO1,SMAC,trq`.
+- [ ] **Wide family preset (§68).**  `measure.py --presets wide` (opt-in,
+      15 families, every x_opt away from the box centre) is in; only a
+      local smoke of core + trq at d 2/5, 100·d, q 1/4 exists.  Next: a
+      runner run on the reduced grid of §68.3 (q ∈ {1, 4}: core, trq,
+      TuRBO1, SMAC in one dispatch, qLogEI at 20·d in a second; ≈ 110
+      estimated runner-hours), fresh seeds, then use it as the selector's
+      development set (roadmap §4 A).  Open questions from §68.5:
+      `schwefel_sep` scores 0 for every arm at d ≥ 5 (rescale, or keep as
+      the "nothing works" class); `RoundRobin_TRQ` collapses on `levy_embed`
+      at d = 5 (neutral directions); the sealed set does not contain the
+      new classes yet; ruggedness (Weierstrass/Katsuura), noise and
+      discrete variables are still missing.
 - [ ] **FP pin for the torch path (BO baselines).**  `PIN_ENV` caps torch /
       MKL / oneDNN at AVX2 (`ATEN_CPU_CAPABILITY`, `MKL_CBWR`, ...), but
       no fp-check covers a BO cell yet: add one (a `baselines-bo` job in

@@ -4712,3 +4712,296 @@ assumes exact values); constraints (the arm minimises the penalty value);
 COBYQA with a random start or restarts; any TR constant other than on
 seeds 101–103; the COBYQA and NelderMead rows were not re-run (they do not
 use the TR arm).
+
+## 68. A wide family preset for the selector: 15 families across the axes that decide the algorithm, no free box-centre hit (2026-09-27)
+
+> **Numbering.**  §67 is left free for the 12-seed confirmation write-up
+> of §65/§66, which may claim it; this is §68.
+
+**Question.**  Roadmap §4 A needs a problem set wide enough to learn a
+selector from, with features that transfer.  The expensive track's `free`
+preset has 5 families × 3 instances; §66 showed that one of them, the only
+exact quadratic (ellipsoid), can decide the mean alone (a quadratic model
+0.88 where every baseline scores 0).  Which axes of difficulty does `free`
+cover, which are missing, and what would a wider preset look like?
+
+**What was built** (opt-in; `free`, the default grid and every existing
+instance are unchanged, bit for bit):
+
+* four new bases in `panobbgo/lib/families.py`: `different_powers`
+  (BBOB f14), `styblinski_tang` (minimiser by Newton to float precision),
+  `levy` (defined down to d = 1) and `schwefel_box` (Schwefel on a random
+  window of its classic domain, x_opt placed so the box never reaches the
+  boundary penalty — with a uniformly shifted x_opt at scale 50, the
+  existing `schwefel`, about a third of every coordinate's range is the
+  quadratic penalty, which a first smoke showed: 1−R² of a quadratic 0.03
+  over the box);
+* four `Family` knobs, drawn from a stream of their own (spawn key 3), so
+  an instance without them is bit-identical and one with them keeps its
+  R, f_opt and constraints: `min_centre_dist` (x_opt at least that
+  fraction of B·√d from the centre, by rejection, so uniform on the rest),
+  `boundary_faces` (x_opt on the faces of ceil(fraction·d) coordinates plus
+  a linear pull `slope·Σ(B − s_i x_i)`, zero there and positive inside, so
+  f_opt stays exact but the gradient does not vanish and the unconstrained
+  minimiser lies outside the box), `signed_permutation` (separable, but no
+  two instances aligned alike) and `effective_dim` (the base sees only the
+  first ceil(fraction·d) coordinates of Λ R (x − x_opt): a random subspace,
+  the rest exactly neutral);
+* `harness_families.WIDE_FAMILIES` / `make_wide_battery()`, the preset
+  `wide` in `scripts/measure.py` (`--presets wide`; default `free`), in
+  `benchmarks/family_screen.py preset=wide`, and `measure.py cost`, the
+  plan's cost per group;
+* tests (`tests/test_families_wide.py`, `tests/test_measure.py`): f(x_opt)
+  == f_opt bit for bit and nothing below it on random points and the
+  corners of the box, finite everywhere, determinism and pickling per
+  instance, x_opt never within 0.3·B·√d of the centre, every instance
+  rotated (Haar) or signed-permuted, the face optimum really bound by the
+  box (just outside is lower, just inside the slope ≥ 0.5), the embedding's
+  other directions exactly neutral, and the shared-label instances equal
+  to `free`'s unless redrawn.
+
+### 68.1 The free preset along the axes that decide the algorithm
+
+Construction first: every family instance is
+f(x) = f_base(Λ R (x − x_opt)) + f_opt with R Haar-random, x_opt uniform
+in [−4, 4]^d (box [−5, 5]^d, margin 0.2) and a random f_opt.  So the free
+preset is already shifted and rotated per instance — but that fixes three
+axes for *every* family: never separable, never a boundary optimum, and the
+optimum uniform around the centre (the centre is the point with the
+smallest expected distance to it).
+
+| family | separable | conditioning | modality | smooth | plateaus | funnel / deceptive | eff. dim |
+|---|---|---|---|---|---|---|---|
+| ellipsoid | no (rotated) | 1e6, constant | unimodal, **exact quadratic** | C∞ | no | funnel | d |
+| rosenbrock | no | varies along the valley | 1 (2 minima at d ≥ 4) | C∞ | no | funnel, curved | d |
+| rastrigin | no (rotated) | 1 | 10^d regular | C∞ | no | funnel (global structure) | d |
+| ackley | no (rotated) | 1 | many, small | kink at x_opt | nearly flat outer region | funnel, flat far away | d |
+| sharp_ridge | no | 100:1 cone | unimodal | kink on a ridge | no | funnel | d |
+
+Rotation: all five Haar-rotated.  Optimum vs centre: uniform with margin;
+7 of the 45 instances (5 at d = 2) lie within 0.3·B·√d of the centre
+(ellipsoid_d2_i1 at 0.16, sharp_ridge_d2_i2 at 0.13, …; mean 0.42).
+Boundary optimum: none.
+
+**Gaps**, against the COCO classes (BBOB f1–f24) and the usual BO test set:
+
+| COCO class | BBOB fids | free covers | missing |
+|---|---|---|---|
+| 1 separable | f1–f5 | — | separability at all (f3/f4 separable Rastrigin, f5 linear slope = a **boundary optimum**) |
+| 2 low/moderate conditioning | f6–f9 | rosenbrock | asymmetry (f6 attractive sector), **plateaus** (f7 step ellipsoid) |
+| 3 high conditioning, unimodal | f10–f14 | ellipsoid, sharp_ridge | a conditioned *non-quadratic* (f12 bent cigar, f14 different powers) |
+| 4 multimodal, adequate structure | f15–f19 | rastrigin (+ ackley) | ruggedness (f16 Weierstrass, f17/18 Schaffers) |
+| 5 multimodal, weak structure | f20–f24 | — | **deception** (f20 Schwefel, f24 Lunacek), random wells (f21/f22 Gallagher), f23 Katsuura |
+
+BO benchmarks (Branin, Hartmann 3/6, Levy, Styblinski–Tang, Michalewicz,
+Schwefel, Griewank, step functions, Lunacek, sums of different powers,
+REMBO/ALEBO-style embeddings): of these the free preset has only
+rastrigin-like structure.  Missing: a few smooth wells of different depth
+(Hartmann; Gallagher f22 is its d-dimensional generalisation), Levy and
+Styblinski–Tang, low effective dimension, plateaus, a deceptive separable
+function.  Branin and Hartmann themselves are fixed-dimensional (and so are
+Michalewicz's known optima): not offered, their classes are.
+
+Also missing and **not** in the wide preset either: noise; ruggedness
+(Weierstrass, Katsuura, Schaffers — f* is known, left out to keep the
+preset at 15; candidates for a next step); discrete / mixed
+variables; constraints and failure regions (presets of their own).
+
+### 68.2 The wide preset
+
+`make_wide_battery()`: 15 families × d 2/5/10 × 3 instances (135
+instances), battery seed as `free`.  Every family: x_opt at least
+0.3·B·√d from the centre (`WIDE_MIN_CENTRE_DIST`; at d = 2 that excludes
+the central 22 % of uniform draws, at d = 10 almost none), a random f_opt,
+and a Haar rotation — except the two separable families, which get a random
+signed permutation.  Families that share a label with `free` or `shapes`
+share their instance seeds: 38 of the 45 `free` instances are identical in
+`wide`, the other 7 had x_opt within 0.3·B·√d and were redrawn.
+
+| family | base | axes it adds (✓ = the axis it is there for) |
+|---|---|---|
+| ellipsoid | BBOB f2 shape, rotated | high conditioning (1e6), exact quadratic — kept, now 1/15 of the mean |
+| different_powers | BBOB f14, **new base** | smooth but not quadratic, degenerate curvature, conic bottom ✓ |
+| bent_cigar | BBOB f12 | 1e6 anisotropy, non-quadratic (T_asy) ✓ |
+| rosenbrock | classic | curved valley, changing conditioning |
+| sharp_ridge | BBOB f13 shape | kink on a ridge ✓ (non-smooth) |
+| attractive_sector | BBOB f6 | asymmetry around the optimum ✓ |
+| step_ellipsoid | BBOB f7 | **plateaus** / neutrality ✓ |
+| rastrigin | classic, rotated | regular multimodality, strong global structure |
+| ackley | classic, rotated | flat outer region + funnel |
+| schwefel_sep | Schwefel, **new base `schwefel_box`**, signed permutation | **separable** ✓, **deceptive** ✓ (best minimum near one face, second-best far away; BBOB f20's design with a random window) |
+| styblinski_tang_sep | Styblinski–Tang, **new base**, signed permutation | **separable** ✓, 2^d minima (BO standard) |
+| lunacek_box | BBOB f24, placement `box` | **double funnel** ✓, the wrong funnel towards the centre |
+| gallagher21 | BBOB f22 (21 peaks, α_opt 1e6) | **weak global structure**, few wells of different depth (Hartmann-like) ✓ |
+| levy_embed | Levy, **new base**, `effective_dim = 1/3` | **low effective dimension** ✓ (k = 1/2/4 at d = 2/5/10), neutral directions; Levy is a BO standard |
+| rosenbrock_edge | rosenbrock, `boundary_faces = 0.5` | **boundary optimum** ✓ (ceil(d/2) coordinates on a face, non-vanishing gradient; BBOB f5's class) |
+
+Against the COCO classes the preset now has 2 separable families (+ the
+boundary case of f5), 3 in class 2, 4 in class 3, 2(+1) in class 4 and 3 in
+class 5.  Still absent: ruggedness (f16/f17/f18/f23), noise, discrete
+variables; constraints and failures stay presets of their own.
+
+Measured landscape features at d = 5 (means over the 3 instances; the
+method and the full table: `planning/results/2026-09-27-wide-preset/tables.md`):
+
+| family | 1−R² quad (box) | 1−R² quad (±1 at opt) | FDC | interaction | neutral | f(centre) quantile | L-BFGS-B hits |
+|---|---|---|---|---|---|---|---|
+| ellipsoid | 0.00 | 5e-28 | +0.43 | 0.06 | 0 | 0.40 | 1.00 |
+| different_powers | 0.09 | 0.21 | +0.68 | 0.08 | 0 | 0.22 | 1.00 |
+| bent_cigar | 0.33 | 0.02 | +0.70 | 0.11 | 0 | 0.26 | 1.00 |
+| rosenbrock | 0.13 | 0.19 | +0.85 | 0.09 | 0 | 0.15 | 0.85 |
+| sharp_ridge | 0.03 | 0.03 | +0.88 | 0.03 | 0 | 0.06 | 0.05 |
+| attractive_sector | 0.05 | 0.08 | +0.47 | 0.11 | 0 | 0.19 | 0.92 |
+| step_ellipsoid | 0.00 | 0.10 | +0.58 | 0.23 | **0.57** | 0.26 | 0.00 |
+| rastrigin | 0.16 | 0.93 | +0.91 | 0.66 | 0 | 0.09 | 0.00 |
+| ackley | 0.07 | 0.40 | +0.98 | 0.56 | 0 | 0.13 | 0.00 |
+| schwefel_sep | 0.74 | 0.01 | **−0.03** | **0.00** | 0 | 0.53 | 0.00 |
+| styblinski_tang_sep | 0.04 | 0.02 | +0.62 | **0.00** | 0 | 0.18 | 0.17 |
+| lunacek_box | 0.14 | 0.93 | +0.35 | 0.67 | 0 | 0.05 | 0.00 |
+| gallagher21 | 0.75 | 0.26 | +0.35 | 0.23 | 0 | 0.36 | 0.07 |
+| levy_embed | 0.39 | 0.04 | +0.41 | 0.30 | 0 | 0.45 | 0.50 |
+| rosenbrock_edge | 0.03 | 0.07 | +0.83 | 0.05 | 0 | 0.35 | 0.58 |
+
+* Only `ellipsoid` is a quadratic near its optimum (1−R² 5e-28); the next
+  best are 0.01–0.03 (schwefel_sep, bent_cigar, sharp_ridge,
+  styblinski_tang_sep).  The features separate what they should: the two
+  separable families have interaction 0.00, step_ellipsoid is the only one
+  with neutral steps, schwefel_sep the only one with FDC ≈ 0 (deceptive),
+  lunacek_box and gallagher21 the lowest positive FDC.
+* **The centre is still a head start on some families** (f(centre)
+  quantile 0.05–0.15 on sharp_ridge, lunacek_box, rastrigin, ackley,
+  rosenbrock): the minimum distance takes away the free *hit*, not the
+  fact that a centre point is on average closer to a uniform optimum than
+  a random one.  On schwefel_sep (0.53) and levy_embed (0.45) the centre
+  is an average point.  Removing the advantage fully would need optima
+  biased *away* from the centre, which is a bias of its own.
+
+### 68.3 Cost, and a reduced grid for the GP baselines
+
+`measure.py cost` (the plan's `RUNNER_SECONDS` estimate; runner-hours are
+the sum of the shards' estimates, i.e. what the run bills):
+
+| grid (5 seeds, 20·d and 100·d, d 2/5/10) | core | trq | qLogEI | TuRBO1 | SMAC | total | shards |
+|---|---|---|---|---|---|---|---|
+| free, q 1/4/16/64 (the grid of record) | 2.4 | (2.0) | 124.6 | 13.7 | 13.8 | 154.5 | 140 |
+| wide, q 1/4/16/64 | 5.5 | 4.4 | 363.2 | 39.4 | 35.7 | 443.8 | 403 — **refused** (> 256) |
+| wide, q 1/4 | 2.8 | 2.3 | 161.9 | 33.2 | 35.7 | 235.9 | 215 |
+| **proposed**: wide, q 1/4, qLogEI at 20·d only | 2.8 | 2.3 | 34.7 | 33.2 | 35.7 | **108.7** | 100 |
+
+qLogEI at d = 5, 100·d is 2527 s a run (p90) and 45 runs a unit: it is
+two-thirds of any wide grid that contains it.  **Proposal:** run `wide` at
+q ∈ {1, 4} (the q range §66 measured and the selector's first target) in
+two dispatches — `-f presets=wide -f qs=1,4 -f groups=core,trq,TuRBO1,SMAC`
+(65 shards, ≈ 74 runner-h) and `-f presets=wide -f qs=1,4 -f budgets=20
+-f groups=qLogEI` (35 shards, ≈ 35 runner-h) — and aggregate the two
+together (as §65 combined runs).  The pool at 100·d then has no qLogEI,
+as at d10/100·d on free already.  Core alone (plus trq) is cheap at any
+grid: 10 runner-h for everything.
+
+### 68.4 Local smoke: does the preset discriminate?
+
+Core + trq at d 2/5, 100·d, q 1/4, the 5 roster seeds, 4 processes niced
+(≈ 70 min).  AOCC at q = 1, `aocc_time` at q = 4, means over 5 seeds × 3
+instances, descriptive and in sample (unpaired, no CIs).  Full per-family
+tables for all four cells: `planning/results/2026-09-27-wide-preset/tables.md`.
+d = 5, q = 1:
+
+| family | RR_CMA | Blocks | RR_TRQ | Bl3_TRQ | COBYQA | IPOP | NGOpt | OptCMA | TPE | PyBOBYQA |
+|---|---|---|---|---|---|---|---|---|---|---|
+| ellipsoid | 0.011 | 0.004 | **0.910** | 0.846 | 0.153 | 0.004 | 0.014 | 0.015 | 0.000 | 0.120 |
+| different_powers | 0.338 | 0.368 | 0.509 | 0.405 | **0.512** | 0.306 | 0.306 | 0.323 | 0.301 | 0.491 |
+| bent_cigar | 0.012 | 0.057 | **0.208** | 0.132 | 0.084 | 0.004 | 0.038 | 0.015 | 0.000 | 0.134 |
+| rosenbrock | 0.103 | 0.124 | 0.367 | 0.182 | **0.435** | 0.069 | 0.097 | 0.099 | 0.095 | 0.189 |
+| sharp_ridge | 0.095 | 0.136 | **0.227** | 0.140 | 0.181 | 0.083 | 0.115 | 0.090 | 0.063 | 0.173 |
+| attractive_sector | 0.154 | 0.163 | 0.066 | 0.175 | **0.215** | 0.106 | 0.137 | 0.155 | 0.142 | 0.108 |
+| step_ellipsoid | **0.219** | 0.164 | 0.111 | 0.129 | 0.101 | 0.185 | 0.202 | 0.214 | 0.182 | 0.053 |
+| rastrigin | 0.075 | **0.087** | 0.065 | 0.081 | 0.056 | 0.076 | 0.076 | 0.081 | 0.084 | 0.045 |
+| ackley | 0.261 | 0.298 | 0.153 | 0.266 | **0.655** | 0.230 | 0.269 | 0.250 | 0.203 | 0.233 |
+| schwefel_sep | 0.000 | **0.010** | 0.000 | 0.000 | 0.000 | 0.000 | 0.008 | 0.000 | 0.000 | 0.000 |
+| styblinski_tang_sep | 0.176 | 0.206 | **0.535** | 0.435 | 0.066 | 0.109 | 0.250 | 0.166 | 0.126 | 0.419 |
+| lunacek_box | 0.062 | 0.063 | 0.058 | 0.071 | **0.084** | 0.055 | 0.060 | 0.058 | 0.060 | 0.031 |
+| gallagher21 | 0.133 | 0.148 | 0.136 | 0.158 | **0.244** | 0.133 | 0.151 | 0.181 | 0.142 | 0.153 |
+| levy_embed | 0.564 | 0.672 | 0.177 | 0.811 | **0.934** | 0.559 | 0.692 | 0.567 | 0.521 | 0.381 |
+| rosenbrock_edge | 0.088 | 0.095 | **0.540** | 0.392 | 0.472 | 0.111 | 0.128 | 0.050 | 0.059 | 0.334 |
+| **mean** | 0.153 | 0.173 | 0.271 | **0.282** | 0.279 | 0.135 | 0.170 | 0.151 | 0.132 | 0.191 |
+| mean ex-ellipsoid | 0.163 | 0.185 | 0.225 | 0.241 | **0.289** | 0.145 | 0.181 | 0.161 | 0.141 | 0.196 |
+
+(RR_CMA = `RoundRobin_CMAES`, Blocks = `Blocks_warm_CMAES_JSO`, RR_TRQ =
+`RoundRobin_TRQ`, Bl3_TRQ = `Blocks_warm_CMAES_JSO_TRQ`, COBYQA =
+`RoundRobin_COBYQA`, one seed-invariant run per instance; IPOP = pycma
+IPOP, OptCMA / TPE = Optuna.)
+
+Means over the 15 families, all four cells:
+
+| cell | best mean | best ex-ellipsoid | family winners (arm: families) |
+|---|---|---|---|
+| d2 q1 | RR_TRQ 0.443 (PyBOBYQA 0.421, Bl3_TRQ 0.424) | RR_TRQ 0.406 | RR_TRQ 5, PyBOBYQA 4, COBYQA 3, Bl3_TRQ, RR_CMA, Blocks 1 each |
+| d2 q4 | RR_TRQ 0.396 (Bl3_TRQ 0.391) | Bl3_TRQ 0.360 | RR_TRQ 7, Bl3_TRQ 7, COBYQA 1 |
+| d5 q1 | Bl3_TRQ 0.282 (COBYQA 0.279) | COBYQA 0.289 | COBYQA 7, RR_TRQ 5, Blocks 2, RR_CMA 1 |
+| d5 q4 | Bl3_TRQ 0.259 (RR_TRQ 0.241) | Bl3_TRQ 0.218 | RR_TRQ 6, Bl3_TRQ 5, RR_CMA 3, COBYQA 1 |
+
+**Reading.**
+
+* **It discriminates.**  Four to six different arms win a family in each
+  q = 1 cell, and the per-family spread (best − worst arm) runs from 0.01
+  (schwefel_sep at d = 5) to 0.91 (ellipsoid).  The arms have *profiles*
+  now, which is what a selector needs: the model-based arms own the smooth
+  and the boundary families (ellipsoid, bent_cigar, rosenbrock_edge,
+  styblinski_tang_sep), COBYQA's large initial trust region owns the
+  funnels with ripples (ackley 0.655, levy_embed 0.934, gallagher21), the
+  CMA-ES portfolios are best or level on the plateaus and the regular
+  multimodal families (step_ellipsoid, rastrigin), and the baselines lead
+  nowhere at d = 5 (PyBOBYQA leads 4 families at d = 2, q = 1).
+* **Ellipsoid no longer decides the mean**: at d5/q1 the gap between
+  RR_TRQ and Blocks is 0.098 with it and 0.040 without; on free the ex-ellipsoid
+  view flipped the sign of several comparisons (§66.3).  The mean still moves with the
+  ellipsoid by up to 0.04 (RR_TRQ at d = 5): 1/15 of the weight on a
+  0.9 spread.
+* **The quadratic arms' lead is broader than §66 could show**, but not
+  uniform: RR_TRQ collapses on `levy_embed` at d = 5 (0.177 against 0.934
+  for COBYQA and 0.672 for Blocks) — with 3 of 5 directions exactly
+  neutral, presumably its model or rank test is misled by directions
+  without curvature; not investigated — and on attractive_sector (0.066).  As the third Blocks arm it keeps
+  most of Blocks' robustness (levy_embed 0.811).  A wide preset is how
+  such failure modes of a new arm show up before a claim.
+* **Deception is unsolved by everyone**: schwefel_sep scores 0.000–0.010
+  for every arm at d = 5 (and ≤ 0.30 at d = 2); lunacek_box ≤ 0.084.
+  schwefel_sep at d ≥ 5 is a "nothing works at this budget" class: it adds
+  no ranking information there (see 68.5).
+* **Separable families reward axis-aligned steps**: RR_TRQ's coordinate
+  design (c ± r·e_i) makes it the best arm on styblinski_tang_sep at d = 5
+  (0.535; COBYQA 0.066).  That is the separability feature working as
+  intended — a signed permutation keeps the axes, so coordinate methods
+  may exploit it.  One oddity: RR_TRQ on styblinski_tang_sep at d = 2 is
+  0.084 at q = 1 but 0.593 at q = 4; not investigated.
+
+### 68.5 Concerns and next steps
+
+1. **In sample, one local run.**  Seeds 42/7/1234/2025/3, no CIs, no
+   pairing, 100·d only, no 20·d, no d = 10, no GP baselines.  Nothing here is
+   a claim about any arm; it only shows the preset separates them.
+2. **schwefel_sep at d ≥ 5** scores ~0 for every arm (a coordinate in
+   the second-best basin costs about 120 or more, above AOCC's 1e2 upper
+   target).  Options: keep it as the "no arm works" class (a selector
+   should learn to fall back), or rescale its values so partial progress
+   registers.  Left as is; decide after the runner run.
+3. **The centre advantage is reduced, not removed** (68.2): the free hit
+   is gone, a centre start is still on average closer.  COBYQA and CMA-ES
+   start at the centre, PyBOBYQA and TuRBO at random points.
+4. **The sealed set does not contain the new classes.**  It is built from
+   the free, shapes, constrained and failure families; changing it is a
+   contract change (roadmap §3) and was not done.  Before a claim on the
+   wide classes, a sealed counterpart (a fresh battery seed) is needed.
+5. **Duplicates across presets.**  Nine wide families share labels (and
+   instances) with free / shapes: results of the same arm on those
+   instances are the same runs, not new evidence.
+6. **Still missing**: ruggedness (Weierstrass, Katsuura, Schaffers),
+   noise, discrete variables, and real-world problems.  Constraints and
+   failure regions stay their own presets.
+7. **Cost**: the full wide grid is refused (> 256 shards, ≈ 440 runner-h);
+   use the reduced grid of 68.3.
+8. **Next**: the runner run of 68.3 on fresh seeds, the per-family table
+   and the ex-ellipsoid view as in §66; then the wide preset is the
+   selector's development set (roadmap §4 A), with the features of 68.2
+   (f-scale quadratic R², interaction, neutrality, FDC) as candidates for
+   `features.py`.

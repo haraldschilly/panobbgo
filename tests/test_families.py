@@ -45,6 +45,9 @@ from panobbgo.lib.families import (
 )
 
 ALL_BASES = sorted(BASE_FUNCTIONS)
+#: Bases a default ``Family`` (rotated, uniformly shifted) accepts; ``schwefel_box``
+#: places its own optimum and is tested in ``test_families_wide.py``.
+INSTANCE_BASES = [b for b in ALL_BASES if b != "schwefel_box"]
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +85,7 @@ def test_base_origin_is_the_global_minimum(base):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("base", ALL_BASES)
+@pytest.mark.parametrize("base", INSTANCE_BASES)
 @pytest.mark.parametrize("dim", [2, 5])
 def test_optimum_value_is_exact(base, dim):
     """``f(x_opt) == f_opt`` bit-for-bit, and ``f_opt`` is not trivially zero."""
@@ -91,7 +94,7 @@ def test_optimum_value_is_exact(base, dim):
     assert p.f_opt != 0.0  # the vertical offset is really drawn
 
 
-@pytest.mark.parametrize("base", ALL_BASES)
+@pytest.mark.parametrize("base", INSTANCE_BASES)
 def test_rotation_preserves_the_optimum(base):
     """Rotating (and conditioning) moves the landscape, never the optimum.
 

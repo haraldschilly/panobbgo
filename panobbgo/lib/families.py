@@ -258,6 +258,46 @@ def _schwefel_base(dim: int) -> Callable[[np.ndarray], float]:
     return _normalise(scaled, np.full(dim, SCHWEFEL_ARGMIN / 50.0))
 
 
+#: Argument scale of ``schwefel_box``: the box's width 10 maps onto a window
+#: of width 800 inside Schwefel's ``[-500, 500]``.
+SCHWEFEL_BOX_SCALE: float = 80.0
+
+#: Range of the window offset ``o`` of ``schwefel_box`` (per coordinate,
+#: uniform): the window ``[o - 400, o + 400]`` stays inside ``[-500, 500]``
+#: and contains the minimiser ``420.97`` (``o >= 20.97``), so ``|x_opt_i| =
+#: (420.97 - o) / 80`` lies in ``[4.01, 5.0]``.
+SCHWEFEL_BOX_OFFSET: Tuple[float, float] = (SCHWEFEL_ARGMIN - 400.0, 100.0)
+
+
+def _schwefel_box_base(dim: int) -> Callable[[np.ndarray], float]:
+    """Schwefel on a window of its classic domain, for an optimum :class:`Family` places accordingly.
+
+    The same function and boundary penalty as :func:`_schwefel_base`, the
+    argument scaled by :data:`SCHWEFEL_BOX_SCALE`.  :class:`Family` places
+    ``x_opt_i = s_i (420.97 - o_i) / 80`` with the sign ``s_i`` of the
+    instance's signed permutation on that coordinate and a random offset
+    ``o_i`` (:data:`SCHWEFEL_BOX_OFFSET`), and only so: then the box maps
+    onto ``80 s_i x_i + o_i``, a window inside ``[-500, 500]`` — the penalty
+    never fires in the box and all of it is the deceptive Schwefel
+    landscape (the optimum near one face, the second-best minima far away
+    near the others; BBOB f20's design, with the random offset so that two
+    instances with the same sign pattern still differ).  With a uniformly
+    shifted ``x_opt`` at scale ``50`` (``schwefel``) about a third of a
+    coordinate's range falls into the quadratic penalty instead.  Global
+    minimum over :math:`\\mathbb{R}^d` by the same penalty argument as
+    ``schwefel`` (checked by the base tests).
+    """
+    prob = Schwefel(dims=dim)
+
+    def raw(u: np.ndarray) -> float:
+        return float(prob.eval(u)) + _boundary_penalty(u, 500.0)
+
+    def scaled(z: np.ndarray) -> float:
+        return raw(z * SCHWEFEL_BOX_SCALE)
+
+    return _normalise(scaled, np.full(dim, SCHWEFEL_ARGMIN / SCHWEFEL_BOX_SCALE))
+
+
 def _ellipsoid_base(dim: int) -> Callable[[np.ndarray], float]:
     """BBOB f2 shape: :math:`\\sum_i 10^{6 i/(d-1)} z_i^2`.  Minimum ``0`` at ``0``.
 
@@ -714,6 +754,7 @@ BASE_FUNCTIONS: Dict[str, BaseFactory] = {
     "ackley": _ackley_base,
     "griewank": _griewank_base,
     "schwefel": _schwefel_base,
+    "schwefel_box": _schwefel_box_base,
     "ellipsoid": _ellipsoid_base,
     "discus": _discus_base,
     "sharp_ridge": _sharp_ridge_base,
@@ -1211,6 +1252,13 @@ class Family(Problem):
         lunacek_bbob = base == "lunacek_bi_rastrigin" and params.get("placement", "bbob") == "bbob"
         if lunacek_bbob and (float(min_centre_dist) > 0.0 or float(boundary_faces) > 0.0):
             raise ValueError("lunacek_bi_rastrigin with placement='bbob' fixes x_opt; use placement='box'")
+        if base == "schwefel_box" and (
+            rotate or not shift or float(condition) != 1.0 or float(box_half_width) != 5.0 or boundary_faces
+        ):
+            raise ValueError(
+                "schwefel_box places x_opt at the box's Schwefel point: it needs rotate=False, shift=True, "
+                "condition=1, box_half_width=5 and no boundary_faces"
+            )
 
         rng = np.random.default_rng(int(seed))
         b = float(box_half_width)
@@ -1259,7 +1307,7 @@ class Family(Problem):
         self._eff_dim: int = max(1, int(np.ceil(self.effective_dim * dim - 1e-9)))
         self._face_idx: np.ndarray = np.zeros(0, dtype=int)
         self._face_sign: np.ndarray = np.zeros(0)
-        if self.min_centre_dist > 0.0 or self.boundary_faces > 0.0 or self.signed_permutation:
+        if self.min_centre_dist > 0.0 or self.boundary_faces > 0.0 or self.signed_permutation or base == "schwefel_box":
             x_opt = self._place(x_opt, reach, b, shift)
         self._x_opt: np.ndarray = x_opt
 
@@ -1330,6 +1378,10 @@ class Family(Problem):
         """The stream of the placement knobs (spawn key ``3``, see :meth:`_base_rng`)."""
         return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(3,)))
 
+    def _offset_rng(self) -> np.random.Generator:
+        """The stream of ``schwefel_box``'s window offsets (spawn key ``4``): the placement stream stays as it is."""
+        return np.random.default_rng(np.random.SeedSequence(self.seed, spawn_key=(4,)))
+
     #: Redraws of ``x_opt`` for ``min_centre_dist`` before giving up (at the
     #: largest allowed distance a draw is accepted with probability > 1e-3
     #: at every ``d``, so this never fires in practice).
@@ -1341,7 +1393,9 @@ class Family(Problem):
         The draws come in a fixed order from :meth:`_placement_rng` —
         permutation, signs, face coordinates, face sides, then the redraws —
         and every one is made whether or not its knob is set, so turning one
-        knob on does not move the others' draws.
+        knob on does not move the others' draws.  ``schwefel_box`` places
+        ``x_opt`` itself (see :func:`_schwefel_box_base`), its window offsets
+        from a stream of their own (:meth:`_offset_rng`).
         """
         if not shift and (self.min_centre_dist > 0.0 or self.boundary_faces > 0.0):
             raise ValueError("min_centre_dist and boundary_faces place x_opt: they need shift=True")
@@ -1354,6 +1408,13 @@ class Family(Problem):
         if self.signed_permutation:
             self._rotation = np.eye(dim)[perm] * signs[:, None]
         x = np.array(x_opt, dtype=np.float64)
+        if self.base == "schwefel_box":
+            # z_j = s_j (x[p_j] - x_opt[p_j]); with x_opt[p_j] = s_j (420.97 - o_j) / 80 the base's argument
+            # 80 z_j + 420.97 is 80 s_j x[p_j] + o_j: the box maps onto a window inside [-500, 500].
+            s = signs if self.signed_permutation else np.ones(dim)
+            p = perm if self.signed_permutation else np.arange(dim)
+            offsets = self._offset_rng().uniform(*SCHWEFEL_BOX_OFFSET, size=dim)
+            x[p] = s * (SCHWEFEL_ARGMIN - offsets) / SCHWEFEL_BOX_SCALE
         if self.boundary_faces > 0.0:
             m = max(1, int(np.ceil(self.boundary_faces * dim - 1e-9)))
             self._face_idx = np.sort(face_order[:m])

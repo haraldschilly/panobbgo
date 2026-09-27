@@ -603,6 +603,7 @@ def _run_one(
         trace_fx=tracked.trace_fx,
         aocc_time=tracked.aocc_time,
         features=tracked.features,
+        n_failed=tracked.n_failed,
         sealed=bool(getattr(problem, "sealed", False)),
     )
 

@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2012 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,11 @@ the strategy.
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: panobbgo.analyzers.failure_model
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: panobbgo.analyzers.best
    :members:
    :undoc-members:
@@ -56,8 +61,9 @@ from __future__ import unicode_literals
 from .archive import Archive
 from .best import Best
 from .convergence import Convergence
+from .failure_model import FailureModel
 from .splitter import Splitter
 from .sensitivity import Sensitivity
 from .restart import Restart
 
-__all__ = ["Archive", "Best", "Convergence", "Splitter", "Sensitivity", "Restart"]
+__all__ = ["Archive", "Best", "Convergence", "FailureModel", "Splitter", "Sensitivity", "Restart"]

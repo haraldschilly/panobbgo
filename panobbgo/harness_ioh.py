@@ -1068,6 +1068,11 @@ class IOHRunRecord:
     #: per checkpoint reached, with ``--log-features``; ``None`` (and left out
     #: of the JSON) otherwise.
     features: Optional[List[Dict[str, Any]]] = None
+    #: Spent evaluations that left no value (a crash or a timeout; the
+    #: tracker's ``n_failed``), ``None`` where the driver does not count them
+    #: (and then left out of the JSON).  ``n_failed / n_evals`` is the share
+    #: of the budget lost in failure regions (DISCOVERY §71).
+    n_failed: Optional[int] = None
 
     @property
     def precision(self) -> float:
@@ -1097,8 +1102,9 @@ def time_score(r: IOHRunRecord) -> Optional[float]:
 def run_record_to_dict(r: IOHRunRecord) -> Dict[str, Any]:
     """JSON row of a record; ``features`` only when logged, so default result files keep their shape."""
     row = asdict(r)
-    if row.get("features") is None:
-        row.pop("features", None)
+    for key in ("features", "n_failed"):
+        if row.get(key) is None:
+            row.pop(key, None)
     return row
 
 
@@ -1801,6 +1807,8 @@ class _TrackedRun:
     features: Optional[List[Dict[str, Any]]] = None
     #: Wall time the feature logger took (not recorded: records stay deterministic).
     features_s: float = 0.0
+    #: The tracker's failed evaluations (``IOHRunRecord.n_failed``).
+    n_failed: Optional[int] = None
 
 
 def refuse_sealed_features(log_features: Optional[FeatureLogSpec], name: str) -> None:
@@ -1942,6 +1950,7 @@ def _run_tracked_unpinned(
         return aocc(trace, f_opt=f_opt, log_lo=log_lo, log_hi=log_hi, budget=budget)
 
     out = _TrackedRun(n_evals=tracker.n_evals, best_fx=tracker.best_fx, aocc=0.0, trace_evals=[], trace_fx=[])
+    out.n_failed = int(tracker.n_failed)
     if log_features is not None:
         out.features = [] if logger is None else logger.records
         out.features_s = 0.0 if logger is None else logger.elapsed_s
@@ -2135,6 +2144,7 @@ def _run_one(
         aocc_time=tracked.aocc_time,
         sealed=bool(sealed),
         features=tracked.features,
+        n_failed=tracked.n_failed,
     )
 
 

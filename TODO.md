@@ -60,6 +60,21 @@ extra).
 
 ## 2. Expensive track and recent follow-ups
 
+- [ ] **Failure model, roadmap §4 D step 2 (§71).**  Step 1 is in (opt-in):
+      `FailureModel` analyzer (`p_fail` / `in_poison`, kernel classifier),
+      the proposal filter (`filter=True`: rejected candidates are answered as
+      failures, no budget), `CMAES(failure_aware=True)`,
+      `TrustRegionQuadratic(failure_aware=True)`, `IOHRunRecord.n_failed`,
+      `benchmarks/failure_screen.py`.  In sample: TRQ wastes 47 % of its
+      budget to failures (stuck start in a zone, re-proposed failed geometry)
+      and gains +0.038 with model + handling (+0.029 from its own handling);
+      population arms waste 3–7 % and gain nothing measurable; the filter
+      *alone* costs TRQ −0.28 on the boundary-optimum family (d2 q1).  Next:
+      fresh seeds, d = 10, q ≥ 16; then decide TRQ `failure_aware` as its
+      default (a defect fix, identical without failures); the filter stays
+      off by default until an arm-aware filter or an axis-aligned tree (v1)
+      avoids the boundary cost; a separate crash / timeout model.
+
 - [ ] **Model-based arms, fresh seeds (§66).**  In sample, the opt-in
       `RoundRobin_TRQ` (d ≤ 5) and `COBYQA` alone (q = 1) lead the pool at
       q ∈ {1, 4}, but much of the margin is the exactly quadratic ellipsoid
@@ -132,7 +147,8 @@ extra).
           n.s., mostly ellipsoid; ex-ellipsoid −0.004 is post-hoc and
           descriptive; the §63.4 block-sizing ideas stay untried);
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
-          family).
+          family; a local in-sample screen is §71, the q-sweep on runners
+          with the `trq` group is still open).
       New from §67: d10/100·d/q4 is a Holm loss to TuRBO1 (−0.008) that
       CMA-ES alone (the regime-gate row, and `RoundRobin_CMAES`) leads
       (+0.006, unadjusted): selector evidence.

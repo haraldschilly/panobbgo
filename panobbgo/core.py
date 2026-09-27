@@ -1967,6 +1967,26 @@ class _DirectEvaluators:
         return getattr(self.strategy, "_n_processes", 1)
 
 
+class _PredictedFailureRelay:
+    """Delivers ``predicted_failures`` (candidates the failure filter rejected) to the heuristics.
+
+    Subscribed only when a strategy has a filtering
+    :class:`~panobbgo.analyzers.failure_model.FailureModel`, so no other run
+    sees the event.  Runs on the event-bus thread like every handler: each
+    heuristic that handles failed evaluations gets the rejected points
+    through its ``on_failed_evaluations`` (they filter by ``who``).
+    """
+
+    def __init__(self, strategy: "StrategyBase") -> None:
+        self._strategy = strategy
+
+    def on_predicted_failures(self, points: List["Point"]) -> None:
+        for h in self._strategy.heuristics:
+            handler = getattr(h, "on_failed_evaluations", None)
+            if callable(handler):
+                handler(points)
+
+
 class StrategyBase:
     """
     This abstract BaseStrategy is the parent class of all Strategies.
@@ -2792,9 +2812,12 @@ class StrategyBase:
         #: is *dispatched*, so a failing evaluation (no result) is charged
         #: too.  Results restored from storage count as dispatched.
         self._dispatched = len(self.results)
+        #: The opt-in proposal filter (a ``FailureModel`` with ``filter=True``), or ``None``.
+        poison = self._setup_poison_filter()
 
         while True:
             self.loops += 1
+            n_rejected = 0
 
             # No cap on the number of passes: an asynchronous run makes an
             # idle ~1 ms pass per millisecond while evaluations run, so a cap
@@ -2821,6 +2844,8 @@ class StrategyBase:
                     cap = None
                 self.request_cap = cap
                 proposed = self.execute() if cap != 0 else []
+                if poison is not None and proposed:
+                    proposed, n_rejected = self._filter_poisoned(poison, proposed)
                 # Safety nets: a pull-when-free policy never queues past the free workers.
                 if virtual:
                     proposed = self._virtual_clock.admit(proposed)
@@ -2836,7 +2861,9 @@ class StrategyBase:
 
                 self.results += dask_evaluation.run_evaluation(self, points)
             elif virtual:
-                self._virtual_clock.step(points)
+                # Rejected candidates were answered, not evaluated: their
+                # heuristics propose again at this instant (``retry``).
+                self._virtual_clock.step(points, retry=n_rejected > 0)
             else:  # "threaded" or "processes": same bookkeeping, different pool
                 self._run_threaded_evaluation(points)
 
@@ -2889,7 +2916,7 @@ class StrategyBase:
                 or self.n_finished != self._last_n_finished  # a failed evaluation is progress too
             )
             self._warn_while_waiting(finished_moved)
-            progressed = len(points) > 0 or finished_moved or self._pool_progressed()
+            progressed = len(points) > 0 or n_rejected > 0 or finished_moved or self._pool_progressed()
             now = time_module.time()
             if progressed:
                 self._dead_loops = 0
@@ -3086,6 +3113,52 @@ class StrategyBase:
             points = list(points[:room])
         self._dispatched = used + len(points)
         return points
+
+    @property
+    def failure_model(self) -> Any:
+        """The strategy's :class:`~panobbgo.analyzers.failure_model.FailureModel`, or ``None`` without one.
+
+        Heuristics with failure-aware handling query it (``p_fail`` /
+        ``in_poison``); the first installed instance counts.
+        """
+        from .analyzers.failure_model import FailureModel
+
+        for a in self._analyzers.values():
+            if isinstance(a, FailureModel):
+                return a
+        return None
+
+    def _setup_poison_filter(self) -> Any:
+        """The ``FailureModel`` that filters candidates (``filter=True``), or ``None``; subscribes the relay.
+
+        Opt-in: without such an analyzer the main loop is unchanged and no
+        ``predicted_failures`` event exists.
+        """
+        fm = self.failure_model
+        if fm is None or not getattr(fm, "filter", False):
+            return None
+        if not getattr(self, "_poison_relay", None):
+            self._poison_relay = _PredictedFailureRelay(self)
+            self.eventbus.register(self._poison_relay)
+        return fm
+
+    def _filter_poisoned(self, model: Any, points: List[Any]) -> Tuple[List[Any], int]:
+        """Drop the candidates ``model`` rejects and answer them as failures, without evaluating them.
+
+        The rejected points are published as ``predicted_failures``; the
+        relay hands them to every heuristic's ``on_failed_evaluations``, so
+        each arm treats a predicted failure like a real one -- only no budget
+        is charged and the model does not learn from it
+        (:mod:`panobbgo.analyzers.failure_model`).  Returns the kept points
+        and the number rejected.
+        """
+        flags = model.reject(points)
+        rejected = [p for p, bad in zip(points, flags) if bad]
+        if not rejected:
+            return points, 0
+        self.n_predicted_failures = getattr(self, "n_predicted_failures", 0) + len(rejected)
+        self.eventbus.publish("predicted_failures", points=rejected)
+        return [p for p, bad in zip(points, flags) if not bad], len(rejected)
 
     def _return_to_queues(self, points):
         """Put undispatched points back at the front of their heuristic's queue."""

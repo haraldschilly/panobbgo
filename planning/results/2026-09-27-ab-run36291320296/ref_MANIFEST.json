@@ -1,0 +1,850 @@
+{
+  "created": "2026-09-27T03:55:26.330989+00:00",
+  "git_sha": [
+    "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510"
+  ],
+  "github_run_id": [
+    "36291320296"
+  ],
+  "failed_shards": [],
+  "missing_shards": [],
+  "planned_shards": 12,
+  "suites": {
+    "ioh-cma-ab": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_standard_cma_ab.json",
+        "ref_ioh_standard_cma_ab_s42.json",
+        "ref_ioh_standard_cma_ab_s7.json",
+        "ref_ioh_standard_cma_ab_s1234.json",
+        "ref_ioh_standard_cma_ab_s2025.json",
+        "ref_ioh_standard_cma_ab_s3.json",
+        "ref_ioh_standard_cma_ab_s11.json",
+        "ref_ioh_standard_cma_ab_s99.json",
+        "ref_ioh_standard_cma_ab_s123.json",
+        "ref_ioh_standard_cma_ab_s777.json",
+        "ref_ioh_standard_cma_ab_s2024.json",
+        "ref_ioh_standard_cma_ab_s31337.json",
+        "ref_ioh_standard_cma_ab_s555.json"
+      ],
+      "mean_aocc": 0.683432969126364,
+      "fp_env_ids": [
+        "80ee2a0090c4"
+      ]
+    },
+    "ioh-cma-ab-bbob-b200": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_bbob_cma_ab_b200.json",
+        "ref_ioh_bbob_cma_ab_b200_s42.json",
+        "ref_ioh_bbob_cma_ab_b200_s7.json",
+        "ref_ioh_bbob_cma_ab_b200_s1234.json",
+        "ref_ioh_bbob_cma_ab_b200_s2025.json",
+        "ref_ioh_bbob_cma_ab_b200_s3.json",
+        "ref_ioh_bbob_cma_ab_b200_s11.json",
+        "ref_ioh_bbob_cma_ab_b200_s99.json",
+        "ref_ioh_bbob_cma_ab_b200_s123.json",
+        "ref_ioh_bbob_cma_ab_b200_s777.json",
+        "ref_ioh_bbob_cma_ab_b200_s2024.json",
+        "ref_ioh_bbob_cma_ab_b200_s31337.json",
+        "ref_ioh_bbob_cma_ab_b200_s555.json"
+      ],
+      "mean_aocc": 0.22493274136798588,
+      "fp_env_ids": [
+        "80ee2a0090c4"
+      ]
+    },
+    "ioh-cma-ab-bbob-b500": {
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11,
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "files": [
+        "ref_ioh_bbob_cma_ab_b500.json",
+        "ref_ioh_bbob_cma_ab_b500_s42.json",
+        "ref_ioh_bbob_cma_ab_b500_s7.json",
+        "ref_ioh_bbob_cma_ab_b500_s1234.json",
+        "ref_ioh_bbob_cma_ab_b500_s2025.json",
+        "ref_ioh_bbob_cma_ab_b500_s3.json",
+        "ref_ioh_bbob_cma_ab_b500_s11.json",
+        "ref_ioh_bbob_cma_ab_b500_s99.json",
+        "ref_ioh_bbob_cma_ab_b500_s123.json",
+        "ref_ioh_bbob_cma_ab_b500_s777.json",
+        "ref_ioh_bbob_cma_ab_b500_s2024.json",
+        "ref_ioh_bbob_cma_ab_b500_s31337.json",
+        "ref_ioh_bbob_cma_ab_b500_s555.json"
+      ],
+      "mean_aocc": 0.3780833290835781,
+      "fp_env_ids": [
+        "80ee2a0090c4"
+      ]
+    }
+  },
+  "shards": [
+    {
+      "suite": "ioh-cma-ab",
+      "shard": "01",
+      "seeds": [
+        42,
+        7,
+        1234,
+        2025,
+        3,
+        11
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:15.983949+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --standard --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 42 7 1234 2025 3 11 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab/ioh-cma-ab_shard01.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 9V45 96-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": true
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:27:06.428804+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab",
+      "shard": "02",
+      "seeds": [
+        99,
+        123,
+        777,
+        2024,
+        31337,
+        555
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:01.323043+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --standard --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 99 123 777 2024 31337 555 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab/ioh-cma-ab_shard02.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 9V74 80-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": true
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:27:38.261416+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b200",
+      "shard": "01",
+      "seeds": [
+        42,
+        7,
+        1234
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:27:23.036313+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 42 7 1234 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 200 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b200/ioh-cma-ab-bbob-b200_shard01.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:42:44.959319+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b200",
+      "shard": "02",
+      "seeds": [
+        2025,
+        3,
+        11
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:27:32.915512+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 2025 3 11 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 200 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b200/ioh-cma-ab-bbob-b200_shard02.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 9V74 80-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": true
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:38:14.336344+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b200",
+      "shard": "03",
+      "seeds": [
+        99,
+        123,
+        777
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:10.914908+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 99 123 777 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 200 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b200/ioh-cma-ab-bbob-b200_shard03.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "Intel(R) Xeon(R) 6973P-C",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": true
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:33:51.457429+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b200",
+      "shard": "04",
+      "seeds": [
+        2024,
+        31337,
+        555
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:08.352039+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 2024 31337 555 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 200 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b200/ioh-cma-ab-bbob-b200_shard04.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:40:49.091220+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b500",
+      "shard": "01",
+      "seeds": [
+        42,
+        7
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:13.803492+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 42 7 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b500/ioh-cma-ab-bbob-b500_shard01.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 9V74 80-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:50:08.537131+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b500",
+      "shard": "02",
+      "seeds": [
+        1234,
+        2025
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:07.236774+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 1234 2025 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b500/ioh-cma-ab-bbob-b500_shard02.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:53:01.506168+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b500",
+      "shard": "03",
+      "seeds": [
+        3,
+        11
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:27.662506+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 3 11 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b500/ioh-cma-ab-bbob-b500_shard03.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:52:48.008401+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b500",
+      "shard": "04",
+      "seeds": [
+        99,
+        123
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:02.002251+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 99 123 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b500/ioh-cma-ab-bbob-b500_shard04.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:52:44.399588+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b500",
+      "shard": "05",
+      "seeds": [
+        777,
+        2024
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:25:02.754561+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 777 2024 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b500/ioh-cma-ab-bbob-b500_shard05.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:52:40.954456+00:00",
+      "status": 0
+    },
+    {
+      "suite": "ioh-cma-ab-bbob-b500",
+      "shard": "06",
+      "seeds": [
+        31337,
+        555
+      ],
+      "git_sha": "97d65b4aa8ee3f5e3ca3aa18d32967b61b39c510",
+      "github_run_id": "36291320296",
+      "started": "2026-09-27T03:27:55.238516+00:00",
+      "commands": [
+        "/home/runner/work/panobbgo/panobbgo/scripts/ioh_benchmark.py run --bbob --baselines --strategies RoundRobin_CMAES RoundRobin_CMAES_resample RoundRobin_CMAES_reflect RoundRobin_CMAES_randstart RoundRobin_CMAES_active RoundRobin_CMAES_active_guarded RoundRobin_CMAES_resample_randstart_active Baseline_Optuna_CmaEs Baseline_Optuna_CmaEs_clip Baseline_pycma_BIPOP --seeds 31337 555 --bbob-dims 2 5 10 --bbob-instances 0 1 --budget-multiplier 500 --sync-eval --jobs 4 --quiet --output rebaseline-out/ioh-cma-ab-bbob-b500/ioh-cma-ab-bbob-b500_shard06.json"
+      ],
+      "jobs": 4,
+      "fp_env": {
+        "cpu": "AMD EPYC 7763 64-Core Processor",
+        "machine": "x86_64",
+        "isa": {
+          "avx2": true,
+          "fma": true,
+          "avx512f": false
+        },
+        "blas": [
+          {
+            "internal_api": "openblas",
+            "version": "0.3.31.dev",
+            "architecture": "Haswell"
+          },
+          {
+            "internal_api": "openblas",
+            "version": "0.3.34.106.0",
+            "architecture": "Haswell"
+          }
+        ],
+        "numpy": "2.5.3",
+        "scipy": "1.18.1",
+        "numpy_simd": [
+          "X86_V3"
+        ],
+        "libc": "glibc 2.39",
+        "python": "3.14",
+        "pin": {
+          "PANOBBGO_FP_PIN": null,
+          "OPENBLAS_CORETYPE": "Haswell",
+          "OPENBLAS_L2_SIZE": "2048",
+          "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+          "ATEN_CPU_CAPABILITY": "avx2",
+          "MKL_CBWR": "AVX2",
+          "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+          "ONEDNN_MAX_CPU_ISA": "AVX2"
+        },
+        "id": "80ee2a0090c4"
+      },
+      "finished": "2026-09-27T03:55:03.950293+00:00",
+      "status": 0
+    }
+  ],
+  "fp_env_ids": [
+    "80ee2a0090c4"
+  ],
+  "mixed_fp": false,
+  "fp_env": {
+    "80ee2a0090c4": {
+      "cpu": "AMD EPYC 7763 64-Core Processor",
+      "machine": "x86_64",
+      "isa": {
+        "avx2": true,
+        "fma": true,
+        "avx512f": false
+      },
+      "blas": [
+        {
+          "internal_api": "openblas",
+          "version": "0.3.31.dev",
+          "architecture": "Haswell"
+        },
+        {
+          "internal_api": "openblas",
+          "version": "0.3.34.106.0",
+          "architecture": "Haswell"
+        }
+      ],
+      "numpy": "2.5.3",
+      "scipy": "1.18.1",
+      "numpy_simd": [
+        "X86_V3"
+      ],
+      "libc": "glibc 2.39",
+      "python": "3.14",
+      "pin": {
+        "PANOBBGO_FP_PIN": null,
+        "OPENBLAS_CORETYPE": "Haswell",
+        "OPENBLAS_L2_SIZE": "2048",
+        "NPY_DISABLE_CPU_FEATURES": "X86_V4 AVX512_ICL AVX512_SPR",
+        "ATEN_CPU_CAPABILITY": "avx2",
+        "MKL_CBWR": "AVX2",
+        "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+        "ONEDNN_MAX_CPU_ISA": "AVX2"
+      },
+      "id": "80ee2a0090c4"
+    }
+  }
+}

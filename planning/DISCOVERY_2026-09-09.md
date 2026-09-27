@@ -3203,3 +3203,113 @@ Paired deltas (mean ± SE over 8 seeds, wins):
 * **Next:** the §58 A/B again with `RoundRobin_CMAES_active_guarded`
   next to the unguarded `RoundRobin_CMAES_active`, dispatched after #373
   merges.  The default decision waits for it.
+
+## 60. The guarded active CMA on the §58 batteries: f5 fixed, no class worse, a small give-back on conditioning
+
+§59 added the repair guard to `active=True` (`active_skip_repaired`,
+#373).  This is the §58 A/B again, now with
+`RoundRobin_CMAES_active_guarded` next to the unguarded
+`RoundRobin_CMAES_active`.
+
+**Run.** `rebaseline.yml` run 36291320296 on master 97d65b4, the same
+three suites and the 12-seed roster, `release=none`.  12 shards, none
+failed, one `fp_env_id` (80ee2a0090c4, the same as §56 and §58).  The
+raw files are in the run's `rebaseline-references` artifact; the
+manifest, summary and analysis scripts are in
+`planning/results/2026-09-27-ab-run36291320296/`.  The method is §58's:
+paired per seed, t-CI95, wins out of 12, **bold** = CI excludes 0.
+
+**Instrument check.** Every spec whose code path did not change is
+**bit-identical to §58's run** (36275395012): RR, unguarded active,
+resample, the three-way combination, Optuna CmaEs and pycma BIPOP.
+That is 21,456 of 21,456 runs over the three batteries (AOCC, best f,
+full trace).  So the guarded arm is compared against exactly §58's
+numbers.  #370 (the `OPENBLAS_L2_SIZE` pin) came in between and
+changes nothing here.  The 3 Optuna crashes of §58 recur (f14,
+*d* = 2, instance 0, 500·d).
+
+### 60.1 IOH standard
+
+| Δ | vs RR | vs Optuna CmaEs | vs unguarded active |
+|---|---|---|---|
+| active (unguarded, §58) | **+0.038 [+0.014, +0.063], 11/12** | +0.000 [−0.021, +0.021], 6/12 | — |
+| **active guarded** | +0.028 [−0.001, +0.056], 8/12 | −0.010 [−0.047, +0.027], 5/12 | −0.010 [−0.044, +0.023], 6/12 |
+
+* At *d* = 5 the guarded version is +0.070 [+0.016, +0.123] vs RR,
+  10/12 (unguarded +0.061).
+* At *d* = 2 it is −0.014 (n.s.; unguarded +0.015).
+* On cell (5, 2) it is +0.241 [+0.072, +0.410], 10/12.  Hit rates:
+  1e−1 by 911 in 11/12, by the end in 12/12, 1e−8 by the end in 10/12
+  (unguarded 11 / 12 / 9, RR 6 / 8 / 3, Optuna 12 / 12 / 12).
+
+### 60.2 The 24 BBOB functions (*d* 2/5/10, instances 0/1)
+
+Pooled:
+
+| | guarded vs RR | vs Optuna | vs unguarded | unguarded vs RR |
+|---|---|---|---|---|
+| 200·d | **+0.013 [+0.007, +0.019], 11/12** | **+0.015**, 12/12 | +0.002 [−0.001, +0.005], 7/12 | **+0.011**, 8/12 |
+| 500·d | **+0.044 [+0.036, +0.051], 12/12** | **+0.018**, 12/12 | +0.003 [−0.002, +0.008], 7/12 | **+0.041**, 12/12 |
+| 200·d without f5 | **+0.014**, 10/12 | −0.003 | **−0.005 [−0.009, −0.002], 1/12** | **+0.020** |
+| 500·d without f5 | **+0.045**, 12/12 | −0.003 | **−0.009 [−0.014, −0.004], 1/12** | **+0.054** |
+
+Per COCO class, Δ vs RR (the guarded − unguarded delta in brackets):
+
+| class | guarded 200·d | guarded 500·d |
+|---|---|---|
+| separable (f1–5) | +0.008 [−0.011, +0.027], 7/12 (**+0.033**) | **+0.038**, 11/12 (**+0.051**) |
+| low conditioning (f6–9) | **+0.037**, 11/12 (−0.003) | **+0.065**, 12/12 (−0.006) |
+| high conditioning (f10–14) | **+0.032**, 12/12 (**−0.017**) | **+0.123**, 12/12 (**−0.029**) |
+| multimodal, global (f15–19) | +0.002, 7/12 (+0.000) | +0.011, 8/12 (−0.001) |
+| multimodal, weak (f20–24) | −0.010 [−0.025, +0.006], 5/12 (−0.004) | −0.016 [−0.040, +0.009], 3/12 (−0.002) |
+
+The unguarded separable class at 200·d was **−0.024 [−0.040, −0.009]**
+(§58.3).  **No class is significantly worse than RR for the guarded
+version, at either budget.**
+
+f5, Δ vs RR:
+
+| f5 | *d* = 2 | *d* = 5 | *d* = 10 |
+|---|---|---|---|
+| unguarded, 200·d | +0.004 | **−0.377** | **−0.193** |
+| guarded, 200·d | +0.021 | −0.102 [−0.255, +0.050], 6/12 | +0.033 |
+| unguarded, 500·d | +0.002 | **−0.453** | **−0.372** |
+| guarded, 500·d | +0.009 | −0.039 [−0.113, +0.034], 5/12 | +0.061 |
+
+Guarded − unguarded on f5 is **+0.28 / +0.23** at 200·d (*d* 5/10) and
+**+0.41 / +0.43** at 500·d.
+
+Per function (500·d, pooled over *d*): the guarded gains are f11 +0.23,
+f2 +0.17, f10 +0.15, f7 +0.14, f13 +0.11, f14 +0.09 (unguarded +0.29,
++0.20, +0.20, +0.14, +0.13, +0.09).  The largest dip is f21 (Gallagher
+101 peaks), −0.10, as in §58 (−0.08).
+
+### 60.3 Reading and recommendation
+
+* **The guard does what §59 said.** f5 goes from −0.38…−0.45 to level
+  (no *d* significantly negative), the separable class at 200·d from
+  −0.024 to +0.008, and no BBOB class is worse than RR.
+* **It gives back a little elsewhere**, consistently: −0.017 / −0.029
+  on high conditioning (still +0.032 / +0.123 over RR) and −0.005 /
+  −0.009 on all functions without f5.  The likely cause is generations
+  that project early, while σ is still wide, running without the active
+  term (§59.4; the top-μ variant and a genotype mapping are the logged
+  follow-ups).
+* **Against the rule** (a paired CI excluding 0 on the headline
+  battery, not worse on any BBOB class), neither version passes both
+  parts:
+  * unguarded passes the headline (+0.038 [+0.014, +0.063]) and fails
+    the separable class at 200·d;
+  * guarded passes every class and misses the headline CI by a hair
+    (+0.028 [**−0.001**, +0.056], 8/12).
+* **The recommendation is to make `active=True` (guarded) the default.**
+  * The independent battery (24 functions × 3 dims × 2 instances × 2
+    budgets, 1,728 cells per budget per spec) has it at **+0.013,
+    11/12** and **+0.044, 12/12** over RR, and ahead of Optuna CmaEs at
+    both budgets.
+  * The 10-cell IOH battery, where the hypothesis came from, has it
+    ahead by +0.028 with a lower CI bound of −0.001.
+  * It removes the one pathology of the unguarded version.
+  * This is the coordinator's call; this entry does not flip the
+    default.  A flip changes every CMA-ES trajectory, so it needs a
+    re-baseline afterwards.

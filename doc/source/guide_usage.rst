@@ -1167,6 +1167,13 @@ systematic escape from local optima while the full result history is retained.
    event discards what the search has learned.  ``CMAES(restart_mode="ipop")``
    on its own is the configuration to use.
 
+   Since 2026-09-27 ``CMAES`` runs **active CMA** by default
+   (``active=True``: negative weights for the worst offspring, Hansen 2016,
+   with a guard at the box faces, ``active_skip_repaired=True``).  It gained
+   +0.013 / +0.044 AOCC on the 24 BBOB functions at 200·d / 500·d over the
+   positive-only update, most on ill-conditioned problems.
+   ``CMAES(active=False)`` is the previous positive-only update.
+
 .. code-block:: python
 
    from panobbgo.heuristics import CMAES, LatinHypercube, NelderMead

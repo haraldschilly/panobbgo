@@ -348,7 +348,12 @@ class CMAES(Heuristic):
             points.
         active (bool): Active CMA-ES (§57, H3): the ``λ − μ`` worst offspring
             enter the rank-μ covariance update with *negative* weights.
-            Default ``False`` (positive weights only).  ``True`` follows
+            Default ``True`` since 2026-09-27 (DISCOVERY §60: +0.013 / +0.044
+            AOCC over the positive-only update on the 24-function BBOB
+            battery at 200·d / 500·d, no function class worse, together with
+            the ``active_skip_repaired`` guard); every CMA-ES trajectory
+            changed with that switch.  ``False`` is the positive-only update
+            every number before §60 was measured with.  ``True`` follows
             N. Hansen (2016), "The CMA Evolution Strategy: A Tutorial",
             arXiv:1604.00772, exactly: the raw weights of eq. (49) over all λ
             ranks, the positive ones normalised to sum 1 and the negative ones
@@ -451,7 +456,7 @@ class CMAES(Heuristic):
         name: Optional[str] = None,
         boundary: str = "project",
         first_start: str = "center",
-        active: bool = False,
+        active: bool = True,
         active_skip_repaired: bool = True,
     ):
         super().__init__(strategy, name=name or "CMAES")

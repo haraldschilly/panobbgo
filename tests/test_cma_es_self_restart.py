@@ -97,8 +97,13 @@ def test_self_restart_off_reproduces_the_pre_change_trajectory():
     ``SeedSequence(seed, spawn_key=(crc32("CMAES"), 0))`` instead of the first
     order-based spawn, so the same algorithm samples different offspring.
     Previous pin: min 1.9189498767674838e-08, sum 734.0431816205088.
+
+    ``active=False`` since the active-CMA default (DISCOVERY §60,
+    2026-09-27): this pins the positive-only trajectory on purpose, so the
+    numbers are unchanged; the active default is pinned in
+    ``tests/test_cma_es_bounds_active.py``.
     """
-    h, fx = _run(self_restart=False)
+    h, fx = _run(self_restart=False, active=False)
     assert h.n_restarts == 0
     assert len(fx) == 400
     # re-pinned for keyed RNG streams, 2026-09-25
@@ -188,6 +193,12 @@ def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not():
     into a local basin long before ``tolfun`` (window 10 + ⌈30n/λ⌉ generations
     at a 1e-11 range) has anything to say — that gap is the whole reason the
     criterion exists.
+
+    The scenario (seed 7, frac 0.05) was built on the positive-only
+    trajectory, so it runs with ``active=False``.  The criterion does not
+    depend on the covariance update: with the active default (§60) it fires
+    as well (last stop reason ``stagnation_evals``), but there it replaces
+    the reference run's ``tolfun`` restart instead of adding one.
     """
     from panobbgo.lib.classic import Rastrigin
 
@@ -202,8 +213,8 @@ def test_budget_relative_stagnation_fires_where_the_reference_criteria_do_not():
         s.start()
         return h
 
-    ref = run(restart_from="best")
-    budget = run(restart_from="best", stagnation_frac=0.05)
+    ref = run(restart_from="best", active=False)
+    budget = run(restart_from="best", stagnation_frac=0.05, active=False)
     assert budget.n_self_restarts > ref.n_self_restarts
     assert budget.last_stop_reason == "stagnation_evals"
     # The window is max(10λ, frac·max_eval) = max(80, 75) = 80 evaluations at

@@ -68,23 +68,25 @@ def _on_face(X, lo=-2.0, hi=8.0):
 
 
 def test_explicit_defaults_equal_omitted():
-    """Passing the three documented defaults is the same run as not passing them."""
+    """Passing the documented defaults is the same run as not passing them (active=True since §60)."""
     _, X0, fx0, who0 = _run()
-    _, X1, fx1, who1 = _run(boundary="project", first_start="center", active=False)
+    _, X1, fx1, who1 = _run(boundary="project", first_start="center", active=True, active_skip_repaired=True)
     np.testing.assert_array_equal(X0, X1)
     np.testing.assert_array_equal(fx0, fx1)
     assert who0 == who1
 
 
-def test_default_trajectory_pinned_to_the_pre_change_module():
-    """The default path reproduces the run recorded before the options existed.
+def test_positive_only_trajectory_pinned_to_the_pre_change_module():
+    """``active=False`` reproduces the run recorded before the options existed.
 
     Recorded 2026-09-26 with the module at 097d797 (seed 42, DeJong(3) on
     [-2, 8]^3, 1200 evaluations, one IPOP self-restart, 50 points projected
-    onto the lower face).  ``test_self_restart_off_reproduces_the_pre_change_trajectory``
-    pins the no-restart path the same way.
+    onto the lower face) — the default until the active-CMA switch of §60,
+    and still the positive-only path bit for bit.
+    ``test_self_restart_off_reproduces_the_pre_change_trajectory`` pins the
+    no-restart path the same way.
     """
-    h, X, fx, _ = _run()
+    h, X, fx, _ = _run(active=False)
     assert len(fx) == 1200
     assert h.n_restarts == 1
     assert _on_face(X) == 50
@@ -93,7 +95,7 @@ def test_default_trajectory_pinned_to_the_pre_change_module():
 
 
 @pytest.mark.parametrize(
-    "kw", [{"boundary": "resample"}, {"boundary": "reflect"}, {"first_start": "random"}, {"active": True}]
+    "kw", [{"boundary": "resample"}, {"boundary": "reflect"}, {"first_start": "random"}, {"active": False}]
 )
 def test_each_option_changes_the_run_and_is_reproducible(kw):
     """Every option is read (not a dead parameter), and a seeded run stays reproducible."""
@@ -303,9 +305,16 @@ def test_active_weights_match_the_cmaes_library(lam, n):
     assert h._c_mu == pytest.approx(ref._cmu, rel=1e-12)
 
 
-def test_default_path_has_no_negative_weights():
-    h = _started()
+def test_positive_only_path_has_no_negative_weights():
+    h = _started(active=False)
     assert h._w_neg.size == 0
+
+
+def test_default_is_guarded_active_cma():
+    """DISCOVERY §60: ``active=True`` with the repair guard is the default."""
+    h = _started()
+    assert h._active and h._active_skip_repaired
+    assert h._w_neg.size == h._lam - h._mu and np.all(h._w_neg <= 0.0)
 
 
 def _synthetic_generation(h, rng):

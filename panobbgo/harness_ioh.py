@@ -889,7 +889,11 @@ CMAES_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
     "RoundRobin_CMAES_randstart": {"first_start": "random"},
     # The §58 names keep their §58 meaning: the unguarded tutorial update
     # (``active_skip_repaired=False``).  ``_active_guarded`` is ``active=True``
-    # with the repair guard (DISCOVERY §59), the candidate for the default.
+    # with the repair guard (DISCOVERY §59) — the default since §60, so it
+    # now runs the same as ``RoundRobin_CMAES`` (kept explicit for the §60
+    # comparisons).  ``_positive`` is the positive-only update every number
+    # before §60 was measured with.
+    "RoundRobin_CMAES_positive": {"active": False},
     "RoundRobin_CMAES_active": {"active": True, "active_skip_repaired": False},
     "RoundRobin_CMAES_active_guarded": {"active": True},
     "RoundRobin_CMAES_resample_randstart_active": {

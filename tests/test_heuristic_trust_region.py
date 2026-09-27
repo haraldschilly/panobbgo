@@ -394,3 +394,8 @@ def test_opt_in_specs_are_not_in_the_registry_of_record():
     assert third.config_overrides == blocks.config_overrides
     assert third.rng_identity == blocks.rng_identity
     assert [s.name for s in make_trust_region_strategies(["RoundRobin_TRQ", "nope"])] == ["RoundRobin_TRQ"]
+    # COBYQA alone, as DISCOVERY §66.1 ran it (``RR_COBYQA``): the bridge with its defaults.
+    from panobbgo.heuristics import COBYQA
+
+    [cobyqa] = make_trust_region_strategies(["RoundRobin_COBYQA"])
+    assert cobyqa.heuristics == [(COBYQA, {})]

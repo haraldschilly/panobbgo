@@ -681,3 +681,130 @@ def test_the_workflow_matches_the_script():
     # Artifacts only: nothing in this workflow may write to the repository.
     assert workflow["permissions"] == {"contents": "read"}
     assert all("permissions" not in job for job in workflow["jobs"].values())
+
+
+# ---------------------------------------------------------------------------
+# the opt-in trq group (DISCOVERY §66 candidates) and the ex-ellipsoid view
+# ---------------------------------------------------------------------------
+
+
+def _plan_ids(*argv: str) -> List[str]:
+    """The unit ids of ``measure.py plan --seeds 2 *argv``, run as the workflow runs it."""
+    code = (
+        "import runpy, sys; sys.argv = ['measure.py', 'plan', '--seeds', '2'"
+        + "".join(f", {a!r}" for a in argv)
+        + f"]\nrunpy.run_path({str(_PATH)!r}, run_name='__main__')"
+    )
+    proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    matrix = json.loads(proc.stdout.strip().splitlines()[0])["include"]
+    return [u for e in matrix for u in e["units"].split(";")]
+
+
+def test_trq_group_is_opt_in_and_runs_the_core_cells():
+    from panobbgo.harness_ioh import TRUST_REGION_NAMES, make_trust_region_strategies
+
+    # The plan's copy of the names (plan imports no panobbgo) is the registry's.
+    assert ms.TRQ_SPECS == TRUST_REGION_NAMES
+    assert [s.name for s in make_trust_region_strategies(ms.TRQ_SPECS)] == list(ms.TRQ_SPECS)
+    assert not any(ms.is_external(n) for n in ms.TRQ_SPECS) and ms.GROUPS["trq"] == ()
+    assert all(ms.group_of(n) == "trq" for n in ms.TRQ_SPECS) and ms.group_of("RoundRobin_CMAES") == "core"
+    assert [s.name for s in ms._strategies("trq")] == list(ms.TRQ_SPECS)
+    # 'all' is the measurement of record: core and the GP groups, not trq.
+    assert "trq" not in ms.DEFAULT_GROUPS and set(ms.DEFAULT_GROUPS) | {"trq"} == set(ms.GROUPS)
+    default = _plan_ids()
+    assert default and not any(u.startswith("trq.") for u in default)
+    assert _plan_ids("--groups", "all") == default
+    assert {ms.Unit.parse(u).group for u in default} == set(ms.DEFAULT_GROUPS)
+    # Named: the same cells and seeds as core (every cell, q <= bm), nothing else.
+    trq = _plan_ids("--groups", "trq")
+    core = [u for u in default if u.startswith("core.")]
+    assert sorted(u.removeprefix("trq.") for u in trq) == sorted(u.removeprefix("core.") for u in core)
+    both = _plan_ids("--groups", "core,qLogEI,TuRBO1,SMAC,trq")
+    assert sorted(both) == sorted(default + trq)
+    # Packed like core: shards of at most CORE_TARGET_MINUTES, trq units only, after the other groups.
+    units = ms.make_units(ms.resolve_seeds("5"), ["free", "failure"], [20, 100], None, [1, 4, 16, 64], ["trq"])
+    entries = ms.plan(units, 4, ms.TARGET_MINUTES)
+    assert entries and all(e["group"] == "trq" and e["shard"].startswith("trq-") for e in entries)
+    assert all(e["est_min"] <= ms.CORE_TARGET_MINUTES for e in entries)
+    assert not ms.plan_problems(entries, ms.TARGET_MINUTES)
+    # The (estimated) cost table has every cell of the free grid.
+    for u in units:
+        assert (u.dim, u.bm * u.dim, u.q) in ms.RUNNER_SECONDS["trq"]
+
+
+def _with_trq(tmp: Path, planned: List[str], qs=(1, 4), bm=20) -> List[str]:
+    """Add trq units to a :func:`_grid` run: RoundRobin_TRQ great on the ellipsoid only, the others middling."""
+    payloads = []
+    for q in qs:
+        for j, seed in enumerate(SEEDS):
+            b = 0.02 * j
+            unit = f"trq.free.b{bm}.q{q}.d2.s{seed}"
+            planned = planned + [unit]
+            scores: Dict[str, List[Optional[float]]] = {
+                "RoundRobin_TRQ": [0.95 + b, 0.95 + b, 0.30 + b, 0.30 + b],
+                "Blocks_warm_CMAES_JSO_TRQ": [0.70 + b, 0.70 + b, 0.35 + b, 0.35 + b],
+                "RoundRobin_COBYQA": [0.20 + b] * 4,
+            }
+            payloads.append(_payload(unit, "trq-01", scores))
+    _write(tmp, payloads)
+    return planned
+
+
+def test_aggregate_treats_trq_specs_as_secondary(tmp_path):
+    planned = _grid(tmp_path)
+    before = ms.aggregate(tmp_path, planned)
+    planned = _with_trq(tmp_path, planned)
+    summary = ms.aggregate(tmp_path, planned)
+    assert summary["headline_spec"] == ms.HEADLINE_SPEC == "Blocks_warm_CMAES_JSO"
+    for c in ("free/d2/b20/q1", "free/d2/b20/q4"):
+        cell, old = summary["cells"][c], before["cells"][c]
+        # Not in the pool, not the headline: pool, best-of and the headline (Holm family) are unchanged.
+        assert cell["pool"] == old["pool"] and cell["pool_best"] == old["pool_best"]
+        assert cell["headline"] == old["headline"]
+        assert cell["n_common"] == old["n_common"] and not set(ms.TRQ_SPECS) & set(cell["missing"])
+        for n in ms.TRQ_SPECS:
+            assert n in cell["planned"] and n in cell["present"]
+            r = cell["strategies"][n]
+            assert (r["external"], r["in_pool"], r["group"]) == (False, False, "trq")
+            assert r["vs_pool_best"]["aocc"]["n_seeds"] == 3 and r["complete"]
+    md = ms.summary_markdown(summary)
+    headline = md.split("## Headline\n", 1)[1].split("\n## ", 1)[0]
+    # The best other panobbgo spec is a trq spec (RoundRobin_TRQ: 0.625 + b against RoundRobin_CMAES' 0.5 + b).
+    rows = [line for line in headline.splitlines() if line.startswith("| free/")]
+    assert len(rows) == 2 and all("| RoundRobin_TRQ 0." in line for line in rows)
+    assert "| RoundRobin_COBYQA |" in md and "| Blocks_warm_CMAES_JSO_TRQ |" in md  # the per-cell tables
+
+
+def test_ex_ellipsoid_view_is_descriptive_and_reselects_the_pool_best(tmp_path):
+    planned = _with_trq(tmp_path, _grid(tmp_path))
+    summary = ms.aggregate(tmp_path, planned)
+    q1 = summary["cells"]["free/d2/b20/q1"]
+    ex = q1["ex_ellipsoid"]
+    assert ex["excluded"] == ["ellipsoid"] and ex["n_common"] == q1["n_common"] // 2 == 6
+    # Rastrigin only: NGOpt 0.425 + b, TuRBO 0.42 + b, IPOP 0.30 + b (SMAC is outside the pool).
+    assert ex["pool_best"]["aocc"] == "Baseline_NGOpt"
+    assert ex["strategies"]["Baseline_NGOpt"]["aocc"] == pytest.approx(0.425 + 0.02)
+    # Blocks on rastrigin 0.40 + b: -0.025 against NGOpt, where it is +0.04 on all families.
+    h = ex["strategies"][ms.HEADLINE_SPEC]["vs_pool_best"]["aocc"]
+    assert h["delta"] == pytest.approx(-0.025) and h["wins"] == 0 and h["n_seeds"] == 3
+    assert q1["headline"]["delta"] == pytest.approx(0.04)  # the Holm family stays over all families
+    # RoundRobin_TRQ leads on all families only through the ellipsoid.
+    assert q1["strategies"]["RoundRobin_TRQ"]["vs_pool_best"]["aocc"]["delta"] > 0
+    assert ex["strategies"]["RoundRobin_TRQ"]["vs_pool_best"]["aocc"]["delta"] == pytest.approx(0.30 - 0.425)
+    assert "vs_pool_best" not in ex["strategies"]["Baseline_NGOpt"]
+    md = ms.summary_markdown(summary)
+    table = md.split("## Without the ellipsoid family (descriptive)\n", 1)[1].split("\n## ", 1)[0]
+    assert "**Descriptive**" in table and "not part of the Holm family" in table
+    rows = [line for line in table.splitlines() if line.startswith("| free/")]
+    assert len(rows) == 2
+    # Without the ellipsoid the best other panobbgo spec is RoundRobin_CMAES (0.50 + b), not RoundRobin_TRQ.
+    assert all("| RoundRobin_CMAES 0." in line and "NGOpt" in line for line in rows)
+    # A cell without the family (or with nothing else) has no such view.
+    cells = ms.collect(ms.load_units(tmp_path)[0])
+    strats = cells[("free", 2, 20, 1)]
+    only_rastrigin = {k for k in strats[ms.HEADLINE_SPEC] if k[1] == "rastrigin"}
+    only_ellipsoid = {k for k in strats[ms.HEADLINE_SPEC] if k[1] == "ellipsoid"}
+    assert ms.ex_ellipsoid(strats, ["Baseline_NGOpt"], only_rastrigin) is None
+    assert ms.ex_ellipsoid(strats, ["Baseline_NGOpt"], only_ellipsoid) is None
+    assert ms.is_ex_family("ellipsoid_fhs_crash") and not ms.is_ex_family("rastrigin")

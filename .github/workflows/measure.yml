@@ -33,7 +33,10 @@ on:
         type: string
         default: "1,4,16,64"
       groups:
-        description: "'all' or a comma list of: core, qLogEI, TuRBO1, SMAC"
+        description: >-
+          'all' (= core, qLogEI, TuRBO1, SMAC) or a comma list of: core, qLogEI, TuRBO1, SMAC, trq.
+          trq (opt-in, never in 'all'): the DISCOVERY §66 candidates RoundRobin_TRQ, Blocks_warm_CMAES_JSO_TRQ and
+          RoundRobin_COBYQA on the core cells, secondary specs in the summary; e.g. 'core,qLogEI,TuRBO1,SMAC,trq'
         type: string
         default: all
       extra_units:

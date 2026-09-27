@@ -887,7 +887,11 @@ CMAES_VARIANT_OPTIONS: Dict[str, Dict[str, Any]] = {
     "RoundRobin_CMAES_resample": {"boundary": "resample"},
     "RoundRobin_CMAES_reflect": {"boundary": "reflect"},
     "RoundRobin_CMAES_randstart": {"first_start": "random"},
+    # ``active=True`` includes the repair guard (``active_skip_repaired``);
+    # ``_active_tutorial`` is the unguarded update DISCOVERY §58 measured as
+    # ``RoundRobin_CMAES_active`` (before the guard existed).
     "RoundRobin_CMAES_active": {"active": True},
+    "RoundRobin_CMAES_active_tutorial": {"active": True, "active_skip_repaired": False},
     "RoundRobin_CMAES_resample_randstart_active": {"boundary": "resample", "first_start": "random", "active": True},
 }
 

@@ -358,6 +358,31 @@ class CMAES(Heuristic):
             ``c₁``, ``c_μ`` and ``μ_eff`` are the unchanged Table 1 defaults
             (they depend on the positive weights only).  See
             :meth:`_set_population` and :meth:`_update`.
+        active_skip_repaired (bool): Only read with ``active=True``.  A
+            generation that contains a *repaired* offspring (one projected
+            onto the box, whose step entered the update truncated) gets the
+            tutorial's positive-only covariance update instead of the active
+            one; and injected foreign points never receive a negative
+            weight.  Default ``True``.  Why (DISCOVERY §58.4 and the f5
+            investigation after it): eq. (46)–(47) balance the μ best steps
+            against the λ − μ worst ones, which holds when every ranked step
+            is an unmodified sample of N(0, C).  At a box face the best
+            offspring are the projected ones — their repaired steps are cut
+            short at the face — while the worst step inward at full length,
+            so the negative term outweighs the positive one along that
+            coordinate and C collapses there.  On BBOB f5 (linear slope,
+            optimum on the face) at 500·d this took the AOCC from 0.94 (no
+            active) to 0.53 at *d* = 5 and from 0.69 to 0.20 at *d* = 10;
+            with the guard it is 0.86 and 0.70 (8 seeds; without a box, i.e.
+            no projection, active and positive-only tie at 0.99).  Zeroing
+            only the repaired offspring's own negative weight recovered much
+            less (0.66 / 0.58), since the worst offspring are rarely the
+            projected ones.  pycma sidesteps the question — its default
+            ``BoundTransform`` runs CMA in the unbounded genotype space, so
+            no step is ever repaired — and zeroes the negative weights of
+            injected solutions (``CMA_active_injected = 0``), the rule
+            adopted here for injected points.  ``False`` is the tutorial's
+            update in every generation, as measured in §58.
     """
 
     #: Accepted values for the ``restart_from`` constructor argument.
@@ -414,6 +439,7 @@ class CMAES(Heuristic):
         boundary: str = "project",
         first_start: str = "center",
         active: bool = False,
+        active_skip_repaired: bool = True,
     ):
         super().__init__(strategy, name=name or "CMAES")
         self.logger = self.config.get_logger("H:CMA")
@@ -522,6 +548,9 @@ class CMAES(Heuristic):
         self._first_start = first_start
         #: Active CMA (negative recombination weights, §57 H3).
         self._active = bool(active)
+        #: With ``active``: no negative update in a generation with repaired
+        #: offspring, and never for injected points (see the class docstring).
+        self._active_skip_repaired = bool(active_skip_repaired)
         #: The negative weights of ranks ``μ+1 … λ`` (Hansen 2016, eq. 53),
         #: set by :meth:`_set_population` when ``active``; empty otherwise.
         self._w_neg: np.ndarray = np.zeros(0)
@@ -1167,6 +1196,8 @@ class CMAES(Heuristic):
                 "x": np.array(info["x"], dtype=float),
                 "x_eval": np.array(info["x_eval"], dtype=float),
                 "y": info["y"],
+                # the boundary repair shortened this offspring's step (active CMA's guard)
+                "repaired": bool(info.get("repaired", False)),
             }
         )
 
@@ -1280,7 +1311,7 @@ class CMAES(Heuristic):
         y = self._clip_injected((x_f - self._m) / self._sigma, self._B, self._D, c_y)
         # "x" is the clipped position the update uses; "x_eval" the foreign
         # point whose f this is — the only one best tracking may record.
-        entry = {"penalty": penalty, "x": self._m + self._sigma * y, "x_eval": x_f.copy(), "y": y}
+        entry = {"penalty": penalty, "x": self._m + self._sigma * y, "x_eval": x_f.copy(), "y": y, "injected": True}
 
         gen = min(self._gen_results.keys())
         bucket = self._injected.setdefault(gen, [])
@@ -1736,7 +1767,8 @@ class CMAES(Heuristic):
             # repaired step is Mahalanobis-clipped like an injected point, and
             # the update uses ``m + σ·y`` so mean and paths stay consistent.
             x_upd = x
-            if not np.array_equal(x, x_raw):
+            repaired = not np.array_equal(x, x_raw)
+            if repaired:
                 y = self._clip_injected((x - self._m) / self._sigma, self._B, self._D, c_y)
                 x_upd = self._m + self._sigma * y
 
@@ -1748,7 +1780,7 @@ class CMAES(Heuristic):
             # the point actually evaluated.  They differ when the Mahalanobis
             # clip shortens the repaired step, and only "x_eval" may be paired
             # with the returned f (best tracking, ``restart_from="best"``).
-            self._pending[who] = {"gen": gen, "i": i, "y": y, "x": x_upd, "x_eval": x}
+            self._pending[who] = {"gen": gen, "i": i, "y": y, "x": x_upd, "x_eval": x, "repaired": repaired}
             emitted += 1
 
         self._gen_emitted[gen] = emitted
@@ -1889,8 +1921,17 @@ class CMAES(Heuristic):
         # partial generation is shrunk less, never more.  Injected points
         # beyond λ entries get no weight.
         neg = collected[self._mu : self._lam] if self._active and actual_mu == self._mu else []
+        if neg and self._active_skip_repaired and any(d.get("repaired", False) for d in collected[: self._lam]):
+            # A repaired (truncated) step among the ranked ones breaks the
+            # positive/negative balance of eq. (47) along the face it was cut
+            # at: this generation gets the positive-only update.
+            neg = []
         if neg:
             w_neg = self._w_neg[: len(neg)]
+            if self._active_skip_repaired:
+                # pycma's CMA_active_injected = 0: no negative weight for a
+                # foreign point this instance did not sample.
+                w_neg = np.where([bool(d.get("injected", False)) for d in neg], 0.0, w_neg)
             Yn = np.column_stack([d["y"] for d in neg])  # (n, len(neg))
             # ‖C^{-1/2} y‖² = ‖diag(1/D) Bᵀ y‖² with the C this generation was sampled from
             mahal2 = np.sum(((1.0 / D)[:, None] * (B.T @ Yn)) ** 2, axis=0)

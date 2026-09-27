@@ -3660,3 +3660,253 @@ ignores, and ignoring it favours the GP baselines.
 4. Then the `failure` preset (d 2/5), which is roadmap §5 step 3's
    trigger for mechanism D.
 
+## 63. Idle workers at q ≥ 16: measured, and a λ ≥ q floor for CMA-ES (2026-09-27)
+
+§62.5 guessed that `Blocks_warm_CMAES_JSO` loses to qLogEI at q = 64
+because its workers sit idle: its `aocc_time`/AOCC ratio is 0.43 at
+d5/100·d/q64, qLogEI's 0.94.  This section measures that and fixes most of
+it.
+
+**Setup.**  The `measure.py` core configuration, run locally on master
+3ce8ee0 (active-CMA default): free preset, 100·d, virtual clock with the
+async policy, log-normal durations σ 0.5, common random numbers per cell,
+`sync_eval`.  Cells d ∈ {2, 5} × q ∈ {4, 16, 64}, seeds 3/7/42/1234/2025,
+all 5 families × 3 instances: 75 runs per cell, the §62 cells exactly.  A
+probe (`sketchpad/worker_utilisation_probe.py`) wraps
+`VirtualClock.step`/`_advance`.  It records the busy workers between
+completions, what was asked (`request_cap`) against what was returned, and
+the block owner.  Blocks reproduces §62's `aocc_time` means within 0.001 in
+all six cells.  §62 was pre-active, so the active default barely moves
+Blocks here.  Tables and paired deltas:
+`planning/results/2026-09-27-worker-utilisation/summary.md`.  Deltas are
+paired over the 5 seeds, with a t-CI95 and wins/5, unadjusted.
+
+### 63.1 Utilisation before the fix
+
+"busy" is busy worker-time / (q · makespan).  "busy@H" is the same up to
+the horizon B/q, the part `aocc_time` scores.  "starved" is idle
+worker-time while budget was left, "tail" idle time after the whole budget
+was dispatched.  "mk/ideal" is makespan / (B/q).  "empty" is the share of
+decision points (a free worker, budget left) where the strategy returned
+nothing.
+
+| spec | cell | busy | busy@H | starved | tail | mk/ideal | empty | aocc_time |
+|---|---|---|---|---|---|---|---|---|
+| Blocks | d2 q4 | 0.99 | 0.98 | 0.00 | 0.01 | 1.01 | 1 % | 0.214 |
+| Blocks | d2 q16 | 0.89 | 0.97 | 0.02 | 0.09 | 1.12 | 10 % | 0.171 |
+| Blocks | d2 q64 | 0.55 | 0.76 | 0.13 | 0.33 | 1.85 | 33 % | 0.093 |
+| Blocks | d5 q4 | 1.00 | 0.99 | 0.00 | 0.01 | 1.01 | 1 % | 0.116 |
+| Blocks | d5 q16 | 0.80 | 0.86 | 0.17 | 0.03 | 1.25 | 49 % | 0.098 |
+| Blocks | d5 q64 | **0.25** | **0.35** | **0.70** | 0.06 | **4.03** | 82 % | 0.043 |
+| RoundRobin_CMAES | d2 q16 / q64 | 0.44 / 0.11 | 0.45 / 0.11 | 0.52 / 0.84 | 0.04 / 0.05 | 2.29 / 9.16 | 85 % | 0.108 / 0.061 |
+| RoundRobin_CMAES | d5 q16 / q64 | 0.58 / 0.15 | 0.59 / 0.15 | 0.39 / 0.82 | 0.03 / 0.03 | 1.72 / 6.87 | 89 % | 0.050 / 0.031 |
+
+* **The hypothesis holds.**  At d5/q64, Blocks keeps a quarter of its
+  workers busy and never fills all 64 in any run.  70 % of worker-time is
+  idle while budget is left.  The run takes 4.0× the ideal time, so only
+  about a third of its evaluations complete inside the scored horizon.
+  That is the 0.43 ratio of §62.5.
+* **Source: the arms run out of points.**  The strategy is asked for the
+  free workers (`request_cap`).  The safety net `admit` trimmed nothing in
+  all 450 runs, and nothing is lost to dedup or rejection.  At 82 % of the
+  decision points the owning arm simply has nothing queued:
+  * CMA-ES emits λ = 8 (d = 5) and emits the next generation only when
+    λ/2 results are in, so at most about 1.5 λ = 12 points are in flight;
+  * jSO has one trial per population slot (NP_init "auto" = 10 at d5/500);
+  * blocks are 10 evaluations at d = 5 (4 at d = 2), with a hard cap of 2×
+    that.
+  While CMA-ES owns a block, 16.8 of the 64 workers are busy on average;
+  while jSO does, 16.4 (the old owner's calls still in flight included).
+* **d2/q64 is mostly the structural tail**: 200 evaluations on 64 workers
+  is about 3 rounds, and 33 % of worker-time is the log-normal tail after
+  the last dispatch.  qLogEI has the same tail.
+* `RoundRobin_CMAES` is worse still: 11–15 % busy at q = 64, about 7–12
+  workers used whatever q is (1.2–1.5 λ).  At d = 2 its AOCC is identical
+  at q16 and q64, since the run is the same sequence stretched in time.  In
+  Blocks jSO's population and the fast block switches add some workers.
+
+### 63.2 Candidate fixes (prototypes, same cells)
+
+Δ `aocc_time` against master (paired, 5 seeds; the q = 4 cells are
+unchanged by every variant except λ ≥ 2q):
+
+| variant | d2 q16 | d2 q64 | d5 q16 | d5 q64 |
+|---|---|---|---|---|
+| CMA λ ≥ q, warm-start fit at the λ ≥ q size | −0.010 [−0.021, +0.001] 0/5 | −0.002 | −0.001 | +0.007 [+0.004, +0.009] 5/5 |
+| **CMA λ ≥ q, warm-start fit at the serial size (shipped, before the budget cap of §63.3)** | **−0.012 [−0.024, −0.000] 1/5** | +0.006 [−0.008, +0.019] 2/5 | +0.005 [−0.002, +0.011] 5/5 | **+0.016 [+0.012, +0.021] 5/5** |
+| CMA λ ≥ q/2 | −0.011 [−0.021, −0.001] 1/5 | +0.001 | 0 (λ = 8 already) | +0.010 [+0.006, +0.015] 5/5 |
+| CMA λ ≥ 2q | −0.015 (and d2 q4 −0.015) | −0.002 | −0.012 | +0.006 |
+| CMA λ ≥ q + jSO NP_init ≥ q | −0.026 [−0.033, −0.019] 0/5 | +0.013 | −0.009 | +0.006 |
+| CMA λ ≥ q + fill idle workers from the non-owning arm | −0.010 | +0.016 | −0.004 | +0.010 |
+| fill from the non-owning arm only | −0.004 | −0.001 | −0.008 [−0.014, −0.003] 0/5 | +0.001 |
+
+A block length of at least q (or 2q) evaluations on top of λ ≥ q and
+NP ≥ q was as good or worse than without it (a smaller run, 3 seeds ×
+5 families, instance 0; d5/q64 0.042 against 0.047).
+
+* **Filling the workers is not free.**  More samples per generation means
+  fewer generations per evaluation.  Every variant loses AOCC over
+  evaluations: the shipped one −0.025 at d5/q64 (−0.027 uncapped), −0.018 at d2/q16.  It
+  pays on the time axis only where many workers were idle.
+* **The warm-start fit has to stay at the serial size.**  With λ = 64 the
+  hand-off fitted the mean to the archive's top 64 (μ = 32) instead of its
+  top 8.  That is a far less greedy hand-off.  Keeping the fit at the
+  serial λ is worth +0.007 [+0.004, +0.011] (d2/q64) and +0.010
+  [+0.006, +0.013] (d5/q64), both 5/5, against the same floor without it.
+* **Scaling jSO or filling from the other arm does not help.**  jSO's NP
+  and the paused arm's stale queue cost at q = 16 and add little at q = 64.
+  Longer blocks lose too.  None of them ships.
+
+### 63.3 The fix and its effect
+
+**This is an in-sample choice.**  The shipped variant was picked from
+seven prototypes (§63.2) on the same 450 runs it is evaluated on here, so
+the deltas below are optimistic.  The confirmatory test is the
+`measure.yml` re-run of the q ≥ 16 cells, on fresh runner runs against
+the externals.
+
+`CMAES(popsize_min_workers="auto")` is the new default:
+
+* **What it does.**  It raises the default base λ to the parallel worker
+  count, `strategy._n_evaluators()`, **on the virtual clock only**.
+* **Where the rule comes from.**  It is the rule the pycma baseline
+  adapter already uses (`popsize0 = max(4 + 3 ln n, q)` in
+  `harness_baselines`).
+* **Budget cap.**  The raised λ is capped at `max(λ_default,
+  max_eval // 10)`, so a run keeps at least 10 generations
+  (`CMAES.MIN_GENERATIONS`).  This is a convention, not tuned: 10 is the
+  shortest window the module's own stagnation tests assume.
+* **IPOP/BIPOP and explicit `popsize`.**  IPOP and BIPOP grow λ from the
+  raised base.  An explicit `popsize` is never raised.
+* **Real pools are off by default (`"auto"`).**  With a cheap objective on
+  many threads, or a dask cluster of hundreds of workers, λ = q spends
+  sample efficiency and buys no time.  It also stretches the stagnation
+  window (`10·λ`) and makes BIPOP's small regime no longer small.  Only
+  the virtual clock was measured here.  `True` forces the floor on any
+  backend, `False` gives the pre-§63 behaviour, and a raised λ is logged
+  at INFO with the reason.
+* **Warm start.**  It fits `k = max(λ_serial, 4 + 3 ln n)` seeds with
+  μ = λ_serial/2, where λ_serial is λ without the floor.
+* **Where the floor does not bind** (q ≤ the default λ: 6 / 8 / 10 at
+  d 2 / 5 / 10, so q = 1 and q = 4 everywhere, and every real backend
+  under `"auto"`), runs are bit-identical to master.  Two tests pin that,
+  one of them with Blocks' archive warm starts at the boundary d = 5,
+  q = 8.  With the floor off, the probe reproduces master exactly on all
+  450 runs.
+
+Before → after (the shipped, capped version), the same 75 runs per cell.
+The cap binds only at q = 64 at d ≤ 5 (λ 64 → 20 at d = 2 and → 50 at
+d = 5):
+
+| spec | cell | busy@H | mk/ideal | aocc_time | Δ aocc_time [CI95] wins | Δ AOCC |
+|---|---|---|---|---|---|---|
+| Blocks | d2 q16 | 0.97 → 0.98 | 1.12 → 1.10 | 0.171 → 0.159 | **−0.012 [−0.024, −0.000] 1/5** | **−0.018 [−0.032, −0.005] 0/5** |
+| Blocks | d2 q64 | 0.76 → 0.78 | 1.85 → 1.83 | 0.093 → 0.099 | +0.007 [−0.004, +0.017] 4/5 | +0.001 |
+| Blocks | d5 q16 | 0.86 → 0.92 | 1.25 → 1.15 | 0.098 → 0.103 | +0.005 [−0.002, +0.011] 5/5 | −0.002 |
+| Blocks | d5 q64 | **0.35 → 0.86** | **4.03 → 1.51** | **0.043 → 0.061** | **+0.018 [+0.015, +0.020] 5/5** | −0.025 [−0.036, −0.014] 0/5 |
+| RoundRobin_CMAES | d2 q16 | 0.45 → 0.92 | 2.29 → 1.18 | 0.108 → 0.137 | +0.029 [+0.021, +0.038] 5/5 | +0.002 |
+| RoundRobin_CMAES | d2 q64 | 0.11 → 0.34 | 9.16 → 3.27 | 0.061 → 0.081 | +0.020 [+0.013, +0.027] 5/5 | −0.012 |
+| RoundRobin_CMAES | d5 q16 | 0.59 → 0.92 | 1.72 → 1.13 | 0.050 → 0.064 | +0.014 [+0.007, +0.022] 5/5 | +0.002 |
+| RoundRobin_CMAES | d5 q64 | 0.15 → 0.82 | 6.87 → 1.46 | 0.031 → 0.044 | +0.013 [+0.012, +0.015] 5/5 | −0.016 |
+
+**Effect of the budget cap** (capped against the uncapped λ = q; the
+cells where it does not bind are identical):
+
+* Blocks: d2/q64 +0.001, d5/q64 +0.002 (both n.s.).  Utilisation does
+  not change there, because Blocks' block rule limits a CMA-ES block to
+  20 dispatches anyway.
+* `RoundRobin_CMAES` d2/q64 pays for it: +0.041 → +0.020, busy@H 0.89 →
+  0.34.  λ = 20 cannot fill 64 workers, while 200 evaluations at λ = 64
+  are only about 3 generations.
+* The cap therefore trades time-axis speed for generations in the one
+  cell where it binds hard.  It is kept on review request (sample
+  efficiency on budgets too small for λ = q).  It is a candidate to
+  revisit with the `measure.yml` numbers.
+
+d = 10 side check (100·d, 5 seeds × 5 families, instance 0 only; the cap
+does not bind at 1000 evaluations):
+
+| spec | q16 Δ aocc_time | q64 Δ aocc_time |
+|---|---|---|
+| Blocks | +0.003 [−0.011, +0.017] 3/5 | +0.013 [+0.008, +0.017] 5/5 (busy@H 0.46 → 0.81) |
+| RoundRobin_CMAES | +0.004 [+0.001, +0.008] 5/5 | +0.004 [+0.002, +0.006] 5/5 |
+| RegimeGate_oracle (CMA-ES alone at d = 10) | −0.006 [−0.029, +0.017] 2/5 | +0.009 [+0.005, +0.013] 5/5 |
+
+Against §62's externals on the same cells (the externals' values from the
+runner run, the same seeds, instances and CRN durations; indicative, not
+paired):
+
+* d5/q64: Blocks 0.061 against qLogEI 0.062.  §62's −0.019 Holm loss
+  shrinks to about −0.001.
+* d2/q64: 0.099 against qLogEI's 0.113 (was −0.020, now about −0.014).
+* d5/q16: 0.103 against qLogEI's 0.072 (the §62 win grows).
+* d2/q16: 0.159 against qLogEI's 0.175.  It was −0.004, now about −0.016;
+  **this is the fix's cost.**
+
+### 63.4 Reading
+
+* **§62.5's idle-worker hypothesis is confirmed.**  At d5/q64 the
+  portfolio used 25 % of its workers, because its arms emit about 1.5 λ
+  or NP points and then wait.  With the floor it uses 86 % inside the
+  horizon.  Most of the d5/q64 gap to qLogEI (0.018 of 0.019, in-sample)
+  was scheduling.  At d2/q64 most of the gap is not, because the budget
+  is only 3 rounds.
+* **One cost remains: d2/q16 for Blocks.**  `aocc_time` falls by 0.012,
+  1/5 seeds, and its unadjusted CI [−0.024, −0.000] excludes 0.  AOCC over
+  evaluations falls by 0.018 [−0.032, −0.005], 0/5.  The reason:
+  * without the floor the portfolio already filled 97 % of the horizon,
+    with 6-point generations in 4-evaluation blocks that switch fast;
+  * so a bigger λ only changes the search: by the block rule CMA-ES
+    dispatches at most 8 of each 16-point generation before its block
+    closes;
+  * `RoundRobin_CMAES` gains +0.029 in the same cell.
+* **The flagship `RoundRobin_CMAES` gains at every q ≥ 16**
+  (+0.004…+0.029, 5/5 in all six cells, d 2/5/10).  Before the fix it
+  used 7–12 workers whatever q was.
+* AOCC over evaluations falls at q = 64 (−0.012…−0.033) and at Blocks
+  d2/q16 (−0.018): more points per generation means fewer generations per
+  evaluation.  At q > 1 the headline metric is `aocc_time`, the one that
+  improves (except at Blocks d2/q16).
+* **Not measured:**
+  * 20·d cells and the failure preset;
+  * the pycma/Optuna externals re-run;
+  * the 500·d batteries — they run at q = 1 or on real pools, where the
+    floor does not bind, so they are unchanged by construction;
+  * real threaded or dask async with many workers, where the floor is off
+    by default.  Whether it should be on there for expensive objectives
+    is an open question (TODO).
+* **Next:**
+  * Re-measure the q ≥ 16 cells of `measure.yml` with the floor (§62.8
+    step 2).  That is the confirmatory test.
+  * A Blocks-specific follow-up for d2/q16: size the block to at least
+    one generation of the owning arm, or keep the floor only where the
+    arms cannot fill the workers.  Both are open, not tried.
+* **These numbers depend on CMA-ES's half quorum (the §64 work).**
+  `_update_if_quorum` closes a generation after its first μ = λ/2
+  results, emits the next generation, and drops the other λ/2 results when
+  they arrive.  Those results are evaluated and charged but never ranked,
+  and active CMA's negative weights never get them.  Two things here rest
+  on that rule:
+  * **The idle-worker bound.**  "About 1.5 λ in flight" and the
+    before-fix utilisation (25 % at d5/q64) come from emitting the next
+    generation at λ/2.  With a full-λ quorum, CMA-ES alone would keep at
+    most λ points in flight and idle more.
+  * **The after-fix utilisation.**  With λ = q the half quorum pipelines
+    generations: the next q points are queued while the late half of the
+    last generation is still running.  A barrier on all λ results would
+    idle workers during each generation's log-normal tail.  So a quorum
+    change must be re-measured with this floor, not assumed to keep
+    busy@H at 0.86–0.92.
+  * **Not affected:** the λ ≥ q floor itself and the serial-size warm-start
+    fit.  They only set λ and the hand-off's k/μ, and do not touch
+    `_update_if_quorum`, so they compose with any quorum rule.
+  * The AOCC-over-evaluations loss at q = 64 (−0.02…−0.03) is partly
+    this effect: with λ = 64, 32 evaluated results per generation are
+    thrown away.  A quorum fix that ranks late results may win some of it
+    back.
+* §62.2's "unexplained" gap between CMA-ES alone inside Blocks (0.079)
+  and under RoundRobin (0.037) at d10/q16 may partly be this: RoundRobin
+  used 12 of 16 workers there (busy@H 0.73).  The block strategy also
+  warm-starts CMA-ES whenever its queue is empty at a block boundary.
+  That second part is a hypothesis, not measured.
+

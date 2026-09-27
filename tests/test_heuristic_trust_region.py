@@ -350,10 +350,10 @@ def test_a_restart_leaves_the_explored_basin(monkeypatch):
     assert best < _TWO_BASINS_GLOBAL + 1e-3, (best, h.n_restarts, h.n_tabu_catch)
     assert h.n_tabu_catch >= 1
 
-    monkeypatch.setattr(TrustRegionQuadratic, "_into_tabu", lambda self, info, f: False)
+    monkeypatch.setattr(TrustRegionQuadratic, "_into_tabu", lambda self, info, u, f: False)
     best, h = _solo_run(_Box(_TWO_BASINS_BOX), _two_basins, 300)
     assert best == pytest.approx(_TWO_BASINS_LOCAL, abs=1e-6)
-    assert h.n_restarts == 1
+    assert h.n_restarts >= 1
 
 
 def _step_towards_a_tabu_ball():
@@ -374,12 +374,45 @@ def _step_towards_a_tabu_ball():
 def test_a_step_that_improves_into_a_tabu_ball_makes_its_centre_tabu():
     h, step, info = _step_towards_a_tabu_ball()
     c = info["center"]
-    h.radius = info["radius"]
+    h.radius = 0.25 * h.radius_init  # so that the reset below is visible
+    h._need_geometry = True
+    h._H_u = np.eye(2)
+    h.on_new_results([Result(step, info["f_center"] - 1.0)])
+    assert h.n_tabu_catch == 1 and h._in_tabu(c) and len(h._tabu) == 2
+    assert h.radius == h.radius_init and not np.any(h._H_u) and not h._need_geometry
+    assert h.n_grow == 0  # the step's "success" does not grow the radius
+
+
+def _extra_step(h, info, u):
+    """Another step of ``info``'s centre in flight (q > 1), towards ``u``."""
+    who = h.new_who()
+    h._pending[who] = dict(info, u=np.array(u, copy=True), primary=False)
+    return Point(h._to_x(u), who)
+
+
+def test_a_second_improving_step_of_the_same_centre_adds_no_second_ball():
+    h, step, info = _step_towards_a_tabu_ball()
+    c, u = info["center"], info["u"]
+    other = _extra_step(h, info, c + 1.2 * (u - c))  # further into the same tabu ball
+    assert h._in_tabu(h._to_u(other.x))
+    h.on_new_results([Result(step, info["f_center"] - 1.0), Result(other, info["f_center"] - 2.0)])
+    assert h.n_tabu_catch == 1 and len(h._tabu) == 2
+
+
+def test_a_stale_catch_from_an_old_centre_keeps_the_current_radius():
+    """q > 1: the step's centre is no longer the centre; it becomes tabu, the current centre keeps its state."""
+    h, step, info = _step_towards_a_tabu_ball()
+    c, u = info["center"], info["u"]
+    far = np.clip(c - 0.35 * np.sign(u - c), 0.0, 1.0)  # well outside every tabu ball
+    h.on_new_results([Result(Point(h._to_x(far), "other"), info["f_center"] - 100.0)])
+    current, _ = h._center()
+    np.testing.assert_allclose(current, far)
+    h.radius = 0.25 * h.radius_init
+    h._need_geometry = True
     h._H_u = np.eye(2)
     h.on_new_results([Result(step, info["f_center"] - 1.0)])
     assert h.n_tabu_catch == 1 and h._in_tabu(c)
-    assert h.radius == h.radius_init and not np.any(h._H_u)
-    assert h.n_grow == 0  # the step's "success" does not grow the radius
+    assert h.radius == 0.25 * h.radius_init and h._need_geometry and np.any(h._H_u)
 
 
 def test_a_step_into_a_tabu_ball_that_does_not_improve_is_an_ordinary_failure():

@@ -79,13 +79,24 @@ extra).
           estimate raised;
       (b) ~~worker utilisation of Blocks at q = 64~~ done (§63): idle
           workers confirmed (25 % busy at d5/q64); the fix is CMA-ES's
-          λ ≥ q floor (`popsize_min_workers`, default on), +0.016
-          `aocc_time` there locally.  Re-measure the q ≥ 16 cells of the
-          grid with it.  Open cost: Blocks d2/100·d/q16 −0.012 (1/5):
+          λ ≥ q floor (`popsize_min_workers="auto"`: virtual clock only,
+          budget-capped at 10 generations), +0.018 `aocc_time` there
+          locally, chosen in-sample.  Re-measure the q ≥ 16 cells of the
+          grid with it (the confirmatory test; also decide whether the
+          budget cap, which halves RoundRobin_CMAES's gain at d2/q64,
+          stays).  Open cost: Blocks d2/100·d/q16 −0.012 (1/5):
           size a block to at least one generation of its owner, or apply
           the floor only where the arms cannot fill the workers — untried;
       (c) 12 seeds on the 100·d, q 4–16 band;
       (d) the `failure` preset.
+- [ ] **Open question: CMA-ES's worker floor on real backends.**
+      `popsize_min_workers="auto"` raises λ to the worker count on the
+      virtual clock only (§63).  On threaded / process / dask pools it is
+      off: with cheap objectives on many workers λ = q costs sample
+      efficiency, stretches the stagnation window and removes BIPOP's
+      small regime.  For expensive objectives on a real pool it should
+      help as on the clock — unmeasured.  Decide whether "auto" should
+      look at measured evaluation times, or leave it to `True`.
 - [ ] **Re-baseline suite for the expensive-track baselines** (BoTorch
       qLogEI, TuRBO-1, SMAC3, Py-BOBYQA; extra `baselines-bo`): the slot
       is marked in `SUITES` in `scripts/rebaseline.py`.  `measure.yml`

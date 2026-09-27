@@ -145,7 +145,7 @@ The heuristic works asynchronously inside the panobbgo event loop:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union, cast
 
 import numpy as np
 
@@ -182,19 +182,33 @@ class CMAES(Heuristic):
             On IPOP restarts the population is multiplied relative to the
             *current* λ; in BIPOP mode the large-regime population grows from
             this base value.
-        popsize_min_workers (bool): Raise the default base λ to the number
-            of parallel workers (``len(strategy.evaluators)``: the virtual
-            clock's ``q``, the thread or process count) when that is larger,
-            so one generation fills the workers.  Default ``True``.  It is
+        popsize_min_workers (bool | str): Raise the default base λ to the
+            number of parallel workers (``strategy._n_evaluators()``: the
+            virtual clock's ``q``, the thread / process / dask worker count)
+            when that is larger, so one generation fills the workers.  It is
             the rule the pycma baseline adapter uses
             (:mod:`panobbgo.harness_baselines`, ``popsize0 = max(4 + 3 ln n,
             q)``); IPOP/BIPOP grow λ from the raised base.  An explicit
-            ``popsize`` is never raised.  Without it a λ = 8 arm keeps at
-            most about 1.5·λ of 64 virtual workers busy (DISCOVERY §63).
-            The warm start's archive fit keeps the size it has without the
-            floor (see :meth:`_warm_start_seeds`): the floor is a throughput
-            decision and must not change how greedy the hand-off is.
-            ``False`` restores the pre-§63 behaviour.
+            ``popsize`` is never raised.  The raised λ is capped by the
+            budget so the run keeps at least :attr:`MIN_GENERATIONS`
+            generations (``λ ≤ max(λ_default, max_eval // 10)``).  Without
+            the floor a λ = 8 arm keeps at most about 1.5·λ of 64 virtual
+            workers busy (DISCOVERY §63).  The warm start's archive fit
+            keeps the size it has without the floor (see
+            :meth:`_warm_start_seeds`): the floor is a throughput decision
+            and must not change how greedy the hand-off is.
+
+            ``"auto"`` (default): the floor applies on the virtual clock
+            (``evaluation_method = "virtual"``, where evaluations are
+            expensive by construction) and not on real pools.  ``True``:
+            always.  ``False``: never, the pre-§63 behaviour.  **Real
+            backends are off by default on purpose:** with a cheap objective
+            on many threads or a large dask cluster, λ = q spends sample
+            efficiency (fewer generations per evaluation) and buys no time;
+            it also stretches the stagnation window (``10·λ``) and makes
+            BIPOP's small regime (λ ≥ base) no longer small.  Only the
+            virtual clock was measured (§63); set ``True`` for a real pool
+            with expensive evaluations.
         min_results_fraction (float): Fraction of λ that must arrive before
             a CMA-ES update is triggered.  Default 0.5 (= μ).
         ipop_factor (float): Population multiplication factor applied on each
@@ -442,7 +456,7 @@ class CMAES(Heuristic):
         strategy,
         sigma0: float = 0.3,
         popsize: Optional[int] = None,
-        popsize_min_workers: bool = True,
+        popsize_min_workers: Union[bool, str] = "auto",
         min_results_fraction: float = 0.5,
         ipop_factor: float = 2.0,
         restart_mode: str = "ipop",
@@ -482,7 +496,9 @@ class CMAES(Heuristic):
         self._who_prefix = f"{self.name}:"
         self._sigma0_frac = sigma0
         self._popsize_override = popsize
-        self._popsize_min_workers = bool(popsize_min_workers)
+        if popsize_min_workers not in (True, False, "auto"):
+            raise ValueError("popsize_min_workers must be True, False or 'auto', got %r" % (popsize_min_workers,))
+        self._popsize_min_workers: Union[bool, str] = popsize_min_workers
         self._min_results_fraction = min_results_fraction
         self._ipop_factor = float(ipop_factor)
         if restart_mode not in ("ipop", "bipop"):
@@ -788,8 +804,16 @@ class CMAES(Heuristic):
         # Population size, recombination weights and adaptation constants
         serial_lam = self._popsize_override or (4 + int(3 * np.log(max(n, 2))))
         lam = serial_lam
-        if self._popsize_min_workers and not self._popsize_override:
-            lam = max(lam, self._n_workers())
+        if not self._popsize_override and self._floor_applies():
+            q = self._n_workers()
+            budget = self.max_eval_or(0)
+            cap = max(serial_lam, budget // self.MIN_GENERATIONS) if budget > 0 else q
+            lam = max(serial_lam, min(q, cap))
+            if lam != serial_lam:
+                self.logger.info(
+                    "CMA-ES λ=%d (default %d): raised to fill %d workers (popsize_min_workers=%r, budget cap %s)"
+                    % (lam, serial_lam, q, self._popsize_min_workers, cap if budget > 0 else "none")
+                )
         self._set_population(lam)
         mu = self._mu
 
@@ -859,12 +883,25 @@ class CMAES(Heuristic):
     # Warm start from the shared archive
     # ------------------------------------------------------------------
 
+    #: The budget cap of the worker floor: a raised λ leaves the run at least
+    #: this many generations (``λ ≤ max_eval // MIN_GENERATIONS``).  A
+    #: convention, not tuned: below ~10 generations there is little room
+    #: for step-size and covariance adaptation to act, and 10 is the
+    #: shortest window this module's own stagnation tests use (``10·λ``
+    #: evaluations, ``10 + ⌈30n/λ⌉`` generations for ``tolfun``).  It binds
+    #: on the §63 cells only at q = 64 (d = 2: λ 64 → 20, d = 5: 64 → 50).
+    MIN_GENERATIONS: int = 10
+
+    def _floor_applies(self) -> bool:
+        """Does the worker floor apply to this run (``popsize_min_workers``)?"""
+        if self._popsize_min_workers == "auto":
+            return getattr(self.strategy.config, "evaluation_method", None) == "virtual"
+        return bool(self._popsize_min_workers)
+
     def _n_workers(self) -> int:
-        """Parallel workers of the owning strategy (``len(strategy.evaluators)``), at least 1."""
-        try:
-            return max(1, int(len(self.strategy.evaluators)))
-        except Exception:  # noqa: BLE001 — a strategy stub without evaluators: serial
-            return 1
+        """Parallel workers of the owning strategy (:meth:`StrategyBase._n_evaluators`), at least 1."""
+        n_evaluators = getattr(self.strategy, "_n_evaluators", None)
+        return max(1, int(cast(int, n_evaluators()))) if callable(n_evaluators) else 1
 
     def _serial_lam(self) -> int:
         """λ as it would be without the worker floor (``popsize_min_workers``).

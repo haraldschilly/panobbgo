@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2026 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -599,6 +599,13 @@ class StrategyBlockBandit(StrategyBase):
     #: IPOP restart); the L-SHADE family carries the LPSR-shrunk
     #: ``_NP_current`` alongside the constructor's ``NP_init``; PSO and the
     #: plain DE use ``NP``.
+    #:
+    #: ``_lam`` is the *raised* λ when CMA-ES's worker floor binds
+    #: (``popsize_min_workers``, DISCOVERY §63), so ``block_evals="auto"``
+    #: then means four generations of the size actually dispatched, not
+    #: of the serial λ (``CMAES._serial_lam``).  Deliberate: a block should
+    #: not cut a generation, whatever its size.  Not measured — the §63
+    #: specs use ``n_blocks``, not ``"auto"``.
     GENERATION_ATTRS: Tuple[str, ...] = ("_lam", "_NP_current", "NP_init", "NP")
 
     #: Fallback generation size when no arm reports one — the ~20-evaluation

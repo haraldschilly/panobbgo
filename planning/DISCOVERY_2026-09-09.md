@@ -3733,7 +3733,7 @@ unchanged by every variant except λ ≥ 2q):
 | variant | d2 q16 | d2 q64 | d5 q16 | d5 q64 |
 |---|---|---|---|---|
 | CMA λ ≥ q, warm-start fit at the λ ≥ q size | −0.010 [−0.021, +0.001] 0/5 | −0.002 | −0.001 | +0.007 [+0.004, +0.009] 5/5 |
-| **CMA λ ≥ q, warm-start fit at the serial size (shipped)** | **−0.012 [−0.024, −0.000] 1/5** | +0.006 [−0.008, +0.019] 2/5 | +0.005 [−0.002, +0.011] 5/5 | **+0.016 [+0.012, +0.021] 5/5** |
+| **CMA λ ≥ q, warm-start fit at the serial size (shipped, before the budget cap of §63.3)** | **−0.012 [−0.024, −0.000] 1/5** | +0.006 [−0.008, +0.019] 2/5 | +0.005 [−0.002, +0.011] 5/5 | **+0.016 [+0.012, +0.021] 5/5** |
 | CMA λ ≥ q/2 | −0.011 [−0.021, −0.001] 1/5 | +0.001 | 0 (λ = 8 already) | +0.010 [+0.006, +0.015] 5/5 |
 | CMA λ ≥ 2q | −0.015 (and d2 q4 −0.015) | −0.002 | −0.012 | +0.006 |
 | CMA λ ≥ q + jSO NP_init ≥ q | −0.026 [−0.033, −0.019] 0/5 | +0.013 | −0.009 | +0.006 |
@@ -3746,7 +3746,7 @@ NP ≥ q was as good or worse than without it (a smaller run, 3 seeds ×
 
 * **Filling the workers is not free.**  More samples per generation means
   fewer generations per evaluation.  Every variant loses AOCC over
-  evaluations: the shipped one −0.027 at d5/q64, −0.018 at d2/q16.  It
+  evaluations: the shipped one −0.025 at d5/q64 (−0.027 uncapped), −0.018 at d2/q16.  It
   pays on the time axis only where many workers were idle.
 * **The warm-start fit has to stay at the serial size.**  With λ = 64 the
   hand-off fitted the mean to the archive's top 64 (μ = 32) instead of its
@@ -3759,32 +3759,72 @@ NP ≥ q was as good or worse than without it (a smaller run, 3 seeds ×
 
 ### 63.3 The fix and its effect
 
-`CMAES(popsize_min_workers=True)`, the new default, raises the default
-base λ to the parallel worker count, `len(strategy.evaluators)`: the
-virtual clock's q, or the thread or process count.  It is the rule the
-pycma baseline adapter already uses (`popsize0 = max(4 + 3 ln n, q)` in
-`harness_baselines`).  IPOP and BIPOP grow λ from the raised base, and an
-explicit `popsize` is never raised.  The warm start fits
-`k = max(λ_serial, 4 + 3 ln n)` seeds with μ = λ_serial/2, where λ_serial
-is λ without the floor.  Where the floor does not bind (q ≤ the default λ:
-6 / 8 / 10 at d 2 / 5 / 10, so q = 1 and q = 4 everywhere, and the
-default 2 threads) runs are bit-identical to master, and a test pins that.
-`popsize_min_workers=False` reproduces master exactly on all 450 runs.
+**This is an in-sample choice.**  The shipped variant was picked from
+seven prototypes (§63.2) on the same 450 runs it is evaluated on here, so
+the deltas below are optimistic.  The confirmatory test is the
+`measure.yml` re-run of the q ≥ 16 cells, on fresh runner runs against
+the externals.
 
-Before → after, the same 75 runs per cell:
+`CMAES(popsize_min_workers="auto")` is the new default:
+
+* **What it does.**  It raises the default base λ to the parallel worker
+  count, `strategy._n_evaluators()`, **on the virtual clock only**.
+* **Where the rule comes from.**  It is the rule the pycma baseline
+  adapter already uses (`popsize0 = max(4 + 3 ln n, q)` in
+  `harness_baselines`).
+* **Budget cap.**  The raised λ is capped at `max(λ_default,
+  max_eval // 10)`, so a run keeps at least 10 generations
+  (`CMAES.MIN_GENERATIONS`).  This is a convention, not tuned: 10 is the
+  shortest window the module's own stagnation tests assume.
+* **IPOP/BIPOP and explicit `popsize`.**  IPOP and BIPOP grow λ from the
+  raised base.  An explicit `popsize` is never raised.
+* **Real pools are off by default (`"auto"`).**  With a cheap objective on
+  many threads, or a dask cluster of hundreds of workers, λ = q spends
+  sample efficiency and buys no time.  It also stretches the stagnation
+  window (`10·λ`) and makes BIPOP's small regime no longer small.  Only
+  the virtual clock was measured here.  `True` forces the floor on any
+  backend, `False` gives the pre-§63 behaviour, and a raised λ is logged
+  at INFO with the reason.
+* **Warm start.**  It fits `k = max(λ_serial, 4 + 3 ln n)` seeds with
+  μ = λ_serial/2, where λ_serial is λ without the floor.
+* **Where the floor does not bind** (q ≤ the default λ: 6 / 8 / 10 at
+  d 2 / 5 / 10, so q = 1 and q = 4 everywhere, and every real backend
+  under `"auto"`), runs are bit-identical to master.  Two tests pin that,
+  one of them with Blocks' archive warm starts at the boundary d = 5,
+  q = 8.  With the floor off, the probe reproduces master exactly on all
+  450 runs.
+
+Before → after (the shipped, capped version), the same 75 runs per cell.
+The cap binds only at q = 64 at d ≤ 5 (λ 64 → 20 at d = 2 and → 50 at
+d = 5):
 
 | spec | cell | busy@H | mk/ideal | aocc_time | Δ aocc_time [CI95] wins | Δ AOCC |
 |---|---|---|---|---|---|---|
-| Blocks | d2 q16 | 0.97 → 0.98 | 1.12 → 1.10 | 0.171 → 0.159 | −0.012 [−0.024, −0.000] 1/5 | −0.018 |
-| Blocks | d2 q64 | 0.76 → 0.78 | 1.85 → 1.83 | 0.093 → 0.098 | +0.006 [−0.008, +0.019] 2/5 | +0.001 |
+| Blocks | d2 q16 | 0.97 → 0.98 | 1.12 → 1.10 | 0.171 → 0.159 | **−0.012 [−0.024, −0.000] 1/5** | **−0.018 [−0.032, −0.005] 0/5** |
+| Blocks | d2 q64 | 0.76 → 0.78 | 1.85 → 1.83 | 0.093 → 0.099 | +0.007 [−0.004, +0.017] 4/5 | +0.001 |
 | Blocks | d5 q16 | 0.86 → 0.92 | 1.25 → 1.15 | 0.098 → 0.103 | +0.005 [−0.002, +0.011] 5/5 | −0.002 |
-| Blocks | d5 q64 | **0.35 → 0.86** | **4.03 → 1.51** | **0.043 → 0.059** | **+0.016 [+0.012, +0.021] 5/5** | −0.027 |
+| Blocks | d5 q64 | **0.35 → 0.86** | **4.03 → 1.51** | **0.043 → 0.061** | **+0.018 [+0.015, +0.020] 5/5** | −0.025 [−0.036, −0.014] 0/5 |
 | RoundRobin_CMAES | d2 q16 | 0.45 → 0.92 | 2.29 → 1.18 | 0.108 → 0.137 | +0.029 [+0.021, +0.038] 5/5 | +0.002 |
-| RoundRobin_CMAES | d2 q64 | 0.11 → 0.89 | 9.16 → 1.72 | 0.061 → 0.102 | +0.041 [+0.036, +0.046] 5/5 | −0.023 |
+| RoundRobin_CMAES | d2 q64 | 0.11 → 0.34 | 9.16 → 3.27 | 0.061 → 0.081 | +0.020 [+0.013, +0.027] 5/5 | −0.012 |
 | RoundRobin_CMAES | d5 q16 | 0.59 → 0.92 | 1.72 → 1.13 | 0.050 → 0.064 | +0.014 [+0.007, +0.022] 5/5 | +0.002 |
-| RoundRobin_CMAES | d5 q64 | 0.15 → 0.91 | 6.87 → 1.35 | 0.031 → 0.044 | +0.013 [+0.009, +0.016] 5/5 | −0.019 |
+| RoundRobin_CMAES | d5 q64 | 0.15 → 0.82 | 6.87 → 1.46 | 0.031 → 0.044 | +0.013 [+0.012, +0.015] 5/5 | −0.016 |
 
-d = 10 side check (100·d, 5 seeds × 5 families, instance 0 only):
+**Effect of the budget cap** (capped against the uncapped λ = q; the
+cells where it does not bind are identical):
+
+* Blocks: d2/q64 +0.001, d5/q64 +0.002 (both n.s.).  Utilisation does
+  not change there, because Blocks' block rule limits a CMA-ES block to
+  20 dispatches anyway.
+* `RoundRobin_CMAES` d2/q64 pays for it: +0.041 → +0.020, busy@H 0.89 →
+  0.34.  λ = 20 cannot fill 64 workers, while 200 evaluations at λ = 64
+  are only about 3 generations.
+* The cap therefore trades time-axis speed for generations in the one
+  cell where it binds hard.  It is kept on review request (sample
+  efficiency on budgets too small for λ = q).  It is a candidate to
+  revisit with the `measure.yml` numbers.
+
+d = 10 side check (100·d, 5 seeds × 5 families, instance 0 only; the cap
+does not bind at 1000 evaluations):
 
 | spec | q16 Δ aocc_time | q64 Δ aocc_time |
 |---|---|---|
@@ -3796,9 +3836,9 @@ Against §62's externals on the same cells (the externals' values from the
 runner run, the same seeds, instances and CRN durations; indicative, not
 paired):
 
-* d5/q64: Blocks 0.059 against qLogEI 0.062.  §62's −0.019 Holm loss
-  shrinks to about −0.003.
-* d2/q64: 0.098 against qLogEI's 0.113 (was −0.020, now about −0.015).
+* d5/q64: Blocks 0.061 against qLogEI 0.062.  §62's −0.019 Holm loss
+  shrinks to about −0.001.
+* d2/q64: 0.099 against qLogEI's 0.113 (was −0.020, now about −0.014).
 * d5/q16: 0.103 against qLogEI's 0.072 (the §62 win grows).
 * d2/q16: 0.159 against qLogEI's 0.175.  It was −0.004, now about −0.016;
   **this is the fix's cost.**
@@ -3808,29 +3848,39 @@ paired):
 * **§62.5's idle-worker hypothesis is confirmed.**  At d5/q64 the
   portfolio used 25 % of its workers, because its arms emit about 1.5 λ
   or NP points and then wait.  With the floor it uses 86 % inside the
-  horizon.  About 85 % of the d5/q64 gap to qLogEI was scheduling.  At
-  d2/q64 most of the gap is not, because the budget is only 3 rounds.
-* **One cost remains: d2/q16 for Blocks** (−0.012, CI touching 0, 1/5).
-  There the portfolio already filled 97 % of the horizon without the
-  floor, with 6-point generations in 4-evaluation blocks that switch
-  fast.  So a bigger λ only changes the search: by the block rule, CMA-ES
-  dispatches at most 8 of each 16-point generation before its block
-  closes.  `RoundRobin_CMAES` gains +0.029 in the same cell.
+  horizon.  Most of the d5/q64 gap to qLogEI (0.018 of 0.019, in-sample)
+  was scheduling.  At d2/q64 most of the gap is not, because the budget
+  is only 3 rounds.
+* **One cost remains: d2/q16 for Blocks.**  `aocc_time` falls by 0.012,
+  1/5 seeds, and its unadjusted CI [−0.024, −0.000] excludes 0.  AOCC over
+  evaluations falls by 0.018 [−0.032, −0.005], 0/5.  The reason:
+  * without the floor the portfolio already filled 97 % of the horizon,
+    with 6-point generations in 4-evaluation blocks that switch fast;
+  * so a bigger λ only changes the search: by the block rule CMA-ES
+    dispatches at most 8 of each 16-point generation before its block
+    closes;
+  * `RoundRobin_CMAES` gains +0.029 in the same cell.
 * **The flagship `RoundRobin_CMAES` gains at every q ≥ 16**
-  (+0.004…+0.041, 5/5 in all six cells, d 2/5/10).  Before the fix it
+  (+0.004…+0.029, 5/5 in all six cells, d 2/5/10).  Before the fix it
   used 7–12 workers whatever q was.
-* AOCC over evaluations falls at q = 64 (−0.02…−0.03): more points per
-  generation means fewer generations per evaluation.  q = 64 is scored on
-  time, so the headline metric is the one that improves.
-* **Not measured:** 20·d cells, the failure preset, pycma/Optuna
-  externals re-run, and the 500·d batteries.  Those run at q = 1 or with 2
-  threads, where the floor does not bind, so they are unchanged by
-  construction.  Also unmeasured is real (threaded/dask) async with many
-  workers, where the same floor applies.
-* **Next:** re-measure the q ≥ 16 cells of `measure.yml` with the floor
-  (§62.8 step 2).  A Blocks-specific follow-up for d2/q16: size the block
-  to at least one generation of the owning arm, or keep the floor only
-  where the arms cannot fill the workers.  Both are open, not tried.
+* AOCC over evaluations falls at q = 64 (−0.012…−0.033) and at Blocks
+  d2/q16 (−0.018): more points per generation means fewer generations per
+  evaluation.  At q > 1 the headline metric is `aocc_time`, the one that
+  improves (except at Blocks d2/q16).
+* **Not measured:**
+  * 20·d cells and the failure preset;
+  * the pycma/Optuna externals re-run;
+  * the 500·d batteries — they run at q = 1 or on real pools, where the
+    floor does not bind, so they are unchanged by construction;
+  * real threaded or dask async with many workers, where the floor is off
+    by default.  Whether it should be on there for expensive objectives
+    is an open question (TODO).
+* **Next:**
+  * Re-measure the q ≥ 16 cells of `measure.yml` with the floor (§62.8
+    step 2).  That is the confirmatory test.
+  * A Blocks-specific follow-up for d2/q16: size the block to at least
+    one generation of the owning arm, or keep the floor only where the
+    arms cannot fill the workers.  Both are open, not tried.
 * **These numbers depend on CMA-ES's half quorum (the §64 work).**
   `_update_if_quorum` closes a generation after its first μ = λ/2
   results, emits the next generation, and drops the other λ/2 results when

@@ -3831,6 +3831,29 @@ paired):
   (§62.8 step 2).  A Blocks-specific follow-up for d2/q16: size the block
   to at least one generation of the owning arm, or keep the floor only
   where the arms cannot fill the workers.  Both are open, not tried.
+* **These numbers depend on CMA-ES's half quorum (the §64 work).**
+  `_update_if_quorum` closes a generation after its first μ = λ/2
+  results, emits the next generation, and drops the other λ/2 results when
+  they arrive.  Those results are evaluated and charged but never ranked,
+  and active CMA's negative weights never get them.  Two things here rest
+  on that rule:
+  * **The idle-worker bound.**  "About 1.5 λ in flight" and the
+    before-fix utilisation (25 % at d5/q64) come from emitting the next
+    generation at λ/2.  With a full-λ quorum, CMA-ES alone would keep at
+    most λ points in flight and idle more.
+  * **The after-fix utilisation.**  With λ = q the half quorum pipelines
+    generations: the next q points are queued while the late half of the
+    last generation is still running.  A barrier on all λ results would
+    idle workers during each generation's log-normal tail.  So a quorum
+    change must be re-measured with this floor, not assumed to keep
+    busy@H at 0.86–0.92.
+  * **Not affected:** the λ ≥ q floor itself and the serial-size warm-start
+    fit.  They only set λ and the hand-off's k/μ, and do not touch
+    `_update_if_quorum`, so they compose with any quorum rule.
+  * The AOCC-over-evaluations loss at q = 64 (−0.02…−0.03) is partly
+    this effect: with λ = 64, 32 evaluated results per generation are
+    thrown away.  A quorum fix that ranks late results may win some of it
+    back.
 * §62.2's "unexplained" gap between CMA-ES alone inside Blocks (0.079)
   and under RoundRobin (0.037) at d10/q16 may partly be this: RoundRobin
   used 12 of 16 workers there (busy@H 0.73).  The block strategy also

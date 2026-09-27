@@ -4420,7 +4420,9 @@ unless marked):
 * **For the roadmap claim:**
   * At 100·d and q ≥ 4, over 9 cells: the unadjusted CI is above 0 in 4
     (d5/q4, d5/q16, d10/q16, d10/q64), spans 0 in 3, and is below 0 in
-    2 (d2/q16, d2/q64).  No cell is a Holm loss.
+    2 (d2/q16, d2/q64).  No cell is a Holm loss.  (Out of sample,
+    §67: over these 9 cells as their own Holm family, 4 wins, 2 losses
+    (d2/q64, d10/q4), 3 unresolved.)
   * At q = 1 (a sequential model or local method wins) and at 20·d
     (qLogEI wins at every q > 1, and NGOpt/TuRBO1 at q = 1) nothing
     changed.  Those 7 Holm losses are search, not scheduling, and the
@@ -4713,7 +4715,7 @@ COBYQA with a random start or restarts; any TR constant other than on
 seeds 101–103; the COBYQA and NelderMead rows were not re-run (they do not
 use the TR arm).
 
-## 67. Out-of-sample confirmation on 12 fresh seeds (100·d, q 4/16/64): 4 Holm wins, 2 losses, 3 unresolved — §65's resolved verdicts all replicate, d10/q4 becomes a loss, "no Holm loss at 100·d, q > 1" does not hold (2026-09-27)
+## 67. Out-of-sample confirmation on 12 fresh seeds (100·d, q 4/16/64): 4 Holm wins, 2 losses, 3 unresolved — §65's resolved verdicts all replicate, d10/q4 becomes a loss, "no Holm loss at 100·d, q > 1" does not hold out of sample (2026-09-27)
 
 **Run.**  `measure.yml` run 36315576900, pre-declared in §65.6 (c):
 fresh base seeds 1001–1012, the free preset (5 families × 3 instances),
@@ -4723,9 +4725,26 @@ family) in 207 shards.  All succeeded: none missing, none failed.  The
 cost was 137.8 runner-hours, 129 of them qLogEI, and 9 h 15 min wall.
 Every unit carries `git_sha` 58cf1e7, **the commit §65 measured**, and
 every shard has `fp_env_id` 80ee2a0090c4.  So this is a replication of
-§65's code on new seeds, not a test of later master.  Since 58cf1e7,
-master changed only opt-in paths (the TRQ arm, `preload_results`,
-selector data, a CMA-ES docstring).  That has not been checked by a run.
+§65's code on new seeds, not a test of later master.  **The baselines
+ran at 58cf1e7 here too**; in §65 the qLogEI/TuRBO1 units came from §62's
+run at 1778e1b (combined there because `harness_baselines_bo.py` did not
+change).  Since 58cf1e7 master changed (58cf1e7..c05b4bb, not checked by
+a run):
+* `TrustRegionQuadratic` (`heuristics/trust_region.py`, new, opt-in) and
+  its specs `make_trust_region_strategies` in `harness_ioh.py`, plus the
+  opt-in `trq` group in `measure.py`/`measure.yml` (§66, #383/#384);
+* `COBYQA`: an opt-in `warm_start="archive"` (default `None`, unchanged)
+  and start-radius docs (§69);
+* the wide preset: `make_wide_battery` / `WIDE_FAMILIES` in
+  `harness_families.py`, new bases and placement knobs in
+  `lib/families.py` (opt-in, §68); the free preset's families untouched;
+* `StrategyBase.preload_results` in `core.py` (a run without a preload
+  is unchanged), `features.py` and `selector_data.py` (new, §70);
+* `measure.py`: the ex-ellipsoid table (#384), the `wide` preset and the
+  `trq` group — aggregation and reporting, not the runs;
+* `cma_es.py`: a docstring only.
+None of it is on the code path of the specs measured here, by reading
+the diff; no bit-identity check was run.
 
 **Pre-declared test.**  One Holm family: the 9 headline cells,
 `Blocks_warm_CMAES_JSO` − pool best on `aocc_time`.  Everything else
@@ -4780,8 +4799,8 @@ The "§65, 5 seeds" column is §65's numbers on the same cells (seeds
 ### 67.2 What replicates and what does not
 
 * **Every in-sample verdict that was resolved replicates**, with the same
-  sign and a similar size.  The four wins are within ±0.001 of §65, and
-  so is the d2/q64 loss (−0.013 → −0.015).
+  sign and a similar size.  The four wins are within ±0.001 of §65; the
+  d2/q64 loss moved by 0.002 (−0.013 → −0.015).
   * d5/q4 was §65.2's near miss: p_holm 0.060 over 21 cells, 5/5.  It is
     now 11/12, p_holm 0.001.
   * d10/q16 was the edge win at 0.049.  It is now 12/12, p_holm < 0.001.
@@ -4793,9 +4812,11 @@ The "§65, 5 seeds" column is §65's numbers on the same cells (seeds
 * **d10/q4 is a new Holm loss.**  In §65 it was −0.002 [−0.012, +0.009]
   2/5, with p 0.64.  With 12 seeds it is −0.008, 1/12.  This is not a
   reversal: the 5-seed CI contained −0.008.  §65 was underpowered here.
-* **d2/q16: −0.016 → −0.011, n.s.**  The cost of the floor that §63
-  measured in sample is about two-thirds as large on fresh seeds.  Its CI
-  now touches 0 (upper end +0.001).  It is not a Holm loss in either run.
+* **d2/q16: −0.016 → −0.011, n.s.**  This is the gap to qLogEI only;
+  the run has no pre-floor arm, so it does not measure §63's before →
+  after cost of the floor (−0.012 in sample).  The gap is about
+  two-thirds as large on fresh seeds; its CI now touches 0 (upper end
+  +0.001).  It is not a Holm loss in either run.
 * **d2/q4 flips sign**: −0.006 → +0.021 [−0.002, +0.043], 8/12.  Neither
   side is resolved.  Blocks leads the pool in its per-seed mean, but d = 2
   is the noisiest dimension (CI width 0.045 with 12 seeds).
@@ -4805,8 +4826,8 @@ The "§65, 5 seeds" column is §65's numbers on the same cells (seeds
   it comes from power.  Against §65.2's 21-cell verdicts, d5/q4 and
   d2/q64 also change.  That comes from the smaller family plus more
   seeds; their Δs barely moved.
-* **One §65 statement is falsified: "no Holm loss is left at 100·d with
-  q > 1"** (§65.2).  That was 0 Holm losses in the 9 cells, out of 21 over
+* **One §65 statement does not hold out of sample: "no Holm loss is
+  left at 100·d with q > 1"** (§65.2).  That was 0 Holm losses in the 9 cells, out of 21 over
   which Holm was taken.  On fresh seeds and a 9-cell family there are two
   such losses.  §65.6 read the same 9 cells as "CI above 0 in 4, spans 0
   in 3, below 0 in 2 (d2/q16, d2/q64)".  Out of sample it is 4 above,
@@ -4833,6 +4854,11 @@ confirmatory result.  It is a precision view only.
 | d10 q16 | +0.014 [+0.010, +0.017] 17/17 | <0.001 |
 | d10 q64 | +0.018 [+0.017, +0.018] 17/17 | <0.001 |
 
+The file's header comes from the aggregator and reads "Commit 1778e1b,
+58cf1e7; run local; 562 unit(s)": the union of the three source runs'
+commits, aggregated locally, 432 new + 130 old units (core 45, TuRBO1 45,
+qLogEI 40, split per family); no run id applies.
+
 Pooled, d2/q16 would count as a loss (4 / 3 / 2).  That rests on the
 in-sample seeds (0/5 there), so it is not claimed.  The confirmatory
 count is §67.1's 4 / 2 / 3.
@@ -4842,14 +4868,16 @@ count is §67.1's 4 / 2 / 3.
 Per family, Blocks − pool best (12 seeds; from `summary.md`), set
 against §65.3:
 
-* **d2/q16: the deficit is the ellipsoid family.**
+* **d2/q16: the deficit is mostly the ellipsoid family.**
   * Ellipsoid is −0.037 [−0.050, −0.023], 0/12 (§65: −0.051, 0/5).
   * The other four families are −0.014…+0.005, all n.s.  §65's
     sharp_ridge −0.018 [−0.024, −0.012] 0/5 does not replicate: it is now
     −0.014 [−0.038, +0.011].
-  * Without ellipsoid the cell is −0.004 [−0.016, +0.008], 5/12.
-  * §65.3 also located Blocks' own before → after change at d2/q16 on
-    ellipsoid (−0.028).  The floor's cost is a cost on the one exactly
+  * Without ellipsoid the cell is −0.004 [−0.016, +0.008], 5/12
+    (post-hoc view, descriptive).
+  * §65.3 located Blocks' own before → after change at d2/q16 (the
+    floor, in sample) on ellipsoid too (−0.028).  This run measures only
+    the gap to qLogEI, and that gap sits mostly on the one exactly
     quadratic family, where qLogEI's GP is strong.
 * **d2/q64: broad, not ellipsoid only.**
   * The CI is below 0 for ackley (−0.029, 0/12; §65 −0.034) and for
@@ -4857,14 +4885,18 @@ against §65.3:
     are −0.011…−0.004, all n.s.
   * Without ellipsoid it is −0.017 [−0.022, −0.011], 1/12.  The pool
     best there is Optuna TPE (0.135).
-  * It is a time-axis loss, not a search loss:
+  * Against qLogEI it is a time-axis loss, not a search loss:
     * Blocks' AOCC over evaluations beats qLogEI's, +0.012
-      [+0.005, +0.019] 12/12 (0.145 against 0.133; TuRBO1's is 0.159).
+      [+0.005, +0.019] 12/12 (0.145 against 0.133).
     * Its `aocc_time`/AOCC ratio is 0.67, against qLogEI's 0.85.
-    * With 200 evaluations at q = 64 the run is about 3 rounds.  §63.3
+    * This holds against qLogEI only.  On AOCC, TuRBO1 is ahead of
+      Blocks (0.159; −0.014 [−0.020, −0.008] 1/12), and the AOCC pool
+      best is Py-BOBYQA at 0.405 (sequential).
+    * The cause is inferred, not measured: with 200 evaluations at
+      q = 64 the run is about 3 rounds, and the loss is consistent with
+      the block rule limiting a CMA-ES block to 20 dispatches.  §63.3
       measured the floor's budget cap as immaterial for Blocks here
-      (+0.001), because the block rule already limits a CMA-ES block to
-      20 dispatches.
+      (+0.001).
 * **d2/q4: §65's family losses do not replicate.**
   * Rastrigin was −0.066 [−0.098, −0.035] 0/5.  It is now +0.022
     [−0.033, +0.076] 6/12.
@@ -4890,7 +4922,7 @@ against §65.3:
   place of d10/q4.  The worst family entry is
   −0.042 (d10/q4 ackley); in §65 it was −0.066 (d2/q4 rastrigin, which
   did not replicate).
-* **Without ellipsoid** (the #384 table), every cell keeps the sign of
+* **Without ellipsoid** (the #384 table, post-hoc), every cell keeps the sign of
   its headline Δ.  d2/q16 shrinks to −0.004, d2/q4 gets a CI above 0, and
   the d = 10 deltas grow by about 1/4 (the ellipsoid runs are about 0 for
   everyone).  This view was added after the run was declared, and it is
@@ -4927,11 +4959,13 @@ against §65.3:
 * At d = 10 it runs CMA-ES alone inside the block strategy.  RG − Blocks:
   * **q = 4: +0.014 [+0.010, +0.018] 12/12** (§65: +0.010 [+0.0004,
     +0.019] 5/5, marginal).  Against TuRBO1 it is +0.006 [+0.003,
-    +0.010] 10/12, so the gate's choice turns the d10/q4 Holm loss into a
-    lead.
+    +0.010] 10/12 (unadjusted): the gate's choice leads where Blocks has
+    a Holm loss.  `RoundRobin_CMAES` is the same there (0.093 against
+    0.093; +0.006, 11/12): at d10/q4 CMA-ES alone and the RR portfolio
+    are about equal, both ahead of Blocks.
     * Per family, CMA-ES alone recovers Blocks' two losing families:
       ackley +0.045 (11/12) and rastrigin +0.015 (12/12).
-    * Against TuRBO1 it reaches parity on both families: +0.002 and
+    * Against TuRBO1 it is level on both families: +0.002 and
       +0.001, n.s.
   * **q = 16: −0.002 [−0.005, +0.002] 4/12** (§65 −0.002).
   * **q = 64: −0.001 [−0.003, +0.001] 5/12** (§65 −0.002).  On AOCC it
@@ -4945,18 +4979,20 @@ against §65.3:
 **For §63/§64/§65's claims.**
 * **§63.3, "the floor closes d5/q64 to parity":** confirmed on fresh
   seeds.
-* **§63.3/§63.4, "the floor costs Blocks at d2/q16" (−0.016 against
-  qLogEI):** the direction holds (−0.011, 3/12), the size is about a
-  third smaller, and it is not significant.  The residual sits on
-  ellipsoid (§67.4).
+* **§63.3/§63.4, the d2/q16 gap to qLogEI (−0.016 in sample):** the
+  direction holds (−0.011, 3/12), the size is about a third smaller, and
+  it is not significant.  It sits mostly on ellipsoid (§67.4).  The
+  floor's own cost (before → after, −0.012 in §63.3) is not re-measured:
+  this run has no pre-floor arm.
 * **§63.3/§65.1, "the q = 64 wins at d = 10":** confirmed.  d10/q64 is
   +0.017, 12/12, and the aocc_time/AOCC ratios at q = 64 are
   0.67 / 0.80 / 0.85 (§65: 0.66 / 0.80 / 0.84).
 * **§64/§65.4, "at d10/q ≤ 4 CMA-ES alone beats the portfolio"**
   (q = 4 measured here): confirmed and sharper.  Where it holds, the
-  headline spec loses a Holm cell, and the regime gate would have won
-  it.
-* **§65.2's "no Holm loss at 100·d, q > 1":** falsified (d2/q64, d10/q4).
+  headline spec loses a Holm cell, and the regime gate (and
+  `RoundRobin_CMAES`) leads there, unadjusted.
+* **§65.2's "no Holm loss at 100·d, q > 1":** does not hold out of
+  sample (d2/q64, d10/q4).
   §65.6's roadmap summary for the 9 cells is replaced by the one below.
 * **Roadmap claim at 100·d, q ≥ 4 (confirmatory, free preset, these
   15 instances):**
@@ -4977,21 +5013,24 @@ against §65.3:
   record).**
   * This run, like §65, ran the capped code only.
   * The cap binds at d2/q64 and d5/q64.  d5/q64 is parity on fresh seeds.
-  * d2/q64 is a Holm loss, but its signature (AOCC ahead of qLogEI,
-    time axis behind, 3 rounds) is the block rule's 20-dispatch limit
-    and the round count.  It is not the cap: §63.3 measured uncapping as
+  * d2/q64 is a Holm loss.  Its signature against qLogEI (AOCC ahead,
+    time axis behind, 3 rounds) is consistent with the block rule's
+    20-dispatch limit and the round count; that cause is inferred, not
+    measured.  It is likely not the cap: §63.3 measured uncapping as
     +0.001 for Blocks there.
-  * If d2/q64 is to be attacked, the lever is the block rule at q ≫ λ.
-    Removing the cap is not the lever.
+  * If d2/q64 is to be attacked, the likely lever is the block rule at
+    q ≫ λ, not removing the cap.
 * **(b) Blocks d2/q16: close it without tuning.**
-  * On fresh seeds it is −0.011, n.s., and ex-ellipsoid −0.004.
-  * What is left is the quadratic family.  A model-based arm (§66) is
+  * On fresh seeds the gap to qLogEI is −0.011, n.s.; ex-ellipsoid it
+    is −0.004 (a post-hoc, descriptive view, not a test).
+  * What is left sits mostly on the quadratic family.  A model-based arm (§66) is
     the natural lever there, not block sizing.
   * The two §63.4 ideas (a block of at least one owner generation; the
     floor only where the arms cannot fill the workers) stay untried.
     Nothing here makes them a priority.
-* **New: d10/q4.**  This is a Holm loss that a known choice fixes: CMA-ES
-  alone (the regime-gate row) is +0.006 against TuRBO1 there.  It is
+* **New: d10/q4.**  This is a Holm loss where a known choice leads:
+  CMA-ES alone (the regime-gate row) is +0.006 against TuRBO1 there,
+  unadjusted (`RoundRobin_CMAES` the same).  It is
   evidence for the selector work (roadmap §4 A: probe → select), not for
   a new scheduling fix.
 * **(d) The `failure` preset** stays the next step.  Suggested design,
@@ -5035,14 +5074,15 @@ reference.  §65 (run 36313485264) stays the reference for q = 1 and
 * **Only 100·d, q ≥ 4.**  The q = 1 and 20·d cells, where §65's 7 Holm
   losses are, were not re-run.  Their evidence is still 5 in-sample
   seeds.
-* **Code: 58cf1e7, the commit §65 measured.**  Later master is not
-  measured by this run.  The changes since are opt-in or docstrings, but
-  no bit-identity check was done.
+* **Code: 58cf1e7, the commit §65 measured** (baselines included).
+  Later master is not measured by this run.  The changes since (listed
+  at the top) are opt-in, reporting or docstrings by reading the diff,
+  but no bit-identity check was done.
 
 ## 68. A wide family preset for the selector: 15 families across the axes that decide the algorithm, no free box-centre hit (2026-09-27)
 
-> **Numbering.**  §67 is left free for the 12-seed confirmation write-up
-> of §65/§66, which may claim it; this is §68.
+> **Numbering.**  §67 (written after this section) is the 12-seed
+> confirmation of §65; this is §68.
 
 **Question.**  Roadmap §4 A needs a problem set wide enough to learn a
 selector from, with features that transfer.  The expensive track's `free`
@@ -5367,7 +5407,7 @@ Means over the 15 families, all four cells:
 > non-tabu centre, and the space-filling geometry fallback, which leave a
 > small residual spread): each q = 1 cell is essentially 3 runs per family,
 > not 15, and CIs over its "seeds" are not reported.
-> Numbering: §67 stays reserved for the 12-seed write-up.
+> Numbering: §67 is the 12-seed confirmation of §65.
 >
 > **Erratum pointer for §66.3** (§66 itself is not edited): the same
 > near-invariance holds for RR_TRQ at q = 1 on the free preset, so §66.3's
@@ -5608,7 +5648,7 @@ start radius (the converse check); MA-BBOB.
 > **In sample, descriptive.**  Wide preset (§68), d 2/5, 100·d, q 1/4,
 > roster seeds 42/7/1234 — the seeds and battery §68/§69 looked at (RR_TRQ's
 > tabu fix of §69 was chosen on them).  No selector is trained; nothing here
-> is a claim about an arm.  Numbering: §67 stays reserved.
+> is a claim about an arm.  Numbering: §67 is the 12-seed confirmation.
 
 **Question.**  Roadmap §4 A (Harald, 2026-09-26): probe → select → unleash;
 xgboost; the label is the counterfactual normalised regret per arm; features

@@ -6,14 +6,14 @@ that exposed the problem), except the fresh-battery section.  Local,
 `scripts/measure.py run` (virtual clock, async, log-normal σ 0.5, CRN per
 cell).  Metric: AOCC at q = 1, `aocc_time` at q = 4; mean over seeds ×
 3 instances.  "before" = origin/master 8d4408f (`trust_region.py` loaded
-from that commit), "after" = this branch.  Δ is paired over seeds, t-CI95,
+from that commit), "after" = this branch (after review #386).  Δ is paired over seeds, t-CI95,
 unadjusted.
 
-**RoundRobin_TRQ at q = 1 is seed-invariant** (box-centre start, the only
+**RoundRobin_TRQ at q = 1 is nearly seed-invariant** (box-centre start, the only
 randomness is a restart point when the archive has no non-tabu point and
-the space-filling fallback): its 5 "seeds" at q = 1 are 3 distinct runs
+the space-filling fallback, a small residual spread): its 5 "seeds" at q = 1 are essentially 3 distinct runs
 per family.  CIs at q = 1 only carry that residual randomness and are not
-evidence of anything; the q = 1 rows are 3 instances per family.
+evidence of anything: RR_TRQ q = 1 CIs and wins are marked n/a, and the q = 1 rows are essentially 3 instances per family.
 
 Short names: RR_TRQ = RoundRobin_TRQ, Bl3_TRQ = Blocks_warm_CMAES_JSO_TRQ.
 
@@ -23,10 +23,10 @@ Wide preset, 100·d:
 
 | spec | cell | before | after | Δ [CI95 over seeds] | wins | Δ ex-ell | families moved (> 0.01) |
 |---|---|---|---|---|---|---|---|
-| RR_TRQ | d2 100·d q1 | 0.443 | 0.475 | +0.032 [+0.019, +0.046] | 5/5 | +0.035 | sharp_ridge 0.293→0.213; step_ellipsoid 0.698→0.557; rastrigin 0.091→0.253; ackley 0.524→0.571; styblinski_tang_sep 0.084→0.546; gallagher21 0.304→0.277; levy_embed 0.830→0.889 |
-| RR_TRQ | d2 100·d q4 | 0.396 | 0.410 | +0.015 [+0.004, +0.025] | 5/5 | +0.016 | step_ellipsoid 0.285→0.327; rastrigin 0.145→0.129; styblinski_tang_sep 0.593→0.711; gallagher21 0.275→0.301; levy_embed 0.704→0.749 |
-| RR_TRQ | d5 100·d q1 | 0.274 | 0.276 | +0.002 [+0.002, +0.002] | 5/5 | +0.002 | sharp_ridge 0.227→0.150; ackley 0.153→0.192; gallagher21 0.136→0.239; levy_embed 0.225→0.173 |
-| RR_TRQ | d5 100·d q4 | 0.241 | 0.243 | +0.003 [+0.001, +0.004] | 5/5 | +0.003 | styblinski_tang_sep 0.523→0.535; gallagher21 0.122→0.138 |
+| RR_TRQ | d2 100·d q1 | 0.443 | 0.475 | +0.032 (n/a) | n/a | +0.035 | sharp_ridge 0.293→0.214; step_ellipsoid 0.698→0.557; rastrigin 0.091→0.253; ackley 0.524→0.571; styblinski_tang_sep 0.084→0.546; gallagher21 0.304→0.277; levy_embed 0.830→0.889 |
+| RR_TRQ | d2 100·d q4 | 0.396 | 0.410 | +0.015 [+0.004, +0.025] | 5/5 | +0.016 | step_ellipsoid 0.285→0.327; rastrigin 0.145→0.129; styblinski_tang_sep 0.593→0.710; gallagher21 0.275→0.300; levy_embed 0.704→0.749 |
+| RR_TRQ | d5 100·d q1 | 0.274 | 0.276 | +0.002 (n/a) | n/a | +0.002 | sharp_ridge 0.227→0.150; ackley 0.153→0.192; gallagher21 0.136→0.239; levy_embed 0.225→0.173 |
+| RR_TRQ | d5 100·d q4 | 0.241 | 0.244 | +0.003 [+0.000, +0.006] | 5/5 | +0.003 | styblinski_tang_sep 0.523→0.546; gallagher21 0.122→0.133 |
 | Bl3_TRQ | d2 100·d q1 | 0.424 | 0.424 | +0.000 [-0.000, +0.001] | 2/3 | +0.000 | — |
 | Bl3_TRQ | d2 100·d q4 | 0.390 | 0.390 | +0.000 [-0.000, +0.000] | 2/2 | +0.000 | — |
 | Bl3_TRQ | d5 100·d q1 | 0.279 | 0.280 | +0.001 [-0.001, +0.002] | 4/5 | +0.001 | — |
@@ -36,17 +36,17 @@ Free preset (§66 cells):
 
 | spec | cell | before | after | Δ [CI95 over seeds] | wins | Δ ex-ell | families moved (> 0.01) |
 |---|---|---|---|---|---|---|---|
-| RR_TRQ | d2 20·d q1 | 0.303 | 0.303 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
+| RR_TRQ | d2 20·d q1 | 0.303 | 0.303 | +0.000 (n/a) | n/a | +0.000 | — |
 | RR_TRQ | d2 20·d q4 | 0.227 | 0.227 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
-| RR_TRQ | d2 100·d q1 | 0.529 | 0.545 | +0.016 [+0.016, +0.017] | 5/5 | +0.021 | rastrigin 0.091→0.253; sharp_ridge 0.285→0.206 |
+| RR_TRQ | d2 100·d q1 | 0.529 | 0.545 | +0.016 (n/a) | n/a | +0.021 | rastrigin 0.091→0.253; sharp_ridge 0.285→0.206 |
 | RR_TRQ | d2 100·d q4 | 0.453 | 0.451 | -0.003 [-0.012, +0.006] | 2/4 | -0.004 | rastrigin 0.145→0.129 |
-| RR_TRQ | d5 20·d q1 | 0.183 | 0.183 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
+| RR_TRQ | d5 20·d q1 | 0.183 | 0.183 | +0.000 (n/a) | n/a | +0.000 | — |
 | RR_TRQ | d5 20·d q4 | 0.138 | 0.138 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
-| RR_TRQ | d5 100·d q1 | 0.365 | 0.357 | -0.008 [-0.008, -0.008] | 0/5 | -0.010 | ackley 0.156→0.193; sharp_ridge 0.227→0.150 |
-| RR_TRQ | d5 100·d q4 | 0.331 | 0.329 | -0.001 [-0.004, +0.002] | 1/5 | -0.001 | — |
-| RR_TRQ | d10 20·d q1 | 0.035 | 0.035 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
+| RR_TRQ | d5 100·d q1 | 0.365 | 0.357 | -0.008 (n/a) | n/a | -0.010 | ackley 0.156→0.193; sharp_ridge 0.227→0.150 |
+| RR_TRQ | d5 100·d q4 | 0.331 | 0.329 | -0.001 [-0.005, +0.002] | 1/5 | -0.002 | — |
+| RR_TRQ | d10 20·d q1 | 0.035 | 0.035 | +0.000 (n/a) | n/a | +0.000 | — |
 | RR_TRQ | d10 20·d q4 | 0.031 | 0.031 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
-| RR_TRQ | d10 100·d q1 | 0.143 | 0.143 | +0.000 [+0.000, +0.000] | 5/5 | +0.000 | — |
+| RR_TRQ | d10 100·d q1 | 0.143 | 0.143 | +0.000 (n/a) | n/a | +0.000 | — |
 | RR_TRQ | d10 100·d q4 | 0.155 | 0.155 | +0.000 [-0.000, +0.000] | 1/1 | +0.000 | — |
 | Bl3_TRQ | d2 20·d q1 | 0.215 | 0.215 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
 | Bl3_TRQ | d2 20·d q4 | 0.134 | 0.134 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
@@ -61,16 +61,16 @@ Free preset (§66 cells):
 | Bl3_TRQ | d10 100·d q1 | 0.242 | 0.242 | +0.000 [-0.000, +0.000] | 1/4 | +0.000 | — |
 | Bl3_TRQ | d10 100·d q4 | 0.201 | 0.201 | +0.000 [+0.000, +0.000] | 0/0 | +0.000 | — |
 
-## Wide preset per family: RR_TRQ (before = oldW, after = newW)
+## Wide preset per family: RR_TRQ (before = oldW, after = new2W)
 
 ## wide 100*d d=2 q=1  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.963 | 0.963 |
 | different_powers | 0.538 | 0.538 |
 | bent_cigar | 0.495 | 0.495 |
 | rosenbrock | 0.620 | 0.620 |
-| sharp_ridge | 0.293 | 0.213 |
+| sharp_ridge | 0.293 | 0.214 |
 | attractive_sector | 0.342 | 0.342 |
 | step_ellipsoid | 0.698 | 0.557 |
 | rastrigin | 0.091 | 0.253 |
@@ -85,7 +85,7 @@ Free preset (§66 cells):
 | **mean ex-ellipsoid** | 0.406 | 0.441 |
 
 ## wide 100*d d=2 q=4  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.937 | 0.937 |
 | different_powers | 0.483 | 0.483 |
@@ -97,16 +97,16 @@ Free preset (§66 cells):
 | rastrigin | 0.145 | 0.129 |
 | ackley | 0.592 | 0.589 |
 | schwefel_sep | 0.000 | 0.006 |
-| styblinski_tang_sep | 0.593 | 0.711 |
+| styblinski_tang_sep | 0.593 | 0.710 |
 | lunacek_box | 0.124 | 0.124 |
-| gallagher21 | 0.275 | 0.301 |
+| gallagher21 | 0.275 | 0.300 |
 | levy_embed | 0.704 | 0.749 |
 | rosenbrock_edge | 0.495 | 0.495 |
 | **mean** | 0.396 | 0.410 |
 | **mean ex-ellipsoid** | 0.357 | 0.373 |
 
 ## wide 100*d d=5 q=1  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.910 | 0.910 |
 | different_powers | 0.509 | 0.509 |
@@ -127,7 +127,7 @@ Free preset (§66 cells):
 | **mean ex-ellipsoid** | 0.229 | 0.230 |
 
 ## wide 100*d d=5 q=4  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.851 | 0.851 |
 | different_powers | 0.431 | 0.431 |
@@ -135,22 +135,22 @@ Free preset (§66 cells):
 | rosenbrock | 0.274 | 0.274 |
 | sharp_ridge | 0.136 | 0.136 |
 | attractive_sector | 0.127 | 0.127 |
-| step_ellipsoid | 0.077 | 0.081 |
+| step_ellipsoid | 0.077 | 0.080 |
 | rastrigin | 0.067 | 0.069 |
 | ackley | 0.265 | 0.271 |
 | schwefel_sep | 0.000 | 0.000 |
-| styblinski_tang_sep | 0.523 | 0.535 |
+| styblinski_tang_sep | 0.523 | 0.546 |
 | lunacek_box | 0.058 | 0.058 |
-| gallagher21 | 0.122 | 0.138 |
+| gallagher21 | 0.122 | 0.133 |
 | levy_embed | 0.167 | 0.168 |
 | rosenbrock_edge | 0.388 | 0.388 |
-| **mean** | 0.241 | 0.243 |
+| **mean** | 0.241 | 0.244 |
 | **mean ex-ellipsoid** | 0.197 | 0.200 |
 
-## Wide preset per family: Bl3_TRQ (before = oldW, after = newW)
+## Wide preset per family: Bl3_TRQ (before = oldW, after = new2W)
 
 ## wide 100*d d=2 q=1  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.879 | 0.879 |
 | different_powers | 0.494 | 0.494 |
@@ -171,7 +171,7 @@ Free preset (§66 cells):
 | **mean ex-ellipsoid** | 0.391 | 0.392 |
 
 ## wide 100*d d=2 q=4  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.820 | 0.820 |
 | different_powers | 0.468 | 0.468 |
@@ -192,7 +192,7 @@ Free preset (§66 cells):
 | **mean ex-ellipsoid** | 0.360 | 0.360 |
 
 ## wide 100*d d=5 q=1  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.846 | 0.846 |
 | different_powers | 0.405 | 0.405 |
@@ -213,7 +213,7 @@ Free preset (§66 cells):
 | **mean ex-ellipsoid** | 0.239 | 0.239 |
 
 ## wide 100*d d=5 q=4  seeds=[3, 7, 42, 1234, 2025]
-| family | oldW | newW |
+| family | oldW | new2W |
 |---|---|---|
 | ellipsoid | 0.828 | 0.828 |
 | different_powers | 0.384 | 0.384 |
@@ -235,10 +235,10 @@ Free preset (§66 cells):
 
 ## Fresh battery (out of sample for the fix): wide, battery seed 20260927, RR_TRQ
 
-q = 1: seed 42 only (seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, newO = after.
+q = 1: seed 42 only (nearly seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, new2O = after.
 
 ## wide 100*d d=2 q=1  seeds=[42]
-| family | oldO | newO |
+| family | oldO | new2O |
 |---|---|---|
 | ellipsoid | 0.964 | 0.964 |
 | different_powers | 0.555 | 0.555 |
@@ -259,7 +259,7 @@ q = 1: seed 42 only (seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, ne
 | **mean ex-ellipsoid** | 0.417 | 0.458 |
 
 ## wide 100*d d=2 q=4  seeds=[7, 42, 1234]
-| family | oldO | newO |
+| family | oldO | new2O |
 |---|---|---|
 | ellipsoid | 0.928 | 0.928 |
 | different_powers | 0.485 | 0.485 |
@@ -267,7 +267,7 @@ q = 1: seed 42 only (seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, ne
 | rosenbrock | 0.580 | 0.580 |
 | sharp_ridge | 0.209 | 0.209 |
 | attractive_sector | 0.420 | 0.420 |
-| step_ellipsoid | 0.210 | 0.223 |
+| step_ellipsoid | 0.210 | 0.221 |
 | rastrigin | 0.275 | 0.232 |
 | ackley | 0.556 | 0.534 |
 | schwefel_sep | 0.000 | 0.000 |
@@ -280,7 +280,7 @@ q = 1: seed 42 only (seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, ne
 | **mean ex-ellipsoid** | 0.376 | 0.390 |
 
 ## wide 100*d d=5 q=1  seeds=[42]
-| family | oldO | newO |
+| family | oldO | new2O |
 |---|---|---|
 | ellipsoid | 0.868 | 0.868 |
 | different_powers | 0.469 | 0.469 |
@@ -301,13 +301,13 @@ q = 1: seed 42 only (seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, ne
 | **mean ex-ellipsoid** | 0.211 | 0.236 |
 
 ## wide 100*d d=5 q=4  seeds=[7, 42, 1234]
-| family | oldO | newO |
+| family | oldO | new2O |
 |---|---|---|
 | ellipsoid | 0.851 | 0.851 |
 | different_powers | 0.421 | 0.421 |
 | bent_cigar | 0.151 | 0.150 |
 | rosenbrock | 0.311 | 0.315 |
-| sharp_ridge | 0.140 | 0.138 |
+| sharp_ridge | 0.140 | 0.137 |
 | attractive_sector | 0.094 | 0.094 |
 | step_ellipsoid | 0.101 | 0.102 |
 | rastrigin | 0.060 | 0.061 |
@@ -315,16 +315,16 @@ q = 1: seed 42 only (seed-invariant); q = 4: seeds 42/7/1234.  oldO = before, ne
 | schwefel_sep | 0.000 | 0.000 |
 | styblinski_tang_sep | 0.406 | 0.635 |
 | lunacek_box | 0.067 | 0.067 |
-| gallagher21 | 0.122 | 0.125 |
+| gallagher21 | 0.122 | 0.126 |
 | levy_embed | 0.219 | 0.220 |
 | rosenbrock_edge | 0.261 | 0.261 |
 | **mean** | 0.226 | 0.242 |
 | **mean ex-ellipsoid** | 0.181 | 0.198 |
 
-## Diagnostic, not adopted: RR_TRQ with radius_init = 0.5 (after = newW/newF, r05 = the same with radius_init 0.5)
+## Diagnostic, not adopted: RR_TRQ with radius_init = 0.5 (base = newW/newF, the first version of the fix before review #386, which differs from the final one only at q > 1 and on one q = 1 run; r05 = the same with radius_init 0.5)
 
-q = 1: one seed (seed-invariant), q = 4: 5 seeds.  The seeds line lists the after-run's seeds.
-COBYQA's effective start radius is 0.5 of the box (§69.1).  In sample, a constant choice: a candidate only.
+q = 1: one seed (nearly seed-invariant), q = 4: 5 seeds.  The seeds line lists the after-run's seeds.
+COBYQA's first steps move min(0.05·max width, 0.5) of each axis — 0.5 on these ±5 boxes (§69.1).  In sample, a constant choice: a candidate only.
 
 ## wide 100*d d=2 q=1  seeds=[3, 7, 42, 1234, 2025]
 | family | newW | r05W |

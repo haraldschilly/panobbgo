@@ -5176,14 +5176,17 @@ tried: nothing in 69.1 points at them.
 
 ### 69.3 Before / after
 
-RoundRobin_TRQ, wide preset, 100·d (per family: tables file):
+RoundRobin_TRQ, wide preset, 100·d (per family: tables file; the final
+version after review #386 — at q = 1 it differs from the first version on
+one run, sharp_ridge d2/inst1, by +0.0004; the q = 4 rows moved by at most
+0.011 on a family).  q = 1 has no CI (nearly seed-invariant):
 
 | cell | before | after | Δ | ex-ellipsoid Δ | families that moved > 0.01 |
 |---|---|---|---|---|---|
-| d2 q1 | 0.443 | 0.475 | +0.032 (3 runs/family) | +0.035 | styblinski_tang_sep 0.084→0.546, rastrigin 0.091→0.253, levy_embed 0.830→0.889, ackley 0.524→0.571; **sharp_ridge 0.293→0.213, step_ellipsoid 0.698→0.557**, gallagher21 0.304→0.277 |
-| d2 q4 | 0.396 | 0.410 | +0.015 [+0.004, +0.025] 5/5 | +0.016 | styblinski_tang_sep 0.593→0.711, levy_embed 0.704→0.749, step_ellipsoid 0.285→0.327, gallagher21 0.275→0.301; rastrigin 0.145→0.129 |
-| d5 q1 | 0.274 | 0.276 | +0.002 | +0.002 | gallagher21 0.136→0.239, ackley 0.153→0.192; **sharp_ridge 0.227→0.150, levy_embed 0.225→0.173** |
-| d5 q4 | 0.241 | 0.243 | +0.003 [+0.001, +0.004] 5/5 | +0.003 | styblinski_tang_sep 0.523→0.535, gallagher21 0.122→0.138 |
+| d2 q1 | 0.443 | 0.475 | +0.032 (n/a) | +0.035 | styblinski_tang_sep 0.084→0.546, rastrigin 0.091→0.253, levy_embed 0.830→0.889, ackley 0.524→0.571; **step_ellipsoid 0.698→0.557, sharp_ridge 0.293→0.214**, gallagher21 0.304→0.277 |
+| d2 q4 | 0.396 | 0.410 | +0.015 [+0.004, +0.025] 5/5 | +0.016 | styblinski_tang_sep 0.593→0.710, levy_embed 0.704→0.749, step_ellipsoid 0.285→0.327, gallagher21 0.275→0.300; rastrigin 0.145→0.129 |
+| d5 q1 | 0.274 | 0.276 | +0.002 (n/a) | +0.002 | gallagher21 0.136→0.239, ackley 0.153→0.192; **sharp_ridge 0.227→0.150, levy_embed 0.225→0.173** |
+| d5 q4 | 0.241 | 0.244 | +0.003 [+0.000, +0.006] 5/5 | +0.003 | styblinski_tang_sep 0.523→0.546, gallagher21 0.122→0.133 |
 
 Blocks_warm_CMAES_JSO_TRQ, wide: within ±0.001 in every cell (the third
 arm rarely converges and restarts inside a portfolio).
@@ -5191,13 +5194,22 @@ arm rarely converges and restarts inside a portfolio).
 Free preset (§66's cells, d 2/5/10, 20·d and 100·d, q 1/4): **every
 20·d cell and every d = 10 cell is unchanged** for both specs (Δ 0.000;
 the arm does not restart there), Bl3_TRQ is unchanged everywhere.
-RR_TRQ: d2/100·d/q1 +0.016 (rastrigin 0.091→0.253, sharp_ridge
-0.285→0.206), d2/100·d/q4 −0.003 [−0.012, +0.006], **d5/100·d/q1 −0.008**
+RR_TRQ: d2/100·d/q1 +0.016 (n/a) (rastrigin 0.091→0.253, sharp_ridge
+0.285→0.206), d2/100·d/q4 −0.003 [−0.012, +0.006], **d5/100·d/q1 −0.008 (n/a)**
 (sharp_ridge 0.227→0.150, ackley 0.156→0.193), d5/100·d/q4 −0.001
-[−0.004, +0.002].  (The free and wide sharp_ridge instances are the same
+[−0.005, +0.002].  (The free and wide sharp_ridge instances are the same
 runs.)
 
-**sharp_ridge is the price.**  On the ridge the old arm converges
+**The costs.**  The largest is **step_ellipsoid at d2/q1: −0.141 in
+sample (0.698→0.557), −0.126 on the fresh battery (0.337→0.211)** — the
+plateaus make "a step that improves into a tabu ball" common, and the
+catch leaves regions the old loop kept refining; at q = 4 the same family
+gains (0.285→0.327, 0.210→0.221).  Then **sharp_ridge** (−0.079 at d2/q1,
+−0.077 at d5/q1, in sample) and **levy_embed at d5/q1 (−0.052,
+0.225→0.173)**, the family that motivated part of this work (its real lever
+is the start radius, 69.5).
+
+On sharp_ridge the old arm converges
 falsely (radius 1e-7 on the kink, 20.30 against f* 17.87 on d5/inst0),
 and its loop steps into that ball *did* make progress: one of them
 eventually landed outside the ball below the centre, the centre moved,
@@ -5206,7 +5218,8 @@ region after the first such step (0.145).  Lifting a ball when a step
 beats its converged value did not recover it (0.165), and treating the
 step as a failure instead of a catch is worse everywhere (table above).
 On the fresh battery (69.4) sharp_ridge moves −0.011 (d2) and −0.002
-(d5): in sample the loss is concentrated on these 3 instances.
+(d5): in sample the loss is concentrated on these 3 instances.  levy_embed
+d5/q1 on the fresh battery: +0.016 (0.425→0.441).
 
 ### 69.4 Out of sample: a fresh wide battery
 
@@ -5215,19 +5228,20 @@ q = 1 one seed, q = 4 seeds 42/7/1234:
 
 | cell | before | after | Δ |
 |---|---|---|---|
-| d2 q1 | 0.454 | 0.492 | +0.038 (styblinski_tang_sep 0.082→0.613, gallagher21 0.128→0.242; step_ellipsoid 0.337→0.211) |
+| d2 q1 | 0.454 | 0.492 | +0.038 (n/a; styblinski_tang_sep 0.082→0.613, gallagher21 0.128→0.242; step_ellipsoid 0.337→0.211) |
 | d2 q4 | 0.412 | 0.426 | +0.014 [+0.008, +0.020] 3/3 |
-| d5 q1 | 0.255 | 0.278 | +0.023 (styblinski_tang_sep 0.339→0.638) |
+| d5 q1 | 0.255 | 0.278 | +0.023 (n/a; styblinski_tang_sep 0.339→0.638) |
 | d5 q4 | 0.226 | 0.242 | +0.016 [−0.000, +0.031] 3/3 |
 
 The styblinski loop reproduces on fresh instances (0.082 at d2/q1 again)
 and the catch removes it.  step_ellipsoid d2/q1 loses on both batteries
-(0.698→0.557, 0.337→0.211) and wins at q = 4 (0.285→0.327, 0.210→0.223):
-the plateaus make "improving into a tabu ball" common, an open question.
+(−0.141, −0.126) and gains a little at q = 4 (0.285→0.327, 0.210→0.221):
+an open question.
 
 ### 69.5 The start radius (diagnostic, not adopted)
 
-RR_TRQ with `radius_init = 0.5` (the fix included) against the fix alone,
+RR_TRQ with `radius_init = 0.5` (the first version of the fix included)
+against that version alone,
 in sample: wide d2 q1 +0.026, d2 q4 +0.059 [+0.014, +0.103] 5/5, d5 q1
 +0.053, d5 q4 +0.049 [+0.022, +0.075] 5/5 — levy_embed 0.17→0.92 at
 d = 5, ackley 0.19→0.46 (d5 q1); losses on step_ellipsoid d2 q1
@@ -5249,7 +5263,10 @@ default: `TrustRegionQuadratic(radius_init=0.5)` needs no code change.
 * The fix is a small positive on the wide preset at d = 2 (+0.015…+0.032)
   and neutral at d = 5, confirmed on a fresh battery (+0.014…+0.038), no
   change on the free preset's 20·d and d = 10 cells and on the portfolio
-  spec, and a cost on sharp_ridge (−0.08 on the 3 in-sample instances).
+  spec.  Its costs, all at q = 1: step_ellipsoid d = 2 (−0.141 in sample,
+  −0.126 out of sample) is the largest, then sharp_ridge (−0.08 on the 3
+  in-sample instances, −0.01 out of sample) and levy_embed d = 5 (−0.052
+  in sample).
 * COBYQA's lead on levy_embed and ackley is consistent with its 5× larger
   start radius on these boxes (RR_TRQ with the same radius closes most of
   it); the converse check, COBYQA started at 0.1, was not run.

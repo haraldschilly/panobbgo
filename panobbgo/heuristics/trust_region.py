@@ -501,17 +501,31 @@ class TrustRegionQuadratic(Heuristic):
         md = np.min(np.max(np.abs(cand[:, None, :] - R[None, :, :]), axis=2), axis=1)
         return cand[int(np.argmax(md))]
 
-    def _step(self, c: np.ndarray, f_c: float, model: Tuple[np.ndarray, np.ndarray, float, int], radius: float):
-        """The model minimiser in the trust region of ``radius``: ``(u, info)`` or ``None`` (no descent)."""
+    def _step(
+        self,
+        c: np.ndarray,
+        f_c: float,
+        model: Tuple[np.ndarray, np.ndarray, float, int],
+        radius: float,
+        r_model: Optional[float] = None,
+    ):
+        """The model minimiser in the trust region of ``radius``: ``(u, info)`` or ``None`` (no descent).
+
+        ``r_model`` is the radius the model was fitted at (its units are
+        ``s = (u - c) / r_model``); default the current radius.  It differs
+        from the current radius only after a shrink inside :meth:`_propose`
+        (a poisoned step, ``failure_aware``).
+        """
         g, H, scale, n_fit = model
-        k = radius / self.radius  # the model lives in s = (u - c) / self.radius units
-        lo = np.maximum(-k, (0.0 - c) / self.radius)
-        hi = np.minimum(k, (1.0 - c) / self.radius)
+        rm = self.radius if r_model is None else float(r_model)
+        k = radius / rm  # the model lives in s = (u - c) / rm units
+        lo = np.maximum(-k, (0.0 - c) / rm)
+        hi = np.minimum(k, (1.0 - c) / rm)
         s = minimize_quadratic_in_box(g, H, lo, hi)
         pred = -float(g @ s + 0.5 * s @ H @ s) * scale
         if not pred > 1e-14 * max(1.0, abs(f_c)):
             return None
-        u = np.clip(c + s * self.radius, 0.0, 1.0)
+        u = np.clip(c + s * rm, 0.0, 1.0)
         at_boundary = bool(np.max(np.abs(s)) >= 0.9 * k)
         info = {
             "kind": "step",
@@ -552,10 +566,13 @@ class TrustRegionQuadratic(Heuristic):
         out: List[Tuple[np.ndarray, Dict[str, Any]]] = []
         extra: List[np.ndarray] = []
         radius = self.radius
+        # The model's units: a poisoned-step shrink below changes self.radius
+        # mid-proposal, the model stays in the units it was fitted in.
+        r_model = self.radius
         for _ in range(k):
             prop = None
             while model is not None and radius >= self.radius_min and prop is None:
-                step = self._step(c, f_c, model, radius)
+                step = self._step(c, f_c, model, radius, r_model)
                 radius *= 0.5
                 if step is None:
                     if not out:

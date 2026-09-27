@@ -5870,7 +5870,7 @@ the per-task luck a one-shot pick cannot see becomes observable.  The dataset re
 ~12 min locally with the command of 70.2; a larger one (> 1 MB) belongs in a
 GitHub release asset (`gh release upload <tag> labels.csv.gz`), not in git.
 
-## 71. Failure regions, roadmap §4 D step 1: TRQ loses 47 % of its budget to failures and the population arms 3–6 %; a shared failure model plus TRQ's own handling wins +0.038 AOCC on TRQ, the generic filter alone is neutral on the population arms and hurts TRQ at a boundary optimum (2026-09-27)
+## 71. Failure regions, roadmap §4 D step 1: TRQ loses 47 % of its budget to failures and the population arms 3–6 %; a shared failure model plus TRQ's own handling wins +0.037 AOCC on TRQ, the generic filter alone is neutral on the population arms and hurts TRQ at a boundary optimum (2026-09-27)
 
 > **In sample, descriptive.**  The `failure` preset (4 families × 3
 > instances), d 2/5, 100·d, q 1/4, roster seeds 42/7/1234/2025/3, virtual
@@ -5962,9 +5962,13 @@ points, α = 1 a success pseudo-count; `in_poison(x)` is `p ≥ 0.5`.
 * **Few failures:** one isolated failure never reaches 0.5 (except on the
   point itself: a repeat of a known failure has p = 1 — deterministic
   objectives); a zone needs several failures close together.
-* **Cheap:** distances to the failures first, to the successes only for a
-  query within reach of one; with no failure `p_fail` is zeros without any
-  work — a run without failures is bit-identical (71.4).
+* **Cheap:** distances to the failures first (the repeat rule reuses them),
+  to the successes only for a query within reach of one; growing buffers;
+  the guard is amortised (exact up to 50 failures, then every +10 %).  A
+  one-point query takes 0.03 ms (d = 2, n = 200) to 0.06 ms (d = 10,
+  n = 1000), 0.3 ms at n = 10 000; a guard evaluation 1–110 ms (laptop).
+  With no failure `p_fail` is zeros without any work — a run without
+  failures is bit-identical (71.5).
 * **Never the whole box:** disarmed while more than `max_share` = 0.5 of a
   fixed probe set would be marked (all-fail data, or an early cluster whose
   k-NN vote would cover the box).
@@ -5994,8 +5998,14 @@ half-space along one variable".
   distribution is unchanged — a rejected offspring is ranked like a real
   failure, for free (the alternatives in the task, resampling or treating
   it like a repaired point, would change the distribution or waste the
-  sample).  The model learns only from evaluated points.  Liveness: after
-  10 consecutive rejections of one heuristic its next candidate passes.
+  sample).  The model learns only from evaluated points.  The filter runs
+  before the pull/virtual admission and the budget clamp, so only survivors
+  compete for workers and budget.  Liveness: after 10 consecutive
+  rejections of one heuristic its next candidate passes; a heuristic
+  without a failure hook (`Random`, `NelderMead`), which refills only on
+  results, gets `on_new_results([])` for its rejected candidates (without
+  it 3 of 120 `Random+fm` q = 1 runs drained their queue and ended early);
+  each heuristic's handler is guarded separately in the relay.
   On the virtual clock a pass with rejections asks again at the same
   instant (`VirtualClock.step(retry=True)`), so a rejection costs no
   virtual time.  Budget: `max_eval` counts dispatched points only, as
@@ -6008,7 +6018,19 @@ half-space along one variable".
   its space-filling geometry; a failed unevaluated start centre is replaced
   by a random one (the stuck start); a model step in a poison zone shrinks
   the radius once per model state and the step at the smaller radius is
-  tried (the trust region contracts away from the zone).
+  tried (the trust region contracts away from the zone), in the units the
+  model was fitted in.
+
+**Erratum (review of #388).**  The first version of the poisoned-step
+shrink changed the radius in the middle of a proposal and read the model
+in the new units: the retried step was twice too long for its radius and
+carried the full-radius predicted reduction (a unit test reproduced pred
+0.640 against the model's 0.390).  Fixed (`_step(..., r_model)`), with a
+unit test on the retried step; the TRQ `+fm` / `+filter` / `+aware` cells
+and the `Random+fm` / `Random_NM+fm` cells (the relay's refill, above)
+were re-run on the fixed code and every number in 71.4 is from the re-run.
+The first run had TRQ+fm at +0.038 ± 0.013 (d5 q1 +0.081, ellipsoid d5 q1
++0.140); the others moved by at most 0.001.
 
 A first `failure_aware` TRQ that also treated every point within 0.3 radii
 (geometry) or 10⁻³ radii (steps) of a failure as taken lost 0.36 AOCC on
@@ -6025,10 +6047,10 @@ instances, mean ± 95 % t half-width over 5 seeds, seeds up in brackets.
 
 | arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all |
 |---|---|---|---|---|---|
-| RoundRobin_TRQ+fm | −0.509 ± 0.017 | −0.172 ± 0.047 | −0.648 ± 0.009 | −0.153 ± 0.051 | −0.370 ± 0.009 |
-| RoundRobin_TRQ+aware | −0.490 ± 0.039 | −0.160 ± 0.058 | −0.618 ± 0.010 | −0.137 ± 0.039 | −0.351 ± 0.015 |
+| RoundRobin_TRQ+fm | −0.495 ± 0.023 | −0.181 ± 0.045 | −0.649 ± 0.008 | −0.153 ± 0.048 | −0.370 ± 0.017 |
+| RoundRobin_TRQ+aware | −0.487 ± 0.038 | −0.161 ± 0.061 | −0.618 ± 0.010 | −0.137 ± 0.039 | −0.351 ± 0.016 |
 | RoundRobin_TRQ+filter | −0.009 ± 0.015 | −0.040 ± 0.026 | 0.000 | −0.032 ± 0.032 | −0.020 ± 0.011 |
-| RoundRobin_Random+fm | −0.078 ± 0.024 | −0.089 ± 0.014 | −0.030 ± 0.013 | −0.031 ± 0.020 | −0.057 ± 0.007 |
+| RoundRobin_Random+fm | −0.077 ± 0.025 | −0.089 ± 0.014 | −0.031 ± 0.014 | −0.031 ± 0.020 | −0.057 ± 0.008 |
 | RoundRobin_Random_NM+fm | −0.078 ± 0.024 | −0.081 ± 0.020 | −0.034 ± 0.032 | −0.029 ± 0.010 | −0.056 ± 0.005 |
 | RoundRobin_JSO+fm | −0.018 ± 0.011 | −0.025 ± 0.013 | −0.001 ± 0.002 | −0.001 ± 0.001 | −0.011 ± 0.005 |
 | RoundRobin_CMAES+fm | −0.005 ± 0.006 | −0.008 ± 0.007 | −0.001 ± 0.003 | −0.001 ± 0.003 | −0.004 ± 0.003 |
@@ -6039,8 +6061,8 @@ instances, mean ± 95 % t half-width over 5 seeds, seeds up in brackets.
 
 | arm | d2 q1 | d2 q4 | d5 q1 | d5 q4 | all |
 |---|---|---|---|---|---|
-| RoundRobin_TRQ+fm | +0.049 ± 0.009 (5/5) | +0.015 ± 0.023 (4/5) | +0.081 ± 0.026 (5/5) | +0.008 ± 0.039 (3/5) | **+0.038 ± 0.013 (5/5)** |
-| RoundRobin_TRQ+aware | +0.050 ± 0.009 (5/5) | +0.005 ± 0.013 (4/5) | +0.057 ± 0.011 (5/5) | +0.003 ± 0.015 (3/5) | +0.029 ± 0.005 (5/5) |
+| RoundRobin_TRQ+fm | +0.050 ± 0.009 (5/5) | +0.012 ± 0.021 (4/5) | +0.077 ± 0.021 (5/5) | +0.010 ± 0.013 (4/5) | **+0.037 ± 0.006 (5/5)** |
+| RoundRobin_TRQ+aware | +0.050 ± 0.009 (5/5) | +0.003 ± 0.013 (4/5) | +0.057 ± 0.011 (5/5) | +0.003 ± 0.015 (3/5) | +0.028 ± 0.005 (5/5) |
 | RoundRobin_TRQ+filter | **−0.070 (0/5)** | +0.002 ± 0.003 | 0.000 | +0.000 ± 0.009 | −0.017 ± 0.002 (0/5) |
 | RoundRobin_Random_NM+fm | +0.009 ± 0.016 | +0.004 ± 0.010 | +0.000 ± 0.004 | +0.002 ± 0.002 (5/5) | +0.004 ± 0.006 (4/5) |
 | RoundRobin_Random+fm | +0.005 ± 0.008 | +0.000 ± 0.005 | −0.000 ± 0.004 | +0.001 ± 0.002 | +0.001 ± 0.002 |
@@ -6051,20 +6073,20 @@ instances, mean ± 95 % t half-width over 5 seeds, seeds up in brackets.
 | Blocks_warm_CMAES_JSO+fm | +0.000 ± 0.006 | +0.004 ± 0.008 | +0.000 ± 0.001 | −0.001 ± 0.002 | +0.001 ± 0.003 |
 | RoundRobin_COBYQA+fm | 0 | 0 | 0 | 0 | 0 |
 
-Absolute AOCC (all cells): RoundRobin_TRQ 0.345 → +fm **0.383**; it was
+Absolute AOCC (all cells): RoundRobin_TRQ 0.345 → +fm **0.382**; it was
 already the best arm here (next: COBYQA 0.261, Py-BOBYQA 0.170 over
 evaluations) and the gap grows.
 
 Per family (TRQ): `+aware` and `+fm` fix the stuck starts — `sharp_ridge`
 d = 5 q = 1 from 0.000 to 0.142 (failed share −0.95), `rastrigin` d = 5
-q = 1 from 0.000 to 0.043 (−0.99), `ellipsoid` d = 5 q = 1 +0.140 (`+fm`,
-the filter adds +0.096 there over `+aware`).  **`+filter` alone costs
+q = 1 from 0.000 to 0.043 (−0.99), `ellipsoid` d = 5 q = 1 +0.124 (`+fm`,
+the filter adds +0.081 there over `+aware`'s +0.044).  **`+filter` alone costs
 TRQ −0.280 on `ellipsoid_fhs_crash` d = 2 q = 1** (the optimum on the
 boundary of the failing half-space; the q = 1 TRQ is seed-invariant, so
 0/5): without the arm handling, rejected steps near the boundary count as
 failed steps, the radius collapses, and rejected geometry points are
 re-proposed until the streak lets them through.  With the arm handling the
-filter's rejections are rare there and the cell is +0.053.
+filter's rejections are rare there and the cell is +0.056.
 
 Reading:
 
@@ -6072,8 +6094,8 @@ Reading:
    methods waste 3–7 %, and the filter's saving on them (0.4–1.1 points)
    buys nothing measurable (|ΔAOCC| ≤ 0.005, every CI across 0).  Random-
    like arms save 3–9 points of budget, also for no measurable AOCC.
-2. **The gain is TRQ's own handling** (+0.029 of the +0.038); the shared
-   model adds on top of it (+0.009 overall, +0.096 on ellipsoid d5 q1) but
+2. **The gain is TRQ's own handling** (+0.028 of the +0.037); the shared
+   model adds on top of it (+0.009 overall, +0.081 on ellipsoid d5 q1) but
    **hurts without it**.  So "a generic filter that helps every arm" is
    not what was measured: it is neutral on four arms and harmful on one
    whose failure handling is poor.

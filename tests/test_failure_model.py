@@ -178,12 +178,15 @@ def _spec(name, heur, fm_kwargs=None, heur_kwargs=None):
     )
 
 
-def _run(spec, problem, budget, q=4):
+def _run(spec, problem, budget, q=4, before_start=None):
     from panobbgo.virtual_clock import VirtualSpec
 
     strategy = spec.create_strategy(problem, seed=7, max_eval=budget)
     strategy.config.sync_evaluation = True
-    VirtualSpec(workers=q, duration="lognormal", sigma=0.5, policy="async").apply(strategy)
+    if q:
+        VirtualSpec(workers=q, duration="lognormal", sigma=0.5, policy="async").apply(strategy)
+    if before_start is not None:
+        before_start(strategy)
     strategy.start()
     return strategy
 
@@ -232,11 +235,26 @@ def test_rejected_points_reach_the_heuristic_as_failures():
     from panobbgo.lib.families import Family, FailureRegion
 
     p = Family("sphere", dim=2, seed=3, failure=FailureRegion("halfspace", share=0.45, mode="crash", boundary_gap=0.0))
-    s = _run(_spec("c", CMAES, {"filter": True}, {"failure_aware": True}), p, 200)
+    rejected = []
+
+    def spy(strategy):
+        orig = strategy._filter_poisoned
+
+        def wrapped(model, points):
+            kept, n = orig(model, points)
+            rejected.extend(p.who for p in points if p not in kept)
+            return kept, n
+
+        strategy._filter_poisoned = wrapped
+
+    s = _run(_spec("c", CMAES, {"filter": True}, {"failure_aware": True}), p, 200, before_start=spy)
     assert s._dispatched == 200
+    assert len(rejected) == s.n_predicted_failures > 0
     cma = s.heuristic("CMAES")
-    assert not cma._pending or len(cma._pending) <= 8  # only in-flight offspring at the end
-    assert getattr(s, "n_predicted_failures", 0) > 0
+    # every rejected offspring was answered (popped from the pending set) ...
+    assert not set(rejected) & set(cma._pending)
+    # ... and what is still pending at the end are the last generations' in-flight offspring
+    assert all(info["gen"] >= cma._gen - 2 for info in cma._pending.values())
 
 
 def test_timeouts_train_the_model_too():
@@ -362,6 +380,58 @@ class TRQFailureAwareTests(PanobbgoTestCase):
         h.produce(1)
         assert h.n_shrink == shrinks + 1  # not again without new data
 
+    def test_the_step_after_a_poisoned_shrink_is_in_the_models_units(self):
+        """After the shrink the retried step lies in the smaller region and its ``pred`` is the model's value there.
+
+        Review of #388: the shrink changed ``self.radius`` mid-proposal and the
+        retried step read the model (fitted in ``s = (u - c) / r0`` units) in
+        the new units -- a step twice too long for its radius, with the
+        full-radius ``pred``.
+        """
+        from panobbgo.heuristics import TrustRegionQuadratic
+
+        h = TrustRegionQuadratic(self.strategy, failure_aware=True)
+        x_opt = np.array([4.0, -3.0])  # far from the centre: the full step goes to the trust-region edge
+
+        def f(x):
+            return float(np.sum((np.asarray(x) - x_opt) ** 2 * np.array([3.0, 1.0])))
+
+        for _ in range(40):
+            pts = h.produce(1)
+            h.on_new_results([Result(p, f(p.x)) for p in pts])
+            if h.n_steps >= 2 and not h._need_geometry:
+                break
+        c, f_c = h._center()
+        r0 = h.radius
+        fitted = {}
+        fit = h._fit
+
+        def spy(*a):
+            out = fit(*a)
+            fitted["model"] = out[0]
+            return out
+
+        h._fit = spy
+
+        class Ring:
+            """Poison beyond 0.75 of the current radius (inf-norm, normalised) from the centre."""
+
+            def in_poison(self, x):
+                return float(np.max(np.abs(h._to_u(x) - c))) > 0.75 * r0
+
+        self.strategy.failure_model = Ring()
+        steps = h.n_steps
+        pts = h.produce(1)
+        assert h.radius == pytest.approx(0.5 * r0) and h.n_poison_skips >= 1
+        assert h.n_steps == steps + 1  # the retried step was proposed
+        info = h._pending[pts[0].who]
+        assert info["kind"] == "step" and info["primary"] and info["radius"] == h.radius
+        u = info["u"]
+        assert float(np.max(np.abs(u - c))) <= h.radius * (1 + 1e-9)  # inside the shrunk region
+        g, H, scale, _ = fitted["model"]
+        sv = (u - c) / r0  # the model's own units
+        assert info["pred"] == pytest.approx(-float(g @ sv + 0.5 * sv @ H @ sv) * scale, rel=1e-9)
+
 
 def test_virtual_clock_retry_does_not_advance():
     """A pass whose candidates were all rejected asks again at the same instant."""
@@ -383,3 +453,144 @@ def test_virtual_clock_retry_does_not_advance():
     assert clock.now == 0.0  # retry: still at the same instant
     clock.step([])
     assert clock.now > 0.0  # nothing proposed, nothing rejected: wait for the completion
+
+
+@pytest.mark.parametrize("heur_name", ["CMAES", "TrustRegionQuadratic"])
+def test_failure_aware_is_bit_identical_without_failures(heur_name):
+    """``failure_aware=True`` on a failure-free problem: the same run point for point as the default."""
+    from panobbgo import heuristics
+    from panobbgo.lib.families import Family
+
+    heur = getattr(heuristics, heur_name)
+    p = Family("rosenbrock", dim=3, seed=4)
+    a = _run(_spec("a", heur), p, 150)
+    b = _run(_spec("b", heur, heur_kwargs={"failure_aware": True}), p, 150)
+    assert len(a.results) == len(b.results) == 150
+    np.testing.assert_array_equal(_xs(a), _xs(b))
+
+
+def test_rejections_cost_no_virtual_time(monkeypatch):
+    """A pass with rejections and a free worker does not advance the virtual clock."""
+    from panobbgo.heuristics import CMAES
+    from panobbgo.lib.families import Family, FailureRegion
+    from panobbgo.virtual_clock import VirtualClock
+
+    p = Family("sphere", dim=2, seed=3, failure=FailureRegion("halfspace", share=0.45, mode="crash", boundary_gap=0.0))
+    seen = {"retry": 0, "advanced": 0}
+    orig = VirtualClock.step
+
+    def step(clock, points, retry=False):
+        t0, free = clock.now, clock.free - len(points)
+        room = clock.strategy._budget_room()
+        orig(clock, points, retry=retry)
+        if retry and free > 0 and (room is None or room > len(points)):
+            seen["retry"] += 1
+            seen["advanced"] += clock.now != t0
+
+    monkeypatch.setattr(VirtualClock, "step", step)
+    s = _run(_spec("r", CMAES, {"filter": True}, {"failure_aware": True}), p, 200)
+    assert s.n_predicted_failures > 0 and seen["retry"] > 0
+    assert seen["advanced"] == 0
+
+
+def test_a_pass_that_only_rejects_is_progress():
+    """A pass that dispatches nothing but rejects candidates must not end the run (``progressed``).
+
+    The model rejects every candidate of the first passes, and ``_alive``
+    answers ``False`` during them, so the liveness predicate cannot rescue
+    the loop: only counting rejections as progress keeps the run going.
+    """
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.heuristics import CMAES
+    from panobbgo.lib.families import Family
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class RejectFirst(FailureModel):
+        calls = 0
+
+        def reject(self, points):
+            RejectFirst.calls += 1
+            if RejectFirst.calls <= 3:
+                self.n_rejected += len(points)
+                return [True] * len(points)
+            return [False] * len(points)
+
+    def dead_while_rejecting(strategy):
+        alive = strategy._alive
+        strategy._alive = lambda: alive() if not 1 <= RejectFirst.calls <= 3 else False
+
+    spec = StrategySpec(
+        name="p",
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(CMAES, {})],  # re-emits on a failure: the run can go on
+        analyzers=[(RejectFirst, {"filter": True})],
+    )
+    s = _run(spec, Family("sphere", dim=2, seed=1), 40, q=0, before_start=dead_while_rejecting)
+    assert RejectFirst.calls > 3 and s.n_predicted_failures > 0
+    assert s._dispatched == 40
+
+
+@pytest.mark.parametrize("q", [0, 1, 4])
+def test_a_heuristic_without_a_failure_hook_is_not_starved(q):
+    """``Random`` refills only on results: rejections must not drain its queue and end the run early.
+
+    The model marks the whole box (the guard switched off); the streak rule
+    lets every 11th candidate through.  With a queue of two and no refill on
+    a rejection, the run would stop after the first two rejections.
+    """
+    from panobbgo.benchmark import StrategySpec
+    from panobbgo.heuristics import Random
+    from panobbgo.lib.families import Family
+    from panobbgo.strategies import StrategyRoundRobin
+
+    class Everywhere(FailureModel):
+        @property
+        def armed(self):
+            return True
+
+        def in_poison(self, x):
+            X = np.asarray(x, dtype=float)
+            return True if X.ndim == 1 else np.ones(X.shape[0], dtype=bool)
+
+    spec = StrategySpec(
+        name="s",
+        strategy_class=StrategyRoundRobin,
+        heuristics=[(Random, {"cap": 2})],
+        analyzers=[(Everywhere, {"filter": True, "max_rejects": 10})],
+    )
+    s = _run(spec, Family("sphere", dim=2, seed=1), 30, q=q)
+    assert s._dispatched == 30
+    fm = s.failure_model
+    assert fm.n_rejected == s.n_predicted_failures >= 10 * 29
+    assert fm.n_passed_streak == 30
+
+
+def test_relay_guards_each_heuristic():
+    """One heuristic's exception or StopHeuristic does not keep the others from their predicted failures."""
+    import logging
+    from types import SimpleNamespace
+
+    from panobbgo.core import StopHeuristic, _PredictedFailureRelay
+
+    got = []
+
+    class H:
+        def __init__(self, name, exc=None):
+            self.name, self.exc, self.calls = name, exc, 0
+
+        def on_failed_evaluations(self, points):
+            self.calls += 1
+            got.append((self.name, len(points)))
+            if self.exc is not None:
+                raise self.exc
+
+    stop, boom, ok = H("stop", StopHeuristic("done")), H("boom", RuntimeError("x")), H("ok")
+    nohook = SimpleNamespace(name="nohook")
+    relay = _PredictedFailureRelay(
+        SimpleNamespace(heuristics=[stop, boom, nohook, ok], logger=logging.getLogger("test"))
+    )
+    pts = [Point(np.zeros(2), "ok:1")]
+    relay.on_predicted_failures(pts)
+    relay.on_predicted_failures(pts)
+    assert ok.calls == 2 and boom.calls == 2  # an exception is logged, the heuristic keeps getting them
+    assert stop.calls == 1  # StopHeuristic ends the relay to that heuristic only

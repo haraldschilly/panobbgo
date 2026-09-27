@@ -190,11 +190,14 @@ DEAD_PARAM_ALLOWLIST: Dict[Tuple[str, str], str] = {
     # --- failure handling (DISCOVERY §71): inert without a failed evaluation ---
     ("CMAES", "failure_aware"): (
         "drops non-finite entries from the recombined parents; the probe's objective never fails, so "
-        "every entry is finite -- pinned in tests/test_failure_model.py::CMAESFailureAwareTests"
+        "every entry is finite -- pinned as an identity in "
+        "tests/test_failure_model.py::test_failure_aware_is_bit_identical_without_failures[CMAES], its effect "
+        "in ::CMAESFailureAwareTests"
     ),
     ("TrustRegionQuadratic", "failure_aware"): (
         "every branch needs a failed point or a FailureModel analyzer; the probe has neither -- pinned "
-        "in tests/test_failure_model.py::TRQFailureAwareTests"
+        "as an identity in tests/test_failure_model.py::test_failure_aware_is_bit_identical_without_failures"
+        "[TrustRegionQuadratic], its effect in ::TRQFailureAwareTests"
     ),
     # --- warm start needs a non-empty archive, which on_start never has ----
     ("LBFGSB", "warm_start_sigma"): "only read in _warm_start_x0, i.e. only when warm_start=True",

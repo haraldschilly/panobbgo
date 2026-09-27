@@ -1974,17 +1974,56 @@ class _PredictedFailureRelay:
     :class:`~panobbgo.analyzers.failure_model.FailureModel`, so no other run
     sees the event.  Runs on the event-bus thread like every handler: each
     heuristic that handles failed evaluations gets the rejected points
-    through its ``on_failed_evaluations`` (they filter by ``who``).
+    through its ``on_failed_evaluations`` (they filter by ``who``).  A
+    heuristic without that hook (``Random``, ``NelderMead``) loses a rejected
+    candidate as it loses a real crash -- nothing waits for it -- but, since
+    it tops its queue up only on results, it gets ``on_new_results([])`` for
+    its own rejected candidates: otherwise a run of rejections (and the real
+    crashes the streak rule lets through) drains its queue until nothing is
+    left to propose (measured: 3 of 120 ``Random`` runs on the failure preset
+    ended early before this).
+
+    Each heuristic's handler is guarded on its own, as the bus guards a
+    subscriber: an exception is logged and the others are still served; a
+    ``StopHeuristic`` ends the relay *to that heuristic* (the bus would
+    unsubscribe it from ``failed_evaluations``), never the relay itself.
     """
+
+    name = "PredictedFailureRelay"
 
     def __init__(self, strategy: "StrategyBase") -> None:
         self._strategy = strategy
+        self._stopped: set = set()
 
     def on_predicted_failures(self, points: List["Point"]) -> None:
+        owners = {str(getattr(p, "who", "") or "").split(":")[0] for p in points}
         for h in self._strategy.heuristics:
-            handler = getattr(h, "on_failed_evaluations", None)
-            if callable(handler):
-                handler(points)
+            if h.name in self._stopped:
+                continue
+            hook = "on_failed_evaluations"
+            handler = getattr(h, hook, None)
+            if not callable(handler):
+                # A reactive heuristic without a failure hook tops its queue up
+                # only on results: answer its rejected candidates like an empty
+                # result batch, or rejections would drain its queue for good.
+                if h.name not in owners:
+                    continue
+                hook = "on_new_results"
+                handler = getattr(h, hook, None)
+                if not callable(handler):
+                    continue
+                points_arg: List[Any] = []
+            else:
+                points_arg = points
+            try:
+                handler(points_arg)
+            except StopHeuristic as e:
+                self._strategy.logger.debug("'%s/%s' %s -> no more relay." % (h.name, hook, e))
+                self._stopped.add(h.name)
+            except Exception as e:  # noqa: BLE001 — one heuristic must not starve the others
+                self._strategy.logger.critical(
+                    "Exception in %s/%s (predicted failures): %r" % (h.name, hook, e), exc_info=True
+                )
 
 
 class StrategyBase:
@@ -2844,6 +2883,12 @@ class StrategyBase:
                     cap = None
                 self.request_cap = cap
                 proposed = self.execute() if cap != 0 else []
+                # The failure filter comes first, before the pull/virtual
+                # admission and the budget clamp: a rejected candidate is
+                # answered (never dispatched, never charged), so only the
+                # survivors compete for the free workers and the budget.  The
+                # other order would hand back to the queues points the filter
+                # then never sees, or charge a slot to a point it rejects.
                 if poison is not None and proposed:
                     proposed, n_rejected = self._filter_poisoned(poison, proposed)
                 # Safety nets: a pull-when-free policy never queues past the free workers.

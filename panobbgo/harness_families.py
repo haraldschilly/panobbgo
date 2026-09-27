@@ -88,6 +88,9 @@ Public surface
   preset takes ``dims=``, including 30 and 40.
 * :func:`make_large_families_battery` — the free and shapes families at
   *d* = 30 and 40 (opt-in).
+* :func:`make_wide_battery` — 15 families across the axes that decide
+  which algorithm wins, every optimum away from the box centre (opt-in,
+  DISCOVERY §68).
 * :func:`make_sealed_families_battery` — the **sealed test set**
   (:mod:`panobbgo.sealed`), for claims only.
 """
@@ -244,6 +247,42 @@ FAILURE_FAMILIES: Tuple[FamilyConfig, ...] = (
     FamilyConfig(base="sharp_ridge", failure=FailureRegion("boxes", share=0.2, mode="timeout", n_boxes=3)),
 )
 
+#: The wide preset's minimum distance of ``x_opt`` from the box centre, a
+#: fraction of :math:`B\sqrt{d}` (``Family(min_centre_dist=...)``): at
+#: ``d = 2`` it excludes the central 22 % of the uniform draws, at
+#: ``d = 10`` almost none (a uniform draw is ~0.46 away on average there).
+WIDE_MIN_CENTRE_DIST: float = 0.3
+_W: Dict[str, Any] = {"min_centre_dist": WIDE_MIN_CENTRE_DIST}
+#: The wide preset (opt-in; DISCOVERY §68): 15 families spanning the axes
+#: that decide which algorithm wins.  Labels shared with the free and shapes
+#: presets draw the same instance seeds, so those instances are the same
+#: problems unless ``min_centre_dist`` redrew their ``x_opt``.
+WIDE_FAMILIES: Tuple[FamilyConfig, ...] = (
+    # unimodal, smooth: conditioning and model fit
+    FamilyConfig(base="ellipsoid", extra=dict(_W)),
+    FamilyConfig(base="different_powers", extra=dict(_W)),
+    FamilyConfig(base="bent_cigar", extra=dict(_W)),
+    FamilyConfig(base="rosenbrock", extra=dict(_W)),
+    # unimodal, irregular: kink, asymmetry, plateaus
+    FamilyConfig(base="sharp_ridge", extra=dict(_W)),
+    FamilyConfig(base="attractive_sector", extra=dict(_W)),
+    FamilyConfig(base="step_ellipsoid", extra=dict(_W)),
+    # multimodal with global structure
+    FamilyConfig(base="rastrigin", extra=dict(_W)),
+    FamilyConfig(base="ackley", extra=dict(_W)),
+    # separable (signed permutation instead of a rotation)
+    FamilyConfig(base="schwefel", label="schwefel_sep", rotate=False, extra={**_W, "signed_permutation": True}),
+    FamilyConfig(
+        base="styblinski_tang", label="styblinski_tang_sep", rotate=False, extra={**_W, "signed_permutation": True}
+    ),
+    # deceptive / weak global structure
+    FamilyConfig(base="lunacek_bi_rastrigin", label="lunacek_box", base_params={"placement": "box"}, extra=dict(_W)),
+    FamilyConfig(base="gallagher", label="gallagher21", base_params={"n_peaks": 21, "alpha_opt": 1e6}, extra=dict(_W)),
+    # low effective dimension, boundary optimum
+    FamilyConfig(base="levy", label="levy_embed", extra={**_W, "effective_dim": 1.0 / 3.0}),
+    FamilyConfig(base="rosenbrock", label="rosenbrock_edge", extra={**_W, "boundary_faces": 0.5}),
+)
+
 
 def make_families_battery(
     dims: Sequence[int] = (2, 5, 10),
@@ -353,6 +392,42 @@ def make_failure_battery(
     battery leaves it out: a first battery cheap enough to run often.
     """
     return make_family_instances(list(FAILURE_FAMILIES), dims=dims, n_instances=n_instances, seed=seed)
+
+
+def make_wide_battery(
+    dims: Sequence[int] = (2, 5, 10),
+    n_instances: int = 3,
+    seed: int = DEFAULT_BATTERY_SEED,
+) -> FamilyInstances:
+    """The wide development preset (opt-in): 15 families x ``dims`` x ``n_instances``.
+
+    Built for the selector of roadmap §4 A, which needs a problem set wide
+    enough to learn from, and for scores no single shape can decide (the
+    free preset's one exactly quadratic family in five decided its mean,
+    DISCOVERY §66).  Every family is shifted (``x_opt`` at least
+    :data:`WIDE_MIN_CENTRE_DIST` of :math:`B\\sqrt{d}` from the box centre, so
+    a centre start is no free hit) and rotated by a Haar ``R`` — except the
+    two separable families, which get a random signed permutation instead.
+    ``f_opt`` is known exactly for every instance.  The families and the
+    axes they cover (:data:`WIDE_FAMILIES`; DISCOVERY §68 has the table):
+
+    * smooth unimodal: ``ellipsoid`` (quadratic, 1e6), ``different_powers``
+      (non-quadratic, degenerate curvature), ``bent_cigar`` (1e6,
+      asymmetric), ``rosenbrock`` (curved valley);
+    * irregular unimodal: ``sharp_ridge`` (kink), ``attractive_sector``
+      (asymmetric), ``step_ellipsoid`` (plateaus);
+    * multimodal, global structure: ``rastrigin``, ``ackley``;
+    * separable: ``schwefel_sep`` (deceptive), ``styblinski_tang_sep``
+      (2^d minima);
+    * deceptive / weak structure: ``lunacek_box`` (double funnel, the
+      wrong funnel towards the centre), ``gallagher21`` (21 random wells);
+    * ``levy_embed`` — depends on ``ceil(d/3)`` random directions only;
+    * ``rosenbrock_edge`` — the optimum on the box faces of half the
+      coordinates, with a non-vanishing gradient there.
+
+    The core group costs 3x the free preset per cell (15 vs 5 families).
+    """
+    return make_family_instances(list(WIDE_FAMILIES), dims=dims, n_instances=n_instances, seed=seed)
 
 
 def make_large_families_battery(

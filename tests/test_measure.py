@@ -843,3 +843,47 @@ def test_ex_ellipsoid_view_is_descriptive_and_reselects_the_pool_best(tmp_path):
     assert ms.ex_ellipsoid(strats, ["Baseline_NGOpt"], only_rastrigin) is None
     assert ms.ex_ellipsoid(strats, ["Baseline_NGOpt"], only_ellipsoid) is None
     assert ms.is_ex_family("ellipsoid_fhs_crash") and not ms.is_ex_family("rastrigin")
+
+
+# ---------------------------------------------------------------------------
+# the opt-in wide preset (DISCOVERY §68) and the cost estimate
+# ---------------------------------------------------------------------------
+
+
+def test_wide_preset_is_opt_in_and_wired():
+    from panobbgo.harness_families import WIDE_FAMILIES
+
+    assert ms.PRESET_FAMILIES["wide"] == len(WIDE_FAMILIES) == 15
+    assert ms.PRESET_DIMS["wide"] == (2, 5, 10)
+    assert vars(ms.build_parser().parse_args(["plan"]))["presets"] == "free"
+    for k, cfg in enumerate(WIDE_FAMILIES):
+        sel = ms._instances("wide", 2, fam=k)
+        assert [int(p.instance) for _, p in sel] == list(range(ms.N_INSTANCES))
+        assert {str(p.family) for _, p in sel} == {cfg.name()}
+    assert len(ms._instances("wide", 5)) == 45
+    unit = ms.Unit.parse("core.wide.b100.q4.d5.s42.f14")
+    assert unit.n_runs == 3 and ms.Unit.parse("core.wide.b100.q4.d5.s42").n_runs == 45
+    with pytest.raises(ValueError):
+        ms.Unit.parse("core.wide.b100.q4.d5.s42.f15")
+
+
+def test_cost_sums_the_plan(capsys):
+    units = ms.make_units([42, 7], ["wide"], [20, 100], None, [1, 4], ["core", "TuRBO1"])
+    entries = ms.plan(units, 4, ms.TARGET_MINUTES)
+    rows = ms.plan_cost(entries)
+    assert set(rows) == {"core", "TuRBO1"}
+    for group, row in rows.items():
+        mine = [e for e in entries if e["group"] == group]
+        assert row["shards"] == len(mine)
+        assert row["runner_min"] == sum(e["est_min"] for e in mine)
+        assert row["longest_min"] == max(e["est_min"] for e in mine)
+        assert row["runs"] == sum(u.n_runs for u in units if u.group == group)
+    # The wide preset is 3x the free preset's runs.
+    free = ms.make_units([42, 7], ["free"], [20, 100], None, [1, 4], ["core"])
+    assert rows["core"]["runs"] == 3 * sum(u.n_runs for u in free)
+    assert ms.main(["cost", "--presets", "wide", "--seeds", "2", "--groups", "core", "--qs", "1,4"]) == 0
+    out = capsys.readouterr().out
+    assert out.splitlines()[0].startswith("| group |") and "| core |" in out and "refused" not in out
+    # The full wide grid with the GP groups is refused by plan (more than 256 shards): cost says so.
+    assert ms.main(["cost", "--presets", "wide"]) == 0
+    assert "256" in capsys.readouterr().out

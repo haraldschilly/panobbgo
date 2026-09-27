@@ -22,7 +22,11 @@ is for.  This screen runs the same four specs over
   crash or time out (half-space with the optimum on its boundary, ball,
   random boxes), at ``d`` = 2 and 5.  Failed calls are spent budget;
 * the **large** preset — the free and shapes families at ``d`` = 30 and
-  40 (every other preset takes ``dims=30,40`` as well).
+  40 (every other preset takes ``dims=30,40`` as well);
+* the **wide** preset — 15 families covering separability, conditioning,
+  multimodality, kinks, plateaus, deception, low effective dimension and a
+  boundary optimum, every optimum away from the box centre, at ``d`` = 2, 5
+  and 10 (``make_wide_battery``, DISCOVERY §68).
 
 This is a development (tuning) tool, so the sealed test set is
 deliberately not a preset here: it runs only through
@@ -43,7 +47,7 @@ the strategy's own effect (``StrategySpec.seed_name``, §18).
 Usage::
 
     uv run python benchmarks/family_screen.py OUT.json SEED [SEED ...] \
-        [preset=free|constrained|shapes|failure|large] [dims=2,5,10] [bm=500] [ninst=3] \
+        [preset=free|constrained|shapes|failure|large|wide] [dims=2,5,10] [bm=500] [ninst=3] \
         [specs=name,name] [timeout=SECONDS] [jobs=N]
 
 ``timeout`` is a per-run wall-clock deadline (default: none); a run past it
@@ -51,7 +55,7 @@ is stopped, scored so far and counted under ``errors``.
 
     OUT.json  rows file, rewritten after every seed
     SEED      base seeds; three screens, twelve decides
-    preset    which battery: free (default), constrained, shapes, failure, large
+    preset    which battery: free (default), constrained, shapes, failure, large, wide
     dims      override the preset's dimensions
     bm        budget multiplier; the budget per run is ``bm * dim``
     ninst     instances per (family, dim)
@@ -77,6 +81,7 @@ from panobbgo.harness_families import (
     make_families_battery,
     make_large_families_battery,
     make_shapes_battery,
+    make_wide_battery,
     run_family_harness,
 )
 from panobbgo.local_run import screen_jobs
@@ -148,6 +153,7 @@ def main():
         "shapes": make_shapes_battery,
         "failure": make_failure_battery,
         "large": make_large_families_battery,
+        "wide": make_wide_battery,
     }
 
     # --- argv: `key=value` options, then positionals ---------------------------

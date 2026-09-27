@@ -17,7 +17,7 @@ on:
         type: string
         default: "5"
       presets:
-        description: "Family presets, comma list of: free, failure"
+        description: "Family presets, comma list of: free, failure, wide (wide: 15 families, opt-in, 3x the cost of free)"
         type: string
         default: free
       budgets:

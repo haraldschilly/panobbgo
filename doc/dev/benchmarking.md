@@ -414,12 +414,14 @@ python3 scripts/measure.py plan --seeds 5 | python3 -m json.tool   # the matrix,
         table on the common runs minus the ellipsoid instances (the free
         preset's one exactly quadratic family, which a quadratic model
         solves exactly and which can decide a five-family mean alone,
-        DISCOVERY §66), the pool's best re-selected on them
+        DISCOVERY §66; every `ellipsoid_*` family is dropped too, such as the
+        failure preset's `ellipsoid_fhs_crash`), the pool's best re-selected on them
         (`summary.json`: `ex_ellipsoid` per cell).  Unadjusted and outside
         the Holm family, which stays the headline spec vs the pool's best
         over all families.
     *   **The pool** of a (preset, dim, bm): the externals that ran in
-        every q cell with no crashed or timed-out run.  Best-of is taken over
+        every q cell with no crashed or timed-out run (a q cell no external
+        ran, e.g. only `trq`, does not count and has an empty pool itself).  Best-of is taken over
         it, so the reference does not change with q because a baseline is
         missing at some q.  SMAC (q = 1 only) and baselines outside the pool
         are reference rows; a cell is flagged when one of them scores above

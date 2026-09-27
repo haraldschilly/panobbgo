@@ -1071,10 +1071,14 @@ def summarize(
     # The fixed pool per (preset, dim, bm): the externals that ran in EVERY q
     # cell of it without a crashed run, so best-of does not change with q
     # because the pool changed.  A missing unit (a cut shard) does not
-    # exclude: the comparisons run on the common runs instead (below).
+    # exclude: the comparisons run on the common runs instead (below).  Only
+    # the q cells where some external ran count: a q cell that only panobbgo
+    # specs ran (e.g. the opt-in trq group at a q the grid of record left out)
+    # must not empty the pool of its (preset, dim, bm).
     groups: Dict[Tuple[str, int, int], List[Cell]] = {}
     for c in cells:
-        groups.setdefault(c[:3], []).append(c)
+        if any(is_external(n) for n in cells[c]):
+            groups.setdefault(c[:3], []).append(c)
     pool: Dict[Tuple[str, int, int], List[str]] = {}
     excluded: Dict[Tuple[str, int, int], Dict[str, str]] = {}
     for g, cs in groups.items():
@@ -1094,7 +1098,8 @@ def summarize(
         preset, dim, bm, q = c
         strats = cells[c]
         hm = headline_metric(q)
-        cell_pool = pool[c[:3]]
+        # A q cell no external ran (only panobbgo specs) has an empty pool; elsewhere this keeps the whole pool.
+        cell_pool = [n for n in pool.get(c[:3], []) if n in strats]
         # The common runs: the (seed, family, instance) keys present for the
         # headline spec and every pool member.  Every mean, best-of and delta
         # below is taken on them (each pair on its intersection with them), so
@@ -1130,7 +1135,9 @@ def summarize(
             for m in METRICS
         }
         flags = []
-        if not cell_pool:
+        if not any(is_external(n) for n in strats):
+            flags.append("empty pool: no external ran in this cell (panobbgo specs only)")
+        elif not cell_pool:
             flags.append("empty pool: no external ran error-free in every q cell")
         if len(common) < planned_runs:
             flags.append(f"n = {len(common)} common runs, below the plan's {planned_runs}")
@@ -1141,7 +1148,7 @@ def summarize(
                 continue
             for n in sorted(strats):
                 if is_external(n) and n not in cell_pool and rows[n][m] is not None and rows[n][m] > rows[b][m]:
-                    reason = excluded[c[:3]].get(n, "?")
+                    reason = excluded.get(c[:3], {}).get(n, "?")
                     flags.append(f"{m}: {label(n)} scores above the pool's best but is outside the pool ({reason})")
         externals = [n for n in strats if is_external(n)]
         for name in strats:
@@ -1168,7 +1175,7 @@ def summarize(
             "q": q,
             "headline_metric": hm,
             "pool": cell_pool,
-            "pool_excluded": excluded[c[:3]],
+            "pool_excluded": excluded.get(c[:3], {}),
             "pool_best": best,
             "n_common": len(common),
             "n_common_seeds": len({k[0] for k in common}),

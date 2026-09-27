@@ -71,6 +71,16 @@ extra).
       panobbgo, the cheap-track and the GP baselines,
       `doc/dev/benchmarking.md` "Expensive-track measurement").  Run it and
       log it as a DISCOVERY section; then the `failure` preset.
+      **First run done (§62, run 36274781342, pre-active CMA-ES):** Holm
+      1 win / 7 losses / 13 open of 21 cells; parity-or-better only at
+      100·d, q 4–16; qLogEI leads at 20·d; the q = 64 loss is on the time
+      axis only.  Next, in §62.8 order:
+      (a) re-run the grid on the active-CMA default, with SMAC's d = 10
+          estimate raised;
+      (b) worker utilisation of Blocks at q = 64 (idle workers?) and a
+          dispatch fix;
+      (c) 12 seeds on the 100·d, q 4–16 band;
+      (d) the `failure` preset.
 - [ ] **Re-baseline suite for the expensive-track baselines** (BoTorch
       qLogEI, TuRBO-1, SMAC3, Py-BOBYQA; extra `baselines-bo`): the slot
       is marked in `SUITES` in `scripts/rebaseline.py`.  `measure.yml`

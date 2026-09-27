@@ -3354,3 +3354,309 @@ Reading (unpaired means; the paired A/B is §60):
 * The failure families gain most (+0.094): active CMA plus the §59 guard
   handles crash regions better than the positive-only update.
 
+## 62. First expensive-track measurement: the free families at 20·d / 100·d, q = 1…64 (positive-only CMA-ES)
+
+> **Pre-active CMA-ES.**  This run is on commit 1778e1b, before #375
+> made guarded active CMA the `CMAES` default (§60/§61).  Every
+> panobbgo spec here has a CMA-ES arm running the **old positive-only
+> update**; the externals are unaffected.  On the cheap track the
+> switch moved `RegimeGate_oracle` +0.033 and `RoundRobin_CMAES` +0.028,
+> `Blocks_warm_CMAES_JSO` −0.007, and `CMAES_alone` +0.03…+0.09 on the
+> families at 500·d (§61).  Nobody has measured the switch at 20·d /
+> 100·d or on the virtual clock.  Treat every panobbgo number below as
+> pre-active.  Direction and size under the new default are unknown.
+
+**Run.** `measure.yml` run 36274781342 on 1778e1b, the default grid:
+the `free` family preset (ackley, ellipsoid, rastrigin, rosenbrock,
+sharp_ridge; 3 instances each) at 20·d and 100·d, d = 2/5/10.  Virtual
+clock: async pull policy, log-normal durations (σ 0.5), common random
+numbers per cell.  q ∈ {1, 4, 16, 64} with q ≤ bm (q = 64 only at 100·d),
+5 seeds (3, 7, 42, 1234, 2025).  This gives 21 cells and 323 units in 55
+shard jobs, about 90 runner-hours and 9.5 h wall.  Each job had one
+`fp_env_id` (80ee2a0090c4).  Two units are missing, none failed:
+`SMAC-01` hit the 330-minute `Measure` stop (SMAC at d = 10, 20·d costs
+about 1060 s per run, far over the plan's estimate) and lost
+`SMAC.free.b100.q1.d2.s3/.s7`.  SMAC is a q = 1 reference row outside
+the pool, so no pool member and no headline cell is short (every cell
+has n = 75/75).  Coverage as designed: neither qLogEI nor SMAC runs at
+d = 10, 100·d; SMAC runs only at q = 1 and not at d = 5, 100·d.  The pool
+of a (d, bm) is every external that ran at every q (qLogEI, TuRBO-1,
+NGOpt, Optuna CmaEs/TPE, Py-BOBYQA, pycma IPOP/BIPOP; without qLogEI at
+d = 10, 100·d).  Files: `summary.md` and `plan.json` in
+`planning/results/2026-09-27-measure-run36274781342/`.  `summary.json`
+(1.1 MB) is not committed; it stays in the run's `measure-summary`
+artifact, and the per-q and per-baseline breakdowns below come from it.
+
+Method (the summary's, pre-declared in `doc/dev/benchmarking.md`,
+"Expensive-track measurement").  The headline compares
+`Blocks_warm_CMAES_JSO` with the pool's best on AOCC at q = 1 and on
+`aocc_time` at q > 1.  Δ is paired over the 5 seeds on the common
+(seed, instance) runs, with a t-CI95 and wins/5.  **Holm** is applied over
+the 21 headline cells only; every other CI below is unadjusted and
+descriptive.  With 5 seeds, 5/5 wins alone has p = 0.0625.  The CIs are
+conditional on the 3 fixed instances per family.  The pool's best is a
+selected maximum over 7–8 baselines, which biases the headline Δ against
+panobbgo.  **bold** = Holm-adjusted p < 0.05.
+
+### 62.1 Headline: `Blocks_warm_CMAES_JSO` − pool best
+
+| cell | metric | pool best | Blocks | Δ [CI95] wins | p_holm | rank |
+|---|---|---|---|---|---|---|
+| d2 20·d q1 | aocc | TuRBO1 0.145 | 0.093 | **−0.053** [−0.073, −0.032] 0/5 | 0.029 | 6/13 |
+| d2 20·d q4 | time | qLogEI 0.100 | 0.085 | −0.016 [−0.025, −0.006] 0/5 | 0.093 | 2/12 |
+| d2 20·d q16 | time | qLogEI 0.067 | 0.063 | −0.003 [−0.010, +0.003] 1/5 | 0.919 | 4/12 |
+| d2 100·d q1 | aocc | PyBOBYQA 0.440 | 0.215 | **−0.224** [−0.248, −0.200] 0/5 | <0.001 | 4/13 |
+| d2 100·d q4 | time | qLogEI 0.209 | 0.214 | +0.005 [−0.005, +0.014] 4/5 | 0.919 | 1/12 |
+| d2 100·d q16 | time | qLogEI 0.175 | 0.171 | −0.004 [−0.014, +0.006] 1/5 | 0.919 | 2/12 |
+| d2 100·d q64 | time | qLogEI 0.113 | 0.093 | −0.020 [−0.033, −0.007] 0/5 | 0.113 | 4/12 |
+| d5 20·d q1 | aocc | NGOpt 0.073 | 0.044 | −0.029 [−0.045, −0.013] 0/5 | 0.080 | 7/13 |
+| d5 20·d q4 | time | qLogEI 0.049 | 0.044 | −0.005 [−0.009, −0.001] 0/5 | 0.187 | 2/12 |
+| d5 20·d q16 | time | qLogEI 0.040 | 0.034 | **−0.006** [−0.008, −0.004] 0/5 | 0.019 | 2/12 |
+| d5 100·d q1 | aocc | PyBOBYQA 0.145 | 0.120 | −0.026 [−0.053, +0.001] 0/5 | 0.402 | 3/12 |
+| d5 100·d q4 | time | TuRBO1 0.112 | 0.116 | +0.004 [−0.013, +0.021] 3/5 | 0.919 | 1/12 |
+| d5 100·d q16 | time | qLogEI 0.072 | 0.098 | **+0.027** [+0.019, +0.034] 5/5 | 0.008 | 1/12 |
+| d5 100·d q64 | time | qLogEI 0.062 | 0.043 | **−0.019** [−0.022, −0.016] 0/5 | 0.001 | 3/12 |
+| d10 20·d q1 | aocc | NGOpt 0.051 | 0.028 | **−0.023** [−0.029, −0.017] 0/5 | 0.007 | 7/13 |
+| d10 20·d q4 | time | qLogEI 0.034 | 0.027 | **−0.007** [−0.009, −0.006] 0/5 | 0.002 | 4/12 |
+| d10 20·d q16 | time | qLogEI 0.031 | 0.026 | **−0.006** [−0.007, −0.004] 0/5 | 0.008 | 3/12 |
+| d10 100·d q1 | aocc | TuRBO1 0.096 | 0.080 | −0.017 [−0.026, −0.007] 0/5 | 0.093 | 4/11 |
+| d10 100·d q4 | time | TuRBO1 0.085 | 0.081 | −0.004 [−0.010, +0.002] 1/5 | 0.706 | 2/11 |
+| d10 100·d q16 | time | TuRBO1 0.060 | 0.067 | +0.007 [−0.004, +0.018] 4/5 | 0.706 | 2/11 |
+| d10 100·d q64 | time | Optuna TPE 0.028 | 0.033 | +0.005 [+0.003, +0.008] 5/5 | 0.058 | 1/11 |
+
+(rank: among every strategy of the cell on its headline metric, panobbgo
+specs and SMAC included.)
+
+* **Holm: one win, seven losses, thirteen cells unresolved.**
+  * The win is d = 5, 100·d, q = 16: +0.027, 5/5, ahead of every
+    external (0.098 against qLogEI's 0.072).
+  * The losses are three q = 1 cells (d = 2 at 20·d and 100·d, d = 10 at
+    20·d), three 20·d cells at q > 1 (d5/q16, d10/q4, d10/q16), and
+    d5/100·d/q64.
+  * d10/100·d/q64 is +0.005, 5/5, and just misses (p_holm 0.058).
+* **Blocks is first in 4 cells** (d2/100·d/q4, d5/100·d/q4 and q16,
+  d10/100·d/q64) and first or second in 10 of 21.  All four are at 100·d
+  with 4 ≤ q ≤ 64.  At 20·d it never leads.
+* **The biggest loss is one family.**  At d2/100·d/q1 the loss is −0.224
+  against Py-BOBYQA (0.440), whose quadratic model solves the ellipsoid:
+  that family alone is −0.655 [−0.695, −0.614].  Against the next
+  externals the same cell is −0.056 (TuRBO1), +0.010 (qLogEI) and +0.034
+  (NGOpt).  Py-BOBYQA is sequential: at q > 1 it waits for each call, and
+  its `aocc_time` falls to 0.02–0.17 at d = 2.
+
+### 62.2 The other panobbgo specs (Δ vs the same pool best)
+
+* `RegimeGate_oracle` equals Blocks at d ≤ 5.  Its table row
+  (`dim <= 5, bpd <= 200`) selects the portfolio, and it runs on the same
+  seed stream, so the numbers match to the digit.  At d = 10 the row
+  `dim >= 10, bpd <= 500` selects **CMA-ES alone**:
+
+  | d = 10 | 20·d q1 / q4 / q16 | 100·d q1 | q4 | q16 | q64 |
+  |---|---|---|---|---|---|
+  | Blocks | −0.023 / −0.007 / −0.006 | −0.017 | −0.004 | +0.007 | +0.005 |
+  | RegimeGate_oracle | −0.025 / −0.008 / −0.005 | −0.053 (0.044) | −0.041 | +0.019 [+0.013, +0.025] 5/5 | +0.005 |
+  | RoundRobin_CMAES | −0.025 / −0.009 / −0.007 | −0.053 (0.044) | −0.041 | −0.023 | −0.003 |
+
+  * At 100·d, q ≤ 4, the gate's CMA-ES-alone choice scores 0.036–0.037
+    below the portfolio (unpaired means).  That contradicts the table
+    row at this budget.  The row was measured at 500·d (§42), with
+    positive-only CMA-ES; the §61 recheck TODO covers it.
+  * At q = 16, CMA-ES alone inside the block strategy (0.079) is far
+    above the same arm under `RoundRobin_CMAES` (0.037).  That points at
+    dispatch: the block strategy with one arm fills the workers
+    differently from round-robin.  Unexplained, not investigated.
+* `RoundRobin_CMAES` is behind the pool's best in all 21 cells and
+  behind Blocks in all 21 (closest: d10/20·d/q1, 0.026 vs 0.028).  At
+  100·d the portfolio is ahead of CMA-ES alone by +0.05…+0.07 at d 2/5
+  and +0.03…+0.04 at d = 10 (q ≤ 16, unpaired means).  At this budget,
+  pre-active, sharing pays.  This is the §46/§53 low-budget regime, and
+  the opposite of §61's 500·d picture.
+* `RoundRobin_Random` is last or near last at q ≤ 4.  At q ≥ 16 it rises
+  into the middle of the table (d2/100·d/q64: 0.088, ahead of NGOpt,
+  pycma and `RoundRobin_CMAES`), because the time horizon squeezes
+  everyone: 200 evaluations on 64 workers is about 3 rounds.
+
+### 62.3 Which external is the pool's best
+
+| | q = 1 | q = 4 | q = 16 | q = 64 |
+|---|---|---|---|---|
+| d2 20·d | TuRBO1 | qLogEI | qLogEI | — |
+| d5 20·d | NGOpt | qLogEI | qLogEI | — |
+| d10 20·d | NGOpt | qLogEI | qLogEI | — |
+| d2 100·d | Py-BOBYQA | qLogEI | qLogEI | qLogEI |
+| d5 100·d | Py-BOBYQA | TuRBO1 | qLogEI | qLogEI |
+| d10 100·d (no qLogEI) | TuRBO1 | TuRBO1 | TuRBO1 | Optuna TPE |
+
+* At q = 1 a sequential local or model-based method leads.
+* At q > 1 qLogEI leads wherever it runs, except d5/100·d/q4 (TuRBO1).
+* The cheap CMA-ES family (pycma IPOP/BIPOP, Optuna CmaEs) and NGOpt
+  never lead at q > 1.  On `aocc_time` Blocks is ahead of them in every
+  q > 1 cell by up to +0.08, apart from two ties with Optuna CmaEs
+  (−0.000 at d2/20·d/q16, −0.004 at d2/100·d/q64).
+* SMAC (q = 1 reference) is below the pool's best in all four cells
+  where it ran; no reference-row flag was raised.
+
+### 62.4 Per family: the minimum of each row (the roadmap claim)
+
+The roadmap claim (§2) is "never much worse than the best single solver
+on any problem class".  Per cell, the worst family of Blocks − pool best
+(the cell's overall best external, not a per-family best, so this is the
+lenient version; n.s. = unadjusted CI includes 0):
+
+| cell | q = 1 | q = 4 | q = 16 | q = 64 |
+|---|---|---|---|---|
+| d2 20·d | ellipsoid −0.071 | ackley −0.032 | ackley −0.010 (n.s.) | — |
+| d5 20·d | sharp_ridge −0.089 | sharp_ridge −0.025 | sharp_ridge −0.023 | — |
+| d10 20·d | sharp_ridge −0.087 | ackley −0.020 | ackley −0.014 | — |
+| d2 100·d | ellipsoid −0.655 | rastrigin −0.038 | ellipsoid −0.023 (n.s.) | ackley −0.035 |
+| d5 100·d | ellipsoid −0.114 | rastrigin −0.005 (n.s.) | rastrigin −0.012 | sharp_ridge −0.049 |
+| d10 100·d | ackley −0.042 (n.s.) | ackley −0.024 | rastrigin −0.010 (n.s.) | rastrigin −0.001 (n.s.) |
+
+* **The claim fails at q = 1.**  Py-BOBYQA takes the ellipsoid (d = 2/5,
+  100·d; −0.66 and −0.11).  NGOpt takes sharp_ridge at 20·d (−0.09 at
+  d 5/10).
+* **At q > 1 no family minimum is below −0.05.**  But the cells' own
+  scale is 0.03–0.2, so −0.02…−0.05 is 10–50 % of the value.
+* 16 of the 21 cells have at least one family whose unadjusted CI is
+  below 0.  The five with none are d2/20·d/q16, d2/100·d/q16,
+  d5/100·d/q4, d10/100·d/q16 and d10/100·d/q64.  All five have a headline
+  Δ ≥ −0.004.  The converse does not hold: d2/100·d/q4 and d5/100·d/q16
+  lose rastrigin.
+* Recurring weak families: **sharp_ridge at 20·d** (d 5/10, every q) and
+  **ackley/rastrigin at q > 1**.  **rosenbrock** is the one family where
+  Blocks is often ahead: CI above 0 in 7 cells (d 5/10), up to +0.075 at
+  d5/100·d/q16.
+* **The ellipsoid family is uninformative at d ≥ 5.**  Scores there are
+  ≤ 0.015 for everyone except Py-BOBYQA at d5/100·d/q1 (0.120), and
+  exactly 0 at d5/20·d and in almost all of d = 10.  The
+  `+0.000 [+0.000, +0.000] 0/5` entries in `summary.md` are floors, not
+  ties.
+
+### 62.5 How Δ changes with q (the thesis prediction)
+
+Blocks − reference on the headline metric, mean over the d of each row
+(qLogEI: d 2/5 at 100·d):
+
+| | q = 1 | q = 4 | q = 16 | q = 64 |
+|---|---|---|---|---|
+| 20·d vs pool best | −0.035 | −0.009 | −0.005 | — |
+| 20·d vs qLogEI | −0.012 | −0.009 | −0.005 | — |
+| 20·d vs TuRBO1 | −0.034 | +0.003 | +0.003 | — |
+| 100·d vs pool best | −0.089 | +0.002 | +0.010 | −0.011 |
+| 100·d vs qLogEI | +0.022 | +0.019 | +0.011 | −0.019 |
+| 100·d vs TuRBO1 | −0.029 | +0.014 | +0.030 | +0.003 |
+| 100·d vs pycma BIPOP | +0.026 | +0.047 | +0.059 | +0.013 |
+
+Values shrink with q because the horizon is budget/q mean durations.
+Ratios are therefore more telling.  Blocks/qLogEI for q = 1 → 4 → 16
+(→ 64 at 100·d):
+
+| | d = 2 | d = 5 | d = 10 |
+|---|---|---|---|
+| 100·d | 1.04 → 1.02 → 0.98 → 0.82 | 1.40 → 1.41 → 1.36 → 0.69 | (qLogEI not run) |
+| 20·d | 0.82 → 0.85 → 0.94 | 0.90 → 0.90 → 0.85 | 0.76 → 0.79 → 0.84 |
+
+* **Against TuRBO-1 the thesis holds from q = 1 to q = 16.**  TuRBO-1 is
+  batch-synchronous: its `aocc_time`/AOCC ratio is 0.58–0.88 at q > 1.
+  Blocks's ratio is 0.85–1.00 up to q = 16, except d2/20·d/q16 (0.73:
+  40 evaluations on 16 workers).  So a Δ of −0.029 at q = 1 becomes
+  +0.030 at q = 16 (100·d).
+* **Against qLogEI it does not.**  At 100·d panobbgo's lead shrinks
+  with q and flips at q = 64.  At 20·d the deficit shrinks with q at
+  d 2/10 but not at d = 5.
+* **The q = 64 loss looks like scheduling, not search.**
+  * On AOCC over evaluations Blocks is ahead of qLogEI at q = 64:
+    +0.013 [−0.002, +0.028] at d = 2 and +0.035 [+0.028, +0.043] 5/5 at
+    d = 5.  It is also ahead of TuRBO1 at d 5/10 (+0.042, +0.021, both
+    5/5).
+  * It loses on `aocc_time` because its time/evaluation ratio drops to
+    0.63 / 0.43 / 0.49 (d 2/5/10), while qLogEI's stays at 0.83 / 0.94.
+    Blocks spends its evaluations over far more virtual time than the
+    ideal budget/q, which points at idle workers.
+  * The hypothesis is that one block-owning generational arm (CMA-ES
+    λ ≈ 4 + 3 ln d, jSO's population) cannot fill 64 free workers.  It
+    ties in with the open TODO "Stale generations under a capped
+    bandit".
+  * Per-run worker utilisation is not in the result files, so this is
+    untested.
+
+### 62.6 Costs (s/run on the runners)
+
+The virtual clock advances only by evaluation durations.  Proposal time
+is not on the clock, so the s/run below is overhead that `aocc_time`
+ignores, and ignoring it favours the GP baselines.
+
+| | range over the grid | worst cell |
+|---|---|---|
+| panobbgo specs (all four) | 0.0–0.8 s | d10/100·d/q64 0.8 s |
+| pycma IPOP/BIPOP, Optuna CmaEs | 0.0–3.4 s | Optuna CmaEs d10/100·d/q64 |
+| Optuna TPE, NGOpt, Py-BOBYQA | 0.1–16 s | TPE d10/100·d/q64 15.8 s |
+| TuRBO-1 | 0.9–576 s | d10/100·d/q1 (falls with q: 204 / 98 / 75 s) |
+| SMAC (q = 1) | 27–1061 s | d10/20·d |
+| BoTorch qLogEI | 22–3218 s | d5/100·d/q64 (54 min per run, 6.4 s per evaluation) |
+
+* qLogEI's cost grows with q: d5/100·d is 1599 / 1615 / 1862 / 3218 s at
+  q 1/4/16/64.  The q = 64 / q = 1 factor is 2.0 at d = 5 and 3.4 at
+  d = 2 (755 / 224 s); the plan's guessed factor `1 + 0.05 (q − 1)` gives
+  4.15.
+* Its proposal cost (up to ~6 s per point) matters only when one
+  evaluation takes less than a few times that.
+* panobbgo is 2–4 orders of magnitude cheaper to run than the GP tools.
+
+### 62.7 Reading
+
+* **This is not yet the roadmap claim.**  Pre-active and on the free
+  families, the flagship portfolio is:
+  * behind the pool's best at q = 1 in all six cells (three of them
+    Holm-significant);
+  * at parity with or ahead of the best BO tool at moderate parallelism
+    and 100·d (q 4–16, d 2/5/10: six cells between −0.004 and +0.027,
+    one Holm win);
+  * clearly behind qLogEI at 20·d (three Holm losses at q > 1) and at
+    d5/100·d/q64 on the time axis.
+  The "never much worse on any class" half fails at q = 1 (ellipsoid vs
+  Py-BOBYQA, sharp_ridge vs NGOpt).  The "clearly better on average"
+  half holds only in the 100·d, q 4–16 band.
+* **Where it wins is where the thesis says it should.**  Async dispatch
+  beats the batch-synchronous or sequential tools (TuRBO1, Py-BOBYQA)
+  as q grows.  At q > 1 it is ahead of every cheap-track incumbent
+  (pycma, Optuna CmaEs/TPE, NGOpt) in nearly every cell.
+* **qLogEI is the real rival on the primary track**, and at 20·d it
+  leads at every d and q.  It fits a GP to 40–200 points and conditions
+  on pending points; panobbgo has no model at 20·d.
+* **The q = 64 deficit is probably an engineering issue** (worker
+  utilisation), not an algorithmic one.  AOCC over evaluations says the
+  search itself is ahead.
+* Caveats:
+  * 5 seeds and 3 instances per family;
+  * one preset, with no failures yet;
+  * Holm only on the headline;
+  * a best-of-pool reference that is biased against panobbgo;
+  * pre-active CMA-ES.
+  The 13 unresolved cells need more seeds, not a reading.
+
+### 62.8 Next steps (recommended, in order)
+
+1. **Re-run the same grid on master (active-CMA default)** with 5 seeds
+   (about 90 runner-hours).  Every panobbgo row here is pre-active, and
+   the regime gate's d = 10 choice and the portfolio-vs-CMA-ES gap at
+   100·d may both move.  This becomes the reference to build on.  Before
+   it, raise SMAC's d = 10 cost estimate in `LAPTOP_SECONDS` (measured
+   1061 s/run) so `plan` gives it its own shard.
+2. **Diagnose q = 64 before measuring more of it.**
+   * Log per-run worker utilisation (mean busy workers / q) and candidate
+     age on the virtual clock for Blocks at d5/100·d/q64.
+   * If idle workers explain the 0.43 time/AOCC ratio, fix the block
+     strategy's dispatch.  Options: let a non-owning arm or a
+     space-filling fallback fill the idle workers, or size the owning
+     arm's generation to the free workers.
+   * Then re-measure only the q = 64 cells.  q = 64 at d 5/10 with more
+     seeds makes sense only after that.
+3. **More seeds on the decisive cells** (12 seeds, core group plus
+   qLogEI/TuRBO1 only):
+   * the 100·d, q 4–16 band (d2/q4, d5/q4, d10/q16), where the claim is
+     decided and five seeds cannot separate;
+   * d10/100·d/q64 (p_holm 0.058).
+4. Then the `failure` preset (d 2/5), which is roadmap §5 step 3's
+   trigger for mechanism D.
+

@@ -104,14 +104,12 @@ Cheap-track items, in GOAL §2c order:
 - [ ] Constrained: `warm_start=None` on the CMA-ES arm only (§44.2,
       σ-collapse hypothesis on `ellipsoid_ball`).
 - [ ] CMA-ES → warm-started L-BFGS-B polish (never measured).
-- [ ] **Decide: `CMAES(active=True)` as the default (§58, §59).**  §58
-      (unguarded update): +0.038 [+0.014, +0.063], 11/12 on IOH standard
-      (ties Optuna CmaEs); +0.011 (b200) / +0.041 (b500, 12/12) on the 24-fid
-      BBOB battery; the one failed class (separable at 200·d) is all f5.
-      §59 found the f5 cause (the boundary repair, not the gradient) and the
-      guard (`active_skip_repaired`, on with `active=True`).  Next: the §58
-      A/B again with `RoundRobin_CMAES_active_guarded` next to the unguarded
-      `RoundRobin_CMAES_active`; then the coordinator's call.
+- [ ] **Decide: `CMAES(active=True)` (guarded) as the default (§58–§60).**
+      §60: +0.013 (11/12) / +0.044 (12/12) over RR on the 24-fid BBOB
+      battery at 200·d / 500·d, ahead of Optuna CmaEs at both, no BBOB class
+      worse, f5 level; IOH standard +0.028 [−0.001, +0.056], 8/12.  Gives
+      back −0.017 / −0.029 on high conditioning vs the unguarded update.
+      Recommended; a flip needs a re-baseline after it.
 - [ ] **BoundTransform-style genotype mapping** as the principled
       alternative to the active guard (§59): run CMA-ES in an unbounded
       genotype space with a smooth fold into the box for evaluation (pycma's

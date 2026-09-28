@@ -385,8 +385,10 @@ class TRQFailureAwareTests(PanobbgoTestCase):
 
         Review of #388: the shrink changed ``self.radius`` mid-proposal and the
         retried step read the model (fitted in ``s = (u - c) / r0`` units) in
-        the new units -- a step twice too long for its radius, with the
-        full-radius ``pred``.
+        the new units: the step had the right length but was the wrong point
+        -- the full-radius minimiser compressed to half its length, not the
+        minimiser in the half-radius region -- and it carried the full-radius
+        ``pred``.
         """
         from panobbgo.heuristics import TrustRegionQuadratic
 
@@ -594,3 +596,38 @@ def test_relay_guards_each_heuristic():
     relay.on_predicted_failures(pts)
     assert ok.calls == 2 and boom.calls == 2  # an exception is logged, the heuristic keeps getting them
     assert stop.calls == 1  # StopHeuristic ends the relay to that heuristic only
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_the_guard_disarms_before_the_share_exceeds_max_share(seed):
+    """A failure half-space of half the box: the amortised guard disarms before the exact share passes it.
+
+    Review of #388: a share cached between recomputes let the guard stay
+    armed while the probe share was 0.535 -- new *successes* raise the share
+    too (they shrink the bandwidths), and the old cache was refreshed only on
+    new failures.  Here 240 uniform points (about 130 failures, past the exact-recompute range) are followed by successes only (on
+    the good side ``x_0 < t``, as a search that avoids the zone would add
+    them).  After every batch the exact share is computed afresh; the guard
+    must be disarmed whenever it exceeds ``max_share``.
+    """
+    from panobbgo.lib.families import Family
+    from panobbgo.strategies import StrategyRoundRobin
+
+    s = StrategyRoundRobin(Family("sphere", dim=2, seed=1), parse_args=False, seed=1)
+    m = FailureModel(s)
+    box = np.array(m.problem.box[:, :], dtype=float)
+    t = box[0, 1] - 0.5 * (box[0, 1] - box[0, 0])
+    rng = np.random.default_rng(seed)
+    worst = top = 0.0
+    for step in range(200):
+        hi = box[:, 1] if step < 60 else np.array([t, box[1, 1]])
+        for x in rng.uniform(box[:, 0], hi, size=(4, 2)):
+            (m.add_failure if x[0] > t else m.add_success)(x)
+        armed = m.armed
+        with m._lock:
+            exact = float(np.mean(m._p_u(m._probes) >= m.threshold))
+        top = max(top, exact)
+        if armed:
+            worst = max(worst, exact)
+    assert top > m.max_share  # the marked share does get past the guard
+    assert worst <= m.max_share, worst

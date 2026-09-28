@@ -72,8 +72,8 @@ volume of the unit ball).  The choices, each for one of the requirements:
   them); only the queries within reach of a failure also compute the
   distances to the successes, :math:`O(m' n_{\mathrm{ok}} d)`.  Points are
   stored in growing buffers (amortised :math:`O(d)` per result).  The
-  guard below costs ``N_PROBES`` queries, amortised
-  (:meth:`FailureModel.poisoned_share`).  No spatial index: at the budgets
+  guard below costs ``N_PROBES`` queries, amortised and exact near its
+  threshold (:meth:`FailureModel.poisoned_share`).  No spatial index: at the budgets
   measured a one-point query takes 0.03 ms (d = 2, n = 200) to 0.06 ms
   (d = 10, n = 1000) and 0.3 ms at n = 10 000, one guard evaluation 1 ms to
   110 ms (laptop, 2026-09-27); a KD-tree would pay off beyond that.  With no failure at all
@@ -133,6 +133,9 @@ N_PROBES = 256
 
 #: :meth:`FailureModel.poisoned_share` is recomputed on every new failure up to this many, then every +10 %.
 SHARE_EXACT_UP_TO = 50
+
+#: Above ``SHARE_NEAR * max_share`` the guard's share is recomputed exactly on every data change.
+SHARE_NEAR = 0.8
 
 #: The bandwidth cap is ``H_FACTOR`` times the expected ``k``-th neighbour distance of ``n`` uniform points.
 H_FACTOR = 2.0
@@ -206,6 +209,7 @@ class FailureModel(Analyzer):
         self._probes = np.random.default_rng(0x9015011).random((N_PROBES, dim))
         self._share: Optional[float] = None  # poisoned probe share (see :meth:`poisoned_share`)
         self._share_at = 0  # n_fail when it was computed
+        self._share_at_total = 0  # n_fail + n_ok when it was computed
         #: Consecutive rejections per heuristic name (see :meth:`reject`).
         self._streak: Dict[str, int] = {}
         #: Diagnostics.
@@ -317,20 +321,35 @@ class FailureModel(Analyzer):
     def poisoned_share(self) -> float:
         """Share of the fixed probe points the model marks (``p >= threshold``), before the guard.
 
-        Computed lazily, on the first query after new failures, and amortised:
-        exact while the model knows at most :data:`SHARE_EXACT_UP_TO`
-        failures, then again only once their number has grown by 10 %
-        (successes only lower ``p``, so a stale share errs towards
-        "armed").  One evaluation costs ``N_PROBES`` queries.
+        Computed lazily, on the first query after the data changed, and
+        amortised: exactly on every change (a new failure *or* success) while
+        the last share is above ``SHARE_NEAR * max_share`` (close to the
+        guard) or the model knows at most :data:`SHARE_EXACT_UP_TO` failures;
+        otherwise only once the failures or the labelled points have grown by
+        10 %.  New successes can *raise* the share as well as lower it (they
+        shrink the bandwidths ``h_n`` and ``r_k``), so a share cached far
+        below the guard can lag the exact one; that lag is what the
+        ``SHARE_NEAR`` band absorbs.  The guard is therefore not a hard
+        guarantee between recomputes, only near the threshold: tested on a
+        half-box failure region sampled uniformly and then by successes only
+        (``tests/test_failure_model.py``).  One evaluation costs ``N_PROBES``
+        queries.
         """
         with self._lock:
-            n = self.n_fail
+            n_f, n = self.n_fail, self.n_fail + self.n_ok
+            changed = (n_f, n) != (self._share_at, self._share_at_total)
             stale = self._share is None or (
-                n != self._share_at and (n <= SHARE_EXACT_UP_TO or n >= 1.1 * self._share_at)
+                changed
+                and (
+                    self._share > SHARE_NEAR * self.max_share
+                    or (n_f != self._share_at and n_f <= SHARE_EXACT_UP_TO)
+                    or n_f >= 1.1 * self._share_at
+                    or n >= 1.1 * self._share_at_total
+                )
             )
             if stale:
-                self._share = float(np.mean(self._p_u(self._probes) >= self.threshold)) if n else 0.0
-                self._share_at = n
+                self._share = float(np.mean(self._p_u(self._probes) >= self.threshold)) if n_f else 0.0
+                self._share_at, self._share_at_total = n_f, n
             assert self._share is not None
             return self._share
 

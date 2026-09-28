@@ -73,7 +73,12 @@ extra).
       fresh seeds, d = 10, q ≥ 16; then decide TRQ `failure_aware` as its
       default (a defect fix, identical without failures); the filter stays
       off by default until an arm-aware filter or an axis-aligned tree (v1)
-      avoids the boundary cost; a separate crash / timeout model.
+      avoids the boundary cost; a separate crash / timeout model.  The
+      fresh-seed run is prepared (the `trq` group's `RoundRobin_TRQ_fa` =
+      §71.4's `+fm`, `RoundRobin_TRQ_aware` = its `+aware`; plan and
+      proposed rule: §2 q-sweep (d) below).  No failure-aware headline
+      variant: §71.4 measured nothing for one (`CMAES+aware` −0.000 ±
+      0.004, `Blocks_warm_CMAES_JSO+fm` +0.002 ± 0.002).
 
 - [ ] **Model-based arms, fresh seeds (§66).**  In sample, the opt-in
       `RoundRobin_TRQ` (d ≤ 5) and `COBYQA` alone (q = 1) lead the pool at
@@ -151,7 +156,54 @@ extra).
           descriptive; the §63.4 block-sizing ideas stay untried);
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
           family; a local in-sample screen is §71, the q-sweep on runners
-          with the `trq` group is still open).
+          with the `trq` group is still open).  **Prepared, not
+          dispatched** (#PR): §71's candidates `RoundRobin_TRQ_fa`
+          (`failure_aware` + the `FailureModel` filter, §71.4's `+fm`,
+          +0.037 in sample) and `RoundRobin_TRQ_aware` (`failure_aware`
+          alone, `+aware`, +0.028) in the `trq` group, and the summary's
+          *Variants − their base spec* table (every spec against the spec
+          whose `seed_name` it shares: `_fa` / `_aware` / `_r05` −
+          `RoundRobin_TRQ`).  Fresh seeds **4001–4012** (unused: §67 took
+          1001–1012, §72.4 2001–2005, the §72 confirmation 3001–3012).
+          Grid: failure preset (d 2/5), 100·d, q 1/4/16/64 (q = 1 is where
+          §71 measured TRQ's gain), all groups and `trq`:
+          `gh workflow run measure.yml -f seeds=4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012 -f presets=failure -f budgets=100 -f qs=1,4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
+          (`plan`: 155 shards, ~165.7 estimated runner-hours, 152.8 of
+          them qLogEI; trq 6 shards, 2.5 h; the estimate ran 1.56× high on
+          §67.  The failure preset's GP / core costs are the free preset's
+          estimates, `doc/dev/benchmarking.md`.)  Supplement for the
+          free-preset identity, same seeds, no GP group needed:
+          `-f presets=free -f budgets=100 -f qs=1,4,16,64 -f groups=trq`
+          (13 shards, ~6.5 h).
+          **Proposed decision rule (for Harald to sign off before the
+          dispatch; nothing is fixed yet):**
+          *Holm family:* the 8 failure cells (d 2/5 × q 1/4/16/64, 100·d),
+          `Blocks_warm_CMAES_JSO` vs the pool's best on the headline
+          metric (AOCC at q = 1, `aocc_time` at q > 1), Holm at 0.05 —
+          the roadmap claim on failure regions; no default rides on it.
+          The ex-ellipsoid view (here without `ellipsoid_fhs_crash`) is
+          pre-declared as descriptive.
+          *TRQ `failure_aware=True` as the arm's default* (its handling
+          only; judged on `RoundRobin_TRQ_aware`) if all of: (1) in the
+          two q = 1 cells (d 2, d 5; §71.4: +0.050, +0.057)
+          `_aware − RoundRobin_TRQ` on AOCC (the variants table) has a
+          CI95 above 0; (2) no failure cell has an `_aware − RoundRobin_TRQ`
+          CI95 entirely below 0 on its headline metric (§71.4's q = 4 cells
+          were +0.003, n.s.: a non-loss is enough there); (3) on the free
+          supplement `_aware` is identical to `RoundRobin_TRQ` in every
+          cell (*equal* + ties at 0 = n; both run in the same `trq` unit,
+          so the same host and FP class).  The identity is also pinned by
+          tests: `tests/test_failure_model.py::test_failure_aware_is_bit_identical_without_failures`
+          (the arm) and
+          `tests/test_heuristic_trust_region.py::test_failure_candidates_are_bit_identical_to_trq_without_failures`
+          (the shipped specs through the harness, q 1/4).  Caveat:
+          `RoundRobin_TRQ` is nearly seed-invariant at q = 1 (box-centre
+          start), `_aware` is not where the start fails (a random
+          replacement), so the q = 1 CI is mostly the variant's seed spread.
+          *The filter* (`RoundRobin_TRQ_fa`) is read descriptively
+          (`_fa − _aware` = the difference of their `vs_base` means on the
+          same common runs); it stays opt-in whatever it shows (§71.6 (b)).
+          The TRQ rule's CIs are unadjusted and outside the Holm family.
       §67's two Holm losses are addressed in §72: d2/q64 by
       `first_round_fill` (default), d10/q4 by `regime_gate="dim-budget"`
       (CMA-ES alone at d ≥ 10, ≤ 500·d, q ≤ λ_default), opt-in as
@@ -187,7 +239,9 @@ extra).
       family stays the headline spec vs the pool's best.
       `RoundRobin_TRQ_r05` and the other trq specs are read descriptively
       (against the headline spec in the summary; r05 − `RoundRobin_TRQ`
-      from the unit files, same `seed_name`); no default rides
+      from the unit files, same `seed_name` — or re-aggregate the run
+      locally with a `measure.py` that has the *Variants − their base
+      spec* table, which pairs them); no default rides
       on them.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):

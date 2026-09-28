@@ -36,8 +36,9 @@ on:
         description: >-
           'all' (= core, qLogEI, TuRBO1, SMAC) or a comma list of: core, qLogEI, TuRBO1, SMAC, trq.
           trq (opt-in, never in 'all'): the opt-in candidates (RoundRobin_TRQ, Blocks_warm_CMAES_JSO_TRQ,
-          RoundRobin_COBYQA, RoundRobin_TRQ_r05, Blocks_warm_CMAES_JSO_dimbudget) on the core cells, secondary specs
-          in the summary with a paired delta against the headline spec; e.g. 'core,qLogEI,TuRBO1,SMAC,trq'
+          RoundRobin_COBYQA, RoundRobin_TRQ_r05, RoundRobin_TRQ_fa, RoundRobin_TRQ_aware,
+          Blocks_warm_CMAES_JSO_dimbudget) on the core cells, secondary specs in the summary with a paired delta
+          against the headline spec and against their base spec (same seed_name); e.g. 'core,qLogEI,TuRBO1,SMAC,trq'
         type: string
         default: all
       extra_units:

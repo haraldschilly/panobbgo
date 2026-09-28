@@ -511,6 +511,65 @@ def test_opt_in_specs_are_not_in_the_registry_of_record():
     rr, r05 = make_trust_region_strategies(["RoundRobin_TRQ", "RoundRobin_TRQ_r05"])
     assert r05.heuristics == [(TrustRegionQuadratic, {"radius_init": 0.5})]
     assert r05.strategy_class is rr.strategy_class and r05.rng_identity == rr.rng_identity == "RoundRobin_TRQ"
+    # §71's failure-region candidates: "+fm" (the arm's handling and the model's filter) and "+aware" (the arm's
+    # handling alone), exactly as benchmarks/failure_screen.py built them, on RoundRobin_TRQ's RNG streams.
+    from panobbgo.analyzers.failure_model import FailureModel
+
+    fa, aware = make_trust_region_strategies(["RoundRobin_TRQ_fa", "RoundRobin_TRQ_aware"])
+    assert fa.heuristics == aware.heuristics == [(TrustRegionQuadratic, {"failure_aware": True})]
+    assert fa.analyzers == [(FailureModel, {"filter": True})] and aware.analyzers == [] == rr.analyzers
+    assert fa.config_overrides == aware.config_overrides == rr.config_overrides
+    assert fa.strategy_class is aware.strategy_class is rr.strategy_class
+    assert fa.rng_identity == aware.rng_identity == "RoundRobin_TRQ"
+
+
+def _family_records(names, preset: str, family: str, dim: int, q: int, bm: int):
+    """``name -> [IOHRunRecord]`` of the named trust-region specs on one family of a preset (3 instances)."""
+    from panobbgo.harness_families import make_failure_battery, make_families_battery, run_family_harness
+    from panobbgo.harness_ioh import make_trust_region_strategies
+    from panobbgo.virtual_clock import VirtualSpec
+
+    make = {"free": make_families_battery, "failure": make_failure_battery}[preset]
+    instances = [(n, p) for n, p in make(dims=(dim,), n_instances=3) if str(p.family) == family]
+    assert len(instances) == 3
+    res = run_family_harness(
+        make_trust_region_strategies(names),
+        instances,
+        budget_multiplier=bm,
+        base_seed=42,
+        progress=False,
+        virtual=VirtualSpec(workers=q, duration="lognormal", sigma=0.5, policy="async"),
+    )
+    out = {}
+    for r in res.runs:
+        out.setdefault(r.strategy_name, []).append(r)
+    return out
+
+
+@pytest.mark.parametrize("q", [1, 4])
+def test_failure_candidates_are_bit_identical_to_trq_without_failures(q):
+    """DISCOVERY §71.5 on the shipped specs: on a free-preset family (no failures) ``_fa`` and ``_aware`` are
+    ``RoundRobin_TRQ`` run for run, so their paired delta on the free preset is exactly 0 (the measure summary's
+    *equal* column counts every pair)."""
+    names = ["RoundRobin_TRQ", "RoundRobin_TRQ_fa", "RoundRobin_TRQ_aware"]
+    recs = _family_records(names, "free", "rosenbrock", 2, q, 20)
+
+    def key(r):
+        return (r.instance, r.aocc, r.aocc_time, r.n_evals, r.best_fx, r.n_failed, r.error)
+
+    base = [key(r) for r in recs["RoundRobin_TRQ"]]
+    assert all(r.n_failed == 0 for r in recs["RoundRobin_TRQ"])
+    for n in names[1:]:
+        assert [key(r) for r in recs[n]] == base, n
+
+
+def test_failure_candidates_act_on_the_failure_preset():
+    """On the failure preset's stuck-start case (§71.1: the box centre in the ball) both candidates change the run."""
+    names = ["RoundRobin_TRQ", "RoundRobin_TRQ_fa", "RoundRobin_TRQ_aware"]
+    recs = _family_records(names, "failure", "rastrigin_fball_crash", 5, 1, 20)
+    failed = {n: sum(r.n_failed or 0 for r in rs) for n, rs in recs.items()}
+    assert failed["RoundRobin_TRQ_fa"] < failed["RoundRobin_TRQ"]
+    assert failed["RoundRobin_TRQ_aware"] < failed["RoundRobin_TRQ"]
 
 
 def test_radius_init_half_is_accepted_at_the_default_radius_max():

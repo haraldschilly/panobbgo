@@ -6150,8 +6150,9 @@ in the `measure.yml` q-sweep (TODO §2 (d)) with the `trq` group.
 §67 left `Blocks_warm_CMAES_JSO` with two Holm losses on the expensive
 track (12 fresh seeds, 100·d): d10/q4 against TuRBO1 (−0.008, 1/12) and
 d2/q64 against qLogEI (−0.015, 0/12).  This section finds the cause of
-each, fixes both in the headline spec, and checks the fix on the §67
-seeds and on five more.
+each, fixes both, and checks the fixes on the §67 seeds and on five
+more.  The headline spec ships only the d2/q64 fix; the d10/q4 gate is
+opt-in until confirmed (§72.8).
 
 **Setup.**  The `measure.py` core path, run locally (4 processes, niced):
 free preset, 100·d, virtual clock with the async policy, log-normal
@@ -6236,7 +6237,7 @@ and the makespan is 1.68× ideal.
   first generations.  At 100·d it binds at d2/q64 (38 design points) and
   at d5/q64 (about 4: λ = 50, NP 10); at 20·d at d2/q16.  In every
   other measured cell the shipped spec's runs are bit-identical to the old
-  spec's, except where the gate of §72.2 acts (§72.3, §72.5).
+  spec's (§72.3, §72.5; the opt-in gate of §72.2 differs where it acts).
 * **A defect was caught by the tests before the held-out run.**  The first
   implementation sized the hypercube to the request cap without
   subtracting the points the owner had already handed out in the same
@@ -6428,7 +6429,7 @@ old spec.
   * Every other cell is bit-identical.  Checked locally on the 5 roster
     seeds for 20·d at every q and for 100·d q = 1.
 * **Cheap track and real pools (not measured here).**
-  * The gate makes `Blocks_warm_CMAES_JSO` CMA-ES alone at d ≥ 10 up to
+  * The gate (opt-in since §72.8) would make the portfolio CMA-ES alone at d ≥ 10 up to
     500·d, whenever the workers are ≤ λ_default.  That covers every q = 1
     battery at d ≥ 10 (standard/MA-BBOB d10/d20 at 500·d) and threaded
     pools with at most λ_default threads.
@@ -6440,8 +6441,8 @@ old spec.
 * **Other specs.**
   * `RegimeGate_oracle` gets `first_round_fill`, so its delta to the
     portfolio still carries only the gate.
-  * `Blocks_warm_CMAES_JSO_TRQ` inherits both options, but the gate never
-    applies to it.  The gate stays off when an arm plays no role of the
+  * `Blocks_warm_CMAES_JSO_TRQ` inherits the fill (and, as measured,
+    the gate, which never applies to it).  The gate stays off when an arm plays no role of the
     table: the rows never saw a third arm, and applying them would switch
     TRQ off at d ≥ 10.
   * **Both specs change where the fill binds** (100·d d2/q64 and d5/q64,
@@ -6449,12 +6450,12 @@ old spec.
     numbers go stale in those cells.  Neither spec was re-measured with
     the fill.
   * **The cheap track.**  Every cheap-track battery at d ≥ 10 runs
-    threaded with 2 workers (≤ λ_default), so the gate applies there.
-    The §61 reference numbers for `Blocks_warm_CMAES_JSO` at d ≥ 10 no
-    longer reproduce (`doc/dev/benchmarking.md`, "Comparability").
-  * The selector menu (§70) uses the registry spec, so its Blocks arm
-    changes where the gate binds.  Its probe preloads results, so the
-    fill never acts there.
+    threaded with 2 workers (≤ λ_default), so the gate would apply there.
+    With the gate opt-in (§72.8) the §61 reference numbers for
+    `Blocks_warm_CMAES_JSO` at d ≥ 10 still reproduce.
+  * The selector menu (§70) uses the registry spec, which carries no gate
+    since §72.8.  Its probe preloads results, so the fill never acts
+    there.
 * **Standing decision.**  `regime_gate="oracle:clean"` and
   `block_evals="auto"` as defaults wait for Harald's broader suite
   (TODO §5, GOAL §2 item 5, decision of 2026-09-13).  The dim/budget gate
@@ -6463,7 +6464,7 @@ old spec.
 
 ### 72.6 Caveats
 
-* **Selection.**  The two shipped options were picked from about nine
+* **Selection.**  The two options were picked from about nine
   prototypes (§72.1, §72.2), in sample.  Holm over the 9 headline cells
   does not cover that search.
 * **The d10/q4 Holm win rests on non-blind seeds.**  It is +0.006,

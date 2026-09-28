@@ -5,8 +5,9 @@
 ``regime_gate="dim-budget"`` applies only the dimension / budget rows of
 ``REGIME_TABLE_V1``, and only while the workers do not exceed the kept arms'
 serial generation size.  ``first_round_fill`` fills the workers the arms
-leave idle before the first result.  Both are on in the headline spec
-``Blocks_warm_CMAES_JSO``.
+leave idle before the first result.  The fill is on in the headline spec
+``Blocks_warm_CMAES_JSO``; the gate is opt-in, as
+``Blocks_warm_CMAES_JSO_dimbudget`` (§72.8).
 """
 
 from __future__ import annotations
@@ -254,9 +255,30 @@ def test_headline_spec_defaults():
     assert gated.config_overrides == {**blocks, "regime_gate": "dim-budget"}
     assert gated.seed_name == "Blocks_warm_CMAES_JSO" and gated.heuristics == specs["Blocks_warm_CMAES_JSO"].heuristics
     assert make_blocks_variant_strategies(["nope"]) == []
+    assert not set(BLOCKS_VARIANT_NAMES) & set(specs)
     rg = specs["RegimeGate_oracle"].config_overrides
     assert rg["regime_gate"] == "oracle" and rg["first_round_fill"] is True
     assert specs["Blocks_warm_CMAES_JSO_TRQ"].config_overrides == blocks
+
+
+def test_ioh_cli_adds_the_gated_variant_only_when_named():
+    import argparse
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "ioh_benchmark.py"
+    mspec = importlib.util.spec_from_file_location("ioh_benchmark_blocks_variant", path)
+    assert mspec is not None and mspec.loader is not None
+    cli = importlib.util.module_from_spec(mspec)
+    mspec.loader.exec_module(cli)
+    base = dict(legacy=False, standard=True, full=False, baselines=False)
+    names = [s.name for s in cli._resolve_strategies(argparse.Namespace(strategies=None, **base))]
+    assert "Blocks_warm_CMAES_JSO_dimbudget" not in names
+    wanted = ["Blocks_warm_CMAES_JSO", "Blocks_warm_CMAES_JSO_dimbudget"]
+    picked = cli._resolve_strategies(argparse.Namespace(strategies=wanted, **base))
+    assert [s.name for s in picked] == wanted
+    assert picked[1].rng_identity == picked[0].rng_identity == "Blocks_warm_CMAES_JSO"
+    assert picked[1].config_overrides["regime_gate"] == "dim-budget"
 
 
 def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
@@ -286,20 +308,23 @@ def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
 
 
 @pytest.mark.parametrize("dim, q", [(10, 16), (10, 64), (5, 16)])
-def test_new_spec_is_bit_identical_to_the_old_where_neither_option_binds(dim, q):
-    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) gate + fill is the old config."""
+def test_shipped_and_gated_specs_are_bit_identical_to_the_old_where_neither_option_binds(dim, q):
+    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) the shipped config and the
+    opt-in gated one both reproduce the old config."""
     runs = []
-    for overrides in ({"regime_gate": "dim-budget"}, {"regime_gate": None, "first_round_fill": False}):
+    for overrides in ({}, {"regime_gate": "dim-budget"}, {"regime_gate": None, "first_round_fill": False}):
         s = _portfolio(dim=dim, max_eval=100 * dim, q=q, seed=5, **overrides)
         s.start()
         runs.append(s)
-    new, old = runs
-    assert new.regime_decision is not None and new.regime_decision["applied"] is False
-    assert new._initial_design_n == 0 and new._filled == {}
-    assert len(new.rec.seen) == len(old.rec.seen) == 100 * dim
-    assert [tuple(r.x) for r in new.rec.seen] == [tuple(r.x) for r in old.rec.seen]
-    assert [r.fx for r in new.rec.seen] == [r.fx for r in old.rec.seen]
-    assert [r.t_complete for r in new.rec.seen] == [r.t_complete for r in old.rec.seen]
+    shipped, gated, old = runs
+    assert shipped.regime_decision is None
+    assert gated.regime_decision is not None and gated.regime_decision["applied"] is False
+    for new in (shipped, gated):
+        assert new._initial_design_n == 0 and new._filled == {}
+        assert len(new.rec.seen) == len(old.rec.seen) == 100 * dim
+        assert [tuple(r.x) for r in new.rec.seen] == [tuple(r.x) for r in old.rec.seen]
+        assert [r.fx for r in new.rec.seen] == [r.fx for r in old.rec.seen]
+        assert [r.t_complete for r in new.rec.seen] == [r.t_complete for r in old.rec.seen]
 
 
 def test_a_preloaded_run_never_fills():

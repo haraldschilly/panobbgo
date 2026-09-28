@@ -6144,3 +6144,331 @@ sensibly; before a default, a filter that knows the arm (e.g. only
 geometry / exploration candidates, never model steps near a boundary) or
 an axis-aligned tree model for half-spaces (v1); (c) the `failure` preset
 in the `measure.yml` q-sweep (TODO §2 (d)) with the `trq` group.
+
+## 72. The headline spec's two Holm losses at 100·d (§67): d10/q4 is jSO taking 65 % of the evaluations, d2/q64 is 38 of 64 workers idle until the first results — a non-oracle dim/budget gate and a first-round fill turn both into non-losses on the §67 seeds, 5 wins / 0 losses / 4 unresolved (2026-09-28)
+
+§67 left `Blocks_warm_CMAES_JSO` with two Holm losses on the expensive
+track (12 fresh seeds, 100·d): d10/q4 against TuRBO1 (−0.008, 1/12) and
+d2/q64 against qLogEI (−0.015, 0/12).  This section finds the cause of
+each, fixes both in the headline spec, and checks the fix on the §67
+seeds and on five more.
+
+**Setup.**  The `measure.py` core path, run locally (4 processes, niced):
+free preset, 100·d, virtual clock with the async policy, log-normal
+durations σ 0.5, CRN per cell, `sync_eval`.  The instrument is §63's
+`sketchpad/worker_utilisation_probe.py`.  It had broken with §71: its
+patched `VirtualClock.step` did not take the new `retry` argument, so
+every run raised.  It is fixed here and gained two options:
+`--overrides` (JSON merged into the spec's `config_overrides`, and
+`"_heuristics"` into an arm's kwargs, with the spec's RNG identity kept
+for pairing) and a per-arm dispatch count (`dispatched_by`).
+* **The local runs reproduce the runner bit for bit.**  Before any
+  change, the probe's `Blocks_warm_CMAES_JSO` matched run 36313485264
+  (§65) in all 675 runs of the 9 cells on the 5 roster seeds, and
+  `RegimeGate_oracle` in all 225 d = 10 runs.  So the external baselines
+  of §65/§67 can be paired with local runs per (seed, instance): the
+  runs' unit files were downloaded from runs 36315576900 (§67),
+  36313485264 and 36274781342 (§62, qLogEI and TuRBO1 for the 5 roster
+  seeds).
+* **Labels.**
+  * *In sample*: the development runs on the 5 roster seeds
+    42/7/1234/2025/3.
+  * *Held-out check*: seeds 1001–1012, **the seeds §67 already saw**.
+    The diagnosis started from §67's per-family numbers, so these seeds
+    are not blind.
+  * *Fresh*: seeds 2001–2005, never used before.  There are no GP
+    baseline units for them (qLogEI costs 761 s per run at d2/q64), so
+    they give the change against the old spec only, not against the pool.
+* Deltas: paired over seeds (per-seed instance means), t-CI95, wins/n.
+  Only the Holm family (the 9 headline cells of §67) is adjusted.
+
+### 72.1 d2/q64: 38 of 64 workers idle until the first results
+
+A dispatch timeline of one run (d2, rosenbrock, seed 42) shows the start:
+
+* At t = 0 the strategy hands out 26 points and then returns nothing.
+  * CMA-ES has λ = 20: the §63 floor raises λ to q = 64, and the budget
+    cap `max_eval // 10` brings it back to 20.
+  * jSO has NP = 6 (`NP_init="auto"` at 200 evaluations).
+  * Both arms then wait for results, so 38 workers stay idle until about
+    t = 0.8 (a mean duration is 1).
+* From the first results on, 63–64 workers are busy until the budget runs
+  out.
+* The probe over the cell (75 runs): busy@H 0.78, idle while budget was
+  left 0.12, structural tail 0.33, makespan 1.83× ideal.
+
+So the starved time is the first round.  Two limits act together:
+
+* **The arms' first generations are too small** (26 < 64).
+* **The block rule stops at an empty owner.**  When the owning arm
+  returns nothing, the clock waits for a completion; it does not ask
+  another arm.
+
+Neither lever alone moves the cell; both together do.  In-sample, Δ
+`aocc_time` against the old spec:
+
+| variant (prototype) | Δ aocc_time | Δ AOCC | busy@H |
+|---|---|---|---|
+| fill idle workers from the non-owning arm's queue, whole run | −0.000 [−0.006, +0.006] 3/5 | −0.002 | 0.80 |
+| CMA-ES λ uncapped (λ = 64; `MIN_GENERATIONS` 3) | −0.001 [−0.008, +0.006] 3/5 | +0.000 | 0.78 |
+| both | +0.012 [+0.004, +0.021] 5/5 | **−0.015 [−0.028, −0.002] 0/5** | 0.92 |
+| **first-round fill (shipped)** | **+0.012 [+0.003, +0.022] 5/5** | −0.009 [−0.016, −0.001] 0/5 | 0.89 |
+
+"Both" confirms the mechanism, but it pays in search quality: with
+λ = 64, 200 evaluations are about 3 CMA-ES generations.  Only the first
+round needs filling, so the shipped fix fills only the first round:
+
+**`StrategyBlockBandit(first_round_fill=True)`.**  Before the first result
+arrives, and only under a request cap, the workers the owner leaves idle
+get two things in turn:
+1. the other enabled arms' queued points, with no block switch and no
+   warm start;
+2. one Latin hypercube over the box, sized to the workers still idle at
+   that moment, drawn from the strategy's own keyed stream
+   (`spawn_rng("first_round_fill")`).  Its points carry
+   `who="initial_design"`, so no arm is credited with them.  They reach
+   the arms through the archive and the warm starts.
+
+In the cell, 19 % of the evaluations are design points, busy@H is 0.89
+and the makespan is 1.68× ideal.
+
+* **Where it binds.**  The rule binds only where q exceeds the arms'
+  first generations.  At 100·d it binds at d2/q64 (38 design points) and
+  at d5/q64 (about 4: λ = 50, NP 10); at 20·d at d2/q16.  In every
+  other measured cell the shipped spec's runs are bit-identical to the old
+  spec's, except where the gate of §72.2 acts (§72.3, §72.5).
+* **A defect was caught by the tests before the held-out run.**  The first
+  implementation sized the hypercube to the request cap without
+  subtracting the points the owner had already handed out in the same
+  pass.  The design was then larger than the idle workers, and only a
+  non-stratified prefix of it was dispatched.  The test
+  `test_first_round_fill_fills_every_worker_at_the_start` (one point per
+  stratum) failed on it.  Every number in this section comes from the
+  fixed code (in sample, the defective version gave +0.013 at d2/q64).
+
+### 72.2 d10/q4: the "uniform" portfolio gives jSO 65 % of the evaluations
+
+At d = 10 the regime table's row `dim >= 10, bpd <= 500` says CMA-ES alone.
+`RegimeGate_oracle` runs that row, and on the §67 seeds it leads the
+portfolio at q = 4 (+0.014, 12/12).  The question is why the portfolio
+loses there.
+
+**The dispatch share answers it**: the old spec, 5 roster seeds, 75 runs
+per cell.
+
+| cell | CMA-ES | jSO |
+|---|---|---|
+| d10 q4 | **35 %** | **65 %** |
+| d10 q16 | 57 % | 43 % |
+| d10 q64 | 66 % | 34 % |
+| d2, d5 q4 | 46 % | 54 % |
+| d2, d5 q16 / q64 | 61–66 % | 34–39 % |
+
+The block policy is "uniform", but it rotates *blocks*, not evaluations:
+
+* A block closes after `block_evals` (20 here) dispatches **and** a
+  drained owner queue, or at the hard cap of 2 × `block_evals`.
+* CMA-ES (λ = 10) drains its queue every generation, so its blocks end at
+  about 20 evaluations.
+* jSO's population queue rarely drains, so its blocks run to the
+  40-evaluation cap.
+
+At d = 10 jSO is the weaker arm per evaluation (§42), so the portfolio
+spends two thirds of its budget on the weaker arm.  Four more prototypes
+at d10/q4 (in sample, Δ `aocc_time` against the old spec) test other
+explanations:
+
+| prototype | Δ aocc_time |
+|---|---|
+| `warm_start_only_if_foreign=True` (fewer hand-offs) | −0.000 (1/5): the hand-off count is not it |
+| CMA-ES `warm_start_sigma_floor=1.0` + `warm_start_keep_cov` (no σ/C collapse at hand-offs) | **−0.022 [−0.034, −0.009] 0/5**: the greedy hand-off helps, it is not the loss |
+| `policy="ducb"` (learn the split) | −0.010 [−0.023, +0.004] 1/5 |
+| balanced blocks: a block ends at `block_evals` dispatches, drained or not (evaluation share 51/49) | **+0.011 [−0.003, +0.024] 4/5**, as much as CMA-ES alone (+0.010) |
+| CMA-ES alone (the table row; `RegimeGate_oracle`) | +0.010 [+0.000, +0.019] 5/5 |
+
+**The regime-table row under active CMA and the §63/§64 CMA-ES.**  The
+row's evidence (§42) is serial CMA-ES.  On the current code:
+
+* **Where CMA-ES runs at its default λ (q ≤ λ_default = 10), the row
+  holds.**  §67 has q = 4 at +0.014 12/12; §65.4 has q = 1 at +0.003
+  4/5; 20·d q1/q4 are +0.001 (below).
+* **At q = 16 and q = 64 the floor raises λ to q, and CMA-ES alone is no
+  better than the portfolio.**
+  * On `aocc_time`, q16 is −0.002 [−0.011, +0.006] 2/5 in sample and
+    −0.002 4/12 in §67.  q64 is −0.002 [−0.003, −0.000] 1/5 and
+    −0.001 5/12.
+  * On AOCC, q64 is −0.008 [−0.010, −0.006] 0/5: with λ = 64 CMA-ES
+    alone gets about 15 generations, and jSO's smaller population adds
+    progress per evaluation.
+
+So the row is right for the regime it was measured in, and wrong to apply
+where the worker floor has changed the algorithm.
+
+**`regime_gate="dim-budget"` (shipped).**  It is the gate without the
+noise oracle, and uses only facts known before the first evaluation:
+
+* It looks the table up as for a noiseless run.
+* It applies the row only if it is a dimension/budget row
+  (`is_dim_budget_row`: no noise class, no constrained flag, a dim or bpd
+  predicate).
+* It applies it only if every arm plays a role some row names (CMA-ES,
+  jSO).
+* It applies it only if the parallel workers (`_n_evaluators()`) do not
+  exceed the kept arms' serial generation size (CMA-ES's
+  `_serial_lam()`).
+* Otherwise nothing is disabled.
+
+On `REGIME_TABLE_V1` that means:
+
+* unconstrained, d ≥ 10, ≤ 500·d, q ≤ λ_default (10 at d = 10) → CMA-ES
+  alone;
+* the `dim <= 5, bpd <= 200` row keeps both arms, so no change;
+* constrained problems hit the constrained row first, which is not a
+  dim/budget row, so no change;
+* the catch-all row is not a dim/budget row, so no change.
+
+The table itself is unchanged (no `_V2`).
+
+**Checks.**
+* Where the row applies, the gate is the oracle gate run for run.  All
+  180 d10/q4 runs of the 12-seed check are bit-identical to the runner's
+  `RegimeGate_oracle`.
+* Where it does not apply, runs are bit-identical to the old spec (tests,
+  and 360 runs at d10 q16/q64 below).
+
+The balanced-block prototype would fix d10/q4 without the gate.  At
+d2/d5 it is mixed (−0.006…+0.010, all n.s., in sample).  It changes every
+cell and every cheap-track battery the spec was accepted on (§27/§30).
+It is a lead (TODO), not this fix.
+
+### 72.3 Held-out check on the §67 seeds 1001–1012 (not blind; see Setup)
+
+The shipped spec (`regime_gate="dim-budget"`, `first_round_fill=True`)
+ran locally on all 9 cells, 1620 runs.  The runner's units of run
+36315576900 provide the pool (the same (seed, instance) keys, CRN) and the
+old spec.
+* **Bit-identity.**  The 6 cells where neither change binds are identical
+  to the runner's `Blocks_warm_CMAES_JSO` in all 1080 runs: d2/q4, d2/q16,
+  d5/q4, d5/q16, d10/q16, d10/q64.
+* The "old Δ" column reproduces §67.1 exactly.
+
+| cell | old Δ vs pool best | **new Δ vs pool best** [CI95] wins/12 | p_holm | new − old (aocc_time) | new − old (AOCC) |
+|---|---|---|---|---|---|
+| d2 q4 | +0.021 | +0.021 [−0.002, +0.043] 8/12 | 0.183 | identical | identical |
+| d2 q16 | −0.011 | −0.011 [−0.022, +0.001] 3/12 | 0.183 | identical | identical |
+| d2 q64 | **−0.015** (0.001) | **+0.000 [−0.006, +0.006] 7/12** | 0.935 | **+0.016 [+0.011, +0.020] 12/12** | −0.004 [−0.009, +0.002] 5/12 |
+| d5 q4 | +0.011 | +0.011 [+0.007, +0.016] 11/12 | 0.001 | identical | identical |
+| d5 q16 | +0.030 | +0.030 [+0.025, +0.035] 12/12 | <0.001 | identical | identical |
+| d5 q64 | +0.001 | +0.003 [+0.000, +0.006] 9/12 | 0.149 | +0.002 [+0.001, +0.004] 9/12 | −0.003 [−0.005, −0.000] 4/12 |
+| d10 q4 | **−0.008** (0.007) | **+0.006 [+0.003, +0.010] 10/12** | **0.006** | **+0.014 [+0.010, +0.018] 12/12** | +0.014 [+0.010, +0.018] 12/12 |
+| d10 q16 | +0.014 | +0.014 [+0.010, +0.018] 12/12 | <0.001 | identical | identical |
+| d10 q64 | +0.017 | +0.017 [+0.016, +0.018] 12/12 | <0.001 | identical | identical |
+
+**Holm count at 0.05: 4 / 2 / 3 → 5 wins / 0 losses / 4 unresolved.**
+* Wins: d5/q4, d5/q16, d10/q4, d10/q16, d10/q64.
+* Unresolved: d2/q4, d2/q16, d2/q64 (parity), d5/q64.
+* d10/q4's pool best is still TuRBO1.  d10/q16 and d10/q64 are unchanged
+  by construction, so the task's condition "do not lose them" holds
+  exactly.
+
+**The d2/q64 time axis.**
+* Blocks' `aocc_time`/AOCC ratio is 0.80 now (0.113 / 0.142); it was
+  0.67, and qLogEI's is 0.85.
+* In the 12-seed probe, busy@H is 0.89, makespan 1.69× ideal, starved
+  0.04.
+* The remaining gap to qLogEI's ratio is the structural tail (0.36 of
+  worker-time), which qLogEI also has.
+
+**Per family, new − pool best (descriptive, unadjusted):**
+* **d2/q64:**
+  * ackley −0.006 [−0.013, +0.001] 4/12 (was −0.029, 0/12);
+  * rastrigin +0.014 [+0.003, +0.025] 9/12;
+  * rosenbrock +0.011 and sharp_ridge +0.008, both n.s.;
+  * **ellipsoid −0.024 [−0.040, −0.009] 2/12 (was −0.025): unchanged.**
+    The fill does not help there: new − old is +0.000 on `aocc_time` and
+    −0.016 [−0.030, −0.001] 3/12 on AOCC.  Space-filling points are worse
+    than CMA-ES samples on the one exactly quadratic family, where
+    qLogEI's GP is strong (§67.4).
+* **d10/q4:** ackley +0.002 and rastrigin +0.001, both n.s. (were −0.042
+  1/12 and −0.014 2/12); rosenbrock +0.022; sharp_ridge +0.007
+  [+0.001, +0.012] 9/12.  No family has a CI below 0.
+* **d5/q64:** unchanged in sign.  Ackley −0.015, rastrigin −0.008 and
+  sharp_ridge −0.012 still have CIs below 0 (all 0/12); rosenbrock is
+  +0.050.
+* **Cells with a family CI below 0:** 5 of 9 → 4 of 9 (d2/q16, d2/q64,
+  d5/q16, d5/q64).
+
+### 72.4 Fresh seeds 2001–2005 (change against the old spec only)
+
+| cell | new − old, aocc_time | new − old, AOCC |
+|---|---|---|
+| d2 q64 | +0.012 [+0.003, +0.022] 5/5 | −0.010 [−0.020, +0.001] 1/5 |
+| d5 q64 | +0.002 [+0.000, +0.004] 5/5 | −0.003 [−0.006, +0.000] 1/5 |
+| d10 q4 | +0.004 [−0.001, +0.009] 4/5 | +0.004 [−0.001, +0.010] 4/5 |
+| d10 q16 / q64 | identical | identical |
+
+* **The directions replicate.**  The d10/q4 gain is smaller than on the
+  §67 seeds (+0.004 against +0.014) and its CI spans 0 at n = 5.
+* The alternative without the worker condition (the table row at every
+  q) would cost:
+  * q16: −0.008 [−0.029, +0.012] 2/5;
+  * q64: −0.002 [−0.004, +0.001] 1/5 on `aocc_time` and −0.009
+    [−0.012, −0.005] 0/5 on AOCC;
+  * This supports keeping the condition.
+
+### 72.5 Which cells move (the headline spec's default changes)
+
+* **Expensive track (`measure.yml` grid).**
+  * The fill binds at: 100·d d2/q64 and d5/q64 (above), and 20·d d2/q16.
+    20·d d2/q16 is +0.002 [−0.004, +0.008] 3/5 and AOCC −0.006
+    [−0.014, +0.002] 1/5, in sample.
+  * The gate binds at: 100·d d10/q4 (above), d10/q1 (+0.003
+    [−0.004, +0.010] 4/5), 20·d d10/q1 (+0.001 n.s. 4/5) and 20·d d10/q4
+    (+0.001 [+0.001, +0.002] 5/5), in sample.
+  * Every other cell is bit-identical.  Checked locally on the 5 roster
+    seeds for 20·d at every q and for 100·d q = 1.
+* **Cheap track and real pools (not measured here).**
+  * The gate makes `Blocks_warm_CMAES_JSO` CMA-ES alone at d ≥ 10 up to
+    500·d, whenever the workers are ≤ λ_default.  That covers every q = 1
+    battery at d ≥ 10 (standard/MA-BBOB d10/d20 at 500·d) and threaded
+    pools with at most λ_default threads.
+  * The evidence for the row there is §42 (portfolio −0.023 vs CMA-ES,
+    6/12, n.s.) and §61 (the portfolio trails CMA-ES alone on every
+    family preset).  A re-run of the cheap batteries at d ≥ 10 has not
+    been done.
+  * The fill acts on real pull-mode pools in their first round.
+* **Other specs.**
+  * `RegimeGate_oracle` gets `first_round_fill`, so its delta to the
+    portfolio still carries only the gate.
+  * `Blocks_warm_CMAES_JSO_TRQ` inherits both options, but the gate never
+    applies to it.  The gate stays off when an arm plays no role of the
+    table: the rows never saw a third arm, and applying them would switch
+    TRQ off at d ≥ 10.
+  * The selector menu (§70) uses the registry spec, so its Blocks arm
+    changes where the gate binds.  Its probe preloads results, so the
+    fill never acts there.
+* **Standing decision.**  `regime_gate="oracle:clean"` and
+  `block_evals="auto"` as defaults wait for Harald's broader suite
+  (TODO §5, GOAL §2 item 5, decision of 2026-09-13).  The dim/budget gate
+  is a different, narrower setting: no oracle, one row, at q ≤ λ_default.
+  But it is a regime-gate default for the headline spec.  **Harald
+  confirms before the PR merges.**
+
+### 72.6 Not measured / next
+
+* The GP baselines on the fresh seeds; §72.4 is new − old only.
+* The cheap track at d ≥ 10 with the gate (q = 1 batteries).
+* The `failure` preset; d ≥ 20; real async pools.
+* The balanced-block lead: a block that ends at `block_evals` dispatches,
+  not at a drained queue.  It equalises the evaluation split, and in
+  sample it matches CMA-ES alone at d10/q4.  It needs a full screen,
+  cheap track included, before anything.
+* d2/q64 ellipsoid and d5/q64 ackley/rastrigin/sharp_ridge remain family
+  losses to qLogEI.  Scheduling does not explain them.
+
+Files: the probe is `sketchpad/worker_utilisation_probe.py`, and
+`sketchpad/blocks_heldout_compare.py` pairs its output with the
+downloaded units of a runner run (`gh run download 36315576900 ...`).
+Together they reproduce §72.3 from the probe's JSON.  The probe JSON
+itself is not committed; it is re-created by running the probe with the
+seeds above.

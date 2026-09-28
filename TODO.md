@@ -149,9 +149,13 @@ extra).
       (d) the `failure` preset (§67.6: fresh seed list, pre-declared Holm
           family; a local in-sample screen is §71, the q-sweep on runners
           with the `trq` group is still open).
-      New from §67: d10/100·d/q4 is a Holm loss to TuRBO1 (−0.008) that
-      CMA-ES alone (the regime-gate row, and `RoundRobin_CMAES`) leads
-      (+0.006, unadjusted): selector evidence.
+      §67's two Holm losses are addressed in §72 (PR, unmerged pending
+      Harald — see "Defaults" in §5): d10/q4 by `regime_gate="dim-budget"`
+      (CMA-ES alone at d ≥ 10, ≤ 500·d, q ≤ λ_default), d2/q64 by
+      `first_round_fill`; on the §67 seeds (not blind) Holm 4/2/3 → 5/0/4.
+      Next: confirm on runners with a fresh seed list and the GP groups
+      (100·d q 4/64 at d 2/5/10, plus the 20·d/q1 cells the change moves,
+      §72.5).
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at
@@ -203,7 +207,17 @@ Cheap-track items, in GOAL §2c order:
       family preset by 0.02–0.15 and `RoundRobin_CMAES` on IOH standard by
       0.028 (§61).  The #346 review saw it first on `ellipsoid_fhs_crash`
       d5; a mechanism to check there: jSO's share of the budget in the
-      crash half-space?
+      crash half-space?  §72: the `dim >= 10, bpd <= 500` row holds where
+      CMA-ES runs at its default λ (q ≤ λ_default), not where the §63
+      floor raises λ (q 16/64: level on `aocc_time`, the portfolio ahead
+      on AOCC at q64); and "uniform" blocks are not uniform in
+      evaluations — jSO takes 65 % at d10/q4 (its queue rarely drains, so
+      its blocks run to the 2× cap).
+- [ ] **Balanced blocks** (§72.2 lead): end a block at `block_evals`
+      dispatches instead of "`block_evals` and a drained queue".  In sample
+      it equalises the split (51/49) and matches CMA-ES alone at d10/q4
+      (+0.011 vs +0.010), mixed n.s. at d2/d5.  Changes every cell and the
+      cheap track the spec was accepted on (§27/§30): full screen first.
 - [ ] **BoundTransform-style genotype mapping** as the principled
       alternative to the active guard (§59): run CMA-ES in an unbounded
       genotype space with a smooth fold into the box for evaluation (pycma's
@@ -239,6 +253,12 @@ Cheap-track items, in GOAL §2c order:
 - [ ] **Defaults** `regime_gate="oracle:clean"` and `block_evals="auto"` for
       `Blocks_warm_CMAES_JSO` (§45.1, §46.4): only after the suite is
       broadened and the question re-run there (decision of 2026-09-13).
+      **§72's PR sets `regime_gate="dim-budget"`** (no oracle; one row:
+      unconstrained d ≥ 10, ≤ 500·d, q ≤ λ_default → CMA-ES alone) **and
+      `first_round_fill=True` as the spec's defaults** — narrower than the
+      oracle gate, but a regime-gate default: Harald confirms or rejects
+      before it merges.  Not measured with it: the cheap track at d ≥ 10
+      (q = 1 batteries), where the spec becomes CMA-ES alone.
 - [ ] **What "broader suite" means** (`planning/DESIGN_suite_2026-09-14.md`,
       extended by roadmap §3.3): d 10/20, more instances, full BBOB instead of
       MA-BBOB mixtures, constrained/noisy as own axes; tiered (small screen,

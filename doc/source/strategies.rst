@@ -25,11 +25,24 @@ rows say: outliers → CMA-ES alone; constrained → jSO alone; bounded noise
 at ``d ≤ 5`` and budgets ``≤ 200·dim`` → the CMA-ES + jSO sharing
 portfolio; ``d ≥ 10`` and everything else → CMA-ES alone.
 
-Only the oracle form exists so far: ``regime_gate="oracle:<class>"`` takes
-the noise class as given (the benchmark harness knows it; see
-:doc:`guide_benchmarking`).  ``"table-v1"``, the in-run noise probe of
-``planning/DESIGN_regime_gating_2026-09-11.md`` §1, raises
+``regime_gate="oracle:<class>"`` takes the noise class as given (the
+benchmark harness knows it; see :doc:`guide_benchmarking`).
+``regime_gate="dim-budget"`` needs no oracle: it applies only the rows
+keyed on the dimension and the budget, and only while the parallel
+workers do not exceed the kept arms' serial generation size (λ_default for
+CMA-ES).  On the current table that is: unconstrained, ``d ≥ 10``,
+``≤ 500·dim``, at most λ_default workers → CMA-ES alone; everything else is
+left ungated.  The headline harness spec ``Blocks_warm_CMAES_JSO`` uses it
+(``planning/DISCOVERY_2026-09-09.md`` §72).  ``"table-v1"``, the in-run
+noise probe of ``planning/DESIGN_regime_gating_2026-09-11.md`` §1, raises
 ``NotImplementedError`` until the oracle has cleared its battery.
+
+``StrategyBlockBandit(first_round_fill=True)`` fills, before the first
+result arrives, the workers the owning arm leaves idle: first with the
+other arms' queued points, then with one Latin hypercube over the box.  It
+only acts under a request cap (the virtual clock's async policy or a real
+pull-mode pool) and only while the arms' first generations are smaller than
+the worker count, e.g. at ``d = 2``, 200 evaluations, 64 workers (§72).
 
 Two contracts worth knowing.  **Every arm is always constructed**, gate or
 no gate, so the run holds the same modules in the same event-bus order

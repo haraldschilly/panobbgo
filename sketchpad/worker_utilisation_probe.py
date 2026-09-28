@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2026 Panobbgo Contributors
+# Copyright 2012-2026 Panobbgo Contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,11 +54,17 @@ def _patch() -> None:
     orig_step = vc.VirtualClock.step
     orig_advance = vc.VirtualClock._advance
 
-    def step(self: Any, points: List[Any]) -> None:
+    def step(self: Any, points: List[Any], *args: Any, **kwargs: Any) -> None:
         st = self.strategy
         rec = getattr(self, "_probe", None)
         if rec is None:
-            rec = self._probe = {"asks": [], "segs": [], "short_owner": Counter(), "zero_owner": Counter()}
+            rec = self._probe = {
+                "asks": [],
+                "segs": [],
+                "short_owner": Counter(),
+                "zero_owner": Counter(),
+                "by_who": Counter(),
+            }
             _LOG.append(rec)
         cap = st.request_cap
         owner = getattr(st, "_owner", None) or "-"
@@ -68,7 +74,9 @@ def _patch() -> None:
                 rec["short_owner"][owner] += 1
                 if not points:
                     rec["zero_owner"][owner] += 1
-        orig_step(self, points)
+        for p in points:
+            rec["by_who"][str(p.who).split(":")[0]] += 1
+        orig_step(self, points, *args, **kwargs)
         rec["trimmed"] = self.n_trimmed
 
     def _advance(self: Any) -> None:
@@ -84,10 +92,19 @@ def _patch() -> None:
     vc.VirtualClock._advance = _advance  # type: ignore[method-assign]
 
 
-def run(job: Tuple[str, int, int, int, int, int, int, bool]) -> Dict[str, Any]:
-    """One run: ``(spec, family index, instance, dim, budget multiplier, q, seed, no_floor)``."""
-    spec_name, fam_idx, inst, dim, bm, q, seed, no_floor = job
+def run(job: Tuple[str, int, int, int, int, int, int, bool, str, int]) -> Dict[str, Any]:
+    """One run: ``(spec, family index, instance, dim, budget multiplier, q, seed, no_floor, overrides)``.
+
+    ``overrides`` is a JSON object merged into the spec's ``config_overrides``
+    (the strategy's keyword arguments); the run keeps the spec's RNG identity,
+    so a variant is paired with the spec seed by seed (DISCOVERY §72).
+    """
+    spec_name, fam_idx, inst, dim, bm, q, seed, no_floor, overrides, min_gen = job
     _patch()
+    if min_gen:
+        from panobbgo.heuristics.cma_es import CMAES
+
+        CMAES.MIN_GENERATIONS = min_gen  # prototype: the floor's budget cap (§63.3)
     if no_floor:
         from panobbgo.heuristics.cma_es import CMAES
 
@@ -96,6 +113,19 @@ def run(job: Tuple[str, int, int, int, int, int, int, bool]) -> Dict[str, Any]:
     from panobbgo.harness_ioh import make_ioh_strategies
 
     spec = {s.name: s for s in make_ioh_strategies()}[spec_name]
+    if overrides:
+        from dataclasses import replace
+
+        extra = json.loads(overrides)
+        # ``"_heuristics": {"CMAES": {...}}`` merges into an arm's kwargs (by class name).
+        per_arm = extra.pop("_heuristics", {})
+        heuristics = [(cls, {**kw, **per_arm.get(cls.__name__, {})}) for cls, kw in spec.heuristics]
+        spec = replace(
+            spec,
+            heuristics=heuristics,
+            config_overrides={**spec.config_overrides, **extra},
+            seed_name=spec.rng_identity,
+        )
     insts = list(make_families_battery(dims=(dim,), n_instances=3))
     fams = list(dict.fromkeys(str(p.family) for _, p in insts))
     chosen = [(n, p) for n, p in insts if str(p.family) == fams[fam_idx] and int(p.instance) == inst]
@@ -125,6 +155,8 @@ def run(job: Tuple[str, int, int, int, int, int, int, bool]) -> Dict[str, Any]:
     return {
         "spec": spec_name,
         "no_floor": no_floor,
+        "overrides": overrides,
+        "error": r.error,
         "fam": fams[fam_idx],
         "inst": inst,
         "dim": dim,
@@ -151,6 +183,7 @@ def run(job: Tuple[str, int, int, int, int, int, int, bool]) -> Dict[str, Any]:
         "short_owner": dict(rec["short_owner"]),
         "zero_owner": dict(rec["zero_owner"]),
         "trimmed": rec.get("trimmed", 0),
+        "dispatched_by": dict(rec["by_who"]),
         "first_full": rec.get("first_full"),
     }
 
@@ -167,10 +200,12 @@ def main() -> None:
     ap.add_argument("--bm", type=int, default=100)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--no-floor", action="store_true")
+    ap.add_argument("--overrides", default="", help="JSON merged into the spec's config_overrides (paired seeds)")
+    ap.add_argument("--cma-min-gen", type=int, default=0, help="prototype: CMAES.MIN_GENERATIONS (0: unchanged)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     jobs = [
-        (a.spec, fam, inst, dim, a.bm, q, seed, a.no_floor)
+        (a.spec, fam, inst, dim, a.bm, q, seed, a.no_floor, a.overrides, a.cma_min_gen)
         for dim in a.dims
         for q in a.qs
         for seed in a.seeds

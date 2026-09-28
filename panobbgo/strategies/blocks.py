@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2026 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -214,6 +214,28 @@ once), so a wrapper cannot hold two built strategies and switch after a few
 evaluations without discarding a live evaluator or double-counting the
 probe, and it would break the RNG-order contract above (design §2.1, §3).
 
+``regime_gate="dim-budget"`` (DISCOVERY §72) is the non-oracle form: it
+applies only a row keyed on the dimension and the budget, and only while
+the parallel workers do not exceed the kept arms' serial generation size.
+On :data:`REGIME_TABLE_V1` that is the ``dim >= 10, bpd <= 500`` row
+(CMA-ES alone) for unconstrained problems at q <= λ_default; with more
+workers the worker floor (``CMAES(popsize_min_workers)``, §63) runs a
+larger-λ CMA-ES the row never measured, and the portfolio is level with
+or ahead of it there (§67.5, §72).  The headline spec
+``Blocks_warm_CMAES_JSO`` uses it.
+
+First-round fill
+----------------
+
+Before the first result arrives no arm can refill: CMA-ES waits for its
+quorum, jSO for its generation.  Under a request cap the owner's
+generation and, with ``first_round_fill``, the other arms' queues and then
+a Latin hypercube fill the free workers, so a run with q larger than the
+arms' first generations does not start with idle workers (§72: at d = 2,
+100·d, q = 64, 26 of 64 workers were busy until the first results came
+back).  From the second round on the arms refill on every result and the
+fill is off.
+
 Region hand-offs
 ----------------
 
@@ -240,7 +262,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 import numpy as np
 
 from panobbgo.core import Heuristic, StrategyBase
-from panobbgo.lib import Result
+from panobbgo.lib import Point, Result
 
 # ---------------------------------------------------------------------------
 # The regime table
@@ -381,6 +403,22 @@ def lookup_regime_table(
     raise LookupError("regime table has no row for %r/%d/%g/%s and no default" % (noise_class, dim, bpd, constrained))
 
 
+#: ``regime_gate`` value of the non-oracle gate (DISCOVERY §72): only the
+#: rows that key on the dimension and the budget, nothing that needs the
+#: noise class (see :meth:`StrategyBlockBandit._apply_dim_budget_gate`).
+DIM_BUDGET_GATE = "dim-budget"
+
+
+def is_dim_budget_row(key: RegimeKey) -> bool:
+    """Is ``key`` a row that keys on dimension / budget only (no noise class, no constrained flag)?
+
+    The catch-all default row is not one: it matches everything and says
+    nothing about the dimension or the budget.
+    """
+    noise, dim_pred, bpd_pred, constrained = key
+    return noise is None and constrained is None and (dim_pred is not None or bpd_pred is not None)
+
+
 def regime_arms_for_roles(heuristics: List[Heuristic], roles: Tuple[str, ...]) -> List[str]:
     """Names of the arms among ``heuristics`` that play one of ``roles``.
 
@@ -452,6 +490,28 @@ class StrategyBlockBandit(StrategyBase):
         fully enabled and a warning is logged — the gate must never
         silently switch every arm off.  The decision is logged at INFO and
         kept in :attr:`regime_decision`.
+
+        ``"dim-budget"`` (:data:`DIM_BUDGET_GATE`, DISCOVERY §72) is the
+        gate without the oracle: only what is known before the first
+        evaluation.  It looks the table up as for a noiseless run and
+        applies the row only if it is a dimension / budget row
+        (:func:`is_dim_budget_row`), every arm plays a role the table
+        names, and the parallel workers do not exceed the kept arms'
+        serial generation size; otherwise nothing is disabled.  On :data:`REGIME_TABLE_V1` that is: unconstrained,
+        ``dim >= 10``, ``bpd <= 500``, at most λ_default workers → CMA-ES
+        alone (see :meth:`_apply_dim_budget_gate`).
+    :param first_round_fill: before the first result arrives, fill the
+        workers the owner leaves idle — first with the other enabled arms'
+        queued points (no block switch, no warm start), then with one Latin
+        hypercube over the box, sized to the workers idle at that moment
+        (``who`` = :attr:`INITIAL_DESIGN_WHO`, no arm is credited).  Only
+        under a request cap (the virtual clock's async policy, or a real
+        pull-mode pool) and only while the arms' first generations are
+        smaller than the worker count; everywhere else a run is
+        bit-identical to ``False``.  DISCOVERY §72: at d = 2, 100·d, q = 64
+        CMA-ES (λ capped at 20) and jSO (NP 6) fill 26 of 64 workers until
+        the first results return, the idle start that made the
+        d2/q64 Holm loss to qLogEI.
     """
 
     def __init__(
@@ -474,11 +534,14 @@ class StrategyBlockBandit(StrategyBase):
         warm_start_only_if_better: bool = False,
         hysteresis: float = 1.2,
         regime_gate: Optional[str] = None,
+        first_round_fill: bool = False,
         **kwargs: Any,
     ) -> None:
         if policy not in ("ducb", "uniform"):
             raise ValueError("policy must be 'ducb' or 'uniform', got %r" % policy)
         self._gate_class: Optional[str] = self._parse_regime_gate(regime_gate)
+        #: the non-oracle form (``regime_gate="dim-budget"``, DISCOVERY §72)
+        self._gate_dim_budget: bool = regime_gate == DIM_BUDGET_GATE
         if reward not in ("area", "endpoint"):
             raise ValueError("reward must be 'area' or 'endpoint', got %r" % reward)
         if prior == "dim":
@@ -505,6 +568,13 @@ class StrategyBlockBandit(StrategyBase):
         self.warm_start_only_if_better: bool = bool(warm_start_only_if_better)
         self.hysteresis: float = float(hysteresis)
         self.regime_gate: Optional[str] = regime_gate
+        self.first_round_fill: bool = bool(first_round_fill)
+        #: first-round fill bookkeeping (:attr:`first_round_fill`): the design's
+        #: points not handed out yet, how many design points were dispatched,
+        #: and per arm how many queued points another arm's block dispatched
+        self._design_queue: Optional[List[Point]] = None
+        self._initial_design_n: int = 0
+        self._filled: Dict[str, int] = {}
 
         #: per-arm enable bit set by the regime gate; an arm absent from the
         #: dict is enabled.  Read in :meth:`_select` only.
@@ -647,6 +717,8 @@ class StrategyBlockBandit(StrategyBase):
             return None
         if not isinstance(regime_gate, str):
             raise ValueError("regime_gate must be None or a string, got %r" % (regime_gate,))
+        if regime_gate == DIM_BUDGET_GATE:
+            return None  # no noise class: the dim/budget rows only (_apply_dim_budget_gate)
         if regime_gate == "table-v1":
             raise NotImplementedError(
                 "regime_gate='table-v1' (the in-run noise probe) is not built yet — design §6 step 3; "
@@ -661,8 +733,8 @@ class StrategyBlockBandit(StrategyBase):
                 "battery (StrategySpec.with_regime_class) — pass one of %s explicitly here" % (NOISE_CLASSES,)
             )
         raise ValueError(
-            "regime_gate must be None, 'oracle:<class>' with class in %s, or 'table-v1'; got %r"
-            % (NOISE_CLASSES, regime_gate)
+            "regime_gate must be None, 'oracle:<class>' with class in %s, %r or 'table-v1'; got %r"
+            % (NOISE_CLASSES, DIM_BUDGET_GATE, regime_gate)
         )
 
     def _apply_regime_gate(self) -> None:
@@ -675,6 +747,9 @@ class StrategyBlockBandit(StrategyBase):
         ran.  The mask is set before the prologue list is built, so a
         disabled arm never gets its prologue block either.
         """
+        if self._gate_dim_budget:
+            self._apply_dim_budget_gate()
+            return
         if self._gate_class is None:
             return
         dim = int(self.problem.dim)
@@ -721,6 +796,104 @@ class StrategyBlockBandit(StrategyBase):
                 self.regime_decision["disabled"],
             )
         )
+
+    def _apply_dim_budget_gate(self) -> None:
+        """``regime_gate="dim-budget"``: apply a dim/budget row of the table, or nothing.
+
+        Everything it reads is known before the first evaluation: the
+        dimension, the budget per dimension, the constrained flag and the
+        parallel workers.  The table is looked up as for a noiseless run;
+        the row it returns is applied only if it is a *dim/budget row*
+        (:func:`is_dim_budget_row`), every arm plays a role some row of the
+        table names (the rows were measured on CMA-ES / jSO portfolios, so
+        a third arm would be switched off without evidence), and the
+        workers do not exceed the serial generation size of every arm it
+        keeps (:meth:`_serial_generation`).  Otherwise every arm stays enabled,
+        which is the ungated portfolio.  On the current table that means:
+        unconstrained, ``dim >= 10``, ``bpd <= 500`` and at most λ_default
+        workers -> CMA-ES alone; everything else unchanged (``dim <= 5,
+        bpd <= 200`` keeps both arms anyway).
+
+        Why the worker condition: the row's evidence (§42) is serial CMA-ES
+        (q = 1).  With more workers than λ_default the worker floor
+        (``CMAES(popsize_min_workers)``, §63) raises λ to q, a different
+        CMA-ES the row never measured; on the expensive track the
+        portfolio is level with it at q = 16 and ahead on AOCC at q = 64
+        (DISCOVERY §67.5, §72).
+        """
+        dim = int(self.problem.dim)
+        max_eval = self._max_eval()
+        bpd = max_eval / max(1, dim)
+        constrained = bool(self.problem.is_constrained())
+        key, roles = lookup_regime_table("clean", dim, bpd, constrained)
+        arms = [h.name for h in self.heuristics]
+        keep = regime_arms_for_roles(self.heuristics, roles)
+        workers = int(self._n_evaluators())
+        serial = [self._serial_generation(h) for h in self.heuristics if h.name in keep]
+        table_roles = tuple({role for row_roles in REGIME_TABLE_V1.values() for role in row_roles})
+        foreign = [name for name in arms if name not in regime_arms_for_roles(self.heuristics, table_roles)]
+        reason = None
+        if not is_dim_budget_row(key):
+            reason = "row %s is not a dim/budget row" % (key,)
+        elif foreign:
+            # The rows were measured on CMA-ES / jSO portfolios; an arm no
+            # row names would be switched off without evidence.
+            reason = "arms %s play no role of the table" % (foreign,)
+        elif not keep:
+            reason = "no arm plays %s" % (roles,)
+        elif any(g is not None and workers > g for g in serial):
+            reason = "%d workers exceed the kept arms' serial generation size %s" % (workers, serial)
+        if reason is not None:
+            keep = list(arms)
+        self._enabled = {name: name in keep for name in arms}
+        self.regime_decision = {
+            "gate": self.regime_gate,
+            "noise_class": None,
+            "dim": dim,
+            "max_eval": max_eval,
+            "bpd": bpd,
+            "constrained": constrained,
+            "workers": workers,
+            "row": key,
+            "roles": roles,
+            "applied": reason is None,
+            "reason": reason,
+            "enabled": list(keep),
+            "disabled": [name for name in arms if name not in keep],
+        }
+        self.logger.info(
+            "regime gate %s: dim=%d bpd=%.1f constrained=%s workers=%d -> row %s -> %s"
+            % (
+                self.regime_gate,
+                dim,
+                bpd,
+                constrained,
+                workers,
+                key,
+                "enabled %s, disabled %s" % (keep, self.regime_decision["disabled"])
+                if reason is None
+                else "not applied (%s)" % reason,
+            )
+        )
+
+    @staticmethod
+    def _serial_generation(h: Heuristic) -> Optional[int]:
+        """The generation size ``h`` would use without the worker floor, or ``None`` if it reports none.
+
+        CMA-ES answers with ``_serial_lam()`` (λ before
+        ``popsize_min_workers`` raised it); other arms with the first
+        :attr:`GENERATION_ATTRS` entry they carry.
+        """
+        serial = getattr(h, "_serial_lam", None)
+        if callable(serial):
+            lam = serial()
+            if isinstance(lam, (int, np.integer)) and not isinstance(lam, bool) and lam > 0:
+                return int(lam)
+        for attr in StrategyBlockBandit.GENERATION_ATTRS:
+            value = getattr(h, attr, None)
+            if isinstance(value, (int, np.integer)) and not isinstance(value, bool) and value > 0:
+                return int(value)
+        return None
 
     def _is_enabled(self, h: Heuristic) -> bool:
         return self._enabled.get(h.name, True)
@@ -1174,10 +1347,70 @@ class StrategyBlockBandit(StrategyBase):
         # policy) only what can be dispatched now is drawn, so ``_block_n``
         # counts dispatched evaluations and ``_block_drained`` reads the
         # owner's queue as it really is.
-        points = owner.produce(self.cap_request(self.size))
+        want = self.cap_request(self.size)
+        points = owner.produce(want)
         self._block_n += len(points)
         self._block_drained = not owner.has_points
+        if len(points) < want and self._in_first_round():
+            points = list(points) + self._first_round_fill(owner, want - len(points), taken=len(points))
         return points
+
+    # -- the first-round fill ----------------------------------------------
+
+    #: ``who`` of the first-round design's points.  No arm has this name, so
+    #: no arm is credited with them (:meth:`_credit_arm_best`) and none ranks
+    #: them as its own offspring; they reach every arm through the shared
+    #: archive, i.e. through the warm starts.
+    INITIAL_DESIGN_WHO: str = "initial_design"
+
+    def _in_first_round(self) -> bool:
+        """``first_round_fill`` is on, the workers are capped and no result has arrived yet."""
+        return self.first_round_fill and self.request_cap is not None and not self.results
+
+    def _first_round_fill(self, owner: Heuristic, n: int, taken: int = 0) -> List[Any]:
+        """Up to ``n`` points for workers the owner left idle before the first result.
+
+        The other enabled arms' queued points first (registration order),
+        then a Latin hypercube over the box sized, once, to the workers still
+        idle at that moment: the request cap minus the ``taken`` points the
+        owner already handed out in this pass and the other arms' points
+        (see :attr:`first_round_fill`).
+        """
+        extra: List[Any] = []
+        if not owner.has_points:
+            extra = self._fill_from_others(owner, n)
+        if len(extra) < n:
+            if self._design_queue is None:
+                self._design_queue = self._latin_hypercube(int(self.request_cap or 0) - taken - len(extra))
+            take = self._design_queue[: n - len(extra)]
+            del self._design_queue[: len(take)]
+            self._initial_design_n += len(take)
+            extra.extend(take)
+        return extra
+
+    def _latin_hypercube(self, n: int) -> List[Point]:
+        """``n`` points of a Latin hypercube in the box, from this strategy's own keyed stream."""
+        if n <= 0:
+            return []
+        rng = self.spawn_rng("first_round_fill")
+        box = np.asarray(self.problem.box.box, dtype=float)
+        lo, hi = box[:, 0], box[:, 1]
+        u = (np.argsort(rng.random((n, len(lo))), axis=0) + rng.random((n, len(lo)))) / n
+        return [Point(self.problem.project(lo + u[i] * (hi - lo)), self.INITIAL_DESIGN_WHO) for i in range(n)]
+
+    def _fill_from_others(self, owner: Heuristic, n: int) -> List[Any]:
+        """Up to ``n`` points already queued by the other enabled arms, without a block switch."""
+        extra: List[Any] = []
+        for h in self.heuristics:
+            if len(extra) >= n:
+                break
+            if h is owner or not self._is_enabled(h) or not h.has_points:
+                continue
+            got = h.produce(n - len(extra))
+            if got:
+                self._filled[h.name] = self._filled.get(h.name, 0) + len(got)
+                extra.extend(got)
+        return extra
 
     def _get_status_info(self) -> Dict[str, str]:
         """Return strategy-specific status info."""

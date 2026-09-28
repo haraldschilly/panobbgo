@@ -1,5 +1,5 @@
 # -*- coding: utf8 -*-
-# Copyright 2026 Harald Schilly <harald.schilly@gmail.com>
+# Copyright 2012-2026 Harald Schilly <harald.schilly@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -498,6 +498,7 @@ def test_opt_in_specs_are_not_in_the_registry_of_record():
     third = next(s for s in specs if s.name == "Blocks_warm_CMAES_JSO_TRQ")
     assert third.heuristics[:2] == blocks.heuristics
     assert third.heuristics[2][0] is TrustRegionQuadratic
+    # the portfolio's config; its dim/budget gate never applies with a third arm (DISCOVERY §72)
     assert third.config_overrides == blocks.config_overrides
     assert third.rng_identity == blocks.rng_identity
     assert [s.name for s in make_trust_region_strategies(["RoundRobin_TRQ", "nope"])] == ["RoundRobin_TRQ"]

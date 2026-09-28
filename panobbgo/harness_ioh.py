@@ -848,6 +848,18 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 # -0.007, which made it the default's `False`, but the spec
                 # states what it ran.
                 "warm_start_only_if_better": False,
+                # DISCOVERY §72: the regime table's dim/budget rows, no noise
+                # oracle.  Unconstrained, d >= 10, <= 500·d and at most
+                # λ_default workers -> CMA-ES alone; everything else as before.
+                # It turned the d10/100·d/q4 Holm loss to TuRBO1 (§67) into a
+                # lead on the §67 seeds (+0.006, 10/12).
+                "regime_gate": "dim-budget",
+                # DISCOVERY §72: before the first result, workers the arms
+                # cannot fill take the other arm's queue, then a Latin
+                # hypercube.  Binds only where the arms' first generations are
+                # smaller than q (100·d: d2/q64, d5/q64); it closed the
+                # d2/100·d/q64 Holm loss to qLogEI (§67) to parity.
+                "first_round_fill": True,
             },
         ),
         # The same portfolio behind the **oracle regime gate**
@@ -874,6 +886,9 @@ def make_ioh_strategies() -> List[StrategySpec]:
                 "warm_start_only_if_foreign": False,
                 "warm_start_only_if_better": False,
                 "regime_gate": "oracle",
+                # The portfolio's own first-round fill (§72), so the delta to
+                # it still carries only the gate.
+                "first_round_fill": True,
             },
             seed_name="Blocks_warm_CMAES_JSO",
         ),
@@ -973,6 +988,9 @@ def make_trust_region_strategies(names: Optional[Iterable[str]] = None) -> List[
             strategy_class=blocks.strategy_class,
             heuristics=list(blocks.heuristics) + [(TrustRegionQuadratic, {})],
             analyzers=list(blocks.analyzers),
+            # The portfolio's config, its dim/budget gate included: the gate is
+            # never applied here, since the TR arm plays no role of the regime
+            # table (DISCOVERY §72).
             config_overrides=dict(blocks.config_overrides),
             seed_name="Blocks_warm_CMAES_JSO",
         ),

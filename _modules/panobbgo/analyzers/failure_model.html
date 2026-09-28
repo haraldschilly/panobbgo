@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="blue" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>panobbgo.analyzers.failure_model - Panobbgo 0.0.1pre documentation</title><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=43bd62f4" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/><meta property="og:title" content="panobbgo.analyzers.failure_model"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <a class="sy-head-brand" href="../../../index.html">
+      
+      
+      <strong>Panobbgo</strong>
+    </a>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link">
+          <a href="https://github.com/haraldschilly/panobbgo">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="sy-head-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div></div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../guide.html">Panobbgo User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_introduction.html">Introduction to Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_mathematical_foundation.html">Mathematical Foundation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_architecture.html">Architecture Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_usage.html">Usage Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_extending.html">Extending Panobbgo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_benchmarking.html">Benchmarking and the Composite Score</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../guide_research.html">Research Context and Future Directions</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../core.html">Core Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../config.html">Configuration Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../utils.html">Utilities Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../strategies.html">Strategies Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../heuristics.html">Heuristics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../analyzers.html">Analyzers Module</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../classic.html">Classic Problems Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../lib.html">Library Module</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">Panobbgo</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">panobbgo.analyzers.failure_model</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for panobbgo.analyzers.failure_model</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="c1"># -*- coding: utf8 -*-</span>
+</span><span data-line="2"><span class="c1"># Copyright 2026 Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># Licensed under the Apache License, Version 2.0 (the "License");</span>
+</span><span data-line="5"><span class="c1"># you may not use this file except in compliance with the License.</span>
+</span><span data-line="6"><span class="c1"># You may obtain a copy of the License at</span>
+</span><span data-line="7"><span class="c1">#</span>
+</span><span data-line="8"><span class="c1"># http://www.apache.org/licenses/LICENSE-2.0</span>
+</span><span data-line="9"><span class="c1">#</span>
+</span><span data-line="10"><span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+</span><span data-line="11"><span class="c1"># distributed under the License is distributed on an "AS IS" BASIS,</span>
+</span><span data-line="12"><span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+</span><span data-line="13"><span class="c1"># See the License for the specific language governing permissions and</span>
+</span><span data-line="14"><span class="c1"># limitations under the License.</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="sa">r</span><span class="sd">"""</span>
+</span><span data-line="17"><span class="sd">Failure model</span>
+</span><span data-line="18"><span class="sd">=============</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="sd">A shared estimate of where evaluations fail ("poison zones",</span>
+</span><span data-line="21"><span class="sd">``planning/DESIGN_roadmap_2026-09-26.md`` §4 D): regions of the box where</span>
+</span><span data-line="22"><span class="sd">the objective crashes, returns ``NaN`` or times out.  Every heuristic can</span>
+</span><span data-line="23"><span class="sd">ask it, and the strategy can use it to answer a candidate in such a region</span>
+</span><span data-line="24"><span class="sd">without evaluating it.</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="sd">The model (v0)</span>
+</span><span data-line="27"><span class="sd">--------------</span>
+</span><span data-line="28">
+</span><span data-line="29"><span class="sd">A **kernel classifier with an adaptive (balloon) bandwidth and a success</span>
+</span><span data-line="30"><span class="sd">prior**, on box-normalised coordinates :math:`u \in [0, 1]^d`, from every</span>
+</span><span data-line="31"><span class="sd">labelled point the run has seen (a result with a finite value is a success;</span>
+</span><span data-line="32"><span class="sd">a crash, a timed-out ``NaN`` placeholder or any non-finite value is a</span>
+</span><span data-line="33"><span class="sd">failure):</span>
+</span><span data-line="34">
+</span><span data-line="35"><span class="sd">.. math::</span>
+</span><span data-line="36">
+</span><span data-line="37"><span class="sd">    p_{\mathrm{fail}}(u) = \frac{\sum_i w_i y_i}{\sum_i w_i + \alpha},</span>
+</span><span data-line="38"><span class="sd">    \qquad w_i = \exp\!\left(-\tfrac12 \lVert u - u_i \rVert^2 / h(u)^2\right),</span>
+</span><span data-line="39"><span class="sd">    \qquad h(u) = \min\bigl(h_n,\ r_k(u)\bigr)</span>
+</span><span data-line="40">
+</span><span data-line="41"><span class="sd">with :math:`y_i = 1` for a failure, :math:`r_k(u)` the distance to the</span>
+</span><span data-line="42"><span class="sd">:math:`k`-th nearest labelled point (:math:`k = d + 1`, at least 3) and the</span>
+</span><span data-line="43"><span class="sd">cap :math:`h_n = 2\,(k / (n V_d))^{1/d}`, twice the expected distance to</span>
+</span><span data-line="44"><span class="sd">the :math:`k`-th neighbour among :math:`n` uniform points (:math:`V_d` the</span>
+</span><span data-line="45"><span class="sd">volume of the unit ball).  The choices, each for one of the requirements:</span>
+</span><span data-line="46">
+</span><span data-line="47"><span class="sd">* **Unexplored is not poisoned — beyond the data's own scale.**</span>
+</span><span data-line="48"><span class="sd">  :math:`\alpha` (``prior``, default 1) is a pseudo-count of success, so a</span>
+</span><span data-line="49"><span class="sd">  zone needs several failures close together: :math:`p \ge 1/2` needs a</span>
+</span><span data-line="50"><span class="sd">  failure weight of at least :math:`1 + \alpha` plus the success weight;</span>
+</span><span data-line="51"><span class="sd">  with all :math:`k` neighbours failed, :math:`p \approx 0.6` (d = 2) to</span>
+</span><span data-line="52"><span class="sd">  0.8 (d = 5); one isolated failure gives :math:`p &lt; 1 / (1 + \alpha)`</span>
+</span><span data-line="53"><span class="sd">  (below the threshold) anywhere but on the point itself.  Further than a</span>
+</span><span data-line="54"><span class="sd">  few :math:`h_n` from every failure all failure weights vanish and</span>
+</span><span data-line="55"><span class="sd">  :math:`p \to 0`.  Within that reach the estimate is a smoothed</span>
+</span><span data-line="56"><span class="sd">  :math:`k`-nearest-neighbour vote, and it does extrapolate: a point whose</span>
+</span><span data-line="57"><span class="sd">  nearest labelled points are all failures is marked even where nothing has</span>
+</span><span data-line="58"><span class="sd">  been evaluated (deeper inside a half-space than any failure, or, early</span>
+</span><span data-line="59"><span class="sd">  in a run, around a first cluster of failures).  That is the price of a</span>
+</span><span data-line="60"><span class="sd">  model that also recognises a zone it has sampled sparsely; the</span>
+</span><span data-line="61"><span class="sd">  "whole box" guard below bounds it.</span>
+</span><span data-line="62"><span class="sd">* **Sharp where the data are dense.**  The bandwidth is the distance to</span>
+</span><span data-line="63"><span class="sd">  the :math:`k`-th neighbour, so near a converging search (thousands of</span>
+</span><span data-line="64"><span class="sd">  points within :math:`10^{-3}` of an optimum on the boundary of a</span>
+</span><span data-line="65"><span class="sd">  failure region) the boundary is resolved at the scale of the search, not</span>
+</span><span data-line="66"><span class="sd">  at the scale of the box.</span>
+</span><span data-line="67"><span class="sd">* **Deterministic failures.**  A point within ``repeat_tol`` (Euclidean, in</span>
+</span><span data-line="68"><span class="sd">  normalised units) of a known failure has :math:`p = 1`: evaluating it</span>
+</span><span data-line="69"><span class="sd">  again would fail again.</span>
+</span><span data-line="70"><span class="sd">* **Cheap.**  A query of :math:`m` points costs the distances to the</span>
+</span><span data-line="71"><span class="sd">  failures, :math:`O(m\, n_{\mathrm{fail}} d)` (the repeat rule reuses</span>
+</span><span data-line="72"><span class="sd">  them); only the queries within reach of a failure also compute the</span>
+</span><span data-line="73"><span class="sd">  distances to the successes, :math:`O(m' n_{\mathrm{ok}} d)`.  Points are</span>
+</span><span data-line="74"><span class="sd">  stored in growing buffers (amortised :math:`O(d)` per result).  The</span>
+</span><span data-line="75"><span class="sd">  guard below costs ``N_PROBES`` queries, amortised and exact near its</span>
+</span><span data-line="76"><span class="sd">  threshold (:meth:`FailureModel.poisoned_share`).  No spatial index: at the budgets</span>
+</span><span data-line="77"><span class="sd">  measured a one-point query takes 0.03 ms (d = 2, n = 200) to 0.06 ms</span>
+</span><span data-line="78"><span class="sd">  (d = 10, n = 1000) and 0.3 ms at n = 10 000, one guard evaluation 1 ms to</span>
+</span><span data-line="79"><span class="sd">  110 ms (laptop, 2026-09-27); a KD-tree would pay off beyond that.  With no failure at all</span>
+</span><span data-line="80"><span class="sd">  :meth:`p_fail` returns zeros without touching anything else, so a run</span>
+</span><span data-line="81"><span class="sd">  without failures is bit-identical with the model on.</span>
+</span><span data-line="82"><span class="sd">* **Never the whole box.**  :meth:`in_poison` is ``p &gt;= threshold``</span>
+</span><span data-line="83"><span class="sd">  (default 0.5), and it is *disarmed* (``False`` everywhere) while the</span>
+</span><span data-line="84"><span class="sd">  share of a fixed set of probe points in the box that it would mark</span>
+</span><span data-line="85"><span class="sd">  exceeds ``max_share`` (default 0.5, the largest failure share the</span>
+</span><span data-line="86"><span class="sd">  :class:`~panobbgo.lib.families.FailureRegion` families use).</span>
+</span><span data-line="87">
+</span><span data-line="88"><span class="sd">Alternatives considered and not chosen for v0 (DISCOVERY §71): a half-space</span>
+</span><span data-line="89"><span class="sd">fit (logistic / linear SVM on the failures) extrapolates a zone into</span>
+</span><span data-line="90"><span class="sd">unexplored territory — exactly right for a half-space, wrong for a ball or</span>
+</span><span data-line="91"><span class="sd">boxes, and against "unexplored is not poisoned"; a GP classifier is too</span>
+</span><span data-line="92"><span class="sd">expensive to query on every proposal; an axis-aligned tree is a natural v1</span>
+</span><span data-line="93"><span class="sd">for half-spaces along one variable.</span>
+</span><span data-line="94">
+</span><span data-line="95"><span class="sd">The proposal filter</span>
+</span><span data-line="96"><span class="sd">-------------------</span>
+</span><span data-line="97">
+</span><span data-line="98"><span class="sd">With ``filter=True`` the strategy's main loop</span>
+</span><span data-line="99"><span class="sd">(:meth:`~panobbgo.core.StrategyBase._filter_poisoned`) passes every</span>
+</span><span data-line="100"><span class="sd">candidate through :meth:`reject`: a candidate in a poison zone is **not</span>
+</span><span data-line="101"><span class="sd">evaluated and costs no budget**; the heuristic that proposed it is told, by</span>
+</span><span data-line="102"><span class="sd">the ``predicted_failures`` event, that it failed — which each heuristic</span>
+</span><span data-line="103"><span class="sd">answers with its own failure handling (``on_failed_evaluations``: CMA-ES</span>
+</span><span data-line="104"><span class="sd">ranks it last, the DE family loses the trial, the trust region shrinks, a</span>
+</span><span data-line="105"><span class="sd">solver bridge answers ``inf``).  The candidate is *answered*, not</span>
+</span><span data-line="106"><span class="sd">resampled: the heuristic's sampling distribution is not changed, and a</span>
+</span><span data-line="107"><span class="sd">CMA-ES generation sees the rejected offspring exactly as it would see a real</span>
+</span><span data-line="108"><span class="sd">failure, only for free.  Liveness: after ``max_rejects`` consecutive</span>
+</span><span data-line="109"><span class="sd">rejections of one heuristic's candidates, its next candidate is evaluated</span>
+</span><span data-line="110"><span class="sd">whatever the model says (which also lets the model correct itself); a</span>
+</span><span data-line="111"><span class="sd">heuristic without an ``on_failed_evaluations`` hook (it refills only on new</span>
+</span><span data-line="112"><span class="sd">results, like ``Random``) gets ``on_new_results([])`` for its rejected</span>
+</span><span data-line="113"><span class="sd">candidates, so rejections never drain its queue.</span>
+</span><span data-line="114">
+</span><span data-line="115"><span class="sd">The model only learns from *evaluated* points; a rejected candidate is not</span>
+</span><span data-line="116"><span class="sd">a failure the model has seen.</span>
+</span><span data-line="117">
+</span><span data-line="118"><span class="sd">.. codeauthor:: Harald Schilly &lt;harald.schilly@gmail.com&gt;</span>
+</span><span data-line="119"><span class="sd">"""</span>
+</span><span data-line="120">
+</span><span data-line="121"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="122">
+</span><span data-line="123"><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+</span><span data-line="124"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="125"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+</span><span data-line="126">
+</span><span data-line="127"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="128">
+</span><span data-line="129"><span class="kn">from</span><span class="w"> </span><span class="nn">panobbgo.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
+</span><span data-line="130">
+</span><span data-line="131"><span class="c1">#: Probe points of the "never the whole box" guard.</span>
+</span><span data-line="132"><span class="n">N_PROBES</span> <span class="o">=</span> <span class="mi">256</span>
+</span><span data-line="133">
+</span><span data-line="134"><span class="c1">#: :meth:`FailureModel.poisoned_share` is recomputed on every new failure up to this many, then every +10 %.</span>
+</span><span data-line="135"><span class="n">SHARE_EXACT_UP_TO</span> <span class="o">=</span> <span class="mi">50</span>
+</span><span data-line="136">
+</span><span data-line="137"><span class="c1">#: Above ``SHARE_NEAR * max_share`` the guard's share is recomputed exactly on every data change.</span>
+</span><span data-line="138"><span class="n">SHARE_NEAR</span> <span class="o">=</span> <span class="mf">0.8</span>
+</span><span data-line="139">
+</span><span data-line="140"><span class="c1">#: The bandwidth cap is ``H_FACTOR`` times the expected ``k``-th neighbour distance of ``n`` uniform points.</span>
+</span><span data-line="141"><span class="n">H_FACTOR</span> <span class="o">=</span> <span class="mf">2.0</span>
+</span><span data-line="142">
+</span><span data-line="143">
+<div class="viewcode-block" id="FailureModel">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel">[docs]</a>
+</span><span data-line="144"><span class="k">class</span><span class="w"> </span><span class="nc">FailureModel</span><span class="p">(</span><span class="n">Analyzer</span><span class="p">):</span>
+</span><span data-line="145"><span class="w">    </span><span class="sd">"""Shared failure-region model: ``p_fail(x)`` / ``in_poison(x)`` from observed failures and successes.</span>
+</span><span data-line="146">
+</span><span data-line="147"><span class="sd">    Opt-in: add it to a strategy (``StrategySpec.analyzers``); nothing in a</span>
+</span><span data-line="148"><span class="sd">    strategy without it changes.  Thread-safety: results arrive on the</span>
+</span><span data-line="149"><span class="sd">    event-bus thread, queries come from the main loop and from heuristics;</span>
+</span><span data-line="150"><span class="sd">    one lock covers the labelled data.</span>
+</span><span data-line="151">
+</span><span data-line="152"><span class="sd">    Args:</span>
+</span><span data-line="153"><span class="sd">        strategy: The owning strategy.</span>
+</span><span data-line="154"><span class="sd">        filter: Reject candidates in poison zones in the strategy's main</span>
+</span><span data-line="155"><span class="sd">            loop (see the module docstring).  ``False`` (default): the model</span>
+</span><span data-line="156"><span class="sd">            only answers queries.</span>
+</span><span data-line="157"><span class="sd">        threshold: :meth:`in_poison` is ``p_fail &gt;= threshold``.</span>
+</span><span data-line="158"><span class="sd">        prior: The success pseudo-count :math:`\\alpha`.</span>
+</span><span data-line="159"><span class="sd">        k: Neighbour rank of the adaptive bandwidth; ``None``: ``max(3, d + 1)``.</span>
+</span><span data-line="160"><span class="sd">        repeat_tol: Euclidean distance (normalised units) within which a</span>
+</span><span data-line="161"><span class="sd">            point repeats a known failure.</span>
+</span><span data-line="162"><span class="sd">        max_share: Largest share of the box :meth:`in_poison` may mark before</span>
+</span><span data-line="163"><span class="sd">            it is disarmed.</span>
+</span><span data-line="164"><span class="sd">        max_rejects: Consecutive rejections of one heuristic's candidates</span>
+</span><span data-line="165"><span class="sd">            after which its next candidate passes.</span>
+</span><span data-line="166"><span class="sd">        name: Module name; defaults to ``"FailureModel"``.</span>
+</span><span data-line="167"><span class="sd">    """</span>
+</span><span data-line="168">
+</span><span data-line="169">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="170">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="171">        <span class="n">strategy</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+</span><span data-line="172">        <span class="nb">filter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="173">        <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="174">        <span class="n">prior</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="175">        <span class="n">k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="176">        <span class="n">repeat_tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-9</span><span class="p">,</span>
+</span><span data-line="177">        <span class="n">max_share</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="178">        <span class="n">max_rejects</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+</span><span data-line="179">        <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="180">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="181">        <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">threshold</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+</span><span data-line="182">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"FailureModel: threshold must be in (0, 1]"</span><span class="p">)</span>
+</span><span data-line="183">        <span class="k">if</span> <span class="n">prior</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+</span><span data-line="184">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"FailureModel: prior must be &gt; 0"</span><span class="p">)</span>
+</span><span data-line="185">        <span class="k">if</span> <span class="ow">not</span> <span class="mf">0.0</span> <span class="o">&lt;</span> <span class="n">max_share</span> <span class="o">&lt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+</span><span data-line="186">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"FailureModel: max_share must be in (0, 1]"</span><span class="p">)</span>
+</span><span data-line="187">        <span class="k">if</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_rejects</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="188">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"FailureModel: max_rejects must be &gt;= 1"</span><span class="p">)</span>
+</span><span data-line="189">        <span class="n">Analyzer</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strategy</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"FailureModel"</span><span class="p">)</span>
+</span><span data-line="190">        <span class="bp">self</span><span class="o">.</span><span class="n">filter</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
+</span><span data-line="191">        <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
+</span><span data-line="192">        <span class="bp">self</span><span class="o">.</span><span class="n">prior</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">prior</span><span class="p">)</span>
+</span><span data-line="193">        <span class="n">dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="194">        <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="195">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+</span><span data-line="196">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"FailureModel: k must be &gt;= 1"</span><span class="p">)</span>
+</span><span data-line="197">        <span class="bp">self</span><span class="o">.</span><span class="n">repeat_tol</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">repeat_tol</span><span class="p">)</span>
+</span><span data-line="198">        <span class="bp">self</span><span class="o">.</span><span class="n">max_share</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">max_share</span><span class="p">)</span>
+</span><span data-line="199">        <span class="bp">self</span><span class="o">.</span><span class="n">max_rejects</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">max_rejects</span><span class="p">)</span>
+</span><span data-line="200">        <span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">problem</span><span class="o">.</span><span class="n">box</span><span class="p">[:,</span> <span class="p">:],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="201">        <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span> <span class="o">=</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+</span><span data-line="202">        <span class="bp">self</span><span class="o">.</span><span class="n">_width</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">box</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="203">        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">RLock</span><span class="p">()</span>
+</span><span data-line="204">        <span class="bp">self</span><span class="o">.</span><span class="n">_fail</span> <span class="o">=</span> <span class="n">_Rows</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="205">        <span class="bp">self</span><span class="o">.</span><span class="n">_ok</span> <span class="o">=</span> <span class="n">_Rows</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+</span><span data-line="206">        <span class="c1">#: Failure kinds seen: ``"crash"``, ``"timeout"``, ``"nan"`` -&gt; count.</span>
+</span><span data-line="207">        <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="208">        <span class="c1"># A fixed probe set of its own stream: querying it never touches another module's randomness.</span>
+</span><span data-line="209">        <span class="bp">self</span><span class="o">.</span><span class="n">_probes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mh">0x9015011</span><span class="p">)</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="n">N_PROBES</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="210">        <span class="bp">self</span><span class="o">.</span><span class="n">_share</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># poisoned probe share (see :meth:`poisoned_share`)</span>
+</span><span data-line="211">        <span class="bp">self</span><span class="o">.</span><span class="n">_share_at</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># n_fail when it was computed</span>
+</span><span data-line="212">        <span class="bp">self</span><span class="o">.</span><span class="n">_share_at_total</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># n_fail + n_ok when it was computed</span>
+</span><span data-line="213">        <span class="c1">#: Consecutive rejections per heuristic name (see :meth:`reject`).</span>
+</span><span data-line="214">        <span class="bp">self</span><span class="o">.</span><span class="n">_streak</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="215">        <span class="c1">#: Diagnostics.</span>
+</span><span data-line="216">        <span class="bp">self</span><span class="o">.</span><span class="n">n_rejected</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="217">        <span class="bp">self</span><span class="o">.</span><span class="n">n_passed_streak</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="218">
+</span><span data-line="219">    <span class="c1"># -- data --------------------------------------------------------------</span>
+</span><span data-line="220">
+</span><span data-line="221">    <span class="nd">@property</span>
+</span><span data-line="222">    <span class="k">def</span><span class="w"> </span><span class="nf">n_fail</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="223">        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fail</span><span class="p">)</span>
+</span><span data-line="224">
+</span><span data-line="225">    <span class="nd">@property</span>
+</span><span data-line="226">    <span class="k">def</span><span class="w"> </span><span class="nf">n_ok</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="227">        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ok</span><span class="p">)</span>
+</span><span data-line="228">
+</span><span data-line="229">    <span class="nd">@property</span>
+</span><span data-line="230">    <span class="k">def</span><span class="w"> </span><span class="nf">_U_fail</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="231">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fail</span><span class="o">.</span><span class="n">view</span><span class="p">()</span>
+</span><span data-line="232">
+</span><span data-line="233">    <span class="nd">@property</span>
+</span><span data-line="234">    <span class="k">def</span><span class="w"> </span><span class="nf">_U_ok</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="235">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ok</span><span class="o">.</span><span class="n">view</span><span class="p">()</span>
+</span><span data-line="236">
+</span><span data-line="237">    <span class="k">def</span><span class="w"> </span><span class="nf">_to_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="238">        <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lo</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_width</span>
+</span><span data-line="239">
+<div class="viewcode-block" id="FailureModel.add_failure">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.add_failure">[docs]</a>
+</span><span data-line="240">    <span class="k">def</span><span class="w"> </span><span class="nf">add_failure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"crash"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="241"><span class="w">        </span><span class="sd">"""Record a failed evaluation at ``x`` (also the entry point for tests and other drivers)."""</span>
+</span><span data-line="242">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="243">            <span class="bp">self</span><span class="o">.</span><span class="n">_fail</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+</span><span data-line="244">            <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span></div>
+
+</span><span data-line="245">
+<div class="viewcode-block" id="FailureModel.add_success">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.add_success">[docs]</a>
+</span><span data-line="246">    <span class="k">def</span><span class="w"> </span><span class="nf">add_success</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="247"><span class="w">        </span><span class="sd">"""Record a successful evaluation at ``x``."""</span>
+</span><span data-line="248">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="249">            <span class="bp">self</span><span class="o">.</span><span class="n">_ok</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">x</span><span class="p">))</span></div>
+
+</span><span data-line="250">
+<div class="viewcode-block" id="FailureModel.on_new_results">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.on_new_results">[docs]</a>
+</span><span data-line="251">    <span class="k">def</span><span class="w"> </span><span class="nf">on_new_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="252"><span class="w">        </span><span class="sd">"""Label every result: finite value -&gt; success; timed out / non-finite -&gt; failure."""</span>
+</span><span data-line="253">        <span class="n">fail</span><span class="p">,</span> <span class="n">ok</span><span class="p">,</span> <span class="n">kinds</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+</span><span data-line="254">        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+</span><span data-line="255">            <span class="n">x</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="256">            <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="257">                <span class="k">continue</span>
+</span><span data-line="258">            <span class="n">fx</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"fx"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="259">            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"timed_out"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fx</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">fx</span><span class="p">)):</span>
+</span><span data-line="260">                <span class="n">fail</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="261">                <span class="n">kinds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"timeout"</span> <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"timed_out"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">else</span> <span class="s2">"nan"</span><span class="p">)</span>
+</span><span data-line="262">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="263">                <span class="n">ok</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="264">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="265">            <span class="k">if</span> <span class="n">ok</span><span class="p">:</span>
+</span><span data-line="266">                <span class="bp">self</span><span class="o">.</span><span class="n">_ok</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ok</span><span class="p">)))</span>
+</span><span data-line="267">            <span class="k">if</span> <span class="n">fail</span><span class="p">:</span>
+</span><span data-line="268">                <span class="bp">self</span><span class="o">.</span><span class="n">_fail</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">fail</span><span class="p">)))</span>
+</span><span data-line="269">                <span class="k">for</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">kinds</span><span class="p">:</span>
+</span><span data-line="270">                    <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span></div>
+
+</span><span data-line="271">
+<div class="viewcode-block" id="FailureModel.on_failed_evaluations">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.on_failed_evaluations">[docs]</a>
+</span><span data-line="272">    <span class="k">def</span><span class="w"> </span><span class="nf">on_failed_evaluations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="273"><span class="w">        </span><span class="sd">"""A crashed evaluation (no result) is a failure at its point."""</span>
+</span><span data-line="274">        <span class="n">xs</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span> <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+</span><span data-line="275">        <span class="k">if</span> <span class="ow">not</span> <span class="n">xs</span><span class="p">:</span>
+</span><span data-line="276">            <span class="k">return</span>
+</span><span data-line="277">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="278">            <span class="bp">self</span><span class="o">.</span><span class="n">_fail</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">xs</span><span class="p">)))</span>
+</span><span data-line="279">            <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="p">[</span><span class="s2">"crash"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kinds</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"crash"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">xs</span><span class="p">)</span></div>
+
+</span><span data-line="280">
+</span><span data-line="281">    <span class="c1"># -- queries -----------------------------------------------------------</span>
+</span><span data-line="282">
+</span><span data-line="283">    <span class="k">def</span><span class="w"> </span><span class="nf">_p_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">U</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="284"><span class="w">        </span><span class="sd">"""``p_fail`` of normalised points ``U`` (``m x d``); callers hold the lock."""</span>
+</span><span data-line="285">        <span class="n">m</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">U</span><span class="o">.</span><span class="n">shape</span>
+</span><span data-line="286">        <span class="n">F</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_U_fail</span>
+</span><span data-line="287">        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+</span><span data-line="288">        <span class="k">if</span> <span class="n">F</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">m</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="289">            <span class="k">return</span> <span class="n">out</span>
+</span><span data-line="290">        <span class="n">S</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_U_ok</span>
+</span><span data-line="291">        <span class="n">n</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="292">        <span class="n">h_n</span> <span class="o">=</span> <span class="n">H_FACTOR</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">_unit_ball_volume</span><span class="p">(</span><span class="n">d</span><span class="p">)))</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">d</span><span class="p">)</span>
+</span><span data-line="293">        <span class="n">dF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(((</span><span class="n">U</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">F</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>  <span class="c1"># (m, n_fail)</span>
+</span><span data-line="294">        <span class="c1"># Only a query within a few global bandwidths of a failure can reach the threshold.</span>
+</span><span data-line="295">        <span class="n">near</span> <span class="o">=</span> <span class="n">dF</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="n">h_n</span>
+</span><span data-line="296">        <span class="k">if</span> <span class="n">near</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+</span><span data-line="297">            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">near</span><span class="p">)</span>
+</span><span data-line="298">            <span class="n">dFn</span> <span class="o">=</span> <span class="n">dF</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+</span><span data-line="299">            <span class="k">if</span> <span class="n">S</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+</span><span data-line="300">                <span class="n">dS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(((</span><span class="n">U</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">S</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+</span><span data-line="301">                <span class="n">D</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">dFn</span><span class="p">,</span> <span class="n">dS</span><span class="p">])</span>
+</span><span data-line="302">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="303">                <span class="n">D</span> <span class="o">=</span> <span class="n">dFn</span>
+</span><span data-line="304">            <span class="n">kk</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="n">D</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+</span><span data-line="305">            <span class="n">r_k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">kk</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:,</span> <span class="n">kk</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+</span><span data-line="306">            <span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">minimum</span><span class="p">(</span><span class="n">h_n</span><span class="p">,</span> <span class="n">r_k</span><span class="p">),</span> <span class="mf">1e-12</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
+</span><span data-line="307">            <span class="n">wF</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">dFn</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="308">            <span class="n">wS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">D</span><span class="p">[:,</span> <span class="n">dFn</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="p">:]</span> <span class="o">/</span> <span class="n">h</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="309">            <span class="n">out</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">wF</span> <span class="o">/</span> <span class="p">(</span><span class="n">wF</span> <span class="o">+</span> <span class="n">wS</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">prior</span><span class="p">)</span>
+</span><span data-line="310">        <span class="c1"># A repeat of a known failure fails again (Euclidean, from the distances above).</span>
+</span><span data-line="311">        <span class="n">out</span><span class="p">[</span><span class="n">dF</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">repeat_tol</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+</span><span data-line="312">        <span class="k">return</span> <span class="n">out</span>
+</span><span data-line="313">
+<div class="viewcode-block" id="FailureModel.p_fail">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.p_fail">[docs]</a>
+</span><span data-line="314">    <span class="k">def</span><span class="w"> </span><span class="nf">p_fail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="315"><span class="w">        </span><span class="sd">"""Estimated probability that evaluating ``x`` fails: a float for one point, an array for ``m x d``."""</span>
+</span><span data-line="316">        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="317">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="318">            <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_p_u</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_to_u</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+</span><span data-line="319">        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">p</span></div>
+
+</span><span data-line="320">
+<div class="viewcode-block" id="FailureModel.poisoned_share">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.poisoned_share">[docs]</a>
+</span><span data-line="321">    <span class="k">def</span><span class="w"> </span><span class="nf">poisoned_share</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="322"><span class="w">        </span><span class="sd">"""Share of the fixed probe points the model marks (``p &gt;= threshold``), before the guard.</span>
+</span><span data-line="323">
+</span><span data-line="324"><span class="sd">        Computed lazily, on the first query after the data changed, and</span>
+</span><span data-line="325"><span class="sd">        amortised: exactly on every change (a new failure *or* success) while</span>
+</span><span data-line="326"><span class="sd">        the last share is above ``SHARE_NEAR * max_share`` (close to the</span>
+</span><span data-line="327"><span class="sd">        guard) or the model knows at most :data:`SHARE_EXACT_UP_TO` failures;</span>
+</span><span data-line="328"><span class="sd">        otherwise only once the failures or the labelled points have grown by</span>
+</span><span data-line="329"><span class="sd">        10 %.  New successes can *raise* the share as well as lower it (they</span>
+</span><span data-line="330"><span class="sd">        shrink the bandwidths ``h_n`` and ``r_k``), so a share cached far</span>
+</span><span data-line="331"><span class="sd">        below the guard can lag the exact one; that lag is what the</span>
+</span><span data-line="332"><span class="sd">        ``SHARE_NEAR`` band absorbs.  The guard is therefore not a hard</span>
+</span><span data-line="333"><span class="sd">        guarantee between recomputes, only near the threshold: tested on a</span>
+</span><span data-line="334"><span class="sd">        half-box failure region sampled uniformly and then by successes only</span>
+</span><span data-line="335"><span class="sd">        (``tests/test_failure_model.py``).  One evaluation costs ``N_PROBES``</span>
+</span><span data-line="336"><span class="sd">        queries.</span>
+</span><span data-line="337"><span class="sd">        """</span>
+</span><span data-line="338">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span data-line="339">            <span class="n">n_f</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fail</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fail</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_ok</span>
+</span><span data-line="340">            <span class="n">changed</span> <span class="o">=</span> <span class="p">(</span><span class="n">n_f</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_share_at</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share_at_total</span><span class="p">)</span>
+</span><span data-line="341">            <span class="n">stale</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span>
+</span><span data-line="342">                <span class="n">changed</span>
+</span><span data-line="343">                <span class="ow">and</span> <span class="p">(</span>
+</span><span data-line="344">                    <span class="bp">self</span><span class="o">.</span><span class="n">_share</span> <span class="o">&gt;</span> <span class="n">SHARE_NEAR</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_share</span>
+</span><span data-line="345">                    <span class="ow">or</span> <span class="p">(</span><span class="n">n_f</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share_at</span> <span class="ow">and</span> <span class="n">n_f</span> <span class="o">&lt;=</span> <span class="n">SHARE_EXACT_UP_TO</span><span class="p">)</span>
+</span><span data-line="346">                    <span class="ow">or</span> <span class="n">n_f</span> <span class="o">&gt;=</span> <span class="mf">1.1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share_at</span>
+</span><span data-line="347">                    <span class="ow">or</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mf">1.1</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share_at_total</span>
+</span><span data-line="348">                <span class="p">)</span>
+</span><span data-line="349">            <span class="p">)</span>
+</span><span data-line="350">            <span class="k">if</span> <span class="n">stale</span><span class="p">:</span>
+</span><span data-line="351">                <span class="bp">self</span><span class="o">.</span><span class="n">_share</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_p_u</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_probes</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">))</span> <span class="k">if</span> <span class="n">n_f</span> <span class="k">else</span> <span class="mf">0.0</span>
+</span><span data-line="352">                <span class="bp">self</span><span class="o">.</span><span class="n">_share_at</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share_at_total</span> <span class="o">=</span> <span class="n">n_f</span><span class="p">,</span> <span class="n">n</span>
+</span><span data-line="353">            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="354">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_share</span></div>
+
+</span><span data-line="355">
+</span><span data-line="356">    <span class="nd">@property</span>
+</span><span data-line="357">    <span class="k">def</span><span class="w"> </span><span class="nf">armed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="358"><span class="w">        </span><span class="sd">"""``False`` while the model would mark more than ``max_share`` of the box (or knows no failure)."""</span>
+</span><span data-line="359">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_fail</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">poisoned_share</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_share</span>
+</span><span data-line="360">
+<div class="viewcode-block" id="FailureModel.in_poison">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.in_poison">[docs]</a>
+</span><span data-line="361">    <span class="k">def</span><span class="w"> </span><span class="nf">in_poison</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="362"><span class="w">        </span><span class="sd">"""``p_fail(x) &gt;= threshold`` while :attr:`armed`, else ``False``; a bool or a bool array like :meth:`p_fail`."""</span>
+</span><span data-line="363">        <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+</span><span data-line="364">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">armed</span><span class="p">:</span>
+</span><span data-line="365">            <span class="k">return</span> <span class="kc">False</span> <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+</span><span data-line="366">        <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_fail</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+</span><span data-line="367">        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">p</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span><span class="p">)</span> <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">threshold</span></div>
+
+</span><span data-line="368">
+</span><span data-line="369">    <span class="c1"># -- the proposal filter ---------------------------------------------------</span>
+</span><span data-line="370">
+<div class="viewcode-block" id="FailureModel.reject">
+<a class="viewcode-back" href="../../../analyzers.html#panobbgo.analyzers.failure_model.FailureModel.reject">[docs]</a>
+</span><span data-line="371">    <span class="k">def</span><span class="w"> </span><span class="nf">reject</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">bool</span><span class="p">]:</span>
+</span><span data-line="372"><span class="w">        </span><span class="sd">"""Which of ``points`` (candidates, in order) the filter rejects; updates the per-heuristic streaks.</span>
+</span><span data-line="373">
+</span><span data-line="374"><span class="sd">        A candidate of a heuristic whose last ``max_rejects`` candidates were</span>
+</span><span data-line="375"><span class="sd">        all rejected passes (liveness; see the module docstring).  Returns</span>
+</span><span data-line="376"><span class="sd">        all ``False`` without any work while the model knows no failure.</span>
+</span><span data-line="377"><span class="sd">        """</span>
+</span><span data-line="378">        <span class="k">if</span> <span class="ow">not</span> <span class="n">points</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">armed</span><span class="p">:</span>
+</span><span data-line="379">            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+</span><span data-line="380">                <span class="bp">self</span><span class="o">.</span><span class="n">_streak</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">_owner</span><span class="p">(</span><span class="n">p</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="381">            <span class="k">return</span> <span class="p">[</span><span class="kc">False</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
+</span><span data-line="382">        <span class="n">poisoned</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_poison</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">([</span><span class="n">p</span><span class="o">.</span><span class="n">x</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">points</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+</span><span data-line="383">        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="384">        <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">bad</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">poisoned</span><span class="p">):</span>
+</span><span data-line="385">            <span class="n">who</span> <span class="o">=</span> <span class="n">_owner</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+</span><span data-line="386">            <span class="k">if</span> <span class="n">bad</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_streak</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">who</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_rejects</span><span class="p">:</span>
+</span><span data-line="387">                <span class="bp">self</span><span class="o">.</span><span class="n">_streak</span><span class="p">[</span><span class="n">who</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_streak</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">who</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+</span><span data-line="388">                <span class="bp">self</span><span class="o">.</span><span class="n">n_rejected</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="389">                <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="390">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="391">                <span class="k">if</span> <span class="n">bad</span><span class="p">:</span>
+</span><span data-line="392">                    <span class="bp">self</span><span class="o">.</span><span class="n">n_passed_streak</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="393">                <span class="bp">self</span><span class="o">.</span><span class="n">_streak</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">who</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+</span><span data-line="394">                <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+</span><span data-line="395">        <span class="k">return</span> <span class="n">out</span></div>
+</div>
+
+</span><span data-line="396">
+</span><span data-line="397">
+</span><span data-line="398"><span class="k">class</span><span class="w"> </span><span class="nc">_Rows</span><span class="p">:</span>
+</span><span data-line="399"><span class="w">    </span><span class="sd">"""A growing ``n x d`` float buffer (amortised O(1) appends, no copy per result)."""</span>
+</span><span data-line="400">
+</span><span data-line="401">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="402">        <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">16</span><span class="p">,</span> <span class="n">dim</span><span class="p">))</span>
+</span><span data-line="403">        <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="404">
+</span><span data-line="405">    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="406">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span>
+</span><span data-line="407">
+</span><span data-line="408">    <span class="k">def</span><span class="w"> </span><span class="nf">extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rows</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="409">        <span class="n">rows</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span>
+</span><span data-line="410">        <span class="n">need</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">+</span> <span class="n">rows</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="411">        <span class="k">if</span> <span class="n">need</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+</span><span data-line="412">            <span class="n">grown</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="nb">max</span><span class="p">(</span><span class="n">need</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+</span><span data-line="413">            <span class="n">grown</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">]</span>
+</span><span data-line="414">            <span class="bp">self</span><span class="o">.</span><span class="n">_a</span> <span class="o">=</span> <span class="n">grown</span>
+</span><span data-line="415">        <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="p">:</span> <span class="n">need</span><span class="p">]</span> <span class="o">=</span> <span class="n">rows</span>
+</span><span data-line="416">        <span class="bp">self</span><span class="o">.</span><span class="n">_n</span> <span class="o">=</span> <span class="n">need</span>
+</span><span data-line="417">
+</span><span data-line="418">    <span class="k">def</span><span class="w"> </span><span class="nf">view</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+</span><span data-line="419">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_a</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_n</span><span class="p">]</span>
+</span><span data-line="420">
+</span><span data-line="421">
+</span><span data-line="422"><span class="k">def</span><span class="w"> </span><span class="nf">_unit_ball_volume</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="423"><span class="w">    </span><span class="sd">"""Volume of the unit ball in ``d`` dimensions."""</span>
+</span><span data-line="424">    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">lgamma</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">d</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)))</span>
+</span><span data-line="425">
+</span><span data-line="426">
+</span><span data-line="427"><span class="k">def</span><span class="w"> </span><span class="nf">_owner</span><span class="p">(</span><span class="n">point</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+</span><span data-line="428"><span class="w">    </span><span class="sd">"""The heuristic name of a candidate: its ``who`` up to the first ``:``."""</span>
+</span><span data-line="429">    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="s2">"who"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">":"</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2012-2026, Harald Schilly. License Apache 2.0</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/haraldschilly/panobbgo" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=1859ee8a"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

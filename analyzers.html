@@ -112,6 +112,31 @@ data-aria-dark="Switch to auto color mode">
 </ul>
 </li>
 <li><a class="reference internal" href="#panobbgo.analyzers.archive.DEFAULT_K"><code class="docutils literal notranslate"><span class="pre">DEFAULT_K</span></code></a></li>
+<li><a class="reference internal" href="#failure-model">Failure model</a><ul>
+<li><a class="reference internal" href="#the-model-v0">The model (v0)</a></li>
+<li><a class="reference internal" href="#the-proposal-filter">The proposal filter</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel"><code class="docutils literal notranslate"><span class="pre">FailureModel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.add_failure"><code class="docutils literal notranslate"><span class="pre">FailureModel.add_failure()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.add_success"><code class="docutils literal notranslate"><span class="pre">FailureModel.add_success()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.armed"><code class="docutils literal notranslate"><span class="pre">FailureModel.armed</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.in_poison"><code class="docutils literal notranslate"><span class="pre">FailureModel.in_poison()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.kinds"><code class="docutils literal notranslate"><span class="pre">FailureModel.kinds</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.n_fail"><code class="docutils literal notranslate"><span class="pre">FailureModel.n_fail</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.n_ok"><code class="docutils literal notranslate"><span class="pre">FailureModel.n_ok</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.n_rejected"><code class="docutils literal notranslate"><span class="pre">FailureModel.n_rejected</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.on_failed_evaluations"><code class="docutils literal notranslate"><span class="pre">FailureModel.on_failed_evaluations()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.on_new_results"><code class="docutils literal notranslate"><span class="pre">FailureModel.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.p_fail"><code class="docutils literal notranslate"><span class="pre">FailureModel.p_fail()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.poisoned_share"><code class="docutils literal notranslate"><span class="pre">FailureModel.poisoned_share()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.reject"><code class="docutils literal notranslate"><span class="pre">FailureModel.reject()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.H_FACTOR"><code class="docutils literal notranslate"><span class="pre">H_FACTOR</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.N_PROBES"><code class="docutils literal notranslate"><span class="pre">N_PROBES</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.SHARE_EXACT_UP_TO"><code class="docutils literal notranslate"><span class="pre">SHARE_EXACT_UP_TO</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.failure_model.SHARE_NEAR"><code class="docutils literal notranslate"><span class="pre">SHARE_NEAR</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best"><code class="docutils literal notranslate"><span class="pre">Best</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.best"><code class="docutils literal notranslate"><span class="pre">Best.best</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.best.Best.cv"><code class="docutils literal notranslate"><span class="pre">Best.cv</span></code></a></li>
@@ -189,6 +214,22 @@ data-aria-dark="Switch to auto color mode">
 <li><a class="reference internal" href="#panobbgo.analyzers.Convergence.on_new_results"><code class="docutils literal notranslate"><span class="pre">Convergence.on_new_results()</span></code></a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel"><code class="docutils literal notranslate"><span class="pre">FailureModel</span></code></a><ul>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.add_failure"><code class="docutils literal notranslate"><span class="pre">FailureModel.add_failure()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.add_success"><code class="docutils literal notranslate"><span class="pre">FailureModel.add_success()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.armed"><code class="docutils literal notranslate"><span class="pre">FailureModel.armed</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.in_poison"><code class="docutils literal notranslate"><span class="pre">FailureModel.in_poison()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.kinds"><code class="docutils literal notranslate"><span class="pre">FailureModel.kinds</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.n_fail"><code class="docutils literal notranslate"><span class="pre">FailureModel.n_fail</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.n_ok"><code class="docutils literal notranslate"><span class="pre">FailureModel.n_ok</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.n_rejected"><code class="docutils literal notranslate"><span class="pre">FailureModel.n_rejected</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.on_failed_evaluations"><code class="docutils literal notranslate"><span class="pre">FailureModel.on_failed_evaluations()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.on_new_results"><code class="docutils literal notranslate"><span class="pre">FailureModel.on_new_results()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.p_fail"><code class="docutils literal notranslate"><span class="pre">FailureModel.p_fail()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.poisoned_share"><code class="docutils literal notranslate"><span class="pre">FailureModel.poisoned_share()</span></code></a></li>
+<li><a class="reference internal" href="#panobbgo.analyzers.FailureModel.reject"><code class="docutils literal notranslate"><span class="pre">FailureModel.reject()</span></code></a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart"><code class="docutils literal notranslate"><span class="pre">Restart</span></code></a><ul>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart.SUPPORTED_RESTART_STRATEGIES"><code class="docutils literal notranslate"><span class="pre">Restart.SUPPORTED_RESTART_STRATEGIES</span></code></a></li>
 <li><a class="reference internal" href="#panobbgo.analyzers.Restart.on_new_results"><code class="docutils literal notranslate"><span class="pre">Restart.on_new_results()</span></code></a></li>
@@ -264,6 +305,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong>Restart</strong>: Detects stagnation (no improvement within <code class="docutils literal notranslate"><span class="pre">patience</span></code> evaluations) and triggers multi-start restarts; pairs with CMAES for IPOP-CMA-ES</p></li>
 <li><p><strong>Splitter</strong>: Adaptive hierarchical box-decomposition of the search space; publishes <code class="docutils literal notranslate"><span class="pre">new_split</span></code> and identifies the best leaf box.  Resolution scales with the evaluation budget (<code class="docutils literal notranslate"><span class="pre">leaf_size</span></code> / <code class="docutils literal notranslate"><span class="pre">min_leaf_size</span></code> / <code class="docutils literal notranslate"><span class="pre">max_leaves</span></code>); <code class="docutils literal notranslate"><span class="pre">split_rule</span></code> and <code class="docutils literal notranslate"><span class="pre">cut_rule</span></code> select the cut, <code class="docutils literal notranslate"><span class="pre">legacy=True</span></code> restores the fixed-resolution tree</p></li>
 <li><p><strong>Archive</strong>: Opt-in bounded top-K of the <em>shared</em> result stream, ranked by penalty and unfiltered by <code class="docutils literal notranslate"><span class="pre">who</span></code>; the query layer heuristics warm-start from</p></li>
+<li><p><strong>FailureModel</strong>: Opt-in shared model of failure regions (“poison zones”: crashes, <code class="docutils literal notranslate"><span class="pre">NaN</span></code>, timeouts) — <code class="docutils literal notranslate"><span class="pre">p_fail(x)</span></code> / <code class="docutils literal notranslate"><span class="pre">in_poison(x)</span></code> from a kernel classifier with an adaptive bandwidth and a success prior; with <code class="docutils literal notranslate"><span class="pre">filter=True</span></code> the strategy answers candidates in a zone as failed without evaluating them (no budget), so each arm’s own failure handling applies.  <code class="docutils literal notranslate"><span class="pre">CMAES(failure_aware=True)</span></code> and <code class="docutils literal notranslate"><span class="pre">TrustRegionQuadratic(failure_aware=True)</span></code> add arm-specific handling (DISCOVERY §71)</p></li>
 </ul>
 <section id="analyzers">
 <span id="module-panobbgo.analyzers"></span><h2>Analyzers<a class="headerlink" href="#analyzers" title="Link to this heading">#</a></h2>
@@ -396,6 +438,257 @@ Matching is by heuristic name, so <code class="docutils literal notranslate"><sp
 <dt class="sig sig-object py" id="panobbgo.analyzers.archive.DEFAULT_K">
 <span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.archive.</span></span><span class="sig-name descname"><span class="pre">DEFAULT_K</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">256</span></span><a class="headerlink" href="#panobbgo.analyzers.archive.DEFAULT_K" title="Link to this definition">#</a></dt>
 <dd><p>Default number of results retained.</p>
+</dd></dl>
+
+<section id="failure-model">
+<span id="module-panobbgo.analyzers.failure_model"></span><h3>Failure model<a class="headerlink" href="#failure-model" title="Link to this heading">#</a></h3>
+<p>A shared estimate of where evaluations fail (“poison zones”,
+<code class="docutils literal notranslate"><span class="pre">planning/DESIGN_roadmap_2026-09-26.md</span></code> §4 D): regions of the box where
+the objective crashes, returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code> or times out.  Every heuristic can
+ask it, and the strategy can use it to answer a candidate in such a region
+without evaluating it.</p>
+<section id="the-model-v0">
+<h4>The model (v0)<a class="headerlink" href="#the-model-v0" title="Link to this heading">#</a></h4>
+<p>A <strong>kernel classifier with an adaptive (balloon) bandwidth and a success
+prior</strong>, on box-normalised coordinates <span class="math notranslate nohighlight">\(u \in [0, 1]^d\)</span>, from every
+labelled point the run has seen (a result with a finite value is a success;
+a crash, a timed-out <code class="docutils literal notranslate"><span class="pre">NaN</span></code> placeholder or any non-finite value is a
+failure):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[p_{\mathrm{fail}}(u) = \frac{\sum_i w_i y_i}{\sum_i w_i + \alpha},
+\qquad w_i = \exp\!\left(-\tfrac12 \lVert u - u_i \rVert^2 / h(u)^2\right),
+\qquad h(u) = \min\bigl(h_n,\ r_k(u)\bigr)\]</div>
+</div>
+<p>with <span class="math notranslate nohighlight">\(y_i = 1\)</span> for a failure, <span class="math notranslate nohighlight">\(r_k(u)\)</span> the distance to the
+<span class="math notranslate nohighlight">\(k\)</span>-th nearest labelled point (<span class="math notranslate nohighlight">\(k = d + 1\)</span>, at least 3) and the
+cap <span class="math notranslate nohighlight">\(h_n = 2\,(k / (n V_d))^{1/d}\)</span>, twice the expected distance to
+the <span class="math notranslate nohighlight">\(k\)</span>-th neighbour among <span class="math notranslate nohighlight">\(n\)</span> uniform points (<span class="math notranslate nohighlight">\(V_d\)</span> the
+volume of the unit ball).  The choices, each for one of the requirements:</p>
+<ul class="simple">
+<li><p><strong>Unexplored is not poisoned — beyond the data’s own scale.</strong>
+<span class="math notranslate nohighlight">\(\alpha\)</span> (<code class="docutils literal notranslate"><span class="pre">prior</span></code>, default 1) is a pseudo-count of success, so a
+zone needs several failures close together: <span class="math notranslate nohighlight">\(p \ge 1/2\)</span> needs a
+failure weight of at least <span class="math notranslate nohighlight">\(1 + \alpha\)</span> plus the success weight;
+with all <span class="math notranslate nohighlight">\(k\)</span> neighbours failed, <span class="math notranslate nohighlight">\(p \approx 0.6\)</span> (d = 2) to
+0.8 (d = 5); one isolated failure gives <span class="math notranslate nohighlight">\(p &lt; 1 / (1 + \alpha)\)</span>
+(below the threshold) anywhere but on the point itself.  Further than a
+few <span class="math notranslate nohighlight">\(h_n\)</span> from every failure all failure weights vanish and
+<span class="math notranslate nohighlight">\(p \to 0\)</span>.  Within that reach the estimate is a smoothed
+<span class="math notranslate nohighlight">\(k\)</span>-nearest-neighbour vote, and it does extrapolate: a point whose
+nearest labelled points are all failures is marked even where nothing has
+been evaluated (deeper inside a half-space than any failure, or, early
+in a run, around a first cluster of failures).  That is the price of a
+model that also recognises a zone it has sampled sparsely; the
+“whole box” guard below bounds it.</p></li>
+<li><p><strong>Sharp where the data are dense.</strong>  The bandwidth is the distance to
+the <span class="math notranslate nohighlight">\(k\)</span>-th neighbour, so near a converging search (thousands of
+points within <span class="math notranslate nohighlight">\(10^{-3}\)</span> of an optimum on the boundary of a
+failure region) the boundary is resolved at the scale of the search, not
+at the scale of the box.</p></li>
+<li><p><strong>Deterministic failures.</strong>  A point within <code class="docutils literal notranslate"><span class="pre">repeat_tol</span></code> (Euclidean, in
+normalised units) of a known failure has <span class="math notranslate nohighlight">\(p = 1\)</span>: evaluating it
+again would fail again.</p></li>
+<li><p><strong>Cheap.</strong>  A query of <span class="math notranslate nohighlight">\(m\)</span> points costs the distances to the
+failures, <span class="math notranslate nohighlight">\(O(m\, n_{\mathrm{fail}} d)\)</span> (the repeat rule reuses
+them); only the queries within reach of a failure also compute the
+distances to the successes, <span class="math notranslate nohighlight">\(O(m' n_{\mathrm{ok}} d)\)</span>.  Points are
+stored in growing buffers (amortised <span class="math notranslate nohighlight">\(O(d)\)</span> per result).  The
+guard below costs <code class="docutils literal notranslate"><span class="pre">N_PROBES</span></code> queries, amortised and exact near its
+threshold (<a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.poisoned_share" title="panobbgo.analyzers.failure_model.FailureModel.poisoned_share"><code class="xref py py-meth docutils literal notranslate"><span class="pre">FailureModel.poisoned_share()</span></code></a>).  No spatial index: at the budgets
+measured a one-point query takes 0.03 ms (d = 2, n = 200) to 0.06 ms
+(d = 10, n = 1000) and 0.3 ms at n = 10 000, one guard evaluation 1 ms to
+110 ms (laptop, 2026-09-27); a KD-tree would pay off beyond that.  With no failure at all
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">p_fail()</span></code> returns zeros without touching anything else, so a run
+without failures is bit-identical with the model on.</p></li>
+<li><p><strong>Never the whole box.</strong>  <code class="xref py py-meth docutils literal notranslate"><span class="pre">in_poison()</span></code> is <code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>
+(default 0.5), and it is <em>disarmed</em> (<code class="docutils literal notranslate"><span class="pre">False</span></code> everywhere) while the
+share of a fixed set of probe points in the box that it would mark
+exceeds <code class="docutils literal notranslate"><span class="pre">max_share</span></code> (default 0.5, the largest failure share the
+<code class="xref py py-class docutils literal notranslate"><span class="pre">FailureRegion</span></code> families use).</p></li>
+</ul>
+<p>Alternatives considered and not chosen for v0 (DISCOVERY §71): a half-space
+fit (logistic / linear SVM on the failures) extrapolates a zone into
+unexplored territory — exactly right for a half-space, wrong for a ball or
+boxes, and against “unexplored is not poisoned”; a GP classifier is too
+expensive to query on every proposal; an axis-aligned tree is a natural v1
+for half-spaces along one variable.</p>
+</section>
+<section id="the-proposal-filter">
+<h4>The proposal filter<a class="headerlink" href="#the-proposal-filter" title="Link to this heading">#</a></h4>
+<p>With <code class="docutils literal notranslate"><span class="pre">filter=True</span></code> the strategy’s main loop
+(<code class="xref py py-meth docutils literal notranslate"><span class="pre">_filter_poisoned()</span></code>) passes every
+candidate through <code class="xref py py-meth docutils literal notranslate"><span class="pre">reject()</span></code>: a candidate in a poison zone is <strong>not
+evaluated and costs no budget</strong>; the heuristic that proposed it is told, by
+the <code class="docutils literal notranslate"><span class="pre">predicted_failures</span></code> event, that it failed — which each heuristic
+answers with its own failure handling (<code class="docutils literal notranslate"><span class="pre">on_failed_evaluations</span></code>: CMA-ES
+ranks it last, the DE family loses the trial, the trust region shrinks, a
+solver bridge answers <code class="docutils literal notranslate"><span class="pre">inf</span></code>).  The candidate is <em>answered</em>, not
+resampled: the heuristic’s sampling distribution is not changed, and a
+CMA-ES generation sees the rejected offspring exactly as it would see a real
+failure, only for free.  Liveness: after <code class="docutils literal notranslate"><span class="pre">max_rejects</span></code> consecutive
+rejections of one heuristic’s candidates, its next candidate is evaluated
+whatever the model says (which also lets the model correct itself); a
+heuristic without an <code class="docutils literal notranslate"><span class="pre">on_failed_evaluations</span></code> hook (it refills only on new
+results, like <code class="docutils literal notranslate"><span class="pre">Random</span></code>) gets <code class="docutils literal notranslate"><span class="pre">on_new_results([])</span></code> for its rejected
+candidates, so rejections never drain its queue.</p>
+<p>The model only learns from <em>evaluated</em> points; a rejected candidate is not
+a failure the model has seen.</p>
+</section>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.failure_model.</span></span><span class="sig-name descname"><span class="pre">FailureModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repeat_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_share</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_rejects</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
+<p>Shared failure-region model: <code class="docutils literal notranslate"><span class="pre">p_fail(x)</span></code> / <code class="docutils literal notranslate"><span class="pre">in_poison(x)</span></code> from observed failures and successes.</p>
+<p>Opt-in: add it to a strategy (<code class="docutils literal notranslate"><span class="pre">StrategySpec.analyzers</span></code>); nothing in a
+strategy without it changes.  Thread-safety: results arrive on the
+event-bus thread, queries come from the main loop and from heuristics;
+one lock covers the labelled data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – The owning strategy.</p></li>
+<li><p><strong>filter</strong> – Reject candidates in poison zones in the strategy’s main
+loop (see the module docstring).  <code class="docutils literal notranslate"><span class="pre">False</span></code> (default): the model
+only answers queries.</p></li>
+<li><p><strong>threshold</strong> – <a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.in_poison" title="panobbgo.analyzers.failure_model.FailureModel.in_poison"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_poison()</span></code></a> is <code class="docutils literal notranslate"><span class="pre">p_fail</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>.</p></li>
+<li><p><strong>prior</strong> – The success pseudo-count <span class="math notranslate nohighlight">\(\alpha\)</span>.</p></li>
+<li><p><strong>k</strong> – Neighbour rank of the adaptive bandwidth; <code class="docutils literal notranslate"><span class="pre">None</span></code>: <code class="docutils literal notranslate"><span class="pre">max(3,</span> <span class="pre">d</span> <span class="pre">+</span> <span class="pre">1)</span></code>.</p></li>
+<li><p><strong>repeat_tol</strong> – Euclidean distance (normalised units) within which a
+point repeats a known failure.</p></li>
+<li><p><strong>max_share</strong> – Largest share of the box <a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.in_poison" title="panobbgo.analyzers.failure_model.FailureModel.in_poison"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_poison()</span></code></a> may mark before
+it is disarmed.</p></li>
+<li><p><strong>max_rejects</strong> – Consecutive rejections of one heuristic’s candidates
+after which its next candidate passes.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Module name; defaults to <code class="docutils literal notranslate"><span class="pre">&quot;FailureModel&quot;</span></code>.</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong></p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.add_failure">
+<span class="sig-name descname"><span class="pre">add_failure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'crash'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.add_failure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.add_failure" title="Link to this definition">#</a></dt>
+<dd><p>Record a failed evaluation at <code class="docutils literal notranslate"><span class="pre">x</span></code> (also the entry point for tests and other drivers).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.add_success">
+<span class="sig-name descname"><span class="pre">add_success</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.add_success"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.add_success" title="Link to this definition">#</a></dt>
+<dd><p>Record a successful evaluation at <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.armed">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">armed</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.armed" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">False</span></code> while the model would mark more than <code class="docutils literal notranslate"><span class="pre">max_share</span></code> of the box (or knows no failure).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.in_poison">
+<span class="sig-name descname"><span class="pre">in_poison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.in_poison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.in_poison" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">p_fail(x)</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code> while <a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.armed" title="panobbgo.analyzers.failure_model.FailureModel.armed"><code class="xref py py-attr docutils literal notranslate"><span class="pre">armed</span></code></a>, else <code class="docutils literal notranslate"><span class="pre">False</span></code>; a bool or a bool array like <a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.p_fail" title="panobbgo.analyzers.failure_model.FailureModel.p_fail"><code class="xref py py-meth docutils literal notranslate"><span class="pre">p_fail()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.kinds">
+<span class="sig-name descname"><span class="pre">kinds</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.kinds" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">&quot;crash&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;timeout&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code> -&gt; count.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Failure kinds seen</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.n_fail">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">n_fail</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.n_fail" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.n_ok">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">n_ok</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.n_ok" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.n_rejected">
+<span class="sig-name descname"><span class="pre">n_rejected</span></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.n_rejected" title="Link to this definition">#</a></dt>
+<dd><p>Diagnostics.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.on_failed_evaluations">
+<span class="sig-name descname"><span class="pre">on_failed_evaluations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.on_failed_evaluations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.on_failed_evaluations" title="Link to this definition">#</a></dt>
+<dd><p>A crashed evaluation (no result) is a failure at its point.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Label every result: finite value -&gt; success; timed out / non-finite -&gt; failure.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.p_fail">
+<span class="sig-name descname"><span class="pre">p_fail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.p_fail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.p_fail" title="Link to this definition">#</a></dt>
+<dd><p>Estimated probability that evaluating <code class="docutils literal notranslate"><span class="pre">x</span></code> fails: a float for one point, an array for <code class="docutils literal notranslate"><span class="pre">m</span> <span class="pre">x</span> <span class="pre">d</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.poisoned_share">
+<span class="sig-name descname"><span class="pre">poisoned_share</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.poisoned_share"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.poisoned_share" title="Link to this definition">#</a></dt>
+<dd><p>Share of the fixed probe points the model marks (<code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>), before the guard.</p>
+<p>Computed lazily, on the first query after the data changed, and
+amortised: exactly on every change (a new failure <em>or</em> success) while
+the last share is above <code class="docutils literal notranslate"><span class="pre">SHARE_NEAR</span> <span class="pre">*</span> <span class="pre">max_share</span></code> (close to the
+guard) or the model knows at most <a class="reference internal" href="#panobbgo.analyzers.failure_model.SHARE_EXACT_UP_TO" title="panobbgo.analyzers.failure_model.SHARE_EXACT_UP_TO"><code class="xref py py-data docutils literal notranslate"><span class="pre">SHARE_EXACT_UP_TO</span></code></a> failures;
+otherwise only once the failures or the labelled points have grown by
+10 %.  New successes can <em>raise</em> the share as well as lower it (they
+shrink the bandwidths <code class="docutils literal notranslate"><span class="pre">h_n</span></code> and <code class="docutils literal notranslate"><span class="pre">r_k</span></code>), so a share cached far
+below the guard can lag the exact one; that lag is what the
+<code class="docutils literal notranslate"><span class="pre">SHARE_NEAR</span></code> band absorbs.  The guard is therefore not a hard
+guarantee between recomputes, only near the threshold: tested on a
+half-box failure region sampled uniformly and then by successes only
+(<code class="docutils literal notranslate"><span class="pre">tests/test_failure_model.py</span></code>).  One evaluation costs <code class="docutils literal notranslate"><span class="pre">N_PROBES</span></code>
+queries.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.FailureModel.reject">
+<span class="sig-name descname"><span class="pre">reject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.reject"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.failure_model.FailureModel.reject" title="Link to this definition">#</a></dt>
+<dd><p>Which of <code class="docutils literal notranslate"><span class="pre">points</span></code> (candidates, in order) the filter rejects; updates the per-heuristic streaks.</p>
+<p>A candidate of a heuristic whose last <code class="docutils literal notranslate"><span class="pre">max_rejects</span></code> candidates were
+all rejected passes (liveness; see the module docstring).  Returns
+all <code class="docutils literal notranslate"><span class="pre">False</span></code> without any work while the model knows no failure.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.H_FACTOR">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.failure_model.</span></span><span class="sig-name descname"><span class="pre">H_FACTOR</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.0</span></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.H_FACTOR" title="Link to this definition">#</a></dt>
+<dd><p>The bandwidth cap is <code class="docutils literal notranslate"><span class="pre">H_FACTOR</span></code> times the expected <code class="docutils literal notranslate"><span class="pre">k</span></code>-th neighbour distance of <code class="docutils literal notranslate"><span class="pre">n</span></code> uniform points.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.N_PROBES">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.failure_model.</span></span><span class="sig-name descname"><span class="pre">N_PROBES</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">256</span></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.N_PROBES" title="Link to this definition">#</a></dt>
+<dd><p>Probe points of the “never the whole box” guard.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.SHARE_EXACT_UP_TO">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.failure_model.</span></span><span class="sig-name descname"><span class="pre">SHARE_EXACT_UP_TO</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">50</span></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.SHARE_EXACT_UP_TO" title="Link to this definition">#</a></dt>
+<dd><p><a class="reference internal" href="#panobbgo.analyzers.failure_model.FailureModel.poisoned_share" title="panobbgo.analyzers.failure_model.FailureModel.poisoned_share"><code class="xref py py-meth docutils literal notranslate"><span class="pre">FailureModel.poisoned_share()</span></code></a> is recomputed on every new failure up to this many, then every +10 %.</p>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="panobbgo.analyzers.failure_model.SHARE_NEAR">
+<span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.failure_model.</span></span><span class="sig-name descname"><span class="pre">SHARE_NEAR</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.8</span></span><a class="headerlink" href="#panobbgo.analyzers.failure_model.SHARE_NEAR" title="Link to this definition">#</a></dt>
+<dd><p>Above <code class="docutils literal notranslate"><span class="pre">SHARE_NEAR</span> <span class="pre">*</span> <span class="pre">max_share</span></code> the guard’s share is recomputed exactly on every data change.</p>
 </dd></dl>
 
 <dl class="py class" id="module-panobbgo.analyzers.best">
@@ -1096,6 +1389,137 @@ or ‘slope’ (linear regression slope) (default: ‘std’).</p></li>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">FailureModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prior</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">repeat_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1e-09</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_share</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_rejects</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
+<p>Shared failure-region model: <code class="docutils literal notranslate"><span class="pre">p_fail(x)</span></code> / <code class="docutils literal notranslate"><span class="pre">in_poison(x)</span></code> from observed failures and successes.</p>
+<p>Opt-in: add it to a strategy (<code class="docutils literal notranslate"><span class="pre">StrategySpec.analyzers</span></code>); nothing in a
+strategy without it changes.  Thread-safety: results arrive on the
+event-bus thread, queries come from the main loop and from heuristics;
+one lock covers the labelled data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>strategy</strong> (<a class="reference internal" href="core.html#panobbgo.core.StrategyBase" title="panobbgo.core.StrategyBase"><em>StrategyBase</em></a>) – The owning strategy.</p></li>
+<li><p><strong>filter</strong> – Reject candidates in poison zones in the strategy’s main
+loop (see the module docstring).  <code class="docutils literal notranslate"><span class="pre">False</span></code> (default): the model
+only answers queries.</p></li>
+<li><p><strong>threshold</strong> – <a class="reference internal" href="#panobbgo.analyzers.FailureModel.in_poison" title="panobbgo.analyzers.FailureModel.in_poison"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_poison()</span></code></a> is <code class="docutils literal notranslate"><span class="pre">p_fail</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>.</p></li>
+<li><p><strong>prior</strong> – The success pseudo-count <span class="math notranslate nohighlight">\(\alpha\)</span>.</p></li>
+<li><p><strong>k</strong> – Neighbour rank of the adaptive bandwidth; <code class="docutils literal notranslate"><span class="pre">None</span></code>: <code class="docutils literal notranslate"><span class="pre">max(3,</span> <span class="pre">d</span> <span class="pre">+</span> <span class="pre">1)</span></code>.</p></li>
+<li><p><strong>repeat_tol</strong> – Euclidean distance (normalised units) within which a
+point repeats a known failure.</p></li>
+<li><p><strong>max_share</strong> – Largest share of the box <a class="reference internal" href="#panobbgo.analyzers.FailureModel.in_poison" title="panobbgo.analyzers.FailureModel.in_poison"><code class="xref py py-meth docutils literal notranslate"><span class="pre">in_poison()</span></code></a> may mark before
+it is disarmed.</p></li>
+<li><p><strong>max_rejects</strong> – Consecutive rejections of one heuristic’s candidates
+after which its next candidate passes.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Module name; defaults to <code class="docutils literal notranslate"><span class="pre">&quot;FailureModel&quot;</span></code>.</p></li>
+<li><p><strong>strategy</strong></p></li>
+<li><p><strong>name</strong></p></li>
+</ul>
+</dd>
+</dl>
+<p>&#64;type strategy: StrategyBase</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.add_failure">
+<span class="sig-name descname"><span class="pre">add_failure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'crash'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.add_failure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.add_failure" title="Link to this definition">#</a></dt>
+<dd><p>Record a failed evaluation at <code class="docutils literal notranslate"><span class="pre">x</span></code> (also the entry point for tests and other drivers).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.add_success">
+<span class="sig-name descname"><span class="pre">add_success</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.add_success"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.add_success" title="Link to this definition">#</a></dt>
+<dd><p>Record a successful evaluation at <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.armed">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">armed</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#panobbgo.analyzers.FailureModel.armed" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">False</span></code> while the model would mark more than <code class="docutils literal notranslate"><span class="pre">max_share</span></code> of the box (or knows no failure).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.in_poison">
+<span class="sig-name descname"><span class="pre">in_poison</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.in_poison"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.in_poison" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">p_fail(x)</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code> while <a class="reference internal" href="#panobbgo.analyzers.FailureModel.armed" title="panobbgo.analyzers.FailureModel.armed"><code class="xref py py-attr docutils literal notranslate"><span class="pre">armed</span></code></a>, else <code class="docutils literal notranslate"><span class="pre">False</span></code>; a bool or a bool array like <a class="reference internal" href="#panobbgo.analyzers.FailureModel.p_fail" title="panobbgo.analyzers.FailureModel.p_fail"><code class="xref py py-meth docutils literal notranslate"><span class="pre">p_fail()</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.kinds">
+<span class="sig-name descname"><span class="pre">kinds</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.14)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#panobbgo.analyzers.FailureModel.kinds" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">&quot;crash&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;timeout&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;nan&quot;</span></code> -&gt; count.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Failure kinds seen</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.n_fail">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">n_fail</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.FailureModel.n_fail" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.n_ok">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">n_ok</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#panobbgo.analyzers.FailureModel.n_ok" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.n_rejected">
+<span class="sig-name descname"><span class="pre">n_rejected</span></span><a class="headerlink" href="#panobbgo.analyzers.FailureModel.n_rejected" title="Link to this definition">#</a></dt>
+<dd><p>Diagnostics.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.on_failed_evaluations">
+<span class="sig-name descname"><span class="pre">on_failed_evaluations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.on_failed_evaluations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.on_failed_evaluations" title="Link to this definition">#</a></dt>
+<dd><p>A crashed evaluation (no result) is a failure at its point.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.on_new_results">
+<span class="sig-name descname"><span class="pre">on_new_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.on_new_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.on_new_results" title="Link to this definition">#</a></dt>
+<dd><p>Label every result: finite value -&gt; success; timed out / non-finite -&gt; failure.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.p_fail">
+<span class="sig-name descname"><span class="pre">p_fail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.p_fail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.p_fail" title="Link to this definition">#</a></dt>
+<dd><p>Estimated probability that evaluating <code class="docutils literal notranslate"><span class="pre">x</span></code> fails: a float for one point, an array for <code class="docutils literal notranslate"><span class="pre">m</span> <span class="pre">x</span> <span class="pre">d</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.poisoned_share">
+<span class="sig-name descname"><span class="pre">poisoned_share</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.poisoned_share"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.poisoned_share" title="Link to this definition">#</a></dt>
+<dd><p>Share of the fixed probe points the model marks (<code class="docutils literal notranslate"><span class="pre">p</span> <span class="pre">&gt;=</span> <span class="pre">threshold</span></code>), before the guard.</p>
+<p>Computed lazily, on the first query after the data changed, and
+amortised: exactly on every change (a new failure <em>or</em> success) while
+the last share is above <code class="docutils literal notranslate"><span class="pre">SHARE_NEAR</span> <span class="pre">*</span> <span class="pre">max_share</span></code> (close to the
+guard) or the model knows at most <code class="xref py py-data docutils literal notranslate"><span class="pre">SHARE_EXACT_UP_TO</span></code> failures;
+otherwise only once the failures or the labelled points have grown by
+10 %.  New successes can <em>raise</em> the share as well as lower it (they
+shrink the bandwidths <code class="docutils literal notranslate"><span class="pre">h_n</span></code> and <code class="docutils literal notranslate"><span class="pre">r_k</span></code>), so a share cached far
+below the guard can lag the exact one; that lag is what the
+<code class="docutils literal notranslate"><span class="pre">SHARE_NEAR</span></code> band absorbs.  The guard is therefore not a hard
+guarantee between recomputes, only near the threshold: tested on a
+half-box failure region sampled uniformly and then by successes only
+(<code class="docutils literal notranslate"><span class="pre">tests/test_failure_model.py</span></code>).  One evaluation costs <code class="docutils literal notranslate"><span class="pre">N_PROBES</span></code>
+queries.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="panobbgo.analyzers.FailureModel.reject">
+<span class="sig-name descname"><span class="pre">reject</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">points</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.14)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.14)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/panobbgo/analyzers/failure_model.html#FailureModel.reject"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.FailureModel.reject" title="Link to this definition">#</a></dt>
+<dd><p>Which of <code class="docutils literal notranslate"><span class="pre">points</span></code> (candidates, in order) the filter rejects; updates the per-heuristic streaks.</p>
+<p>A candidate of a heuristic whose last <code class="docutils literal notranslate"><span class="pre">max_rejects</span></code> candidates were
+all rejected passes (liveness; see the module docstring).  Returns
+all <code class="docutils literal notranslate"><span class="pre">False</span></code> without any work while the model knows no failure.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="panobbgo.analyzers.Restart">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">panobbgo.analyzers.</span></span><span class="sig-name descname"><span class="pre">Restart</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">strategy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patience</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">improvement_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_restarts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restart_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'random'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/panobbgo/analyzers/restart.html#Restart"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#panobbgo.analyzers.Restart" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference internal" href="core.html#panobbgo.core.Analyzer" title="panobbgo.core.Analyzer"><code class="xref py py-class docutils literal notranslate"><span class="pre">Analyzer</span></code></a></p>
@@ -1434,5 +1858,6 @@ matches what a run actually builds.</p>
       <script src="_static/documentation_options.js?v=1859ee8a"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/shibuya.js?v=50760d75"></script></body>
+      <script src="_static/shibuya.js?v=50760d75"></script>
+      <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script></body>
 </html>

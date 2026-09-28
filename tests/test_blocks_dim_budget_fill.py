@@ -111,7 +111,7 @@ def test_constructor_accepts_dim_budget():
 )
 def test_dim_budget_gate_decision(dim, max_eval, q, constrained, applied, enabled):
     problem = _Constrained(dim=dim) if constrained else Rosenbrock(dim=dim)
-    s = _portfolio(dim=dim, max_eval=max_eval, q=q, problem=problem)
+    s = _portfolio(dim=dim, max_eval=max_eval, q=q, problem=problem, regime_gate="dim-budget")
     s.config.max_eval = 40  # a short run: only the decision is under test
     s._max_eval = lambda: max_eval  # the budget the gate reads (bpd), independent of the short run
     s.start()
@@ -243,9 +243,17 @@ def test_first_round_fill_respects_the_budget():
 def test_headline_spec_defaults():
     from panobbgo.harness_ioh import make_ioh_strategies, make_trust_region_strategies
 
+    from panobbgo.harness_ioh import BLOCKS_VARIANT_NAMES, make_blocks_variant_strategies
+
     specs = {sp.name: sp for sp in make_ioh_strategies() + make_trust_region_strategies()}
     blocks = specs["Blocks_warm_CMAES_JSO"].config_overrides
-    assert blocks["regime_gate"] == "dim-budget" and blocks["first_round_fill"] is True
+    # first-round fill on by default, the dim/budget gate opt-in (Harald, 2026-09-28)
+    assert "regime_gate" not in blocks and blocks["first_round_fill"] is True
+    (gated,) = make_blocks_variant_strategies()
+    assert BLOCKS_VARIANT_NAMES == (gated.name,) == ("Blocks_warm_CMAES_JSO_dimbudget",)
+    assert gated.config_overrides == {**blocks, "regime_gate": "dim-budget"}
+    assert gated.seed_name == "Blocks_warm_CMAES_JSO" and gated.heuristics == specs["Blocks_warm_CMAES_JSO"].heuristics
+    assert make_blocks_variant_strategies(["nope"]) == []
     rg = specs["RegimeGate_oracle"].config_overrides
     assert rg["regime_gate"] == "oracle" and rg["first_round_fill"] is True
     assert specs["Blocks_warm_CMAES_JSO_TRQ"].config_overrides == blocks
@@ -257,7 +265,8 @@ def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
     from panobbgo.virtual_clock import VirtualSpec
 
     spec = make_trust_region_strategies(["Blocks_warm_CMAES_JSO_TRQ"])[0]
-    s = spec.strategy_class(Rosenbrock(dim=10), parse_args=False, testing_mode=True, seed=2, **spec.config_overrides)
+    config = {**spec.config_overrides, "regime_gate": "dim-budget"}
+    s = spec.strategy_class(Rosenbrock(dim=10), parse_args=False, testing_mode=True, seed=2, **config)
     s.config.max_eval = 60
     s.config.stop_on_convergence = False
     VirtualSpec(workers=4, duration="lognormal").apply(s)
@@ -278,9 +287,9 @@ def test_dim_budget_gate_is_not_applied_with_an_arm_outside_the_table():
 
 @pytest.mark.parametrize("dim, q", [(10, 16), (10, 64), (5, 16)])
 def test_new_spec_is_bit_identical_to_the_old_where_neither_option_binds(dim, q):
-    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) the shipped config is the old one."""
+    """At 100·d (the real budget: a shorter one changes CMA-ES's λ cap) gate + fill is the old config."""
     runs = []
-    for overrides in ({}, {"regime_gate": None, "first_round_fill": False}):
+    for overrides in ({"regime_gate": "dim-budget"}, {"regime_gate": None, "first_round_fill": False}):
         s = _portfolio(dim=dim, max_eval=100 * dim, q=q, seed=5, **overrides)
         s.start()
         runs.append(s)

@@ -6304,7 +6304,7 @@ row's evidence (§42) is serial CMA-ES.  On the current code:
 So the row is right for the regime it was measured in, and wrong to apply
 where the worker floor has changed the algorithm.
 
-**`regime_gate="dim-budget"` (shipped).**  It is the gate without the
+**`regime_gate="dim-budget"` (opt-in: `Blocks_warm_CMAES_JSO_dimbudget`, §72.8).**  It is the gate without the
 noise oracle, and uses only facts known before the first evaluation:
 
 * It looks the table up as for a noiseless run.
@@ -6343,8 +6343,8 @@ It is a lead (TODO), not this fix.
 
 ### 72.3 Held-out check on the §67 seeds 1001–1012 (not blind; see Setup)
 
-The shipped spec (`regime_gate="dim-budget"`, `first_round_fill=True`)
-ran locally on all 9 cells, 1620 runs.  The runner's units of run
+The measured spec (`regime_gate="dim-budget"`, `first_round_fill=True`;
+since §72.8 the gate is opt-in) ran locally on all 9 cells, 1620 runs.  The runner's units of run
 36315576900 provide the pool (the same (seed, instance) keys, CRN) and the
 old spec.
 * **Bit-identity.**  The 6 cells where neither change binds are identical
@@ -6416,7 +6416,7 @@ old spec.
     [−0.012, −0.005] 0/5 on AOCC;
   * This supports keeping the condition.
 
-### 72.5 Which cells move (the headline spec's default changes)
+### 72.5 Which cells move (as measured with both options; since §72.8 the gate is opt-in and only the fill rows apply to the headline spec)
 
 * **Expensive track (`measure.yml` grid).**
   * The fill binds at: 100·d d2/q64 and d5/q64 (above), and 20·d d2/q16.
@@ -6459,8 +6459,7 @@ old spec.
   `block_evals="auto"` as defaults wait for Harald's broader suite
   (TODO §5, GOAL §2 item 5, decision of 2026-09-13).  The dim/budget gate
   is a different, narrower setting: no oracle, one row, at q ≤ λ_default.
-  But it is a regime-gate default for the headline spec.  **Harald
-  confirms before the PR merges.**
+  Harald's decision on it is §72.8.
 
 ### 72.6 Caveats
 
@@ -6485,6 +6484,8 @@ old spec.
 ### 72.7 Not measured / next
 
 * The GP baselines on the fresh seeds; §72.4 is new − old only.
+* A fresh-seed runner confirmation of the gate
+  (`Blocks_warm_CMAES_JSO_dimbudget` against the portfolio, §72.8).
 * The cheap track at d ≥ 10 with the gate (q = 1 batteries).
 * The `failure` preset; d ≥ 20; real async pools.
 * The balanced-block lead: a block that ends at `block_evals` dispatches,
@@ -6500,3 +6501,19 @@ downloaded units of a runner run (`gh run download 36315576900 ...`).
 Together they reproduce §72.3 from the probe's JSON.  The probe JSON
 itself is not committed; it is re-created by running the probe with the
 seeds above.
+
+### 72.8 Decision (Harald, 2026-09-28)
+
+* **`first_round_fill=True` is the default** of `Blocks_warm_CMAES_JSO`
+  (and so of `RegimeGate_oracle` and `Blocks_warm_CMAES_JSO_TRQ`).  Its
+  d2/q64 gain holds on the fresh seeds (+0.012 [+0.003, +0.022] 5/5).
+* **`regime_gate="dim-budget"` is opt-in**, as
+  `Blocks_warm_CMAES_JSO_dimbudget` (`harness_ioh.BLOCKS_VARIANT_OPTIONS`,
+  `seed_name` pinned to the portfolio, so a paired delta carries only the
+  gate).  Its only fresh-seed evidence is +0.004 n.s.; it becomes a
+  default only after a fresh-seed runner confirmation.
+* So the headline spec is bit-identical to the old one wherever the fill
+  does not bind (every cell except 100·d d2/q64, d5/q64 and 20·d
+  d2/q16); the cheap track at d ≥ 10 and the §61 reference numbers are
+  unchanged.  §67's d10/q4 Holm loss stays open for the headline spec
+  until the gate is confirmed.

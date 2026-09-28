@@ -48,16 +48,21 @@ would not fit a shard that way, by instance first).  The groups:
     run).  SMAC has no batch acquisition and runs at q = 1 only; qLogEI and
     SMAC are left out where a run would take hours (:func:`covered`).
 ``trq`` (opt-in: not in ``--groups all``)
-    The DISCOVERY §66 candidates (``harness_ioh.make_trust_region_strategies``:
-    ``RoundRobin_TRQ``, ``Blocks_warm_CMAES_JSO_TRQ``, ``RoundRobin_COBYQA``),
-    on every cell like core, in shards of their own.  Secondary panobbgo
-    specs in the aggregate: not in the pool, not the headline.  Pair them
-    with the other groups in one run (``--groups core,qLogEI,TuRBO1,SMAC,trq``),
-    or aggregate a ``trq`` run together with a run of the other groups on the
-    same seeds.
+    The **opt-in candidates** group (named ``trq`` for history; :data:`TRQ_SPECS`):
+    the trust-region specs of DISCOVERY §66/§69.5
+    (``harness_ioh.make_trust_region_strategies``: ``RoundRobin_TRQ``,
+    ``Blocks_warm_CMAES_JSO_TRQ``, ``RoundRobin_COBYQA``,
+    ``RoundRobin_TRQ_r05``) and the opt-in ``Blocks_warm_CMAES_JSO``
+    variants (``harness_ioh.make_blocks_variant_strategies``: §72's
+    ``Blocks_warm_CMAES_JSO_dimbudget``), on every cell like core, in shards
+    of their own.  Secondary panobbgo specs in the aggregate: not in the
+    pool, not the headline; each gets a paired delta against the headline
+    spec (:func:`summarize`, ``vs_headline``).  Pair them with the other
+    groups in one run (``--groups core,qLogEI,TuRBO1,SMAC,trq``), or aggregate a ``trq`` run
+    together with a run of the other groups on the same seeds.
 
 Cost model: :data:`RUNNER_SECONDS`, measured on the runners (the ``trq`` row: a laptop
-estimate, :data:`TRQ_LAPTOP_SECONDS`); ``plan`` refuses
+estimate, :data:`TRQ_LAPTOP_SECONDS` + :data:`CANDIDATE_LAPTOP_SECONDS`); ``plan`` refuses
 a plan with a shard estimated above :data:`TARGET_MINUTES`.
 
 Parallelism: q ∈ ``--qs`` with ``q <= bm`` (at least ``dim`` full rounds of q
@@ -100,9 +105,23 @@ CHEAP_EXTERNALS: Tuple[str, ...] = (
 #: runs with the core group, in the same process as the panobbgo specs.
 LOCAL_REFERENCE = "Baseline_PyBOBYQA"
 
-#: The opt-in §66 specs of the ``trq`` group (``harness_ioh.TRUST_REGION_NAMES``,
-#: spelled out here: ``plan`` imports no panobbgo; a test pins the two equal).
-TRQ_SPECS: Tuple[str, ...] = ("RoundRobin_TRQ", "Blocks_warm_CMAES_JSO_TRQ", "RoundRobin_COBYQA")
+#: The trust-region candidates of the ``trq`` group (``harness_ioh.TRUST_REGION_NAMES``:
+#: DISCOVERY §66, and §69.5's start radius ``RoundRobin_TRQ_r05``).  Spelled out here:
+#: ``plan`` imports no panobbgo; a test pins the two equal.
+TRUST_REGION_SPECS: Tuple[str, ...] = (
+    "RoundRobin_TRQ",
+    "Blocks_warm_CMAES_JSO_TRQ",
+    "RoundRobin_COBYQA",
+    "RoundRobin_TRQ_r05",
+)
+
+#: The opt-in ``Blocks_warm_CMAES_JSO`` variants of the ``trq`` group
+#: (``harness_ioh.BLOCKS_VARIANT_NAMES``: §72's dim/budget gate; pinned equal by a test).
+BLOCKS_VARIANT_SPECS: Tuple[str, ...] = ("Blocks_warm_CMAES_JSO_dimbudget",)
+
+#: The specs of the ``trq`` group, the **opt-in candidates** awaiting a fresh-seed
+#: confirmation (the name is historical: it began as the §66 trust-region group).
+TRQ_SPECS: Tuple[str, ...] = TRUST_REGION_SPECS + BLOCKS_VARIANT_SPECS
 
 #: Group -> the external baselines it runs (``core``: the panobbgo specs too,
 #: resolved at run time from ``make_ioh_strategies``; ``trq``: no external,
@@ -155,7 +174,8 @@ DURATION = "lognormal"
 SIGMA = 0.5
 
 
-#: Laptop seconds of one run of the ``trq`` group (its three specs on one instance, summed),
+#: Laptop seconds of one run of the ``trq`` group's first three specs (``RoundRobin_TRQ``,
+#: ``Blocks_warm_CMAES_JSO_TRQ``, ``RoundRobin_COBYQA`` on one instance, summed),
 #: per ``(dim, budget, q)``: the 90th percentile over the 15 runs (5 families x 3 instances,
 #: seed 42) of each cell of the free grid, measured locally on 2026-09-27 (Intel Core Ultra 7
 #: 356H, 4 processes, niced; ``measure.py run`` of the 21 units ``trq.free.b*.q*.d*.s42``).
@@ -169,6 +189,24 @@ TRQ_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
     (5, 500, 1): 2.72, (5, 500, 4): 2.49, (5, 500, 16): 2.89, (5, 500, 64): 2.92,
     (10, 200, 1): 1.18, (10, 200, 4): 1.26, (10, 200, 16): 1.23,
     (10, 1000, 1): 5.94, (10, 1000, 4): 5.17, (10, 1000, 16): 8.00, (10, 1000, 64): 4.57,
+}  # fmt: skip
+
+#: Laptop seconds of one run of the two candidates added later, ``RoundRobin_TRQ_r05`` and
+#: ``Blocks_warm_CMAES_JSO_dimbudget`` (on one instance, summed), measured the same way on
+#: 2026-09-28 (the 21 units ``trq.free.b*.q*.d*.s42`` with all five specs, 4 processes,
+#: ``nice -n 10 ionice -c3``; the p90 over the cell's 15 runs; the whole grid took 4 minutes).
+#: ``RoundRobin_TRQ_r05`` is most of it (up to 2.5 s at d = 10, 100·d), the gated Blocks
+#: variant at most 0.5 s.  The three first specs, re-measured in that run next to the two,
+#: came out at 0.7-1.5x :data:`TRQ_LAPTOP_SECONDS` per cell (a one-seed p90 is noisy, and
+#: five specs now share the four processes); the table is kept, the generous
+#: :data:`TRQ_RUNNER_FACTOR` covers the spread.
+CANDIDATE_LAPTOP_SECONDS: Dict[Tuple[int, int, int], float] = {
+    (2, 40, 1): 0.08, (2, 40, 4): 0.07, (2, 40, 16): 0.09,
+    (2, 200, 1): 0.24, (2, 200, 4): 0.51, (2, 200, 16): 0.91, (2, 200, 64): 0.69,
+    (5, 100, 1): 0.15, (5, 100, 4): 0.17, (5, 100, 16): 0.18,
+    (5, 500, 1): 0.95, (5, 500, 4): 1.38, (5, 500, 16): 1.59, (5, 500, 64): 1.14,
+    (10, 200, 1): 0.41, (10, 200, 4): 0.31, (10, 200, 16): 0.29,
+    (10, 1000, 1): 2.72, (10, 1000, 4): 2.37, (10, 1000, 16): 2.74, (10, 1000, 64): 1.97,
 }  # fmt: skip
 
 #: Runner / laptop time of the same run, for the ``trq`` estimate: the top of the 2-4x the
@@ -188,7 +226,8 @@ TRQ_RUNNER_FACTOR = 4.0
 #: under-estimates none of them.  Rows not measured on a runner (they only decide
 #: coverage) are marked; every other cell extrapolates (:func:`run_seconds`).
 #: The ``s/run`` columns of a run's summary recalibrate it (``doc/dev/benchmarking.md``).  The ``trq`` row
-#: is not measured on a runner: an estimate (:data:`TRQ_LAPTOP_SECONDS` x :data:`TRQ_RUNNER_FACTOR`).
+#: is not measured on a runner: an estimate
+#: ((:data:`TRQ_LAPTOP_SECONDS` + :data:`CANDIDATE_LAPTOP_SECONDS`) x :data:`TRQ_RUNNER_FACTOR`).
 RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
     "core": {
         (2, 40, 1): 1, (2, 40, 4): 2, (2, 40, 16): 1,
@@ -219,8 +258,10 @@ RUNNER_SECONDS: Dict[str, Dict[Tuple[int, int, int], float]] = {
         # 40 min; the runner took 2-4x the laptop's time on the cells measured on both.
         (5, 500, 1): 2400 * 2.5,
     },
-    # An ESTIMATE, not measured on a runner: the laptop's p90 x TRQ_RUNNER_FACTOR.
-    "trq": {k: math.ceil(v * TRQ_RUNNER_FACTOR) for k, v in TRQ_LAPTOP_SECONDS.items()},
+    # An ESTIMATE, not measured on a runner: the laptop p90s of all five specs x TRQ_RUNNER_FACTOR.
+    "trq": {
+        k: math.ceil((v + CANDIDATE_LAPTOP_SECONDS[k]) * TRQ_RUNNER_FACTOR) for k, v in TRQ_LAPTOP_SECONDS.items()
+    },
 }  # fmt: skip
 
 #: Fixed seconds per unit on top of its runs (process pool, imports, instance set-up):
@@ -710,14 +751,19 @@ def fp_label(payload: Dict[str, Any]) -> str:
 
 def _strategies(group: str) -> List[Any]:
     from panobbgo.harness_baselines import make_baseline_strategies
-    from panobbgo.harness_ioh import make_ioh_strategies, make_trust_region_strategies
+    from panobbgo.harness_ioh import (
+        make_blocks_variant_strategies,
+        make_ioh_strategies,
+        make_trust_region_strategies,
+    )
 
     names = list(GROUPS[group])
     specs = list(make_ioh_strategies()) if group == "core" else []
     if group == "trq":
-        specs = make_trust_region_strategies(TRQ_SPECS)
+        # The opt-in candidates: the trust-region specs and the Blocks variants.
+        specs = make_trust_region_strategies(TRUST_REGION_SPECS) + make_blocks_variant_strategies(BLOCKS_VARIANT_SPECS)
         if [s.name for s in specs] != list(TRQ_SPECS):
-            raise ValueError(f"trq: make_trust_region_strategies gave {[s.name for s in specs]}, want {TRQ_SPECS}")
+            raise ValueError(f"trq: the harness factories gave {[s.name for s in specs]}, want {TRQ_SPECS}")
     by_name = {s.name: s for s in make_baseline_strategies(names)}
     missing = [n for n in names if n not in by_name]
     if missing:
@@ -1012,6 +1058,31 @@ def paired(a: Dict[Key, Obs], b: Dict[Key, Obs], metric: str, keys: Optional[Ite
     }
 
 
+def vs_headline(a: Dict[Key, Obs], headline: Dict[Key, Obs], keys: Iterable[Key]) -> Dict[str, Dict[str, Any]]:
+    """A secondary panobbgo spec against :data:`HEADLINE_SPEC`: per metric the :func:`paired` delta ``a - headline``.
+
+    On ``keys`` (the cell's common runs), so it pairs like every other delta
+    of the cell.  The groups pair across jobs: a run's key is (seed,
+    family, instance), its instance and CRN durations depend on the cell and
+    seed only, and a spec's RNG streams on its ``seed_name``.  Each entry
+    adds ``n_equal``, the pairs with exactly equal values: a variant that
+    shares the headline's ``seed_name`` and does not act on a cell (the
+    §72 gate where it does not bind) is identical there.  Descriptive:
+    unadjusted, outside the Holm family.
+    """
+    keys = list(keys)
+    out: Dict[str, Dict[str, Any]] = {}
+    for m in METRICS:
+        st = paired(a, headline, m, keys)
+        st["n_equal"] = sum(
+            1
+            for k in keys
+            if k in a and k in headline and _value(a[k], m) is not None and _value(a[k], m) == _value(headline[k], m)
+        )
+        out[m] = st
+    return out
+
+
 def holm(pvalues: Dict[str, float]) -> Dict[str, float]:
     """Holm-adjusted p-values (NaN stays NaN and is not counted)."""
     items = sorted(((p, k) for k, p in pvalues.items() if not math.isnan(p)))
@@ -1207,6 +1278,12 @@ def summarize(
             if is_external(name):
                 continue
             r = rows[name]
+            # Secondary specs against the headline spec, on the same common runs (descriptive, outside Holm).
+            r["vs_headline"] = (
+                vs_headline(strats[name], strats[HEADLINE_SPEC], common)
+                if name != HEADLINE_SPEC and HEADLINE_SPEC in strats
+                else None
+            )
             r["vs"] = {e: {m: paired(strats[name], strats[e], m, common) for m in METRICS} for e in externals}
             r["vs_pool_best"] = {}
             for m in METRICS:
@@ -1278,11 +1355,15 @@ def aggregate(src: Path, planned_units: Optional[Sequence[str]] = None) -> Dict[
       :func:`headline_metric`, Holm-adjusted over the cells;
     * ``ex_ellipsoid``: the same without the :data:`EX_FAMILY` instances,
       the pool's best re-selected on them, descriptive (unadjusted, outside
-      the Holm family; :func:`ex_ellipsoid`).
+      the Holm family; :func:`ex_ellipsoid`);
+    * ``vs_headline`` per secondary panobbgo spec: its paired delta against
+      :data:`HEADLINE_SPEC` on the common runs, per metric (descriptive,
+      unadjusted, outside the Holm family; :func:`vs_headline`).  This is
+      how an opt-in candidate (the §72 gate, the TRQ variants) is judged.
 
     Every panobbgo spec other than :data:`HEADLINE_SPEC` is secondary, the
-    opt-in ``trq`` group's (:data:`TRQ_SPECS`) included: never in the pool,
-    never the headline.
+    opt-in candidates of the ``trq`` group (:data:`TRQ_SPECS`) included:
+    never in the pool, never the headline.
 
     Calibration units (``run --calibration``) are left out of all of this and
     reported apart (``calibration``: s/run and scores per unit).
@@ -1400,9 +1481,10 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         "- The CIs are over optimizer seeds and conditional on the fixed instances: they do not generalize "
         "over problem instances beyond the 3 per family.",
         "- `n/planned` counts seeds against the plan; `!` marks a strategy missing some (seed, instance) run.",
-        f"- *Best other panobbgo*: the best secondary panobbgo spec of the cell (the opt-in `trq` group's specs "
-        f"too, when its units are aggregated here), with its Δ vs the pool best.  The table without the "
-        f"{EX_FAMILY} family is descriptive: read it next to the headline, not instead of it.",
+        f"- *Best other panobbgo*: the best secondary panobbgo spec of the cell (the opt-in candidates of the "
+        f"`trq` group too, when its units are aggregated here), with its Δ vs the pool best.  The table without "
+        f"the {EX_FAMILY} family and the table of the secondary specs against `{hs}` are descriptive: read them "
+        "next to the headline, not instead of it.",
         "",
         "FP environments (per shard): "
         + "; ".join(f"{fp}: {len(shards)} shard(s)" for fp, shards in summary["fp_classes"].items())
@@ -1479,6 +1561,35 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
                     ]
                 )
                 + " |"
+            )
+    vs_rows = [
+        (name, c, n, r)
+        for name, c in summary["cells"].items()
+        for n, r in sorted(c["strategies"].items(), key=lambda kv: (kv[1]["group"], kv[0]))
+        if r.get("vs_headline")
+    ]
+    if vs_rows:
+        lines += [
+            "",
+            f"## Secondary panobbgo specs − {hs} (descriptive)",
+            "",
+            f"Every other panobbgo spec (the opt-in candidates of the `trq` group too) against `{hs}`, paired over "
+            "seeds on the cell's common runs, on the headline metric and on AOCC (at q = 1 they are the same).  "
+            "This is where an opt-in candidate is judged against the spec it would replace or join.  "
+            "*equal*: pairs with exactly equal headline-metric values (a variant sharing the headline's "
+            "`seed_name` is identical where its option does not act).  **Descriptive**: unadjusted, not part "
+            "of the Holm family.  The `RoundRobin_TRQ` specs are nearly seed-invariant at q = 1 (box-centre "
+            "start), so their q = 1 CIs carry little.",
+            "",
+            "| cell | spec | group | n (pairs) | metric | Δ metric [CI95] wins | Δ AOCC [CI95] wins | equal |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for name, c, n, r in vs_rows:
+            hm = c["headline_metric"]
+            st = r["vs_headline"]
+            lines.append(
+                f"| {name} | {label(n)} | {r['group']} | {st[hm]['n_pairs']} | {hm} | {_fmt_delta(st[hm])} | "
+                f"{_fmt_delta(st['aocc'])} | {st[hm]['n_equal']}/{st[hm]['n_pairs']} |"
             )
     fams = sorted({f for c in summary["cells"].values() for r in c["strategies"].values() for f in r["per_family"]})
     lines += [
@@ -1589,7 +1700,7 @@ def _grid_args(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "--groups",
         default="all",
-        help=f"'all' (= {','.join(DEFAULT_GROUPS)}) or a comma list of: {', '.join(GROUPS)} (trq: opt-in).",
+        help=f"'all' (= {','.join(DEFAULT_GROUPS)}) or a comma list of: {', '.join(GROUPS)} (trq: the opt-in candidates).",
     )
     p.add_argument(
         "--extra-units", default="", help="';'-joined unit ids run in shards of their own (calibration runs)."

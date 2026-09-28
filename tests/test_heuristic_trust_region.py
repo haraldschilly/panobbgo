@@ -507,3 +507,16 @@ def test_opt_in_specs_are_not_in_the_registry_of_record():
 
     [cobyqa] = make_trust_region_strategies(["RoundRobin_COBYQA"])
     assert cobyqa.heuristics == [(COBYQA, {})]
+    # §69.5's start radius: RoundRobin_TRQ at radius_init = 0.5 on RoundRobin_TRQ's RNG streams.
+    rr, r05 = make_trust_region_strategies(["RoundRobin_TRQ", "RoundRobin_TRQ_r05"])
+    assert r05.heuristics == [(TrustRegionQuadratic, {"radius_init": 0.5})]
+    assert r05.strategy_class is rr.strategy_class and r05.rng_identity == rr.rng_identity == "RoundRobin_TRQ"
+
+
+def test_radius_init_half_is_accepted_at_the_default_radius_max():
+    """``RoundRobin_TRQ_r05``'s start radius equals the default ``radius_max``, which the constructor allows."""
+    h = _arm(radius_init=0.5)
+    assert h.radius == h.radius_init == h.radius_max == 0.5
+    assert h.can_produce
+    with pytest.raises(ValueError):
+        _arm(radius_init=0.6)

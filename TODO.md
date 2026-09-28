@@ -88,8 +88,11 @@ extra).
       TR ratio-test rate as logged features (roadmap A's probe).  The specs
       are wired into `scripts/measure.py` as the opt-in group `trq` (not in
       `groups=all`; its cost row is a laptop estimate, recalibrate from the
-      first run), and the summary has the ex-ellipsoid table: run
-      `gh workflow run measure.yml -f seeds=<fresh list> -f groups=core,qLogEI,TuRBO1,SMAC,trq`.
+      first run), and the summary has the ex-ellipsoid table and a
+      paired table against the headline spec.  The group also runs
+      `RoundRobin_TRQ_r05` (§69.5's start radius 0.5, a fresh-seed
+      candidate); the §72 confirmation run above covers q 4/16/64 at
+      100·d (q = 1 and 20·d would need a dispatch of their own).
 - [ ] **Wide family preset (§68).**  `measure.py --presets wide` (opt-in,
       15 families, every x_opt away from the box centre) is in; only a
       local smoke of core + trq at d 2/5, 100·d, q 1/4 exists.  Next: a
@@ -154,10 +157,23 @@ extra).
       (CMA-ES alone at d ≥ 10, ≤ 500·d, q ≤ λ_default), opt-in as
       `Blocks_warm_CMAES_JSO_dimbudget` (Harald, 2026-09-28, §72.8); on the
       §67 seeds (not blind) both together: Holm 4/2/3 → 5/0/4.
-      Next: confirm on runners with a fresh seed list and the GP groups
-      (100·d q 4/64 at d 2/5/10, plus the 20·d/q1 cells the gate moves,
-      §72.5), the gated variant against the portfolio; then decide the
-      gate's default.
+      Next: confirm on runners with a fresh seed list and the GP groups,
+      the gated variant against the portfolio; then decide the gate's
+      default.  Prepared (`measure.py`: the `trq` group now carries the
+      opt-in candidates `RoundRobin_TRQ_r05` and
+      `Blocks_warm_CMAES_JSO_dimbudget`, and the summary has a paired
+      table of every secondary spec against the headline spec).  Fresh
+      seeds **3001–3012** (unused: §67 took 1001–1012, §72.4 2001–2005);
+      the §67 grid (100·d, q 4/16/64, d 2/5/10), its 9 cells the
+      pre-declared Holm family again:
+      `gh workflow run measure.yml -f seeds=3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012 -f budgets=100 -f qs=4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
+      (`plan`: 214 shards, ~217 estimated runner-hours, 200 of them
+      qLogEI; the estimate ran 1.56× high on §67's similar 207 shards /
+      137.8 h; trq 7 shards, 3.4 h).  The gate's other cells (§72.5:
+      100·d d10/q1, 20·d d10/q1 and q4) are not in that grid; optional
+      supplements on the same seeds: `-f budgets=20 -f dims=10 -f qs=1,4`
+      (64 shards, ~52 h, SMAC and qLogEI most of it) and `-f budgets=100
+      -f dims=10 -f qs=1` (16 shards, ~13 h), both with the same groups.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at

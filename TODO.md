@@ -83,7 +83,7 @@ extra).
       Blocks.  The free preset's one exact-quadratic family in five can
       dominate its means: report the ex-ellipsoid view next to the mean.
       Next: a fresh-seed runner run
-      (new base seeds) of the three at q 1/4/16/64 with an ex-ellipsoid
+      (new base seeds) of the trust-region specs at q 1/4/16/64 with an ex-ellipsoid
       view, MA-BBOB at 20·d / 100·d, and the f-scale quadratic R² plus the
       TR ratio-test rate as logged features (roadmap A's probe).  The specs
       are wired into `scripts/measure.py` as the opt-in group `trq` (not in
@@ -91,8 +91,8 @@ extra).
       first run), and the summary has the ex-ellipsoid table and a
       paired table against the headline spec.  The group also runs
       `RoundRobin_TRQ_r05` (§69.5's start radius 0.5, a fresh-seed
-      candidate); the §72 confirmation run above covers q 4/16/64 at
-      100·d (q = 1 and 20·d would need a dispatch of their own).
+      candidate); the §72 confirmation run below covers q 4/16/64 at
+      100·d, its q = 1 supplement the cells of r05's §69.5 gains.
 - [ ] **Wide family preset (§68).**  `measure.py --presets wide` (opt-in,
       15 families, every x_opt away from the box centre) is in; only a
       local smoke of core + trq at d 2/5, 100·d, q 1/4 exists.  Next: a
@@ -169,11 +169,23 @@ extra).
       `gh workflow run measure.yml -f seeds=3001,3002,3003,3004,3005,3006,3007,3008,3009,3010,3011,3012 -f budgets=100 -f qs=4,16,64 -f groups=core,qLogEI,TuRBO1,SMAC,trq`
       (`plan`: 214 shards, ~217 estimated runner-hours, 200 of them
       qLogEI; the estimate ran 1.56× high on §67's similar 207 shards /
-      137.8 h; trq 7 shards, 3.4 h).  The gate's other cells (§72.5:
-      100·d d10/q1, 20·d d10/q1 and q4) are not in that grid; optional
-      supplements on the same seeds: `-f budgets=20 -f dims=10 -f qs=1,4`
-      (64 shards, ~52 h, SMAC and qLogEI most of it) and `-f budgets=100
-      -f dims=10 -f qs=1` (16 shards, ~13 h), both with the same groups.
+      137.8 h; trq 7 shards, 3.4 h).  Supplements on the same seeds:
+      `-f budgets=100 -f qs=1 -f groups=core,trq` (6 shards, ~2.2 h; the
+      100·d q = 1 cells of r05's §69.5 gains and the gate's d10/q1; no GP
+      groups, `vs_headline` needs none), and optionally the gate's 20·d
+      cells, `-f budgets=20 -f dims=10 -f qs=1,4` with all groups
+      (64 shards, ~52 h, SMAC and qLogEI most of it).
+      **Proposed decision rule, for Harald to fix before the dispatch:**
+      in the main grid the gate (`Blocks_warm_CMAES_JSO_dimbudget`) binds
+      only at 100·d d10/q4 (§72.5).  It becomes the default if there its
+      paired Δ against `Blocks_warm_CMAES_JSO` on `aocc_time` (the
+      `vs_headline` table) has a CI95 above 0 and its Δ against the pool's
+      best has a CI95 not entirely below 0, and it is identical in every
+      other cell (*equal* = n where no score is 0).  The 9-cell Holm
+      family stays the headline spec vs the pool's best.
+      `RoundRobin_TRQ_r05` and the other trq specs are read descriptively
+      (against `RoundRobin_TRQ` and the headline spec); no default rides
+      on them.
 - [ ] **CMA-ES follow-ups from §64.**  (a) At d10/q1 closing at μ + fold
       beat ranking the whole generation (−0.007 [−0.011, −0.003], 0/5):
       a step-size effect to look at.  (b) Fold biases σ down (strongly at

@@ -355,8 +355,8 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
     `all`; the name is historical) runs the **opt-in candidates**: the
     trust-region specs (`harness_ioh.make_trust_region_strategies`:
     `RoundRobin_TRQ`, `Blocks_warm_CMAES_JSO_TRQ`, `RoundRobin_COBYQA`,
-    DISCOVERY §66; `RoundRobin_TRQ_r05`, the §69.5 start radius 0.5 on
-    `RoundRobin_TRQ`'s RNG streams) and the `Blocks_warm_CMAES_JSO` variants
+    DISCOVERY §66; `RoundRobin_TRQ_r05`, §69.5's `radius_init` 0.5 — start,
+    restart and tabu radius — on `RoundRobin_TRQ`'s RNG streams) and the `Blocks_warm_CMAES_JSO` variants
     (`make_blocks_variant_strategies`: `Blocks_warm_CMAES_JSO_dimbudget`,
     §72's dim/budget gate on the headline spec's RNG streams) on exactly the core
     cells and seeds, with the same instances and CRN durations (the duration
@@ -446,8 +446,11 @@ python3 scripts/measure.py cost --presets wide --qs 1,4             # estimated 
         other panobbgo spec, the `trq` group's opt-in candidates included,
         paired over seeds with `Blocks_warm_CMAES_JSO` on the cell's common
         runs, on the headline metric and on AOCC (t-CI95, wins/seeds, and
-        *equal*: the pairs with exactly equal values, so a variant that shares
-        the headline's `seed_name` shows where its option acts at all;
+        *equal*: the pairs with exactly equal nonzero values, so a variant
+        that shares the headline's `seed_name` shows where its option acts at
+        all — ties at 0 are counted apart, equality holds within one FP class
+        (`(FP)` marks pairs across two), and for a spec on RNG streams of its
+        own *equal* means nothing;
         `summary.json`: `vs_headline` per spec).  The groups pair across
         jobs: a key is (seed, family, instance), the instances and CRN
         durations depend on the cell and seed only, the RNG streams on the

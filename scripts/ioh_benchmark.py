@@ -829,7 +829,7 @@ def main(argv: Optional[List[str]] = None, apply_hygiene: bool = False) -> int:
         nargs="+",
         help="Restrict to these strategy names.  The opt-in RoundRobin_CMAES variants of DISCOVERY §57 ("
         + ", ".join(CMAES_VARIANT_NAMES)
-        + ") and the trust-region specs of §66 ("
+        + ") and the trust-region specs of §66/§69.5 ("
         + ", ".join(TRUST_REGION_NAMES)
         + ") and the Blocks variants of §72 ("
         + ", ".join(BLOCKS_VARIANT_NAMES)

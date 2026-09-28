@@ -1065,20 +1065,26 @@ def vs_headline(a: Dict[Key, Obs], headline: Dict[Key, Obs], keys: Iterable[Key]
     of the cell.  The groups pair across jobs: a run's key is (seed,
     family, instance), its instance and CRN durations depend on the cell and
     seed only, and a spec's RNG streams on its ``seed_name``.  Each entry
-    adds ``n_equal``, the pairs with exactly equal values: a variant that
-    shares the headline's ``seed_name`` and does not act on a cell (the
-    §72 gate where it does not bind) is identical there.  Descriptive:
+    adds ``n_equal``, the pairs with exactly equal, **nonzero** values: a
+    variant that shares the headline's ``seed_name`` and does not act on a
+    cell (the §72 gate where it does not bind) is identical there, on the
+    same FP class (``cross_fp`` says whether the pairs span two).  Ties at
+    the score floor (both 0, e.g. ``aocc_time`` on a hard family at 20·d)
+    say nothing about that and are counted apart, ``n_zero_ties``; for a
+    spec on streams of its own, *equal* carries no meaning.  Descriptive:
     unadjusted, outside the Holm family.
     """
     keys = list(keys)
     out: Dict[str, Dict[str, Any]] = {}
     for m in METRICS:
         st = paired(a, headline, m, keys)
-        st["n_equal"] = sum(
-            1
+        ties = [
+            _value(a[k], m)
             for k in keys
             if k in a and k in headline and _value(a[k], m) is not None and _value(a[k], m) == _value(headline[k], m)
-        )
+        ]
+        st["n_equal"] = sum(1 for v in ties if v != 0.0)
+        st["n_zero_ties"] = len(ties) - st["n_equal"]
         out[m] = st
     return out
 
@@ -1576,10 +1582,12 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             f"Every other panobbgo spec (the opt-in candidates of the `trq` group too) against `{hs}`, paired over "
             "seeds on the cell's common runs, on the headline metric and on AOCC (at q = 1 they are the same).  "
             "This is where an opt-in candidate is judged against the spec it would replace or join.  "
-            "*equal*: pairs with exactly equal headline-metric values (a variant sharing the headline's "
-            "`seed_name` is identical where its option does not act).  **Descriptive**: unadjusted, not part "
-            "of the Holm family.  The `RoundRobin_TRQ` specs are nearly seed-invariant at q = 1 (box-centre "
-            "start), so their q = 1 CIs carry little.",
+            "*equal*: pairs with exactly equal, nonzero headline-metric values (ties at 0 are left out); "
+            "it means something only for a variant sharing the headline's `seed_name` (`Blocks_warm_CMAES_JSO_*`, "
+            "`RegimeGate_oracle`), which is identical where its option does not act — on the same FP class: "
+            "`(FP)` marks pairs across two FP classes, where equal runs may differ in the last bits.  "
+            "**Descriptive**: unadjusted, not part of the Holm family.  The `RoundRobin_TRQ` specs are nearly "
+            "seed-invariant at q = 1 (box-centre start), so their q = 1 CIs carry little.",
             "",
             "| cell | spec | group | n (pairs) | metric | Δ metric [CI95] wins | Δ AOCC [CI95] wins | equal |",
             "|---|---|---|---|---|---|---|---|",
@@ -1589,7 +1597,8 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             st = r["vs_headline"]
             lines.append(
                 f"| {name} | {label(n)} | {r['group']} | {st[hm]['n_pairs']} | {hm} | {_fmt_delta(st[hm])} | "
-                f"{_fmt_delta(st['aocc'])} | {st[hm]['n_equal']}/{st[hm]['n_pairs']} |"
+                f"{_fmt_delta(st['aocc'])} | {st[hm]['n_equal']}/{st[hm]['n_pairs']}"
+                f"{' (FP)' if st[hm]['cross_fp'] else ''} |"
             )
     fams = sorted({f for c in summary["cells"].values() for r in c["strategies"].values() for f in r["per_family"]})
     lines += [
